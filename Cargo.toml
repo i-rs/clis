@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 authors = ["mankong <mankong@mankong.me>"]
 license = "MIT OR Apache-2.0"
@@ -33,6 +33,8 @@ targets = [
 npm-scope = "@i-rs"
 github-org = "i-rs"
 github-repo = "clis"
+tap = "i-rs/homebrew-tap"
+publish-jobs = ["npm", "homebrew"]
 
 [profile.dist]
 inherits = "release"
