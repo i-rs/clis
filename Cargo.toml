@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/i-rs-hello",
+    "crates/i-rs-fs",
+    "crates/i-rs-http",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+authors = ["mankong <mankong@mankong.me>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/i-rs/clis"
+
+[workspace.dependencies]
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.13.3", features = ["json"] }
+
+[workspace.metadata.dist]
+cargo-dist-version = "0.31.0"
+ci = ["github"]
+installers = ["shell", "powershell", "npm", "homebrew"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+npm-scope = "i-rs"
+github-org = "i-rs"
+github-repo = "clis"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+strip = true

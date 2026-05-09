@@ -1,0 +1,15 @@
+[package]
+name = "i-rs-http"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "HTTP client CLI"
+homepage = "https://github.com/i-rs/clis"
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+reqwest.workspace = true
+tokio.workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "i-rs-hello"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A simple hello world CLI"
+homepage = "https://github.com/i-rs/clis"
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
