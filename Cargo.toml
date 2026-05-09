@@ -30,7 +30,7 @@ targets = [
     "aarch64-apple-darwin",
     "x86_64-pc-windows-msvc",
 ]
-npm-scope = "i-rs"
+npm-scope = "@i-rs"
 github-org = "i-rs"
 github-repo = "clis"
 
