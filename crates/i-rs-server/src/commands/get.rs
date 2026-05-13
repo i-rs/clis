@@ -83,13 +83,24 @@ pub fn handle_get(name: String, show_password: bool) -> Result<()> {
         );
     }
 
-    if !server.notes.is_empty() {
+    if !server.remark.is_empty() {
         println!(
             "{:16} {}",
-            "Notes:".style(style),
-            server.notes.join("; ").dimmed()
+            "Remark:".style(style),
+            server.remark.join("; ").dimmed()
         );
     }
+
+    println!(
+        "{:16} {}",
+        "Created:".style(style),
+        server.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        server.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+    );
 
     println!(
         "\n{} Use '{}' for SSH command suggestions",

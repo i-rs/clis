@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_get, handle_list, handle_suggest, handle_update};
+use commands::{handle_add, handle_delete, handle_get, handle_list, handle_update};
 use storage::init_keyring;
 
 mod commands;
@@ -8,8 +8,8 @@ mod presentation;
 mod storage;
 
 #[derive(Parser, Debug)]
-#[command(name = "i-rs-server")]
-#[command(about = "Server management CLI", long_about = None)]
+#[command(name = "i-rs-password")]
+#[command(about = "Password management CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -20,12 +20,10 @@ enum Commands {
     Add {
         #[arg(value_name = "NAME")]
         name: String,
-        #[arg(value_name = "HOST")]
-        host: String,
-        #[arg(value_name = "PORT")]
-        port: Option<u16>,
+        #[arg(value_name = "URL")]
+        url: String,
         #[arg(short, long)]
-        user: Option<String>,
+        account: Option<String>,
         #[arg(short, long)]
         password: Option<String>,
         #[arg(short, long)]
@@ -44,12 +42,10 @@ enum Commands {
     Update {
         #[arg(value_name = "NAME")]
         name: String,
-        #[arg(long)]
-        host: Option<String>,
-        #[arg(short = 'P', long)]
-        port: Option<u16>,
         #[arg(short, long)]
-        user: Option<String>,
+        url: Option<String>,
+        #[arg(short, long)]
+        account: Option<String>,
         #[arg(short, long)]
         password: Option<String>,
         #[arg(short, long)]
@@ -62,12 +58,6 @@ enum Commands {
         name: String,
         #[arg(short = 's', long)]
         show_password: bool,
-    },
-    Suggest {
-        #[arg(value_name = "NAME")]
-        name: String,
-        #[arg(short, long)]
-        command: Option<String>,
     },
 }
 
@@ -86,14 +76,13 @@ fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Add {
             name,
-            host,
-            port,
-            user,
+            url,
+            account,
             password,
             tag,
             remark,
         } => {
-            handle_add(name, host, port, user, password, tag, remark)?;
+            handle_add(name, url, account, password, tag, remark)?;
         }
         Commands::Delete { name } => {
             handle_delete(name)?;
@@ -103,23 +92,19 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         }
         Commands::Update {
             name,
-            host,
-            port,
-            user,
+            url,
+            account,
             password,
             tag,
             remark,
         } => {
-            handle_update(name, host, port, user, password, tag, remark)?;
+            handle_update(name, url, account, password, tag, remark)?;
         }
         Commands::Get {
             name,
             show_password,
         } => {
             handle_get(name, show_password)?;
-        }
-        Commands::Suggest { name, command } => {
-            handle_suggest(name, command)?;
         }
     }
 

@@ -6,48 +6,44 @@ use owo_colors::OwoColorize;
 
 pub fn handle_update(
     name: String,
-    host: Option<String>,
-    port: Option<u16>,
-    user: Option<String>,
+    url: Option<String>,
+    account: Option<String>,
     password: Option<String>,
     tag: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let server = match storage::get_server_mut(&mut store, &name) {
-        Some(s) => s,
+    let entry = match storage::get_entry_mut(&mut store, &name) {
+        Some(e) => e,
         None => {
-            print_error(&format!("Server '{}' not found", name));
-            anyhow::bail!("Server '{}' not found", name);
+            print_error(&format!("Entry '{}' not found", name));
+            anyhow::bail!("Entry '{}' not found", name);
         }
     };
 
-    if let Some(host) = host {
-        server.host = host;
+    if let Some(url) = url {
+        entry.url = url;
     }
-    if let Some(port) = port {
-        server.port = port;
-    }
-    if let Some(user) = user {
-        server.user = Some(user);
+    if let Some(account) = account {
+        entry.account = Some(account);
     }
     if let Some(password) = password {
         storage::store_password(&name, &password)?;
         println!("{}", "Password updated and stored securely in keychain".green());
     }
     if let Some(tag) = tag {
-        server.tags = tag;
+        entry.tags = tag;
     }
     if let Some(remark) = remark {
-        server.remark = remark;
+        entry.remark = remark;
     }
 
-    server.updated_at = Utc::now();
+    entry.updated_at = Utc::now();
 
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Server '{}' updated successfully", name.green()));
+    print_success(&format!("✓ Entry '{}' updated successfully", name.green()));
 
     Ok(())
 }

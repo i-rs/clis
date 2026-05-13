@@ -34,7 +34,7 @@ Options:
 - `-u, --user <USER>` - SSH username
 - `-p, --password <PASSWORD>` - SSH password (stored securely in keychain)
 - `-t, --tag <TAG>` - Tags (can be repeated)
-- `-n, --note <NOTE>` - Notes (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### list
 List servers.
@@ -69,7 +69,7 @@ Options:
 - `-u, --user <USER>` - New username
 - `-p, --password <PASSWORD>` - New password (stored securely in keychain)
 - `-t, --tag <TAG>` - New tags
-- `-n, --note <NOTE>` - New notes
+- `-r, --remark <REMARK>` - New remarks
 
 ### delete
 Delete server.

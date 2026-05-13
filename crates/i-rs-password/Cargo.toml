@@ -1,12 +1,11 @@
 [package]
-name = "i-rs-server"
+name = "i-rs-password"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Server management CLI"
-homepage.workspace = true
+description = "Password management CLI"
 
 [dependencies]
 clap.workspace = true

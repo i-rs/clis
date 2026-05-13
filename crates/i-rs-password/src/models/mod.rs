@@ -2,12 +2,11 @@ use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Server {
+pub struct PasswordEntry {
     pub name: String,
-    pub host: String,
-    pub port: u16,
+    pub url: String,
     #[serde(default)]
-    pub user: Option<String>,
+    pub account: Option<String>,
     #[serde(skip)]
     #[allow(dead_code)]
     pub password: Option<String>,
@@ -22,28 +21,26 @@ pub struct Server {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerStore {
-    pub servers: std::collections::HashMap<String, Server>,
+pub struct PasswordStore {
+    pub entries: std::collections::HashMap<String, PasswordEntry>,
 }
 
-impl Default for ServerStore {
+impl Default for PasswordStore {
     fn default() -> Self {
         Self {
-            servers: std::collections::HashMap::new(),
+            entries: std::collections::HashMap::new(),
         }
     }
 }
 
 #[derive(Tabled)]
-pub struct ServerRow {
+pub struct PasswordRow {
     #[tabled(rename = "NAME")]
     name: String,
-    #[tabled(rename = "HOST")]
-    host: String,
-    #[tabled(rename = "PORT")]
-    port: String,
-    #[tabled(rename = "USER")]
-    user: String,
+    #[tabled(rename = "URL")]
+    url: String,
+    #[tabled(rename = "ACCOUNT")]
+    account: String,
     #[tabled(rename = "TAGS")]
     tags: String,
     #[tabled(rename = "REMARK")]
@@ -54,25 +51,24 @@ pub struct ServerRow {
     updated_at: String,
 }
 
-impl ServerRow {
-    pub fn from_server(server: &Server) -> Self {
+impl PasswordRow {
+    pub fn from_entry(entry: &PasswordEntry) -> Self {
         Self {
-            name: server.name.clone(),
-            host: server.host.clone(),
-            port: server.port.to_string(),
-            user: server.user.clone().unwrap_or_else(|| "-".to_string()),
-            tags: if server.tags.is_empty() {
+            name: entry.name.clone(),
+            url: entry.url.clone(),
+            account: entry.account.clone().unwrap_or_else(|| "-".to_string()),
+            tags: if entry.tags.is_empty() {
                 "-".to_string()
             } else {
-                server.tags.join(", ")
+                entry.tags.join(", ")
             },
-            remark: if server.remark.is_empty() {
+            remark: if entry.remark.is_empty() {
                 "-".to_string()
             } else {
-                server.remark.join(", ")
+                entry.remark.join(", ")
             },
-            created_at: server.created_at.format("%Y-%m-%d %H:%M").to_string(),
-            updated_at: server.updated_at.format("%Y-%m-%d %H:%M").to_string(),
+            created_at: entry.created_at.format("%Y-%m-%d %H:%M").to_string(),
+            updated_at: entry.updated_at.format("%Y-%m-%d %H:%M").to_string(),
         }
     }
 }

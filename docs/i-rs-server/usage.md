@@ -31,7 +31,7 @@ Options:
 - `-u, --user <USER>` - SSH username
 - `-p, --password <PASSWORD>` - SSH password (stored securely in keychain)
 - `-t, --tag <TAG>` - Tags (can be used multiple times)
-- `-n, --note <NOTE>` - Notes (can be used multiple times)
+- `-r, --remark <REMARK>` - Remarks (can be used multiple times)
 
 ### list
 
@@ -69,7 +69,7 @@ Options:
 - `-u, --user <USER>` - New username
 - `-p, --password <PASSWORD>` - New password (stored securely in keychain)
 - `-t, --tag <TAG>` - New tags
-- `-n, --note <NOTE>` - New notes
+- `-r, --remark <REMARK>` - New remarks
 
 ### delete
 

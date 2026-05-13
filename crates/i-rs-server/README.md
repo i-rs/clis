@@ -31,7 +31,7 @@ Options:
 - `-u, --user <USER>` - SSH user
 - `-p, --password <PASSWORD>` - SSH password (stored securely in keychain)
 - `-t, --tag <TAG>` - Tags (can be specified multiple times)
-- `-n, --note <NOTE>` - Notes (can be specified multiple times)
+- `-r, --remark <REMARK>` - Remarks (can be specified multiple times)
 
 ### List Servers
 
@@ -63,7 +63,7 @@ Options:
 - `-u, --user <USER>` - New user
 - `-p, --password <PASSWORD>` - New password (stored securely in keychain)
 - `-t, --tag <TAG>` - New tags
-- `-n, --note <NOTE>` - New notes
+- `-r, --remark <REMARK>` - New remarks
 
 ### Delete Server
 
@@ -86,7 +86,7 @@ Options:
 
 ```bash
 # Add a production web server (password stored in keychain)
-i-rs-server add web1 192.168.1.100 22 --user admin --password secret --tag production --note "Primary web server"
+i-rs-server add web1 192.168.1.100 22 --user admin --password secret --tag production --remark "Primary web server"
 
 # List all servers
 i-rs-server list

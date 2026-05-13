@@ -1,4 +1,4 @@
-use crate::models::Server;
+use crate::models::PasswordEntry;
 use crate::presentation::{print_error, print_success};
 use crate::storage;
 use anyhow::Result;
@@ -7,32 +7,28 @@ use owo_colors::OwoColorize;
 
 pub fn handle_add(
     name: String,
-    host: String,
-    port: Option<u16>,
-    user: Option<String>,
+    url: String,
+    account: Option<String>,
     password: Option<String>,
     tag: Vec<String>,
     remark: Vec<String>,
 ) -> Result<()> {
     let store = storage::load_store()?;
 
-    if store.servers.contains_key(&name) {
-        print_error(&format!("Server '{}' already exists", name));
-        anyhow::bail!("Server '{}' already exists", name);
+    if store.entries.contains_key(&name) {
+        print_error(&format!("Entry '{}' already exists", name));
+        anyhow::bail!("Entry '{}' already exists", name);
     }
-
-    let port = port.unwrap_or(22);
 
     if let Some(ref pwd) = password {
         storage::store_password(&name, pwd)?;
     }
 
     let now = Utc::now();
-    let server = Server {
+    let entry = PasswordEntry {
         name: name.clone(),
-        host,
-        port,
-        user,
+        url,
+        account,
         password: None,
         tags: tag,
         remark,
@@ -41,10 +37,10 @@ pub fn handle_add(
     };
 
     let mut store = storage::load_store()?;
-    storage::add_server(&mut store, server);
+    storage::add_entry(&mut store, entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Server '{}' added successfully", name.green()));
+    print_success(&format!("✓ Entry '{}' added successfully", name.green()));
 
     if password.is_some() {
         println!("  {}", "Password stored securely in keychain".dimmed());
