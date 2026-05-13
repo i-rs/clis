@@ -23,9 +23,18 @@ i-rs-clis/
 │       │       └── mod.rs
 │       ├── Cargo.toml
 │       └── README.md
-├── docs/                     # 使用文档
-│   └── i-rs-{name}/
-│       └── usage.md
+├── docs/                     # VitePress 文档站点
+│   ├── index.md                  # 首页
+│   ├── guide/
+│   │   └── getting-started.md    # 快速入门
+│   ├── crates/
+│   │   └── i-rs-{name}/
+│   │       ├── index.md          # 工具概览
+│   │       ├── usage.md          # 命令参考
+│   │       ├── examples.md       # 使用示例
+│   │       └── test.md           # 测试记录
+│   └── .vitepress/
+│       └── config.ts             # VitePress 配置
 ├── skills/                   # AI 技能文档
 │   └── i-rs-{name}/
 │       └── SKILL.md
@@ -211,7 +220,85 @@ Table::new(&rows)
 
 ## 7. 文档规范
 
-### 7.1 README.md (crate 根目录)
+文档采用 VitePress 静态站点，位于 `docs/` 目录。
+
+### 7.1 VitePress 配置 (`docs/.vitepress/config.ts`)
+
+```typescript
+import { defineConfig } from 'vitepress'
+
+export default defineConfig({
+  title: 'i-rs CLI Tools',
+  description: 'Cross-platform CLI tools built with Rust',
+  appearance: 'dark',
+  themeConfig: {
+    nav: [
+      { text: 'Home', link: '/' },
+      { text: 'Guide', link: '/guide/getting-started' },
+      { text: 'Tools', link: '/crates/i-rs-server/' }
+    ],
+    sidebar: [
+      {
+        text: 'Guide',
+        items: [
+          { text: 'Getting Started', link: '/guide/getting-started' }
+        ]
+      },
+      {
+        text: 'CLI Tools',
+        items: [
+          { text: 'i-rs-{name}', link: '/crates/i-rs-{name}/' }
+        ]
+      }
+    ],
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/i-rs/clis' }
+    ]
+  }
+})
+```
+
+### 7.2 文档目录结构
+
+每个 crate 在 `docs/crates/i-rs-{name}/` 下包含 4 个文件：
+
+| 文件 | 用途 |
+|------|------|
+| `index.md` | 工具概览、Quick Start、安全说明、数据存储位置、子页面链接 |
+| `usage.md` | 详细命令参考（所有命令及选项说明） |
+| `examples.md` | 丰富使用示例（基础操作、实际场景、脚本集成、故障排查） |
+| `test.md` | 测试记录（手动测试用例、安全测试、跨平台测试、性能基准） |
+
+### 7.3 文档首页 (`docs/index.md`)
+
+采用 VitePress home layout，包含 hero 区域和 feature 列表：
+
+```yaml
+---
+layout: home
+hero:
+  name: i-rs CLI Tools
+  text: Cross-platform CLI tools built with Rust
+  tagline: <简短的项目说明>
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /guide/getting-started
+features:
+  - title: <Feature 名称>
+    details: <Feature 描述>
+---
+```
+
+### 7.4 快速入门 (`docs/guide/getting-started.md`)
+
+包含安装方式（npm/Homebrew/源码编译）、每个工具的 quick start 示例、
+数据存储说明、安全说明、开发与发布指南。
+
+### 7.5 README.md (crate 根目录)
+
+每个 crate 的 README.md 与 `docs/crates/i-rs-{name}/index.md` 内容保持一致，
+作为 GitHub 仓库直接浏览时的入口文档。
 
 ```markdown
 # i-rs-{name}
@@ -233,14 +320,16 @@ Table::new(&rows)
 ## Data Storage
 数据存储位置
 
+## Commands
+
+- [Usage](./docs/crates/i-rs-{name}/usage.md) - 详细命令参考
+- [Examples](./docs/crates/i-rs-{name}/examples.md) - 使用示例
+- [Test](./docs/crates/i-rs-{name}/test.md) - 测试记录
+
 ## License
 ```
 
-### 7.2 docs/{name}/usage.md
-
-详细的使用文档，包含所有命令选项说明。
-
-### 7.3 skills/{name}/SKILL.md
+### 7.6 skills/{name}/SKILL.md
 
 AI 技能文档，供 AI 助手理解工具用途和调用方式。
 
