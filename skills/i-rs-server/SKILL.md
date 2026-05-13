@@ -10,7 +10,6 @@ Server management CLI tool for managing server configurations locally.
 ## Security
 
 Passwords are stored securely in the OS keychain:
-
 - macOS: Keychain
 - Linux: Secret Service / keyutils
 - Windows: Credential Manager
@@ -25,7 +24,6 @@ Passwords are stored securely in the OS keychain:
 ## Commands
 
 ### add
-
 Add a new server.
 
 ```bash
@@ -33,14 +31,12 @@ i-rs-server add <NAME> <HOST> [PORT]
 ```
 
 Options:
-
 - `-u, --user <USER>` - SSH username
 - `-p, --password <PASSWORD>` - SSH password (stored securely in keychain)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-n, --note <NOTE>` - Notes (can be repeated)
 
 ### list
-
 List servers.
 
 ```bash
@@ -48,19 +44,19 @@ i-rs-server list
 ```
 
 Options:
-
 - `-t, --tag <TAG>` - Filter by tag
 
 ### get
-
 Get server details.
 
 ```bash
 i-rs-server get <NAME>
 ```
 
-### update
+Options:
+- `-s, --show-password` - Show password from keychain (default: hidden)
 
+### update
 Update server.
 
 ```bash
@@ -68,7 +64,6 @@ i-rs-server update <NAME>
 ```
 
 Options:
-
 - `--host <HOST>` - New host
 - `-P, --port <PORT>` - New port
 - `-u, --user <USER>` - New username
@@ -77,7 +72,6 @@ Options:
 - `-n, --note <NOTE>` - New notes
 
 ### delete
-
 Delete server.
 
 ```bash
@@ -85,7 +79,6 @@ i-rs-server delete <NAME>
 ```
 
 ### suggest
-
 List suggested SSH commands for a server.
 
 ```bash
@@ -93,7 +86,6 @@ i-rs-server suggest <NAME>
 ```
 
 Options:
-
 - `-c, --command <CMD>` - Filter by keyword (e.g., docker, disk, port)
 
 ## Examples
@@ -105,8 +97,11 @@ i-rs-server add web1 192.168.1.100 22 --user admin --password secret --tag produ
 # List servers
 i-rs-server list
 
-# Get details (password shown as stored in keychain)
+# Get details (password hidden by default)
 i-rs-server get web1
+
+# Get details with password visible
+i-rs-server get web1 --show-password
 
 # Update password
 i-rs-server update web1 --password newsecret

@@ -49,8 +49,11 @@ Options:
 Get server details.
 
 ```bash
-i-rs-server get <NAME>
+i-rs-server get <NAME> [OPTIONS]
 ```
+
+Options:
+- `-s, --show-password` - Show password from keychain (default: hidden)
 
 ### update
 
@@ -172,8 +175,11 @@ i-rs-server list
 # List with tag filter
 i-rs-server list --tag production
 
-# Get server details
+# Get server details (password hidden)
 i-rs-server get web1
+
+# Get server details with password visible
+i-rs-server get web1 --show-password
 
 # Get all suggested commands
 i-rs-server suggest web1

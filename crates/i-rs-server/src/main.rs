@@ -64,6 +64,8 @@ enum Commands {
     Get {
         #[arg(value_name = "NAME")]
         name: String,
+        #[arg(short = 's', long)]
+        show_password: bool,
     },
     Suggest {
         #[arg(value_name = "NAME")]
@@ -368,7 +370,7 @@ fn main() -> anyhow::Result<()> {
             save_store(&store)?;
             println!("Server '{}' updated successfully", name);
         }
-        Commands::Get { name } => {
+        Commands::Get { name, show_password } => {
             let store = load_store()?;
             let server = store.servers.get(&name);
             match server {
@@ -379,8 +381,20 @@ fn main() -> anyhow::Result<()> {
                     if let Some(ref user) = s.user {
                         println!("User: {}", user);
                     }
-                    if let Ok(Some(_)) = get_password(&name) {
-                        println!("Password: (stored securely in keychain)");
+                    match get_password(&name) {
+                        Ok(Some(pwd)) => {
+                            if show_password {
+                                println!("Password: {}", pwd);
+                            } else {
+                                println!("Password: (stored securely in keychain, use --show-password to display)");
+                            }
+                        }
+                        Ok(None) => {
+                            println!("Password: (not set)");
+                        }
+                        Err(e) => {
+                            println!("Password: (error reading from keychain: {})", e);
+                        }
                     }
                     if !s.tags.is_empty() {
                         println!("Tags: [{}]", s.tags.join(", "));
