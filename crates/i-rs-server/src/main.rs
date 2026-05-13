@@ -1,18 +1,11 @@
 use clap::{Parser, Subcommand};
-use keyring::use_native_store;
-use keyring_core::Entry;
-use owo_colors::OwoColorize;
-use owo_colors::Style as OwoStyle;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use tabled::{Table, Tabled, settings::{Color, style::BorderColor, style::Style, themes::Colorization, object::Rows, object::Segment}};
+use commands::{handle_add, handle_delete, handle_get, handle_list, handle_suggest, handle_update};
+use storage::init_keyring;
 
-const SERVICE_NAME: &str = "i-rs-server";
-
-fn init_keyring() {
-    let _ = use_native_store(false);
-}
+mod commands;
+mod models;
+mod presentation;
+mod storage;
 
 #[derive(Parser, Debug)]
 #[command(name = "i-rs-server")]
@@ -78,327 +71,18 @@ enum Commands {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Server {
-    pub name: String,
-    pub host: String,
-    pub port: u16,
-    #[serde(default)]
-    pub user: Option<String>,
-    #[serde(skip)]
-    pub password: Option<String>,
-    #[serde(default)]
-    pub tags: Vec<String>,
-    #[serde(default)]
-    pub notes: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerStore {
-    pub servers: HashMap<String, Server>,
-}
-
-impl Default for ServerStore {
-    fn default() -> Self {
-        Self {
-            servers: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Tabled)]
-struct ServerRow {
-    #[tabled(rename = "NAME")]
-    name: String,
-    #[tabled(rename = "HOST")]
-    host: String,
-    #[tabled(rename = "PORT")]
-    port: String,
-    #[tabled(rename = "USER")]
-    user: String,
-    #[tabled(rename = "TAGS")]
-    tags: String,
-}
-
-fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("servers.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("servers.json")
-    }
-}
-
-fn store_password(server_name: &str, password: &str) -> anyhow::Result<()> {
-    let entry = Entry::new(SERVICE_NAME, server_name)
-        .map_err(|e| anyhow::anyhow!("Failed to create keyring entry: {}", e))?;
-    entry
-        .set_password(password)
-        .map_err(|e| anyhow::anyhow!("Failed to store password: {}", e))?;
-    Ok(())
-}
-
-fn get_password(server_name: &str) -> anyhow::Result<Option<String>> {
-    match Entry::new(SERVICE_NAME, server_name) {
-        Ok(entry) => match entry.get_password() {
-            Ok(pwd) => Ok(Some(pwd)),
-            Err(e) => {
-                let err_str = format!("{}", e);
-                if err_str.contains("NoEntry") || err_str.contains("not found") {
-                    Ok(None)
-                } else {
-                    Err(anyhow::anyhow!("Failed to get password: {}", e))
-                }
-            }
-        },
-        Err(_) => Ok(None),
-    }
-}
-
-fn delete_password(server_name: &str) -> anyhow::Result<()> {
-    match Entry::new(SERVICE_NAME, server_name) {
-        Ok(entry) => {
-            let _ = entry.delete_credential();
-        }
-        Err(_) => {}
-    }
-    Ok(())
-}
-
-fn load_store() -> anyhow::Result<ServerStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(ServerStore::default())
-    }
-}
-
-fn save_store(store: &ServerStore) -> anyhow::Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
-
-fn ssh_cmd(user: &Option<String>, host: &str, port: u16) -> String {
-    match user {
-        Some(u) => format!("ssh {}@{} -p {}", u, host, port),
-        None => format!("ssh root@{} -p {}", host, port),
-    }
-}
-
-fn print_success(msg: &str) {
-    println!("{}", msg.green());
-}
-
-fn print_header(msg: &str) {
-    println!("\n{}", msg.bold().cyan());
-}
-
-fn print_suggestions(server: &Server, filter: Option<&str>) {
-    let user = &server.user;
-    let host = &server.host;
-    let port = server.port;
-    let ssh = ssh_cmd(user, host, port);
-
-    print_header(&format!("Server: {} ({}@{}:{})", server.name.green(), user.as_deref().unwrap_or("-").yellow(), host.cyan(), port.to_string().cyan()));
-
-    println!("\n{} {}\n", "SSH:".bold(), ssh.cyan());
-
-    let filter_str = filter.unwrap_or("").to_lowercase();
-
-    let all_commands = vec![
-        ("ssh", "SSH Login", ssh.clone()),
-        (
-            "ssh_key",
-            "SSH Key Setup (Passwordless)",
-            format!(
-                "ssh-keygen -t rsa -b 4096 -C '{}@{}' -f ~/.ssh/id_rsa -N '' && ssh-copy-id {}@{}",
-                user.as_deref().unwrap_or("root"),
-                host,
-                user.as_deref().unwrap_or("root"),
-                host
-            ),
-        ),
-        (
-            "scp_up",
-            "SCP Upload File",
-            format!(
-                "scp -P {} local-file.txt {}@{}:/tmp/",
-                port,
-                user.as_deref().unwrap_or("root"),
-                host
-            ),
-        ),
-        (
-            "scp_down",
-            "SCP Download File",
-            format!(
-                "scp -P {} {}@{}:/tmp/remote-file.txt ./",
-                port,
-                user.as_deref().unwrap_or("root"),
-                host
-            ),
-        ),
-        ("disk", "Disk Usage", format!("{} 'df -h'", ssh)),
-        ("disk_inode", "Inode Usage", format!("{} 'df -i'", ssh)),
-        (
-            "disk_large",
-            "Find Large Directories",
-            format!("{} 'du -sh /* 2>/dev/null | sort -hr | head -20'", ssh),
-        ),
-        (
-            "cpu",
-            "CPU Info & Load",
-            format!("{} 'cat /proc/cpuinfo | grep processor | wc -l && uptime'", ssh),
-        ),
-        ("memory", "Memory Usage", format!("{} 'free -h'", ssh)),
-        (
-            "proc_mem",
-            "Top Memory Processes",
-            format!("{} 'ps aux --sort=-%mem | head -10'", ssh),
-        ),
-        (
-            "proc_cpu",
-            "Top CPU Processes",
-            format!("{} 'ps aux --sort=-%cpu | head -10'", ssh),
-        ),
-        ("port", "Port Usage (ss)", format!("{} 'ss -tlnp'", ssh)),
-        ("port_netstat", "Port Usage (netstat)", format!("{} 'netstat -tlnp'", ssh)),
-        (
-            "listen_port",
-            "Find Process on Port",
-            format!("{} 'lsof -i :{}'", ssh, port),
-        ),
-        ("connection", "Network Connections", format!("{} 'ss -tan'", ssh)),
-        (
-            "sys_info",
-            "System Information",
-            format!("{} 'uname -a && cat /etc/os-release'", ssh),
-        ),
-        ("uptime", "System Uptime", format!("{} 'uptime'", ssh)),
-        ("who", "Logged In Users", format!("{} 'who'", ssh)),
-        ("last", "Recent Logins", format!("{} 'last -10'", ssh)),
-        (
-            "service",
-            "Running Services",
-            format!("{} 'systemctl list-units --type=service --state=running'", ssh),
-        ),
-        (
-            "service_status",
-            "Check Service Status",
-            format!("{} 'systemctl status nginx'", ssh),
-        ),
-        (
-            "journal",
-            "Systemd Journal",
-            format!("{} 'journalctl -xe --no-pager -n 50'", ssh),
-        ),
-        ("docker_ps", "Docker Containers", format!("{} 'docker ps'", ssh)),
-        (
-            "docker_psa",
-            "All Docker Containers",
-            format!("{} 'docker ps -a'", ssh),
-        ),
-        ("docker_images", "Docker Images", format!("{} 'docker images'", ssh)),
-        (
-            "docker_logs",
-            "Docker Container Logs",
-            format!("{} 'docker logs --tail 100 container_name'", ssh),
-        ),
-        (
-            "docker_stats",
-            "Docker Stats",
-            format!("{} 'docker stats --no-stream'", ssh),
-        ),
-        (
-            "docker_cleanup",
-            "Docker Cleanup",
-            format!("{} 'docker system prune -af'", ssh),
-        ),
-        (
-            "nginx_access",
-            "Nginx Access Log",
-            format!("{} 'tail -100 /var/log/nginx/access.log'", ssh),
-        ),
-        (
-            "nginx_error",
-            "Nginx Error Log",
-            format!("{} 'tail -100 /var/log/nginx/error.log'", ssh),
-        ),
-        ("syslog", "System Logs", format!("{} 'tail -100 /var/log/syslog'", ssh)),
-        (
-            "auth_log",
-            "Auth Logs (Failed Login)",
-            format!("{} 'grep failed /var/log/auth.log | tail -50'", ssh),
-        ),
-        ("cron", "Cron Jobs", format!("{} 'crontab -l'", ssh)),
-        ("sysctl", "Kernel Parameters", format!("{} 'sysctl -a'", ssh)),
-        ("limits", "User Limits", format!("{} 'ulimit -a'", ssh)),
-        ("firewall", "Firewall Status (ufw)", format!("{} 'ufw status'", ssh)),
-        (
-            "firewall_iptables",
-            "iptables Rules",
-            format!("{} 'iptables -L -n'", ssh),
-        ),
-        ("mount", "Mount Points", format!("{} 'mount | column -t'", ssh)),
-        ("fstab", "Fstab Config", format!("{} 'cat /etc/fstab'", ssh)),
-        ("dns", "DNS Configuration", format!("{} 'cat /etc/resolv.conf'", ssh)),
-        ("hosts", "Hosts File", format!("{} 'cat /etc/hosts'", ssh)),
-        ("process_tree", "Process Tree", format!("{} 'pstree -p'", ssh)),
-        (
-            "killed_procs",
-            "OOM Killed Processes",
-            format!("{} 'dmesg | grep -i killed | tail -20'", ssh),
-        ),
-        (
-            "sysload",
-            "System Load (vmstat)",
-            format!("{} 'vmstat 1 5'", ssh),
-        ),
-        ("iostat", "IO Statistics", format!("{} 'iostat -xz 1 5'", ssh)),
-        (
-            "mpstat",
-            "CPU Per-Core Stats",
-            format!("{} 'mpstat -P ALL 1 1'", ssh),
-        ),
-        (
-            "sar_net",
-            "Network Stats (sar)",
-            format!("{} 'sar -n DEV 1 3'", ssh),
-        ),
-        (
-            "tcpdump",
-            "Capture Traffic (sudo)",
-            format!("{} 'sudo tcpdump -i eth0 -c 100'", ssh),
-        ),
-    ];
-
-    if filter_str.is_empty() {
-        println!("{}", "System Commands:".bold().yellow());
-        for (cmd, desc, _) in &all_commands[2..] {
-            println!("  {:18} {}", cmd.magenta(), desc);
-        }
-    } else {
-        for (cmd, desc, full_cmd) in &all_commands {
-            if cmd.contains(&filter_str) || desc.to_lowercase().contains(&filter_str) {
-                println!("{} {}\n  {}\n", cmd.magenta().bold(), "-".dimmed(), full_cmd.cyan());
-            }
-        }
-    }
-
-    println!("\n{} Use '{}' to filter commands", "Tip:".dimmed(), "--command <filter>".cyan());
-}
-
-fn main() -> anyhow::Result<()> {
+fn main() {
     init_keyring();
+
     let cli = Cli::parse();
 
+    if let Err(e) = run(cli) {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Add {
             name,
@@ -409,80 +93,13 @@ fn main() -> anyhow::Result<()> {
             tag,
             note,
         } => {
-            let store = load_store()?;
-            if store.servers.contains_key(&name) {
-                anyhow::bail!("Server '{}' already exists", name);
-            }
-            let port = port.unwrap_or(22);
-            if let Some(ref pwd) = password {
-                store_password(&name, pwd)?;
-            }
-            let server = Server {
-                name: name.clone(),
-                host,
-                port,
-                user,
-                password: None,
-                tags: tag,
-                notes: note,
-            };
-            let mut store = store;
-            store.servers.insert(name.clone(), server);
-            save_store(&store)?;
-            print_success(&format!("✓ Server '{}' added successfully", name.green()));
-            if password.is_some() {
-                println!("  {}", "Password stored securely in keychain".dimmed());
-            }
+            handle_add(name, host, port, user, password, tag, note)?;
         }
         Commands::Delete { name } => {
-            let mut store = load_store()?;
-            if store.servers.remove(&name).is_none() {
-                anyhow::bail!("Server '{}' not found", name);
-            }
-            delete_password(&name)?;
-            save_store(&store)?;
-            print_success(&format!("✓ Server '{}' deleted successfully", name.green()));
+            handle_delete(name)?;
         }
         Commands::List { tag } => {
-            let store = load_store()?;
-            let servers: Vec<&Server> = if let Some(tag) = tag {
-                store
-                    .servers
-                    .values()
-                    .filter(|s| s.tags.contains(&tag))
-                    .collect()
-            } else {
-                store.servers.values().collect()
-            };
-
-            if servers.is_empty() {
-                println!("{}", "No servers found.".yellow());
-            } else {
-                let rows: Vec<ServerRow> = servers
-                    .iter()
-                    .map(|s| ServerRow {
-                        name: s.name.clone(),
-                        host: s.host.clone(),
-                        port: s.port.to_string(),
-                        user: s.user.clone().unwrap_or_else(|| "-".to_string()),
-                        tags: if s.tags.is_empty() {
-                            "-".to_string()
-                        } else {
-                            s.tags.join(", ")
-                        },
-                    })
-                    .collect();
-
-                let table = Table::new(&rows)
-                    .with(Style::modern_rounded())
-                    .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-                    .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-                    .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-                    .to_string();
-
-                println!("\n{}", table);
-                println!("\n{} {} servers", "Total:".dimmed(), servers.len().to_string().cyan());
-            }
+            handle_list(tag)?;
         }
         Commands::Update {
             name,
@@ -493,87 +110,16 @@ fn main() -> anyhow::Result<()> {
             tag,
             note,
         } => {
-            let mut store = load_store()?;
-            let server = store.servers.get_mut(&name);
-            if server.is_none() {
-                anyhow::bail!("Server '{}' not found", name);
-            }
-            let server = server.unwrap();
-            if let Some(host) = host {
-                server.host = host;
-            }
-            if let Some(port) = port {
-                server.port = port;
-            }
-            if let Some(user) = user {
-                server.user = Some(user);
-            }
-            if let Some(password) = password {
-                store_password(&name, &password)?;
-                println!("{}", "Password updated and stored securely in keychain".green());
-            }
-            if let Some(tag) = tag {
-                server.tags = tag;
-            }
-            if let Some(note) = note {
-                server.notes = note;
-            }
-            save_store(&store)?;
-            print_success(&format!("✓ Server '{}' updated successfully", name.green()));
+            handle_update(name, host, port, user, password, tag, note)?;
         }
-        Commands::Get { name, show_password } => {
-            let store = load_store()?;
-            let server = store.servers.get(&name);
-            match server {
-                Some(s) => {
-                    print_header(&format!("Server: {}", s.name.green()));
-                    println!();
-
-                    let style = OwoStyle::new().bold();
-                    println!("{:16} {}", "Host:".style(style), s.host.cyan());
-                    println!("{:16} {}", "Port:".style(style), s.port.to_string().cyan());
-                    if let Some(ref user) = s.user {
-                        println!("{:16} {}", "User:".style(style), user.yellow());
-                    }
-
-                    match get_password(&name) {
-                        Ok(Some(pwd)) => {
-                            if show_password {
-                                println!("{:16} {}", "Password:".style(style), pwd.red());
-                            } else {
-                                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed().to_string());
-                            }
-                        }
-                        Ok(None) => {
-                            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed().to_string());
-                        }
-                        Err(e) => {
-                            println!("{:16} {}", "Password:".style(style), format!("(error: {})", e).red());
-                        }
-                    }
-
-                    if !s.tags.is_empty() {
-                        println!("{:16} {}", "Tags:".style(style), s.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
-                    }
-
-                    if !s.notes.is_empty() {
-                        println!("{:16} {}", "Notes:".style(style), s.notes.join("; ").dimmed());
-                    }
-
-                    println!("\n{} Use '{}' for SSH command suggestions", "Tip:".dimmed(), "i-rs-server suggest".cyan());
-                }
-                None => anyhow::bail!("Server '{}' not found", name),
-            }
+        Commands::Get {
+            name,
+            show_password,
+        } => {
+            handle_get(name, show_password)?;
         }
         Commands::Suggest { name, command } => {
-            let store = load_store()?;
-            let server = store.servers.get(&name);
-            match server {
-                Some(s) => {
-                    print_suggestions(s, command.as_deref());
-                }
-                None => anyhow::bail!("Server '{}' not found", name),
-            }
+            handle_suggest(name, command)?;
         }
     }
 
