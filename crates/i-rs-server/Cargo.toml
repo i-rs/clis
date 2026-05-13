@@ -16,3 +16,5 @@ serde_json.workspace = true
 dirs.workspace = true
 keyring.workspace = true
 keyring-core.workspace = true
+tabled.workspace = true
+owo-colors.workspace = true

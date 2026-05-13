@@ -1,9 +1,12 @@
 use clap::{Parser, Subcommand};
 use keyring::use_native_store;
 use keyring_core::Entry;
+use owo_colors::OwoColorize;
+use owo_colors::Style as OwoStyle;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tabled::{Table, Tabled, settings::{Color, style::BorderColor, style::Style, themes::Colorization, object::Rows, object::Segment}};
 
 const SERVICE_NAME: &str = "i-rs-server";
 
@@ -103,6 +106,20 @@ impl Default for ServerStore {
     }
 }
 
+#[derive(Tabled)]
+struct ServerRow {
+    #[tabled(rename = "NAME")]
+    name: String,
+    #[tabled(rename = "HOST")]
+    host: String,
+    #[tabled(rename = "PORT")]
+    port: String,
+    #[tabled(rename = "USER")]
+    user: String,
+    #[tabled(rename = "TAGS")]
+    tags: String,
+}
+
 fn get_data_path() -> PathBuf {
     if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
         PathBuf::from(config_dir).join("i-rs").join("servers.json")
@@ -115,7 +132,8 @@ fn get_data_path() -> PathBuf {
 fn store_password(server_name: &str, password: &str) -> anyhow::Result<()> {
     let entry = Entry::new(SERVICE_NAME, server_name)
         .map_err(|e| anyhow::anyhow!("Failed to create keyring entry: {}", e))?;
-    entry.set_password(password)
+    entry
+        .set_password(password)
         .map_err(|e| anyhow::anyhow!("Failed to store password: {}", e))?;
     Ok(())
 }
@@ -174,88 +192,207 @@ fn ssh_cmd(user: &Option<String>, host: &str, port: u16) -> String {
     }
 }
 
+fn print_success(msg: &str) {
+    println!("{}", msg.green());
+}
+
+fn print_header(msg: &str) {
+    println!("\n{}", msg.bold().cyan());
+}
+
 fn print_suggestions(server: &Server, filter: Option<&str>) {
     let user = &server.user;
     let host = &server.host;
     let port = server.port;
     let ssh = ssh_cmd(user, host, port);
 
-    println!("\n=== Server: {} ({}@{}:{}) ===\n", server.name, user.as_deref().unwrap_or("-"), host, port);
-    println!("# SSH Connection");
-    println!("  {}\n", ssh);
+    print_header(&format!("Server: {} ({}@{}:{})", server.name.green(), user.as_deref().unwrap_or("-").yellow(), host.cyan(), port.to_string().cyan()));
+
+    println!("\n{} {}\n", "SSH:".bold(), ssh.cyan());
 
     let filter_str = filter.unwrap_or("").to_lowercase();
 
     let all_commands = vec![
         ("ssh", "SSH Login", ssh.clone()),
-        ("ssh_key", "SSH Key Setup (Passwordless)", format!("ssh-keygen -t rsa -b 4096 -C '{}@{}' -f ~/.ssh/id_rsa -N '' && ssh-copy-id {}@{}", user.as_deref().unwrap_or("root"), host, user.as_deref().unwrap_or("root"), host)),
-        ("scp_up", "SCP Upload File", format!("scp -P {} local-file.txt {}@{}:/tmp/", port, user.as_deref().unwrap_or("root"), host)),
-        ("scp_down", "SCP Download File", format!("scp -P {} {}@{}:/tmp/remote-file.txt ./", port, user.as_deref().unwrap_or("root"), host)),
+        (
+            "ssh_key",
+            "SSH Key Setup (Passwordless)",
+            format!(
+                "ssh-keygen -t rsa -b 4096 -C '{}@{}' -f ~/.ssh/id_rsa -N '' && ssh-copy-id {}@{}",
+                user.as_deref().unwrap_or("root"),
+                host,
+                user.as_deref().unwrap_or("root"),
+                host
+            ),
+        ),
+        (
+            "scp_up",
+            "SCP Upload File",
+            format!(
+                "scp -P {} local-file.txt {}@{}:/tmp/",
+                port,
+                user.as_deref().unwrap_or("root"),
+                host
+            ),
+        ),
+        (
+            "scp_down",
+            "SCP Download File",
+            format!(
+                "scp -P {} {}@{}:/tmp/remote-file.txt ./",
+                port,
+                user.as_deref().unwrap_or("root"),
+                host
+            ),
+        ),
         ("disk", "Disk Usage", format!("{} 'df -h'", ssh)),
         ("disk_inode", "Inode Usage", format!("{} 'df -i'", ssh)),
-        ("disk_large", "Find Large Directories", format!("{} 'du -sh /* 2>/dev/null | sort -hr | head -20'", ssh)),
-        ("cpu", "CPU Info & Load", format!("{} 'cat /proc/cpuinfo | grep processor | wc -l && uptime'", ssh)),
+        (
+            "disk_large",
+            "Find Large Directories",
+            format!("{} 'du -sh /* 2>/dev/null | sort -hr | head -20'", ssh),
+        ),
+        (
+            "cpu",
+            "CPU Info & Load",
+            format!("{} 'cat /proc/cpuinfo | grep processor | wc -l && uptime'", ssh),
+        ),
         ("memory", "Memory Usage", format!("{} 'free -h'", ssh)),
-        ("proc_mem", "Top Memory Processes", format!("{} 'ps aux --sort=-%mem | head -10'", ssh)),
-        ("proc_cpu", "Top CPU Processes", format!("{} 'ps aux --sort=-%cpu | head -10'", ssh)),
+        (
+            "proc_mem",
+            "Top Memory Processes",
+            format!("{} 'ps aux --sort=-%mem | head -10'", ssh),
+        ),
+        (
+            "proc_cpu",
+            "Top CPU Processes",
+            format!("{} 'ps aux --sort=-%cpu | head -10'", ssh),
+        ),
         ("port", "Port Usage (ss)", format!("{} 'ss -tlnp'", ssh)),
         ("port_netstat", "Port Usage (netstat)", format!("{} 'netstat -tlnp'", ssh)),
-        ("listen_port", "Find Process on Port", format!("{} 'lsof -i :{}'", ssh, port)),
+        (
+            "listen_port",
+            "Find Process on Port",
+            format!("{} 'lsof -i :{}'", ssh, port),
+        ),
         ("connection", "Network Connections", format!("{} 'ss -tan'", ssh)),
-        ("sys_info", "System Information", format!("{} 'uname -a && cat /etc/os-release'", ssh)),
+        (
+            "sys_info",
+            "System Information",
+            format!("{} 'uname -a && cat /etc/os-release'", ssh),
+        ),
         ("uptime", "System Uptime", format!("{} 'uptime'", ssh)),
         ("who", "Logged In Users", format!("{} 'who'", ssh)),
         ("last", "Recent Logins", format!("{} 'last -10'", ssh)),
-        ("service", "Running Services", format!("{} 'systemctl list-units --type=service --state=running'", ssh)),
-        ("service_status", "Check Service Status", format!("{} 'systemctl status nginx'", ssh)),
-        ("journal", "Systemd Journal", format!("{} 'journalctl -xe --no-pager -n 50'", ssh)),
+        (
+            "service",
+            "Running Services",
+            format!("{} 'systemctl list-units --type=service --state=running'", ssh),
+        ),
+        (
+            "service_status",
+            "Check Service Status",
+            format!("{} 'systemctl status nginx'", ssh),
+        ),
+        (
+            "journal",
+            "Systemd Journal",
+            format!("{} 'journalctl -xe --no-pager -n 50'", ssh),
+        ),
         ("docker_ps", "Docker Containers", format!("{} 'docker ps'", ssh)),
-        ("docker_psa", "All Docker Containers", format!("{} 'docker ps -a'", ssh)),
+        (
+            "docker_psa",
+            "All Docker Containers",
+            format!("{} 'docker ps -a'", ssh),
+        ),
         ("docker_images", "Docker Images", format!("{} 'docker images'", ssh)),
-        ("docker_logs", "Docker Container Logs", format!("{} 'docker logs --tail 100 container_name'", ssh)),
-        ("docker_stats", "Docker Stats", format!("{} 'docker stats --no-stream'", ssh)),
-        ("docker_cleanup", "Docker Cleanup", format!("{} 'docker system prune -af'", ssh)),
-        ("nginx_access", "Nginx Access Log", format!("{} 'tail -100 /var/log/nginx/access.log'", ssh)),
-        ("nginx_error", "Nginx Error Log", format!("{} 'tail -100 /var/log/nginx/error.log'", ssh)),
+        (
+            "docker_logs",
+            "Docker Container Logs",
+            format!("{} 'docker logs --tail 100 container_name'", ssh),
+        ),
+        (
+            "docker_stats",
+            "Docker Stats",
+            format!("{} 'docker stats --no-stream'", ssh),
+        ),
+        (
+            "docker_cleanup",
+            "Docker Cleanup",
+            format!("{} 'docker system prune -af'", ssh),
+        ),
+        (
+            "nginx_access",
+            "Nginx Access Log",
+            format!("{} 'tail -100 /var/log/nginx/access.log'", ssh),
+        ),
+        (
+            "nginx_error",
+            "Nginx Error Log",
+            format!("{} 'tail -100 /var/log/nginx/error.log'", ssh),
+        ),
         ("syslog", "System Logs", format!("{} 'tail -100 /var/log/syslog'", ssh)),
-        ("auth_log", "Auth Logs (Failed Login)", format!("{} 'grep failed /var/log/auth.log | tail -50'", ssh)),
+        (
+            "auth_log",
+            "Auth Logs (Failed Login)",
+            format!("{} 'grep failed /var/log/auth.log | tail -50'", ssh),
+        ),
         ("cron", "Cron Jobs", format!("{} 'crontab -l'", ssh)),
         ("sysctl", "Kernel Parameters", format!("{} 'sysctl -a'", ssh)),
         ("limits", "User Limits", format!("{} 'ulimit -a'", ssh)),
         ("firewall", "Firewall Status (ufw)", format!("{} 'ufw status'", ssh)),
-        ("firewall_iptables", "iptables Rules", format!("{} 'iptables -L -n'", ssh)),
+        (
+            "firewall_iptables",
+            "iptables Rules",
+            format!("{} 'iptables -L -n'", ssh),
+        ),
         ("mount", "Mount Points", format!("{} 'mount | column -t'", ssh)),
         ("fstab", "Fstab Config", format!("{} 'cat /etc/fstab'", ssh)),
         ("dns", "DNS Configuration", format!("{} 'cat /etc/resolv.conf'", ssh)),
         ("hosts", "Hosts File", format!("{} 'cat /etc/hosts'", ssh)),
         ("process_tree", "Process Tree", format!("{} 'pstree -p'", ssh)),
-        ("killed_procs", "OOM Killed Processes", format!("{} 'dmesg | grep -i killed | tail -20'", ssh)),
-        ("sysload", "System Load (vmstat)", format!("{} 'vmstat 1 5'", ssh)),
+        (
+            "killed_procs",
+            "OOM Killed Processes",
+            format!("{} 'dmesg | grep -i killed | tail -20'", ssh),
+        ),
+        (
+            "sysload",
+            "System Load (vmstat)",
+            format!("{} 'vmstat 1 5'", ssh),
+        ),
         ("iostat", "IO Statistics", format!("{} 'iostat -xz 1 5'", ssh)),
-        ("mpstat", "CPU Per-Core Stats", format!("{} 'mpstat -P ALL 1 1'", ssh)),
-        ("sar_net", "Network Stats (sar)", format!("{} 'sar -n DEV 1 3'", ssh)),
-        ("tcpdump", "Capture Traffic (sudo)", format!("{} 'sudo tcpdump -i eth0 -c 100'", ssh)),
+        (
+            "mpstat",
+            "CPU Per-Core Stats",
+            format!("{} 'mpstat -P ALL 1 1'", ssh),
+        ),
+        (
+            "sar_net",
+            "Network Stats (sar)",
+            format!("{} 'sar -n DEV 1 3'", ssh),
+        ),
+        (
+            "tcpdump",
+            "Capture Traffic (sudo)",
+            format!("{} 'sudo tcpdump -i eth0 -c 100'", ssh),
+        ),
     ];
 
     if filter_str.is_empty() {
-        println!("# File Transfer");
-        println!("  # Upload:  scp -P {} local-file.txt {}@{}:/tmp/", port, user.as_deref().unwrap_or("root"), host);
-        println!("  # Download: scp -P {} {}@{}:/tmp/file .\n", port, user.as_deref().unwrap_or("root"), host);
-        println!("# System Commands");
+        println!("{}", "System Commands:".bold().yellow());
         for (cmd, desc, _) in &all_commands[2..] {
-            println!("  {:15} - {}", cmd, desc);
+            println!("  {:18} {}", cmd.magenta(), desc);
         }
     } else {
         for (cmd, desc, full_cmd) in &all_commands {
             if cmd.contains(&filter_str) || desc.to_lowercase().contains(&filter_str) {
-                println!("# {} - {}", cmd, desc);
-                println!("  {}\n", full_cmd);
+                println!("{} {}\n  {}\n", cmd.magenta().bold(), "-".dimmed(), full_cmd.cyan());
             }
         }
     }
 
-    println!("\nTips:");
-    println!("  - Run with filter: i-rs-server suggest {} --command disk", server.name);
+    println!("\n{} Use '{}' to filter commands", "Tip:".dimmed(), "--command <filter>".cyan());
 }
 
 fn main() -> anyhow::Result<()> {
@@ -292,9 +429,9 @@ fn main() -> anyhow::Result<()> {
             let mut store = store;
             store.servers.insert(name.clone(), server);
             save_store(&store)?;
-            println!("Server '{}' added successfully", name);
+            print_success(&format!("✓ Server '{}' added successfully", name.green()));
             if password.is_some() {
-                println!("Password stored securely in keychain");
+                println!("  {}", "Password stored securely in keychain".dimmed());
             }
         }
         Commands::Delete { name } => {
@@ -304,7 +441,7 @@ fn main() -> anyhow::Result<()> {
             }
             delete_password(&name)?;
             save_store(&store)?;
-            println!("Server '{}' deleted successfully", name);
+            print_success(&format!("✓ Server '{}' deleted successfully", name.green()));
         }
         Commands::List { tag } => {
             let store = load_store()?;
@@ -319,18 +456,32 @@ fn main() -> anyhow::Result<()> {
             };
 
             if servers.is_empty() {
-                println!("No servers found.");
+                println!("{}", "No servers found.".yellow());
             } else {
-                for server in servers {
-                    println!(
-                        "{}  {}@{}:{}  tags: [{}]",
-                        server.name,
-                        server.user.as_deref().unwrap_or("-"),
-                        server.host,
-                        server.port,
-                        server.tags.join(", ")
-                    );
-                }
+                let rows: Vec<ServerRow> = servers
+                    .iter()
+                    .map(|s| ServerRow {
+                        name: s.name.clone(),
+                        host: s.host.clone(),
+                        port: s.port.to_string(),
+                        user: s.user.clone().unwrap_or_else(|| "-".to_string()),
+                        tags: if s.tags.is_empty() {
+                            "-".to_string()
+                        } else {
+                            s.tags.join(", ")
+                        },
+                    })
+                    .collect();
+
+                let table = Table::new(&rows)
+                    .with(Style::modern_rounded())
+                    .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
+                    .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
+                    .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
+                    .to_string();
+
+                println!("\n{}", table);
+                println!("\n{} {} servers", "Total:".dimmed(), servers.len().to_string().cyan());
             }
         }
         Commands::Update {
@@ -359,7 +510,7 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(password) = password {
                 store_password(&name, &password)?;
-                println!("Password updated and stored securely in keychain");
+                println!("{}", "Password updated and stored securely in keychain".green());
             }
             if let Some(tag) = tag {
                 server.tags = tag;
@@ -368,40 +519,48 @@ fn main() -> anyhow::Result<()> {
                 server.notes = note;
             }
             save_store(&store)?;
-            println!("Server '{}' updated successfully", name);
+            print_success(&format!("✓ Server '{}' updated successfully", name.green()));
         }
         Commands::Get { name, show_password } => {
             let store = load_store()?;
             let server = store.servers.get(&name);
             match server {
                 Some(s) => {
-                    println!("Name: {}", s.name);
-                    println!("Host: {}", s.host);
-                    println!("Port: {}", s.port);
+                    print_header(&format!("Server: {}", s.name.green()));
+                    println!();
+
+                    let style = OwoStyle::new().bold();
+                    println!("{:16} {}", "Host:".style(style), s.host.cyan());
+                    println!("{:16} {}", "Port:".style(style), s.port.to_string().cyan());
                     if let Some(ref user) = s.user {
-                        println!("User: {}", user);
+                        println!("{:16} {}", "User:".style(style), user.yellow());
                     }
+
                     match get_password(&name) {
                         Ok(Some(pwd)) => {
                             if show_password {
-                                println!("Password: {}", pwd);
+                                println!("{:16} {}", "Password:".style(style), pwd.red());
                             } else {
-                                println!("Password: (stored securely in keychain, use --show-password to display)");
+                                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed().to_string());
                             }
                         }
                         Ok(None) => {
-                            println!("Password: (not set)");
+                            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed().to_string());
                         }
                         Err(e) => {
-                            println!("Password: (error reading from keychain: {})", e);
+                            println!("{:16} {}", "Password:".style(style), format!("(error: {})", e).red());
                         }
                     }
+
                     if !s.tags.is_empty() {
-                        println!("Tags: [{}]", s.tags.join(", "));
+                        println!("{:16} {}", "Tags:".style(style), s.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
                     }
+
                     if !s.notes.is_empty() {
-                        println!("Notes: {}", s.notes.join("; "));
+                        println!("{:16} {}", "Notes:".style(style), s.notes.join("; ").dimmed());
                     }
+
+                    println!("\n{} Use '{}' for SSH command suggestions", "Tip:".dimmed(), "i-rs-server suggest".cyan());
                 }
                 None => anyhow::bail!("Server '{}' not found", name),
             }
