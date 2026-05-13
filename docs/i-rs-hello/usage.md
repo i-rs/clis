@@ -27,7 +27,7 @@ i-rs-hello -n Bob
 ## Options
 
 | Option | Short | Description |
-|--------|-------|-------------|
+| -------- | ------- | ------------- |
 | `--name <NAME>` | `-n` | Name to greet |
 | `--help` | `-h` | Show help |
 | `--version` | `-V` | Show version |

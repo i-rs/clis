@@ -5,7 +5,7 @@ A collection of cross-platform CLI tools built with Rust.
 ## Tools
 
 | Tool | Description |
-|------|-------------|
+| -------- | ------------- |
 | [i-rs-hello](crates/i-rs-hello) | Simple hello world CLI |
 | [i-rs-fs](crates/i-rs-fs) | File system operations |
 | [i-rs-http](crates/i-rs-http) | HTTP client CLI |

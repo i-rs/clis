@@ -19,7 +19,7 @@ i-rs-http [OPTIONS] <URL>
 ### Options
 
 | Option | Description |
-|--------|-------------|
+| -------- | ------------- |
 | `-m, --method <METHOD>` | HTTP method: get, post, put, delete (default: get) |
 | `-H, --header <KEY:VALUE>` | Custom HTTP header |
 

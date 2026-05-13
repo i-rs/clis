@@ -16,7 +16,7 @@ i-rs-http [OPTIONS] <URL>
 ## Options
 
 | Option | Description |
-|--------|-------------|
+| -------- | ------------- |
 | `-m, --method <METHOD>` | HTTP method: get, post, put, delete (default: get) |
 | `-H, --header <KEY:VALUE>` | Custom HTTP header (can be repeated) |
 
@@ -41,7 +41,7 @@ i-rs-http -m delete https://api.example.com/delete/1
 
 ## Output
 
-```
+```shell
 Status: 200 OK
 Headers: {...}
 Body:

@@ -16,7 +16,7 @@ i-rs-hello [OPTIONS]
 ## Options
 
 | Option | Short | Description |
-|--------|-------|-------------|
+| -------- | ------- | ------------- |
 | `--name <NAME>` | `-n` | Name to greet (default: "World") |
 
 ## Examples
