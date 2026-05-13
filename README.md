@@ -10,18 +10,22 @@ A collection of cross-platform CLI tools built with Rust.
 | [i-rs-password](crates/i-rs-password) | Password management CLI |
 | [i-rs-bookmark](crates/i-rs-bookmark) | Bookmark management CLI |
 | [i-rs-note](crates/i-rs-note) | Note management CLI |
+| [i-rs-domain](crates/i-rs-domain) | Domain management CLI |
+| [i-rs-remind](crates/i-rs-remind) | Reminder management CLI |
 
 ## Quick Install
 
 ```bash
 # npm
-npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note
+npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note @i-rs/i-rs-domain @i-rs/i-rs-remind
 
 # Homebrew
 brew install i-rs/homebrew-tap/i-rs-server
 brew install i-rs/homebrew-tap/i-rs-password
 brew install i-rs/homebrew-tap/i-rs-bookmark
 brew install i-rs/homebrew-tap/i-rs-note
+brew install i-rs/homebrew-tap/i-rs-domain
+brew install i-rs/homebrew-tap/i-rs-remind
 ```
 
 ## Development
@@ -35,6 +39,8 @@ cargo run -p i-rs-server -- --help
 cargo run -p i-rs-password -- --help
 cargo run -p i-rs-bookmark -- --help
 cargo run -p i-rs-note -- --help
+cargo run -p i-rs-domain -- --help
+cargo run -p i-rs-remind -- --help
 ```
 
 ## Release
@@ -53,6 +59,8 @@ CI will automatically build, create GitHub Release, publish to npm and Homebrew.
 - [crates/i-rs-password/README.md](crates/i-rs-password/README.md)
 - [crates/i-rs-bookmark/README.md](crates/i-rs-bookmark/README.md)
 - [crates/i-rs-note/README.md](crates/i-rs-note/README.md)
+- [crates/i-rs-domain/README.md](crates/i-rs-domain/README.md)
+- [crates/i-rs-remind/README.md](crates/i-rs-remind/README.md)
 
 ## License
 

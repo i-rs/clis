@@ -5,6 +5,8 @@ members = [
     "crates/i-rs-password",
     "crates/i-rs-bookmark",
     "crates/i-rs-note",
+    "crates/i-rs-domain",
+    "crates/i-rs-remind",
 ]
 
 [workspace.package]
