@@ -5,8 +5,8 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "File system operations CLI"
-homepage = "https://github.com/i-rs/clis"
 
 [dependencies]
 clap.workspace = true
