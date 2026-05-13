@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/i-rs-hello",
-    "crates/i-rs-fs",
-    "crates/i-rs-http",
     "crates/i-rs-server",
     "crates/i-rs-password",
 ]

@@ -6,22 +6,18 @@ A collection of cross-platform CLI tools built with Rust.
 
 | Tool | Description |
 | -------- | ------------- |
-| [i-rs-hello](crates/i-rs-hello) | Simple hello world CLI |
-| [i-rs-fs](crates/i-rs-fs) | File system operations |
-| [i-rs-http](crates/i-rs-http) | HTTP client CLI |
 | [i-rs-server](crates/i-rs-server) | Server management CLI |
+| [i-rs-password](crates/i-rs-password) | Password management CLI |
 
 ## Quick Install
 
 ```bash
 # npm
-npm install -g @i-rs/i-rs-hello @i-rs/i-rs-fs @i-rs/i-rs-http @i-rs/i-rs-server
+npm install -g @i-rs/i-rs-server @i-rs/i-rs-password
 
 # Homebrew
-brew install i-rs/homebrew-tap/i-rs-hello
-brew install i-rs/homebrew-tap/i-rs-fs
-brew install i-rs/homebrew-tap/i-rs-http
 brew install i-rs/homebrew-tap/i-rs-server
+brew install i-rs/homebrew-tap/i-rs-password
 ```
 
 ## Development
@@ -31,10 +27,8 @@ brew install i-rs/homebrew-tap/i-rs-server
 cargo build
 
 # Run specific tool
-cargo run -p i-rs-hello -- --help
-cargo run -p i-rs-fs -- --help
-cargo run -p i-rs-http -- --help
 cargo run -p i-rs-server -- --help
+cargo run -p i-rs-password -- --help
 ```
 
 ## Release
@@ -49,10 +43,8 @@ CI will automatically build, create GitHub Release, publish to npm and Homebrew.
 
 ## Documentation
 
-- [crates/i-rs-hello/README.md](crates/i-rs-hello/README.md)
-- [crates/i-rs-fs/README.md](crates/i-rs-fs/README.md)
-- [crates/i-rs-http/README.md](crates/i-rs-http/README.md)
 - [crates/i-rs-server/README.md](crates/i-rs-server/README.md)
+- [crates/i-rs-password/README.md](crates/i-rs-password/README.md)
 
 ## License
 
