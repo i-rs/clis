@@ -1,0 +1,49 @@
+use crate::presentation::{print_error, print_success};
+use crate::storage;
+use anyhow::Result;
+use chrono::Utc;
+use owo_colors::OwoColorize;
+
+pub fn handle_update(
+    name: String,
+    url: Option<String>,
+    account: Option<String>,
+    password: Option<String>,
+    tag: Option<Vec<String>>,
+    remark: Option<Vec<String>>,
+) -> Result<()> {
+    let mut store = storage::load_store()?;
+
+    let bookmark = match storage::get_bookmark_mut(&mut store, &name) {
+        Some(b) => b,
+        None => {
+            print_error(&format!("Bookmark '{}' not found", name));
+            anyhow::bail!("Bookmark '{}' not found", name);
+        }
+    };
+
+    if let Some(url) = url {
+        bookmark.url = url;
+    }
+    if let Some(account) = account {
+        bookmark.account = Some(account);
+    }
+    if let Some(password) = password {
+        storage::store_password(&name, &password)?;
+        println!("{}", "Password updated and stored securely in keychain".green());
+    }
+    if let Some(tag) = tag {
+        bookmark.tags = tag;
+    }
+    if let Some(remark) = remark {
+        bookmark.remark = remark;
+    }
+
+    bookmark.updated_at = Utc::now();
+
+    storage::save_store(&store)?;
+
+    print_success(&format!("✓ Bookmark '{}' updated successfully", name.green()));
+
+    Ok(())
+}

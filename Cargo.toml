@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "crates/i-rs-server",
     "crates/i-rs-password",
+    "crates/i-rs-bookmark",
+    "crates/i-rs-note",
 ]
 
 [workspace.package]

@@ -8,16 +8,20 @@ A collection of cross-platform CLI tools built with Rust.
 | -------- | ------------- |
 | [i-rs-server](crates/i-rs-server) | Server management CLI |
 | [i-rs-password](crates/i-rs-password) | Password management CLI |
+| [i-rs-bookmark](crates/i-rs-bookmark) | Bookmark management CLI |
+| [i-rs-note](crates/i-rs-note) | Note management CLI |
 
 ## Quick Install
 
 ```bash
 # npm
-npm install -g @i-rs/i-rs-server @i-rs/i-rs-password
+npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note
 
 # Homebrew
 brew install i-rs/homebrew-tap/i-rs-server
 brew install i-rs/homebrew-tap/i-rs-password
+brew install i-rs/homebrew-tap/i-rs-bookmark
+brew install i-rs/homebrew-tap/i-rs-note
 ```
 
 ## Development
@@ -29,6 +33,8 @@ cargo build
 # Run specific tool
 cargo run -p i-rs-server -- --help
 cargo run -p i-rs-password -- --help
+cargo run -p i-rs-bookmark -- --help
+cargo run -p i-rs-note -- --help
 ```
 
 ## Release
@@ -45,6 +51,8 @@ CI will automatically build, create GitHub Release, publish to npm and Homebrew.
 
 - [crates/i-rs-server/README.md](crates/i-rs-server/README.md)
 - [crates/i-rs-password/README.md](crates/i-rs-password/README.md)
+- [crates/i-rs-bookmark/README.md](crates/i-rs-bookmark/README.md)
+- [crates/i-rs-note/README.md](crates/i-rs-note/README.md)
 
 ## License
 
