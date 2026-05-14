@@ -25,7 +25,9 @@ pub fn handle_list(
             let filter = tag.as_deref();
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
         } else if tag.is_some() {
-            print_warning(&format!("No cycling records found with tag '{}'", tag.as_ref().unwrap()));
+                if let Some(ref t) = tag {
+                    print_warning(&format!("No cycling records found with tag '{}'", t));
+                }
         } else {
             print_warning("No cycling records found.");
         }
