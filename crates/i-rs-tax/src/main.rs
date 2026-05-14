@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod commands;
 mod models;
 mod presentation;

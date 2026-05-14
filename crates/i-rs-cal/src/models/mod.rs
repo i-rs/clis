@@ -46,7 +46,6 @@ impl CalStore {
     pub fn get_entry(&self, id: &str) -> Option<&CalEntry> {
         self.entries.get(id)
     }
-    #[allow(dead_code)]
     pub fn get_total_by_date(&self, date: chrono::NaiveDate) -> i32 {
         self.entries.values().filter(|e| e.date == date).map(|e| e.calories).sum()
     }

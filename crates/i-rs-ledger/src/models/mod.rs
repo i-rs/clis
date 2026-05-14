@@ -51,7 +51,6 @@ impl LedgerStore {
         self.entries.get(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_entries_by_date(&self, date: NaiveDate) -> Vec<&LedgerEntry> {
         self.entries.values().filter(|e| e.date == date).collect()
     }

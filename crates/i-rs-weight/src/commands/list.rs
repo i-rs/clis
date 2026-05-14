@@ -93,7 +93,7 @@ fn calculate_stats(records: &[&WeightRecord]) -> (Option<f64>, Option<f64>, Opti
     let avg = weights.iter().sum::<f64>() / weights.len() as f64;
 
     let change = if records.len() >= 2 {
-        Some(records.last().unwrap().weight - records.first().unwrap().weight)
+        Some(records.last().expect("records.len() >= 2 checked above").weight - records.first().expect("records.len() >= 2 checked above").weight)
     } else {
         None
     };

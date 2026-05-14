@@ -26,7 +26,6 @@ pub fn get_entry<'a>(store: &'a DeployStore, id: &str) -> Option<&'a DeployRecor
     store.get_entry(id)
 }
 
-#[allow(dead_code)]
 pub fn get_entry_mut<'a>(store: &'a mut DeployStore, id: &str) -> Option<&'a mut DeployRecord> {
     store.get_entry_mut(id)
 }

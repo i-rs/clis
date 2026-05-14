@@ -31,7 +31,7 @@ pub fn handle_add(
         name,
         brand,
         model,
-        purchase_date: purchase_date.and_hms_opt(0, 0, 0).unwrap().and_utc(),
+        purchase_date: purchase_date.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid").and_utc(),
         lifespan_years,
         tags,
         remark,

@@ -22,7 +22,6 @@ pub fn format_table(podcasts: &[&Podcast]) -> String {
         .to_string()
 }
 
-#[allow(dead_code)]
 pub fn print_count(count: usize) {
     println!("\n{} {} podcasts", "Total:".dimmed(), count.to_string().cyan());
 }

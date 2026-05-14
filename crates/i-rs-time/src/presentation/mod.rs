@@ -57,7 +57,7 @@ pub fn print_report(report: &ReportData) {
 pub fn output_stats_json(stats: &StatsData, format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(stats).unwrap());
+            println!("{}", serde_json::to_string_pretty(stats).expect("stats serialization must succeed"));
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_stats(stats);
@@ -68,7 +68,7 @@ pub fn output_stats_json(stats: &StatsData, format: OutputFormat) {
 pub fn output_report_json(report: &ReportData, format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(report).unwrap());
+            println!("{}", serde_json::to_string_pretty(report).expect("report serialization must succeed"));
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_report(report);

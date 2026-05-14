@@ -97,7 +97,6 @@ impl CyclingStore {
         self.records.get_mut(id)
     }
 
-#[allow(dead_code)]
     pub fn get_all_records(&self) -> Vec<&CyclingRecord> {
         self.records.values().collect()
     }
@@ -131,7 +130,6 @@ impl CyclingStore {
         self.records.len()
     }
 
-    #[allow(dead_code)]
     pub fn filter_by_tag(&self, tag: &str) -> Vec<&CyclingRecord> {
         self.records
             .values()

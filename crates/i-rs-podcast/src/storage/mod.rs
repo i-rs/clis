@@ -14,12 +14,10 @@ pub fn save_store(store: &PodcastStore) -> anyhow::Result<()> {
 }
 
 
-#[allow(dead_code)]
 pub fn add_podcast(store: &mut PodcastStore, podcast: crate::models::Podcast) {
     store.add_podcast(podcast);
 }
 
-#[allow(dead_code)]
 pub fn remove_podcast(store: &mut PodcastStore, name: &str) -> Option<crate::models::Podcast> {
     store.remove_podcast(name)
 }

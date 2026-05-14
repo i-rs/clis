@@ -21,18 +21,14 @@ pub fn remove_entry(store: &mut TaxStore, name: &str) -> Option<TaxRecord> {
     store.entries.remove(name)
 }
 
-#[allow(dead_code)]
 pub fn get_entry<'a>(store: &'a TaxStore, name: &str) -> Option<&'a TaxRecord> {
     store.entries.get(name)
 }
 
-#[allow(dead_code)]
-#[allow(dead_code)]
 pub fn get_entry_mut<'a>(store: &'a mut TaxStore, name: &str) -> Option<&'a mut TaxRecord> {
     store.entries.get_mut(name)
 }
 
-#[allow(dead_code)]
 pub fn filter_by_tag<'a>(store: &'a TaxStore, tag: Option<&'a str>) -> Vec<&'a TaxRecord> {
     match tag {
         Some(t) => store

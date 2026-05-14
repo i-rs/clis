@@ -31,7 +31,7 @@ pub fn handle_add(
 
     let parsed_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
         .map_err(|e| anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", e))?;
-    let parsed_date = parsed_date.and_hms_opt(0, 0, 0).unwrap();
+    let parsed_date = parsed_date.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid");
     let parsed_date = chrono::DateTime::<Utc>::from_naive_utc_and_offset(parsed_date, Utc);
 
     let now = Utc::now();

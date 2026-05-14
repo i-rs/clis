@@ -34,22 +34,18 @@ impl Default for MovieStore {
 }
 
 impl MovieStore {
-    #[allow(dead_code)]
     pub fn add_movie(&mut self, movie: Movie) {
         self.movies.insert(movie.name.clone(), movie);
     }
 
-    #[allow(dead_code)]
     pub fn remove_movie(&mut self, name: &str) -> Option<Movie> {
         self.movies.remove(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_movie(&self, name: &str) -> Option<&Movie> {
         self.movies.get(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_mut_movie(&mut self, name: &str) -> Option<&mut Movie> {
         self.movies.get_mut(name)
     }
@@ -134,7 +130,6 @@ impl MovieRow {
     }
 }
 
-#[allow(dead_code)]
 pub trait HasTags {
     fn get_tags(&self) -> &[String];
     fn has_tag(&self, tag: &str) -> bool {
@@ -142,7 +137,6 @@ pub trait HasTags {
     }
 }
 
-#[allow(dead_code)]
 impl HasTags for Movie {
     fn get_tags(&self) -> &[String] {
         &self.tags

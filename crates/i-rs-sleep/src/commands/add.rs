@@ -29,7 +29,7 @@ fn parse_time(time_str: &str) -> anyhow::Result<DateTime<Utc>> {
     let now = Utc::now().date_naive();
     
     if let Ok(time) = chrono::NaiveTime::parse_from_str(time_str, "%H:%M") {
-        let datetime = now.and_time(time).and_local_timezone(chrono::Local).unwrap().with_timezone(&Utc);
+        let datetime = now.and_time(time).and_local_timezone(chrono::Local).single().ok_or_else(|| anyhow::anyhow!("Invalid time due to DST transition"))?.with_timezone(&Utc);
         Ok(datetime)
     } else {
         Err(anyhow::anyhow!("Invalid time format. Use HH:MM"))

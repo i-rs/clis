@@ -19,7 +19,6 @@ pub fn format_table(movies: &[&Movie]) -> String {
         .to_string()
 }
 
-#[allow(dead_code)]
 pub fn print_count(count: usize) {
     println!("\n{} {} movies", "Total:".dimmed(), count.to_string().cyan());
 }

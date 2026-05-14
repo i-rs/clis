@@ -92,7 +92,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
             by_relationship,
         };
 
-        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        println!("{}", serde_json::to_string_pretty(&output).expect("stats output serialization must succeed"));
         return Ok(());
     }
 

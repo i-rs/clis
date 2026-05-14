@@ -43,7 +43,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
         if let Some(new_name) = &args.rename {
             if new_name != &args.name {
-                let mut old_debt = store.debts.remove(&args.name).unwrap();
+                let mut old_debt = store.debts.remove(&args.name).expect("contains_key check above guarantees existence");
                 old_debt.name = new_name.clone();
                 store.debts.insert(new_name.clone(), old_debt);
             }

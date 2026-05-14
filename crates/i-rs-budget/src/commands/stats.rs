@@ -101,31 +101,27 @@ pub fn handle_stats(
 }
 
 fn get_period_dates(now: &NaiveDate, period: Option<&str>) -> Result<(NaiveDate, NaiveDate)> {
-    match period {
-        Some("daily" | "d") => {
+    match period.unwrap_or("monthly") {
+        "daily" | "d" => {
             Ok((*now, *now))
         }
-        Some("weekly" | "w") => {
+        "weekly" | "w" => {
             let days_from_monday = now.weekday().num_days_from_monday();
             let start = *now - chrono::Duration::days(days_from_monday as i64);
             let end = start + chrono::Duration::days(6);
             Ok((start, end))
         }
-        Some("yearly" | "y") => {
-            let start = NaiveDate::from_ymd_opt(now.year(), 1, 1).unwrap();
-            let end = NaiveDate::from_ymd_opt(now.year(), 12, 31).unwrap();
+        "yearly" | "y" => {
+            let start = NaiveDate::from_ymd_opt(now.year(), 1, 1).expect("Jan 1 is always valid");
+            let end = NaiveDate::from_ymd_opt(now.year(), 12, 31).expect("Dec 31 is always valid");
             Ok((start, end))
         }
-        Some("monthly" | "m") | None => {
-            let start = NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap();
-            let end = if now.month() == 12 {
-                NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).unwrap() - chrono::Duration::days(1)
-            } else {
-                NaiveDate::from_ymd_opt(now.year(), now.month() + 1, 1).unwrap() - chrono::Duration::days(1)
-            };
+        "monthly" | "m" => {
+            let start = NaiveDate::from_ymd_opt(now.year(), now.month(), 1).expect("1st of any month is always valid");
+            let end = NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).expect("Jan 1 is always valid") - chrono::Duration::days(1);
             Ok((start, end))
         }
-        Some(p) => {
+        p => {
             anyhow::bail!("Invalid period '{}'. Use: daily, weekly, monthly, yearly", p);
         }
     }

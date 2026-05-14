@@ -26,7 +26,6 @@ pub fn get_gift<'a>(store: &'a GiftStore, name: &str) -> Option<&'a Gift> {
     store.gifts.get(name)
 }
 
-#[allow(dead_code)]
 pub fn get_gift_mut<'a>(store: &'a mut GiftStore, name: &str) -> Option<&'a mut Gift> {
     store.gifts.get_mut(name)
 }

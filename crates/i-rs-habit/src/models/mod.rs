@@ -100,11 +100,11 @@ impl HabitRow {
         }
         
         let mut checkin_dates: Vec<DateTime<Utc>> = habit.checkins.iter()
-            .map(|c| c.date.date_naive().and_hms_opt(12, 0, 0).unwrap().and_local_timezone(chrono::Local).unwrap().with_timezone(&Utc))
+            .map(|c| c.date.date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc))
             .collect();
         checkin_dates.sort_by(|a, b| b.cmp(a));
         
-        let today = Utc::now().date_naive().and_hms_opt(12, 0, 0).unwrap().and_local_timezone(chrono::Local).unwrap().with_timezone(&Utc);
+        let today = Utc::now().date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc);
         let mut streak = 0;
         let mut current_day = today;
         
@@ -138,11 +138,11 @@ pub struct ListItem {
 impl From<&Habit> for ListItem {
     fn from(habit: &Habit) -> Self {
         let mut checkin_dates: Vec<DateTime<Utc>> = habit.checkins.iter()
-            .map(|c| c.date.date_naive().and_hms_opt(12, 0, 0).unwrap().and_local_timezone(chrono::Local).unwrap().with_timezone(&Utc))
+            .map(|c| c.date.date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc))
             .collect();
         checkin_dates.sort_by(|a, b| b.cmp(a));
         
-        let today = Utc::now().date_naive().and_hms_opt(12, 0, 0).unwrap().and_local_timezone(chrono::Local).unwrap().with_timezone(&Utc);
+        let today = Utc::now().date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc);
         let mut streak = 0;
         let mut current_day = today;
         

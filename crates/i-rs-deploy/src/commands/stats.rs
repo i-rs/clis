@@ -66,7 +66,7 @@ pub fn handle_stats(project: Option<String>, environment: Option<String>) -> Res
         let latest = success_entries
             .iter()
             .max_by_key(|e| e.deployed_at)
-            .unwrap();
+            .expect("non-empty check above");
         println!("\n{} {}", "Latest Success:".cyan(), latest.project);
         println!("  {} {}", "Version:".dimmed(), latest.version);
         println!("  {} {}", "Environment:".dimmed(), latest.environment);

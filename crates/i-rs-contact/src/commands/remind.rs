@@ -38,7 +38,7 @@ pub fn handle_remind(days: Option<i64>) -> anyhow::Result<()> {
             format!("{} days", days_since)
         };
         
-        let contact = store.get_entry(name).unwrap();
+        let contact = store.get_entry(name).expect("entry comes from store keys, must exist");
         
         println!("{} {}", name.bold().cyan(), format!("({})", days_str).dimmed());
         

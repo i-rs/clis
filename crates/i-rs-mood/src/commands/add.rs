@@ -14,7 +14,7 @@ pub fn handle_add(
     let date = parse_date(&date)?;
 
     let mood_level = parse_mood(&mood)?;
-    let mood_obj = Mood::from_level(mood_level).unwrap();
+    let mood_obj = Mood::from_level(mood_level).expect("parse_mood validates level is 1-5");
 
     let mut store = storage::load_store()?;
 

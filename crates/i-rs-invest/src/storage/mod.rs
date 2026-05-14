@@ -22,7 +22,6 @@ pub fn remove_investment(store: &mut InvestmentStore, name: &str) -> Option<Inve
     store.investments.remove(name)
 }
 
-#[allow(dead_code)]
 pub fn get_investment<'a>(store: &'a InvestmentStore, name: &str) -> Option<&'a Investment> {
     store.investments.get(name)
 }

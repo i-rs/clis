@@ -61,7 +61,7 @@ fn handle_add_milestone(
     let due = due_date.and_then(|d| {
         chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
             .ok()
-            .map(|date| date.and_hms_opt(23, 59, 59).unwrap())
+            .map(|date| date.and_hms_opt(23, 59, 59).expect("23:59:59 is always valid"))
             .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
     });
 

@@ -51,7 +51,6 @@ impl Default for RunStore {
 }
 
 impl RunStore {
-    #[allow(dead_code)]
     pub fn add_record(&mut self, record: RunRecord) {
         self.records.insert(record.id.clone(), record);
     }
@@ -64,17 +63,14 @@ impl RunStore {
         self.records.get(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_record_mut(&mut self, id: &str) -> Option<&mut RunRecord> {
         self.records.get_mut(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_all_records(&self) -> Vec<&RunRecord> {
         self.records.values().collect()
     }
 
-    #[allow(dead_code)]
     pub fn add_plan(&mut self, plan: RunPlan) {
         self.plans.insert(plan.id.clone(), plan);
     }
@@ -87,7 +83,6 @@ impl RunStore {
         self.plans.get(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_all_plans(&self) -> Vec<&RunPlan> {
         self.plans.values().collect()
     }

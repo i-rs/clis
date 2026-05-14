@@ -106,8 +106,8 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
     }
 
     if !records.is_empty() {
-        let first_date = records.first().unwrap().date.format("%m-%d").to_string();
-        let last_date = records.last().unwrap().date.format("%m-%d").to_string();
+        let first_date = records.first().expect("records.is_empty() checked above").date.format("%m-%d").to_string();
+        let last_date = records.last().expect("records.is_empty() checked above").date.format("%m-%d").to_string();
         let padding = records.len().saturating_sub(first_date.len() + last_date.len() + 2);
         println!(
             "{}{}{}",
@@ -153,7 +153,7 @@ pub fn print_stats(records: &[&HeightRecord], store: &crate::models::HeightStore
     let avg = heights.iter().sum::<f64>() / heights.len() as f64;
 
     let change = if records.len() >= 2 {
-        Some(records.last().unwrap().height_cm - records.first().unwrap().height_cm)
+        Some(records.last().expect("records.len() >= 2 checked above").height_cm - records.first().expect("records.len() >= 2 checked above").height_cm)
     } else {
         None
     };

@@ -50,7 +50,7 @@ fn parse_datetime(datetime_str: &str) -> Result<DateTime<Utc>> {
     }
 
     if let Ok(naive) = chrono::NaiveDate::parse_from_str(datetime_str, "%Y-%m-%d") {
-        return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).unwrap()));
+        return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid")));
     }
 
     Err(anyhow::anyhow!("Invalid datetime format: {}", datetime_str))

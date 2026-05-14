@@ -8,7 +8,6 @@ pub struct PasswordEntry {
     #[serde(default)]
     pub account: Option<String>,
     #[serde(skip)]
-    #[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,

@@ -36,7 +36,6 @@ impl Remind {
         days >= 0 && days < 1
     }
 
-    #[allow(dead_code)]
     pub fn is_upcoming(&self, days: i64) -> bool {
         let days_left = self.days_until_event();
         days_left >= 0 && days_left <= days

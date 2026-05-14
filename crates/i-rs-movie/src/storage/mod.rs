@@ -14,12 +14,10 @@ pub fn save_store(store: &MovieStore) -> anyhow::Result<()> {
 }
 
 
-#[allow(dead_code)]
 pub fn add_movie(store: &mut MovieStore, movie: crate::models::Movie) {
     store.add_movie(movie);
 }
 
-#[allow(dead_code)]
 pub fn remove_movie(store: &mut MovieStore, name: &str) -> Option<crate::models::Movie> {
     store.remove_movie(name)
 }

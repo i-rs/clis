@@ -80,7 +80,6 @@ pub fn update_contact(
     Ok(contact.clone())
 }
 
-#[allow(dead_code)]
 pub fn record_contact(store: &mut ContactStore, name: &str) -> Result<Contact> {
     let contact = store.get_entry_mut(name)
         .ok_or_else(|| anyhow::anyhow!("Contact '{}' not found", name))?;

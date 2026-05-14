@@ -73,7 +73,6 @@ impl DeployStore {
         self.entries.get(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut DeployRecord> {
         self.entries.get_mut(id)
     }

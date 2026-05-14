@@ -106,8 +106,8 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
     }
 
     if !records.is_empty() {
-        let first_date = records.first().unwrap().date.format("%m-%d").to_string();
-        let last_date = records.last().unwrap().date.format("%m-%d").to_string();
+        let first_date = records.first().expect("!records.is_empty() checked above").date.format("%m-%d").to_string();
+        let last_date = records.last().expect("!records.is_empty() checked above").date.format("%m-%d").to_string();
         let padding = records.len().saturating_sub(first_date.len() + last_date.len() + 2);
         println!(
             "{}{}{}",

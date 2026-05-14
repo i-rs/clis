@@ -102,11 +102,11 @@ pub fn handle_stats() -> Result<()> {
     with_prices.sort_by(|a, b| {
         let pl_a = a.profit_loss_percentage().unwrap_or(0.0);
         let pl_b = b.profit_loss_percentage().unwrap_or(0.0);
-        pl_b.partial_cmp(&pl_a).unwrap()
+        pl_b.partial_cmp(&pl_a).expect("profit_loss_percentage returns finite f64")
     });
 
     for (i, inv) in with_prices.iter().enumerate().take(10) {
-        let pl = inv.profit_loss_percentage().unwrap();
+        let pl = inv.profit_loss_percentage().expect("filtered to investments with current_price");
 
         print!("  {}. {} [{}]: ", i + 1, inv.name, inv.symbol);
         if pl >= 0.0 {

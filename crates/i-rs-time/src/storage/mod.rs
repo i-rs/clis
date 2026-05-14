@@ -40,7 +40,7 @@ pub fn start_timer(store: &mut TimeStore, name: String, tags: Vec<String>, remar
     store.add_entry(entry.clone());
     store.active_entry_id = Some(id);
 
-    Ok(store.get_entry(&entry.id).unwrap().clone())
+    Ok(store.get_entry(&entry.id).expect("entry id was just inserted").clone())
 }
 
 pub fn stop_timer(store: &mut TimeStore) -> Result<TimeEntry> {

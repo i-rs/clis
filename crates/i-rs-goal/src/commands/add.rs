@@ -30,7 +30,7 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     }
     
     let naive = i_rs_core::parse_date(&args.deadline)?;
-    let deadline = Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).unwrap());
+    let deadline = Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"));
     
     let milestone_pairs: Vec<(String, f64)> = args.milestones
         .iter()

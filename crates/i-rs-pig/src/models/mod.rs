@@ -60,7 +60,6 @@ impl PigStore {
         self.entries.get(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_entries_by_date(&self, date: chrono::NaiveDate) -> Vec<&PigEntry> {
         self.entries.values().filter(|e| e.happened_at.date_naive() == date).collect()
     }

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use clap::{Parser, Subcommand};
 use crate::presentation::print_error;
 use commands::{

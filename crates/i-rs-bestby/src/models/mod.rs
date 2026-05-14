@@ -49,7 +49,6 @@ impl BestByStore {
         self.entries.get_mut(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_all_entries(&self) -> Vec<&Entity> {
         self.entries.values().collect()
     }

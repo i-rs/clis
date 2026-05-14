@@ -25,7 +25,7 @@ pub fn handle_update(
 
     if let Some(mood_str) = mood {
         let mood_level = parse_mood(&mood_str)?;
-        record.mood = Mood::from_level(mood_level).unwrap();
+        record.mood = Mood::from_level(mood_level).expect("parse_mood validates level is 1-5");
     }
     if let Some(tags) = tag {
         record.tags = tags;

@@ -53,7 +53,6 @@ impl WaterStore {
     pub fn get_entry(&self, id: &str) -> Option<&WaterEntry> {
         self.entries.get(id)
     }
-    #[allow(dead_code)]
     pub fn get_total_today(&self) -> i32 {
         let today = Utc::now().date_naive();
         self.entries.values()
@@ -108,7 +107,6 @@ impl From<&WaterEntry> for ListItem {
 }
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 pub struct Summary {
     pub today_total_ml: i32,
     pub today_count: usize,

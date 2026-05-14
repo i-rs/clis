@@ -34,13 +34,13 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
                 println!("  {}: {:.2}", "Current Price".dimmed(), current);
                 if let Some(profit_loss) = investment.profit_loss() {
                     let profit_loss_str = if profit_loss >= 0.0 {
-                        format!("{:.2} (+{:.2}%)", profit_loss, investment.profit_loss_percentage().unwrap())
+                        format!("{:.2} (+{:.2}%)", profit_loss, investment.profit_loss_percentage().expect("current_price is_some checked above"))
                     } else {
-                        format!("{:.2} ({:.2}%)", profit_loss, investment.profit_loss_percentage().unwrap())
+                        format!("{:.2} ({:.2}%)", profit_loss, investment.profit_loss_percentage().expect("current_price is_some checked above"))
                     };
                     println!("  {}: {}", "Profit/Loss".dimmed(), profit_loss_str);
                 }
-                println!("  {}: {:.2}", "Current Value".dimmed(), investment.current_value().unwrap());
+                println!("  {}: {:.2}", "Current Value".dimmed(), investment.current_value().expect("current_price is_some checked above"));
             } else {
                 println!("  {}: {}", "Current Price".dimmed(), "N/A".dimmed());
                 println!("  {}: {}", "Profit/Loss".dimmed(), "N/A".dimmed());

@@ -92,32 +92,26 @@ impl Default for BudgetStore {
 }
 
 impl BudgetStore {
-    #[allow(dead_code)]
     pub fn add_budget(&mut self, budget: Budget) {
         self.budgets.insert(budget.category.clone(), budget);
     }
 
-    #[allow(dead_code)]
     pub fn remove_budget(&mut self, category: &str) -> Option<Budget> {
         self.budgets.remove(category)
     }
 
-    #[allow(dead_code)]
     pub fn get_budget_mut(&mut self, category: &str) -> Option<&mut Budget> {
         self.budgets.get_mut(category)
     }
 
-    #[allow(dead_code)]
     pub fn add_expense(&mut self, expense: Expense) {
         self.expenses.insert(expense.id.clone(), expense);
     }
 
-    #[allow(dead_code)]
     pub fn remove_expense(&mut self, id: &str) -> Option<Expense> {
         self.expenses.remove(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_expense(&self, id: &str) -> Option<&Expense> {
         self.expenses.get(id)
     }
@@ -136,7 +130,6 @@ impl BudgetStore {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn get_total_spent_for_category(&self, category: &str) -> f64 {
         self.get_expenses_by_category(category)
             .iter()
@@ -144,7 +137,6 @@ impl BudgetStore {
             .sum()
     }
 
-    #[allow(dead_code)]
     pub fn get_total_spent_in_period(&self, start: NaiveDate, end: NaiveDate) -> f64 {
         self.get_expenses_in_period(start, end)
             .iter()
@@ -152,12 +144,10 @@ impl BudgetStore {
             .sum()
     }
 
-    #[allow(dead_code)]
     pub fn budgets_count(&self) -> usize {
         self.budgets.len()
     }
 
-    #[allow(dead_code)]
     pub fn expenses_count(&self) -> usize {
         self.expenses.len()
     }

@@ -39,17 +39,12 @@ pub fn parse_datetime(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
         }
     }
 
-    // Try date-only formats (e.g. "2024-01-15")
-    for format in DATE_FORMATS {
-        if let Ok(naive) = NaiveDateTime::parse_from_str(date_str, format) {
-            return Ok(Utc.from_utc_datetime(&naive));
-        }
-    }
-
     // Fallback: date-only formats with midnight default
     for format in DATE_FORMATS {
         if let Ok(naive) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).unwrap()));
+            return Ok(Utc.from_utc_datetime(
+                &naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"),
+            ));
         }
     }
 

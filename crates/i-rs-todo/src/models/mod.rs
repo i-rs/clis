@@ -76,42 +76,34 @@ impl Default for TodoStore {
 }
 
 impl TodoStore {
-    #[allow(dead_code)]
     pub fn add_todo(&mut self, todo: Todo) {
         self.todos.insert(todo.name.clone(), todo);
     }
 
-    #[allow(dead_code)]
     pub fn remove_todo(&mut self, name: &str) -> Option<Todo> {
         self.todos.remove(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_todo(&self, name: &str) -> Option<&Todo> {
         self.todos.get(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_todo_mut(&mut self, name: &str) -> Option<&mut Todo> {
         self.todos.get_mut(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_all_todos(&self) -> Vec<&Todo> {
         self.todos.values().collect()
     }
 
-    #[allow(dead_code)]
     pub fn get_pending_todos(&self) -> Vec<&Todo> {
         self.todos.values().filter(|t| !t.is_done).collect()
     }
 
-    #[allow(dead_code)]
     pub fn get_done_todos(&self) -> Vec<&Todo> {
         self.todos.values().filter(|t| t.is_done).collect()
     }
 
-    #[allow(dead_code)]
     pub fn filter_by_tag(&self, tag: &str) -> Vec<&Todo> {
         self.todos
             .values()
@@ -119,12 +111,10 @@ impl TodoStore {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn pending_count(&self) -> usize {
         self.todos.values().filter(|t| !t.is_done).count()
     }
 
-    #[allow(dead_code)]
     pub fn done_count(&self) -> usize {
         self.todos.values().filter(|t| t.is_done).count()
     }

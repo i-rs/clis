@@ -18,4 +18,3 @@ dirs.workspace = true
 tabled.workspace = true
 owo-colors.workspace = true
 chrono.workspace = true
-uuid.workspace = true

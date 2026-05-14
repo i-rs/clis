@@ -34,7 +34,6 @@ impl TimeEntry {
         self.end_time.is_none()
     }
 
-    #[allow(dead_code)]
     pub fn calculate_duration(&self) -> i64 {
         if let Some(end) = self.end_time {
             (end - self.start_time).num_minutes()
@@ -43,7 +42,6 @@ impl TimeEntry {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_date(&self) -> NaiveDate {
         self.start_time.date_naive()
     }
@@ -92,7 +90,6 @@ impl TimeStore {
         self.active_entry_id.as_ref().and_then(|id| self.entries.get(id))
     }
 
-    #[allow(dead_code)]
     pub fn get_active_entry_mut(&mut self) -> Option<&mut TimeEntry> {
         if let Some(ref id) = self.active_entry_id {
             self.entries.get_mut(id)
@@ -122,7 +119,6 @@ impl TimeStore {
         self.entries.values().collect()
     }
 
-    #[allow(dead_code)]
     pub fn get_completed_entries(&self) -> Vec<&TimeEntry> {
         self.entries
             .values()
@@ -130,7 +126,6 @@ impl TimeStore {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn total_minutes(&self, entries: &[&TimeEntry]) -> i64 {
         entries.iter().map(|e| e.duration_minutes).sum()
     }

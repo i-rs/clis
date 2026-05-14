@@ -17,13 +17,10 @@ pub fn add_event(store: &mut EventStore, event: Event) {
     store.events.insert(event.name.clone(), event);
 }
 
-#[allow(dead_code)]
 pub fn get_event<'a>(store: &'a EventStore, name: &str) -> Option<&'a Event> {
     store.events.get(name)
 }
 
-#[allow(dead_code)]
-#[allow(dead_code)]
 pub fn get_event_mut<'a>(store: &'a mut EventStore, name: &str) -> Option<&'a mut Event> {
     store.events.get_mut(name)
 }
@@ -32,7 +29,6 @@ pub fn remove_event(store: &mut EventStore, name: &str) -> bool {
     store.events.remove(name).is_some()
 }
 
-#[allow(dead_code)]
 pub fn filter_by_tag<'a>(store: &'a EventStore, tag: &str) -> Vec<&'a Event> {
     store
         .events
@@ -41,7 +37,6 @@ pub fn filter_by_tag<'a>(store: &'a EventStore, tag: &str) -> Vec<&'a Event> {
         .collect()
 }
 
-#[allow(dead_code)]
 pub fn filter_by_type<'a>(store: &'a EventStore, event_type: &str) -> Vec<&'a Event> {
     store
         .events

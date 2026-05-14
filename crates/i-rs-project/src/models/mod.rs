@@ -21,7 +21,7 @@ pub mod opt_ts_seconds {
         D: Deserializer<'de>,
     {
         let opt: Option<i64> = Option::deserialize(deserializer)?;
-        Ok(opt.map(|ts| DateTime::from_timestamp(ts, 0).unwrap()))
+        Ok(opt.and_then(|ts| DateTime::from_timestamp(ts, 0)))
     }
 }
 

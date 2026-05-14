@@ -26,7 +26,7 @@ pub fn water_plant(name: String, output_format: OutputFormat) -> Result<()> {
 
     match output_format {
         OutputFormat::Json => {
-            let plant = storage::find_plant(&store, &plant_name).unwrap();
+            let plant = storage::find_plant(&store, &plant_name).expect("plant existence validated above");
             println!("{}", crate::presentation::output_item(
                 &serde_json::json!({
                     "name": plant.name,

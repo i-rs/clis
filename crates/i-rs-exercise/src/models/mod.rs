@@ -35,7 +35,6 @@ impl Default for ExerciseStore {
 }
 
 impl ExerciseStore {
-    #[allow(dead_code)]
     pub fn add_record(&mut self, record: ExerciseRecord) {
         self.records.insert(record.name.clone(), record);
     }
@@ -44,22 +43,18 @@ impl ExerciseStore {
         self.records.remove(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_record(&self, name: &str) -> Option<&ExerciseRecord> {
         self.records.get(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_record_mut(&mut self, name: &str) -> Option<&mut ExerciseRecord> {
         self.records.get_mut(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_all_records(&self) -> Vec<&ExerciseRecord> {
         self.records.values().collect()
     }
 
-    #[allow(dead_code)]
     pub fn filter_by_tag(&self, tag: &str) -> Vec<&ExerciseRecord> {
         self.records
             .values()
@@ -67,7 +62,6 @@ impl ExerciseStore {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn filter_by_type(&self, exercise_type: &str) -> Vec<&ExerciseRecord> {
         self.records
             .values()
@@ -75,17 +69,14 @@ impl ExerciseStore {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn total_duration(&self) -> u64 {
         self.records.values().map(|r| r.duration_minutes as u64).sum()
     }
 
-    #[allow(dead_code)]
     pub fn total_calories(&self) -> u64 {
         self.records.values().filter_map(|r| r.calories.map(|c| c as u64)).sum()
     }
 
-    #[allow(dead_code)]
     pub fn records_count(&self) -> usize {
         self.records.len()
     }

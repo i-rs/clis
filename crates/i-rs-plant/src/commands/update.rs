@@ -45,7 +45,7 @@ pub fn update_plant(
 
     storage::save_store(&store)?;
 
-    let plant = storage::find_plant(&store, &plant_name).unwrap();
+    let plant = storage::find_plant(&store, &plant_name).expect("plant existence validated above");
 
     match output_format {
         OutputFormat::Json => {

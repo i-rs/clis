@@ -166,8 +166,8 @@ impl SleepStats {
             total_records: records.len(),
             avg_duration: total_duration / records.len() as f64,
             avg_quality: total_quality as f64 / records.len() as f64,
-            min_duration: *durations.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(),
-            max_duration: *durations.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(),
+            min_duration: *durations.iter().min_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN")).expect("non-empty records checked above"),
+            max_duration: *durations.iter().max_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN")).expect("non-empty records checked above"),
         }
     }
 }

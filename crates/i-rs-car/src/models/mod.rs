@@ -146,7 +146,6 @@ pub struct Store {
 }
 
 impl Store {
-    #[allow(dead_code)]
     pub fn add_car(&mut self, car: Car) {
         self.cars.insert(car.name.clone(), car);
     }
@@ -186,7 +185,6 @@ impl Store {
         }
     }
 
-    #[allow(dead_code)]
     pub fn delete_fuel_record(&mut self, id: &str) -> bool {
         let len_before = self.fuel_records.len();
         self.fuel_records.retain(|r| r.id != id);
@@ -212,7 +210,6 @@ impl Store {
         }
     }
 
-    #[allow(dead_code)]
     pub fn delete_maintenance_record(&mut self, id: &str) -> bool {
         let len_before = self.maintenance_records.len();
         self.maintenance_records.retain(|r| r.id != id);

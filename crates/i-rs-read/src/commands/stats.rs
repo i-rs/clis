@@ -41,7 +41,7 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
     let rated_books: Vec<&&crate::models::Book> =
         books.iter().filter(|b| b.rating.is_some()).collect();
     let avg_rating: f32 = if !rated_books.is_empty() {
-        rated_books.iter().map(|b| b.rating.unwrap()).sum::<f32>()
+        rated_books.iter().map(|b| b.rating.expect("filtered by rating.is_some() above")).sum::<f32>()
             / rated_books.len() as f32
     } else {
         0.0

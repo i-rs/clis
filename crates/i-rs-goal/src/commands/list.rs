@@ -24,7 +24,7 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> anyhow::Result<()> {
         } else {
             print_warning("No goals found.");
             if args.tag.is_some() {
-                println!("(Filtered by tag: {})", args.tag.as_ref().unwrap());
+                println!("(Filtered by tag: {})", args.tag.as_ref().expect("args.tag.is_some() checked above"));
             }
         }
         return Ok(());

@@ -38,7 +38,6 @@ impl Default for VisionStore {
 }
 
 impl VisionStore {
-    #[allow(dead_code)]
     pub fn add_record(&mut self, record: VisionRecord) {
         self.records.insert(record.date, record);
     }
@@ -47,17 +46,14 @@ impl VisionStore {
         self.records.remove(date)
     }
 
-    #[allow(dead_code)]
     pub fn get_record(&self, date: &NaiveDate) -> Option<&VisionRecord> {
         self.records.get(date)
     }
 
-    #[allow(dead_code)]
     pub fn get_record_mut(&mut self, date: &NaiveDate) -> Option<&mut VisionRecord> {
         self.records.get_mut(date)
     }
 
-    #[allow(dead_code)]
     pub fn get_recent_records(&self, days: usize) -> Vec<&VisionRecord> {
         let cutoff = Utc::now().date_naive() - chrono::Duration::days(days as i64);
         self.records
@@ -66,22 +62,18 @@ impl VisionStore {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub fn get_all_records(&self) -> Vec<&VisionRecord> {
         self.records.values().collect()
     }
 
-    #[allow(dead_code)]
     pub fn records_count(&self) -> usize {
         self.records.len()
     }
 
-    #[allow(dead_code)]
     pub fn get_latest_record(&self) -> Option<&VisionRecord> {
         self.records.values().last()
     }
 
-    #[allow(dead_code)]
     pub fn get_earliest_record(&self) -> Option<&VisionRecord> {
         self.records.values().next()
     }

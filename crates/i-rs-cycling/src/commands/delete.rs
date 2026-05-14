@@ -35,7 +35,7 @@ fn find_and_remove(store: &mut crate::models::CyclingStore, id_or_date: &str) ->
                 }
             }
             if let Some(fid) = found_id {
-                store.remove_record(&Uuid::parse_str(&fid).unwrap());
+                store.remove_record(&Uuid::parse_str(&fid).expect("stored ids are always valid UUIDs"));
                 return Ok(fid[..8].to_string());
             }
         }

@@ -67,22 +67,18 @@ impl Default for PodcastStore {
 }
 
 impl PodcastStore {
-    #[allow(dead_code)]
     pub fn add_podcast(&mut self, podcast: Podcast) {
         self.podcasts.insert(podcast.name.clone(), podcast);
     }
 
-    #[allow(dead_code)]
     pub fn remove_podcast(&mut self, name: &str) -> Option<Podcast> {
         self.podcasts.remove(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_podcast(&self, name: &str) -> Option<&Podcast> {
         self.podcasts.get(name)
     }
 
-    #[allow(dead_code)]
     pub fn get_mut_podcast(&mut self, name: &str) -> Option<&mut Podcast> {
         self.podcasts.get_mut(name)
     }
@@ -222,7 +218,6 @@ fn format_status(status: &PodcastStatus) -> String {
     }
 }
 
-#[allow(dead_code)]
 pub trait HasTags {
     fn get_tags(&self) -> &[String];
     fn has_tag(&self, tag: &str) -> bool {
@@ -230,7 +225,6 @@ pub trait HasTags {
     }
 }
 
-#[allow(dead_code)]
 impl HasTags for Podcast {
     fn get_tags(&self) -> &[String] {
         &self.tags

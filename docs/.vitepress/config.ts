@@ -22,6 +22,16 @@ export default defineConfig({
         collapsed: false,
         items: [
           {
+            text: 'i-rs-core',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-core/' },
+              { text: 'Usage', link: '/crates/i-rs-core/usage' },
+              { text: 'Examples', link: '/crates/i-rs-core/examples' },
+              { text: 'Test', link: '/crates/i-rs-core/test' }
+            ]
+          },
+          {
             text: 'i-rs-server',
             collapsed: true,
             items: [
@@ -69,6 +79,16 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-todo/usage' },
               { text: 'Examples', link: '/crates/i-rs-todo/examples' },
               { text: 'Test', link: '/crates/i-rs-todo/test' }
+            ]
+          },
+          {
+            text: 'i-rs-deploy',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-deploy/' },
+              { text: 'Usage', link: '/crates/i-rs-deploy/usage' },
+              { text: 'Examples', link: '/crates/i-rs-deploy/examples' },
+              { text: 'Test', link: '/crates/i-rs-deploy/test' }
             ]
           }
         ]
@@ -228,6 +248,16 @@ export default defineConfig({
             ]
           },
           {
+            text: 'i-rs-run',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-run/' },
+              { text: 'Usage', link: '/crates/i-rs-run/usage' },
+              { text: 'Examples', link: '/crates/i-rs-run/examples' },
+              { text: 'Test', link: '/crates/i-rs-run/test' }
+            ]
+          },
+          {
             text: 'i-rs-vision',
             collapsed: true,
             items: [
@@ -367,6 +397,16 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-tax/usage' },
               { text: 'Examples', link: '/crates/i-rs-tax/examples' },
               { text: 'Test', link: '/crates/i-rs-tax/test' }
+            ]
+          },
+          {
+            text: 'i-rs-goal',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-goal/' },
+              { text: 'Usage', link: '/crates/i-rs-goal/usage' },
+              { text: 'Examples', link: '/crates/i-rs-goal/examples' },
+              { text: 'Test', link: '/crates/i-rs-goal/test' }
             ]
           }
         ]

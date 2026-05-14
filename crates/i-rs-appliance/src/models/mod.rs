@@ -70,7 +70,6 @@ impl ApplianceStore {
         self.appliances.insert(appliance.id.clone(), appliance);
     }
 
-    #[allow(dead_code)]
     pub fn remove_appliance(&mut self, id: &str) -> Option<Appliance> {
         self.appliances.remove(id)
     }
@@ -80,12 +79,10 @@ impl ApplianceStore {
         key.and_then(|k| self.appliances.remove(&k))
     }
 
-    #[allow(dead_code)]
     pub fn get_appliance(&self, id: &str) -> Option<&Appliance> {
         self.appliances.get(id)
     }
 
-    #[allow(dead_code)]
     pub fn get_appliance_mut(&mut self, id: &str) -> Option<&mut Appliance> {
         self.appliances.get_mut(id)
     }
@@ -161,7 +158,6 @@ impl ApplianceRow {
 }
 
 #[derive(Tabled)]
-#[allow(dead_code)]
 pub struct MaintenanceRow {
     #[tabled(rename = "DATE")]
     date: String,
@@ -169,7 +165,6 @@ pub struct MaintenanceRow {
     description: String,
 }
 
-#[allow(dead_code)]
 impl MaintenanceRow {
     pub fn from_record(record: &MaintenanceRecord) -> Self {
         Self {

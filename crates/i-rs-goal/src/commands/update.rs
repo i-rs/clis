@@ -38,7 +38,7 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> anyhow::Result<(
             if let Some(deadline_str) = args.deadline {
                 let naive = chrono::NaiveDate::parse_from_str(&deadline_str, "%Y-%m-%d")
                     .map_err(|_| anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", deadline_str))?;
-                goal.deadline = Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).unwrap());
+                goal.deadline = Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"));
             }
             
             if let Some(tags) = args.tags {
