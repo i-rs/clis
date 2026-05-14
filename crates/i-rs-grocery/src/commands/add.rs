@@ -1,0 +1,22 @@
+use crate::presentation::{print_error, print_success, print_header};
+use crate::storage;
+use owo_colors::OwoColorize;
+
+pub fn handle_add(name: String, quantity: i32, unit: String, tags: Vec<String>, remark: Vec<String>) -> anyhow::Result<()> {
+    let mut store = storage::load_store()?;
+
+    if store.get_entry(&name).is_some() {
+        print_error(&format!("Item '{}' already exists", name));
+        anyhow::bail!("Item '{}' already exists", name);
+    }
+
+    let item = storage::add_item(&mut store, name.clone(), quantity, unit, tags, remark)?;
+    storage::save_store(&store)?;
+
+    print_header("Grocery Item Added");
+    println!("{} {}", "Name:".style(owo_colors::Style::new().bold()), name);
+    println!("{} {} {}", "Quantity:".style(owo_colors::Style::new().bold()), item.quantity, item.unit);
+    print_success(&format!("Item '{}' added to grocery list", name));
+
+    Ok(())
+}

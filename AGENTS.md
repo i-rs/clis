@@ -51,6 +51,8 @@ i-rs-clis/
 | i-rs-allergy | Allergy tracking | - |
 | i-rs-cal | Calorie estimation | - |
 | i-rs-fast | Fasting tracking | - |
+| i-rs-habit | Habit tracking | checkin, streak |
+| i-rs-sleep | Sleep tracking | stats |
 | i-rs-sub | Subscription tracking | - |
 | i-rs-bestby | Best-by date tracking | - |
 | i-rs-ledger | Accounting | - |
@@ -59,6 +61,7 @@ i-rs-clis/
 | i-rs-keys | API key management | - |
 | i-rs-meal | Meal tracking | - |
 | i-rs-pig | Craving tracking | - |
+| i-rs-grocery | Grocery list | purchase, clear |
 | i-rs-tick | Duration tracking | - |
 | i-rs-spark | Inspiration capture | - |
 | i-rs-want | Wish list | - |

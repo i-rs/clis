@@ -176,6 +176,26 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-fast/examples' },
               { text: 'Test', link: '/crates/i-rs-fast/test' }
             ]
+          },
+          {
+            text: 'i-rs-habit',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-habit/' },
+              { text: 'Usage', link: '/crates/i-rs-habit/usage' },
+              { text: 'Examples', link: '/crates/i-rs-habit/examples' },
+              { text: 'Test', link: '/crates/i-rs-habit/test' }
+            ]
+          },
+          {
+            text: 'i-rs-sleep',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-sleep/' },
+              { text: 'Usage', link: '/crates/i-rs-sleep/usage' },
+              { text: 'Examples', link: '/crates/i-rs-sleep/examples' },
+              { text: 'Test', link: '/crates/i-rs-sleep/test' }
+            ]
           }
         ]
       },
@@ -293,6 +313,16 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-pig/usage' },
               { text: 'Examples', link: '/crates/i-rs-pig/examples' },
               { text: 'Test', link: '/crates/i-rs-pig/test' }
+            ]
+          },
+          {
+            text: 'i-rs-grocery',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-grocery/' },
+              { text: 'Usage', link: '/crates/i-rs-grocery/usage' },
+              { text: 'Examples', link: '/crates/i-rs-grocery/examples' },
+              { text: 'Test', link: '/crates/i-rs-grocery/test' }
             ]
           }
         ]

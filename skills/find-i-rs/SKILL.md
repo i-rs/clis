@@ -16,7 +16,7 @@ When you receive a task that might involve an i-rs CLI tool, follow this decisio
 3. **Load the recommended skill** via the `skill` tool
 4. **Follow that skill's instructions** to implement the solution
 
-## Routing Table (38 Tools)
+## Routing Table (41 Tools)
 
 ### Core Tools
 | User wants to... | Keywords | Tool | Skill |
@@ -40,6 +40,8 @@ When you receive a task that might involve an i-rs CLI tool, follow this decisio
 | Track allergy attacks, symptoms | allergy, attack, symptom, reaction | `i-rs-allergy` | `skills/i-rs-allergy/SKILL.md` |
 | Track calorie intake, food calories | cal, calorie, food, diet, nutrition | `i-rs-cal` | `skills/i-rs-cal/SKILL.md` |
 | Track fasting periods, intermittent fast | fast, fasting, intermittent, diet | `i-rs-fast` | `skills/i-rs-fast/SKILL.md` |
+| Track habits, daily routines, streaks | habit, routine, streak, daily, checkin | `i-rs-habit` | `skills/i-rs-habit/SKILL.md` |
+| Track sleep patterns, duration, quality | sleep, bedtime, wake, rest, quality | `i-rs-sleep` | `skills/i-rs-sleep/SKILL.md` |
 
 ### Reminders & Expiry
 | User wants to... | Keywords | Tool | Skill |
@@ -62,6 +64,7 @@ When you receive a task that might involve an i-rs CLI tool, follow this decisio
 |---|---|---|---|
 | Track meals, breakfast/lunch/dinner | meal, food, eat, breakfast, lunch, dinner | `i-rs-meal` | `skills/i-rs-meal/SKILL.md` |
 | Track cravings, junk food, snack attacks | pig, crave, junk food, snack, binge | `i-rs-pig` | `skills/i-rs-pig/SKILL.md` |
+| Manage grocery shopping list | grocery, shopping list, food list, purchase | `i-rs-grocery` | `skills/i-rs-grocery/SKILL.md` |
 
 ### Time & Productivity
 | User wants to... | Keywords | Tool | Skill |
@@ -126,8 +129,9 @@ server, ssh, password, credential, bookmark, url, link,
 note, todo, domain, dns, remind, reminder, weight, bmi,
 health, mood, water, step, dose, medicine, pill,
 cycle, period, sit, sedentary, allergy, cal, calorie,
-fast, fasting, sub, subscription, renew, bestby,
-purchase, ledger, accounting, money, recur, kv, keys,
+fast, fasting, habit, routine, streak, sleep, bedtime,
+sub, subscription, renew, bestby,
+purchase, grocery, shopping list, ledger, accounting, money, recur, kv, keys,
 api key, meal, food, pig, crave, tick, time, spark,
 idea, want, wish, sheet, bedsheet, toothbrush, towel,
 bed, mattress, ac, filter, purify, feedpet, pet,
