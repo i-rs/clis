@@ -11,6 +11,11 @@ members = [
     "crates/i-rs-weight",
     "crates/i-rs-mood",
     "crates/i-rs-todo",
+    "crates/i-rs-bestby",
+    "crates/i-rs-kv",
+    "crates/i-rs-recur",
+    "crates/i-rs-ledger",
+    "crates/i-rs-keys",
 ]
 
 [workspace.package]
@@ -34,6 +39,7 @@ keyring-core = "1.0.0"
 tabled = { version = "0.20.0", features = ["ansi"] }
 owo-colors = "4.3.0"
 chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4"] }
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.31.0"
