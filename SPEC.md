@@ -360,10 +360,55 @@ use crate::models::XxxStore;
 i_rs_core::create_store!(XxxStore, "xxx");
 ```
 
-### 6.4 commands/skill.rs 模板
+`create_store!` 宏会生成以下函数：
+- `load_store()` — 从磁盘加载数据
+- `save_store()` — 保存数据到磁盘
+- `export_data()` — 导出全部数据为 JSON 字符串
+- `import_data(input)` — 从 JSON 字符串导入数据
+- `clear_data()` — 清空所有数据（重置为默认值）
+
+### 6.4 commands/data.rs 模板
+
+```rust
+use clap::Subcommand;
+use std::io::Read;
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum DataCommand {
+    Export,
+    Import { file: Option<String> },
+    Clear,
+}
+
+pub fn handle(command: &DataCommand) -> anyhow::Result<()> {
+    match command {
+        DataCommand::Export => { ... },
+        DataCommand::Import { file } => { ... },
+        DataCommand::Clear => { ... },
+    }
+}
+```
+
+### 6.5 commands/skill.rs 模板
 
 ```rust
 i_rs_core::skill_command!("i-rs-xxx");
+```
+
+### 6.6 Data 命令（通用子命令）
+
+每个 crate 统一支持:
+
+```bash
+# 导出全部数据为 JSON
+i-rs-xxx data export
+
+# 从文件或 stdin 导入数据（覆盖式导入）
+i-rs-xxx data import < backup.json
+i-rs-xxx data import /path/to/file.json
+
+# 清空所有数据
+i-rs-xxx data clear
 ```
 
 ## 7. JSON输出规范
