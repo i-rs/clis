@@ -7,7 +7,7 @@
 .env.local
 node_modules/
 docs/.vitepress/dist/
-docs/.vitepress/cache//.sisyphus
+docs/.vitepress/cache/
 
 /.sisyphus
 /.sisyphus
