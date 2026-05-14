@@ -27,7 +27,7 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
     let mut total = 0;
 
     for word_key in word_keys {
-        let word = match store.get_word(&word_key) {
+        let word = match store.get_entry(&word_key) {
             Some(w) => w,
             None => continue,
         };
@@ -67,7 +67,7 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
             }
         }
 
-        if let Some(updated_word) = store.get_word_mut(&word_key) {
+        if let Some(updated_word) = store.get_entry_mut(&word_key) {
             updated_word.review_count += 1;
             updated_word.updated_at = Utc::now();
             if updated_word.review_count >= 5 && updated_word.status == crate::models::VocabStatus::Learning {

@@ -19,7 +19,7 @@ pub fn handle_update(
     let word_lower = word_key.to_lowercase();
 
     let word_name = {
-        match store.get_word(&word_lower) {
+        match store.get_entry(&word_lower) {
             Some(v) => v.word.clone(),
             None => {
                 anyhow::bail!("Word '{}' not found", word_key);
@@ -28,7 +28,7 @@ pub fn handle_update(
     };
 
     let (updated_word_name, updated_review_count) = {
-        let vocab = match store.get_word_mut(&word_lower) {
+        let vocab = match store.get_entry_mut(&word_lower) {
             Some(v) => v,
             None => {
                 anyhow::bail!("Word '{}' not found", word_key);

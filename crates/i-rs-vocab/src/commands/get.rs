@@ -7,7 +7,7 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let word = match storage::get_word(&store, &word_key) {
+    let word = match storage::get_entry(&store, &word_key) {
         Some(w) => w,
         None => {
             let msg = format!("Word '{}' not found", word_key);

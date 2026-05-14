@@ -51,7 +51,7 @@ pub fn handle_get(id_or_date: String, format: OutputFormat) -> Result<()> {
 
 fn find_record<'a>(store: &'a crate::models::CyclingStore, id_or_date: &str) -> Result<&'a CyclingRecord> {
     if let Ok(uuid) = Uuid::parse_str(id_or_date) {
-        if let Some(record) = store.get_record(&uuid) {
+        if let Some(record) = store.get_entry(&uuid) {
             return Ok(record);
         }
     }

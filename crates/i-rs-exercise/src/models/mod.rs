@@ -35,19 +35,19 @@ impl Default for ExerciseStore {
 }
 
 impl ExerciseStore {
-    pub fn add_record(&mut self, record: ExerciseRecord) {
+    pub fn add_entry(&mut self, record: ExerciseRecord) {
         self.records.insert(record.name.clone(), record);
     }
 
-    pub fn remove_record(&mut self, name: &str) -> Option<ExerciseRecord> {
+    pub fn remove_entry(&mut self, name: &str) -> Option<ExerciseRecord> {
         self.records.remove(name)
     }
 
-    pub fn get_record(&self, name: &str) -> Option<&ExerciseRecord> {
+    pub fn get_entry(&self, name: &str) -> Option<&ExerciseRecord> {
         self.records.get(name)
     }
 
-    pub fn get_record_mut(&mut self, name: &str) -> Option<&mut ExerciseRecord> {
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut ExerciseRecord> {
         self.records.get_mut(name)
     }
 

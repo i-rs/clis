@@ -27,15 +27,15 @@ impl Default for WeightStore {
 }
 
 impl WeightStore {
-    pub fn add_record(&mut self, record: WeightRecord) {
+    pub fn add_entry(&mut self, record: WeightRecord) {
         self.records.insert(record.date, record);
     }
 
-    pub fn remove_record(&mut self, date: &NaiveDate) -> Option<WeightRecord> {
+    pub fn remove_entry(&mut self, date: &NaiveDate) -> Option<WeightRecord> {
         self.records.remove(date)
     }
 
-    pub fn get_record_mut(&mut self, date: &NaiveDate) -> Option<&mut WeightRecord> {
+    pub fn get_entry_mut(&mut self, date: &NaiveDate) -> Option<&mut WeightRecord> {
         self.records.get_mut(date)
     }
 }

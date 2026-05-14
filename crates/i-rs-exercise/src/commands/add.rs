@@ -38,7 +38,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_record(record);
+    store.add_entry(record);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Exercise '{}' added", name.green()));

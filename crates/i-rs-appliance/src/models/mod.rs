@@ -66,11 +66,11 @@ impl Default for ApplianceStore {
 }
 
 impl ApplianceStore {
-    pub fn add_appliance(&mut self, appliance: Appliance) {
+    pub fn add_entry(&mut self, appliance: Appliance) {
         self.appliances.insert(appliance.id.clone(), appliance);
     }
 
-    pub fn remove_appliance(&mut self, id: &str) -> Option<Appliance> {
+    pub fn remove_entry(&mut self, id: &str) -> Option<Appliance> {
         self.appliances.remove(id)
     }
 
@@ -79,11 +79,11 @@ impl ApplianceStore {
         key.and_then(|k| self.appliances.remove(&k))
     }
 
-    pub fn get_appliance(&self, id: &str) -> Option<&Appliance> {
+    pub fn get_entry(&self, id: &str) -> Option<&Appliance> {
         self.appliances.get(id)
     }
 
-    pub fn get_appliance_mut(&mut self, id: &str) -> Option<&mut Appliance> {
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut Appliance> {
         self.appliances.get_mut(id)
     }
 

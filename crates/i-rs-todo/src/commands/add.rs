@@ -35,7 +35,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_todo(todo);
+    store.add_entry(todo);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Todo '{}' added successfully", name.green()));

@@ -51,7 +51,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_movie(movie);
+    store.add_entry(movie);
     storage::save_store(&store)?;
 
     if matches!(output_format, OutputFormat::Json) {

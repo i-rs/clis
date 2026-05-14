@@ -8,7 +8,7 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let todo = match store.get_todo(&name) {
+    let todo = match store.get_entry(&name) {
         Some(t) => t,
         None => {
             let msg = format!("Todo '{}' not found", name);

@@ -25,7 +25,7 @@ pub fn handle_add(
         remark,
     };
 
-    store.add_record(record);
+    store.add_entry(record);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Weight record added: {} kg", weight.green()));

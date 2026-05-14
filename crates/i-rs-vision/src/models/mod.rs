@@ -38,19 +38,19 @@ impl Default for VisionStore {
 }
 
 impl VisionStore {
-    pub fn add_record(&mut self, record: VisionRecord) {
+    pub fn add_entry(&mut self, record: VisionRecord) {
         self.records.insert(record.date, record);
     }
 
-    pub fn remove_record(&mut self, date: &NaiveDate) -> Option<VisionRecord> {
+    pub fn remove_entry(&mut self, date: &NaiveDate) -> Option<VisionRecord> {
         self.records.remove(date)
     }
 
-    pub fn get_record(&self, date: &NaiveDate) -> Option<&VisionRecord> {
+    pub fn get_entry(&self, date: &NaiveDate) -> Option<&VisionRecord> {
         self.records.get(date)
     }
 
-    pub fn get_record_mut(&mut self, date: &NaiveDate) -> Option<&mut VisionRecord> {
+    pub fn get_entry_mut(&mut self, date: &NaiveDate) -> Option<&mut VisionRecord> {
         self.records.get_mut(date)
     }
 

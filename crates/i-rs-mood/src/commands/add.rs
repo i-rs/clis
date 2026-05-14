@@ -33,7 +33,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_record(record);
+    store.add_entry(record);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Mood record added: {} {}", mood_obj, mood_obj.label().green()));

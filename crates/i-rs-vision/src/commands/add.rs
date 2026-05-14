@@ -42,7 +42,7 @@ pub fn handle_add(
         created_at: Utc::now(),
     };
 
-    store.add_record(record);
+    store.add_entry(record);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Vision record added for {}", date.green()));

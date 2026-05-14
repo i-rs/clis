@@ -67,19 +67,19 @@ impl Default for PodcastStore {
 }
 
 impl PodcastStore {
-    pub fn add_podcast(&mut self, podcast: Podcast) {
+    pub fn add_entry(&mut self, podcast: Podcast) {
         self.podcasts.insert(podcast.name.clone(), podcast);
     }
 
-    pub fn remove_podcast(&mut self, name: &str) -> Option<Podcast> {
+    pub fn remove_entry(&mut self, name: &str) -> Option<Podcast> {
         self.podcasts.remove(name)
     }
 
-    pub fn get_podcast(&self, name: &str) -> Option<&Podcast> {
+    pub fn get_entry(&self, name: &str) -> Option<&Podcast> {
         self.podcasts.get(name)
     }
 
-    pub fn get_mut_podcast(&mut self, name: &str) -> Option<&mut Podcast> {
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Podcast> {
         self.podcasts.get_mut(name)
     }
 

@@ -34,7 +34,7 @@ pub fn handle_add(
     };
 
     let mut store = storage::load_store()?;
-    store.add_record(record);
+    store.add_entry(record);
     storage::save_store(&store)?;
 
     print_success(&format!(

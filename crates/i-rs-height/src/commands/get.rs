@@ -9,7 +9,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
 
     let store = storage::load_store()?;
 
-    let record = match store.get_record(&date) {
+    let record = match store.get_entry(&date) {
         Some(r) => r,
         None => {
             anyhow::bail!("No record found for {}", date);

@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    if let Some(record) = store.get_record(&id) {
+    if let Some(record) = store.get_entry(&id) {
         if matches!(format, OutputFormat::Json) {
             #[derive(serde::Serialize, Clone)]
             struct RecordItem {

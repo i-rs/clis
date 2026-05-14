@@ -53,19 +53,19 @@ impl Default for RunStore {
 }
 
 impl RunStore {
-    pub fn add_record(&mut self, record: RunRecord) {
+    pub fn add_entry(&mut self, record: RunRecord) {
         self.records.insert(record.id.clone(), record);
     }
 
-    pub fn remove_record(&mut self, id: &str) -> Option<RunRecord> {
+    pub fn remove_entry(&mut self, id: &str) -> Option<RunRecord> {
         self.records.remove(id)
     }
 
-    pub fn get_record(&self, id: &str) -> Option<&RunRecord> {
+    pub fn get_entry(&self, id: &str) -> Option<&RunRecord> {
         self.records.get(id)
     }
 
-    pub fn get_record_mut(&mut self, id: &str) -> Option<&mut RunRecord> {
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut RunRecord> {
         self.records.get_mut(id)
     }
 

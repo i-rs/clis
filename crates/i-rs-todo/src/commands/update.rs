@@ -14,7 +14,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let todo = match store.get_todo_mut(&name) {
+    let todo = match store.get_entry_mut(&name) {
         Some(t) => t,
         None => {
             anyhow::bail!("Todo '{}' not found", name);

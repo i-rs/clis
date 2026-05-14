@@ -82,15 +82,15 @@ impl Default for MoodStore {
 }
 
 impl MoodStore {
-    pub fn add_record(&mut self, record: MoodRecord) {
+    pub fn add_entry(&mut self, record: MoodRecord) {
         self.records.insert(record.date, record);
     }
 
-    pub fn remove_record(&mut self, date: &NaiveDate) -> Option<MoodRecord> {
+    pub fn remove_entry(&mut self, date: &NaiveDate) -> Option<MoodRecord> {
         self.records.remove(date)
     }
 
-    pub fn get_record(&self, date: &NaiveDate) -> Option<&MoodRecord> {
+    pub fn get_entry(&self, date: &NaiveDate) -> Option<&MoodRecord> {
         self.records.get(date)
     }
 

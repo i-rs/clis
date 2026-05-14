@@ -76,19 +76,19 @@ impl Default for TodoStore {
 }
 
 impl TodoStore {
-    pub fn add_todo(&mut self, todo: Todo) {
+    pub fn add_entry(&mut self, todo: Todo) {
         self.todos.insert(todo.name.clone(), todo);
     }
 
-    pub fn remove_todo(&mut self, name: &str) -> Option<Todo> {
+    pub fn remove_entry(&mut self, name: &str) -> Option<Todo> {
         self.todos.remove(name)
     }
 
-    pub fn get_todo(&self, name: &str) -> Option<&Todo> {
+    pub fn get_entry(&self, name: &str) -> Option<&Todo> {
         self.todos.get(name)
     }
 
-    pub fn get_todo_mut(&mut self, name: &str) -> Option<&mut Todo> {
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Todo> {
         self.todos.get_mut(name)
     }
 

@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 pub fn handle_delete(id: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    if store.remove_record(&id).is_none() {
+    if store.remove_entry(&id).is_none() {
         anyhow::bail!("No record found with ID: {}", id);
     }
 

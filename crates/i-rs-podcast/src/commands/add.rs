@@ -39,7 +39,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_podcast(podcast);
+    store.add_entry(podcast);
     storage::save_store(&store)?;
 
     if matches!(output_format, OutputFormat::Json) {

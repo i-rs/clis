@@ -79,19 +79,19 @@ impl Default for VocabStore {
 }
 
 impl VocabStore {
-    pub fn add_word(&mut self, word: VocabWord) {
+    pub fn add_entry(&mut self, word: VocabWord) {
         self.words.insert(word.word.clone(), word);
     }
 
-    pub fn remove_word(&mut self, word_key: &str) -> Option<VocabWord> {
+    pub fn remove_entry(&mut self, word_key: &str) -> Option<VocabWord> {
         self.words.remove(word_key)
     }
 
-    pub fn get_word(&self, word_key: &str) -> Option<&VocabWord> {
+    pub fn get_entry(&self, word_key: &str) -> Option<&VocabWord> {
         self.words.get(word_key)
     }
 
-    pub fn get_word_mut(&mut self, word_key: &str) -> Option<&mut VocabWord> {
+    pub fn get_entry_mut(&mut self, word_key: &str) -> Option<&mut VocabWord> {
         self.words.get_mut(word_key)
     }
 

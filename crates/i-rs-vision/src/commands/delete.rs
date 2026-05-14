@@ -9,7 +9,7 @@ pub fn handle_delete(date: String) -> Result<()> {
 
     let mut store = storage::load_store()?;
 
-    if store.remove_record(&date).is_none() {
+    if store.remove_entry(&date).is_none() {
         anyhow::bail!("No record found for {}", date);
     }
 

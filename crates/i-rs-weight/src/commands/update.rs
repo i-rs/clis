@@ -13,7 +13,7 @@ pub fn handle_update(
 
     let mut store = storage::load_store()?;
 
-    let record = match store.get_record_mut(&date) {
+    let record = match store.get_entry_mut(&date) {
         Some(r) => r,
         None => {
             anyhow::bail!("No record found for {}", date);

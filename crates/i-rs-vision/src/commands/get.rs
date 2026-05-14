@@ -8,7 +8,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
 
     let store = storage::load_store()?;
 
-    match store.get_record(&date) {
+    match store.get_entry(&date) {
         Some(record) => {
             #[derive(serde::Serialize)]
             struct VisionItem {

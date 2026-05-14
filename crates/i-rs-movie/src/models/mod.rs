@@ -34,19 +34,19 @@ impl Default for MovieStore {
 }
 
 impl MovieStore {
-    pub fn add_movie(&mut self, movie: Movie) {
+    pub fn add_entry(&mut self, movie: Movie) {
         self.movies.insert(movie.name.clone(), movie);
     }
 
-    pub fn remove_movie(&mut self, name: &str) -> Option<Movie> {
+    pub fn remove_entry(&mut self, name: &str) -> Option<Movie> {
         self.movies.remove(name)
     }
 
-    pub fn get_movie(&self, name: &str) -> Option<&Movie> {
+    pub fn get_entry(&self, name: &str) -> Option<&Movie> {
         self.movies.get(name)
     }
 
-    pub fn get_mut_movie(&mut self, name: &str) -> Option<&mut Movie> {
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Movie> {
         self.movies.get_mut(name)
     }
 

@@ -17,7 +17,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let record = match store.get_record_mut(&id) {
+    let record = match store.get_entry_mut(&id) {
         Some(r) => r,
         None => anyhow::bail!("Record '{}' not found", id),
     };

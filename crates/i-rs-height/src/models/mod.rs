@@ -34,15 +34,15 @@ impl Default for HeightStore {
 }
 
 impl HeightStore {
-    pub fn add_record(&mut self, record: HeightRecord) {
+    pub fn add_entry(&mut self, record: HeightRecord) {
         self.records.insert(record.date, record);
     }
 
-    pub fn get_record(&self, date: &NaiveDate) -> Option<&HeightRecord> {
+    pub fn get_entry(&self, date: &NaiveDate) -> Option<&HeightRecord> {
         self.records.get(date)
     }
 
-    pub fn remove_record(&mut self, date: &NaiveDate) -> Option<HeightRecord> {
+    pub fn remove_entry(&mut self, date: &NaiveDate) -> Option<HeightRecord> {
         self.records.remove(date)
     }
 

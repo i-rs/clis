@@ -40,7 +40,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_appliance(appliance);
+    store.add_entry(appliance);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Appliance added: {}", appliance_name.green()));

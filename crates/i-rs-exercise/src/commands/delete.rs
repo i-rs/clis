@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    if store.remove_record(&name).is_none() {
+    if store.remove_entry(&name).is_none() {
         anyhow::bail!("Exercise '{}' not found", name);
     }
 

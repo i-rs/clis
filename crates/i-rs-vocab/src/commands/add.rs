@@ -38,7 +38,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    store.add_word(vocab_word);
+    store.add_entry(vocab_word);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Word added: {}", word.green()));

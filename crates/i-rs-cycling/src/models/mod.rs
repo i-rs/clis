@@ -81,19 +81,19 @@ impl Default for CyclingStore {
 }
 
 impl CyclingStore {
-    pub fn add_record(&mut self, record: CyclingRecord) {
+    pub fn add_entry(&mut self, record: CyclingRecord) {
         self.records.insert(record.id, record);
     }
 
-    pub fn remove_record(&mut self, id: &Uuid) -> Option<CyclingRecord> {
+    pub fn remove_entry(&mut self, id: &Uuid) -> Option<CyclingRecord> {
         self.records.remove(id)
     }
 
-    pub fn get_record(&self, id: &Uuid) -> Option<&CyclingRecord> {
+    pub fn get_entry(&self, id: &Uuid) -> Option<&CyclingRecord> {
         self.records.get(id)
     }
 
-    pub fn get_record_mut(&mut self, id: &Uuid) -> Option<&mut CyclingRecord> {
+    pub fn get_entry_mut(&mut self, id: &Uuid) -> Option<&mut CyclingRecord> {
         self.records.get_mut(id)
     }
 

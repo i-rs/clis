@@ -19,7 +19,7 @@ pub fn handle_delete(id_or_date: String) -> Result<()> {
 
 fn find_and_remove(store: &mut crate::models::CyclingStore, id_or_date: &str) -> Result<String, anyhow::Error> {
     if let Ok(uuid) = Uuid::parse_str(id_or_date) {
-        if store.remove_record(&uuid).is_some() {
+        if store.remove_entry(&uuid).is_some() {
             return Ok(id_or_date.to_string());
         }
     }
@@ -35,7 +35,7 @@ fn find_and_remove(store: &mut crate::models::CyclingStore, id_or_date: &str) ->
                 }
             }
             if let Some(fid) = found_id {
-                store.remove_record(&Uuid::parse_str(&fid).expect("stored ids are always valid UUIDs"));
+                store.remove_entry(&Uuid::parse_str(&fid).expect("stored ids are always valid UUIDs"));
                 return Ok(fid[..8].to_string());
             }
         }

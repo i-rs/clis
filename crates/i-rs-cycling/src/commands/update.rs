@@ -34,7 +34,7 @@ pub fn handle_update(
     }
 
     let (distance_km, duration_minutes, avg_speed) = {
-        let record = match store.get_record_mut(&record_id) {
+        let record = match store.get_entry_mut(&record_id) {
             Some(r) => r,
             None => {
                 anyhow::bail!("Record '{}' not found", id_or_date);
@@ -98,7 +98,7 @@ pub fn handle_update(
 
 fn find_record_id(store: &crate::models::CyclingStore, id_or_date: &str) -> Result<Uuid, anyhow::Error> {
     if let Ok(uuid) = Uuid::parse_str(id_or_date) {
-        if store.get_record(&uuid).is_some() {
+        if store.get_entry(&uuid).is_some() {
             return Ok(uuid);
         }
     }

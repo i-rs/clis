@@ -27,7 +27,7 @@ pub fn handle_add(
     let record = CyclingRecord::new(date, distance, duration, elevation, route, tags, remark);
 
     let mut store = storage::load_store()?;
-    store.add_record(record.clone());
+    store.add_entry(record.clone());
     storage::save_store(&store)?;
 
     print_success(&format!(
