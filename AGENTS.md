@@ -2,7 +2,30 @@
 
 ## Project Overview
 
-Rust monorepo with 9 cross-platform CLI tools for personal data management.
+Rust monorepo with 9 cross-platform CLI tools for personal data management, plus 1 shared core library.
+
+## Project Structure
+
+```
+i-rs-clis/
+├── crates/
+│   ├── i-rs-core/          # Shared core library
+│   ├── i-rs-server/        # Server management
+│   ├── i-rs-password/       # Password management
+│   ├── i-rs-bookmark/      # Bookmark management
+│   ├── i-rs-note/          # Note management
+│   ├── i-rs-domain/         # Domain expiry tracking
+│   ├── i-rs-remind/         # Event reminders
+│   ├── i-rs-weight/         # Weight tracking
+│   ├── i-rs-mood/           # Mood tracking
+│   └── i-rs-todo/           # Todo tracking
+├── docs/                    # VitePress documentation
+├── skills/                  # AI skill documents
+├── Cargo.toml              # Workspace config
+├── README.md
+├── SPEC.md                 # Detailed specifications
+└── AGENTS.md              # This file
+```
 
 ## Tools (9 Total)
 
@@ -32,19 +55,53 @@ cargo run -p i-rs-mood -- --help
 
 # Test specific crate
 cargo test -p i-rs-mood
+
+# Check for warnings
+cargo check
+```
+
+## i-rs-core Shared Library
+
+The `i-rs-core` crate provides shared functionality for all CLI tools:
+
+```
+crates/i-rs-core/src/
+├── lib.rs                    # Public API exports
+├── storage/                  # Generic Storage<T> for JSON persistence
+├── presentation/             # Output formatting
+│   ├── mod.rs              # print_error/success/header/warning + OutputFormat
+│   └── output.rs           # JSON output formatting
+└── utils/
+    ├── date.rs             # parse_date()
+    └── validation.rs       # validate_name/validate_url/validate_weight
+```
+
+### i-rs-core Exports
+
+```rust
+// Storage
+pub use i_rs_core::storage::{Storage, filter_by_tag, HasTags};
+
+// Presentation
+pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
+
+// Utils
+pub use i_rs_core::utils::parse_date;
+pub use i_rs_core::utils::validation::{validate_name, validate_url, validate_weight, ValidationError};
 ```
 
 ## Crate Structure
 
-Each crate follows this pattern:
+Each CLI crate follows this pattern:
 ```
 crates/i-rs-{name}/
 ├── src/
-│   ├── main.rs           # CLI entry point (clap)
+│   ├── main.rs           # CLI entry point (clap) + --json global flag
 │   ├── commands/         # add, delete, get, list, update, example, skill, [special]
 │   ├── models/           # Data structs with serde + tabled
-│   ├── storage/          # keyring + JSON file
-│   └── presentation/     # tabled output, colors, charts, output (JSON formatting)
+│   ├── storage/          # keyring + JSON file (uses i-rs-core Storage)
+│   └── presentation/     # tabled output, colors, charts
 ├── Cargo.toml
 └── README.md
 ```
@@ -52,6 +109,7 @@ crates/i-rs-{name}/
 ## Key Conventions
 
 - **Workspace deps**: All dependencies defined in root `Cargo.toml`, crates use `.workspace = true`
+- **i-rs-core dependency**: All crates depend on `i-rs-core = { path = "../i-rs-core" }`
 - **Passwords**: Always store in OS keychain (keyring crate), NEVER in JSON config
 - **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR` env var)
 - **Date handling**: chrono with `ts_seconds` serde format
@@ -71,31 +129,60 @@ mkdir -p docs/crates/i-rs-{name}
 mkdir -p skills/i-rs-{name}
 ```
 
-2. **Create files** (see SPEC.md for details):
-   - `Cargo.toml` with workspace dependencies
+2. **Create Cargo.toml** (depends on i-rs-core)
+```toml
+[package]
+name = "i-rs-{name}"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+i-rs-core = { path = "../i-rs-core" }
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dirs.workspace = true
+keyring.workspace = true     # if storing passwords
+keyring-core.workspace = true
+tabled.workspace = true
+owo-colors.workspace = true
+chrono.workspace = true
+```
+
+3. **Create files** (see SPEC.md for details):
    - `src/models/mod.rs` - Entity struct + Row struct (Tabled)
-   - `src/storage/mod.rs` - JSON persistence + keyring
-   - `src/presentation/mod.rs` - Table formatting
-   - `src/presentation/output.rs` - JSON output formatting
+   - `src/storage/mod.rs` - JSON persistence (uses i-rs-core Storage) + keyring
+   - `src/presentation/mod.rs` - Table formatting + count printing
    - `src/commands/*.rs` - Command handlers (add, delete, get, list, update, example, skill)
    - `src/main.rs` - CLI parsing with --json global flag
 
-3. **Update configs**:
-   - Add to `Cargo.toml` workspace members
+4. **Update workspace Cargo.toml**:
+   ```toml
+   [workspace]
+   members = [
+       "crates/i-rs-core",
+       "crates/i-rs-{name}",
+       # ... other crates
+   ]
+   ```
+
+5. **Update configs**:
    - Add sidebar entry to `docs/.vitepress/config.ts`
 
-4. **Create docs** (in `docs/crates/i-rs-{name}/`):
+6. **Create docs** (in `docs/crates/i-rs-{name}/`):
    - `index.md` - Overview, quick start
    - `usage.md` - Command reference
    - `examples.md` - Usage examples
    - `test.md` - Test records
 
-5. **Create skills** (in `skills/i-rs-{name}/`):
+7. **Create skills** (in `skills/i-rs-{name}/`):
    - `SKILL.md` - AI skill documentation
 
-6. **Build and verify**
+8. **Build and verify**
 ```bash
 cargo build -p i-rs-{name}
+cargo check
 ```
 
 ## Common Patterns
@@ -116,26 +203,6 @@ pub struct Entity {
 }
 ```
 
-### Table Row
-```rust
-#[derive(Tabled)]
-pub struct EntityRow {
-    #[tabled(rename = "NAME")]
-    name: String,
-    #[tabled(rename = "CREATED")]
-    created_at: String,
-}
-
-impl EntityRow {
-    pub fn from_entity(entity: &Entity) -> Self {
-        Self {
-            name: entity.name.clone(),
-            created_at: entity.created_at.format("%Y-%m-%d %H:%M").to_string(),
-        }
-    }
-}
-```
-
 ### Sensitive Fields
 ```rust
 #[serde(skip)]
@@ -150,42 +217,31 @@ pub fn days_until(&self) -> i64 {
 }
 ```
 
-### JSON Output Module (presentation/output.rs)
+### presentation/mod.rs Pattern
 ```rust
-#[derive(Debug, Clone, Copy)]
-pub enum OutputFormat {
-    Table,
-    Json,
+use crate::models::{Entity, EntityRow};
+use owo_colors::OwoColorize;
+use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
+
+pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
+
+pub fn format_table(entities: &[&Entity]) -> String {
+    let rows: Vec<EntityRow> = entities
+        .iter()
+        .map(|e| EntityRow::from_entity(e))
+        .collect();
+
+    Table::new(&rows)
+        .with(Style::modern_rounded())
+        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
+        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
+        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
+        .to_string()
 }
 
-#[derive(Debug, Serialize)]
-pub struct ListResponse<T: Serialize> {
-    pub success: bool,
-    pub data: Vec<T>,
-    pub meta: ListMeta,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ListMeta {
-    pub count: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub filter: Option<String>,
-}
-
-pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Option<&str>, format: OutputFormat) -> String {
-    match format {
-        OutputFormat::Json => {
-            let response = ListResponse {
-                success: true,
-                data: items.to_vec(),
-                meta: ListMeta { count, filter: filter.map(String::from) },
-            };
-            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
-        }
-        OutputFormat::Table => {
-            serde_json::to_string(items).unwrap_or_default()
-        }
-    }
+pub fn print_entity_count(count: usize) {
+    println!("\n{} {} entities", "Total:".dimmed(), count.to_string().cyan());
 }
 ```
 
@@ -245,6 +301,58 @@ i-rs-{name} get <name> --json
     "message": "Entry 'xxx' not found"
   }
 }
+```
+
+## Input Validation
+
+Use `i-rs-core` validation functions in `add` and `update` commands:
+
+```rust
+use i_rs_core::{validate_name, validate_url, validate_weight, ValidationError};
+
+// In add/update command
+if let Err(e) = validate_name(&name) {
+    print_error(&e.message);
+    anyhow::bail!("{}", e.message);
+}
+```
+
+### Validation Rules
+
+| Function | Rules |
+|----------|-------|
+| `validate_name` | Non-empty, ≤100 chars, no `/ \ : * ? " < > \|` |
+| `validate_url` | Non-empty, starts with `http://` or `https://`, ≤2000 chars |
+| `validate_weight` | > 0, ≤1000 kg |
+
+## Bug Prevention
+
+### Store Loading Pattern (CORRECT)
+```rust
+// CORRECT: Load once, use mutable reference
+let mut store = storage::load_store()?;
+
+if store.entries.contains_key(&name) {
+    print_error(&format!("Entry '{}' already exists", name));
+    anyhow::bail!("Entry '{}' already exists", name);
+}
+
+// ... create entity ...
+
+storage::add_entry(&mut store, entry);
+storage::save_store(&store)?;
+```
+
+### Store Loading Pattern (INCORRECT - BUG!)
+```rust
+// WRONG: Double loading - wastes I/O and causes bugs
+let store = storage::load_store()?;
+if store.entries.contains_key(&name) { ... }
+
+// ... later ...
+
+let mut store = storage::load_store()?;  // BUG: Reloading!
+storage::add_entry(&mut store, entry);
 ```
 
 ## Release Process

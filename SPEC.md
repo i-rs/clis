@@ -4,49 +4,32 @@
 
 ```
 i-rs-clis/
-├── crates/                    # 所有 CLI 工具
-│   └── i-rs-{name}/          # 每个工具一个 crate
-│       ├── src/
-│       │   ├── main.rs        # 入口文件 (CLI解析 + --json全局标志)
-│       │   ├── commands/      # 命令处理模块
-│       │   │   ├── mod.rs
-│       │   │   ├── add.rs
-│       │   │   ├── delete.rs
-│       │   │   ├── get.rs
-│       │   │   ├── list.rs
-│       │   │   ├── update.rs
-│       │   │   ├── example.rs  # 示例命令
-│       │   │   ├── skill.rs   # 技能命令
-│       │   │   └── {special}.rs  # 可选特殊命令 (done, suggest 等)
-│       │   ├── models/       # 数据模型
-│       │   │   └── mod.rs
-│       │   ├── storage/      # 存储和密钥链
-│       │   │   └── mod.rs
-│       │   └── presentation/  # 输出展示
-│       │       ├── mod.rs
-│       │       └── output.rs  # JSON输出格式化
-│       ├── Cargo.toml
-│       └── README.md
-├── docs/                     # VitePress 文档站点
-│   ├── index.md                  # 首页
-│   ├── guide/
-│   │   └── getting-started.md    # 快速入门
-│   ├── crates/
-│   │   └── i-rs-{name}/
-│   │       ├── index.md          # 工具概览 (overview)
-│   │       ├── usage.md         # 命令参考
-│   │       ├── examples.md      # 使用示例
-│   │       └── test.md          # 测试记录
-│   └── .vitepress/
-│       └── config.ts             # VitePress 侧边栏配置
-├── skills/                   # AI 技能文档
-│   └── i-rs-{name}/
-│       └── SKILL.md
-├── scripts/                  # 发布脚本
-├── Cargo.toml                # Workspace 配置
-├── README.md                 # 项目总览
-├── AGENTS.md                 # 开发规范 (AI)
-└── SPEC.md                  # 本规范文档
+├── crates/
+│   ├── i-rs-core/              # 共享核心库
+│   │   └── src/
+│   │       ├── lib.rs          # 公共API导出
+│   │       ├── storage/        # 通用存储 (Storage<T>)
+│   │       ├── presentation/   # 输出格式化
+│   │       │   ├── mod.rs     # print函数 + OutputFormat
+│   │       │   └── output.rs  # JSON输出格式化
+│   │       └── utils/
+│   │           ├── date.rs     # parse_date()
+│   │           └── validation.rs # validate_*()
+│   ├── i-rs-server/            # 服务器管理
+│   ├── i-rs-password/         # 密码管理
+│   ├── i-rs-bookmark/         # 书签管理
+│   ├── i-rs-note/             # 笔记管理
+│   ├── i-rs-domain/           # 域名管理
+│   ├── i-rs-remind/           # 提醒管理
+│   ├── i-rs-weight/           # 体重追踪
+│   ├── i-rs-mood/             # 心情记录
+│   └── i-rs-todo/             # 待办管理
+├── docs/                      # VitePress 文档站点
+├── skills/                    # AI 技能文档
+├── Cargo.toml                 # Workspace 配置
+├── README.md
+├── SPEC.md                   # 本规范文档
+└── AGENTS.md                  # 开发规范 (AI)
 ```
 
 ## 2. 工具列表 (当前 9 个)
@@ -63,9 +46,41 @@ i-rs-clis/
 | i-rs-mood | 心情记录 | calendar |
 | i-rs-todo | 待办管理 | done |
 
-## 3. Crate 开发流程
+## 3. i-rs-core 共享库
 
-### 3.1 创建新工具步骤
+### 3.1 模块结构
+
+```
+i-rs-core/src/
+├── lib.rs                    # 公共API导出
+├── storage/                  # 通用存储
+│   └── mod.rs              # Storage<T>, filter_by_tag, HasTags
+├── presentation/             # 输出格式化
+│   ├── mod.rs              # print_error/success/header/warning + OutputFormat
+│   └── output.rs           # output_list/output_item/output_error
+└── utils/
+    ├── date.rs             # parse_date()
+    └── validation.rs       # validate_name/validate_url/validate_weight
+```
+
+### 3.2 公共导出
+
+```rust
+// Storage
+pub use i_rs_core::storage::{Storage, filter_by_tag, HasTags};
+
+// Presentation
+pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
+
+// Utils
+pub use i_rs_core::utils::parse_date;
+pub use i_rs_core::utils::validation::{validate_name, validate_url, validate_weight, ValidationError};
+```
+
+## 4. Crate 开发流程
+
+### 4.1 创建新工具步骤
 
 1. **创建目录结构**
 ```bash
@@ -74,18 +89,15 @@ mkdir -p docs/crates/i-rs-{name}
 mkdir -p skills/i-rs-{name}
 ```
 
-2. **创建 Cargo.toml** (使用 workspace 依赖)
+2. **创建 Cargo.toml** (依赖 i-rs-core)
 ```toml
 [package]
 name = "i-rs-{name}"
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-description = "CLI tool description"
 
 [dependencies]
+i-rs-core = { path = "../i-rs-core" }
 clap.workspace = true
 anyhow.workspace = true
 serde.workspace = true
@@ -100,65 +112,42 @@ chrono.workspace = true
 
 3. **实现 6 个核心模块**
 - `models/mod.rs` - 数据结构 + 表格行结构
-- `storage/mod.rs` - 数据持久化 + keyring
-- `presentation/mod.rs` - 表格格式化 + 颜色
-- `presentation/output.rs` - JSON输出格式化
+- `storage/mod.rs` - 数据持久化 (使用 i-rs-core Storage) + keyring
+- `presentation/mod.rs` - 表格格式化 + 颜色 + 打印函数
 - `commands/mod.rs` - 命令路由 + 导出example/skill
+- `commands/*.rs` - 命令处理器
 - `main.rs` - CLI解析 + --json全局标志
 
-4. **实现命令文件**
-- `commands/add.rs` - 添加命令
-- `commands/delete.rs` - 删除命令
-- `commands/get.rs` - 获取命令 (支持JSON输出)
-- `commands/list.rs` - 列表命令 (支持JSON输出)
-- `commands/update.rs` - 更新命令
-- `commands/example.rs` - 示例命令
-- `commands/skill.rs` - 技能命令
-- `commands/{special}.rs` - 特殊命令(如done, suggest)
-
-5. **更新 Workspace 配置**
+4. **更新 Workspace 配置**
 ```toml
 # Cargo.toml
 [workspace]
 members = [
+    "crates/i-rs-core",
     ...
     "crates/i-rs-{name}",
 ]
 ```
 
-6. **更新 VitePress 配置**
-```typescript
-// docs/.vitepress/config.ts
-{
-  text: 'i-rs-{name}',
-  collapsed: true,
-  items: [
-    { text: 'Overview', link: '/crates/i-rs-{name}/' },
-    { text: 'Usage', link: '/crates/i-rs-{name}/usage' },
-    { text: 'Examples', link: '/crates/i-rs-{name}/examples' },
-    { text: 'Test', link: '/crates/i-rs-{name}/test' }
-  ]
-}
-```
-
-7. **编译验证**
+5. **编译验证**
 ```bash
 cargo build -p i-rs-{name}
+cargo check
 ```
 
-### 3.2 模块职责
+### 4.2 模块职责
 
 | 模块 | 职责 |
 |------|------|
 | `models/` | 数据结构定义（Struct、Serialize/Deserialize） |
-| `storage/` | 数据持久化、keyring 密码存储 |
+| `storage/` | 数据持久化（使用i-rs-core Storage）、keyring密码存储 |
 | `commands/` | CLI 命令处理器（add、delete、get、list、update、example、skill） |
-| `presentation/` | 输出格式化（表格、颜色、图表、JSON） |
+| `presentation/` | 输出格式化（表格、颜色、图表）、使用 i-rs-core 的 print/output 函数 |
 | `main.rs` | CLI 解析、命令分发、全局 --json 标志 |
 
-## 4. 数据模型规范
+## 5. 数据模型规范
 
-### 4.1 实体结构
+### 5.1 实体结构
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,7 +168,7 @@ pub struct Entity {
 }
 ```
 
-### 4.2 表格行结构
+### 5.2 表格行结构
 
 ```rust
 #[derive(Tabled)]
@@ -190,7 +179,6 @@ pub struct EntityRow {
     created_at: String,
     #[tabled(rename = "UPDATED")]
     updated_at: String,
-    // ... 其他列
 }
 
 impl EntityRow {
@@ -199,13 +187,12 @@ impl EntityRow {
             name: entity.name.clone(),
             created_at: entity.created_at.format("%Y-%m-%d %H:%M").to_string(),
             updated_at: entity.updated_at.format("%Y-%m-%d %H:%M").to_string(),
-            // ...
         }
     }
 }
 ```
 
-### 4.3 时间计算 (用于 domain/remind/weight/mood)
+### 5.3 时间计算 (用于 domain/remind/weight/mood)
 
 ```rust
 // 距离到期/事件天数
@@ -219,9 +206,9 @@ pub fn is_past(&self) -> bool {
 }
 ```
 
-## 5. CLI 设计规范
+## 6. CLI 设计规范
 
-### 5.1 命令结构
+### 6.1 命令结构
 
 ```rust
 #[derive(Parser, Debug)]
@@ -270,7 +257,7 @@ enum Commands {
 }
 ```
 
-### 5.2 短选项命名
+### 6.2 短选项命名
 
 | 选项 | 短选项 | 说明 |
 |------|--------|------|
@@ -286,94 +273,11 @@ enum Commands {
 | `--content` | 无 | 内容行 |
 | `--mood` | `-m` | 心情 |
 
-### 5.3 日期解析
+## 7. JSON输出规范
 
-```rust
-fn parse_date(date_str: &str) -> Result<NaiveDate> {
-    let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
-    for format in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(date);
-        }
-    }
-    Err(anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", date_str))
-}
-```
+JSON输出功能已移至 i-rs-core 的 `presentation/output.rs`。
 
-## 6. JSON输出规范
-
-### 6.1 输出模块 (presentation/output.rs)
-
-```rust
-use serde::Serialize;
-
-#[derive(Debug, Clone, Copy)]
-pub enum OutputFormat {
-    Table,
-    Json,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ListResponse<T: Serialize> {
-    pub success: bool,
-    pub data: Vec<T>,
-    pub meta: ListMeta,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ListMeta {
-    pub count: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub filter: Option<String>,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Serialize)]
-pub struct ItemResponse<T: Serialize> {
-    pub success: bool,
-    pub data: T,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Serialize)]
-pub struct ErrorResponse {
-    pub success: bool,
-    pub error: ErrorDetail,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Serialize)]
-pub struct ErrorDetail {
-    pub code: String,
-    pub message: String,
-}
-
-pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Option<&str>, format: OutputFormat) -> String {
-    match format {
-        OutputFormat::Json => {
-            let response = ListResponse {
-                success: true,
-                data: items.to_vec(),
-                meta: ListMeta { count, filter: filter.map(String::from) },
-            };
-            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
-        }
-        OutputFormat::Table => {
-            serde_json::to_string(items).unwrap_or_default()
-        }
-    }
-}
-
-pub fn output_item<T: Serialize>(item: &T, format: OutputFormat) -> String {
-    // 类似实现...
-}
-
-pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
-    // 类似实现...
-}
-```
-
-### 6.2 JSON响应格式
+### 7.1 JSON响应格式
 
 **List Response (list命令):**
 ```json
@@ -406,22 +310,24 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
 }
 ```
 
-### 6.3 命令处理示例
+### 7.2 命令处理示例
 
 ```rust
-use crate::presentation::output::{output_list, output_item, output_error, OutputFormat};
+// presentation/mod.rs
+pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
 
+// commands/list.rs
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
     let items: Vec<&Entity> = storage::filter_by_tag(&store, tag.as_deref());
 
     if matches!(format, OutputFormat::Json) {
-        // JSON输出逻辑
-        let items: Vec<ListItem> = items.iter().map(|e| ListItem {
+        let list_items: Vec<ListItem> = items.iter().map(|e| ListItem {
             name: e.name.clone(),
             // ...
         }).collect();
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!("{}", output_list(&list_items, list_items.len(), tag.as_deref(), format));
         return Ok(());
     }
 
@@ -432,9 +338,9 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 }
 ```
 
-## 7. 存储规范
+## 8. 存储规范
 
-### 7.1 密码存储
+### 8.1 密码存储
 
 **密码必须存储在 OS keychain 中，绝不存储在配置文件中。**
 
@@ -448,16 +354,71 @@ pub fn store_password(name: &str, password: &str) -> Result<()> {
 }
 ```
 
-### 7.2 数据文件
+### 8.2 数据文件
 
 - 位置：`~/.config/i-rs/{name}.json`
 - 覆盖方式：`CONFIG_DIR` 环境变量可自定义路径
 
-## 8. 表格展示规范
+## 9. 输入验证
 
-### 8.1 颜色配置
+使用 i-rs-core 的验证函数：
 
 ```rust
+use i_rs_core::{validate_name, validate_url, validate_weight, ValidationError};
+
+// 在 add/update 命令中
+if let Err(e) = validate_name(&name) {
+    print_error(&e.message);
+    anyhow::bail!("{}", e.message);
+}
+```
+
+### 验证规则
+
+| 函数 | 规则 |
+|------|------|
+| `validate_name` | 非空、≤100字符、无 `/ \ : * ? " < > \|` |
+| `validate_url` | 非空、以 `http://` 或 `https://` 开头、≤2000字符 |
+| `validate_weight` | > 0、≤1000 kg |
+
+## 10. Bug 预防
+
+### 10.1 Store加载模式 (正确)
+
+```rust
+// 正确：加载一次，使用可变引用
+let mut store = storage::load_store()?;
+
+if store.entries.contains_key(&name) {
+    print_error(&format!("Entry '{}' already exists", name));
+    anyhow::bail!("Entry '{}' already exists", name);
+}
+
+// ... 创建实体 ...
+
+storage::add_entry(&mut store, entry);
+storage::save_store(&store)?;
+```
+
+### 10.2 Store加载模式 (错误 - BUG!)
+
+```rust
+// 错误：双重加载 - 浪费I/O并导致bug
+let store = storage::load_store()?;
+if store.entries.contains_key(&name) { ... }
+
+// ... 稍后 ...
+
+let mut store = storage::load_store()?;  // BUG: 重新加载!
+storage::add_entry(&mut store, entry);
+```
+
+## 11. 表格展示规范
+
+### 11.1 颜色配置
+
+```rust
+// presentation/mod.rs
 Table::new(&rows)
     .with(Style::modern_rounded())
     .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
@@ -466,7 +427,7 @@ Table::new(&rows)
     .to_string()
 ```
 
-### 8.2 颜色含义
+### 11.2 颜色含义
 
 | 元素 | 颜色 |
 |------|------|
@@ -474,9 +435,9 @@ Table::new(&rows)
 | 表头 | 青色 + 粗体 |
 | 数据行 | 绿色 (FG_GREEN) |
 
-## 9. 全局命令规范
+## 12. 全局命令规范
 
-### 9.1 example 命令
+### 12.1 example 命令
 
 展示使用示例，帮助AI和用户快速理解CLI。
 
@@ -494,7 +455,7 @@ pub fn handle_example() {
 }
 ```
 
-### 9.2 skill 命令
+### 12.2 skill 命令
 
 集成AI技能文档到CLI本身。
 
@@ -522,74 +483,7 @@ pub fn handle_skill(which: Option<SkillCommand>) {
 }
 ```
 
-## 10. 文档规范
-
-### 10.1 VitePress 配置
-
-侧边栏采用折叠菜单，每个 crate 包含 4 个子页面：
-
-```typescript
-// docs/.vitepress/config.ts
-{
-  text: 'i-rs-{name}',
-  collapsed: true,
-  items: [
-    { text: 'Overview', link: '/crates/i-rs-{name}/' },
-    { text: 'Usage', link: '/crates/i-rs-{name}/usage' },
-    { text: 'Examples', link: '/crates/i-rs-{name}/examples' },
-    { text: 'Test', link: '/crates/i-rs-{name}/test' }
-  ]
-}
-```
-
-### 10.2 文档内容要求
-
-| 文件 | 内容要求 |
-|------|---------|
-| `index.md` | 概述、Quick Start、安装命令、特性列表、mood levels/data storage |
-| `usage.md` | 详细命令参考，所有选项说明 |
-| `examples.md` | 丰富示例：基础操作、实际场景、脚本集成 |
-| `test.md` | 测试记录：正常流程、错误处理 |
-
-### 10.3 skills/{name}/SKILL.md
-
-AI 技能文档，供 AI 助手理解工具用途和调用方式：
-
-```markdown
----
-name: "i-rs-{name}"
-description: "工具描述。当用户需要...时使用。"
----
-
-# i-rs-{name}
-[简短描述]
-## Storage
-## Commands
-### add
-### list
-### get
-### update
-### delete
-## Examples
-```
-
-## 11. Workspace 依赖
-
-```toml
-[workspace.dependencies]
-clap = { version = "4.5", features = ["derive"] }
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-dirs = "6.0.0"
-keyring = "4.0.1"
-keyring-core = "1.0.0"
-tabled = { version = "0.20.0", features = ["ansi"] }
-owo-colors = "4.3.0"
-chrono = { version = "0.4", features = ["serde"] }
-```
-
-## 12. 错误处理
+## 13. 错误处理
 
 使用 `anyhow` 进行错误处理，主函数返回 `anyhow::Result<()>`：
 
@@ -621,12 +515,27 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
 }
 ```
 
-## 13. 代码风格
+## 14. 代码风格
 
 - 使用 `snake_case` 命名变量和函数
 - 使用 `PascalCase` 命名结构体和枚举
 - 使用 `camelCase` 命名 CLI 参数（clap 自动转换）
 - 避免使用 `unwrap()`，使用 `?` 操作符
 - 敏感字段添加 `#[allow(dead_code)]`
-- 未使用的导出函数添加 `#[allow(dead_code)]`
-- output.rs中未使用的结构体和函数添加 `#[allow(dead_code)]`
+- 未使用方法添加 `#[allow(dead_code)]`
+
+## 15. Workspace 依赖
+
+```toml
+[workspace.dependencies]
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "6.0.0"
+keyring = "4.0.1"
+keyring-core = "1.0.0"
+tabled = { version = "0.20.0", features = ["ansi"] }
+owo-colors = "4.3.0"
+chrono = { version = "0.4", features = ["serde"] }
+```
