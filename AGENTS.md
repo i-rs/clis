@@ -40,11 +40,11 @@ Each crate follows this pattern:
 ```
 crates/i-rs-{name}/
 ├── src/
-│   ├── main.rs        # CLI entry point (clap)
-│   ├── commands/      # add, delete, get, list, update, [special]
-│   ├── models/        # Data structs with serde + tabled
-│   ├── storage/       # keyring + JSON file
-│   └── presentation/  # tabled output, colors, charts
+│   ├── main.rs           # CLI entry point (clap)
+│   ├── commands/         # add, delete, get, list, update, example, skill, [special]
+│   ├── models/           # Data structs with serde + tabled
+│   ├── storage/          # keyring + JSON file
+│   └── presentation/     # tabled output, colors, charts, output (JSON formatting)
 ├── Cargo.toml
 └── README.md
 ```
@@ -58,6 +58,7 @@ crates/i-rs-{name}/
 - **Error handling**: `anyhow::Result<()>` with `?` operator
 - **CLI framework**: clap with derive macro, snake_case params auto-convert to kebab-case
 - **Output**: tabled with cyan headers, green rows
+- **JSON output**: All commands support `--json` flag for JSON output
 
 ## New Crate Workflow
 
@@ -75,8 +76,9 @@ mkdir -p skills/i-rs-{name}
    - `src/models/mod.rs` - Entity struct + Row struct (Tabled)
    - `src/storage/mod.rs` - JSON persistence + keyring
    - `src/presentation/mod.rs` - Table formatting
-   - `src/commands/*.rs` - Command handlers
-   - `src/main.rs` - CLI parsing
+   - `src/presentation/output.rs` - JSON output formatting
+   - `src/commands/*.rs` - Command handlers (add, delete, get, list, update, example, skill)
+   - `src/main.rs` - CLI parsing with --json global flag
 
 3. **Update configs**:
    - Add to `Cargo.toml` workspace members
@@ -145,6 +147,103 @@ pub password: Option<String>,
 ```rust
 pub fn days_until(&self) -> i64 {
     (self.event_date - Utc::now()).num_days()
+}
+```
+
+### JSON Output Module (presentation/output.rs)
+```rust
+#[derive(Debug, Clone, Copy)]
+pub enum OutputFormat {
+    Table,
+    Json,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListResponse<T: Serialize> {
+    pub success: bool,
+    pub data: Vec<T>,
+    pub meta: ListMeta,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListMeta {
+    pub count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<String>,
+}
+
+pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Option<&str>, format: OutputFormat) -> String {
+    match format {
+        OutputFormat::Json => {
+            let response = ListResponse {
+                success: true,
+                data: items.to_vec(),
+                meta: ListMeta { count, filter: filter.map(String::from) },
+            };
+            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
+        }
+        OutputFormat::Table => {
+            serde_json::to_string(items).unwrap_or_default()
+        }
+    }
+}
+```
+
+## Global Commands (All Crates)
+
+### example Command
+Show usage examples for AI/human to quickly understand the CLI.
+```bash
+i-rs-{name} example
+```
+
+### skill Command
+View AI skill documentation integrated into CLI itself.
+```bash
+i-rs-{name} skill          # Show raw skill document
+i-rs-{name} skill summary  # Show summary
+i-rs-{name} skill content  # Show content
+```
+
+## JSON Output
+
+All commands support `--json` global flag for JSON output:
+
+```bash
+i-rs-{name} list --json
+i-rs-{name} get <name> --json
+```
+
+### JSON Response Format
+
+**List Response:**
+```json
+{
+  "success": true,
+  "data": [...],
+  "meta": {
+    "count": 10,
+    "filter": "work"
+  }
+}
+```
+
+**Item Response:**
+```json
+{
+  "success": true,
+  "data": {...}
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Entry 'xxx' not found"
+  }
 }
 ```
 

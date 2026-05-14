@@ -1,19 +1,63 @@
+use crate::presentation::output::{output_error, output_item, OutputFormat};
 use crate::presentation::{print_error, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(name: String, show_password: bool) -> Result<()> {
+pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let domain = match storage::get_domain(&store, &name) {
         Some(d) => d,
         None => {
-            print_error(&format!("Domain '{}' not found", name));
-            anyhow::bail!("Domain '{}' not found", name);
+            let msg = format!("Domain '{}' not found", name);
+            if matches!(format, OutputFormat::Json) {
+                println!("{}", output_error(&msg, "NOT_FOUND", format));
+            } else {
+                print_error(&msg);
+            }
+            anyhow::bail!("{}", msg);
         }
     };
+
+    if matches!(format, OutputFormat::Json) {
+        let password = if show_password {
+            storage::get_password(&name).ok().flatten()
+        } else {
+            None
+        };
+
+        #[derive(serde::Serialize)]
+        struct GetOutput {
+            name: String,
+            expiry_date: String,
+            days_until_expiry: i64,
+            is_expired: bool,
+            registrar: Option<String>,
+            password: Option<String>,
+            tags: Vec<String>,
+            remark: Vec<String>,
+            created_at: String,
+            updated_at: String,
+        }
+
+        let output = GetOutput {
+            name: domain.name.clone(),
+            expiry_date: domain.expiry_date.format("%Y-%m-%d").to_string(),
+            days_until_expiry: domain.days_until_expiry(),
+            is_expired: domain.is_expired(),
+            registrar: domain.registrar.clone(),
+            password,
+            tags: domain.tags.clone(),
+            remark: domain.remark.clone(),
+            created_at: domain.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: domain.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
+
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_header(&format!("Domain: {}", domain.name.green()));
     println!();

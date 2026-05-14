@@ -1,20 +1,54 @@
 use crate::models::Priority;
+use crate::presentation::output::{output_error, output_item, OutputFormat};
 use crate::presentation::{print_error, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(name: String) -> Result<()> {
+pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let todo = match store.get_todo(&name) {
         Some(t) => t,
         None => {
-            print_error(&format!("Todo '{}' not found", name));
-            anyhow::bail!("Todo '{}' not found", name);
+            let msg = format!("Todo '{}' not found", name);
+            if matches!(format, OutputFormat::Json) {
+                println!("{}", output_error(&msg, "NOT_FOUND", format));
+            } else {
+                print_error(&msg);
+            }
+            anyhow::bail!("{}", msg);
         }
     };
+
+    if matches!(format, OutputFormat::Json) {
+        #[derive(serde::Serialize)]
+        struct GetOutput {
+            name: String,
+            title: Option<String>,
+            priority: String,
+            is_done: bool,
+            tags: Vec<String>,
+            content: Vec<String>,
+            created_at: String,
+            updated_at: String,
+        }
+
+        let output = GetOutput {
+            name: todo.name.clone(),
+            title: todo.title.clone(),
+            priority: todo.priority.label().to_string(),
+            is_done: todo.is_done,
+            tags: todo.tags.clone(),
+            content: todo.content.clone(),
+            created_at: todo.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: todo.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
+
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_header(&format!("Todo: {}", todo.name.green()));
     println!();

@@ -1,19 +1,49 @@
+use crate::presentation::output::{output_error, output_item, OutputFormat};
 use crate::presentation::{print_error, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(name: String) -> Result<()> {
+pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let note = match storage::get_note(&store, &name) {
         Some(n) => n,
         None => {
-            print_error(&format!("Note '{}' not found", name));
-            anyhow::bail!("Note '{}' not found", name);
+            let msg = format!("Note '{}' not found", name);
+            if matches!(format, OutputFormat::Json) {
+                println!("{}", output_error(&msg, "NOT_FOUND", format));
+            } else {
+                print_error(&msg);
+            }
+            anyhow::bail!("{}", msg);
         }
     };
+
+    if matches!(format, OutputFormat::Json) {
+        #[derive(serde::Serialize)]
+        struct GetOutput {
+            name: String,
+            title: Option<String>,
+            tags: Vec<String>,
+            content: Vec<String>,
+            created_at: String,
+            updated_at: String,
+        }
+
+        let output = GetOutput {
+            name: note.name.clone(),
+            title: note.title.clone(),
+            tags: note.tags.clone(),
+            content: note.content.clone(),
+            created_at: note.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: note.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
+
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_header(&format!("Note: {}", note.name.green()));
     println!();

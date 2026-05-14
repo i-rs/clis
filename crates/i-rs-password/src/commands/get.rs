@@ -1,19 +1,59 @@
+use crate::presentation::output::{output_error, output_item, OutputFormat};
 use crate::presentation::{print_error, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(name: String, show_password: bool) -> Result<()> {
+pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let entry = match storage::get_entry(&store, &name) {
         Some(e) => e,
         None => {
-            print_error(&format!("Entry '{}' not found", name));
-            anyhow::bail!("Entry '{}' not found", name);
+            let msg = format!("Entry '{}' not found", name);
+            if matches!(format, OutputFormat::Json) {
+                println!("{}", output_error(&msg, "NOT_FOUND", format));
+            } else {
+                print_error(&msg);
+            }
+            anyhow::bail!("{}", msg);
         }
     };
+
+    if matches!(format, OutputFormat::Json) {
+        let password = if show_password {
+            storage::get_password(&name).ok().flatten()
+        } else {
+            None
+        };
+
+        #[derive(serde::Serialize)]
+        struct GetOutput {
+            name: String,
+            url: String,
+            account: Option<String>,
+            password: Option<String>,
+            tags: Vec<String>,
+            remark: Vec<String>,
+            created_at: String,
+            updated_at: String,
+        }
+
+        let output = GetOutput {
+            name: entry.name.clone(),
+            url: entry.url.clone(),
+            account: entry.account.clone(),
+            password,
+            tags: entry.tags.clone(),
+            remark: entry.remark.clone(),
+            created_at: entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: entry.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
+
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_header(&format!("Entry: {}", entry.name.green()));
     println!();

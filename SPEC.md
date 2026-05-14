@@ -7,7 +7,7 @@ i-rs-clis/
 ├── crates/                    # 所有 CLI 工具
 │   └── i-rs-{name}/          # 每个工具一个 crate
 │       ├── src/
-│       │   ├── main.rs        # 入口文件
+│       │   ├── main.rs        # 入口文件 (CLI解析 + --json全局标志)
 │       │   ├── commands/      # 命令处理模块
 │       │   │   ├── mod.rs
 │       │   │   ├── add.rs
@@ -15,13 +15,16 @@ i-rs-clis/
 │       │   │   ├── get.rs
 │       │   │   ├── list.rs
 │       │   │   ├── update.rs
+│       │   │   ├── example.rs  # 示例命令
+│       │   │   ├── skill.rs   # 技能命令
 │       │   │   └── {special}.rs  # 可选特殊命令 (done, suggest 等)
 │       │   ├── models/       # 数据模型
 │       │   │   └── mod.rs
 │       │   ├── storage/      # 存储和密钥链
 │       │   │   └── mod.rs
 │       │   └── presentation/  # 输出展示
-│       │       └── mod.rs
+│       │       ├── mod.rs
+│       │       └── output.rs  # JSON输出格式化
 │       ├── Cargo.toml
 │       └── README.md
 ├── docs/                     # VitePress 文档站点
@@ -42,6 +45,7 @@ i-rs-clis/
 ├── scripts/                  # 发布脚本
 ├── Cargo.toml                # Workspace 配置
 ├── README.md                 # 项目总览
+├── AGENTS.md                 # 开发规范 (AI)
 └── SPEC.md                  # 本规范文档
 ```
 
@@ -94,14 +98,25 @@ owo-colors.workspace = true
 chrono.workspace = true
 ```
 
-3. **实现 5 个核心模块**
+3. **实现 6 个核心模块**
 - `models/mod.rs` - 数据结构 + 表格行结构
 - `storage/mod.rs` - 数据持久化 + keyring
 - `presentation/mod.rs` - 表格格式化 + 颜色
-- `commands/mod.rs` - 命令路由
-- `main.rs` - CLI 解析
+- `presentation/output.rs` - JSON输出格式化
+- `commands/mod.rs` - 命令路由 + 导出example/skill
+- `main.rs` - CLI解析 + --json全局标志
 
-4. **更新 Workspace 配置**
+4. **实现命令文件**
+- `commands/add.rs` - 添加命令
+- `commands/delete.rs` - 删除命令
+- `commands/get.rs` - 获取命令 (支持JSON输出)
+- `commands/list.rs` - 列表命令 (支持JSON输出)
+- `commands/update.rs` - 更新命令
+- `commands/example.rs` - 示例命令
+- `commands/skill.rs` - 技能命令
+- `commands/{special}.rs` - 特殊命令(如done, suggest)
+
+5. **更新 Workspace 配置**
 ```toml
 # Cargo.toml
 [workspace]
@@ -111,7 +126,7 @@ members = [
 ]
 ```
 
-5. **更新 VitePress 配置**
+6. **更新 VitePress 配置**
 ```typescript
 // docs/.vitepress/config.ts
 {
@@ -126,7 +141,7 @@ members = [
 }
 ```
 
-6. **编译验证**
+7. **编译验证**
 ```bash
 cargo build -p i-rs-{name}
 ```
@@ -137,9 +152,9 @@ cargo build -p i-rs-{name}
 |------|------|
 | `models/` | 数据结构定义（Struct、Serialize/Deserialize） |
 | `storage/` | 数据持久化、keyring 密码存储 |
-| `commands/` | CLI 命令处理器（add、delete、get、list、update） |
-| `presentation/` | 输出格式化（表格、颜色、图表） |
-| `main.rs` | CLI 解析和命令分发 |
+| `commands/` | CLI 命令处理器（add、delete、get、list、update、example、skill） |
+| `presentation/` | 输出格式化（表格、颜色、图表、JSON） |
+| `main.rs` | CLI 解析、命令分发、全局 --json 标志 |
 
 ## 4. 数据模型规范
 
@@ -215,6 +230,9 @@ pub fn is_past(&self) -> bool {
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+
+    #[arg(short, long, global = true)]
+    json: bool,  // 全局JSON输出标志
 }
 
 #[derive(Subcommand, Debug)]
@@ -243,6 +261,11 @@ enum Commands {
     Update {
         name: String,
         // 可选更新字段
+    },
+    Example {},
+    Skill {
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
     },
 }
 ```
@@ -277,9 +300,141 @@ fn parse_date(date_str: &str) -> Result<NaiveDate> {
 }
 ```
 
-## 6. 存储规范
+## 6. JSON输出规范
 
-### 6.1 密码存储
+### 6.1 输出模块 (presentation/output.rs)
+
+```rust
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy)]
+pub enum OutputFormat {
+    Table,
+    Json,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListResponse<T: Serialize> {
+    pub success: bool,
+    pub data: Vec<T>,
+    pub meta: ListMeta,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListMeta {
+    pub count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize)]
+pub struct ItemResponse<T: Serialize> {
+    pub success: bool,
+    pub data: T,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize)]
+pub struct ErrorResponse {
+    pub success: bool,
+    pub error: ErrorDetail,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize)]
+pub struct ErrorDetail {
+    pub code: String,
+    pub message: String,
+}
+
+pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Option<&str>, format: OutputFormat) -> String {
+    match format {
+        OutputFormat::Json => {
+            let response = ListResponse {
+                success: true,
+                data: items.to_vec(),
+                meta: ListMeta { count, filter: filter.map(String::from) },
+            };
+            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
+        }
+        OutputFormat::Table => {
+            serde_json::to_string(items).unwrap_or_default()
+        }
+    }
+}
+
+pub fn output_item<T: Serialize>(item: &T, format: OutputFormat) -> String {
+    // 类似实现...
+}
+
+pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
+    // 类似实现...
+}
+```
+
+### 6.2 JSON响应格式
+
+**List Response (list命令):**
+```json
+{
+  "success": true,
+  "data": [...],
+  "meta": {
+    "count": 10,
+    "filter": "work"
+  }
+}
+```
+
+**Item Response (get命令):**
+```json
+{
+  "success": true,
+  "data": {...}
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Entry 'xxx' not found"
+  }
+}
+```
+
+### 6.3 命令处理示例
+
+```rust
+use crate::presentation::output::{output_list, output_item, output_error, OutputFormat};
+
+pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
+    let store = storage::load_store()?;
+    let items: Vec<&Entity> = storage::filter_by_tag(&store, tag.as_deref());
+
+    if matches!(format, OutputFormat::Json) {
+        // JSON输出逻辑
+        let items: Vec<ListItem> = items.iter().map(|e| ListItem {
+            name: e.name.clone(),
+            // ...
+        }).collect();
+        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        return Ok(());
+    }
+
+    // Table输出逻辑 (默认)
+    let table = format_table(&items);
+    println!("\n{}", table);
+    Ok(())
+}
+```
+
+## 7. 存储规范
+
+### 7.1 密码存储
 
 **密码必须存储在 OS keychain 中，绝不存储在配置文件中。**
 
@@ -293,14 +448,14 @@ pub fn store_password(name: &str, password: &str) -> Result<()> {
 }
 ```
 
-### 6.2 数据文件
+### 7.2 数据文件
 
 - 位置：`~/.config/i-rs/{name}.json`
 - 覆盖方式：`CONFIG_DIR` 环境变量可自定义路径
 
-## 7. 表格展示规范
+## 8. 表格展示规范
 
-### 7.1 颜色配置
+### 8.1 颜色配置
 
 ```rust
 Table::new(&rows)
@@ -311,7 +466,7 @@ Table::new(&rows)
     .to_string()
 ```
 
-### 7.2 颜色含义
+### 8.2 颜色含义
 
 | 元素 | 颜色 |
 |------|------|
@@ -319,9 +474,57 @@ Table::new(&rows)
 | 表头 | 青色 + 粗体 |
 | 数据行 | 绿色 (FG_GREEN) |
 
-## 8. 文档规范
+## 9. 全局命令规范
 
-### 8.1 VitePress 配置
+### 9.1 example 命令
+
+展示使用示例，帮助AI和用户快速理解CLI。
+
+```rust
+// commands/example.rs
+use owo_colors::OwoColorize;
+
+pub fn handle_example() {
+    println!();
+    println!("{}", "i-rs-{name} Examples".bold().cyan());
+    println!();
+    println!("{}", "Add Entry:".bold().green());
+    println!("  i-rs-{name} add <name> <value> --tag work");
+    // 更多示例...
+}
+```
+
+### 9.2 skill 命令
+
+集成AI技能文档到CLI本身。
+
+```rust
+// commands/skill.rs
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+pub enum SkillCommand {
+    Summary,
+    Content,
+    Raw,
+}
+
+const SKILL_SUMMARY: &str = r#"Tool description..."#;
+const SKILL_CONTENT: &str = r#"Commands: add, list, get..."#;
+const SKILL_RAW: &str = r#"--- name: "i-rs-{name}" ..."#;
+
+pub fn handle_skill(which: Option<SkillCommand>) {
+    match which {
+        Some(SkillCommand::Summary) => println!("{}", SKILL_SUMMARY),
+        Some(SkillCommand::Content) => println!("{}", SKILL_CONTENT),
+        Some(SkillCommand::Raw) | None => println!("{}", SKILL_RAW),
+    }
+}
+```
+
+## 10. 文档规范
+
+### 10.1 VitePress 配置
 
 侧边栏采用折叠菜单，每个 crate 包含 4 个子页面：
 
@@ -339,7 +542,7 @@ Table::new(&rows)
 }
 ```
 
-### 8.2 文档内容要求
+### 10.2 文档内容要求
 
 | 文件 | 内容要求 |
 |------|---------|
@@ -348,7 +551,7 @@ Table::new(&rows)
 | `examples.md` | 丰富示例：基础操作、实际场景、脚本集成 |
 | `test.md` | 测试记录：正常流程、错误处理 |
 
-### 8.3 skills/{name}/SKILL.md
+### 10.3 skills/{name}/SKILL.md
 
 AI 技能文档，供 AI 助手理解工具用途和调用方式：
 
@@ -370,7 +573,7 @@ description: "工具描述。当用户需要...时使用。"
 ## Examples
 ```
 
-## 9. Workspace 依赖
+## 11. Workspace 依赖
 
 ```toml
 [workspace.dependencies]
@@ -386,29 +589,44 @@ owo-colors = "4.3.0"
 chrono = { version = "0.4", features = ["serde"] }
 ```
 
-## 10. 错误处理
+## 12. 错误处理
 
 使用 `anyhow` 进行错误处理，主函数返回 `anyhow::Result<()>`：
 
 ```rust
 fn main() {
-    if let Err(e) = run() {
-        eprintln!("Error: {}", e);
+    let cli = Cli::parse();
+    let format = if cli.json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Table
+    };
+
+    if let Err(e) = run(cli.command, format) {
+        if cli.json {
+            println!("{}", serde_json::json!({
+                "success": false,
+                "error": { "code": "UNKNOWN", "message": e.to_string() }
+            }));
+        } else {
+            eprintln!("Error: {}", e);
+        }
         std::process::exit(1);
     }
 }
 
-fn run() -> anyhow::Result<()> {
+fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     // 业务逻辑
     Ok(())
 }
 ```
 
-## 11. 代码风格
+## 13. 代码风格
 
 - 使用 `snake_case` 命名变量和函数
 - 使用 `PascalCase` 命名结构体和枚举
 - 使用 `camelCase` 命名 CLI 参数（clap 自动转换）
 - 避免使用 `unwrap()`，使用 `?` 操作符
 - 敏感字段添加 `#[allow(dead_code)]`
-- 导出函数添加 `#[allow(dead_code)]` 如有未使用警告
+- 未使用的导出函数添加 `#[allow(dead_code)]`
+- output.rs中未使用的结构体和函数添加 `#[allow(dead_code)]`

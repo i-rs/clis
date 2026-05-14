@@ -1,11 +1,12 @@
 use crate::models::WeightRecord;
 use crate::presentation::{format_table, print_chart, print_record_count, print_warning};
+use crate::presentation::output::{output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
-pub fn handle_list(days: Option<usize>, chart: bool, stats: bool) -> Result<()> {
+pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let records: Vec<WeightRecord> = if let Some(d) = days {
@@ -21,11 +22,35 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool) -> Result<()> 
     };
 
     if records.is_empty() {
-        print_warning("No weight records found.");
+        if matches!(format, OutputFormat::Json) {
+            let filter = days.map(|d| format!("last {} days", d));
+            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+        } else {
+            print_warning("No weight records found.");
+        }
         return Ok(());
     }
 
     let records_ref: Vec<&WeightRecord> = records.iter().collect();
+
+    if matches!(format, OutputFormat::Json) {
+        #[derive(serde::Serialize, Clone)]
+        struct ListItem {
+            date: String,
+            weight: f64,
+            remark: Vec<String>,
+        }
+
+        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
+            date: r.date.format("%Y-%m-%d").to_string(),
+            weight: r.weight,
+            remark: r.remark.clone(),
+        }).collect();
+
+        let filter = days.map(|d| format!("last {} days", d));
+        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        return Ok(());
+    }
 
     let table = format_table(&records_ref);
     println!("\n{}", table);

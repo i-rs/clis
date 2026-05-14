@@ -1,11 +1,12 @@
 use crate::models::MoodRecord;
 use crate::presentation::{format_table, print_mood_calendar, print_record_count, print_warning};
+use crate::presentation::output::{output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
-pub fn handle_list(days: Option<usize>, calendar: bool) -> Result<()> {
+pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let records: Vec<&MoodRecord> = if let Some(d) = days {
@@ -20,7 +21,35 @@ pub fn handle_list(days: Option<usize>, calendar: bool) -> Result<()> {
     };
 
     if records.is_empty() {
-        print_warning("No mood records found.");
+        if matches!(format, OutputFormat::Json) {
+            let filter = days.map(|d| format!("last {} days", d));
+            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+        } else {
+            print_warning("No mood records found.");
+        }
+        return Ok(());
+    }
+
+    if matches!(format, OutputFormat::Json) {
+        #[derive(serde::Serialize, Clone)]
+        struct ListItem {
+            date: String,
+            mood: String,
+            mood_label: String,
+            tags: Vec<String>,
+            content: Vec<String>,
+        }
+
+        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
+            date: r.date.format("%Y-%m-%d").to_string(),
+            mood: r.mood.to_string(),
+            mood_label: r.mood.label().to_string(),
+            tags: r.tags.clone(),
+            content: r.content.clone(),
+        }).collect();
+
+        let filter = days.map(|d| format!("last {} days", d));
+        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
         return Ok(());
     }
 

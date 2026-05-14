@@ -1,19 +1,57 @@
+use crate::presentation::output::{output_error, output_item, OutputFormat};
 use crate::presentation::{print_error, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(name: String) -> Result<()> {
+pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let remind = match storage::get_remind(&store, &name) {
         Some(r) => r,
         None => {
-            print_error(&format!("Remind '{}' not found", name));
-            anyhow::bail!("Remind '{}' not found", name);
+            let msg = format!("Remind '{}' not found", name);
+            if matches!(format, OutputFormat::Json) {
+                println!("{}", output_error(&msg, "NOT_FOUND", format));
+            } else {
+                print_error(&msg);
+            }
+            anyhow::bail!("{}", msg);
         }
     };
+
+    if matches!(format, OutputFormat::Json) {
+        #[derive(serde::Serialize)]
+        struct GetOutput {
+            name: String,
+            title: Option<String>,
+            event_date: String,
+            days_until_event: i64,
+            is_done: bool,
+            is_past: bool,
+            tags: Vec<String>,
+            content: Vec<String>,
+            created_at: String,
+            updated_at: String,
+        }
+
+        let output = GetOutput {
+            name: remind.name.clone(),
+            title: remind.title.clone(),
+            event_date: remind.event_date.format("%Y-%m-%d %H:%M").to_string(),
+            days_until_event: remind.days_until_event(),
+            is_done: remind.is_done,
+            is_past: remind.is_past(),
+            tags: remind.tags.clone(),
+            content: remind.content.clone(),
+            created_at: remind.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: remind.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        };
+
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_header(&format!("Remind: {}", remind.name.green()));
     println!();

@@ -2,6 +2,8 @@ use crate::models::ServerRow;
 use owo_colors::OwoColorize;
 use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
 
+pub mod output;
+
 pub fn print_success(msg: &str) {
     println!("{}", msg.green());
 }
