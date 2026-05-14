@@ -1,0 +1,20 @@
+use crate::presentation::{print_error, print_success};
+use crate::storage;
+use anyhow::Result;
+use owo_colors::OwoColorize;
+
+pub fn handle_delete(name: String) -> Result<()> {
+    let mut store = storage::load_store()?;
+
+    if !store.articles.contains_key(&name) {
+        print_error(&format!("Article '{}' not found", name));
+        anyhow::bail!("Article '{}' not found", name);
+    }
+
+    storage::remove_article(&mut store, &name);
+    storage::save_store(&store)?;
+
+    print_success(&format!("✓ Article '{}' deleted successfully", name.green()));
+
+    Ok(())
+}

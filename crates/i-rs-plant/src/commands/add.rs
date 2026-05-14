@@ -1,0 +1,48 @@
+use crate::models::Plant;
+use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::storage;
+use anyhow::Result;
+use i_rs_core::validate_name;
+
+pub fn add_plant(
+    name: String,
+    species: String,
+    location: String,
+    watering_interval_days: u32,
+    tags: Vec<String>,
+    remark: Vec<String>,
+    output_format: OutputFormat,
+) -> Result<()> {
+    if let Err(e) = validate_name(&name) {
+        print_error(&e.message);
+        anyhow::bail!("{}", e.message);
+    }
+
+    let mut store = storage::load_store()?;
+
+    if storage::find_plant(&store, &name).is_some() {
+        print_error(&format!("Plant '{}' already exists", name));
+        anyhow::bail!("Plant '{}' already exists", name);
+    }
+
+    let mut plant = Plant::new(name.clone(), species, location, watering_interval_days);
+    plant.tags = tags;
+    plant.remark = remark;
+
+    storage::add_plant(&mut store, plant);
+    storage::save_store(&store)?;
+
+    match output_format {
+        OutputFormat::Json => {
+            println!("{}", crate::presentation::output_item(
+                &serde_json::json!({"message": format!("Plant '{}' added", name)}),
+                output_format
+            ));
+        }
+        OutputFormat::Table => {
+            print_success(&format!("Plant '{}' added successfully", name));
+        }
+    }
+
+    Ok(())
+}

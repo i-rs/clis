@@ -56,6 +56,12 @@ members = [
     "crates/i-rs-snippet",
     "crates/i-rs-invest",
     "crates/i-rs-goal",
+    "crates/i-rs-article",
+    "crates/i-rs-plant",
+    "crates/i-rs-cycling",
+    "crates/i-rs-gift",
+    "crates/i-rs-debt",
+    "crates/i-rs-time",
 ]
 
 [workspace.package]

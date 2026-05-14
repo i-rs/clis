@@ -206,6 +206,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-exercise/examples' },
               { text: 'Test', link: '/crates/i-rs-exercise/test' }
             ]
+          },
+          {
+            text: 'i-rs-cycling',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-cycling/' },
+              { text: 'Usage', link: '/crates/i-rs-cycling/usage' },
+              { text: 'Examples', link: '/crates/i-rs-cycling/examples' },
+              { text: 'Test', link: '/crates/i-rs-cycling/test' }
+            ]
           }
         ]
       },
@@ -308,6 +318,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-invest/examples' },
               { text: 'Test', link: '/crates/i-rs-invest/test' }
             ]
+          },
+          {
+            text: 'i-rs-debt',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-debt/' },
+              { text: 'Usage', link: '/crates/i-rs-debt/usage' },
+              { text: 'Examples', link: '/crates/i-rs-debt/examples' },
+              { text: 'Test', link: '/crates/i-rs-debt/test' }
+            ]
           }
         ]
       },
@@ -348,6 +368,22 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Personal & Relationships',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-gift',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-gift/' },
+              { text: 'Usage', link: '/crates/i-rs-gift/usage' },
+              { text: 'Examples', link: '/crates/i-rs-gift/examples' },
+              { text: 'Test', link: '/crates/i-rs-gift/test' }
+            ]
+          }
+        ]
+      },
+      {
         text: 'Time & Productivity',
         collapsed: false,
         items: [
@@ -379,6 +415,16 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-want/usage' },
               { text: 'Examples', link: '/crates/i-rs-want/examples' },
               { text: 'Test', link: '/crates/i-rs-want/test' }
+            ]
+          },
+          {
+            text: 'i-rs-time',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-time/' },
+              { text: 'Usage', link: '/crates/i-rs-time/usage' },
+              { text: 'Examples', link: '/crates/i-rs-time/examples' },
+              { text: 'Test', link: '/crates/i-rs-time/test' }
             ]
           }
         ]
@@ -455,6 +501,16 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-purify/usage' },
               { text: 'Examples', link: '/crates/i-rs-purify/examples' },
               { text: 'Test', link: '/crates/i-rs-purify/test' }
+            ]
+          },
+          {
+            text: 'i-rs-plant',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-plant/' },
+              { text: 'Usage', link: '/crates/i-rs-plant/usage' },
+              { text: 'Examples', link: '/crates/i-rs-plant/examples' },
+              { text: 'Test', link: '/crates/i-rs-plant/test' }
             ]
           }
         ]
@@ -587,6 +643,16 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-snippet/usage' },
               { text: 'Examples', link: '/crates/i-rs-snippet/examples' },
               { text: 'Test', link: '/crates/i-rs-snippet/test' }
+            ]
+          },
+          {
+            text: 'i-rs-article',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-article/' },
+              { text: 'Usage', link: '/crates/i-rs-article/usage' },
+              { text: 'Examples', link: '/crates/i-rs-article/examples' },
+              { text: 'Test', link: '/crates/i-rs-article/test' }
             ]
           }
         ]
