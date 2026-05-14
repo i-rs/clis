@@ -2,35 +2,34 @@
 
 ## Project Overview
 
-Rust monorepo with 38+ cross-platform CLI tools for personal data management, plus 1 shared core library.
+Rust monorepo with **70 cross-platform CLI tools** for personal data management, plus 1 shared core library.
+
+**Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core.
 
 ## Project Structure
 
 ```
 i-rs-clis/
 ├── crates/
-│   ├── i-rs-core/          # Shared core library
-│   ├── i-rs-server/        # Server management
-│   ├── i-rs-password/      # Password management
-│   ├── i-rs-bookmark/      # Bookmark management
-│   ├── i-rs-note/          # Note management
-│   ├── i-rs-domain/        # Domain expiry tracking
-│   ├── i-rs-remind/        # Event reminders
-│   ├── i-rs-weight/        # Weight tracking
-│   ├── i-rs-mood/          # Mood tracking
-│   ├── i-rs-todo/          # Todo tracking
-│   └── ...                 # 30+ more CLI tools
+│   ├── i-rs-core/          # Shared core library (macros, Storage, presentation, utils)
+│   ├── i-rs-{name}...      # 70 CLI tools
 ├── docs/                   # VitePress documentation
 │   └── .vitepress/
 │       └── config.ts       # Documentation sidebar config
-├── skills/                 # AI skill documents
+├── skills/                 # AI skill documents (70 crates)
+├── .github/workflows/
+│   ├── release.yml         # cargo-dist auto-publish
+│   └── check.yml           # CI: check + clippy + fmt
+├── deny.toml               # cargo-deny config
+├── rust-toolchain.toml     # Pinned Rust toolchain
+├── Cargo.lock              # Committed for reproducible builds
 ├── Cargo.toml              # Workspace config
 ├── README.md
-├── SPEC.md                 # Detailed specifications
+├── SPEC.md                 # Detailed specifications (Chinese)
 └── AGENTS.md               # This file
 ```
 
-## CLI Tools Summary
+## CLI Tools Summary (70 tools)
 
 | Tool | Description | Special Commands |
 |------|-------------|-----------------|
@@ -41,7 +40,9 @@ i-rs-clis/
 | i-rs-domain | Domain expiry tracking | - |
 | i-rs-remind | Event reminders | done |
 | i-rs-weight | Weight tracking | chart, stats |
+| i-rs-height | Height tracking | stats |
 | i-rs-mood | Mood tracking | calendar |
+| i-rs-sleep | Sleep tracking | stats |
 | i-rs-todo | Todo tracking | done |
 | i-rs-water | Water intake tracking | - |
 | i-rs-step | Step counting | - |
@@ -51,12 +52,20 @@ i-rs-clis/
 | i-rs-allergy | Allergy tracking | - |
 | i-rs-cal | Calorie estimation | - |
 | i-rs-fast | Fasting tracking | - |
+| i-rs-exercise | Exercise tracking | stats |
+| i-rs-run | Running records | plan, stats |
+| i-rs-cycling | Cycling tracking | stats |
 | i-rs-habit | Habit tracking | checkin, streak |
-| i-rs-sleep | Sleep tracking | stats |
 | i-rs-sub | Subscription tracking | - |
 | i-rs-bestby | Best-by date tracking | - |
 | i-rs-ledger | Accounting | - |
 | i-rs-recur | Recurring expenses | - |
+| i-rs-budget | Budget management | expense, stats |
+| i-rs-invest | Investment tracking | stats |
+| i-rs-debt | Debt management | pay, stats |
+| i-rs-invoice | Invoice management | stats |
+| i-rs-tax | Tax records | stats |
+| i-rs-goal | Savings goals | deposit, milestone, stats |
 | i-rs-kv | Key-value storage | - |
 | i-rs-keys | API key management | - |
 | i-rs-meal | Meal tracking | - |
@@ -65,6 +74,22 @@ i-rs-clis/
 | i-rs-tick | Duration tracking | - |
 | i-rs-spark | Inspiration capture | - |
 | i-rs-want | Wish list | - |
+| i-rs-gift | Gift planning | stats |
+| i-rs-movie | Movie tracking | stats |
+| i-rs-podcast | Podcast tracking | stats |
+| i-rs-contact | Contact management | remind, stats |
+| i-rs-car | Vehicle management | fuel, maintain, stats |
+| i-rs-project | Project management | milestone, stats |
+| i-rs-article | Article tracker | stats |
+| i-rs-read | Reading tracker | stats |
+| i-rs-quote | Quote collection | - |
+| i-rs-snippet | Code snippet manager | - |
+| i-rs-vocab | Vocabulary learning | quiz, stats |
+| i-rs-birthday | Birthday tracking | stats |
+| i-rs-event | Event management | stats |
+| i-rs-time | Time tracking | start, stop, report, stats |
+| i-rs-deploy | Deployment tracking | rollback, stats |
+| i-rs-vision | Vision tracking | stats |
 | i-rs-sheet | Bedsheet replacement | - |
 | i-rs-toothbrush | Toothbrush replacement | - |
 | i-rs-towel | Towel replacement | - |
@@ -72,6 +97,8 @@ i-rs-clis/
 | i-rs-ac | AC cleaning | - |
 | i-rs-filter | Filter cleaning | - |
 | i-rs-purify | Water purifier filter | - |
+| i-rs-appliance | Appliance management | stats |
+| i-rs-plant | Plant care | water, stats |
 | i-rs-feedpet | Pet feeding | - |
 | i-rs-petbath | Pet bathing | - |
 | i-rs-walkdog | Dog walking | - |
@@ -89,11 +116,18 @@ cargo build -p i-rs-mood
 # Run specific tool
 cargo run -p i-rs-mood -- --help
 
-# Test specific crate
-cargo test -p i-rs-mood
+# Test core library
+cargo test -p i-rs-core
 
-# Check for warnings
+# Check for warnings (MUST be 0)
 cargo check
+
+# Full CI check
+cargo clippy --workspace -- -D warnings
+cargo fmt --all --check
+
+# Dependency audit
+cargo install cargo-deny && cargo deny check
 ```
 
 ## i-rs-core Shared Library
@@ -103,13 +137,16 @@ The `i-rs-core` crate provides shared functionality for all CLI tools:
 ```
 crates/i-rs-core/src/
 ├── lib.rs                    # Public API exports
-├── storage/                  # Generic Storage<T> for JSON persistence
-├── presentation/             # Output formatting
-│   ├── mod.rs              # print_error/success/header/warning + OutputFormat
-│   └── output.rs           # JSON output formatting
+├── macro.rs                  # Macros: create_store!, skill_command!, exit_on_error!
+├── storage/
+│   └── mod.rs              # Storage<T>, filter_by_tag, HasTags
+├── presentation/
+│   ├── mod.rs              # print_error/success/header/warning + render_table
+│   ├── output.rs           # JSON output formatting
+│   └── theme.rs            # Customizable theme (theme.json)
 └── utils/
-    ├── date.rs             # parse_date()
-    └── validation.rs       # validate_name/validate_url/validate_weight
+    ├── date.rs             # parse_date(), parse_datetime()
+    └── validation.rs       # validate_name/url/weight/amount (21 tests)
 ```
 
 ### i-rs-core Exports
@@ -119,13 +156,37 @@ crates/i-rs-core/src/
 pub use i_rs_core::storage::{Storage, filter_by_tag, HasTags};
 
 // Presentation
-pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::{
+    print_error, print_header, print_success, print_warning, println_dimmed,
+    render_table, OutputFormat, Theme,
+};
 pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
 
 // Utils
-pub use i_rs_core::utils::parse_date;
-pub use i_rs_core::utils::validation::{validate_name, validate_url, validate_weight, ValidationError};
+pub use i_rs_core::utils::date::{parse_date, parse_datetime};
+pub use i_rs_core::utils::validation::{
+    validate_name, validate_url, validate_weight, validate_amount, ValidationError,
+};
+
+// Macros (all via i_rs_core::macro_name!)
+// - create_store!(XxxStore, "filename")
+// - skill_command!("i-rs-crate-name")
+// - exit_on_error!(result, json_bool)
 ```
+
+### i-rs-core Quick Ref
+
+| Item | Description |
+|------|-------------|
+| `Storage<T>` | Generic JSON file persistence |
+| `create_store!` | Generates `load_store()` + `save_store()` |
+| `render_table()` | Consistent table styling (cyan borders, green rows) |
+| `skill_command!` | Generates `SkillCommand` enum + `handle_skill()` |
+| `exit_on_error!` | Unified error handling with JSON support |
+| `print_error/success/header/warning` | Colored output helpers |
+| `output_list/item/error` | JSON response formatting |
+| `parse_date/parse_datetime` | Flexible date parsing |
+| `validate_name/url/weight/amount` | Input validation |
 
 ## Crate Structure
 
@@ -133,12 +194,13 @@ Each CLI crate follows this pattern:
 ```
 crates/i-rs-{name}/
 ├── src/
-│   ├── main.rs           # CLI entry point (clap) + --json global flag
-│   ├── commands/         # add, delete, get, list, update, example, skill, [special]
-│   ├── models/           # Data structs with serde + tabled
-│   ├── storage/          # keyring + JSON file (uses i-rs-core Storage)
-│   └── presentation/     # tabled output, colors, charts
-├── Cargo.toml
+│   ├── main.rs           # CLI entry point: Cli::parse() + exit_on_error!
+│   ├── commands/         # add, delete, get, list, update, example, skill
+│   │   └── skill.rs     # ONE LINE: i_rs_core::skill_command!("i-rs-xxx");
+│   ├── models/           # Data structs with serde + tabled + BTreeMap store
+│   ├── storage/          # ONE LINE: i_rs_core::create_store!(XxxStore, "xxx");
+│   └── presentation/     # render_table() + custom format functions
+├── Cargo.toml            # Minimal deps (no dirs/serde_json unless needed)
 └── README.md
 ```
 
@@ -159,151 +221,94 @@ mkdir -p skills/i-rs-{name}
 name = "i-rs-{name}"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }
 clap.workspace = true
 anyhow.workspace = true
 serde.workspace = true
-serde_json.workspace = true
-dirs.workspace = true
-keyring.workspace = true     # if storing passwords/keys
-keyring-core.workspace = true
 tabled.workspace = true
 owo-colors.workspace = true
 chrono.workspace = true
 uuid.workspace = true        # if using UUIDs
+keyring.workspace = true     # if storing passwords/keys
+keyring-core.workspace = true
 ```
 
+Note: Do NOT add `dirs` (comes through i-rs-core), `serde_json` (only if directly used), `tokio`/`reqwest` (not used).
+
 ### Step 3: Create Source Files
-- `src/models/mod.rs` - Entity struct + Row struct (Tabled) + ListItem
-- `src/storage/mod.rs` - JSON persistence (uses i-rs-core Storage) + keyring if needed
-- `src/presentation/mod.rs` - Table formatting + count printing
-- `src/commands/mod.rs` - Command module exports
+
+**storage/mod.rs** (one line):
+```rust
+use crate::models::XxxStore;
+i_rs_core::create_store!(XxxStore, "xxx");
+```
+
+**commands/skill.rs** (one line):
+```rust
+i_rs_core::skill_command!("i-rs-xxx");
+```
+
+**main.rs** (error handling):
+```rust
+fn main() {
+    let cli = Cli::parse();
+    let format = if cli.json { OutputFormat::Json } else { OutputFormat::Table };
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
+}
+```
+
+**presentation/mod.rs** (table rendering):
+```rust
+pub fn format_table(rows: &[XxxRow]) -> String {
+    i_rs_core::render_table(&rows)
+}
+```
+
+Full file list:
+- `src/models/mod.rs` - Entity struct + Row struct (Tabled) + Store (BTreeMap)
+- `src/storage/mod.rs` - `create_store!` macro call
+- `src/presentation/mod.rs` - `render_table()` + count printing
+- `src/commands/mod.rs` - Module exports
 - `src/commands/add.rs` - Add command
 - `src/commands/delete.rs` - Delete command
 - `src/commands/get.rs` - Get command
 - `src/commands/list.rs` - List command
-- `src/commands/update.rs` - Update command (if applicable)
+- `src/commands/update.rs` - Update command
 - `src/commands/example.rs` - Example command
-- `src/commands/skill.rs` - Skill command
-- `src/main.rs` - CLI parsing with --json global flag
+- `src/commands/skill.rs` - `skill_command!` macro call
+- `src/main.rs` - CLI parsing with `exit_on_error!`
 
 ### Step 4: Create README.md (REQUIRED!)
-```markdown
-# i-rs-{name}
-
-[Description] CLI tool for [purpose].
-
-## Features
-
-- Feature 1
-- Feature 2
-- Tag support
-
-## Install
-
-```bash
-npm install -g @i-rs/i-rs-{name}
-# or
-brew install i-rs/homebrew-tap/i-rs-{name}
-```
-
-## Quick Start
-
-```bash
-# [basic usage]
-i-rs-{name} add ...
-
-# List all
-i-rs-{name} list
-```
-
-## Data Storage
-
-- macOS: `~/.config/i-rs/{name}.json`
-- Linux: `~/.config/i-rs/{name}.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
-
-## License
-
-MIT OR Apache-2.0
-```
 
 ### Step 5: Create Docs (REQUIRED!)
-Create 4 files in `docs/crates/i-rs-{name}/`:
-
-**index.md** - Overview and quick start
-**usage.md** - Detailed command reference
-**examples.md** - Extensive usage examples
-**test.md** - Test records for verification
+- `docs/crates/i-rs-{name}/index.md`
+- `docs/crates/i-rs-{name}/usage.md`
+- `docs/crates/i-rs-{name}/examples.md`
+- `docs/crates/i-rs-{name}/test.md`
 
 ### Step 6: Create Skills (REQUIRED!)
-Create `skills/i-rs-{name}/SKILL.md`:
-```markdown
----
-name: "i-rs-{name}"
-description: "[One-line description]. Invoke when [use cases]."
----
-
-# i-rs-{name}
-
-[Description] CLI tool.
-
-## Storage
-
-- Config: `~/.config/i-rs/{name}.json`
-
-## Commands
-
-### add
-...
-
-### list
-...
-
-### get
-...
-
-### delete
-...
-
-## Examples
-
-```bash
-i-rs-{name} add ...
-```
-```
+`skills/i-rs-{name}/SKILL.md` with YAML frontmatter.
 
 ### Step 7: Update Workspace Cargo.toml
-Add `"crates/i-rs-{name}"` to the `members` array in root `Cargo.toml`.
+Add to `members` array.
 
-### Step 8: Update VitePress Config (REQUIRED!)
-Add sidebar entry in `docs/.vitepress/config.ts`:
-```typescript
-{
-  text: 'i-rs-{name}',
-  collapsed: true,
-  items: [
-    { text: 'Overview', link: '/crates/i-rs-{name}/' },
-    { text: 'Usage', link: '/crates/i-rs-{name}/usage' },
-    { text: 'Examples', link: '/crates/i-rs-{name}/examples' },
-    { text: 'Test', link: '/crates/i-rs-{name}/test' }
-  ]
-}
-```
+### Step 8: Update VitePress Config
+Add sidebar entry in `docs/.vitepress/config.ts`.
 
 ### Step 9: Build and Verify
 ```bash
-cargo build -p i-rs-{name}
 cargo check
+# Must be 0 errors, 0 warnings
 ```
 
 ---
 
 ## ⚠️ IMPORTANT: Incomplete Crate Checklist
-
-If you encounter a crate that is missing documentation, verify and complete:
 
 - [ ] `crates/i-rs-{name}/README.md` exists
 - [ ] `docs/crates/i-rs-{name}/index.md` exists
@@ -313,6 +318,11 @@ If you encounter a crate that is missing documentation, verify and complete:
 - [ ] `skills/i-rs-{name}/SKILL.md` exists
 - [ ] `docs/.vitepress/config.ts` has sidebar entry for this crate
 - [ ] `Cargo.toml` workspace has this crate in members
+- [ ] `storage/mod.rs` uses `create_store!` macro
+- [ ] `commands/skill.rs` uses `skill_command!` macro
+- [ ] `main.rs` uses `exit_on_error!` for error handling
+- [ ] Store uses `BTreeMap` (not `HashMap`)
+- [ ] CRUD methods named `add_entry`/`remove_entry`/`get_entry`/`get_entry_mut`
 
 ## Key Conventions
 
@@ -321,10 +331,15 @@ If you encounter a crate that is missing documentation, verify and complete:
 - **Passwords**: Always store in OS keychain (keyring crate), NEVER in JSON config
 - **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR` env var)
 - **Date handling**: chrono with `ts_seconds` serde format
-- **Error handling**: `anyhow::Result<()>` with `?` operator
+- **Error handling**: `exit_on_error!` macro in main.rs, `anyhow::Result` elsewhere
 - **CLI framework**: clap with derive macro, snake_case params auto-convert to kebab-case
-- **Output**: tabled with cyan headers, green rows
-- **JSON output**: All commands support `--json` flag for JSON output
+- **Output**: `render_table()` for tables, `output_list/output_item` for JSON
+- **JSON output**: All commands support `--json` global flag
+- **Storage**: `BTreeMap<String, Entity>` (NOT HashMap)
+- **CRUD naming**: `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
+- **No unwrap()**: Use `expect("message")` or proper error handling
+- **Cargo.lock**: MUST be committed (reproducible builds)
+- **Build**: `cargo check` must show 0 errors and 0 warnings
 
 ## Common Patterns
 
@@ -344,41 +359,59 @@ pub struct Entity {
 }
 ```
 
-### Sensitive Fields
+### Store (BTreeMap)
 ```rust
-#[serde(skip)]
-#[allow(dead_code)]
-pub password: Option<String>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MyStore {
+    pub entries: BTreeMap<String, MyEntity>,
+}
+
+impl MyStore {
+    pub fn add_entry(&mut self, entry: MyEntity) {
+        self.entries.insert(entry.name.clone(), entry);
+    }
+    pub fn remove_entry(&mut self, name: &str) -> Option<MyEntity> {
+        self.entries.remove(name)
+    }
+    pub fn get_entry(&self, name: &str) -> Option<&MyEntity> {
+        self.entries.get(name)
+    }
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut MyEntity> {
+        self.entries.get_mut(name)
+    }
+}
 ```
 
-### Time Calculation (for domain/remind/weight/mood)
+### storage/mod.rs
 ```rust
-pub fn days_until(&self) -> i64 {
-    (self.event_date - Utc::now()).num_days()
+use crate::models::MyStore;
+i_rs_core::create_store!(MyStore, "my-entity");
+```
+
+### commands/skill.rs
+```rust
+i_rs_core::skill_command!("i-rs-my-entity");
+```
+
+### main.rs Error Handling
+```rust
+fn main() {
+    let cli = Cli::parse();
+    let format = if cli.json { OutputFormat::Json } else { OutputFormat::Table };
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
 }
 ```
 
 ### presentation/mod.rs Pattern
 ```rust
 use crate::models::{Entity, EntityRow};
-use owo_colors::OwoColorize;
-use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
 
 pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
 
 pub fn format_table(entities: &[&Entity]) -> String {
-    let rows: Vec<EntityRow> = entities
-        .iter()
-        .map(|e| EntityRow::from_entity(e))
-        .collect();
-
-    Table::new(&rows)
-        .with(Style::modern_rounded())
-        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-        .to_string()
+    let rows: Vec<EntityRow> = entities.iter().map(EntityRow::from_entity).collect();
+    i_rs_core::render_table(&rows)
 }
 
 pub fn print_entity_count(count: usize) {
@@ -389,17 +422,15 @@ pub fn print_entity_count(count: usize) {
 ## Global Commands (All Crates)
 
 ### example Command
-Show usage examples for AI/human to quickly understand the CLI.
 ```bash
 i-rs-{name} example
 ```
 
 ### skill Command
-View AI skill documentation integrated into CLI itself.
 ```bash
 i-rs-{name} skill          # Show raw skill document
-i-rs-{name} skill summary  # Show summary
-i-rs-{name} skill content  # Show content
+i-rs-{name} skill summary  # Show summary (from SKILL.md description)
+i-rs-{name} skill content  # Show content (after YAML frontmatter)
 ```
 
 ## JSON Output
@@ -418,40 +449,28 @@ i-rs-{name} get <name> --json
 {
   "success": true,
   "data": [...],
-  "meta": {
-    "count": 10,
-    "filter": "work"
-  }
+  "meta": { "count": 10, "filter": "work" }
 }
 ```
 
 **Item Response:**
 ```json
-{
-  "success": true,
-  "data": {...}
-}
+{ "success": true, "data": {...} }
 ```
 
 **Error Response:**
 ```json
 {
   "success": false,
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Entry 'xxx' not found"
-  }
+  "error": { "code": "NOT_FOUND", "message": "Entry 'xxx' not found" }
 }
 ```
 
 ## Input Validation
 
-Use `i-rs-core` validation functions in `add` and `update` commands:
-
 ```rust
 use i_rs_core::{validate_name, validate_url, validate_weight, ValidationError};
 
-// In add/update command
 if let Err(e) = validate_name(&name) {
     print_error(&e.message);
     anyhow::bail!("{}", e.message);
@@ -465,34 +484,22 @@ if let Err(e) = validate_name(&name) {
 | `validate_name` | Non-empty, ≤100 chars, no `/ \ : * ? " < > \|` |
 | `validate_url` | Non-empty, starts with `http://` or `https://`, ≤2000 chars |
 | `validate_weight` | > 0, ≤1000 kg |
+| `validate_amount` | > 0, ≤1 billion |
 
 ## Bug Prevention
 
 ### Store Loading Pattern (CORRECT)
 ```rust
-// CORRECT: Load once, use mutable reference
 let mut store = storage::load_store()?;
-
-if store.entries.contains_key(&name) {
-    print_error(&format!("Entry '{}' already exists", name));
-    anyhow::bail!("Entry '{}' already exists", name);
-}
-
-// ... create entity ...
-
-storage::add_entry(&mut store, entry);
+// ... use store ...
 storage::save_store(&store)?;
 ```
 
 ### Store Loading Pattern (INCORRECT - BUG!)
 ```rust
-// WRONG: Double loading - wastes I/O and causes bugs
 let store = storage::load_store()?;
-if store.entries.contains_key(&name) { ... }
-
 // ... later ...
-
-let mut store = storage::load_store()?;  // BUG: Reloading!
+let mut store = storage::load_store()?;  // BUG!
 storage::add_entry(&mut store, entry);
 ```
 
@@ -514,8 +521,11 @@ CI (cargo-dist) auto-builds and publishes to:
 - `SPEC.md` - Detailed project specification (Chinese)
 - `AGENTS.md` - This file (development workflow for AI)
 - `Cargo.toml` - Workspace config
+- `rust-toolchain.toml` - Pinned Rust toolchain
+- `deny.toml` - cargo-deny license/advisory configuration
 - `docs/.vitepress/config.ts` - Documentation sidebar config
-- `.github/workflows/release.yml` - CI/release automation
+- `.github/workflows/check.yml` - CI (cargo check + clippy + fmt)
+- `.github/workflows/release.yml` - Release automation
 
 ## VitePress Documentation
 
@@ -524,3 +534,6 @@ Documentation at `docs/` uses VitePress. Each crate has 4 pages in `docs/crates/
 - `usage.md` - Command reference
 - `examples.md` - Detailed examples
 - `test.md` - Test records
+
+Skills provide specialized instructions and workflows for specific tasks.
+Use the skill tool to load a skill when a task matches its description.
