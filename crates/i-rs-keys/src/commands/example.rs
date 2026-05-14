@@ -6,9 +6,10 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Key (value stored in OS keychain):".bold().green());
-    println!("  i-rs-keys add \"github_token\" \"token_xxx\" --tag coding --remark \"GitHub personal access token\"");
-    println!("  i-rs-keys add \"openai_api\" \"sk-xxx\" --tag ai --remark \"OpenAI API key\"");
-    println!("  i-rs-keys add \"vercel_token\" \"xxx\" --tag hosting --type \"api_key\"");
+    println!("  i-rs-keys add \"github_token\" \"ghp_xxx\" api_key --tag coding --remark \"GitHub PAT\"");
+    println!("  i-rs-keys add \"openai_api\" \"sk-xxx\" api_key --tag ai --remark \"OpenAI API key\"");
+    println!("  i-rs-keys add \"aws_access\" \"AKIAXXX\" aws_key --tag cloud --remark \"AWS credentials\"");
+    println!("  i-rs-keys add \"ssh_work\" \"~/.ssh/id_rsa\" ssh_key --tag work");
     println!();
 
     println!("{}", "List Keys:".bold().green());

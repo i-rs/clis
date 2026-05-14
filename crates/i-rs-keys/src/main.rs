@@ -90,8 +90,8 @@ fn main() {
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
-        Commands::Add { name, key_value, key_type, tag, remark } => {
-            handle_add(name, key_value, key_type, tag, remark)?;
+        Commands::Add { name, key_type, key_value, tag, remark } => {
+            handle_add(name, key_type, key_value, tag, remark)?;
         }
         Commands::Delete { name } => {
             handle_delete(name)?;

@@ -20,9 +20,9 @@ brew install i-rs/homebrew-tap/i-rs-keys
 ## Quick Start
 
 ```bash
-# Add a key
-i-rs-keys add "github-token" --type api-key --remark "GitHub personal access token"
-i-rs-keys add "aws-access" --type aws-key --remark "AWS credentials"
+# Add a key (NAME VALUE TYPE --tag TAG --remark REMARK)
+i-rs-keys add "github-token" "ghp_xxx" api_key --tag coding --remark "GitHub PAT"
+i-rs-keys add "aws-access" "AKIAXXX" aws_key --tag cloud --remark "AWS credentials"
 
 # List all keys
 i-rs-keys list

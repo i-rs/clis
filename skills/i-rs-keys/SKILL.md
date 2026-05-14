@@ -19,11 +19,15 @@ API keys and secrets management CLI tool.
 Add a key entry.
 
 ```bash
-i-rs-keys add <NAME> --type <TYPE> [OPTIONS]
+i-rs-keys add <NAME> <VALUE> <TYPE> [OPTIONS]
 ```
 
+Arguments:
+- `NAME` - Key name
+- `VALUE` - Key value (stored securely in OS keychain)
+- `TYPE` - Key type (api_key, aws_key, ssh_key, password, token, other)
+
 Options:
-- `--type <TYPE>` - Key type (api-key, aws-key, ssh-key, password, token, other)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -43,6 +47,9 @@ Get key entry details.
 i-rs-keys get <NAME>
 ```
 
+Options:
+- `-s, --show-value` - Show the key value from keychain
+
 ### delete
 
 Delete a key entry.
@@ -60,6 +67,7 @@ i-rs-keys update <NAME> [OPTIONS]
 ```
 
 Options:
+- `--key-value <VALUE>` - Update key value
 - `--type <TYPE>` - Update key type
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
@@ -67,15 +75,16 @@ Options:
 ## Examples
 
 ```bash
-# Add API key
-i-rs-keys add "github-token" --type api-key --remark "GitHub PAT"
+# Add API key (NAME VALUE TYPE --tag TAG --remark REMARK)
+i-rs-keys add "github-token" "ghp_xxx" api_key --remark "GitHub PAT"
+i-rs-keys add "openai-api" "sk_xxx" api_key --tag ai
 
 # Add AWS credentials
-i-rs-keys add "aws-access" --type aws-key --remark "Production keys"
+i-rs-keys add "aws-access" "AKIAXXX" aws_key --tag production
 
 # List keys
 i-rs-keys list
 
-# Get key
-i-rs-keys get github-token
+# Get key (with value from keychain)
+i-rs-keys get github-token --show-value
 ```
