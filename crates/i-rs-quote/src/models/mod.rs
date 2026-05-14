@@ -19,13 +19,13 @@ pub struct Quote {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuoteStore {
-    pub quotes: std::collections::HashMap<String, Quote>,
+    pub quotes: std::collections::BTreeMap<String, Quote>,
 }
 
 impl Default for QuoteStore {
     fn default() -> Self {
         Self {
-            quotes: std::collections::HashMap::new(),
+            quotes: std::collections::BTreeMap::new(),
         }
     }
 }

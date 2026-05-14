@@ -129,8 +129,8 @@ impl From<&Contact> for ListItem {
 #[derive(Debug, Serialize)]
 pub struct Stats {
     pub total_contacts: usize,
-    pub by_relationship: std::collections::HashMap<String, usize>,
-    pub by_tag: std::collections::HashMap<String, usize>,
+    pub by_relationship: std::collections::BTreeMap<String, usize>,
+    pub by_tag: std::collections::BTreeMap<String, usize>,
     pub recent_contacts: Vec<ContactFrequency>,
     pub needs_reminder: Vec<String>,
 }

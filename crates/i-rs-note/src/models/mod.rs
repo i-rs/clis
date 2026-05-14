@@ -20,13 +20,13 @@ pub struct Note {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoteStore {
-    pub notes: std::collections::HashMap<String, Note>,
+    pub notes: std::collections::BTreeMap<String, Note>,
 }
 
 impl Default for NoteStore {
     fn default() -> Self {
         Self {
-            notes: std::collections::HashMap::new(),
+            notes: std::collections::BTreeMap::new(),
         }
     }
 }

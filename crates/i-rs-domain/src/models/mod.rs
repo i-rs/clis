@@ -38,13 +38,13 @@ impl Domain {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainStore {
-    pub domains: std::collections::HashMap<String, Domain>,
+    pub domains: std::collections::BTreeMap<String, Domain>,
 }
 
 impl Default for DomainStore {
     fn default() -> Self {
         Self {
-            domains: std::collections::HashMap::new(),
+            domains: std::collections::BTreeMap::new(),
         }
     }
 }

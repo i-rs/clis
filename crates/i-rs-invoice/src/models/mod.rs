@@ -81,7 +81,7 @@ impl InvoiceRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InvoiceStore {
-    pub entries: std::collections::HashMap<String, Invoice>,
+    pub entries: std::collections::BTreeMap<String, Invoice>,
 }
 
 pub fn filter_by_tag<'a>(store: &'a InvoiceStore, tag: &str) -> Vec<&'a Invoice> {

@@ -22,13 +22,13 @@ pub struct Server {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerStore {
-    pub servers: std::collections::HashMap<String, Server>,
+    pub servers: std::collections::BTreeMap<String, Server>,
 }
 
 impl Default for ServerStore {
     fn default() -> Self {
         Self {
-            servers: std::collections::HashMap::new(),
+            servers: std::collections::BTreeMap::new(),
         }
     }
 }

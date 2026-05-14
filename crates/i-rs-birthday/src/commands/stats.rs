@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::Datelike;
 use chrono::Local;
 use owo_colors::OwoColorize;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub fn handle_stats(format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
@@ -25,7 +25,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
     let mut upcoming_30_days = 0;
     let mut this_week_count = 0;
 
-    let mut by_relationship: HashMap<String, usize> = HashMap::new();
+    let mut by_relationship: BTreeMap<String, usize> = BTreeMap::new();
     let mut with_year_count = 0;
     let mut total_age: i64 = 0;
 
@@ -72,7 +72,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
             upcoming_30_days: usize,
             with_known_year: usize,
             average_age: Option<f64>,
-            by_relationship: HashMap<String, usize>,
+            by_relationship: BTreeMap<String, usize>,
         }
 
         let average_age = if with_year_count > 0 {

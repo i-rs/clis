@@ -131,13 +131,13 @@ impl Debt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Store {
     #[serde(default)]
-    pub debts: std::collections::HashMap<String, Debt>,
+    pub debts: std::collections::BTreeMap<String, Debt>,
 }
 
 impl Default for Store {
     fn default() -> Self {
         Self {
-            debts: std::collections::HashMap::new(),
+            debts: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -245,7 +245,7 @@ pub struct Stats {
     pub total_paid: f64,
     pub total_remaining: f64,
     pub overdue_count: usize,
-    pub by_type: std::collections::HashMap<String, TypeStats>,
+    pub by_type: std::collections::BTreeMap<String, TypeStats>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

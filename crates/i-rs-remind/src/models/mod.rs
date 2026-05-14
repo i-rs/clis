@@ -46,13 +46,13 @@ impl Remind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemindStore {
-    pub reminds: std::collections::HashMap<String, Remind>,
+    pub reminds: std::collections::BTreeMap<String, Remind>,
 }
 
 impl Default for RemindStore {
     fn default() -> Self {
         Self {
-            reminds: std::collections::HashMap::new(),
+            reminds: std::collections::BTreeMap::new(),
         }
     }
 }

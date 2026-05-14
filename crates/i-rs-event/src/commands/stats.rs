@@ -4,7 +4,7 @@ use crate::storage;
 use anyhow::Result;
 use chrono::{Datelike, Utc};
 use clap::Parser;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use owo_colors::OwoColorize;
 
 #[derive(Parser, Debug, Clone)]
@@ -18,7 +18,7 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
     let current_year = Utc::now().year();
     let target_year = args.year.unwrap_or(current_year);
 
-    let mut events_by_year: HashMap<i32, Vec<&Event>> = HashMap::new();
+    let mut events_by_year: BTreeMap<i32, Vec<&Event>> = BTreeMap::new();
     for event in store.events.values() {
         let year = event.date.year();
         events_by_year.entry(year).or_default().push(event);
@@ -27,18 +27,18 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
     if let Some(events) = events_by_year.get(&target_year) {
         let total = events.len();
 
-        let mut by_type: HashMap<String, usize> = HashMap::new();
+        let mut by_type: BTreeMap<String, usize> = BTreeMap::new();
         for e in events {
             *by_type.entry(e.event_type.to_string()).or_insert(0) += 1;
         }
 
-        let mut by_month: HashMap<u32, usize> = HashMap::new();
+        let mut by_month: BTreeMap<u32, usize> = BTreeMap::new();
         for e in events {
             let month = e.date.month();
             *by_month.entry(month).or_insert(0) += 1;
         }
 
-        let mut all_tags: HashMap<String, usize> = HashMap::new();
+        let mut all_tags: BTreeMap<String, usize> = BTreeMap::new();
         for e in events {
             for tag in &e.tags {
                 *all_tags.entry(tag.clone()).or_insert(0) += 1;

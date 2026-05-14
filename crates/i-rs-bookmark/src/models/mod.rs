@@ -21,13 +21,13 @@ pub struct Bookmark {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookmarkStore {
-    pub bookmarks: std::collections::HashMap<String, Bookmark>,
+    pub bookmarks: std::collections::BTreeMap<String, Bookmark>,
 }
 
 impl Default for BookmarkStore {
     fn default() -> Self {
         Self {
-            bookmarks: std::collections::HashMap::new(),
+            bookmarks: std::collections::BTreeMap::new(),
         }
     }
 }

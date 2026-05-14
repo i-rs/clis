@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use tabled::Tabled;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -75,13 +75,13 @@ impl Investment {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InvestmentStore {
-    pub investments: HashMap<String, Investment>,
+    pub investments: BTreeMap<String, Investment>,
 }
 
 impl Default for InvestmentStore {
     fn default() -> Self {
         Self {
-            investments: HashMap::new(),
+            investments: BTreeMap::new(),
         }
     }
 }

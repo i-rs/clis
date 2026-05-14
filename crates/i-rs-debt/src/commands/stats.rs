@@ -3,7 +3,7 @@ use crate::presentation::{format_stats, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Parser, Debug)]
 pub struct Args {
@@ -36,7 +36,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let total_remaining: f64 = debts.iter().map(|d| d.remaining).sum();
     let overdue_count = debts.iter().filter(|d| d.is_overdue()).count();
 
-    let mut by_type: HashMap<String, TypeStats> = HashMap::new();
+    let mut by_type: BTreeMap<String, TypeStats> = BTreeMap::new();
 
     if args.by_type {
         for debt in &debts {
@@ -64,7 +64,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     };
 
     if output_format == OutputFormat::Json {
-        let by_type_json: HashMap<String, serde_json::Value> = stats.by_type
+        let by_type_json: BTreeMap<String, serde_json::Value> = stats.by_type
             .iter()
             .map(|(k, v)| {
                 (k.clone(), serde_json::json!({

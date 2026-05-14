@@ -21,13 +21,13 @@ pub struct PasswordEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PasswordStore {
-    pub entries: std::collections::HashMap<String, PasswordEntry>,
+    pub entries: std::collections::BTreeMap<String, PasswordEntry>,
 }
 
 impl Default for PasswordStore {
     fn default() -> Self {
         Self {
-            entries: std::collections::HashMap::new(),
+            entries: std::collections::BTreeMap::new(),
         }
     }
 }

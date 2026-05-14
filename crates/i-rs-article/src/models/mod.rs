@@ -86,13 +86,13 @@ pub struct Article {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArticleStore {
-    pub articles: std::collections::HashMap<String, Article>,
+    pub articles: std::collections::BTreeMap<String, Article>,
 }
 
 impl Default for ArticleStore {
     fn default() -> Self {
         Self {
-            articles: std::collections::HashMap::new(),
+            articles: std::collections::BTreeMap::new(),
         }
     }
 }

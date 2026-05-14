@@ -126,13 +126,13 @@ impl TaxRecordRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaxStore {
-    pub entries: std::collections::HashMap<String, TaxRecord>,
+    pub entries: std::collections::BTreeMap<String, TaxRecord>,
 }
 
 impl Default for TaxStore {
     fn default() -> Self {
         Self {
-            entries: std::collections::HashMap::new(),
+            entries: std::collections::BTreeMap::new(),
         }
     }
 }

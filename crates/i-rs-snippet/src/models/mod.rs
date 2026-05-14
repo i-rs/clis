@@ -21,13 +21,13 @@ pub struct Snippet {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnippetStore {
-    pub snippets: std::collections::HashMap<String, Snippet>,
+    pub snippets: std::collections::BTreeMap<String, Snippet>,
 }
 
 impl Default for SnippetStore {
     fn default() -> Self {
         Self {
-            snippets: std::collections::HashMap::new(),
+            snippets: std::collections::BTreeMap::new(),
         }
     }
 }

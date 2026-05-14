@@ -107,13 +107,13 @@ impl EventRow {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventStore {
-    pub events: std::collections::HashMap<String, Event>,
+    pub events: std::collections::BTreeMap<String, Event>,
 }
 
 impl EventStore {
     pub fn new() -> Self {
         Self {
-            events: std::collections::HashMap::new(),
+            events: std::collections::BTreeMap::new(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use tabled::Tabled;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,7 +138,7 @@ impl MaintenanceRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Store {
     #[serde(default)]
-    pub cars: HashMap<String, Car>,
+    pub cars: BTreeMap<String, Car>,
     #[serde(default)]
     pub fuel_records: Vec<FuelRecord>,
     #[serde(default)]
@@ -369,7 +369,7 @@ pub struct Stats {
     pub total_maintenance_records: usize,
     pub total_fuel_cost: f64,
     pub total_maintenance_cost: f64,
-    pub by_car: HashMap<String, CarStats>,
+    pub by_car: BTreeMap<String, CarStats>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

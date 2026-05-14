@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use tabled::Tabled;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -67,13 +67,13 @@ pub struct VocabWord {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VocabStore {
-    pub words: HashMap<String, VocabWord>,
+    pub words: BTreeMap<String, VocabWord>,
 }
 
 impl Default for VocabStore {
     fn default() -> Self {
         Self {
-            words: HashMap::new(),
+            words: BTreeMap::new(),
         }
     }
 }

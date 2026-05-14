@@ -2,14 +2,14 @@ use crate::models::{ContactFrequency, Stats};
 use crate::presentation::{print_header, OutputFormat, output_item};
 use crate::storage;
 use owo_colors::OwoColorize;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
     let total_contacts = store.entries.len();
-    let mut by_relationship: HashMap<String, usize> = HashMap::new();
-    let mut by_tag: HashMap<String, usize> = HashMap::new();
+    let mut by_relationship: BTreeMap<String, usize> = BTreeMap::new();
+    let mut by_tag: BTreeMap<String, usize> = BTreeMap::new();
     let mut recent_contacts: Vec<ContactFrequency> = Vec::new();
     let mut needs_reminder: Vec<String> = Vec::new();
 

@@ -25,12 +25,12 @@ pub fn handle_stats() -> Result<()> {
         .map(|g| g.value)
         .sum();
 
-    let mut occasion_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut occasion_counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     for gift in &gifts {
         *occasion_counts.entry(gift.occasion.clone()).or_insert(0) += 1;
     }
 
-    let mut recipient_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut recipient_counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     for gift in &gifts {
         *recipient_counts.entry(gift.recipient.clone()).or_insert(0) += 1;
     }

@@ -3,7 +3,7 @@ use crate::presentation::{format_stats, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Parser, Debug)]
 pub struct Args {
@@ -59,7 +59,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let total_fuel_cost = store.total_fuel_cost(None);
     let total_maintenance_cost = store.total_maintenance_cost(None);
 
-    let mut by_car: HashMap<String, CarStats> = HashMap::new();
+    let mut by_car: BTreeMap<String, CarStats> = BTreeMap::new();
 
     for car in store.list_cars() {
         let car_name = &car.name;
@@ -85,7 +85,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     };
 
     if output_format == OutputFormat::Json {
-        let by_car_json: HashMap<String, serde_json::Value> = stats.by_car
+        let by_car_json: BTreeMap<String, serde_json::Value> = stats.by_car
             .iter()
             .map(|(k, v)| {
                 (k.clone(), serde_json::json!({

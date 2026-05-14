@@ -38,13 +38,13 @@ impl std::fmt::Display for GiftType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GiftStore {
-    pub gifts: std::collections::HashMap<String, Gift>,
+    pub gifts: std::collections::BTreeMap<String, Gift>,
 }
 
 impl Default for GiftStore {
     fn default() -> Self {
         Self {
-            gifts: std::collections::HashMap::new(),
+            gifts: std::collections::BTreeMap::new(),
         }
     }
 }

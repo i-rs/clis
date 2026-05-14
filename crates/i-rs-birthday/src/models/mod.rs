@@ -73,13 +73,13 @@ impl Birthday {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BirthdayStore {
-    pub birthdays: std::collections::HashMap<String, Birthday>,
+    pub birthdays: std::collections::BTreeMap<String, Birthday>,
 }
 
 impl Default for BirthdayStore {
     fn default() -> Self {
         Self {
-            birthdays: std::collections::HashMap::new(),
+            birthdays: std::collections::BTreeMap::new(),
         }
     }
 }
