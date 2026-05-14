@@ -73,8 +73,8 @@ enum Commands {
     Example,
     #[command(about = "Show skill documentation")]
     Skill {
-        #[arg(default_value = "content")]
-        args: Vec<String>,
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
     },
 }
 
@@ -186,9 +186,12 @@ fn main() -> Result<()> {
         Commands::Example => {
             commands::example();
         }
-        Commands::Skill { args } => {
-            commands::skill(args);
-        }
+        Commands::Skill { sub } =>
+            commands::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::SkillCommand::Summary,
+                "content" => commands::SkillCommand::Content,
+                _ => commands::SkillCommand::Raw,
+            })),
     }
 
     Ok(())

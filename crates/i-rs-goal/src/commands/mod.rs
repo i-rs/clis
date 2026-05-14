@@ -16,6 +16,6 @@ pub use example::example;
 pub use get::get;
 pub use list::list;
 pub use milestone::{add_milestone, list_milestones, remove_milestone};
-pub use skill::skill;
+pub use skill::{handle_skill, SkillCommand};
 pub use stats::stats;
 pub use update::update;

@@ -12,6 +12,6 @@ pub use delete::delete;
 pub use example::example;
 pub use get::get;
 pub use list::list;
-pub use skill::skill;
+pub use skill::{handle_skill, SkillCommand};
 pub use stats::stats;
 pub use update::update;

@@ -43,7 +43,10 @@ pub enum Commands {
     Example(commands::example::ExampleArgs),
 
     #[command(about = "Show AI skill documentation")]
-    Skill(commands::skill::SkillArgs),
+    Skill {
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
+    },
 }
 
 fn main() {
@@ -78,7 +81,15 @@ fn main() {
             let json = cli.json;
             commands::example::run(args, json)
         }
-        Commands::Skill(args) => commands::skill::run(args),
+        Commands::Skill { sub } => {
+            let sub = sub.clone();
+            commands::skill::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::skill::SkillCommand::Summary,
+                "content" => commands::skill::SkillCommand::Content,
+                _ => commands::skill::SkillCommand::Raw,
+            }));
+            Ok(())
+        }
     };
 
     if let Err(e) = result {

@@ -48,7 +48,10 @@ enum Commands {
     Example(commands::example::ExampleArgs),
     
     #[command(about = "Show skill documentation")]
-    Skill(commands::skill::SkillArgs),
+    Skill {
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -78,6 +81,13 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Stats(args) => stats(args, output_format),
         Commands::Example(args) => example(args),
-        Commands::Skill(args) => skill(args),
+        Commands::Skill { sub } => {
+            commands::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::SkillCommand::Summary,
+                "content" => commands::SkillCommand::Content,
+                _ => commands::SkillCommand::Raw,
+            }));
+            Ok(())
+        }
     }
 }

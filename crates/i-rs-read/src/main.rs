@@ -44,11 +44,8 @@ enum Commands {
 
     #[command(about = "Show AI skill documentation")]
     Skill {
-        #[arg(default_value = "false")]
-        summary: bool,
-
-        #[arg(long, default_value = "false")]
-        content: bool,
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
     },
 }
 
@@ -76,9 +73,12 @@ fn run() -> Result<()> {
         Commands::Update(args) => commands::update(args, output_format)?,
         Commands::Stats(args) => commands::stats(args, output_format)?,
         Commands::Example(args) => commands::example(args)?,
-        Commands::Skill { summary, content } => {
-            commands::skill(commands::skill::SkillArgs { summary, content })?
-        }
+        Commands::Skill { sub } =>
+            commands::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::SkillCommand::Summary,
+                "content" => commands::SkillCommand::Content,
+                _ => commands::SkillCommand::Raw,
+            })),
     }
 
     Ok(())

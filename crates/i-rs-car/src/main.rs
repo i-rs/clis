@@ -175,11 +175,12 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Example {} => {
             example::run(&example::Args {})?;
         }
-        Commands::Skill { sub } => {
-            skill::run(&skill::Args {
-                summary: sub.as_deref() == Some("summary")
-            })?;
-        }
+        Commands::Skill { sub } =>
+            skill::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => skill::SkillCommand::Summary,
+                "content" => skill::SkillCommand::Content,
+                _ => skill::SkillCommand::Raw,
+            })),
     }
 
     Ok(())

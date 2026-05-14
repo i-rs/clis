@@ -38,7 +38,10 @@ pub enum Commands {
     Example(commands::example::ExampleArgs),
 
     #[command(about = "Show AI skill documentation")]
-    Skill(commands::skill::SkillArgs),
+    Skill {
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
+    },
 }
 
 fn main() {
@@ -52,7 +55,14 @@ fn main() {
         Commands::Delete(args) => commands::run_delete(args),
         Commands::Stats(args) => commands::run_stats(args),
         Commands::Example(args) => commands::run_example(args),
-        Commands::Skill(args) => commands::run_skill(args),
+        Commands::Skill { sub } => {
+            commands::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::SkillCommand::Summary,
+                "content" => commands::SkillCommand::Content,
+                _ => commands::SkillCommand::Raw,
+            }));
+            Ok(())
+        }
     };
 
     if let Err(e) = result {

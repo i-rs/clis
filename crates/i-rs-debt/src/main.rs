@@ -41,7 +41,10 @@ enum Commands {
     #[command(about = "Show usage examples")]
     Example(commands::example::Args),
     #[command(about = "Show AI skill documentation")]
-    Skill(commands::skill::Args),
+    Skill {
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
+    },
 }
 
 fn main() {
@@ -69,6 +72,13 @@ fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
         Commands::Pay(args) => commands::pay::run(&args, output_format),
         Commands::Stats(args) => commands::stats::run(&args, output_format),
         Commands::Example(args) => commands::example::run(&args),
-        Commands::Skill(args) => commands::skill::run(&args),
+        Commands::Skill { sub } => {
+            commands::skill::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::skill::SkillCommand::Summary,
+                "content" => commands::skill::SkillCommand::Content,
+                _ => commands::skill::SkillCommand::Raw,
+            }));
+            Ok(())
+        }
     }
 }

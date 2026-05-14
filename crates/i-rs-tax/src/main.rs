@@ -32,7 +32,10 @@ enum Commands {
     #[command(about = "显示使用示例")]
     Example(commands::example::ExampleArgs),
     #[command(about = "显示 AI 技能文档")]
-    Skill(commands::skill::SkillArgs),
+    Skill {
+        #[arg(value_name = "SUB_COMMAND")]
+        sub: Option<String>,
+    },
 }
 
 fn main() {
@@ -60,9 +63,13 @@ fn main() {
             commands::example::run(&args);
             return;
         }
-        Commands::Skill(args) => {
-            commands::skill::run(&args);
-            return;
+        Commands::Skill { sub } => {
+            commands::skill::handle_skill(sub.map(|s| match s.as_str() {
+                "summary" => commands::skill::SkillCommand::Summary,
+                "content" => commands::skill::SkillCommand::Content,
+                _ => commands::skill::SkillCommand::Raw,
+            }));
+            Ok(())
         }
     };
 
