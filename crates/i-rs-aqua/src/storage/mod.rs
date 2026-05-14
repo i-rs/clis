@@ -1,17 +1,7 @@
 use crate::models::{AquaEntry, AquaStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<AquaStore> {
-    let mut storage = Storage::<AquaStore>::new("aqua");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &AquaStore) -> anyhow::Result<()> {
-    let storage = Storage::<AquaStore>::new("aqua");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(AquaStore, "aqua");
 
 
 pub fn add_entry(store: &mut AquaStore, entry: AquaEntry) {

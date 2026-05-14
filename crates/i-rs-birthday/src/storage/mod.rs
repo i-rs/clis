@@ -1,17 +1,7 @@
 use crate::models::{Birthday, BirthdayStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<BirthdayStore> {
-    let mut storage = Storage::<BirthdayStore>::new("birthday");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &BirthdayStore) -> anyhow::Result<()> {
-    let storage = Storage::<BirthdayStore>::new("birthday");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(BirthdayStore, "birthday");
 
 
 pub fn add_birthday(store: &mut BirthdayStore, birthday: Birthday) {

@@ -1,17 +1,7 @@
 use crate::models::{TaxRecord, TaxStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<TaxStore> {
-    let mut storage = Storage::<TaxStore>::new("tax");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &TaxStore) -> anyhow::Result<()> {
-    let storage = Storage::<TaxStore>::new("tax");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(TaxStore, "tax");
 
 pub fn add_entry(store: &mut TaxStore, entry: TaxRecord) {
     store.entries.insert(entry.name.clone(), entry);

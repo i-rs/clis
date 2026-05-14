@@ -1,17 +1,7 @@
 use crate::models::{PurifyEntry, PurifyStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<PurifyStore> {
-    let mut storage = Storage::<PurifyStore>::new("purify");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &PurifyStore) -> anyhow::Result<()> {
-    let storage = Storage::<PurifyStore>::new("purify");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(PurifyStore, "purify");
 
 
 pub fn add_entry(store: &mut PurifyStore, entry: PurifyEntry) {

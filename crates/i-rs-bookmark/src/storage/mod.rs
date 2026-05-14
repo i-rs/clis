@@ -3,18 +3,8 @@ use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<BookmarkStore> {
-    let mut storage = Storage::<BookmarkStore>::new("bookmark");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &BookmarkStore) -> anyhow::Result<()> {
-    let storage = Storage::<BookmarkStore>::new("bookmark");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(BookmarkStore, "bookmark");
 
 
 const SERVICE_NAME: &str = "i-rs-bookmark";

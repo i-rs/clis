@@ -3,18 +3,8 @@ use anyhow::Result;
 use chrono::Utc;
 use uuid::Uuid;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<TimeStore> {
-    let mut storage = Storage::<TimeStore>::new("time");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &TimeStore) -> anyhow::Result<()> {
-    let storage = Storage::<TimeStore>::new("time");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(TimeStore, "time");
 
 
 pub fn start_timer(store: &mut TimeStore, name: String, tags: Vec<String>, remark: Vec<String>) -> Result<TimeEntry> {

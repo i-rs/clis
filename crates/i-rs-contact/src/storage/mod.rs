@@ -2,18 +2,8 @@ use crate::models::{Contact, ContactStore};
 use anyhow::Result;
 use chrono::Utc;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<ContactStore> {
-    let mut storage = Storage::<ContactStore>::new("contact");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &ContactStore) -> anyhow::Result<()> {
-    let storage = Storage::<ContactStore>::new("contact");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(ContactStore, "contact");
 
 
 pub fn add_contact(

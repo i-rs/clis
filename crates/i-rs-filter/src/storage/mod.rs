@@ -1,17 +1,7 @@
 use crate::models::{FilterEntry, FilterStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<FilterStore> {
-    let mut storage = Storage::<FilterStore>::new("filter");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &FilterStore) -> anyhow::Result<()> {
-    let storage = Storage::<FilterStore>::new("filter");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(FilterStore, "filter");
 
 
 pub fn add_entry(store: &mut FilterStore, entry: FilterEntry) {

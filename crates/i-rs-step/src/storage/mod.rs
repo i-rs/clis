@@ -1,18 +1,8 @@
 use crate::models::{StepEntry, StepStore};
 use chrono::NaiveDate;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<StepStore> {
-    let mut storage = Storage::<StepStore>::new("step");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &StepStore) -> anyhow::Result<()> {
-    let storage = Storage::<StepStore>::new("step");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(StepStore, "step");
 
 
 pub fn add_entry(store: &mut StepStore, entry: StepEntry) {

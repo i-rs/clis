@@ -1,17 +1,7 @@
 use crate::models::{SitEntry, SitStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<SitStore> {
-    let mut storage = Storage::<SitStore>::new("sit");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &SitStore) -> anyhow::Result<()> {
-    let storage = Storage::<SitStore>::new("sit");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(SitStore, "sit");
 
 
 pub fn add_entry(store: &mut SitStore, entry: SitEntry) {

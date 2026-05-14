@@ -1,17 +1,7 @@
 use crate::models::{Plant, PlantStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<PlantStore> {
-    let mut storage = Storage::<PlantStore>::new("plant");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &PlantStore) -> anyhow::Result<()> {
-    let storage = Storage::<PlantStore>::new("plant");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(PlantStore, "plant");
 
 
 pub fn add_plant(store: &mut PlantStore, plant: Plant) {

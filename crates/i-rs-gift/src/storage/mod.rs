@@ -1,17 +1,7 @@
 use crate::models::{Gift, GiftStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<GiftStore> {
-    let mut storage = Storage::<GiftStore>::new("gift");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &GiftStore) -> anyhow::Result<()> {
-    let storage = Storage::<GiftStore>::new("gift");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(GiftStore, "gift");
 
 
 pub fn add_gift(store: &mut GiftStore, gift: Gift) {

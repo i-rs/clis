@@ -1,17 +1,7 @@
 use crate::models::{SparkEntry, SparkStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<SparkStore> {
-    let mut storage = Storage::<SparkStore>::new("spark");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &SparkStore) -> anyhow::Result<()> {
-    let storage = Storage::<SparkStore>::new("spark");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(SparkStore, "spark");
 
 
 pub fn add_entry(store: &mut SparkStore, entry: SparkEntry) {

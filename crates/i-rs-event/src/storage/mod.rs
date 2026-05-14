@@ -1,17 +1,7 @@
 use crate::models::{Event, EventStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<EventStore> {
-    let mut storage = Storage::<EventStore>::new("event");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &EventStore) -> anyhow::Result<()> {
-    let storage = Storage::<EventStore>::new("event");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(EventStore, "event");
 
 pub fn add_event(store: &mut EventStore, event: Event) {
     store.events.insert(event.name.clone(), event);

@@ -1,17 +1,7 @@
 use crate::models::{Snippet, SnippetStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<SnippetStore> {
-    let mut storage = Storage::<SnippetStore>::new("snippet");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &SnippetStore) -> anyhow::Result<()> {
-    let storage = Storage::<SnippetStore>::new("snippet");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(SnippetStore, "snippet");
 
 
 pub fn add_snippet(store: &mut SnippetStore, snippet: Snippet) {

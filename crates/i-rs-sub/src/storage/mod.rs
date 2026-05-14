@@ -1,17 +1,7 @@
 use crate::models::{SubEntry, SubStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<SubStore> {
-    let mut storage = Storage::<SubStore>::new("sub");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &SubStore) -> anyhow::Result<()> {
-    let storage = Storage::<SubStore>::new("sub");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(SubStore, "sub");
 
 
 pub fn add_entry(store: &mut SubStore, entry: SubEntry) {

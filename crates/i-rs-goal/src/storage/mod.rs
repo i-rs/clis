@@ -3,18 +3,8 @@ use anyhow::Result;
 use chrono::Utc;
 use uuid::Uuid;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<Store> {
-    let mut storage = Storage::<Store>::new("goal");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &Store) -> anyhow::Result<()> {
-    let storage = Storage::<Store>::new("goal");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(Store, "goal");
 
 
 pub fn find_goal<'a>(store: &'a mut Store, name: &str) -> Option<&'a mut SavingsGoal> {

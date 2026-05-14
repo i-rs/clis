@@ -3,18 +3,8 @@ use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<ServerStore> {
-    let mut storage = Storage::<ServerStore>::new("server");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &ServerStore) -> anyhow::Result<()> {
-    let storage = Storage::<ServerStore>::new("server");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(ServerStore, "server");
 
 
 const SERVICE_NAME: &str = "i-rs-server";

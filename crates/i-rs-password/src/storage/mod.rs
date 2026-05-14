@@ -3,18 +3,8 @@ use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<PasswordStore> {
-    let mut storage = Storage::<PasswordStore>::new("password");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &PasswordStore) -> anyhow::Result<()> {
-    let storage = Storage::<PasswordStore>::new("password");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(PasswordStore, "password");
 
 
 const SERVICE_NAME: &str = "i-rs-password";

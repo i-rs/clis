@@ -1,17 +1,7 @@
 use crate::models::{DoseEntry, DoseStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<DoseStore> {
-    let mut storage = Storage::<DoseStore>::new("dose");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &DoseStore) -> anyhow::Result<()> {
-    let storage = Storage::<DoseStore>::new("dose");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(DoseStore, "dose");
 
 
 pub fn add_entry(store: &mut DoseStore, entry: DoseEntry) {

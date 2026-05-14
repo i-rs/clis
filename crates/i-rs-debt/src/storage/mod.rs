@@ -1,17 +1,7 @@
 use crate::models::{Debt, Store};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<Store> {
-    let mut storage = Storage::<Store>::new("debt");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &Store) -> anyhow::Result<()> {
-    let storage = Storage::<Store>::new("debt");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(Store, "debt");
 
 
 pub fn add_debt(store: &mut Store, debt: Debt) {

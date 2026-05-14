@@ -67,15 +67,5 @@ pub fn update_habit(
 
 use crate::models::Checkin;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<HabitStore> {
-    let mut storage = Storage::<HabitStore>::new("habit");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &HabitStore) -> anyhow::Result<()> {
-    let storage = Storage::<HabitStore>::new("habit");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(HabitStore, "habit");

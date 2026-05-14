@@ -1,17 +1,7 @@
 use crate::models::{CalEntry, CalStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<CalStore> {
-    let mut storage = Storage::<CalStore>::new("cal");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &CalStore) -> anyhow::Result<()> {
-    let storage = Storage::<CalStore>::new("cal");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(CalStore, "cal");
 
 
 pub fn add_entry(store: &mut CalStore, entry: CalEntry) {

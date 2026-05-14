@@ -1,17 +1,7 @@
 use crate::models::{WantEntry, WantStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<WantStore> {
-    let mut storage = Storage::<WantStore>::new("want");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &WantStore) -> anyhow::Result<()> {
-    let storage = Storage::<WantStore>::new("want");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(WantStore, "want");
 
 
 pub fn add_entry(store: &mut WantStore, entry: WantEntry) {

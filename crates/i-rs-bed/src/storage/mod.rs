@@ -1,17 +1,7 @@
 use crate::models::{BedEntry, BedStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<BedStore> {
-    let mut storage = Storage::<BedStore>::new("bed");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &BedStore) -> anyhow::Result<()> {
-    let storage = Storage::<BedStore>::new("bed");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(BedStore, "bed");
 
 
 pub fn add_entry(store: &mut BedStore, entry: BedEntry) {

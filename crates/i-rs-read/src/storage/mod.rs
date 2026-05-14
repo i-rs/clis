@@ -2,18 +2,8 @@ use crate::models::Book;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<Store> {
-    let mut storage = Storage::<Store>::new("read");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &Store) -> anyhow::Result<()> {
-    let storage = Storage::<Store>::new("read");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(Store, "read");
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Store {

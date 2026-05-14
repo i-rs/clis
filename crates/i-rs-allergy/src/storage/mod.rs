@@ -1,17 +1,7 @@
 use crate::models::{AllergyEntry, AllergyStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<AllergyStore> {
-    let mut storage = Storage::<AllergyStore>::new("allergy");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &AllergyStore) -> anyhow::Result<()> {
-    let storage = Storage::<AllergyStore>::new("allergy");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(AllergyStore, "allergy");
 
 
 pub fn add_entry(store: &mut AllergyStore, entry: AllergyEntry) {

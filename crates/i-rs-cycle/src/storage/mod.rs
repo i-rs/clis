@@ -1,17 +1,7 @@
 use crate::models::{CycleEntry, CycleStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<CycleStore> {
-    let mut storage = Storage::<CycleStore>::new("cycle");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &CycleStore) -> anyhow::Result<()> {
-    let storage = Storage::<CycleStore>::new("cycle");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(CycleStore, "cycle");
 
 
 pub fn add_entry(store: &mut CycleStore, entry: CycleEntry) {

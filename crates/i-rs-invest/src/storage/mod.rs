@@ -1,17 +1,7 @@
 use crate::models::{AssetType, Investment, InvestmentStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<InvestmentStore> {
-    let mut storage = Storage::<InvestmentStore>::new("invest");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &InvestmentStore) -> anyhow::Result<()> {
-    let storage = Storage::<InvestmentStore>::new("invest");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(InvestmentStore, "invest");
 
 
 pub fn add_investment(store: &mut InvestmentStore, investment: Investment) {

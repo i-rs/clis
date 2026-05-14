@@ -1,17 +1,7 @@
 use crate::models::BestByStore;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<BestByStore> {
-    let mut storage = Storage::<BestByStore>::new("bestby");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &BestByStore) -> anyhow::Result<()> {
-    let storage = Storage::<BestByStore>::new("bestby");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(BestByStore, "bestby");
 
 
 pub fn add_entry(store: &mut BestByStore, entry: crate::models::Entity) {

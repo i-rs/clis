@@ -1,17 +1,7 @@
 use crate::models::{AcEntry, AcStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<AcStore> {
-    let mut storage = Storage::<AcStore>::new("ac");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &AcStore) -> anyhow::Result<()> {
-    let storage = Storage::<AcStore>::new("ac");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(AcStore, "ac");
 
 
 pub fn add_entry(store: &mut AcStore, entry: AcEntry) {

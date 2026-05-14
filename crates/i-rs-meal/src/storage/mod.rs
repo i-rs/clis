@@ -1,18 +1,8 @@
 use crate::models::{MealEntry, MealStore};
 use chrono::NaiveDate;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<MealStore> {
-    let mut storage = Storage::<MealStore>::new("meal");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &MealStore) -> anyhow::Result<()> {
-    let storage = Storage::<MealStore>::new("meal");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(MealStore, "meal");
 
 
 pub fn add_entry(store: &mut MealStore, entry: MealEntry) {

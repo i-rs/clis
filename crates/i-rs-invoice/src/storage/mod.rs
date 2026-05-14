@@ -1,17 +1,7 @@
 use crate::models::{Invoice, InvoiceStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<InvoiceStore> {
-    let mut storage = Storage::<InvoiceStore>::new("invoice");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &InvoiceStore) -> anyhow::Result<()> {
-    let storage = Storage::<InvoiceStore>::new("invoice");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(InvoiceStore, "invoice");
 
 pub fn add_entry(store: &mut InvoiceStore, entry: Invoice) {
     store.entries.insert(entry.id.clone(), entry);

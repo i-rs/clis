@@ -1,17 +1,7 @@
 use crate::models::{ToothbrushEntry, ToothbrushStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<ToothbrushStore> {
-    let mut storage = Storage::<ToothbrushStore>::new("toothbrush");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &ToothbrushStore) -> anyhow::Result<()> {
-    let storage = Storage::<ToothbrushStore>::new("toothbrush");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(ToothbrushStore, "toothbrush");
 
 
 pub fn add_entry(store: &mut ToothbrushStore, entry: ToothbrushEntry) {

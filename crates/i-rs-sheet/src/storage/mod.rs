@@ -1,17 +1,7 @@
 use crate::models::{SheetEntry, SheetStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<SheetStore> {
-    let mut storage = Storage::<SheetStore>::new("sheet");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &SheetStore) -> anyhow::Result<()> {
-    let storage = Storage::<SheetStore>::new("sheet");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(SheetStore, "sheet");
 
 
 pub fn add_entry(store: &mut SheetStore, entry: SheetEntry) {

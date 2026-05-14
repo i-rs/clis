@@ -1,17 +1,7 @@
 use crate::models::MovieStore;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<MovieStore> {
-    let mut storage = Storage::<MovieStore>::new("movie");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &MovieStore) -> anyhow::Result<()> {
-    let storage = Storage::<MovieStore>::new("movie");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(MovieStore, "movie");
 
 
 pub fn add_movie(store: &mut MovieStore, movie: crate::models::Movie) {

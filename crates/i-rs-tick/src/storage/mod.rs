@@ -1,17 +1,7 @@
 use crate::models::{TickEntry, TickStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<TickStore> {
-    let mut storage = Storage::<TickStore>::new("tick");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &TickStore) -> anyhow::Result<()> {
-    let storage = Storage::<TickStore>::new("tick");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(TickStore, "tick");
 
 
 pub fn add_entry(store: &mut TickStore, entry: TickEntry) {

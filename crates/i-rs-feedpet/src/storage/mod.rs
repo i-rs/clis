@@ -1,17 +1,7 @@
 use crate::models::{FeedpetEntry, FeedpetStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<FeedpetStore> {
-    let mut storage = Storage::<FeedpetStore>::new("feedpet");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &FeedpetStore) -> anyhow::Result<()> {
-    let storage = Storage::<FeedpetStore>::new("feedpet");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(FeedpetStore, "feedpet");
 
 
 pub fn add_entry(store: &mut FeedpetStore, entry: FeedpetEntry) {

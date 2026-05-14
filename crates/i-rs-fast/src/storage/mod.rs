@@ -1,17 +1,7 @@
 use crate::models::{FastEntry, FastStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<FastStore> {
-    let mut storage = Storage::<FastStore>::new("fast");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &FastStore) -> anyhow::Result<()> {
-    let storage = Storage::<FastStore>::new("fast");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(FastStore, "fast");
 
 
 pub fn add_entry(store: &mut FastStore, entry: FastEntry) {

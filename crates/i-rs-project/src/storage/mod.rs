@@ -1,17 +1,7 @@
 use crate::models::{Project, ProjectStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<ProjectStore> {
-    let mut storage = Storage::<ProjectStore>::new("project");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &ProjectStore) -> anyhow::Result<()> {
-    let storage = Storage::<ProjectStore>::new("project");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(ProjectStore, "project");
 
 pub fn find_project<'a>(store: &'a ProjectStore, name: &str) -> Option<&'a Project> {
     store.projects.iter().find(|p| p.name.eq_ignore_ascii_case(name))

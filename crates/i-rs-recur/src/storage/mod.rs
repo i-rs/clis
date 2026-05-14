@@ -1,17 +1,7 @@
 use crate::models::{RecurEntry, RecurStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<RecurStore> {
-    let mut storage = Storage::<RecurStore>::new("recur");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &RecurStore) -> anyhow::Result<()> {
-    let storage = Storage::<RecurStore>::new("recur");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(RecurStore, "recur");
 
 
 pub fn add_entry(store: &mut RecurStore, entry: RecurEntry) {

@@ -1,17 +1,7 @@
 use crate::models::{Quote, QuoteStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<QuoteStore> {
-    let mut storage = Storage::<QuoteStore>::new("quote");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &QuoteStore) -> anyhow::Result<()> {
-    let storage = Storage::<QuoteStore>::new("quote");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(QuoteStore, "quote");
 
 
 pub fn add_quote(store: &mut QuoteStore, quote: Quote) {

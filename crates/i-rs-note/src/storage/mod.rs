@@ -1,17 +1,7 @@
 use crate::models::{Note, NoteStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<NoteStore> {
-    let mut storage = Storage::<NoteStore>::new("note");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &NoteStore) -> anyhow::Result<()> {
-    let storage = Storage::<NoteStore>::new("note");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(NoteStore, "note");
 
 
 pub fn add_note(store: &mut NoteStore, note: Note) {

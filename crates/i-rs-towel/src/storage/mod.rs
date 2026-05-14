@@ -1,17 +1,7 @@
 use crate::models::{TowelEntry, TowelStore};
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<TowelStore> {
-    let mut storage = Storage::<TowelStore>::new("towel");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &TowelStore) -> anyhow::Result<()> {
-    let storage = Storage::<TowelStore>::new("towel");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(TowelStore, "towel");
 
 
 pub fn add_entry(store: &mut TowelStore, entry: TowelEntry) {

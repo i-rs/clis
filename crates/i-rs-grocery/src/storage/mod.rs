@@ -2,18 +2,8 @@ use crate::models::{GroceryItem, GroceryStore};
 use anyhow::Result;
 use chrono::Utc;
 
-use i_rs_core::Storage;
 
-pub fn load_store() -> anyhow::Result<GroceryStore> {
-    let mut storage = Storage::<GroceryStore>::new("grocery");
-    storage.load()?;
-    Ok(storage.data)
-}
-
-pub fn save_store(store: &GroceryStore) -> anyhow::Result<()> {
-    let storage = Storage::<GroceryStore>::new("grocery");
-    storage.save_data(store)
-}
+i_rs_core::create_store!(GroceryStore, "grocery");
 
 
 pub fn add_item(store: &mut GroceryStore, name: String, quantity: i32, unit: String, tags: Vec<String>, remark: Vec<String>) -> Result<GroceryItem> {
