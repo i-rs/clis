@@ -1,20 +1,5 @@
 pub mod output;
+pub mod theme;
 
-use owo_colors::OwoColorize;
 pub use output::{OutputFormat, output_list, output_item, output_error};
-
-pub fn print_error(msg: &str) {
-    eprintln!("{}", format!("Error: {}", msg).red());
-}
-
-pub fn print_success(msg: &str) {
-    println!("{}", msg.green());
-}
-
-pub fn print_header(msg: &str) {
-    println!("{}", msg.bold().cyan());
-}
-
-pub fn print_warning(msg: &str) {
-    println!("{}", msg.yellow());
-}
+pub use theme::{apply, get_theme, print_error, print_success, print_header, print_warning, println_dimmed, table_border_color, table_header_style, table_row_style, Theme};
