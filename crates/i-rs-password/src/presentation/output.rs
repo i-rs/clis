@@ -1,5 +1,4 @@
 use serde::Serialize;
-use serde_json::json;
 
 #[derive(Debug, Clone, Copy)]
 pub enum OutputFormat {
@@ -37,17 +36,6 @@ pub struct ErrorResponse {
 pub struct ErrorDetail {
     pub code: String,
     pub message: String,
-}
-
-#[allow(dead_code)]
-impl OutputFormat {
-    pub fn table() -> Self {
-        OutputFormat::Table
-    }
-
-    pub fn json() -> Self {
-        OutputFormat::Json
-    }
 }
 
 pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Option<&str>, format: OutputFormat) -> String {
@@ -98,21 +86,6 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
         }
         OutputFormat::Table => {
             format!("Error: {}", message)
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub fn output_success(message: &str, format: OutputFormat) -> String {
-    match format {
-        OutputFormat::Json => {
-            serde_json::to_string_pretty(&json!({
-                "success": true,
-                "message": message
-            })).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
-        }
-        OutputFormat::Table => {
-            message.to_string()
         }
     }
 }
