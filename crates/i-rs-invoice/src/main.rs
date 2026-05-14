@@ -4,7 +4,6 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use crate::presentation::print_error;
 
 #[derive(Parser)]
 #[command(name = "i-rs-invoice")]
@@ -65,8 +64,5 @@ fn main() {
         }
     };
 
-    if let Err(e) = result {
-        print_error(&format!("{}", e));
-        std::process::exit(1);
-    }
+    i_rs_core::exit_on_error!(result, false);
 }

@@ -7,7 +7,6 @@ mod storage;
 use anyhow::Result;
 use clap::Parser;
 use presentation::OutputFormat;
-use crate::presentation::print_error;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -56,10 +55,7 @@ fn main() {
         OutputFormat::Table
     };
 
-    if let Err(e) = run(cli.command, output_format) {
-        print_error(&format!("{}", e));
-        std::process::exit(1);
-    }
+    i_rs_core::exit_on_error!(run(cli.command, output_format), cli.json);
 }
 
 fn run(command: Commands, output_format: OutputFormat) -> Result<()> {

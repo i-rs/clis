@@ -5,7 +5,6 @@ mod presentation;
 mod storage;
 
 use clap::Parser;
-use crate::presentation::print_error;
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "i-rs-event")]
@@ -92,8 +91,5 @@ fn main() {
         }
     };
 
-    if let Err(e) = result {
-        print_error(&format!("{}", e));
-        std::process::exit(1);
-    }
+    i_rs_core::exit_on_error!(result, cli.json);
 }

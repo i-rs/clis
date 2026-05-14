@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use i_rs_core::presentation::OutputFormat;
-use crate::presentation::print_error;
 
 mod commands;
 mod models;
@@ -50,10 +49,7 @@ enum Commands {
 }
 
 fn main() {
-    if let Err(e) = run() {
-        print_error(&format!("{}", e));
-        std::process::exit(1);
-    }
+    i_rs_core::exit_on_error!(run(), false);
 }
 
 fn run() -> Result<()> {

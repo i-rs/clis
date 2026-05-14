@@ -1746,6 +1746,7 @@ dependencies = [
  "i-rs-core",
  "owo-colors 4.3.0",
  "serde",
+ "serde_json",
  "tabled",
 ]
 
@@ -1903,6 +1904,7 @@ dependencies = [
  "i-rs-core",
  "owo-colors 4.3.0",
  "serde",
+ "serde_json",
  "tabled",
  "uuid",
 ]

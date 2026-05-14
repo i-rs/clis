@@ -5,7 +5,6 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use i_rs_core::presentation::print_error;
 
 #[derive(Parser)]
 #[command(name = "i-rs-tax")]
@@ -73,8 +72,5 @@ fn main() {
         }
     };
 
-    if let Err(e) = result {
-        print_error(&e.to_string());
-        std::process::exit(1);
-    }
+    i_rs_core::exit_on_error!(result, false);
 }

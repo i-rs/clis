@@ -1,6 +1,6 @@
 use crate::models::{Debt, DebtDetail, DebtRow, Stats};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_error, print_success, OutputFormat};
+pub use i_rs_core::presentation::{print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_debt_table(debts: &[&Debt]) -> String {
     let rows: Vec<DebtRow> = debts.iter().map(|d| DebtRow::from_debt(d)).collect();
