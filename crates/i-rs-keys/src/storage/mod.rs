@@ -2,7 +2,20 @@ use crate::models::{KeyEntry, KeyStore};
 use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
-use std::path::PathBuf;
+
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<KeyStore> {
+    let mut storage = Storage::<KeyStore>::new("keys");
+    storage.load()?;
+    Ok(storage.data)
+}
+
+pub fn save_store(store: &KeyStore) -> anyhow::Result<()> {
+    let storage = Storage::<KeyStore>::new("keys");
+    storage.save_data(store)
+}
+
 
 const SERVICE_NAME: &str = "i-rs-keys";
 
@@ -10,34 +23,6 @@ pub fn init_keyring() {
     let _ = use_native_store(false);
 }
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("keys.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("keys.json")
-    }
-}
-
-pub fn load_store() -> Result<KeyStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(KeyStore::default())
-    }
-}
-
-pub fn save_store(store: &KeyStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_entry(store: &mut KeyStore, entry: KeyEntry) {
     store.add_entry(entry);

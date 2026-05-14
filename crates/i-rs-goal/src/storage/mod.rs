@@ -1,46 +1,21 @@
 use crate::models::{Milestone, SavingsGoal, Store};
 use anyhow::Result;
 use chrono::Utc;
-use std::fs;
-use std::path::PathBuf;
 use uuid::Uuid;
 
-fn get_config_dir() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?
-        .join("i-rs");
-    
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)?;
-    }
-    
-    Ok(config_dir)
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<Store> {
+    let mut storage = Storage::<Store>::new("goal");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-fn get_store_path() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join("goal.json"))
+pub fn save_store(store: &Store) -> anyhow::Result<()> {
+    let storage = Storage::<Store>::new("goal");
+    storage.save_data(store)
 }
 
-pub fn load_store() -> Result<Store> {
-    let path = get_store_path()?;
-    
-    if !path.exists() {
-        return Ok(Store::default());
-    }
-    
-    let content = fs::read_to_string(&path)?;
-    let store: Store = serde_json::from_str(&content)?;
-    
-    Ok(store)
-}
-
-pub fn save_store(store: &Store) -> Result<()> {
-    let path = get_store_path()?;
-    let content = serde_json::to_string_pretty(store)?;
-    fs::write(path, content)?;
-    
-    Ok(())
-}
 
 pub fn find_goal<'a>(store: &'a mut Store, name: &str) -> Option<&'a mut SavingsGoal> {
     store.goals.iter_mut().find(|g| g.name == name)

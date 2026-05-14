@@ -2,7 +2,20 @@ use crate::models::{PasswordEntry, PasswordStore};
 use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
-use std::path::PathBuf;
+
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<PasswordStore> {
+    let mut storage = Storage::<PasswordStore>::new("password");
+    storage.load()?;
+    Ok(storage.data)
+}
+
+pub fn save_store(store: &PasswordStore) -> anyhow::Result<()> {
+    let storage = Storage::<PasswordStore>::new("password");
+    storage.save_data(store)
+}
+
 
 const SERVICE_NAME: &str = "i-rs-password";
 
@@ -10,14 +23,6 @@ pub fn init_keyring() {
     let _ = use_native_store(false);
 }
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("passwords.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("passwords.json")
-    }
-}
 
 pub fn store_password(name: &str, password: &str) -> Result<()> {
     let entry = Entry::new(SERVICE_NAME, name)
@@ -55,25 +60,6 @@ pub fn delete_password(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn load_store() -> Result<PasswordStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(PasswordStore::default())
-    }
-}
-
-pub fn save_store(store: &PasswordStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_entry(store: &mut PasswordStore, entry: PasswordEntry) {
     store.entries.insert(entry.name.clone(), entry);

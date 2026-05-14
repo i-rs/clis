@@ -1,35 +1,18 @@
 use crate::models::{Note, NoteStore};
-use anyhow::Result;
-use std::path::PathBuf;
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("notes.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("notes.json")
-    }
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<NoteStore> {
+    let mut storage = Storage::<NoteStore>::new("note");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn load_store() -> Result<NoteStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(NoteStore::default())
-    }
+pub fn save_store(store: &NoteStore) -> anyhow::Result<()> {
+    let storage = Storage::<NoteStore>::new("note");
+    storage.save_data(store)
 }
 
-pub fn save_store(store: &NoteStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_note(store: &mut NoteStore, note: Note) {
     store.notes.insert(note.name.clone(), note);

@@ -1,35 +1,18 @@
 use crate::models::{AssetType, Investment, InvestmentStore};
-use anyhow::Result;
-use std::path::PathBuf;
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("invest.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("invest.json")
-    }
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<InvestmentStore> {
+    let mut storage = Storage::<InvestmentStore>::new("invest");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn load_store() -> Result<InvestmentStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(InvestmentStore::default())
-    }
+pub fn save_store(store: &InvestmentStore) -> anyhow::Result<()> {
+    let storage = Storage::<InvestmentStore>::new("invest");
+    storage.save_data(store)
 }
 
-pub fn save_store(store: &InvestmentStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_investment(store: &mut InvestmentStore, investment: Investment) {
     store.investments.insert(investment.name.clone(), investment);

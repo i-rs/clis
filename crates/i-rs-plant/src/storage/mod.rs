@@ -1,36 +1,18 @@
 use crate::models::{Plant, PlantStore};
-use anyhow::Result;
-use std::path::PathBuf;
 
-fn get_config_dir() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("i-rs")
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<PlantStore> {
+    let mut storage = Storage::<PlantStore>::new("plant");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-fn get_store_path() -> PathBuf {
-    get_config_dir().join("plant.json")
+pub fn save_store(store: &PlantStore) -> anyhow::Result<()> {
+    let storage = Storage::<PlantStore>::new("plant");
+    storage.save_data(store)
 }
 
-pub fn load_store() -> Result<PlantStore> {
-    let path = get_store_path();
-    if !path.exists() {
-        return Ok(PlantStore::default());
-    }
-    let content = std::fs::read_to_string(&path)?;
-    let store: PlantStore = serde_json::from_str(&content)?;
-    Ok(store)
-}
-
-pub fn save_store(store: &PlantStore) -> Result<()> {
-    let path = get_store_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_plant(store: &mut PlantStore, plant: Plant) {
     store.plants.push(plant);

@@ -1,51 +1,16 @@
 use crate::models::{Project, ProjectStore};
-use anyhow::{Context, Result};
-use std::fs;
-use std::path::PathBuf;
 
-fn get_config_dir() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir()
-        .context("Failed to get config directory")?
-        .join("i-rs");
-    
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)
-            .context("Failed to create config directory")?;
-    }
-    
-    Ok(config_dir)
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<ProjectStore> {
+    let mut storage = Storage::<ProjectStore>::new("project");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-fn get_data_file_path() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join("project.json"))
-}
-
-pub fn load_store() -> Result<ProjectStore> {
-    let path = get_data_file_path()?;
-    
-    if !path.exists() {
-        return Ok(ProjectStore::default());
-    }
-    
-    let content = fs::read_to_string(&path)
-        .context("Failed to read project data file")?;
-    
-    let store: ProjectStore = serde_json::from_str(&content)
-        .context("Failed to parse project data")?;
-    
-    Ok(store)
-}
-
-pub fn save_store(store: &ProjectStore) -> Result<()> {
-    let path = get_data_file_path()?;
-    
-    let content = serde_json::to_string_pretty(store)
-        .context("Failed to serialize project data")?;
-    
-    fs::write(&path, content)
-        .context("Failed to write project data file")?;
-    
-    Ok(())
+pub fn save_store(store: &ProjectStore) -> anyhow::Result<()> {
+    let storage = Storage::<ProjectStore>::new("project");
+    storage.save_data(store)
 }
 
 pub fn find_project<'a>(store: &'a ProjectStore, name: &str) -> Option<&'a Project> {

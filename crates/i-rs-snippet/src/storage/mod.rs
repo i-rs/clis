@@ -1,35 +1,18 @@
 use crate::models::{Snippet, SnippetStore};
-use anyhow::Result;
-use std::path::PathBuf;
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("snippets.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("snippets.json")
-    }
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<SnippetStore> {
+    let mut storage = Storage::<SnippetStore>::new("snippet");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn load_store() -> Result<SnippetStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(SnippetStore::default())
-    }
+pub fn save_store(store: &SnippetStore) -> anyhow::Result<()> {
+    let storage = Storage::<SnippetStore>::new("snippet");
+    storage.save_data(store)
 }
 
-pub fn save_store(store: &SnippetStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_snippet(store: &mut SnippetStore, snippet: Snippet) {
     store.snippets.insert(snippet.name.clone(), snippet);

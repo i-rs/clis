@@ -2,6 +2,20 @@ use crate::models::{Event, EventStore};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<EventStore> {
+    let mut storage = Storage::<EventStore>::new("event");
+    storage.load()?;
+    Ok(storage.data)
+}
+
+pub fn save_store(store: &EventStore) -> anyhow::Result<()> {
+    let storage = Storage::<EventStore>::new("event");
+    storage.save_data(store)
+}
+
+
 pub fn get_config_dir() -> Result<PathBuf> {
     let config_dir = if let Some(dir) = std::env::var_os("CONFIG_DIR") {
         PathBuf::from(dir)
@@ -23,30 +37,6 @@ pub fn get_store_path() -> Result<PathBuf> {
     Ok(get_config_dir()?.join("event.json"))
 }
 
-pub fn load_store() -> Result<EventStore> {
-    let path = get_store_path()?;
-
-    if !path.exists() {
-        return Ok(EventStore::new());
-    }
-
-    let content = std::fs::read_to_string(&path)
-        .context(format!("Failed to read store from {:?}", path))?;
-
-    serde_json::from_str(&content)
-        .context(format!("Failed to parse store from {:?}", path))
-}
-
-pub fn save_store(store: &EventStore) -> Result<()> {
-    let path = get_store_path()?;
-    let content = serde_json::to_string_pretty(store)
-        .context("Failed to serialize store")?;
-
-    std::fs::write(&path, content)
-        .context(format!("Failed to write store to {:?}", path))?;
-
-    Ok(())
-}
 
 pub fn add_event(store: &mut EventStore, event: Event) {
     store.events.insert(event.name.clone(), event);

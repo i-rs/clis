@@ -1,48 +1,20 @@
 use crate::models::{Contact, ContactStore};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::Utc;
-use dirs::config_dir;
-use serde_json;
-use std::fs;
-use std::path::PathBuf;
 
-fn get_store_path() -> Result<PathBuf> {
-    let config_dir = if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir)
-    } else {
-        config_dir().context("Failed to get config directory")?
-    };
-    Ok(config_dir.join("i-rs").join("contacts.json"))
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<ContactStore> {
+    let mut storage = Storage::<ContactStore>::new("contact");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn load_store() -> Result<ContactStore> {
-    let path = get_store_path()?;
-    
-    if !path.exists() {
-        return Ok(ContactStore::default());
-    }
-    
-    let content = fs::read_to_string(&path)
-        .with_context(|| format!("Failed to read file: {}", path.display()))?;
-    
-    serde_json::from_str(&content)
-        .with_context(|| format!("Failed to parse JSON from: {}", path.display()))
+pub fn save_store(store: &ContactStore) -> anyhow::Result<()> {
+    let storage = Storage::<ContactStore>::new("contact");
+    storage.save_data(store)
 }
 
-pub fn save_store(store: &ContactStore) -> Result<()> {
-    let path = get_store_path()?;
-    
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
-    }
-    
-    let content = serde_json::to_string_pretty(store)
-        .context("Failed to serialize store")?;
-    
-    fs::write(&path, content)
-        .with_context(|| format!("Failed to write file: {}", path.display()))
-}
 
 pub fn add_contact(
     store: &mut ContactStore,

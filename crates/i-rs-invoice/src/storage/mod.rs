@@ -1,42 +1,16 @@
 use crate::models::{Invoice, InvoiceStore};
-use anyhow::Result;
-use std::path::PathBuf;
 
-const STORE_FILE: &str = "invoice.json";
+use i_rs_core::Storage;
 
-fn get_config_dir() -> Result<PathBuf> {
-    let config_dir = if let Some(dir) = std::env::var_os("CONFIG_DIR") {
-        PathBuf::from(dir)
-    } else {
-        dirs::config_dir().unwrap_or_else(|| PathBuf::from("."))
-    };
-    let app_dir = config_dir.join("i-rs");
-    if !app_dir.exists() {
-        std::fs::create_dir_all(&app_dir)?;
-    }
-    Ok(app_dir)
+pub fn load_store() -> anyhow::Result<InvoiceStore> {
+    let mut storage = Storage::<InvoiceStore>::new("invoice");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn get_store_path() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join(STORE_FILE))
-}
-
-pub fn load_store() -> Result<InvoiceStore> {
-    let path = get_store_path()?;
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        let store: InvoiceStore = serde_json::from_str(&content)?;
-        Ok(store)
-    } else {
-        Ok(InvoiceStore::default())
-    }
-}
-
-pub fn save_store(store: &InvoiceStore) -> Result<()> {
-    let path = get_store_path()?;
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(path, content)?;
-    Ok(())
+pub fn save_store(store: &InvoiceStore) -> anyhow::Result<()> {
+    let storage = Storage::<InvoiceStore>::new("invoice");
+    storage.save_data(store)
 }
 
 pub fn add_entry(store: &mut InvoiceStore, entry: Invoice) {

@@ -1,35 +1,18 @@
 use crate::models::{WantEntry, WantStore};
-use anyhow::Result;
-use std::path::PathBuf;
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("wants.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("wants.json")
-    }
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<WantStore> {
+    let mut storage = Storage::<WantStore>::new("want");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn load_store() -> Result<WantStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(WantStore::default())
-    }
+pub fn save_store(store: &WantStore) -> anyhow::Result<()> {
+    let storage = Storage::<WantStore>::new("want");
+    storage.save_data(store)
 }
 
-pub fn save_store(store: &WantStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_entry(store: &mut WantStore, entry: WantEntry) {
     store.add_entry(entry);

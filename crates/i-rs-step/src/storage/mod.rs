@@ -1,36 +1,19 @@
 use crate::models::{StepEntry, StepStore};
-use anyhow::Result;
 use chrono::NaiveDate;
-use std::path::PathBuf;
 
-pub fn get_data_path() -> PathBuf {
-    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
-        PathBuf::from(config_dir).join("i-rs").join("steps.json")
-    } else {
-        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        config_dir.join("i-rs").join("steps.json")
-    }
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<StepStore> {
+    let mut storage = Storage::<StepStore>::new("step");
+    storage.load()?;
+    Ok(storage.data)
 }
 
-pub fn load_store() -> Result<StepStore> {
-    let path = get_data_path();
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&content)?)
-    } else {
-        Ok(StepStore::default())
-    }
+pub fn save_store(store: &StepStore) -> anyhow::Result<()> {
+    let storage = Storage::<StepStore>::new("step");
+    storage.save_data(store)
 }
 
-pub fn save_store(store: &StepStore) -> Result<()> {
-    let path = get_data_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_entry(store: &mut StepStore, entry: StepEntry) {
     store.add_entry(entry);

@@ -5,6 +5,20 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<Store> {
+    let mut storage = Storage::<Store>::new("read");
+    storage.load()?;
+    Ok(storage.data)
+}
+
+pub fn save_store(store: &Store) -> anyhow::Result<()> {
+    let storage = Storage::<Store>::new("read");
+    storage.save_data(store)
+}
+
+
 const CONFIG_DIR_NAME: &str = "i-rs";
 const CONFIG_FILE_NAME: &str = "read.json";
 
@@ -33,24 +47,6 @@ impl Store {
     }
 }
 
-pub fn load_store() -> Result<Store> {
-    let path = get_config_path()?;
-
-    if !path.exists() {
-        return Ok(Store::new());
-    }
-
-    let content = fs::read_to_string(&path)?;
-    let store: Store = serde_json::from_str(&content)?;
-    Ok(store)
-}
-
-pub fn save_store(store: &Store) -> Result<()> {
-    let path = get_config_path()?;
-    let content = serde_json::to_string_pretty(store)?;
-    fs::write(path, content)?;
-    Ok(())
-}
 
 pub fn add_book(book: Book, store: &mut Store) {
     store.books.insert(book.name.clone(), book);

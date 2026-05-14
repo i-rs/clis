@@ -1,6 +1,19 @@
 use crate::models::{TaxRecord, TaxStore};
-use anyhow::Result;
 use std::path::PathBuf;
+
+use i_rs_core::Storage;
+
+pub fn load_store() -> anyhow::Result<TaxStore> {
+    let mut storage = Storage::<TaxStore>::new("tax");
+    storage.load()?;
+    Ok(storage.data)
+}
+
+pub fn save_store(store: &TaxStore) -> anyhow::Result<()> {
+    let storage = Storage::<TaxStore>::new("tax");
+    storage.save_data(store)
+}
+
 
 pub fn get_config_dir() -> PathBuf {
     if let Some(config_dir) = std::env::var_os("CONFIG_DIR") {
@@ -16,25 +29,6 @@ pub fn get_file_path() -> PathBuf {
     get_config_dir().join("tax.json")
 }
 
-pub fn load_store() -> Result<TaxStore> {
-    let path = get_file_path();
-    if !path.exists() {
-        return Ok(TaxStore::new());
-    }
-    let content = std::fs::read_to_string(&path)?;
-    let store: TaxStore = serde_json::from_str(&content)?;
-    Ok(store)
-}
-
-pub fn save_store(store: &TaxStore) -> Result<()> {
-    let path = get_file_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let content = serde_json::to_string_pretty(store)?;
-    std::fs::write(&path, content)?;
-    Ok(())
-}
 
 pub fn add_entry(store: &mut TaxStore, entry: TaxRecord) {
     store.entries.insert(entry.name.clone(), entry);
