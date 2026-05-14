@@ -1,5 +1,5 @@
 use crate::models::{StatsData, ListItem};
-use crate::presentation::{output_stats_json, print_error, OutputFormat};
+use crate::presentation::{output_stats_json, OutputFormat};
 use crate::storage;
 use chrono::{Datelike, NaiveDate, Utc};
 
@@ -16,7 +16,6 @@ pub fn handle_stats(period: String, format: OutputFormat) -> anyhow::Result<()> 
             return Ok(());
         }
         _ => {
-            print_error("Invalid period. Use: today, yesterday, or week");
             anyhow::bail!("Invalid period: {}", period);
         }
     };

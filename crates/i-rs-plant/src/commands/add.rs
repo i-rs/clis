@@ -1,5 +1,5 @@
 use crate::models::Plant;
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use i_rs_core::validate_name;
@@ -14,14 +14,12 @@ pub fn add_plant(
     output_format: OutputFormat,
 ) -> Result<()> {
     if let Err(e) = validate_name(&name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
     let mut store = storage::load_store()?;
 
     if storage::find_plant(&store, &name).is_some() {
-        print_error(&format!("Plant '{}' already exists", name));
         anyhow::bail!("Plant '{}' already exists", name);
     }
 

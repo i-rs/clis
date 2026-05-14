@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, print_error, print_success, OutputFormat};
+use crate::presentation::{output_error, print_success, OutputFormat};
 use crate::storage;
 use clap::Parser;
 
@@ -21,7 +21,6 @@ pub fn delete(args: DeleteArgs, output_format: OutputFormat) -> anyhow::Result<(
             }
         }
     } else {
-        print_error(&format!("Goal '{}' not found", args.name));
         anyhow::bail!("Goal '{}' not found", args.name);
     }
     

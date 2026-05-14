@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tabled::Tabled;
 
@@ -93,21 +93,5 @@ pub fn filter_by_tag<'a>(store: &'a InvoiceStore, tag: &str) -> Vec<&'a Invoice>
 }
 
 pub fn parse_date(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
-    let formats = [
-        "%Y-%m-%d",
-        "%Y/%m/%d",
-        "%d-%m-%Y",
-        "%d/%m/%Y",
-    ];
-
-    for format in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap()));
-        }
-    }
-
-    Err(anyhow::anyhow!(
-        "Invalid date format: {}. Use YYYY-MM-DD",
-        date_str
-    ))
+    Ok(i_rs_core::parse_datetime(date_str)?)
 }

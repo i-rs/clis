@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use crate::presentation::print_error;
 use commands::{
     handle_add, handle_delete, handle_example, handle_get, handle_list, handle_listen,
     handle_skill, handle_stats, handle_update, SkillCommand,
@@ -96,7 +97,7 @@ fn main() {
                 "error": { "code": "UNKNOWN", "message": e.to_string() }
             }));
         } else {
-            eprintln!("Error: {}", e);
+            print_error(&format!("{}", e));
         }
         std::process::exit(1);
     }

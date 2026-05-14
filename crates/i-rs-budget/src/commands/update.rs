@@ -1,5 +1,5 @@
 use crate::models::BudgetPeriod;
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -23,7 +23,6 @@ pub fn handle_update(
                     "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", category) }
                 }));
             } else {
-                print_error(&format!("Budget for category '{}' not found", category));
             }
             anyhow::bail!("Budget not found");
         }
@@ -46,7 +45,6 @@ pub fn handle_update(
                         "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
                     }));
                 } else {
-                    print_error("Invalid period. Use: daily, weekly, monthly, yearly");
                 }
                 anyhow::bail!("Invalid period");
             }

@@ -14,7 +14,7 @@ pub fn handle_skill(subcommand: Option<SkillCommand>) {
         Ok(dir) => PathBuf::from(dir).join("i-rs-time").join("SKILL.md"),
         Err(_) => {
             let exe_path = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
-            let root_dir = exe_path.parent().unwrap().parent().unwrap().parent().unwrap();
+            let root_dir = exe_path.parent().and_then(|p| p.parent()).and_then(|p| p.parent()).unwrap_or(std::path::Path::new("."));
             root_dir.join("skills").join("i-rs-time").join("SKILL.md")
         }
     };

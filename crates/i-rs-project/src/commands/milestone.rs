@@ -1,5 +1,5 @@
 use crate::models::Milestone;
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -50,13 +50,11 @@ fn handle_add_milestone(
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Project '{}' not found", project_name));
             anyhow::bail!("Project '{}' not found", project_name);
         }
     };
 
     if project.milestones.iter().any(|m| m.name.eq_ignore_ascii_case(&name)) {
-        print_error(&format!("Milestone '{}' already exists in project '{}'", name, project_name));
         anyhow::bail!("Milestone '{}' already exists", name);
     }
 
@@ -89,7 +87,6 @@ fn handle_complete_milestone(project_name: String, name: String) -> Result<()> {
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Project '{}' not found", project_name));
             anyhow::bail!("Project '{}' not found", project_name);
         }
     };
@@ -97,7 +94,6 @@ fn handle_complete_milestone(project_name: String, name: String) -> Result<()> {
     let milestone = match project.milestones.iter_mut().find(|m| m.name.eq_ignore_ascii_case(&name)) {
         Some(m) => m,
         None => {
-            print_error(&format!("Milestone '{}' not found in project '{}'", name, project_name));
             anyhow::bail!("Milestone '{}' not found", name);
         }
     };

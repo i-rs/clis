@@ -27,7 +27,7 @@ pub fn load_store() -> Result<Store> {
     }
 
     let content = fs::read_to_string(&path).context("Failed to read store file")?;
-    let store: Store = serde_json::from_str(&content).unwrap_or_default();
+    let store: Store = serde_json::from_str(&content).context("Failed to parse store file")?;
 
     Ok(store)
 }

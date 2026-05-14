@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -7,7 +7,6 @@ pub fn delete_plant(name: String, output_format: OutputFormat) -> Result<()> {
 
     if storage::find_plant(&store, &name).is_none() {
         let error_msg = format!("Plant '{}' not found", name);
-        print_error(&error_msg);
         anyhow::bail!("{}", error_msg);
     }
 

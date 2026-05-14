@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_header};
+use crate::presentation::print_header;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -8,7 +8,6 @@ pub fn handle_stats() -> Result<()> {
     let store = storage::load_store()?;
 
     if store.projects.is_empty() {
-        print_error("No projects found");
         anyhow::bail!("No projects to show statistics");
     }
 

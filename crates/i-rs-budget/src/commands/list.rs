@@ -1,5 +1,5 @@
 use crate::models::{Budget, Expense};
-use crate::presentation::{format_budget_table, format_expense_table, output_list, print_error, print_expense_count, print_warning, print_budget_count, OutputFormat};
+use crate::presentation::{format_budget_table, format_expense_table, output_list, print_expense_count, print_warning, print_budget_count, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -110,7 +110,6 @@ pub fn handle_list(
                     "error": { "code": "INVALID_TYPE", "message": "Invalid list type. Use: budgets, expenses" }
                 }));
             } else {
-                print_error("Invalid list type. Use: budgets, expenses");
             }
             anyhow::bail!("Invalid list type");
         }

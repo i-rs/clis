@@ -2,7 +2,7 @@ use crate::models::{TaxRecord, TaxRecordRow};
 use owo_colors::OwoColorize;
 use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
 
-pub use i_rs_core::presentation::{print_error, print_success, OutputFormat};
+pub use i_rs_core::presentation::{print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 
 pub fn format_table(entities: &[&TaxRecord]) -> String {

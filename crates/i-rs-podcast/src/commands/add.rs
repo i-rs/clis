@@ -1,5 +1,5 @@
 use crate::models::{Podcast, PodcastStatus};
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -16,14 +16,12 @@ pub fn handle_add(
     output_format: OutputFormat,
 ) -> Result<()> {
     if let Err(e) = validate_name(&name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
     let mut store = storage::load_store()?;
 
     if store.podcasts.contains_key(&name) {
-        print_error(&format!("Podcast '{}' already exists. Use update command instead.", name));
         anyhow::bail!("Podcast '{}' already exists", name);
     }
 

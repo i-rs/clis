@@ -2,4 +2,4 @@ pub mod validation;
 pub mod date;
 
 pub use validation::{validate_name, validate_url, validate_weight};
-pub use date::parse_date;
+pub use date::{parse_date, parse_datetime};

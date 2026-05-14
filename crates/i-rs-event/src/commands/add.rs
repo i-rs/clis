@@ -32,7 +32,6 @@ pub struct AddArgs {
 
 pub fn run(args: &AddArgs, json: bool) -> Result<()> {
     if let Err(e) = validate_name(&args.name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
@@ -73,7 +72,6 @@ pub fn run(args: &AddArgs, json: bool) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.events.contains_key(&args.name) {
-        print_error(&format!("Event '{}' already exists", args.name));
         anyhow::bail!("Event '{}' already exists", args.name);
     }
 

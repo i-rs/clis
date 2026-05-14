@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, print_header};
+use crate::presentation::{print_success, print_header};
 use crate::storage;
 use i_rs_core::validate_name;
 use owo_colors::OwoColorize;
@@ -12,14 +12,12 @@ pub fn handle_add(
     remark: Vec<String>,
 ) -> anyhow::Result<()> {
     if let Err(e) = validate_name(&name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
     let mut store = storage::load_store()?;
 
     if store.get_entry(&name).is_some() {
-        print_error(&format!("Contact '{}' already exists", name));
         anyhow::bail!("Contact '{}' already exists", name);
     }
 

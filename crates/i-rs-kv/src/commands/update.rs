@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -15,7 +15,6 @@ pub fn handle_update(
     let entry = match storage::get_entry_mut(&mut store, &key) {
         Some(e) => e,
         None => {
-            print_error(&format!("Key '{}' not found", key));
             anyhow::bail!("Key '{}' not found", key);
         }
     };

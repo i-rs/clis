@@ -1,5 +1,5 @@
 use crate::models::BookStatus;
-use crate::presentation::{output_item, print_error, print_header, print_success, OutputFormat};
+use crate::presentation::{output_item, print_header, print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -38,7 +38,6 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
         Some(b) => b,
         None => {
             let msg = format!("Book '{}' not found", args.name);
-            print_error(&msg);
             anyhow::bail!(msg);
         }
     };
@@ -49,7 +48,6 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
                 "Current page ({}) cannot exceed total pages ({})",
                 current_page, book.total_pages
             );
-            print_error(&msg);
             anyhow::bail!(msg);
         }
         book.current_page = current_page;
@@ -71,7 +69,6 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
                     "Invalid status '{}'. Valid options: reading, completed, paused, dropped, to_read",
                     status_str
                 );
-                print_error(&msg);
                 anyhow::bail!(msg);
             }
         };
@@ -80,7 +77,6 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
     if let Some(rating) = args.rating {
         if rating < 0.0 || rating > 5.0 {
             let msg = "Rating must be between 0 and 5";
-            print_error(msg);
             anyhow::bail!(msg);
         }
         book.rating = Some(rating);
@@ -105,7 +101,6 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
                 idx,
                 book.remark.len()
             );
-            print_error(&msg);
             anyhow::bail!(msg);
         }
         book.remark.remove(idx - 1);

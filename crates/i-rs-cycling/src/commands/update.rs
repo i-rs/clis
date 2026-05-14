@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -23,14 +23,12 @@ pub fn handle_update(
 
     if let Some(d) = distance {
         if d <= 0.0 {
-            print_error("Distance must be greater than 0");
             anyhow::bail!("Distance must be greater than 0");
         }
     }
 
     if let Some(d) = duration {
         if d == 0 {
-            print_error("Duration must be greater than 0");
             anyhow::bail!("Duration must be greater than 0");
         }
     }
@@ -39,7 +37,6 @@ pub fn handle_update(
         let record = match store.get_record_mut(&record_id) {
             Some(r) => r,
             None => {
-                print_error(&format!("Record '{}' not found", id_or_date));
                 anyhow::bail!("Record '{}' not found", id_or_date);
             }
         };
@@ -117,6 +114,5 @@ fn find_record_id(store: &crate::models::CyclingStore, id_or_date: &str) -> Resu
         }
     }
 
-    print_error(&format!("Record '{}' not found", id_or_date));
     anyhow::bail!("Record '{}' not found", id_or_date)
 }

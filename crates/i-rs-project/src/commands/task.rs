@@ -1,5 +1,5 @@
 use crate::models::Task;
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -48,13 +48,11 @@ fn handle_add_task(
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Project '{}' not found", project_name));
             anyhow::bail!("Project '{}' not found", project_name);
         }
     };
 
     if project.tasks.iter().any(|t| t.name.eq_ignore_ascii_case(&name)) {
-        print_error(&format!("Task '{}' already exists in project '{}'", name, project_name));
         anyhow::bail!("Task '{}' already exists", name);
     }
 
@@ -80,7 +78,6 @@ fn handle_complete_task(project_name: String, name: String) -> Result<()> {
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Project '{}' not found", project_name));
             anyhow::bail!("Project '{}' not found", project_name);
         }
     };
@@ -88,7 +85,6 @@ fn handle_complete_task(project_name: String, name: String) -> Result<()> {
     let task = match project.tasks.iter_mut().find(|t| t.name.eq_ignore_ascii_case(&name)) {
         Some(t) => t,
         None => {
-            print_error(&format!("Task '{}' not found in project '{}'", name, project_name));
             anyhow::bail!("Task '{}' not found", name);
         }
     };

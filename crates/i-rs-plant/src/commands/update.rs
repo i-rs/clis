@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -20,7 +20,6 @@ pub fn update_plant(
             Some(p) => p,
             None => {
                 let error_msg = format!("Plant '{}' not found", name);
-                print_error(&error_msg);
                 anyhow::bail!("{}", error_msg);
             }
         };

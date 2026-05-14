@@ -1,5 +1,5 @@
 use crate::models::VocabStatus;
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -22,7 +22,6 @@ pub fn handle_update(
         match store.get_word(&word_lower) {
             Some(v) => v.word.clone(),
             None => {
-                print_error(&format!("Word '{}' not found", word_key));
                 anyhow::bail!("Word '{}' not found", word_key);
             }
         }
@@ -31,7 +30,9 @@ pub fn handle_update(
     let (updated_word_name, updated_review_count) = {
         let vocab = match store.get_word_mut(&word_lower) {
             Some(v) => v,
-            None => unreachable!(),
+            None => {
+                anyhow::bail!("Word '{}' not found", word_key);
+            }
         };
 
         if let Some(def) = definition {
@@ -41,7 +42,12 @@ pub fn handle_update(
             vocab.example = ex;
         }
         if let Some(status_str) = status {
-            vocab.status = VocabStatus::from_str(&status_str).unwrap_or(vocab.status);
+            match VocabStatus::from_str(&status_str) {
+                Some(s) => vocab.status = s,
+                None => {
+                    anyhow::bail!("Invalid status '{}'", status_str);
+                }
+            }
         }
         if let Some(tags) = tag {
             vocab.tags = tags;

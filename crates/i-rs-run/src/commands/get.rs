@@ -1,4 +1,4 @@
-use crate::presentation::{output_list, print_error, OutputFormat};
+use crate::presentation::{output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -60,7 +60,6 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         if matches!(format, OutputFormat::Json) {
             println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {}", id)), format));
         } else {
-            print_error(&format!("No record found with ID: {}", id));
         }
         anyhow::bail!("No record found with ID: {}", id);
     }

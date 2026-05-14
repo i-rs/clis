@@ -1,5 +1,5 @@
 use crate::models::ArticleDetail;
-use crate::presentation::{print_error, output_item, OutputFormat};
+use crate::presentation::{output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -10,7 +10,6 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let article = match storage::get_article(&store, &name) {
         Some(a) => a,
         None => {
-            print_error(&format!("Article '{}' not found", name));
             anyhow::bail!("Article '{}' not found", name);
         }
     };

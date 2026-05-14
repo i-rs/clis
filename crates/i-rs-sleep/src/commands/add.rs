@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, print_header};
+use crate::presentation::{print_success, print_header};
 use crate::storage;
 use chrono::{DateTime, Utc};
 use owo_colors::OwoColorize;
@@ -10,7 +10,6 @@ pub fn handle_add(bedtime_str: String, wake_time_str: String, quality: i32, tags
     let wake_time = parse_time(&wake_time_str)?;
 
     if quality < 1 || quality > 5 {
-        print_error("Quality must be between 1 and 5");
         anyhow::bail!("Quality must be between 1 and 5");
     }
 

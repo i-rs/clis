@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -15,7 +15,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !store.debts.contains_key(&args.name) {
-        print_error(&format!("Debt '{}' not found", args.name));
         anyhow::bail!("Debt '{}' not found", args.name);
     }
 

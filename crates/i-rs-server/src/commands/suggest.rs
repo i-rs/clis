@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_header};
+use crate::presentation::print_header;
 use crate::storage;
 use crate::models::Server;
 use anyhow::Result;
@@ -10,7 +10,6 @@ pub fn handle_suggest(name: String, command: Option<String>) -> Result<()> {
     let server = match storage::get_server(&store, &name) {
         Some(s) => s,
         None => {
-            print_error(&format!("Server '{}' not found", name));
             anyhow::bail!("Server '{}' not found", name);
         }
     };

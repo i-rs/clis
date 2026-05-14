@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, print_header};
+use crate::presentation::{print_success, print_header};
 use crate::storage;
 use owo_colors::OwoColorize;
 
@@ -6,7 +6,6 @@ pub fn handle_add(name: String, quantity: i32, unit: String, tags: Vec<String>, 
     let mut store = storage::load_store()?;
 
     if store.get_entry(&name).is_some() {
-        print_error(&format!("Item '{}' already exists", name));
         anyhow::bail!("Item '{}' already exists", name);
     }
 

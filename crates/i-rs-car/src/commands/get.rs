@@ -1,5 +1,5 @@
 use crate::models::{CarDetail, FuelRecord};
-use crate::presentation::{format_car_detail, format_fuel_table, format_maintenance_table, output_item, print_error, print_fuel_count, print_maintenance_count, OutputFormat};
+use crate::presentation::{format_car_detail, format_fuel_table, format_maintenance_table, output_item, print_fuel_count, print_maintenance_count, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -20,7 +20,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let car = match store.get_car(&args.name) {
         Some(c) => c,
         None => {
-            print_error(&format!("Car '{}' not found", args.name));
             anyhow::bail!("Car '{}' not found", args.name);
         }
     };

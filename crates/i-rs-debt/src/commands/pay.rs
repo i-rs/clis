@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -20,13 +20,11 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         let debt = match storage::get_debt_mut(&mut store, &args.name) {
             Some(d) => d,
             None => {
-                print_error(&format!("Debt '{}' not found", args.name));
                 anyhow::bail!("Debt '{}' not found", args.name);
             }
         };
 
         if args.amount <= 0.0 {
-            print_error("Payment amount must be greater than 0");
             anyhow::bail!("Payment amount must be greater than 0");
         }
 

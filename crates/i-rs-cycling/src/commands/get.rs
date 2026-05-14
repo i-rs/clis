@@ -1,5 +1,5 @@
 use crate::models::CyclingRecord;
-use crate::presentation::{format_detail_table, print_error, output_item, OutputFormat};
+use crate::presentation::{format_detail_table, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use uuid::Uuid;
@@ -67,6 +67,5 @@ fn find_record<'a>(store: &'a crate::models::CyclingStore, id_or_date: &str) -> 
         }
     }
 
-    print_error(&format!("Record '{}' not found", id_or_date));
     anyhow::bail!("Record '{}' not found", id_or_date)
 }

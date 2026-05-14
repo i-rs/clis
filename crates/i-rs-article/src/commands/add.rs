@@ -1,5 +1,5 @@
 use crate::models::{Article, ReadStatus};
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -15,17 +15,14 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.articles.contains_key(&name) {
-        print_error(&format!("Article '{}' already exists", name));
         anyhow::bail!("Article '{}' already exists", name);
     }
 
     if let Err(e) = i_rs_core::validate_url(&url) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
     if let Err(e) = i_rs_core::validate_name(&name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 

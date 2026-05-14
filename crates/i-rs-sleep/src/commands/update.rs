@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use chrono::{DateTime, Utc};
 
@@ -7,7 +7,6 @@ pub fn handle_update(id: String, bedtime: Option<String>, wake_time: Option<Stri
 
     if let Some(q) = quality {
         if q < 1 || q > 5 {
-            print_error("Quality must be between 1 and 5");
             anyhow::bail!("Quality must be between 1 and 5");
         }
     }

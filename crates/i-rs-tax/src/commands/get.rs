@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, print_error, OutputFormat};
+use crate::presentation::{output_item, OutputFormat};
 use crate::storage;
 use clap::Args;
 use owo_colors::OwoColorize;
@@ -51,8 +51,7 @@ pub fn execute(args: &GetArgs) -> anyhow::Result<()> {
 }
 
 pub fn run(args: &GetArgs) {
-    if let Err(e) = execute(args) {
-        print_error(&e.to_string());
+    if let Err(_e) = execute(args) {
         std::process::exit(1);
     }
 }

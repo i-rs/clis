@@ -6,6 +6,7 @@ mod storage;
 use anyhow::Result;
 use clap::Parser;
 use presentation::OutputFormat;
+use crate::presentation::print_error;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -52,7 +53,7 @@ fn main() {
     };
 
     if let Err(e) = run(cli.command, output_format) {
-        eprintln!("Error: {}", e);
+        print_error(&format!("{}", e));
         std::process::exit(1);
     }
 }

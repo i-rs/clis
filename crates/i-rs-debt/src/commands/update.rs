@@ -1,5 +1,5 @@
 use crate::models::DebtType;
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -32,14 +32,12 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(new_name) = &args.rename {
         if new_name != &args.name && store.debts.contains_key(new_name) {
-            print_error(&format!("Debt '{}' already exists", new_name));
             anyhow::bail!("Debt '{}' already exists", new_name);
         }
     }
 
     {
         if !store.debts.contains_key(&args.name) {
-            print_error(&format!("Debt '{}' not found", args.name));
             anyhow::bail!("Debt '{}' not found", args.name);
         }
 
@@ -58,7 +56,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         let debt = match store.debts.get_mut(&final_name) {
             Some(d) => d,
             None => {
-                print_error(&format!("Debt '{}' not found", final_name));
                 anyhow::bail!("Debt '{}' not found", final_name);
             }
         };
@@ -69,7 +66,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
         if let Some(amount) = args.amount {
             if amount < 0.0 {
-                print_error("Amount cannot be negative");
                 anyhow::bail!("Amount cannot be negative");
             }
             let diff = amount - debt.total_amount;
@@ -79,7 +75,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
         if let Some(rate) = args.interest_rate {
             if rate < 0.0 || rate > 100.0 {
-                print_error("Interest rate must be between 0 and 100");
                 anyhow::bail!("Interest rate must be between 0 and 100");
             }
             debt.interest_rate = Some(rate);

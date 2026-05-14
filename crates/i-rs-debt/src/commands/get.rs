@@ -1,4 +1,4 @@
-use crate::presentation::{format_debt_detail, output_item, print_error, OutputFormat};
+use crate::presentation::{format_debt_detail, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -17,7 +17,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let debt = match storage::get_debt(&store, &args.name) {
         Some(d) => d,
         None => {
-            print_error(&format!("Debt '{}' not found", args.name));
             anyhow::bail!("Debt '{}' not found", args.name);
         }
     };

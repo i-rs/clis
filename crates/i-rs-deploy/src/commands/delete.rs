@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -16,7 +16,6 @@ pub fn handle_delete(id: String) -> Result<()> {
             print_success(&format!("✓ Deploy record '{}' deleted", record_id.green()));
         }
         None => {
-            print_error(&format!("Deploy record '{}' not found", id));
             anyhow::bail!("Record not found");
         }
     }

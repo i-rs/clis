@@ -1,7 +1,7 @@
-use crate::presentation::{print_error, output_item, OutputFormat};
+use crate::presentation::{output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
-use chrono::NaiveDate;
+use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
 pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
@@ -12,7 +12,6 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     let record = match store.get_record(&date) {
         Some(r) => r,
         None => {
-            print_error(&format!("No record found for {}", date));
             anyhow::bail!("No record found for {}", date);
         }
     };
@@ -73,14 +72,3 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-fn parse_date(date_str: &str) -> Result<NaiveDate> {
-    let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
-
-    for format in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(date);
-        }
-    }
-
-    Err(anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", date_str))
-}

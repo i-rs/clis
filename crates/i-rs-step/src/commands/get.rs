@@ -1,9 +1,9 @@
-use crate::presentation::{output_error, output_item, print_error, print_header, OutputFormat};
+use crate::presentation::{output_error, output_item, print_header, OutputFormat};
 use crate::storage;
 use anyhow::Result;
-use chrono::NaiveDate;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
+use i_rs_core::parse_date;
 
 pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
@@ -17,7 +17,6 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
             if matches!(format, OutputFormat::Json) {
                 println!("{}", output_error(&msg, "NOT_FOUND", format));
             } else {
-                print_error(&msg);
             }
             anyhow::bail!("{}", msg);
         }
@@ -48,12 +47,4 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-fn parse_date(date_str: &str) -> Result<NaiveDate> {
-    let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
-    for format in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(date);
-        }
-    }
-    Err(anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", date_str))
-}
+

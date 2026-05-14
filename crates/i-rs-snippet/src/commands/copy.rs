@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -11,7 +11,6 @@ pub fn handle_copy(name: String) -> Result<()> {
     let snippet = match storage::get_snippet(&store, &name) {
         Some(s) => s,
         None => {
-            print_error(&format!("Snippet '{}' not found", name));
             anyhow::bail!("Snippet '{}' not found", name);
         }
     };

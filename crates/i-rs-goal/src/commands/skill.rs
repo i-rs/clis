@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::fs;
 
+
 #[derive(Parser, Debug)]
 pub struct SkillArgs {
     #[arg(long, help = "Show skill summary")]
@@ -11,8 +12,12 @@ pub struct SkillArgs {
 }
 
 pub fn skill(args: SkillArgs) -> anyhow::Result<()> {
-    let skill_path = format!("{}/skills/i-rs-goal/SKILL.md", 
-        std::env::current_exe()?.parent().unwrap().parent().unwrap().display());
+    let exe_path = std::env::current_exe()?;
+    let root = exe_path
+        .parent()
+        .and_then(|p| p.parent())
+        .unwrap_or(std::path::Path::new("."));
+    let skill_path = root.join("skills").join("i-rs-goal").join("SKILL.md");
     
     if args.summary {
         println!("i-rs-goal: Savings goal tracker CLI tool");

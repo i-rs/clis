@@ -2,9 +2,10 @@ use crate::models::{format_pace, RunRecord};
 use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use chrono::{NaiveDate, Utc};
+use chrono::Utc;
 use owo_colors::OwoColorize;
 use uuid::Uuid;
+use i_rs_core::parse_date;
 
 pub fn handle_add(
     date: String,
@@ -45,20 +46,7 @@ pub fn handle_add(
     Ok(())
 }
 
-fn parse_date(date_str: &str) -> Result<NaiveDate> {
-    let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
 
-    for format in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(date);
-        }
-    }
-
-    Err(anyhow::anyhow!(
-        "Invalid date format: {}. Use YYYY-MM-DD",
-        date_str
-    ))
-}
 
 fn format_duration(minutes: f64) -> String {
     let hours = (minutes / 60.0) as u32;

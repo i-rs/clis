@@ -1,5 +1,5 @@
 use crate::models::{TaxRecord, TaxStatus, TaxType};
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use chrono::Utc;
 use clap::Args;
@@ -29,7 +29,6 @@ pub struct AddArgs {
 
 pub fn execute(args: &AddArgs) -> anyhow::Result<()> {
     if let Err(e) = validate_name(&args.name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
@@ -54,7 +53,6 @@ pub fn execute(args: &AddArgs) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
     if store.entries.contains_key(&args.name) {
-        print_error(&format!("税务记录 '{}' 已存在", args.name));
         anyhow::bail!("税务记录 '{}' 已存在", args.name);
     }
 

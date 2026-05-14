@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,7 +7,6 @@ pub fn handle_delete(name: String, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.podcasts.remove(&name).is_none() {
-        print_error(&format!("Podcast '{}' not found", name));
         anyhow::bail!("Podcast '{}' not found", name);
     }
 

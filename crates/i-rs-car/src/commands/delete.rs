@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -15,7 +15,6 @@ pub fn run(args: &Args) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !store.cars.contains_key(&args.name) {
-        print_error(&format!("Car '{}' not found", args.name));
         anyhow::bail!("Car '{}' not found", args.name);
     }
 

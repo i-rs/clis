@@ -1,5 +1,4 @@
 use crate::models::AssetType;
-use crate::presentation::print_error;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -20,7 +19,6 @@ pub fn handle_update(
     let investment = match storage::get_investment_mut(&mut store, &name) {
         Some(inv) => inv,
         None => {
-            print_error(&format!("Investment '{}' not found", name));
             anyhow::bail!("Investment '{}' not found", name);
         }
     };
@@ -35,7 +33,6 @@ pub fn handle_update(
 
     if let Some(qty) = quantity {
         if qty <= 0.0 {
-            print_error("Quantity must be greater than 0");
             anyhow::bail!("Quantity must be greater than 0");
         }
         investment.quantity = qty;
@@ -43,7 +40,6 @@ pub fn handle_update(
 
     if let Some(price) = buy_price {
         if price <= 0.0 {
-            print_error("Buy price must be greater than 0");
             anyhow::bail!("Buy price must be greater than 0");
         }
         investment.buy_price = price;
@@ -51,7 +47,6 @@ pub fn handle_update(
 
     if let Some(cp) = current_price {
         if cp < 0.0 {
-            print_error("Current price cannot be negative");
             anyhow::bail!("Current price cannot be negative");
         }
         investment.current_price = Some(cp);

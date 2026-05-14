@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -60,7 +60,6 @@ pub fn run_update(args: UpdateArgs) -> Result<()> {
                 match type_str.parse() {
                     Ok(t) => inv.invoice_type = t,
                     Err(e) => {
-                        print_error(&e);
                         anyhow::bail!("{}", e);
                     }
                 };
@@ -91,7 +90,6 @@ pub fn run_update(args: UpdateArgs) -> Result<()> {
             print_success(&format!("Invoice '{}' updated successfully", args.id));
         }
         None => {
-            print_error(&format!("Invoice '{}' not found", args.id));
             anyhow::bail!("Invoice '{}' not found", args.id);
         }
     }

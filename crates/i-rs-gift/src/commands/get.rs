@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_header, output_item, OutputFormat};
+use crate::presentation::{print_header, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -15,7 +15,6 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
                     "message": format!("Gift '{}' not found", name)
                 }), format));
             } else {
-                print_error(&format!("Gift '{}' not found", name));
             }
             anyhow::bail!("Gift '{}' not found", name);
         }

@@ -13,7 +13,6 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
                     "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
                 }));
             } else {
-                print_error(&format!("Budget for category '{}' not found", cat));
             }
             anyhow::bail!("Budget not found");
         }
@@ -35,7 +34,6 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
                     "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
                 }));
             } else {
-                print_error(&format!("Expense '{}' not found", id));
             }
             anyhow::bail!("Expense not found");
         }

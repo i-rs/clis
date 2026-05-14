@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, print_error, print_header, print_success, OutputFormat};
+use crate::presentation::{output_item, print_header, print_success, OutputFormat};
 use crate::storage;
 use chrono::{TimeZone, Utc};
 use clap::Parser;
@@ -26,7 +26,6 @@ pub struct AddArgs {
 
 pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     if args.target <= 0.0 {
-        print_error("Target amount must be greater than 0");
         anyhow::bail!("Target amount must be greater than 0");
     }
     
@@ -50,7 +49,6 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
     
     if store.goals.iter().any(|g| g.name == args.name) {
-        print_error(&format!("Goal '{}' already exists", args.name));
         anyhow::bail!("Goal '{}' already exists", args.name);
     }
     

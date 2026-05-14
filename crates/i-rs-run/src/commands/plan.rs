@@ -1,6 +1,6 @@
 use crate::models::RunPlan;
 use crate::presentation::{
-    format_plan_table, output_list, print_error, print_plan_count, print_success, print_warning,
+    format_plan_table, output_list, print_plan_count, print_success, print_warning,
     OutputFormat,
 };
 use crate::storage;
@@ -141,7 +141,6 @@ pub fn handle_plan_get(id: String, format: OutputFormat) -> Result<()> {
                 output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {}", id)), format)
             );
         } else {
-            print_error(&format!("No plan found with ID: {}", id));
         }
         anyhow::bail!("No plan found with ID: {}", id);
     }
@@ -153,7 +152,6 @@ pub fn handle_plan_delete(id: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.remove_plan(&id).is_none() {
-        print_error(&format!("No plan found with ID: {}", id));
         anyhow::bail!("No plan found with ID: {}", id);
     }
 

@@ -1,8 +1,9 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::Utc;
 use owo_colors::OwoColorize;
+use i_rs_core::parse_datetime;
 
 pub fn handle_update(
     name: String,
@@ -16,7 +17,6 @@ pub fn handle_update(
     let remind = match storage::get_remind_mut(&mut store, &name) {
         Some(r) => r,
         None => {
-            print_error(&format!("Remind '{}' not found", name));
             anyhow::bail!("Remind '{}' not found", name);
         }
     };
@@ -43,27 +43,4 @@ pub fn handle_update(
     Ok(())
 }
 
-fn parse_datetime(datetime_str: &str) -> Result<DateTime<Utc>> {
-    let formats = [
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
-        "%Y/%m/%d %H:%M",
-        "%Y/%m/%d",
-    ];
 
-    for format in &formats {
-        if let Ok(naive) = NaiveDateTime::parse_from_str(datetime_str, format) {
-            return Ok(Utc.from_utc_datetime(&naive));
-        }
-    }
-
-    if let Ok(naive) = chrono::NaiveDate::parse_from_str(datetime_str, "%Y-%m-%d") {
-        return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).unwrap()));
-    }
-
-    if let Ok(naive) = chrono::NaiveDate::parse_from_str(datetime_str, "%d-%m-%Y") {
-        return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).unwrap()));
-    }
-
-    Err(anyhow::anyhow!("Invalid datetime format: {}. Use YYYY-MM-DD or YYYY-MM-DD HH:MM", datetime_str))
-}

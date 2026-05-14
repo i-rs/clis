@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_header, OutputFormat};
+use crate::presentation::{print_header, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -44,7 +44,6 @@ pub fn run_get(args: GetArgs) -> Result<()> {
             }
         }
         None => {
-            print_error(&format!("Invoice '{}' not found", args.id));
             anyhow::bail!("Invoice '{}' not found", args.id);
         }
     }

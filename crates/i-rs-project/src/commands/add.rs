@@ -1,5 +1,5 @@
 use crate::models::{Priority, Project, ProjectStatus};
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -16,7 +16,6 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if storage::project_exists(&store, &name) {
-        print_error(&format!("Project '{}' already exists", name));
         anyhow::bail!("Project '{}' already exists", name);
     }
 
@@ -27,7 +26,6 @@ pub fn handle_add(
         Some("cancelled") => ProjectStatus::Cancelled,
         None => ProjectStatus::Active,
         _ => {
-            print_error("Invalid status. Use: active, onhold, completed, or cancelled");
             anyhow::bail!("Invalid status");
         }
     };
@@ -39,7 +37,6 @@ pub fn handle_add(
         Some("urgent") => Priority::Urgent,
         None => Priority::Medium,
         _ => {
-            print_error("Invalid priority. Use: low, medium, high, or urgent");
             anyhow::bail!("Invalid priority");
         }
     };

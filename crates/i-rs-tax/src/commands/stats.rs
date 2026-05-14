@@ -1,4 +1,4 @@
-use crate::presentation::{format_stats, print_error, TaxStats};
+use crate::presentation::{format_stats, TaxStats};
 use crate::storage;
 use clap::Args;
 
@@ -56,8 +56,7 @@ pub fn execute(args: &StatsArgs) -> anyhow::Result<()> {
 }
 
 pub fn run(args: &StatsArgs) {
-    if let Err(e) = execute(args) {
-        print_error(&e.to_string());
+    if let Err(_e) = execute(args) {
         std::process::exit(1);
     }
 }

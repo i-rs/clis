@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_error, OutputFormat};
+use crate::presentation::{output_error, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -14,7 +14,6 @@ pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
             if matches!(format, OutputFormat::Json) {
                 println!("{}", output_error(&msg, "NOT_FOUND", format));
             } else {
-                print_error(&msg);
             }
             anyhow::bail!("{}", msg);
         }

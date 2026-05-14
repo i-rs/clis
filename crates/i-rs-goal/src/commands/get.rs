@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, print_error, print_header, OutputFormat};
+use crate::presentation::{output_item, print_header, OutputFormat};
 use crate::storage;
 use clap::Parser;
 
@@ -54,7 +54,6 @@ pub fn get(args: GetArgs, output_format: OutputFormat) -> anyhow::Result<()> {
             }
         }
         None => {
-            print_error(&format!("Goal '{}' not found", args.name));
             anyhow::bail!("Goal '{}' not found", args.name);
         }
     }

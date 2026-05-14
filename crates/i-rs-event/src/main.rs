@@ -4,6 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::Parser;
+use crate::presentation::print_error;
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "i-rs-event")]
@@ -73,7 +74,7 @@ fn main() {
     };
 
     if let Err(e) = result {
-        eprintln!("Error: {}", e);
+        print_error(&format!("{}", e));
         std::process::exit(1);
     }
 }

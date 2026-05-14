@@ -1,5 +1,5 @@
 use crate::models::PodcastStatus;
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -16,19 +16,16 @@ pub fn handle_listen(
     let podcast = match store.podcasts.get_mut(&name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Podcast '{}' not found", name));
             anyhow::bail!("Podcast '{}' not found", name);
         }
     };
 
     if position < 0 {
-        print_error("Position must be non-negative");
         anyhow::bail!("Position must be non-negative");
     }
 
     if let Some(total) = podcast.duration_secs {
         if position > total {
-            print_error(&format!("Position {} exceeds total duration {}", position, total));
             anyhow::bail!("Position exceeds total duration");
         }
     }

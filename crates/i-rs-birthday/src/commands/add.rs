@@ -1,5 +1,5 @@
 use crate::models::Birthday;
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -16,12 +16,10 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.birthdays.contains_key(&name) {
-        print_error(&format!("Birthday '{}' already exists", name));
         anyhow::bail!("Birthday '{}' already exists", name);
     }
 
     if let Err(e) = validate_birth_date(&birth_date) {
-        print_error(&e);
         anyhow::bail!("{}", e);
     }
 

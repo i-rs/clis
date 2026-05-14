@@ -1,5 +1,5 @@
 use crate::models::{VocabStatus, VocabWord};
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -17,7 +17,6 @@ pub fn handle_add(
 
     let word_lower = word.to_lowercase();
     if store.words.contains_key(&word_lower) {
-        print_error(&format!("Word '{}' already exists. Use update command instead.", word.green()));
         anyhow::bail!("Word '{}' already exists", word);
     }
 

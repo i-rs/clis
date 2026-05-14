@@ -1,5 +1,5 @@
 use crate::models::ExerciseRecord;
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -16,14 +16,12 @@ pub fn handle_add(
     remark: Vec<String>,
 ) -> Result<()> {
     if let Err(e) = validate_name(&name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
     let mut store = storage::load_store()?;
 
     if store.records.contains_key(&name) {
-        print_error(&format!("Exercise '{}' already exists. Use update command instead.", name));
         anyhow::bail!("Exercise '{}' already exists", name);
     }
 

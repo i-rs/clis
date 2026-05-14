@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 
@@ -10,7 +10,6 @@ pub fn handle_done(name: String) -> Result<()> {
     let todo = match store.get_todo_mut(&name) {
         Some(t) => t,
         None => {
-            print_error(&format!("Todo '{}' not found", name));
             anyhow::bail!("Todo '{}' not found", name);
         }
     };

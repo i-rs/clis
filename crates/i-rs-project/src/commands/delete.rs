@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,7 +7,6 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !storage::project_exists(&store, &name) {
-        print_error(&format!("Project '{}' not found", name));
         anyhow::bail!("Project '{}' not found", name);
     }
 

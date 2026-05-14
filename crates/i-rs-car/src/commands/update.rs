@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -33,7 +33,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(ref rename_str) = args.rename {
         if store.cars.contains_key(rename_str) {
-            print_error(&format!("Car '{}' already exists", rename_str));
             anyhow::bail!("Car '{}' already exists", rename_str);
         }
 
@@ -60,7 +59,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let car = match store.get_car_mut(&args.name) {
         Some(c) => c,
         None => {
-            print_error(&format!("Car '{}' not found", args.name));
             anyhow::bail!("Car '{}' not found", args.name);
         }
     };
@@ -79,7 +77,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(mileage) = args.mileage {
         if mileage < car.mileage {
-            print_error("New mileage cannot be less than current mileage");
             anyhow::bail!("New mileage cannot be less than current mileage");
         }
         car.mileage = mileage;

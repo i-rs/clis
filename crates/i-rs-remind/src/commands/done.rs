@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -10,7 +10,6 @@ pub fn handle_done(name: String) -> Result<()> {
     let remind = match storage::get_remind_mut(&mut store, &name) {
         Some(r) => r,
         None => {
-            print_error(&format!("Remind '{}' not found", name));
             anyhow::bail!("Remind '{}' not found", name);
         }
     };

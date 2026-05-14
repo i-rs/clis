@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_header};
+use crate::presentation::print_header;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -15,7 +15,6 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
     };
 
     if word_keys.is_empty() {
-        print_error("No words available for quiz. Add some words first!");
         anyhow::bail!("No words available for quiz");
     }
 

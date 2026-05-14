@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -41,6 +41,5 @@ fn find_and_remove(store: &mut crate::models::CyclingStore, id_or_date: &str) ->
         }
     }
 
-    print_error(&format!("Record '{}' not found", id_or_date));
     anyhow::bail!("Record '{}' not found", id_or_date)
 }

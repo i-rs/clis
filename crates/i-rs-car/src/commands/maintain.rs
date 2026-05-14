@@ -1,5 +1,5 @@
 use crate::models::MaintenanceRecord;
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -29,7 +29,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !store.cars.contains_key(&args.car) {
-        print_error(&format!("Car '{}' not found", args.car));
         anyhow::bail!("Car '{}' not found", args.car);
     }
 
@@ -41,7 +40,6 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(car) = store.get_car(&args.car) {
         if args.mileage < car.mileage {
-            print_error("Maintenance record mileage cannot be less than car's current mileage");
             anyhow::bail!("Maintenance record mileage cannot be less than car's current mileage");
         }
     }

@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, output_error, output_item, OutputFormat};
+use crate::presentation::{output_error, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -12,7 +12,6 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
             if matches!(output_format, OutputFormat::Json) {
                 println!("{}", output_error(&format!("Movie '{}' not found", name), "NOT_FOUND", output_format));
             } else {
-                print_error(&format!("Movie '{}' not found", name));
             }
             anyhow::bail!("Movie '{}' not found", name);
         }

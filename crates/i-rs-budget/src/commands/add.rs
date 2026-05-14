@@ -1,5 +1,5 @@
 use crate::models::{Budget, BudgetPeriod};
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -21,7 +21,6 @@ pub fn handle_add(
                 "error": { "code": "ALREADY_EXISTS", "message": format!("Budget for category '{}' already exists", category) }
             }));
         } else {
-            print_error(&format!("Budget for category '{}' already exists", category));
         }
         anyhow::bail!("Budget for category '{}' already exists", category);
     }
@@ -38,7 +37,6 @@ pub fn handle_add(
                     "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
                 }));
             } else {
-                print_error("Invalid period. Use: daily, weekly, monthly, yearly");
             }
             anyhow::bail!("Invalid period");
         }

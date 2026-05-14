@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use commands::{add, delete, example, fuel, get, list, maintain, skill, stats, update};
 use presentation::OutputFormat;
+use crate::presentation::print_error;
 
 mod commands;
 mod models;
@@ -138,7 +139,7 @@ fn main() {
                 "error": { "code": "UNKNOWN", "message": e.to_string() }
             }));
         } else {
-            eprintln!("Error: {}", e);
+            print_error(&format!("{}", e));
         }
         std::process::exit(1);
     }

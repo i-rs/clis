@@ -1,8 +1,9 @@
 use crate::models::Appliance;
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use chrono::{NaiveDate, Utc};
+use i_rs_core::parse_date;
+use chrono::Utc;
 use owo_colors::OwoColorize;
 use uuid::Uuid;
 
@@ -20,7 +21,6 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.get_by_name(&name).is_some() {
-        print_error(&format!("Appliance '{}' already exists. Use update command instead.", name));
         anyhow::bail!("Appliance '{}' already exists", name);
     }
 
@@ -48,14 +48,3 @@ pub fn handle_add(
     Ok(())
 }
 
-fn parse_date(date_str: &str) -> Result<NaiveDate> {
-    let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
-
-    for format in &formats {
-        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(date);
-        }
-    }
-
-    Err(anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", date_str))
-}

@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -17,14 +17,12 @@ pub fn handle_update(
     let birthday = match storage::get_birthday_mut(&mut store, &name) {
         Some(b) => b,
         None => {
-            print_error(&format!("Birthday '{}' not found", name));
             anyhow::bail!("Birthday '{}' not found", name);
         }
     };
 
     if let Some(date) = birth_date {
         if let Err(e) = validate_birth_date(&date) {
-            print_error(&e);
             anyhow::bail!("{}", e);
         }
         birthday.birth_date = date;

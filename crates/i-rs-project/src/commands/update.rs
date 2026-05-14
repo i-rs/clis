@@ -1,5 +1,5 @@
 use crate::models::{Priority, ProjectStatus};
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -18,7 +18,6 @@ pub fn handle_update(
     let project = match storage::find_project_mut(&mut store, &name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Project '{}' not found", name));
             anyhow::bail!("Project '{}' not found", name);
         }
     };
@@ -37,7 +36,6 @@ pub fn handle_update(
             "completed" => ProjectStatus::Completed,
             "cancelled" => ProjectStatus::Cancelled,
             _ => {
-                print_error("Invalid status. Use: active, onhold, completed, or cancelled");
                 anyhow::bail!("Invalid status");
             }
         };
@@ -52,7 +50,6 @@ pub fn handle_update(
             "high" => Priority::High,
             "urgent" => Priority::Urgent,
             _ => {
-                print_error("Invalid priority. Use: low, medium, high, or urgent");
                 anyhow::bail!("Invalid priority");
             }
         };

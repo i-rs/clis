@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_warning, output_item, OutputFormat};
+use crate::presentation::{print_warning, output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -9,7 +9,6 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let appliance = match store.get_by_name(&name) {
         Some(a) => a,
         None => {
-            print_error(&format!("Appliance '{}' not found", name));
             anyhow::bail!("Appliance '{}' not found", name);
         }
     };

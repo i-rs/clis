@@ -1,5 +1,5 @@
 use crate::models::Car;
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -23,10 +23,9 @@ pub struct Args {
 }
 
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
+    let mut store = storage::load_store()?;
 
     if store.cars.contains_key(&args.name) {
-        print_error(&format!("Car '{}' already exists", args.name));
         anyhow::bail!("Car '{}' already exists", args.name);
     }
 
@@ -50,6 +49,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         car.remark = args.remark.clone();
     }
 
+    store.add_car(car);
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {

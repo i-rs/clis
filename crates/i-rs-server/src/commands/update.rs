@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -18,7 +18,6 @@ pub fn handle_update(
     let server = match storage::get_server_mut(&mut store, &name) {
         Some(s) => s,
         None => {
-            print_error(&format!("Server '{}' not found", name));
             anyhow::bail!("Server '{}' not found", name);
         }
     };

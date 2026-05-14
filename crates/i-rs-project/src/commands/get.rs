@@ -1,5 +1,5 @@
 use crate::models::ProjectDetail;
-use crate::presentation::{output_item, print_error, OutputFormat};
+use crate::presentation::{output_item, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -11,7 +11,6 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let project = match storage::find_project(&store, &name) {
         Some(p) => p,
         None => {
-            print_error(&format!("Project '{}' not found", name));
             anyhow::bail!("Project '{}' not found", name);
         }
     };

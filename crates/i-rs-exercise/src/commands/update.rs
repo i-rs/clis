@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -15,7 +15,6 @@ pub fn handle_update(
     remark: Option<Vec<String>>,
 ) -> Result<()> {
     if let Err(e) = validate_name(&name) {
-        print_error(&e.message);
         anyhow::bail!("{}", e.message);
     }
 
@@ -24,7 +23,6 @@ pub fn handle_update(
     let record = match store.get_record_mut(&name) {
         Some(r) => r,
         None => {
-            print_error(&format!("Exercise '{}' not found", name));
             anyhow::bail!("Exercise '{}' not found", name);
         }
     };

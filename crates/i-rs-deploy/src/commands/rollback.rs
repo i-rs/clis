@@ -65,7 +65,6 @@ pub fn handle_rollback(
             if rollback_to_id.is_some() {
                 print_error("Target deployment not found");
             } else {
-                print_error("No previous deployment found to rollback to");
             }
             anyhow::bail!("Rollback failed");
         }

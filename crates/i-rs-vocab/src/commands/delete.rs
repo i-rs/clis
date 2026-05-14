@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -8,7 +8,6 @@ pub fn handle_delete(word_key: String) -> Result<()> {
 
     let word_lower = word_key.to_lowercase();
     if store.remove_word(&word_lower).is_none() {
-        print_error(&format!("Word '{}' not found", word_key));
         anyhow::bail!("Word '{}' not found", word_key);
     }
 

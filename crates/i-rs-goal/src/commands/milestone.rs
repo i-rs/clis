@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, print_error, print_header, print_success, print_warning, OutputFormat};
+use crate::presentation::{output_item, print_header, print_success, print_warning, OutputFormat};
 use crate::storage;
 use clap::Parser;
 use owo_colors::OwoColorize;
@@ -52,7 +52,6 @@ pub fn list_milestones(args: MilestoneArgs, output_format: OutputFormat) -> anyh
             }
         }
         None => {
-            print_error(&format!("Goal '{}' not found", args.goal));
             anyhow::bail!("Goal '{}' not found", args.goal);
         }
     }
@@ -65,7 +64,6 @@ pub fn add_milestone(args: MilestoneArgs, output_format: OutputFormat) -> anyhow
     let amount = args.amount.ok_or_else(|| anyhow::anyhow!("Milestone amount is required"))?;
     
     if amount <= 0.0 {
-        print_error("Milestone amount must be greater than 0");
         anyhow::bail!("Milestone amount must be greater than 0");
     }
     

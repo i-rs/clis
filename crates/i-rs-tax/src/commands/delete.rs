@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use clap::Args;
 
@@ -14,7 +14,6 @@ pub fn execute(args: &DeleteArgs) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
     if !store.entries.contains_key(&args.name) {
-        print_error(&format!("税务记录 '{}' 不存在", args.name));
         anyhow::bail!("税务记录 '{}' 不存在", args.name);
     }
 
@@ -36,8 +35,7 @@ pub fn execute(args: &DeleteArgs) -> anyhow::Result<()> {
 }
 
 pub fn run(args: &DeleteArgs) {
-    if let Err(e) = execute(args) {
-        print_error(&e.to_string());
+    if let Err(_e) = execute(args) {
         std::process::exit(1);
     }
 }
