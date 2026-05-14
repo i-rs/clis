@@ -48,7 +48,7 @@ i-rs-ac delete <ID>
 
 - macOS: `~/.config/i-rs/ac.json`
 - Linux: `~/.config/i-rs/ac.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\ac.json`
 
 ## Environment Variables
 

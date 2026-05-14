@@ -49,7 +49,7 @@ brew install i-rs/homebrew-tap/i-rs-bookmark
 
 - macOS: `~/.config/i-rs/bookmarks.json`
 - Linux: `~/.config/i-rs/bookmarks.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\bookmark.json`
 
 ## Commands
 

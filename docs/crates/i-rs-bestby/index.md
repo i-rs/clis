@@ -33,7 +33,7 @@ brew install i-rs/homebrew-tap/i-rs-bestby
 
 - macOS: `~/.config/i-rs/bestby.json`
 - Linux: `~/.config/i-rs/bestby.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\bestby.json`
 
 ## Features
 

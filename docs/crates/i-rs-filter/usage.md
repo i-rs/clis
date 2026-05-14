@@ -58,4 +58,4 @@ i-rs-filter delete <ID>
 
 - macOS: `~/.config/i-rs/filters.json`
 - Linux: `~/.config/i-rs/filters.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\filter.json`

@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-feedpet
 
 - macOS: `~/.config/i-rs/feedpet.json`
 - Linux: `~/.config/i-rs/feedpet.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\feedpet.json`
 
 ## Features
 

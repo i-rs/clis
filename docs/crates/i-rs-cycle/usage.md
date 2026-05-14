@@ -68,4 +68,4 @@ i-rs-cycle delete <ID>
 
 - macOS: `~/.config/i-rs/cycles.json`
 - Linux: `~/.config/i-rs/cycles.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\cycle.json`

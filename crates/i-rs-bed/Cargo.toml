@@ -2,6 +2,10 @@
 name = "i-rs-bed"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bed item replacement tracking CLI"
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }

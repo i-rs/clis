@@ -59,7 +59,7 @@ brew install i-rs/homebrew-tap/i-rs-birthday
 
 - macOS: `~/.config/i-rs/birthdays.json`
 - Linux: `~/.config/i-rs/birthdays.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\birthday.json`
 
 ## Commands
 

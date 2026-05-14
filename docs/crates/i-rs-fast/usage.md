@@ -57,7 +57,7 @@ i-rs-fast delete <ID>
 
 - macOS: `~/.config/i-rs/fast.json`
 - Linux: `~/.config/i-rs/fast.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\fast.json`
 
 ## Environment Variables
 

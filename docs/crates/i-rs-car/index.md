@@ -37,4 +37,4 @@ i-rs-car stats
 
 - macOS: `~/.config/i-rs/cars.json`
 - Linux: `~/.config/i-rs/cars.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\car.json`

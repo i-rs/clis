@@ -31,7 +31,7 @@ brew install i-rs/homebrew-tap/i-rs-pig
 
 - macOS: `~/.config/i-rs/pig.json`
 - Linux: `~/.config/i-rs/pig.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\pig.json`
 
 ## Features
 

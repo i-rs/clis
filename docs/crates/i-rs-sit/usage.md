@@ -48,7 +48,7 @@ i-rs-sit delete <ID>
 
 - macOS: `~/.config/i-rs/sit.json`
 - Linux: `~/.config/i-rs/sit.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\sit.json`
 
 ## Environment Variables
 

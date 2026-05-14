@@ -59,7 +59,7 @@ Durations are specified in seconds:
 
 - macOS: `~/.config/i-rs/tick.json`
 - Linux: `~/.config/i-rs/tick.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\tick.json`
 
 ## Environment Variables
 

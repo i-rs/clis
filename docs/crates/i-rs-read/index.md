@@ -71,6 +71,6 @@ i-rs-read stats
 
 - **macOS**: `~/.config/i-rs/read.json`
 - **Linux**: `~/.config/i-rs/read.json`
-- **Windows**: `~\AppData\Roaming\i-rs\config.json`
+- **Windows**: `~\AppData\Roaming\i-rs\read.json`
 
 可通过 `CONFIG_DIR` 环境变量覆盖配置目录。

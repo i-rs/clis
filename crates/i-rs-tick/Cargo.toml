@@ -2,6 +2,10 @@
 name = "i-rs-tick"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Duration tracking CLI"
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }

@@ -46,7 +46,7 @@ i-rs-aqua delete <ID>
 
 - macOS: `~/.config/i-rs/aqua.json`
 - Linux: `~/.config/i-rs/aqua.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\aqua.json`
 
 ## Environment Variables
 

@@ -49,7 +49,7 @@ i-rs-spark delete <ID>
 
 - macOS: `~/.config/i-rs/spark.json`
 - Linux: `~/.config/i-rs/spark.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\spark.json`
 
 ## Environment Variables
 

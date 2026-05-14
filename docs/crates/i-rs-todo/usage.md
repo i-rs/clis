@@ -118,7 +118,7 @@ i-rs-todo list --tag work
 
 - macOS: `~/.config/i-rs/todos.json`
 - Linux: `~/.config/i-rs/todos.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\todo.json`
 
 ## Environment Variables
 

@@ -50,7 +50,7 @@ i-rs-dose delete <ID>
 
 - macOS: `~/.config/i-rs/dose.json`
 - Linux: `~/.config/i-rs/dose.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\dose.json`
 
 ## Environment Variables
 

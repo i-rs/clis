@@ -51,7 +51,7 @@ i-rs-ledger delete <ID>
 
 - macOS: `~/.config/i-rs/ledger.json`
 - Linux: `~/.config/i-rs/ledger.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\ledger.json`
 
 ## Environment Variables
 

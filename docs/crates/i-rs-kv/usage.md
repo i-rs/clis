@@ -62,7 +62,7 @@ Options:
 
 - macOS: `~/.config/i-rs/kv.json`
 - Linux: `~/.config/i-rs/kv.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\kv.json`
 
 ## Environment Variables
 

@@ -49,7 +49,7 @@ i-rs-pig delete <ID>
 
 - macOS: `~/.config/i-rs/pig.json`
 - Linux: `~/.config/i-rs/pig.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\pig.json`
 
 ## Environment Variables
 

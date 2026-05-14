@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-purify
 
 - macOS: `~/.config/i-rs/purify.json`
 - Linux: `~/.config/i-rs/purify.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\purify.json`
 
 ## Filter Types
 

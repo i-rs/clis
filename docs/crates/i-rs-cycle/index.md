@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-cycle
 
 - macOS: `~/.config/i-rs/cycles.json`
 - Linux: `~/.config/i-rs/cycles.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\cycle.json`
 
 ## Event Types
 

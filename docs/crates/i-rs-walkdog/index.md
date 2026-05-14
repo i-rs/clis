@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-walkdog
 
 - macOS: `~/.config/i-rs/walkdog.json`
 - Linux: `~/.config/i-rs/walkdog.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\walkdog.json`
 
 ## Features
 

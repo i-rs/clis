@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-sit
 
 - macOS: `~/.config/i-rs/sit.json`
 - Linux: `~/.config/i-rs/sit.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\sit.json`
 
 ## Features
 

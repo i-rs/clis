@@ -45,7 +45,7 @@ brew install i-rs/homebrew-tap/i-rs-note
 
 - macOS: `~/.config/i-rs/notes.json`
 - Linux: `~/.config/i-rs/notes.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\note.json`
 
 ## Commands
 

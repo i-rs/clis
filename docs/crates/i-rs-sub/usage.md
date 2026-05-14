@@ -65,7 +65,7 @@ Options:
 
 - macOS: `~/.config/i-rs/sub.json`
 - Linux: `~/.config/i-rs/sub.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\sub.json`
 
 ## Environment Variables
 

@@ -30,7 +30,7 @@ brew install i-rs/homebrew-tap/i-rs-sub
 
 - macOS: `~/.config/i-rs/sub.json`
 - Linux: `~/.config/i-rs/sub.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\sub.json`
 
 ## Features
 

@@ -33,7 +33,7 @@ brew install i-rs/homebrew-tap/i-rs-ledger
 
 - macOS: `~/.config/i-rs/ledger.json`
 - Linux: `~/.config/i-rs/ledger.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\ledger.json`
 
 ## Features
 

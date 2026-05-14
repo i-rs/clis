@@ -68,4 +68,4 @@ i-rs-allergy delete <ID>
 
 - macOS: `~/.config/i-rs/allergies.json`
 - Linux: `~/.config/i-rs/allergies.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\allergy.json`

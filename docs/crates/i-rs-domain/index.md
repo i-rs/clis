@@ -52,7 +52,7 @@ brew install i-rs/homebrew-tap/i-rs-domain
 
 - macOS: `~/.config/i-rs/domains.json`
 - Linux: `~/.config/i-rs/domains.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\domain.json`
 
 ## Commands
 

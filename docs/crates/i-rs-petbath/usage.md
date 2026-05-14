@@ -48,7 +48,7 @@ i-rs-petbath delete <ID>
 
 - macOS: `~/.config/i-rs/petbath.json`
 - Linux: `~/.config/i-rs/petbath.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\petbath.json`
 
 ## Environment Variables
 

@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-towel
 
 - macOS: `~/.config/i-rs/towels.json`
 - Linux: `~/.config/i-rs/towels.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\towel.json`
 
 ## Towel Types
 

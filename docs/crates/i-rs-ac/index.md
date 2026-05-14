@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-ac
 
 - macOS: `~/.config/i-rs/ac.json`
 - Linux: `~/.config/i-rs/ac.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\ac.json`
 
 ## Commands
 

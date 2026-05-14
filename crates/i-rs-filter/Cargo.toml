@@ -2,6 +2,10 @@
 name = "i-rs-filter"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Appliance filter cleaning tracking CLI"
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }

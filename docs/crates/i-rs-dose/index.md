@@ -33,7 +33,7 @@ brew install i-rs/homebrew-tap/i-rs-dose
 
 - macOS: `~/.config/i-rs/dose.json`
 - Linux: `~/.config/i-rs/dose.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\dose.json`
 
 ## Features
 

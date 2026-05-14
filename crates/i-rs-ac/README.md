@@ -35,7 +35,7 @@ i-rs-ac get abc12345
 Configuration is stored locally at:
 - macOS: `~/.config/i-rs/ac.json`
 - Linux: `~/.config/i-rs/ac.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\ac.json`
 
 ## License
 

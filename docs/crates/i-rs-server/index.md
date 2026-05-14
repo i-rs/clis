@@ -60,7 +60,7 @@ Supported keychain backends:
 
 - macOS: `~/.config/i-rs/servers.json`
 - Linux: `~/.config/i-rs/servers.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\server.json`
 
 **Passwords are NEVER stored in the config file. They go to the OS keychain.**
 

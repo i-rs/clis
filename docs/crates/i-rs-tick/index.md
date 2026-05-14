@@ -31,7 +31,7 @@ brew install i-rs/homebrew-tap/i-rs-tick
 
 - macOS: `~/.config/i-rs/tick.json`
 - Linux: `~/.config/i-rs/tick.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\tick.json`
 
 ## Features
 

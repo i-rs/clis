@@ -57,4 +57,4 @@ i-rs-toothbrush delete <ID>
 
 - macOS: `~/.config/i-rs/toothbrushes.json`
 - Linux: `~/.config/i-rs/toothbrushes.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\toothbrush.json`

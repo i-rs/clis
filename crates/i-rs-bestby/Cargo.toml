@@ -2,6 +2,10 @@
 name = "i-rs-bestby"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Item best-by date tracking CLI"
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }

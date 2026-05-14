@@ -76,7 +76,7 @@ Options:
 
 - macOS: `~/.config/i-rs/want.json`
 - Linux: `~/.config/i-rs/want.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\want.json`
 
 ## Environment Variables
 

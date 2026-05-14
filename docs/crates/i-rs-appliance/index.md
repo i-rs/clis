@@ -50,6 +50,6 @@ i-rs-appliance stats
 Data is stored in JSON format:
 - macOS: `~/.config/i-rs/appliances.json`
 - Linux: `~/.config/i-rs/appliances.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\appliance.json`
 
 Override with `CONFIG_DIR` environment variable.

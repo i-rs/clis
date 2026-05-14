@@ -64,7 +64,7 @@ Options:
 
 - macOS: `~/.config/i-rs/step.json`
 - Linux: `~/.config/i-rs/step.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\step.json`
 
 ## Environment Variables
 

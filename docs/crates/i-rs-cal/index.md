@@ -38,7 +38,7 @@ brew install i-rs/homebrew-tap/i-rs-cal
 
 - macOS: `~/.config/i-rs/cal.json`
 - Linux: `~/.config/i-rs/cal.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\cal.json`
 
 ## Features
 

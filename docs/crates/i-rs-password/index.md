@@ -54,7 +54,7 @@ Supported keychain backends:
 
 - macOS: `~/.config/i-rs/passwords.json`
 - Linux: `~/.config/i-rs/passwords.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\password.json`
 
 **Passwords are NEVER stored in the config file. They go to the OS keychain.**
 

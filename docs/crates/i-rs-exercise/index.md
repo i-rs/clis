@@ -48,7 +48,7 @@ brew install i-rs/homebrew-tap/i-rs-exercise
 
 - macOS: `~/.config/i-rs/exercises.json`
 - Linux: `~/.config/i-rs/exercises.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\exercise.json`
 
 ## 功能特性
 

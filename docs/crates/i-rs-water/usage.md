@@ -48,7 +48,7 @@ i-rs-water delete <ID>
 
 - macOS: `~/.config/i-rs/water.json`
 - Linux: `~/.config/i-rs/water.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\water.json`
 
 ## Environment Variables
 

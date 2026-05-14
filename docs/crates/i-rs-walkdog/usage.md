@@ -49,7 +49,7 @@ i-rs-walkdog delete <ID>
 
 - macOS: `~/.config/i-rs/walkdog.json`
 - Linux: `~/.config/i-rs/walkdog.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\walkdog.json`
 
 ## Environment Variables
 

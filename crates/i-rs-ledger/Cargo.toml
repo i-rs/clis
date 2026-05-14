@@ -2,6 +2,10 @@
 name = "i-rs-ledger"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Personal accounting CLI"
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }

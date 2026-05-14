@@ -48,7 +48,7 @@ brew install i-rs/homebrew-tap/i-rs-weight
 
 - macOS: `~/.config/i-rs/weights.json`
 - Linux: `~/.config/i-rs/weights.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\weights.json`
 
 ## Features
 

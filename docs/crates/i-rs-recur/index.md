@@ -31,7 +31,7 @@ brew install i-rs/homebrew-tap/i-rs-recur
 
 - macOS: `~/.config/i-rs/recur.json`
 - Linux: `~/.config/i-rs/recur.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\recur.json`
 
 ## Features
 

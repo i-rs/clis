@@ -57,7 +57,7 @@ i-rs-sheet delete <ID>
 
 - macOS: `~/.config/i-rs/sheets.json`
 - Linux: `~/.config/i-rs/sheets.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\sheet.json`
 
 ## Environment Variables
 

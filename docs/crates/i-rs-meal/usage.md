@@ -52,7 +52,7 @@ i-rs-meal delete <ID>
 
 - macOS: `~/.config/i-rs/meal.json`
 - Linux: `~/.config/i-rs/meal.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\meal.json`
 
 ## Environment Variables
 

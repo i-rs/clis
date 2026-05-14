@@ -113,7 +113,7 @@ i-rs-mood add 2025-01-21 good --content "Project completed" --content "Feeling a
 
 - macOS: `~/.config/i-rs/moods.json`
 - Linux: `~/.config/i-rs/moods.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\mood.json`
 
 ## Environment Variables
 

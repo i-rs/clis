@@ -71,7 +71,7 @@ Options:
 
 - macOS: `~/.config/i-rs/recur.json`
 - Linux: `~/.config/i-rs/recur.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\recur.json`
 
 ## Environment Variables
 

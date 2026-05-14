@@ -31,7 +31,7 @@ brew install i-rs/homebrew-tap/i-rs-want
 
 - macOS: `~/.config/i-rs/want.json`
 - Linux: `~/.config/i-rs/want.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\want.json`
 
 ## Features
 

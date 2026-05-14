@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-bed
 
 - macOS: `~/.config/i-rs/beds.json`
 - Linux: `~/.config/i-rs/beds.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\bed.json`
 
 ## Bed Item Types
 

@@ -50,7 +50,7 @@ i-rs-cal delete <ID>
 
 - macOS: `~/.config/i-rs/cal.json`
 - Linux: `~/.config/i-rs/cal.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\cal.json`
 
 ## Environment Variables
 

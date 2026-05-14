@@ -37,7 +37,7 @@ brew install i-rs/homebrew-tap/i-rs-aqua
 
 - macOS: `~/.config/i-rs/aqua.json`
 - Linux: `~/.config/i-rs/aqua.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\aqua.json`
 
 ## Commands
 

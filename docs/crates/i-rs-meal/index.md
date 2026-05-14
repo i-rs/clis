@@ -31,7 +31,7 @@ brew install i-rs/homebrew-tap/i-rs-meal
 
 - macOS: `~/.config/i-rs/meal.json`
 - Linux: `~/.config/i-rs/meal.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\meal.json`
 
 ## Features
 
