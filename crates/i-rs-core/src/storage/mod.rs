@@ -59,13 +59,18 @@ impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
+        self.save_data(&self.data)
+    }
+
+    /// Save arbitrary data to the storage file without modifying self.data.
+    pub fn save_data(&self, data: &T) -> anyhow::Result<()> {
         let path = self.file_path();
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let content = serde_json::to_string_pretty(&self.data)
+        let content = serde_json::to_string_pretty(data)
             .map_err(|e| anyhow::anyhow!("Failed to serialize: {}", e))?;
 
         fs::write(&path, content)
