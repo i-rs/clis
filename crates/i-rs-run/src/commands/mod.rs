@@ -18,3 +18,5 @@ pub use plan::{handle_plan_add, handle_plan_delete, handle_plan_get, handle_plan
 pub use skill::{handle_skill, SkillCommand};
 pub use stats::handle_stats;
 pub use update::handle_update;
+
+pub mod data;

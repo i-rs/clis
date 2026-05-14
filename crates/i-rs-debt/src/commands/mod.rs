@@ -7,3 +7,5 @@ pub mod pay;
 pub mod skill;
 pub mod stats;
 pub mod update;
+
+pub mod data;

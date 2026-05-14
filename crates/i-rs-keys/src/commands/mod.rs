@@ -13,3 +13,4 @@ pub use get::handle_get;
 pub use list::handle_list;
 pub use skill::{handle_skill, SkillCommand};
 pub use update::handle_update;
+pub mod data;

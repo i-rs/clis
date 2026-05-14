@@ -17,3 +17,5 @@ pub use skill::{handle_skill, SkillCommand};
 pub use stats::stats;
 pub use update::update_plant;
 pub use water::water_plant;
+
+pub mod data;

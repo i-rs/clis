@@ -44,6 +44,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -76,5 +78,6 @@ fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
             }));
             Ok(())
         }
+        Commands::Data(commands) => commands::data::handle(&commands),
     }
 }

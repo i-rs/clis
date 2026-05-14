@@ -18,3 +18,4 @@ pub use purchase::handle_purchase;
 pub use skill::handle_skill;
 pub use skill::SkillCommand;
 pub use update::handle_update;
+pub mod data;

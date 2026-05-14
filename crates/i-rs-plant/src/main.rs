@@ -76,6 +76,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
+#[clap(subcommand)]
+Data(commands::data::DataCommand),
 }
 
 #[derive(Subcommand, Debug)]
@@ -192,6 +194,7 @@ fn main() -> Result<()> {
                 "content" => commands::SkillCommand::Content,
                 _ => commands::SkillCommand::Raw,
             })),
+        Commands::Data(commands) => { commands::data::handle(&commands)? }
     }
 
     Ok(())

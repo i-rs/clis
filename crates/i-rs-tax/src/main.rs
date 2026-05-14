@@ -5,6 +5,7 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
+use i_rs_core::presentation::print_error;
 
 #[derive(Parser)]
 #[command(name = "i-rs-tax")]
@@ -35,6 +36,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -70,7 +73,11 @@ fn main() {
             }));
             Ok(())
         }
+        Commands::Data(ref commands) => commands::data::handle(commands),
     };
 
-    i_rs_core::exit_on_error!(result, false);
+    if let Err(e) = result {
+        print_error(&e.to_string());
+        std::process::exit(1);
+    }
 }

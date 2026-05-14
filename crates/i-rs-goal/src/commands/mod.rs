@@ -19,3 +19,5 @@ pub use milestone::{add_milestone, list_milestones, remove_milestone};
 pub use skill::{handle_skill, SkillCommand};
 pub use stats::stats;
 pub use update::update;
+
+pub mod data;

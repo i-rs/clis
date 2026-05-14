@@ -1,4 +1,10 @@
-/// Generate `load_store()` and `save_store()` functions for a crate's storage module.
+/// Generate storage functions for a crate.
+///
+/// Generates:
+/// - `load_store()` / `save_store()` — basic persistence
+/// - `export_data()` — serialize store to JSON string
+/// - `import_data(input)` — deserialize and save from JSON string
+/// - `clear_data()` — reset store to default (empty)
 ///
 /// Usage in `crates/i-rs-xxx/src/storage/mod.rs`:
 /// ```ignore
@@ -19,6 +25,24 @@ macro_rules! create_store {
         pub fn save_store(store: &$store_type) -> ::anyhow::Result<()> {
             let storage = $crate::Storage::<$store_type>::new($filename);
             storage.save_data(store)
+        }
+
+        /// Export all data as pretty JSON string.
+        pub fn export_data() -> ::anyhow::Result<String> {
+            let store = load_store()?;
+            Ok(::serde_json::to_string_pretty(&store)?)
+        }
+
+        /// Import data from a JSON string, replacing all existing data.
+        pub fn import_data(input: &str) -> ::anyhow::Result<()> {
+            let store: $store_type = ::serde_json::from_str(input)?;
+            save_store(&store)
+        }
+
+        /// Clear all data (reset store to default/empty).
+        pub fn clear_data() -> ::anyhow::Result<()> {
+            let store = <$store_type>::default();
+            save_store(&store)
         }
     };
 }

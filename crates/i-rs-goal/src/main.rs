@@ -52,6 +52,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -89,6 +91,7 @@ fn main() {
             }));
             Ok(())
         }
+        Commands::Data(commands) => commands::data::handle(&commands),
     };
     i_rs_core::exit_on_error!(result, cli.json);
 }

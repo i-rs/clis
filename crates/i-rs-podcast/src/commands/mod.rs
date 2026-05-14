@@ -17,3 +17,5 @@ pub use list::handle_list;
 pub use skill::{handle_skill, SkillCommand};
 pub use stats::handle_stats;
 pub use update::handle_update;
+
+pub mod data;

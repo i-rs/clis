@@ -21,3 +21,5 @@ pub use update::handle_update;
 pub use example::handle_example;
 pub use skill::handle_skill;
 pub use skill::SkillCommand;
+
+pub mod data;

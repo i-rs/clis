@@ -8,3 +8,5 @@ pub mod maintain;
 pub mod skill;
 pub mod stats;
 pub mod update;
+
+pub mod data;
