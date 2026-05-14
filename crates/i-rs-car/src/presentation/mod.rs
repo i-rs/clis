@@ -1,6 +1,5 @@
 use crate::models::{Car, CarDetail, CarRow, FuelRecord, FuelRow, MaintenanceRecord, MaintenanceRow, Stats};
 use owo_colors::OwoColorize;
-use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
 
 pub use i_rs_core::presentation::{print_error, print_success, OutputFormat};
 pub use i_rs_core::presentation::output::output_item;
@@ -12,12 +11,7 @@ pub fn format_car_table(cars: &[&Car]) -> String {
         return String::new();
     }
 
-    Table::new(&rows)
-        .with(Style::modern_rounded())
-        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-        .to_string()
+    i_rs_core::render_table(&rows)
 }
 
 pub fn format_fuel_table(records: &[(&FuelRecord, Option<f64>)]) -> String {
@@ -27,12 +21,7 @@ pub fn format_fuel_table(records: &[(&FuelRecord, Option<f64>)]) -> String {
         return String::new();
     }
 
-    Table::new(&rows)
-        .with(Style::modern_rounded())
-        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-        .to_string()
+    i_rs_core::render_table(&rows)
 }
 
 pub fn format_maintenance_table(records: &[&MaintenanceRecord]) -> String {
@@ -42,12 +31,7 @@ pub fn format_maintenance_table(records: &[&MaintenanceRecord]) -> String {
         return String::new();
     }
 
-    Table::new(&rows)
-        .with(Style::modern_rounded())
-        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-        .to_string()
+    i_rs_core::render_table(&rows)
 }
 
 pub fn format_car_detail(detail: &CarDetail) -> String {

@@ -1,0 +1,29 @@
+# cargo-deny configuration
+# Run: cargo install cargo-deny && cargo deny check
+
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+unsound = "deny"
+yanked = "deny"
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "MIT OR Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unlicense",
+    "CC0-1.0",
+    "Zlib",
+]
+deny = []
+unlicensed = "deny"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"

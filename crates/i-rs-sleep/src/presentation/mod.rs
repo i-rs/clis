@@ -6,12 +6,7 @@ pub use i_rs_core::presentation::{print_error, print_header, print_success, Outp
 pub use i_rs_core::presentation::output::{output_list, output_item};
 
 pub fn format_table(rows: &[SleepRow]) -> String {
-    Table::new(rows)
-        .with(Style::modern_rounded())
-        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-        .to_string()
+    i_rs_core::render_table(&rows)
 }
 
 pub fn print_stats(stats: &SleepStats) {

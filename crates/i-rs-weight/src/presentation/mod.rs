@@ -1,45 +1,31 @@
 use crate::models::{WeightRecord, WeightRow};
 use owo_colors::OwoColorize;
-use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
-
 pub use i_rs_core::presentation::{print_error, print_success, print_warning, OutputFormat};
 pub use i_rs_core::presentation::output::output_list;
-
 pub fn format_table(records: &[&WeightRecord]) -> String {
     let rows: Vec<WeightRow> = records
         .iter()
         .map(|r| WeightRow::from_record(r))
         .collect();
-
-    Table::new(&rows)
-        .with(Style::modern_rounded())
-        .modify(Segment::all(), BorderColor::filled(Color::FG_CYAN))
-        .with(Colorization::exact([Color::FG_CYAN | Color::BOLD], Rows::first()))
-        .with(Colorization::exact([Color::FG_GREEN], Rows::new(1..)))
-        .to_string()
+    i_rs_core::render_table(&rows)
 }
-
 pub fn print_record_count(count: usize) {
     println!("\n{} {} records", "Total:".dimmed(), count.to_string().cyan());
 }
-
 pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
     if records.is_empty() {
         print_warning("No records to display chart.");
         return;
     }
-
     let title = match days {
         Some(d) => format!("Weight Trend (Last {} days)", d),
         None => "Weight Trend (All Time)".to_string(),
     };
     println!("\n{}", title.bold().cyan());
     println!("{}", "─".repeat(40).dimmed());
-
     let weights: Vec<f64> = records.iter().map(|r| r.weight).collect();
     let min_w = weights.iter().cloned().fold(f64::INFINITY, f64::min);
     let max_w = weights.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-
     if (max_w - min_w).abs() < 0.1 {
         let avg = weights.iter().sum::<f64>() / weights.len() as f64;
         println!(" {:.1} ────────────────── {:.1}", avg, avg);
@@ -50,7 +36,6 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
         println!("\n  All values around {:.1} kg", avg);
         return;
     }
-
     let chart_height = 8;
     let range = max_w - min_w;
     let scale = |w: f64| -> usize {
@@ -60,16 +45,13 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
             ((w - min_w) / range * (chart_height - 1) as f64) as usize
         }
     };
-
     let mut chart: Vec<Vec<String>> = (0..=chart_height)
         .map(|_| vec![' '; records.len()].into_iter().map(|c| c.to_string()).collect())
         .collect();
-
     for (i, &w) in weights.iter().enumerate() {
         let y = chart_height - 1 - scale(w);
         chart[y][i] = "●".cyan().to_string();
     }
-
     for (i, &w) in weights.iter().enumerate() {
         if i > 0 {
             let prev_y = chart_height - 1 - scale(weights[i - 1]);
@@ -90,7 +72,6 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
             }
         }
     }
-
     let weight_labels: Vec<String> = (0..=chart_height)
         .rev()
         .map(|i| {
@@ -98,13 +79,11 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
             format!("{:.1}", w)
         })
         .collect();
-
     for (i, row) in chart.iter().enumerate() {
         let label = format!("{:>5}", weight_labels[i]);
         let line: String = row.iter().map(|c| c.as_str()).collect();
         println!("{} {}", label.dimmed(), line);
     }
-
     if !records.is_empty() {
         let first_date = records.first().expect("!records.is_empty() checked above").date.format("%m-%d").to_string();
         let last_date = records.last().expect("!records.is_empty() checked above").date.format("%m-%d").to_string();
@@ -116,9 +95,7 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
             last_date.dimmed()
         );
     }
-
     println!("\n  {} → {}", "Start".dimmed(), "End".dimmed());
-
     if let Some(first) = records.first() {
         if let Some(last) = records.last() {
             let change = last.weight - first.weight;
