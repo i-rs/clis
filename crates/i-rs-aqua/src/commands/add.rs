@@ -1,0 +1,19 @@
+use crate::models::AquaEntry;
+use crate::presentation::print_success;
+use crate::storage;
+use anyhow::Result;
+use owo_colors::OwoColorize;
+
+pub fn handle_add(tank_size: Option<i32>, tag: Vec<String>, remark: Vec<String>) -> Result<()> {
+    let mut store = storage::load_store()?;
+
+    let entry = AquaEntry::new(tank_size, tag, remark);
+
+    storage::add_entry(&mut store, entry);
+    storage::save_store(&store)?;
+
+    let size_str = tank_size.map(|s| format!("{}L", s)).unwrap_or_else(|| "unknown".to_string());
+    print_success(&format!("✓ Recorded aquarium water change ({})", size_str.cyan()));
+
+    Ok(())
+}

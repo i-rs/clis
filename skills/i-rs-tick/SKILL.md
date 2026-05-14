@@ -1,0 +1,80 @@
+---
+name: "i-rs-tick"
+description: "Records task duration and time spent. Invoke when user wants to track how long activities or tasks take."
+---
+
+# i-rs-tick
+
+Duration tracking CLI tool.
+
+## Storage
+
+- Config: `~/.config/i-rs/tick.json`
+
+## Commands
+
+### add
+
+Record task duration.
+
+```bash
+i-rs-tick add <TASK_NAME> --duration <SECONDS> [OPTIONS]
+```
+
+Arguments:
+- `TASK_NAME` - Name of the task
+
+Options:
+- `--duration <SECONDS>` - Duration in seconds
+- `--description <DESC>` - Description
+- `--started-at <DATETIME>` - Start time (YYYY-MM-DD HH:MM:SS)
+- `--ended-at <DATETIME>` - End time (YYYY-MM-DD HH:MM:SS)
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
+### list
+
+List duration records.
+
+```bash
+i-rs-tick list
+```
+
+Options:
+- `-t, --tag <TAG>` - Filter by tag
+
+### get
+
+Get record details.
+
+```bash
+i-rs-tick get <ID>
+```
+
+### delete
+
+Delete a record.
+
+```bash
+i-rs-tick delete <ID>
+```
+
+## Duration Examples
+
+- 3600 seconds = 1 hour
+- 7200 seconds = 2 hours
+- 300 seconds = 5 minutes
+
+## Examples
+
+```bash
+# Record task duration
+i-rs-tick add "Meeting" --duration 3600
+i-rs-tick add "Coding" --duration 7200 --remark "Feature implementation"
+
+# List records
+i-rs-tick list
+
+# Get details
+i-rs-tick get abc12345
+```

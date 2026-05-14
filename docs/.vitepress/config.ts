@@ -18,7 +18,7 @@ export default defineConfig({
         ]
       },
       {
-        text: 'CLI Tools',
+        text: 'Core Tools',
         collapsed: false,
         items: [
           {
@@ -62,25 +62,21 @@ export default defineConfig({
             ]
           },
           {
-            text: 'i-rs-domain',
+            text: 'i-rs-todo',
             collapsed: true,
             items: [
-              { text: 'Overview', link: '/crates/i-rs-domain/' },
-              { text: 'Usage', link: '/crates/i-rs-domain/usage' },
-              { text: 'Examples', link: '/crates/i-rs-domain/examples' },
-              { text: 'Test', link: '/crates/i-rs-domain/test' }
+              { text: 'Overview', link: '/crates/i-rs-todo/' },
+              { text: 'Usage', link: '/crates/i-rs-todo/usage' },
+              { text: 'Examples', link: '/crates/i-rs-todo/examples' },
+              { text: 'Test', link: '/crates/i-rs-todo/test' }
             ]
-          },
-          {
-            text: 'i-rs-remind',
-            collapsed: true,
-            items: [
-              { text: 'Overview', link: '/crates/i-rs-remind/' },
-              { text: 'Usage', link: '/crates/i-rs-remind/usage' },
-              { text: 'Examples', link: '/crates/i-rs-remind/examples' },
-              { text: 'Test', link: '/crates/i-rs-remind/test' }
-            ]
-          },
+          }
+        ]
+      },
+      {
+        text: 'Health Tracking',
+        collapsed: false,
+        items: [
           {
             text: 'i-rs-weight',
             collapsed: true,
@@ -102,13 +98,359 @@ export default defineConfig({
             ]
           },
           {
-            text: 'i-rs-todo',
+            text: 'i-rs-water',
             collapsed: true,
             items: [
-              { text: 'Overview', link: '/crates/i-rs-todo/' },
-              { text: 'Usage', link: '/crates/i-rs-todo/usage' },
-              { text: 'Examples', link: '/crates/i-rs-todo/examples' },
-              { text: 'Test', link: '/crates/i-rs-todo/test' }
+              { text: 'Overview', link: '/crates/i-rs-water/' },
+              { text: 'Usage', link: '/crates/i-rs-water/usage' },
+              { text: 'Examples', link: '/crates/i-rs-water/examples' },
+              { text: 'Test', link: '/crates/i-rs-water/test' }
+            ]
+          },
+          {
+            text: 'i-rs-step',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-step/' },
+              { text: 'Usage', link: '/crates/i-rs-step/usage' },
+              { text: 'Examples', link: '/crates/i-rs-step/examples' },
+              { text: 'Test', link: '/crates/i-rs-step/test' }
+            ]
+          },
+          {
+            text: 'i-rs-dose',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-dose/' },
+              { text: 'Usage', link: '/crates/i-rs-dose/usage' },
+              { text: 'Examples', link: '/crates/i-rs-dose/examples' },
+              { text: 'Test', link: '/crates/i-rs-dose/test' }
+            ]
+          },
+          {
+            text: 'i-rs-cycle',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-cycle/' },
+              { text: 'Usage', link: '/crates/i-rs-cycle/usage' },
+              { text: 'Examples', link: '/crates/i-rs-cycle/examples' },
+              { text: 'Test', link: '/crates/i-rs-cycle/test' }
+            ]
+          },
+          {
+            text: 'i-rs-sit',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-sit/' },
+              { text: 'Usage', link: '/crates/i-rs-sit/usage' },
+              { text: 'Examples', link: '/crates/i-rs-sit/examples' },
+              { text: 'Test', link: '/crates/i-rs-sit/test' }
+            ]
+          },
+          {
+            text: 'i-rs-allergy',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-allergy/' },
+              { text: 'Usage', link: '/crates/i-rs-allergy/usage' },
+              { text: 'Examples', link: '/crates/i-rs-allergy/examples' },
+              { text: 'Test', link: '/crates/i-rs-allergy/test' }
+            ]
+          },
+          {
+            text: 'i-rs-cal',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-cal/' },
+              { text: 'Usage', link: '/crates/i-rs-cal/usage' },
+              { text: 'Examples', link: '/crates/i-rs-cal/examples' },
+              { text: 'Test', link: '/crates/i-rs-cal/test' }
+            ]
+          },
+          {
+            text: 'i-rs-fast',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-fast/' },
+              { text: 'Usage', link: '/crates/i-rs-fast/usage' },
+              { text: 'Examples', link: '/crates/i-rs-fast/examples' },
+              { text: 'Test', link: '/crates/i-rs-fast/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Reminders & Expiry',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-domain',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-domain/' },
+              { text: 'Usage', link: '/crates/i-rs-domain/usage' },
+              { text: 'Examples', link: '/crates/i-rs-domain/examples' },
+              { text: 'Test', link: '/crates/i-rs-domain/test' }
+            ]
+          },
+          {
+            text: 'i-rs-remind',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-remind/' },
+              { text: 'Usage', link: '/crates/i-rs-remind/usage' },
+              { text: 'Examples', link: '/crates/i-rs-remind/examples' },
+              { text: 'Test', link: '/crates/i-rs-remind/test' }
+            ]
+          },
+          {
+            text: 'i-rs-sub',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-sub/' },
+              { text: 'Usage', link: '/crates/i-rs-sub/usage' },
+              { text: 'Examples', link: '/crates/i-rs-sub/examples' },
+              { text: 'Test', link: '/crates/i-rs-sub/test' }
+            ]
+          },
+          {
+            text: 'i-rs-bestby',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-bestby/' },
+              { text: 'Usage', link: '/crates/i-rs-bestby/usage' },
+              { text: 'Examples', link: '/crates/i-rs-bestby/examples' },
+              { text: 'Test', link: '/crates/i-rs-bestby/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Finance & Data',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-ledger',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-ledger/' },
+              { text: 'Usage', link: '/crates/i-rs-ledger/usage' },
+              { text: 'Examples', link: '/crates/i-rs-ledger/examples' },
+              { text: 'Test', link: '/crates/i-rs-ledger/test' }
+            ]
+          },
+          {
+            text: 'i-rs-recur',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-recur/' },
+              { text: 'Usage', link: '/crates/i-rs-recur/usage' },
+              { text: 'Examples', link: '/crates/i-rs-recur/examples' },
+              { text: 'Test', link: '/crates/i-rs-recur/test' }
+            ]
+          },
+          {
+            text: 'i-rs-kv',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-kv/' },
+              { text: 'Usage', link: '/crates/i-rs-kv/usage' },
+              { text: 'Examples', link: '/crates/i-rs-kv/examples' },
+              { text: 'Test', link: '/crates/i-rs-kv/test' }
+            ]
+          },
+          {
+            text: 'i-rs-keys',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-keys/' },
+              { text: 'Usage', link: '/crates/i-rs-keys/usage' },
+              { text: 'Examples', link: '/crates/i-rs-keys/examples' },
+              { text: 'Test', link: '/crates/i-rs-keys/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Food & Lifestyle',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-meal',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-meal/' },
+              { text: 'Usage', link: '/crates/i-rs-meal/usage' },
+              { text: 'Examples', link: '/crates/i-rs-meal/examples' },
+              { text: 'Test', link: '/crates/i-rs-meal/test' }
+            ]
+          },
+          {
+            text: 'i-rs-pig',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-pig/' },
+              { text: 'Usage', link: '/crates/i-rs-pig/usage' },
+              { text: 'Examples', link: '/crates/i-rs-pig/examples' },
+              { text: 'Test', link: '/crates/i-rs-pig/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Time & Productivity',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-tick',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-tick/' },
+              { text: 'Usage', link: '/crates/i-rs-tick/usage' },
+              { text: 'Examples', link: '/crates/i-rs-tick/examples' },
+              { text: 'Test', link: '/crates/i-rs-tick/test' }
+            ]
+          },
+          {
+            text: 'i-rs-spark',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-spark/' },
+              { text: 'Usage', link: '/crates/i-rs-spark/usage' },
+              { text: 'Examples', link: '/crates/i-rs-spark/examples' },
+              { text: 'Test', link: '/crates/i-rs-spark/test' }
+            ]
+          },
+          {
+            text: 'i-rs-want',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-want/' },
+              { text: 'Usage', link: '/crates/i-rs-want/usage' },
+              { text: 'Examples', link: '/crates/i-rs-want/examples' },
+              { text: 'Test', link: '/crates/i-rs-want/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Home & Care',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-sheet',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-sheet/' },
+              { text: 'Usage', link: '/crates/i-rs-sheet/usage' },
+              { text: 'Examples', link: '/crates/i-rs-sheet/examples' },
+              { text: 'Test', link: '/crates/i-rs-sheet/test' }
+            ]
+          },
+          {
+            text: 'i-rs-toothbrush',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-toothbrush/' },
+              { text: 'Usage', link: '/crates/i-rs-toothbrush/usage' },
+              { text: 'Examples', link: '/crates/i-rs-toothbrush/examples' },
+              { text: 'Test', link: '/crates/i-rs-toothbrush/test' }
+            ]
+          },
+          {
+            text: 'i-rs-towel',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-towel/' },
+              { text: 'Usage', link: '/crates/i-rs-towel/usage' },
+              { text: 'Examples', link: '/crates/i-rs-towel/examples' },
+              { text: 'Test', link: '/crates/i-rs-towel/test' }
+            ]
+          },
+          {
+            text: 'i-rs-bed',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-bed/' },
+              { text: 'Usage', link: '/crates/i-rs-bed/usage' },
+              { text: 'Examples', link: '/crates/i-rs-bed/examples' },
+              { text: 'Test', link: '/crates/i-rs-bed/test' }
+            ]
+          },
+          {
+            text: 'i-rs-ac',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-ac/' },
+              { text: 'Usage', link: '/crates/i-rs-ac/usage' },
+              { text: 'Examples', link: '/crates/i-rs-ac/examples' },
+              { text: 'Test', link: '/crates/i-rs-ac/test' }
+            ]
+          },
+          {
+            text: 'i-rs-filter',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-filter/' },
+              { text: 'Usage', link: '/crates/i-rs-filter/usage' },
+              { text: 'Examples', link: '/crates/i-rs-filter/examples' },
+              { text: 'Test', link: '/crates/i-rs-filter/test' }
+            ]
+          },
+          {
+            text: 'i-rs-purify',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-purify/' },
+              { text: 'Usage', link: '/crates/i-rs-purify/usage' },
+              { text: 'Examples', link: '/crates/i-rs-purify/examples' },
+              { text: 'Test', link: '/crates/i-rs-purify/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Pet Care',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-feedpet',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-feedpet/' },
+              { text: 'Usage', link: '/crates/i-rs-feedpet/usage' },
+              { text: 'Examples', link: '/crates/i-rs-feedpet/examples' },
+              { text: 'Test', link: '/crates/i-rs-feedpet/test' }
+            ]
+          },
+          {
+            text: 'i-rs-petbath',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-petbath/' },
+              { text: 'Usage', link: '/crates/i-rs-petbath/usage' },
+              { text: 'Examples', link: '/crates/i-rs-petbath/examples' },
+              { text: 'Test', link: '/crates/i-rs-petbath/test' }
+            ]
+          },
+          {
+            text: 'i-rs-walkdog',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-walkdog/' },
+              { text: 'Usage', link: '/crates/i-rs-walkdog/usage' },
+              { text: 'Examples', link: '/crates/i-rs-walkdog/examples' },
+              { text: 'Test', link: '/crates/i-rs-walkdog/test' }
+            ]
+          },
+          {
+            text: 'i-rs-aqua',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-aqua/' },
+              { text: 'Usage', link: '/crates/i-rs-aqua/usage' },
+              { text: 'Examples', link: '/crates/i-rs-aqua/examples' },
+              { text: 'Test', link: '/crates/i-rs-aqua/test' }
             ]
           }
         ]

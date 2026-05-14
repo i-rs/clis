@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Rust monorepo with 9 cross-platform CLI tools for personal data management, plus 1 shared core library.
+Rust monorepo with 38+ cross-platform CLI tools for personal data management, plus 1 shared core library.
 
 ## Project Structure
 
@@ -11,23 +11,26 @@ i-rs-clis/
 ├── crates/
 │   ├── i-rs-core/          # Shared core library
 │   ├── i-rs-server/        # Server management
-│   ├── i-rs-password/       # Password management
+│   ├── i-rs-password/      # Password management
 │   ├── i-rs-bookmark/      # Bookmark management
 │   ├── i-rs-note/          # Note management
-│   ├── i-rs-domain/         # Domain expiry tracking
-│   ├── i-rs-remind/         # Event reminders
-│   ├── i-rs-weight/         # Weight tracking
-│   ├── i-rs-mood/           # Mood tracking
-│   └── i-rs-todo/           # Todo tracking
-├── docs/                    # VitePress documentation
-├── skills/                  # AI skill documents
+│   ├── i-rs-domain/        # Domain expiry tracking
+│   ├── i-rs-remind/        # Event reminders
+│   ├── i-rs-weight/        # Weight tracking
+│   ├── i-rs-mood/          # Mood tracking
+│   ├── i-rs-todo/          # Todo tracking
+│   └── ...                 # 30+ more CLI tools
+├── docs/                   # VitePress documentation
+│   └── .vitepress/
+│       └── config.ts       # Documentation sidebar config
+├── skills/                 # AI skill documents
 ├── Cargo.toml              # Workspace config
 ├── README.md
 ├── SPEC.md                 # Detailed specifications
-└── AGENTS.md              # This file
+└── AGENTS.md               # This file
 ```
 
-## Tools (9 Total)
+## CLI Tools Summary
 
 | Tool | Description | Special Commands |
 |------|-------------|-----------------|
@@ -40,6 +43,36 @@ i-rs-clis/
 | i-rs-weight | Weight tracking | chart, stats |
 | i-rs-mood | Mood tracking | calendar |
 | i-rs-todo | Todo tracking | done |
+| i-rs-water | Water intake tracking | - |
+| i-rs-step | Step counting | - |
+| i-rs-dose | Medicine dosage | - |
+| i-rs-cycle | Menstrual cycle | - |
+| i-rs-sit | Sedentary reminder | - |
+| i-rs-allergy | Allergy tracking | - |
+| i-rs-cal | Calorie estimation | - |
+| i-rs-fast | Fasting tracking | - |
+| i-rs-sub | Subscription tracking | - |
+| i-rs-bestby | Best-by date tracking | - |
+| i-rs-ledger | Accounting | - |
+| i-rs-recur | Recurring expenses | - |
+| i-rs-kv | Key-value storage | - |
+| i-rs-keys | API key management | - |
+| i-rs-meal | Meal tracking | - |
+| i-rs-pig | Craving tracking | - |
+| i-rs-tick | Duration tracking | - |
+| i-rs-spark | Inspiration capture | - |
+| i-rs-want | Wish list | - |
+| i-rs-sheet | Bedsheet replacement | - |
+| i-rs-toothbrush | Toothbrush replacement | - |
+| i-rs-towel | Towel replacement | - |
+| i-rs-bed | Mattress/pillow replacement | - |
+| i-rs-ac | AC cleaning | - |
+| i-rs-filter | Filter cleaning | - |
+| i-rs-purify | Water purifier filter | - |
+| i-rs-feedpet | Pet feeding | - |
+| i-rs-petbath | Pet bathing | - |
+| i-rs-walkdog | Dog walking | - |
+| i-rs-aqua | Aquarium maintenance | - |
 
 ## Build & Development
 
@@ -106,30 +139,18 @@ crates/i-rs-{name}/
 └── README.md
 ```
 
-## Key Conventions
+## New Crate Workflow (CHECKLIST)
 
-- **Workspace deps**: All dependencies defined in root `Cargo.toml`, crates use `.workspace = true`
-- **i-rs-core dependency**: All crates depend on `i-rs-core = { path = "../i-rs-core" }`
-- **Passwords**: Always store in OS keychain (keyring crate), NEVER in JSON config
-- **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR` env var)
-- **Date handling**: chrono with `ts_seconds` serde format
-- **Error handling**: `anyhow::Result<()>` with `?` operator
-- **CLI framework**: clap with derive macro, snake_case params auto-convert to kebab-case
-- **Output**: tabled with cyan headers, green rows
-- **JSON output**: All commands support `--json` flag for JSON output
+When creating a new crate `i-rs-{name}`, follow this **complete checklist**:
 
-## New Crate Workflow
-
-When creating a new crate `i-rs-{name}`:
-
-1. **Create directories**
+### Step 1: Create Directory Structure
 ```bash
 mkdir -p crates/i-rs-{name}/src/{models,storage,commands,presentation}
 mkdir -p docs/crates/i-rs-{name}
 mkdir -p skills/i-rs-{name}
 ```
 
-2. **Create Cargo.toml** (depends on i-rs-core)
+### Step 2: Create Cargo.toml
 ```toml
 [package]
 name = "i-rs-{name}"
@@ -143,47 +164,164 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
-keyring.workspace = true     # if storing passwords
+keyring.workspace = true     # if storing passwords/keys
 keyring-core.workspace = true
 tabled.workspace = true
 owo-colors.workspace = true
 chrono.workspace = true
+uuid.workspace = true        # if using UUIDs
 ```
 
-3. **Create files** (see SPEC.md for details):
-   - `src/models/mod.rs` - Entity struct + Row struct (Tabled)
-   - `src/storage/mod.rs` - JSON persistence (uses i-rs-core Storage) + keyring
-   - `src/presentation/mod.rs` - Table formatting + count printing
-   - `src/commands/*.rs` - Command handlers (add, delete, get, list, update, example, skill)
-   - `src/main.rs` - CLI parsing with --json global flag
+### Step 3: Create Source Files
+- `src/models/mod.rs` - Entity struct + Row struct (Tabled) + ListItem
+- `src/storage/mod.rs` - JSON persistence (uses i-rs-core Storage) + keyring if needed
+- `src/presentation/mod.rs` - Table formatting + count printing
+- `src/commands/mod.rs` - Command module exports
+- `src/commands/add.rs` - Add command
+- `src/commands/delete.rs` - Delete command
+- `src/commands/get.rs` - Get command
+- `src/commands/list.rs` - List command
+- `src/commands/update.rs` - Update command (if applicable)
+- `src/commands/example.rs` - Example command
+- `src/commands/skill.rs` - Skill command
+- `src/main.rs` - CLI parsing with --json global flag
 
-4. **Update workspace Cargo.toml**:
-   ```toml
-   [workspace]
-   members = [
-       "crates/i-rs-core",
-       "crates/i-rs-{name}",
-       # ... other crates
-   ]
-   ```
+### Step 4: Create README.md (REQUIRED!)
+```markdown
+# i-rs-{name}
 
-5. **Update configs**:
-   - Add sidebar entry to `docs/.vitepress/config.ts`
+[Description] CLI tool for [purpose].
 
-6. **Create docs** (in `docs/crates/i-rs-{name}/`):
-   - `index.md` - Overview, quick start
-   - `usage.md` - Command reference
-   - `examples.md` - Usage examples
-   - `test.md` - Test records
+## Features
 
-7. **Create skills** (in `skills/i-rs-{name}/`):
-   - `SKILL.md` - AI skill documentation
+- Feature 1
+- Feature 2
+- Tag support
 
-8. **Build and verify**
+## Install
+
+```bash
+npm install -g @i-rs/i-rs-{name}
+# or
+brew install i-rs/homebrew-tap/i-rs-{name}
+```
+
+## Quick Start
+
+```bash
+# [basic usage]
+i-rs-{name} add ...
+
+# List all
+i-rs-{name} list
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/{name}.json`
+- Linux: `~/.config/i-rs/{name}.json`
+- Windows: `~\AppData\Roaming\i-rs\config.json`
+
+## License
+
+MIT OR Apache-2.0
+```
+
+### Step 5: Create Docs (REQUIRED!)
+Create 4 files in `docs/crates/i-rs-{name}/`:
+
+**index.md** - Overview and quick start
+**usage.md** - Detailed command reference
+**examples.md** - Extensive usage examples
+**test.md** - Test records for verification
+
+### Step 6: Create Skills (REQUIRED!)
+Create `skills/i-rs-{name}/SKILL.md`:
+```markdown
+---
+name: "i-rs-{name}"
+description: "[One-line description]. Invoke when [use cases]."
+---
+
+# i-rs-{name}
+
+[Description] CLI tool.
+
+## Storage
+
+- Config: `~/.config/i-rs/{name}.json`
+
+## Commands
+
+### add
+...
+
+### list
+...
+
+### get
+...
+
+### delete
+...
+
+## Examples
+
+```bash
+i-rs-{name} add ...
+```
+```
+
+### Step 7: Update Workspace Cargo.toml
+Add `"crates/i-rs-{name}"` to the `members` array in root `Cargo.toml`.
+
+### Step 8: Update VitePress Config (REQUIRED!)
+Add sidebar entry in `docs/.vitepress/config.ts`:
+```typescript
+{
+  text: 'i-rs-{name}',
+  collapsed: true,
+  items: [
+    { text: 'Overview', link: '/crates/i-rs-{name}/' },
+    { text: 'Usage', link: '/crates/i-rs-{name}/usage' },
+    { text: 'Examples', link: '/crates/i-rs-{name}/examples' },
+    { text: 'Test', link: '/crates/i-rs-{name}/test' }
+  ]
+}
+```
+
+### Step 9: Build and Verify
 ```bash
 cargo build -p i-rs-{name}
 cargo check
 ```
+
+---
+
+## ⚠️ IMPORTANT: Incomplete Crate Checklist
+
+If you encounter a crate that is missing documentation, verify and complete:
+
+- [ ] `crates/i-rs-{name}/README.md` exists
+- [ ] `docs/crates/i-rs-{name}/index.md` exists
+- [ ] `docs/crates/i-rs-{name}/usage.md` exists
+- [ ] `docs/crates/i-rs-{name}/examples.md` exists
+- [ ] `docs/crates/i-rs-{name}/test.md` exists
+- [ ] `skills/i-rs-{name}/SKILL.md` exists
+- [ ] `docs/.vitepress/config.ts` has sidebar entry for this crate
+- [ ] `Cargo.toml` workspace has this crate in members
+
+## Key Conventions
+
+- **Workspace deps**: All dependencies defined in root `Cargo.toml`, crates use `.workspace = true`
+- **i-rs-core dependency**: All crates depend on `i-rs-core = { path = "../i-rs-core" }`
+- **Passwords**: Always store in OS keychain (keyring crate), NEVER in JSON config
+- **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR` env var)
+- **Date handling**: chrono with `ts_seconds` serde format
+- **Error handling**: `anyhow::Result<()>` with `?` operator
+- **CLI framework**: clap with derive macro, snake_case params auto-convert to kebab-case
+- **Output**: tabled with cyan headers, green rows
+- **JSON output**: All commands support `--json` flag for JSON output
 
 ## Common Patterns
 

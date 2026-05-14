@@ -24,6 +24,23 @@ members = [
     "crates/i-rs-want",
     "crates/i-rs-spark",
     "crates/i-rs-tick",
+    "crates/i-rs-water",
+    "crates/i-rs-cycle",
+    "crates/i-rs-sit",
+    "crates/i-rs-allergy",
+    "crates/i-rs-cal",
+    "crates/i-rs-fast",
+    "crates/i-rs-sheet",
+    "crates/i-rs-feedpet",
+    "crates/i-rs-petbath",
+    "crates/i-rs-walkdog",
+    "crates/i-rs-aqua",
+    "crates/i-rs-ac",
+    "crates/i-rs-filter",
+    "crates/i-rs-purify",
+    "crates/i-rs-toothbrush",
+    "crates/i-rs-towel",
+    "crates/i-rs-bed",
 ]
 
 [workspace.package]

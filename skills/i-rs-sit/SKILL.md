@@ -1,0 +1,64 @@
+---
+name: "i-rs-sit"
+description: "Records sitting duration. Invoke when user wants to track how long they've been sitting."
+---
+
+# i-rs-sit
+
+Sitting duration tracking CLI tool.
+
+## Storage
+
+- Config: `~/.config/i-rs/sit.json`
+
+## Commands
+
+### add
+
+Record sitting duration.
+
+```bash
+i-rs-sit add <DURATION_MINUTES>
+```
+
+Options:
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
+### list
+
+List sitting records.
+
+```bash
+i-rs-sit list
+```
+
+Options:
+- `-t, --tag <TAG>` - Filter by tag
+
+### get
+
+Get record details.
+
+```bash
+i-rs-sit get <ID>
+```
+
+### delete
+
+Delete a record.
+
+```bash
+i-rs-sit delete <ID>
+```
+
+## Examples
+
+```bash
+# Record sitting
+i-rs-sit add 60
+i-rs-sit add 120 --tag work
+
+# List records
+i-rs-sit list
+```

@@ -1,0 +1,16 @@
+[package]
+name = "i-rs-walkdog"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+i-rs-core = { path = "../i-rs-core" }
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dirs.workspace = true
+tabled.workspace = true
+owo-colors.workspace = true
+chrono.workspace = true
+uuid.workspace = true
