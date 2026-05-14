@@ -11,7 +11,7 @@ pub fn handle_add(
     tag: Vec<String>,
     content: Vec<String>,
 ) -> Result<()> {
-    let store = storage::load_store()?;
+    let mut store = storage::load_store()?;
 
     if store.notes.contains_key(&name) {
         print_error(&format!("Note '{}' already exists", name));
@@ -28,7 +28,6 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    let mut store = storage::load_store()?;
     storage::add_note(&mut store, note);
     storage::save_store(&store)?;
 

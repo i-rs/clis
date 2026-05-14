@@ -13,7 +13,7 @@ pub fn handle_add(
     tag: Vec<String>,
     remark: Vec<String>,
 ) -> Result<()> {
-    let store = storage::load_store()?;
+    let mut store = storage::load_store()?;
 
     if store.bookmarks.contains_key(&name) {
         print_error(&format!("Bookmark '{}' already exists", name));
@@ -36,7 +36,6 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    let mut store = storage::load_store()?;
     storage::add_bookmark(&mut store, bookmark);
     storage::save_store(&store)?;
 

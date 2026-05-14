@@ -14,7 +14,7 @@ pub fn handle_add(
     tag: Vec<String>,
     remark: Vec<String>,
 ) -> Result<()> {
-    let store = storage::load_store()?;
+    let mut store = storage::load_store()?;
 
     if store.servers.contains_key(&name) {
         print_error(&format!("Server '{}' already exists", name));
@@ -40,7 +40,6 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    let mut store = storage::load_store()?;
     storage::add_server(&mut store, server);
     storage::save_store(&store)?;
 
