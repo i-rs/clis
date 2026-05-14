@@ -76,3 +76,21 @@ pub fn validate_weight(weight: f64) -> Result<(), ValidationError> {
 
     Ok(())
 }
+
+pub fn validate_amount(amount: f64) -> Result<(), ValidationError> {
+    if amount <= 0.0 {
+        return Err(ValidationError {
+            field: "amount".to_string(),
+            message: "Amount must be greater than 0".to_string(),
+        });
+    }
+
+    if amount > 1_000_000_000.0 {
+        return Err(ValidationError {
+            field: "amount".to_string(),
+            message: "Amount seems unrealistic (max 1 billion)".to_string(),
+        });
+    }
+
+    Ok(())
+}

@@ -59,7 +59,7 @@ pub fn output_stats_json(stats: &StatsData, format: OutputFormat) {
         OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(stats).unwrap());
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_stats(stats);
         }
     }
@@ -70,7 +70,7 @@ pub fn output_report_json(report: &ReportData, format: OutputFormat) {
         OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(report).unwrap());
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_report(report);
         }
     }

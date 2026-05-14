@@ -125,7 +125,7 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
         OutputFormat::Json => {
             println!("{}", book_json);
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Book Updated");
             print_success(&format!("Book '{}' has been updated", book_name));
             println!("Current page: {}/{}", current_page, total_pages);

@@ -30,7 +30,7 @@ pub fn delete(args: DeleteArgs, output_format: OutputFormat) -> Result<()> {
                 println!("{}", output_item(&b, output_format));
             }
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Book Deleted");
             print_success(&format!("Book '{}' has been deleted", args.name));
         }

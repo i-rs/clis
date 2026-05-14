@@ -38,7 +38,7 @@ pub fn water_plant(name: String, output_format: OutputFormat) -> Result<()> {
                 output_format
             ));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_success(&format!(
                 "Plant '{}' watered! Next watering in {} days",
                 plant_name,

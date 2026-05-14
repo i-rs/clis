@@ -60,7 +60,7 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> anyhow::Result<(
                 OutputFormat::Json => {
                     println!("{}", output_item(&updated_goal, output_format));
                 }
-                OutputFormat::Table => {
+                OutputFormat::Table | OutputFormat::Default => {
                     print_header("Goal Updated");
                     print_success(&format!("'{}' updated successfully", updated_goal.name));
                     println!("\nProgress: {:.1}% ({:.2} / {:.2})", 

@@ -21,7 +21,7 @@ pub fn stats(output_format: OutputFormat) -> Result<()> {
         OutputFormat::Json => {
             println!("{}", crate::presentation::output_item(&stats, output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_stats(&stats);
         }
     }

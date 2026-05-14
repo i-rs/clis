@@ -19,7 +19,7 @@ pub fn get(args: GetArgs, output_format: OutputFormat) -> anyhow::Result<()> {
                 OutputFormat::Json => {
                     println!("{}", output_item(goal, output_format));
                 }
-                OutputFormat::Table => {
+                OutputFormat::Table | OutputFormat::Default => {
                     print_header(&format!("Goal: {}", goal.name));
                     println!("\nTarget Amount: {:.2}", goal.target_amount);
                     println!("Current Amount: {:.2}", goal.current_amount);

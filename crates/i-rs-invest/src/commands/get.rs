@@ -19,7 +19,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
             let json_output = output_item(investment, format);
             println!("{}", json_output);
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             println!("{}", "Investment Details".cyan().bold());
             println!("{}", "─".repeat(50));
             println!("  {}: {}", "Name".dimmed(), investment.name);

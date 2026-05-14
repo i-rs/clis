@@ -29,7 +29,7 @@ pub fn handle_list(
             let json_output = output_list(&investments, investments.len(), tag.as_deref(), format);
             println!("{}", json_output);
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             let table = format_table(&investments);
             println!("{}", table);
             print_investment_count(investments.len());

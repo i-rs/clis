@@ -63,7 +63,7 @@ pub fn update_plant(
                 output_format
             ));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_success(&format!("Plant '{}' updated", plant_name));
         }
     }

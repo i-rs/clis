@@ -216,6 +216,26 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-cycling/examples' },
               { text: 'Test', link: '/crates/i-rs-cycling/test' }
             ]
+          },
+          {
+            text: 'i-rs-height',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-height/' },
+              { text: 'Usage', link: '/crates/i-rs-height/usage' },
+              { text: 'Examples', link: '/crates/i-rs-height/examples' },
+              { text: 'Test', link: '/crates/i-rs-height/test' }
+            ]
+          },
+          {
+            text: 'i-rs-vision',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-vision/' },
+              { text: 'Usage', link: '/crates/i-rs-vision/usage' },
+              { text: 'Examples', link: '/crates/i-rs-vision/examples' },
+              { text: 'Test', link: '/crates/i-rs-vision/test' }
+            ]
           }
         ]
       },
@@ -327,6 +347,26 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-debt/usage' },
               { text: 'Examples', link: '/crates/i-rs-debt/examples' },
               { text: 'Test', link: '/crates/i-rs-debt/test' }
+            ]
+          },
+          {
+            text: 'i-rs-invoice',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-invoice/' },
+              { text: 'Usage', link: '/crates/i-rs-invoice/usage' },
+              { text: 'Examples', link: '/crates/i-rs-invoice/examples' },
+              { text: 'Test', link: '/crates/i-rs-invoice/test' }
+            ]
+          },
+          {
+            text: 'i-rs-tax',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-tax/' },
+              { text: 'Usage', link: '/crates/i-rs-tax/usage' },
+              { text: 'Examples', link: '/crates/i-rs-tax/examples' },
+              { text: 'Test', link: '/crates/i-rs-tax/test' }
             ]
           }
         ]
@@ -512,6 +552,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-plant/examples' },
               { text: 'Test', link: '/crates/i-rs-plant/test' }
             ]
+          },
+          {
+            text: 'i-rs-appliance',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-appliance/' },
+              { text: 'Usage', link: '/crates/i-rs-appliance/usage' },
+              { text: 'Examples', link: '/crates/i-rs-appliance/examples' },
+              { text: 'Test', link: '/crates/i-rs-appliance/test' }
+            ]
           }
         ]
       },
@@ -653,6 +703,46 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-article/usage' },
               { text: 'Examples', link: '/crates/i-rs-article/examples' },
               { text: 'Test', link: '/crates/i-rs-article/test' }
+            ]
+          },
+          {
+            text: 'i-rs-car',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-car/' },
+              { text: 'Usage', link: '/crates/i-rs-car/usage' },
+              { text: 'Examples', link: '/crates/i-rs-car/examples' },
+              { text: 'Test', link: '/crates/i-rs-car/test' }
+            ]
+          },
+          {
+            text: 'i-rs-quote',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-quote/' },
+              { text: 'Usage', link: '/crates/i-rs-quote/usage' },
+              { text: 'Examples', link: '/crates/i-rs-quote/examples' },
+              { text: 'Test', link: '/crates/i-rs-quote/test' }
+            ]
+          },
+          {
+            text: 'i-rs-vocab',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-vocab/' },
+              { text: 'Usage', link: '/crates/i-rs-vocab/usage' },
+              { text: 'Examples', link: '/crates/i-rs-vocab/examples' },
+              { text: 'Test', link: '/crates/i-rs-vocab/test' }
+            ]
+          },
+          {
+            text: 'i-rs-event',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-event/' },
+              { text: 'Usage', link: '/crates/i-rs-event/usage' },
+              { text: 'Examples', link: '/crates/i-rs-event/examples' },
+              { text: 'Test', link: '/crates/i-rs-event/test' }
             ]
           }
         ]

@@ -62,6 +62,16 @@ members = [
     "crates/i-rs-gift",
     "crates/i-rs-debt",
     "crates/i-rs-time",
+    "crates/i-rs-car",
+    "crates/i-rs-vocab",
+    "crates/i-rs-quote",
+    "crates/i-rs-invoice",
+    "crates/i-rs-tax",
+    "crates/i-rs-height",
+    "crates/i-rs-deploy",
+    "crates/i-rs-vision",
+    "crates/i-rs-appliance",
+    "crates/i-rs-event",
 ]
 
 [workspace.package]

@@ -39,7 +39,7 @@ pub fn add_plant(
                 output_format
             ));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_success(&format!("Plant '{}' added successfully", name));
         }
     }

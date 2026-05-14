@@ -45,7 +45,7 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> Result<()> {
         OutputFormat::Json => {
             println!("{}", output_item(&book, output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Book Added");
             print_success(&format!("Name: {}", book.name));
             println!("Author: {}", book.author);

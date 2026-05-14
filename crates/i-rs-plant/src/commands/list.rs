@@ -38,7 +38,7 @@ pub fn list_plants(
                 .collect();
             println!("{}", crate::presentation::output_list(&json_data, store.plants.len(), tag_filter.as_deref(), output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             if plant_refs.is_empty() {
                 println!("No plants found.");
             } else {

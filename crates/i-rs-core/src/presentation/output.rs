@@ -1,9 +1,24 @@
 use serde::Serialize;
+use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum OutputFormat {
+    #[default]
+    Default,
     Table,
     Json,
+}
+
+impl FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "json" => Ok(OutputFormat::Json),
+            "table" => Ok(OutputFormat::Table),
+            _ => Ok(OutputFormat::Default),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -51,8 +66,16 @@ pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Opti
             };
             serde_json::to_string_pretty(&response)
         }
-        OutputFormat::Table => {
-            serde_json::to_string(items)
+        OutputFormat::Table | OutputFormat::Default => {
+            let response = ListResponse {
+                success: true,
+                data: items.to_vec(),
+                meta: ListMeta {
+                    count,
+                    filter: filter.map(String::from),
+                },
+            };
+            serde_json::to_string(&response)
         }
     }
     .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
@@ -67,8 +90,12 @@ pub fn output_item<T: Serialize>(item: &T, format: OutputFormat) -> String {
             };
             serde_json::to_string_pretty(&response)
         }
-        OutputFormat::Table => {
-            serde_json::to_string(item)
+        OutputFormat::Table | OutputFormat::Default => {
+            let response = ItemResponse {
+                success: true,
+                data: item,
+            };
+            serde_json::to_string(&response)
         }
     }
     .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
@@ -86,7 +113,7 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
             };
             serde_json::to_string_pretty(&response)
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             Ok(format!("Error: {}", message))
         }
     }

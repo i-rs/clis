@@ -63,7 +63,7 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&stats_json)?);
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Reading Statistics");
 
             println!("\n📚 Overall:");

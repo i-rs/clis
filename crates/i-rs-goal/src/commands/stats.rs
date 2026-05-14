@@ -71,7 +71,7 @@ pub fn stats(args: StatsArgs, output_format: OutputFormat) -> anyhow::Result<()>
             });
             println!("{}", serde_json::to_string_pretty(&stats_json)?);
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Savings Statistics");
             
             println!("\n{} {}", "Overall Progress:".cyan().bold(), format!("{:.1}%", overall_progress).green());

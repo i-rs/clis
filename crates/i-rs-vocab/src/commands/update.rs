@@ -1,0 +1,74 @@
+use crate::models::VocabStatus;
+use crate::presentation::{print_error, print_success};
+use crate::storage;
+use anyhow::Result;
+use chrono::Utc;
+use owo_colors::OwoColorize;
+
+pub fn handle_update(
+    word_key: String,
+    definition: Option<String>,
+    example: Option<Vec<String>>,
+    status: Option<String>,
+    tag: Option<Vec<String>>,
+    remark: Option<Vec<String>>,
+    review: bool,
+) -> Result<()> {
+    let mut store = storage::load_store()?;
+
+    let word_lower = word_key.to_lowercase();
+
+    let word_name = {
+        match store.get_word(&word_lower) {
+            Some(v) => v.word.clone(),
+            None => {
+                print_error(&format!("Word '{}' not found", word_key));
+                anyhow::bail!("Word '{}' not found", word_key);
+            }
+        }
+    };
+
+    let (updated_word_name, updated_review_count) = {
+        let vocab = match store.get_word_mut(&word_lower) {
+            Some(v) => v,
+            None => unreachable!(),
+        };
+
+        if let Some(def) = definition {
+            vocab.definition = def;
+        }
+        if let Some(ex) = example {
+            vocab.example = ex;
+        }
+        if let Some(status_str) = status {
+            vocab.status = VocabStatus::from_str(&status_str).unwrap_or(vocab.status);
+        }
+        if let Some(tags) = tag {
+            vocab.tags = tags;
+        }
+        if let Some(remarks) = remark {
+            vocab.remark = remarks;
+        }
+        if review {
+            vocab.review_count += 1;
+            if vocab.review_count >= 5 && vocab.status == VocabStatus::Learning {
+                vocab.status = VocabStatus::Mastered;
+            } else if vocab.review_count >= 2 && vocab.status == VocabStatus::New {
+                vocab.status = VocabStatus::Learning;
+            }
+        }
+
+        vocab.updated_at = Utc::now();
+        (vocab.word.clone(), vocab.review_count)
+    };
+
+    storage::save_store(&store)?;
+
+    if review {
+        print_success(&format!("✓ Review recorded for '{}' (count: {})", updated_word_name.green(), updated_review_count));
+    } else {
+        print_success(&format!("✓ Word '{}' updated", word_name.green()));
+    }
+
+    Ok(())
+}

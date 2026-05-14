@@ -25,7 +25,7 @@ pub fn get_plant(name: String, output_format: OutputFormat) -> Result<()> {
                     });
                     println!("{}", crate::presentation::output_item(&json_data, output_format));
                 }
-                OutputFormat::Table => {
+                OutputFormat::Table | OutputFormat::Default => {
                     println!("{}", "Plant Details".cyan().bold());
                     println!("  {}: {}", "Name".dimmed(), plant.name.green());
                     println!("  {}: {}", "Species".dimmed(), plant.species.green());

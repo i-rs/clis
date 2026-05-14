@@ -42,7 +42,7 @@ pub fn deposit(args: DepositArgs, output_format: OutputFormat) -> anyhow::Result
                 OutputFormat::Json => {
                     println!("{}", output_item(&updated_goal, output_format));
                 }
-                OutputFormat::Table => {
+                OutputFormat::Table | OutputFormat::Default => {
                     print_header("Deposit Successful");
                     print_success(&format!("Deposited {:.2} to '{}'", args.amount, updated_goal.name));
                     println!("\nPrevious: {:.2} ({:.1}%)", previous_amount, previous_progress);

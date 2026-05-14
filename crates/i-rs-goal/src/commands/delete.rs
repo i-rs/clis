@@ -16,7 +16,7 @@ pub fn delete(args: DeleteArgs, output_format: OutputFormat) -> anyhow::Result<(
             OutputFormat::Json => {
                 println!("{}", output_error(&format!("Goal '{}' deleted successfully", args.name), "goal_deleted", output_format));
             }
-            OutputFormat::Table => {
+            OutputFormat::Table | OutputFormat::Default => {
                 print_success(&format!("Goal '{}' deleted successfully", args.name));
             }
         }

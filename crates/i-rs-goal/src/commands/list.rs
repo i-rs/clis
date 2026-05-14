@@ -35,7 +35,7 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> anyhow::Result<()> {
             let filter = args.tag.clone();
             println!("{}", output_list(&goals, goals.len(), filter.as_deref(), output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Savings Goals");
             
             let goal_rows: Vec<_> = goals.iter().map(|g| {

@@ -18,7 +18,7 @@ pub fn get(args: GetArgs, output_format: OutputFormat) -> Result<()> {
                 OutputFormat::Json => {
                     println!("{}", output_item(book, output_format));
                 }
-                OutputFormat::Table => {
+                OutputFormat::Table | OutputFormat::Default => {
                     print_header(&format!("Book: {}", book.name));
                     println!("Author: {}", book.author);
                     println!("Pages: {}/{}", book.current_page, book.total_pages);

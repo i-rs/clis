@@ -36,7 +36,7 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> Result<()> {
             let data: Vec<&crate::models::Book> = filtered_books.clone();
             println!("{}", output_list(&data, data.len(), args.tag.as_deref(), output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             if filtered_books.is_empty() {
                 print_header("No Books Found");
                 print_book_count(0);

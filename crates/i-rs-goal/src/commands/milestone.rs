@@ -32,7 +32,7 @@ pub fn list_milestones(args: MilestoneArgs, output_format: OutputFormat) -> anyh
                 OutputFormat::Json => {
                     println!("{}", output_item(&goal.milestones, output_format));
                 }
-                OutputFormat::Table => {
+                OutputFormat::Table | OutputFormat::Default => {
                     print_header(&format!("Milestones for '{}'", goal.name));
                     
                     if goal.milestones.is_empty() {
@@ -77,7 +77,7 @@ pub fn add_milestone(args: MilestoneArgs, output_format: OutputFormat) -> anyhow
         OutputFormat::Json => {
             println!("{}", output_item(&updated_goal, output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Milestone Added");
             print_success(&format!("Milestone '{}' ({:.2}) added to '{}'", name, amount, args.goal));
             
@@ -102,7 +102,7 @@ pub fn remove_milestone(args: MilestoneArgs, output_format: OutputFormat) -> any
         OutputFormat::Json => {
             println!("{}", output_item(&updated_goal, output_format));
         }
-        OutputFormat::Table => {
+        OutputFormat::Table | OutputFormat::Default => {
             print_header("Milestone Removed");
             print_success(&format!("Milestone '{}' removed from '{}'", milestone_id, args.goal));
         }
