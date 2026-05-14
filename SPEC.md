@@ -45,7 +45,7 @@ i-rs-clis/
 └── SPEC.md                  # 本规范文档
 ```
 
-## 2. 工具列表 (当前 8 个)
+## 2. 工具列表 (当前 9 个)
 
 | 工具 | 描述 | 特殊命令 |
 |------|------|---------|
@@ -57,6 +57,7 @@ i-rs-clis/
 | i-rs-remind | 提醒管理 | done |
 | i-rs-weight | 体重追踪 | chart, stats |
 | i-rs-mood | 心情记录 | calendar |
+| i-rs-todo | 待办管理 | done |
 
 ## 3. Crate 开发流程
 

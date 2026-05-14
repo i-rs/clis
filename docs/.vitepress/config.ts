@@ -100,6 +100,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-mood/examples' },
               { text: 'Test', link: '/crates/i-rs-mood/test' }
             ]
+          },
+          {
+            text: 'i-rs-todo',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-todo/' },
+              { text: 'Usage', link: '/crates/i-rs-todo/usage' },
+              { text: 'Examples', link: '/crates/i-rs-todo/examples' },
+              { text: 'Test', link: '/crates/i-rs-todo/test' }
+            ]
           }
         ]
       }

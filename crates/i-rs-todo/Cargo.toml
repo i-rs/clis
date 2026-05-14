@@ -1,0 +1,18 @@
+[package]
+name = "i-rs-todo"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Todo management CLI"
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dirs.workspace = true
+tabled.workspace = true
+owo-colors.workspace = true
+chrono.workspace = true

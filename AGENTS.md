@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-Rust monorepo with 8 cross-platform CLI tools for personal data management.
+Rust monorepo with 9 cross-platform CLI tools for personal data management.
 
-## Tools (8 Total)
+## Tools (9 Total)
 
 | Tool | Description | Special Commands |
 |------|-------------|-----------------|
@@ -16,6 +16,7 @@ Rust monorepo with 8 cross-platform CLI tools for personal data management.
 | i-rs-remind | Event reminders | done |
 | i-rs-weight | Weight tracking | chart, stats |
 | i-rs-mood | Mood tracking | calendar |
+| i-rs-todo | Todo tracking | done |
 
 ## Build & Development
 

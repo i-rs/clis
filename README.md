@@ -14,12 +14,13 @@ A collection of cross-platform CLI tools built with Rust.
 | [i-rs-remind](crates/i-rs-remind) | Reminder management CLI |
 | [i-rs-weight](crates/i-rs-weight) | Weight tracking CLI |
 | [i-rs-mood](crates/i-rs-mood) | Mood tracking CLI |
+| [i-rs-todo](crates/i-rs-todo) | Todo management CLI |
 
 ## Quick Install
 
 ```bash
 # npm
-npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note @i-rs/i-rs-domain @i-rs/i-rs-remind @i-rs/i-rs-weight @i-rs/i-rs-mood
+npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note @i-rs/i-rs-domain @i-rs/i-rs-remind @i-rs/i-rs-weight @i-rs/i-rs-mood @i-rs/i-rs-todo
 
 # Homebrew
 brew install i-rs/homebrew-tap/i-rs-server
@@ -30,6 +31,7 @@ brew install i-rs/homebrew-tap/i-rs-domain
 brew install i-rs/homebrew-tap/i-rs-remind
 brew install i-rs/homebrew-tap/i-rs-weight
 brew install i-rs/homebrew-tap/i-rs-mood
+brew install i-rs/homebrew-tap/i-rs-todo
 ```
 
 ## Development
@@ -47,6 +49,7 @@ cargo run -p i-rs-domain -- --help
 cargo run -p i-rs-remind -- --help
 cargo run -p i-rs-weight -- --help
 cargo run -p i-rs-mood -- --help
+cargo run -p i-rs-todo -- --help
 ```
 
 ## Release
@@ -69,6 +72,7 @@ CI will automatically build, create GitHub Release, publish to npm and Homebrew.
 - [crates/i-rs-remind/README.md](crates/i-rs-remind/README.md)
 - [crates/i-rs-weight/README.md](crates/i-rs-weight/README.md)
 - [crates/i-rs-mood/README.md](crates/i-rs-mood/README.md)
+- [crates/i-rs-todo/README.md](crates/i-rs-todo/README.md)
 
 ## License
 
