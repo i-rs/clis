@@ -47,17 +47,11 @@ impl SleepRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SleepStore {
     pub entries: BTreeMap<String, SleepRecord>,
 }
 
-impl Default for SleepStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl SleepStore {
     pub fn add_entry(&mut self, entry: SleepRecord) {
@@ -165,7 +159,7 @@ impl SleepStats {
         Self {
             total_records: records.len(),
             avg_duration: total_duration / records.len() as f64,
-            avg_quality: total_quality as f64 / records.len() as f64,
+            avg_quality: f64::from(total_quality) / records.len() as f64,
             min_duration: *durations.iter().min_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN")).expect("non-empty records checked above"),
             max_duration: *durations.iter().max_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN")).expect("non-empty records checked above"),
         }

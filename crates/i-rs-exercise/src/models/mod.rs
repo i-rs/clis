@@ -22,17 +22,11 @@ pub struct ExerciseRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ExerciseStore {
     pub records: BTreeMap<String, ExerciseRecord>,
 }
 
-impl Default for ExerciseStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-        }
-    }
-}
 
 impl ExerciseStore {
     pub fn add_entry(&mut self, record: ExerciseRecord) {
@@ -70,11 +64,11 @@ impl ExerciseStore {
     }
 
     pub fn total_duration(&self) -> u64 {
-        self.records.values().map(|r| r.duration_minutes as u64).sum()
+        self.records.values().map(|r| u64::from(r.duration_minutes)).sum()
     }
 
     pub fn total_calories(&self) -> u64 {
-        self.records.values().filter_map(|r| r.calories.map(|c| c as u64)).sum()
+        self.records.values().filter_map(|r| r.calories.map(u64::from)).sum()
     }
 
     pub fn records_count(&self) -> usize {
@@ -103,9 +97,7 @@ impl ExerciseRow {
             exercise_type: record.exercise_type.clone(),
             duration: format!("{} min", record.duration_minutes),
             calories: record
-                .calories
-                .map(|c| c.to_string())
-                .unwrap_or_else(|| "-".to_string()),
+                .calories.map_or_else(|| "-".to_string(), |c| c.to_string()),
             tags: if record.tags.is_empty() {
                 "-".to_string()
             } else {

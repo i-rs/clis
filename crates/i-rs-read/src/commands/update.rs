@@ -34,12 +34,9 @@ pub struct UpdateArgs {
 pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let book = match storage::get_book_mut(&args.name, &mut store) {
-        Some(b) => b,
-        None => {
-            let msg = format!("Book '{}' not found", args.name);
-            anyhow::bail!(msg);
-        }
+    let book = if let Some(b) = storage::get_book_mut(&args.name, &mut store) { b } else {
+        let msg = format!("Book '{}' not found", args.name);
+        anyhow::bail!(msg);
     };
 
     if let Some(current_page) = args.current_page {
@@ -66,8 +63,7 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
             "to_read" => BookStatus::ToRead,
             _ => {
                 let msg = format!(
-                    "Invalid status '{}'. Valid options: reading, completed, paused, dropped, to_read",
-                    status_str
+                    "Invalid status '{status_str}'. Valid options: reading, completed, paused, dropped, to_read"
                 );
                 anyhow::bail!(msg);
             }
@@ -75,7 +71,7 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
     }
 
     if let Some(rating) = args.rating {
-        if rating < 0.0 || rating > 5.0 {
+        if !(0.0..=5.0).contains(&rating) {
             let msg = "Rating must be between 0 and 5";
             anyhow::bail!(msg);
         }
@@ -118,13 +114,13 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
 
     match output_format {
         OutputFormat::Json => {
-            println!("{}", book_json);
+            println!("{book_json}");
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_header("Book Updated");
-            print_success(&format!("Book '{}' has been updated", book_name));
-            println!("Current page: {}/{}", current_page, total_pages);
-            println!("Status: {:?}", status);
+            print_success(&format!("Book '{book_name}' has been updated"));
+            println!("Current page: {current_page}/{total_pages}");
+            println!("Status: {status:?}");
             println!("Progress: {:.1}%", (current_page as f32 / total_pages as f32) * 100.0);
         }
     }

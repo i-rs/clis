@@ -6,6 +6,7 @@ use i_rs_core::parse_date;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     name: String,
     brand: Option<String>,
@@ -21,7 +22,7 @@ pub fn handle_update(
     let appliance = match store.get_by_name_mut(&name) {
         Some(a) => a,
         None => {
-            anyhow::bail!("Appliance '{}' not found", name);
+            anyhow::bail!("Appliance '{name}' not found");
         }
     };
 

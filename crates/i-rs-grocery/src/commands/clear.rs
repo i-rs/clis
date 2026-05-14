@@ -7,7 +7,7 @@ pub fn handle_clear() -> anyhow::Result<()> {
     let count = storage::clear_purchased(&mut store)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Cleared {} purchased items", count));
+    print_success(&format!("Cleared {count} purchased items"));
 
     Ok(())
 }

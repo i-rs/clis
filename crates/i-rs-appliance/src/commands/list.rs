@@ -13,7 +13,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     if appliances.is_empty() {
         if matches!(format, OutputFormat::Json) {
-            let filter = tag.map(|t| format!("tag: {}", t));
+            let filter = tag.map(|t| format!("tag: {t}"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
             print_warning("No appliances found.");
@@ -52,13 +52,13 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             })
             .collect();
 
-        let filter = tag.map(|t| format!("tag: {}", t));
+        let filter = tag.map(|t| format!("tag: {t}"));
         println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
         return Ok(());
     }
 
     let table = format_table(&appliances);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_appliance_count(appliances.len());
 

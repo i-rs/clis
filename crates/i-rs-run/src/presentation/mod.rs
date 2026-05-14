@@ -32,7 +32,7 @@ pub fn print_plan_count(count: usize) {
 
 pub fn print_stats(store: &crate::models::RunStore) {
     println!("\n{}", "Statistics:".bold().cyan());
-    println!("  {:12} {} km", "Total:".dimmed(), format!("{:.2}", store.total_distance()));
+    println!("  {:12} {:.2} km", "Total:".dimmed(), store.total_distance());
     println!("  {:12} {}", "Duration:".dimmed(), crate::models::format_duration(store.total_duration()));
     if let Some(pace) = store.avg_pace() {
         println!("  {:12} {}/km", "Avg Pace:".dimmed(), pace);

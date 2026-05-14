@@ -72,47 +72,35 @@ pub struct Project {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ProjectStatus {
+    #[default]
     Active,
     OnHold,
     Completed,
     Cancelled,
 }
 
-impl Default for ProjectStatus {
-    fn default() -> Self {
-        ProjectStatus::Active
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum Priority {
     Low,
+    #[default]
     Medium,
     High,
     Urgent,
 }
 
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Medium
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ProjectStore {
     #[serde(default)]
     pub projects: Vec<Project>,
 }
 
-impl Default for ProjectStore {
-    fn default() -> Self {
-        ProjectStore {
-            projects: Vec::new(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Tabled)]
 pub struct ProjectRow {
@@ -138,19 +126,19 @@ impl ProjectRow {
         let total_tasks = project.tasks.len();
         
         let progress = if total_tasks > 0 {
-            format!("{}/{}", completed_tasks, total_tasks)
+            format!("{completed_tasks}/{total_tasks}")
         } else if total_milestones > 0 {
-            format!("{}/{} (m)", completed_milestones, total_milestones)
+            format!("{completed_milestones}/{total_milestones} (m)")
         } else {
             "0%".to_string()
         };
 
-        ProjectRow {
+        Self {
             name: project.name.clone(),
             status: format!("{:?}", project.status).to_lowercase(),
             priority: format!("{:?}", project.priority).to_lowercase(),
-            milestones: format!("{}/{}", completed_milestones, total_milestones),
-            tasks: format!("{}/{}", completed_tasks, total_tasks),
+            milestones: format!("{completed_milestones}/{total_milestones}"),
+            tasks: format!("{completed_tasks}/{total_tasks}"),
             progress,
         }
     }
@@ -168,7 +156,7 @@ pub struct ProjectListItem {
 
 impl From<&Project> for ProjectListItem {
     fn from(project: &Project) -> Self {
-        ProjectListItem {
+        Self {
             name: project.name.clone(),
             description: project.description.clone(),
             status: format!("{:?}", project.status).to_lowercase(),
@@ -195,7 +183,7 @@ pub struct ProjectDetail {
 
 impl From<&Project> for ProjectDetail {
     fn from(project: &Project) -> Self {
-        ProjectDetail {
+        Self {
             name: project.name.clone(),
             description: project.description.clone(),
             status: format!("{:?}", project.status).to_lowercase(),

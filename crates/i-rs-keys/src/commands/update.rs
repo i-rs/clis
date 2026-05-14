@@ -16,7 +16,7 @@ pub fn handle_update(
     let entry = match storage::get_entry_mut(&mut store, &name) {
         Some(e) => e,
         None => {
-            anyhow::bail!("Key '{}' not found", name);
+            anyhow::bail!("Key '{name}' not found");
         }
     };
 

@@ -36,17 +36,11 @@ pub struct Checkin {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct HabitStore {
     pub entries: BTreeMap<String, Habit>,
 }
 
-impl Default for HabitStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl HabitStore {
     pub fn add_entry(&mut self, entry: Habit) {

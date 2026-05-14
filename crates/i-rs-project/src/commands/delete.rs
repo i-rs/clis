@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !storage::project_exists(&store, &name) {
-        anyhow::bail!("Project '{}' not found", name);
+        anyhow::bail!("Project '{name}' not found");
     }
 
     let removed = storage::remove_project(&mut store, &name)

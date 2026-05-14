@@ -74,7 +74,7 @@ pub fn stats(args: StatsArgs, output_format: OutputFormat) -> anyhow::Result<()>
         OutputFormat::Table | OutputFormat::Default => {
             print_header("Savings Statistics");
             
-            println!("\n{} {}", "Overall Progress:".cyan().bold(), format!("{:.1}%", overall_progress).green());
+            println!("\n{} {}", "Overall Progress:".cyan().bold(), format!("{overall_progress:.1}%").green());
             println!("{}", crate::presentation::print_progress_bar(overall_progress, 50));
             
             println!("\n{} {:.2} / {:.2}", "Total Saved:".dimmed(), total_current, total_targets);
@@ -89,7 +89,7 @@ pub fn stats(args: StatsArgs, output_format: OutputFormat) -> anyhow::Result<()>
                 println!("\n{} By Tag", "Statistics:".cyan().bold());
                 for (tag, (target, current)) in tag_stats {
                     let progress = if target > 0.0 { current / target * 100.0 } else { 0.0 };
-                    println!("  {}: {:.1}% ({:.2} / {:.2})", tag, progress, current, target);
+                    println!("  {tag}: {progress:.1}% ({current:.2} / {target:.2})");
                 }
             }
         }

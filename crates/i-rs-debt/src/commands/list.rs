@@ -59,7 +59,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     } else {
         let table = format_debt_table(&debts);
         if !table.is_empty() {
-            println!("{}", table);
+            println!("{table}");
         }
         print_debt_count(debts.len());
     }

@@ -48,12 +48,12 @@ fn handle_add_task(
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Project '{}' not found", project_name);
+            anyhow::bail!("Project '{project_name}' not found");
         }
     };
 
     if project.tasks.iter().any(|t| t.name.eq_ignore_ascii_case(&name)) {
-        anyhow::bail!("Task '{}' already exists", name);
+        anyhow::bail!("Task '{name}' already exists");
     }
 
     let task = Task {
@@ -78,14 +78,14 @@ fn handle_complete_task(project_name: String, name: String) -> Result<()> {
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Project '{}' not found", project_name);
+            anyhow::bail!("Project '{project_name}' not found");
         }
     };
 
     let task = match project.tasks.iter_mut().find(|t| t.name.eq_ignore_ascii_case(&name)) {
         Some(t) => t,
         None => {
-            anyhow::bail!("Task '{}' not found", name);
+            anyhow::bail!("Task '{name}' not found");
         }
     };
 

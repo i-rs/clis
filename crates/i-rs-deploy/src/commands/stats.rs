@@ -33,7 +33,7 @@ pub fn handle_stats(project: Option<String>, environment: Option<String>) -> Res
     }
     println!("\n{} {}", "By Status:".cyan(), "".bold());
     for (status, count) in &status_counts {
-        println!("  - {}: {}", status, count);
+        println!("  - {status}: {count}");
     }
 
     let projects: HashMap<String, usize> = entries
@@ -44,7 +44,7 @@ pub fn handle_stats(project: Option<String>, environment: Option<String>) -> Res
         });
     println!("\n{} {}", "By Project:".cyan(), "".bold());
     for (proj, count) in &projects {
-        println!("  - {}: {}", proj, count);
+        println!("  - {proj}: {count}");
     }
 
     let envs: HashMap<String, usize> = entries
@@ -55,7 +55,7 @@ pub fn handle_stats(project: Option<String>, environment: Option<String>) -> Res
         });
     println!("\n{} {}", "By Environment:".cyan(), "".bold());
     for (env, count) in &envs {
-        println!("  - {}: {}", env, count);
+        println!("  - {env}: {count}");
     }
 
     let success_entries: Vec<_> = entries

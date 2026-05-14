@@ -21,6 +21,7 @@ impl<T: Default> Default for Storage<T> {
 }
 
 impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
+    #[must_use] 
     pub fn new(filename: &str) -> Self {
         let config_dir = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
@@ -71,7 +72,7 @@ impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
         }
 
         let content = serde_json::to_string_pretty(data)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize: {e}"))?;
 
         fs::write(&path, content)
             .map_err(|e| anyhow::anyhow!("Failed to write {}: {}", path.display(), e))?;

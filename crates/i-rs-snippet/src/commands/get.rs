@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let snippet = match storage::get_snippet(&store, &name) {
-        Some(s) => s,
-        None => {
-            let msg = format!("Snippet '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let snippet = if let Some(s) = storage::get_snippet(&store, &name) { s } else {
+        let msg = format!("Snippet '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -63,14 +59,14 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     if !snippet.description.is_empty() {
         println!("\n{}:", "Description".bold());
         for line in &snippet.description {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
 
     if !snippet.code.is_empty() {
         println!("\n{}:", "Code".bold());
         for line in &snippet.code {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
 

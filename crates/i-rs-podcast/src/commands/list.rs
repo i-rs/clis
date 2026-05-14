@@ -22,8 +22,8 @@ pub fn handle_list(
     if podcasts.is_empty() {
         if matches!(output_format, OutputFormat::Json) {
             let filter = status_filter
-                .clone()
-                .or_else(|| tag.map(|t| format!("tag:{}", t)));
+                
+                .or_else(|| tag.map(|t| format!("tag:{t}")));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), output_format));
         } else {
             print_warning("No podcasts found.");
@@ -55,15 +55,15 @@ pub fn handle_list(
             .collect();
 
         let filter = status_filter
-            .clone()
-            .or_else(|| tag.map(|t| format!("tag:{}", t)));
+            
+            .or_else(|| tag.map(|t| format!("tag:{t}")));
 
         println!("{}", output_list(&items, items.len(), filter.as_deref(), output_format));
         return Ok(());
     }
 
     let table = format_table(&podcasts);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     let total = podcasts.len();
     let not_started = podcasts
@@ -80,8 +80,7 @@ pub fn handle_list(
         .count();
 
     println!(
-        "\nTotal: {} podcasts (○ {} ◐ {} ● {})",
-        total, not_started, in_progress, completed
+        "\nTotal: {total} podcasts (○ {not_started} ◐ {in_progress} ● {completed})"
     );
 
     Ok(())

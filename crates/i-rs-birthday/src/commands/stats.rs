@@ -57,7 +57,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
         if birthday.year.is_some() {
             with_year_count += 1;
             if let Some(age) = birthday.age() {
-                total_age += age as i64;
+                total_age += i64::from(age);
             }
         }
     }

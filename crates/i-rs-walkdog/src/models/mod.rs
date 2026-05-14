@@ -27,15 +27,11 @@ impl WalkdogEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct WalkdogStore {
     pub entries: BTreeMap<String, WalkdogEntry>,
 }
 
-impl Default for WalkdogStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl WalkdogStore {
     pub fn add_entry(&mut self, entry: WalkdogEntry) {

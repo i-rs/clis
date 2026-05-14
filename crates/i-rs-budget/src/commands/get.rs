@@ -29,7 +29,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
                     updated_at: budget.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
                 }, format));
             } else {
-                println!("\n{}", format!("Budget: {}", cat).cyan().bold());
+                println!("\n{}", format!("Budget: {cat}").cyan().bold());
                 println!("  Amount: {:.2}", budget.amount);
                 println!("  Period: {:?}", budget.period);
                 if !budget.tags.is_empty() {
@@ -45,8 +45,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
                 }));
-            } else {
-            }
+            } 
             anyhow::bail!("Budget not found");
         }
     } else if let Some(id) = expense_id {
@@ -72,7 +71,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
                     created_at: expense.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
                 }, format));
             } else {
-                println!("\n{}", format!("Expense: {}", id).cyan().bold());
+                println!("\n{}", format!("Expense: {id}").cyan().bold());
                 println!("  Category: {}", expense.category);
                 println!("  Amount: {:.2}", expense.amount);
                 println!("  Description: {}", expense.description);
@@ -87,8 +86,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
                 }));
-            } else {
-            }
+            } 
             anyhow::bail!("Expense not found");
         }
     } else {

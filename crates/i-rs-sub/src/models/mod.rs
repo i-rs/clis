@@ -28,7 +28,7 @@ impl SubEntry {
 
     pub fn is_expiring_soon(&self) -> bool {
         let days = self.days_until_next();
-        days >= 0 && days <= 7
+        (0..=7).contains(&days)
     }
 
     pub fn is_expired(&self) -> bool {
@@ -37,17 +37,11 @@ impl SubEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SubStore {
     pub entries: BTreeMap<String, SubEntry>,
 }
 
-impl Default for SubStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl SubStore {
     pub fn add_entry(&mut self, entry: SubEntry) {
@@ -89,7 +83,7 @@ impl SubRow {
         let next_str = if days < 0 {
             format!("{}d ago", days.abs())
         } else {
-            format!("{}d", days)
+            format!("{days}d")
         };
 
         let status = if entry.is_expired() {

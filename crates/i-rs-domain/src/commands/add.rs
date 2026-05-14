@@ -17,7 +17,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.domains.contains_key(&name) {
-        anyhow::bail!("Domain '{}' already exists", name);
+        anyhow::bail!("Domain '{name}' already exists");
     }
 
     let expiry = parse_datetime(&expiry_date)?;

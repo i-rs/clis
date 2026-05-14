@@ -18,7 +18,7 @@ pub fn handle_update(
     let project = match storage::find_project_mut(&mut store, &name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Project '{}' not found", name);
+            anyhow::bail!("Project '{name}' not found");
         }
     };
 

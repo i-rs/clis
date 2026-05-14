@@ -43,7 +43,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
         let left_change = if records.len() >= 2 {
             let mut earliest_with_left = None;
             let mut latest_with_left = None;
-            for r in records.iter() {
+            for r in &records {
                 if r.left_sphere.is_some() {
                     if earliest_with_left.is_none() {
                         earliest_with_left = Some(r);
@@ -68,7 +68,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
         let right_change = if records.len() >= 2 {
             let mut earliest_with_right = None;
             let mut latest_with_right = None;
-            for r in records.iter() {
+            for r in &records {
                 if r.right_sphere.is_some() {
                     if earliest_with_right.is_none() {
                         earliest_with_right = Some(r);
@@ -162,7 +162,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
         let mut earliest_with_right = None;
         let mut latest_with_right = None;
 
-        for r in records.iter() {
+        for r in &records {
             if r.left_sphere.is_some() {
                 if earliest_with_left.is_none() {
                     earliest_with_left = Some(r);
@@ -177,8 +177,8 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
             }
         }
 
-        if let (Some(first), Some(last)) = (earliest_with_left, latest_with_left) {
-            if let (Some(f), Some(l)) = (first.left_sphere, last.left_sphere) {
+        if let (Some(first), Some(last)) = (earliest_with_left, latest_with_left)
+            && let (Some(f), Some(l)) = (first.left_sphere, last.left_sphere) {
                 let change = l - f;
                 let sign = if change >= 0.0 { "+" } else { "" };
                 let direction = if change.abs() < 0.25 {
@@ -192,10 +192,9 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
                 println!("{}", "Left Eye Change:".bold().cyan());
                 println!("  {:16} {}{:.2} ({}{:.2} {})", "".dimmed(), sign, change, sign, change.abs(), direction);
             }
-        }
 
-        if let (Some(first), Some(last)) = (earliest_with_right, latest_with_right) {
-            if let (Some(f), Some(l)) = (first.right_sphere, last.right_sphere) {
+        if let (Some(first), Some(last)) = (earliest_with_right, latest_with_right)
+            && let (Some(f), Some(l)) = (first.right_sphere, last.right_sphere) {
                 let change = l - f;
                 let sign = if change >= 0.0 { "+" } else { "" };
                 let direction = if change.abs() < 0.25 {
@@ -209,7 +208,6 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
                 println!("{}", "Right Eye Change:".bold().cyan());
                 println!("  {:16} {}{:.2} ({}{:.2} {})", "".dimmed(), sign, change, sign, change.abs(), direction);
             }
-        }
     }
 
     println!();

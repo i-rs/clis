@@ -40,7 +40,7 @@ pub fn handle_list(category: Option<String>, format: OutputFormat) -> Result<()>
 
     let rows: Vec<LedgerRow> = entries.iter().map(|e| LedgerRow::from_entry(e)).collect();
     let table = format_table(&rows);
-    println!("{}", table);
+    println!("{table}");
 
     print_entry_count(entries.len());
 

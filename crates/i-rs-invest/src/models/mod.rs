@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tabled::Tabled;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum AssetType {
     Stock,
@@ -14,9 +14,9 @@ pub enum AssetType {
 impl std::fmt::Display for AssetType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AssetType::Stock => write!(f, "stock"),
-            AssetType::Fund => write!(f, "fund"),
-            AssetType::Crypto => write!(f, "crypto"),
+            Self::Stock => write!(f, "stock"),
+            Self::Fund => write!(f, "fund"),
+            Self::Crypto => write!(f, "crypto"),
         }
     }
 }
@@ -26,10 +26,10 @@ impl std::str::FromStr for AssetType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "stock" => Ok(AssetType::Stock),
-            "fund" => Ok(AssetType::Fund),
-            "crypto" => Ok(AssetType::Crypto),
-            _ => Err(format!("Invalid asset type: {}. Use stock, fund, or crypto", s)),
+            "stock" => Ok(Self::Stock),
+            "fund" => Ok(Self::Fund),
+            "crypto" => Ok(Self::Crypto),
+            _ => Err(format!("Invalid asset type: {s}. Use stock, fund, or crypto")),
         }
     }
 }
@@ -74,17 +74,11 @@ impl Investment {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct InvestmentStore {
     pub investments: BTreeMap<String, Investment>,
 }
 
-impl Default for InvestmentStore {
-    fn default() -> Self {
-        Self {
-            investments: BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct InvestmentRow {
@@ -111,19 +105,13 @@ pub struct InvestmentRow {
 impl InvestmentRow {
     pub fn from_investment(investment: &Investment) -> Self {
         let profit_loss_pct = investment
-            .profit_loss_percentage()
-            .map(|p| format!("{:+.2}%", p))
-            .unwrap_or_else(|| "N/A".to_string());
+            .profit_loss_percentage().map_or_else(|| "N/A".to_string(), |p| format!("{p:+.2}%"));
 
         let current_price_str = investment
-            .current_price
-            .map(|p| format!("{:.2}", p))
-            .unwrap_or_else(|| "N/A".to_string());
+            .current_price.map_or_else(|| "N/A".to_string(), |p| format!("{p:.2}"));
 
         let value_str = investment
-            .current_value()
-            .map(|v| format!("{:.2}", v))
-            .unwrap_or_else(|| "N/A".to_string());
+            .current_value().map_or_else(|| "N/A".to_string(), |v| format!("{v:.2}"));
 
         Self {
             name: investment.name.clone(),

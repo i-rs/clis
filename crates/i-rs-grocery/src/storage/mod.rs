@@ -9,7 +9,7 @@ i_rs_core::create_store!(GroceryStore, "grocery");
 pub fn add_item(store: &mut GroceryStore, name: String, quantity: i32, unit: String, tags: Vec<String>, remark: Vec<String>) -> Result<GroceryItem> {
     let now = Utc::now();
     let item = GroceryItem {
-        name: name.clone(),
+        name,
         quantity,
         unit,
         purchased: false,
@@ -25,12 +25,12 @@ pub fn add_item(store: &mut GroceryStore, name: String, quantity: i32, unit: Str
 
 pub fn delete_item(store: &mut GroceryStore, name: &str) -> Result<GroceryItem> {
     store.remove_entry(name)
-        .ok_or_else(|| anyhow::anyhow!("Item '{}' not found", name))
+        .ok_or_else(|| anyhow::anyhow!("Item '{name}' not found"))
 }
 
 pub fn toggle_purchased(store: &mut GroceryStore, name: &str) -> Result<GroceryItem> {
     let item = store.get_entry_mut(name)
-        .ok_or_else(|| anyhow::anyhow!("Item '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Item '{name}' not found"))?;
     
     item.purchased = !item.purchased;
     item.updated_at = Utc::now();
@@ -47,7 +47,7 @@ pub fn update_item(
     remark: Option<Vec<String>>,
 ) -> Result<GroceryItem> {
     let item = store.get_entry_mut(name)
-        .ok_or_else(|| anyhow::anyhow!("Item '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Item '{name}' not found"))?;
     
     if let Some(q) = quantity {
         item.quantity = q;

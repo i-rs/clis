@@ -44,7 +44,7 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
                     "error": { "code": "NOT_FOUND", "message": format!("Deploy record '{}' not found", id) }
                 }));
             } else {
-                print_error(&format!("Deploy record '{}' not found", id));
+                print_error(&format!("Deploy record '{id}' not found"));
                 print_warning("Use 'i-rs-deploy list' to see all records.");
             }
         }

@@ -45,7 +45,7 @@ pub fn execute(args: &AddArgs) -> anyhow::Result<()> {
     let status = match &args.status {
         Some(s) => TaxStatus::from_str(s).ok_or_else(|| {
             let statuses = TaxStatus::variants().join(", ");
-            anyhow::anyhow!("无效的报税状态 '{}'. 可用状态: {}", s, statuses)
+            anyhow::anyhow!("无效的报税状态 '{s}'. 可用状态: {statuses}")
         })?,
         None => TaxStatus::Unreported,
     };

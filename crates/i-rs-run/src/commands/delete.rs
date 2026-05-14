@@ -7,7 +7,7 @@ pub fn handle_delete(id: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.remove_entry(&id).is_none() {
-        anyhow::bail!("No record found with ID: {}", id);
+        anyhow::bail!("No record found with ID: {id}");
     }
 
     storage::save_store(&store)?;

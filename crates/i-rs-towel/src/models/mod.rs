@@ -26,15 +26,11 @@ impl TowelEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct TowelStore {
     pub entries: BTreeMap<String, TowelEntry>,
 }
 
-impl Default for TowelStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl TowelStore {
     pub fn add_entry(&mut self, entry: TowelEntry) {

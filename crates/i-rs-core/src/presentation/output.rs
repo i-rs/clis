@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OutputFormat {
     #[default]
     Default,
@@ -14,9 +14,9 @@ impl FromStr for OutputFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "json" => Ok(OutputFormat::Json),
-            "table" => Ok(OutputFormat::Table),
-            _ => Ok(OutputFormat::Default),
+            "json" => Ok(Self::Json),
+            "table" => Ok(Self::Table),
+            _ => Ok(Self::Default),
         }
     }
 }
@@ -75,6 +75,7 @@ pub fn output_item<T: Serialize>(item: &T, _format: OutputFormat) -> String {
         .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
 }
 
+#[must_use] 
 pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
     match format {
         OutputFormat::Json => {
@@ -88,7 +89,7 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
             serde_json::to_string_pretty(&response)
         }
         OutputFormat::Table | OutputFormat::Default => {
-            Ok(format!("Error: {}", message))
+            Ok(format!("Error: {message}"))
         }
     }
     .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#.to_string())

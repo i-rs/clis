@@ -33,7 +33,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut debt = Debt::new(args.name.clone(), args.debt_type, args.amount);
 
     if let Some(rate) = args.interest_rate {
-        if rate < 0.0 || rate > 100.0 {
+        if !(0.0..=100.0).contains(&rate) {
             anyhow::bail!("Interest rate must be between 0 and 100");
         }
         debt.interest_rate = Some(rate);

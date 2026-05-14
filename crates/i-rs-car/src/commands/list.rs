@@ -15,7 +15,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(car_name) = &args.car {
         let filtered: Vec<_> = cars.iter().filter(|c| &c.name == car_name).collect();
-        let cars_refs: Vec<_> = filtered.iter().map(|c| *c).collect();
+        let cars_refs: Vec<_> = filtered.clone();
 
         if output_format == OutputFormat::Json {
             let data: Vec<_> = filtered.iter().map(|c| {
@@ -32,7 +32,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         } else {
             let table = format_car_table(&cars_refs);
             if !table.is_empty() {
-                println!("{}", table);
+                println!("{table}");
             }
             print_car_count(filtered.len());
         }
@@ -54,7 +54,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         } else {
             let table = format_car_table(&cars_refs);
             if !table.is_empty() {
-                println!("{}", table);
+                println!("{table}");
             }
             print_car_count(cars.len());
         }

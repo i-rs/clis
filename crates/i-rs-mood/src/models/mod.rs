@@ -14,34 +14,34 @@ pub enum Mood {
 }
 
 impl Mood {
-    pub fn from_level(level: u8) -> Option<Self> {
+    pub const fn from_level(level: u8) -> Option<Self> {
         match level {
-            5 => Some(Mood::Great),
-            4 => Some(Mood::Good),
-            3 => Some(Mood::Okay),
-            2 => Some(Mood::Bad),
-            1 => Some(Mood::Terrible),
+            5 => Some(Self::Great),
+            4 => Some(Self::Good),
+            3 => Some(Self::Okay),
+            2 => Some(Self::Bad),
+            1 => Some(Self::Terrible),
             _ => None,
         }
     }
 
-    pub fn emoji(&self) -> &'static str {
+    pub const fn emoji(&self) -> &'static str {
         match self {
-            Mood::Great => "😊",
-            Mood::Good => "🙂",
-            Mood::Okay => "😐",
-            Mood::Bad => "😔",
-            Mood::Terrible => "😢",
+            Self::Great => "😊",
+            Self::Good => "🙂",
+            Self::Okay => "😐",
+            Self::Bad => "😔",
+            Self::Terrible => "😢",
         }
     }
 
-    pub fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
-            Mood::Great => "Great",
-            Mood::Good => "Good",
-            Mood::Okay => "Okay",
-            Mood::Bad => "Bad",
-            Mood::Terrible => "Terrible",
+            Self::Great => "Great",
+            Self::Good => "Good",
+            Self::Okay => "Okay",
+            Self::Bad => "Bad",
+            Self::Terrible => "Terrible",
         }
     }
 }
@@ -69,17 +69,11 @@ pub struct MoodRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MoodStore {
     pub records: BTreeMap<NaiveDate, MoodRecord>,
 }
 
-impl Default for MoodStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-        }
-    }
-}
 
 impl MoodStore {
     pub fn add_entry(&mut self, record: MoodRecord) {
@@ -123,7 +117,7 @@ impl MoodStore {
 
         let min_level = *moods.iter().min().expect("non-empty records checked above");
         let max_level = *moods.iter().max().expect("non-empty records checked above");
-        let avg = moods.iter().sum::<u8>() as f64 / moods.len() as f64;
+        let avg = f64::from(moods.iter().sum::<u8>()) / moods.len() as f64;
 
         let min_mood = Mood::from_level(min_level).expect("levels always 1-5 from mood_stats");
         let max_mood = Mood::from_level(max_level).expect("levels always 1-5 from mood_stats");

@@ -17,10 +17,10 @@ pub fn handle_add(
 
     let word_lower = word.to_lowercase();
     if store.words.contains_key(&word_lower) {
-        anyhow::bail!("Word '{}' already exists", word);
+        anyhow::bail!("Word '{word}' already exists");
     }
 
-    let vocab_status = match status.as_ref().map(|s| s.as_str()) {
+    let vocab_status = match status.as_deref() {
         Some(s) => VocabStatus::from_str(s).unwrap_or(VocabStatus::New),
         None => VocabStatus::New,
     };

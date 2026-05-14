@@ -33,7 +33,7 @@ pub fn run(args: &GetArgs, json: bool) -> Result<()> {
                 println!("  N/A");
             } else {
                 for p in &event.participants {
-                    println!("  - {}", p);
+                    println!("  - {p}");
                 }
             }
             println!("{}", "Tags:".cyan().bold());
@@ -47,7 +47,7 @@ pub fn run(args: &GetArgs, json: bool) -> Result<()> {
                 println!("  N/A");
             } else {
                 for r in &event.remark {
-                    println!("  - {}", r);
+                    println!("  - {r}");
                 }
             }
             println!("{}", "Created:".cyan().bold());

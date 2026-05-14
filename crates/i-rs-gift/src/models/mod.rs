@@ -20,7 +20,7 @@ pub struct Gift {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum GiftType {
     Sent,
@@ -30,24 +30,18 @@ pub enum GiftType {
 impl std::fmt::Display for GiftType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GiftType::Sent => write!(f, "sent"),
-            GiftType::Received => write!(f, "received"),
+            Self::Sent => write!(f, "sent"),
+            Self::Received => write!(f, "received"),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct GiftStore {
     pub gifts: std::collections::BTreeMap<String, Gift>,
 }
 
-impl Default for GiftStore {
-    fn default() -> Self {
-        Self {
-            gifts: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct GiftRow {

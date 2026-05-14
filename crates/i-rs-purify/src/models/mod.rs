@@ -26,15 +26,11 @@ impl PurifyEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PurifyStore {
     pub entries: BTreeMap<String, PurifyEntry>,
 }
 
-impl Default for PurifyStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl PurifyStore {
     pub fn add_entry(&mut self, entry: PurifyEntry) {

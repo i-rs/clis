@@ -25,7 +25,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let rows: Vec<EntityRow> = entities.iter().map(|e| EntityRow::from_entity(e)).collect();
     let table = format_table(&rows);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_entity_count(entities.len());
 

@@ -18,17 +18,11 @@ pub struct KeyEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct KeyStore {
     pub entries: BTreeMap<String, KeyEntry>,
 }
 
-impl Default for KeyStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl KeyStore {
     pub fn add_entry(&mut self, entry: KeyEntry) {

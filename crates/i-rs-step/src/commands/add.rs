@@ -21,7 +21,7 @@ pub fn handle_add(
     storage::add_entry(&mut store, entry);
     storage::save_store(&store)?;
 
-    let dist_str = distance.map(|d| format!(" ({:.1} km)", d)).unwrap_or_default();
+    let dist_str = distance.map(|d| format!(" ({d:.1} km)")).unwrap_or_default();
     print_success(&format!("✓ Recorded {} steps on {}{}", steps.to_string().green(), parsed_date.format("%Y-%m-%d").to_string().cyan(), dist_str));
 
     Ok(())

@@ -40,11 +40,11 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
 
     let rated_books: Vec<&&crate::models::Book> =
         books.iter().filter(|b| b.rating.is_some()).collect();
-    let avg_rating: f32 = if !rated_books.is_empty() {
+    let avg_rating: f32 = if rated_books.is_empty() {
+        0.0
+    } else {
         rated_books.iter().map(|b| b.rating.expect("filtered by rating.is_some() above")).sum::<f32>()
             / rated_books.len() as f32
-    } else {
-        0.0
     };
 
     match output_format {
@@ -67,8 +67,8 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
             print_header("Reading Statistics");
 
             println!("\n📚 Overall:");
-            println!("  Total books: {}", total_books);
-            println!("  Total pages: {}", total_pages);
+            println!("  Total books: {total_books}");
+            println!("  Total pages: {total_pages}");
             println!("  Pages read: {}/{} ({:.1}%)",
                 total_read_pages,
                 total_pages,
@@ -76,16 +76,16 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
             );
 
             println!("\n📖 Status:");
-            println!("  Reading: {}", reading_count);
-            println!("  Completed: {}", completed_count);
-            println!("  To Read: {}", to_read_count);
-            println!("  Paused: {}", paused_count);
-            println!("  Dropped: {}", dropped_count);
+            println!("  Reading: {reading_count}");
+            println!("  Completed: {completed_count}");
+            println!("  To Read: {to_read_count}");
+            println!("  Paused: {paused_count}");
+            println!("  Dropped: {dropped_count}");
 
             println!("\n⭐ Rating:");
             println!("  Rated books: {}", rated_books.len());
-            if rated_books.len() > 0 {
-                println!("  Average rating: {:.2}", avg_rating);
+            if !rated_books.is_empty() {
+                println!("  Average rating: {avg_rating:.2}");
             }
         }
     }

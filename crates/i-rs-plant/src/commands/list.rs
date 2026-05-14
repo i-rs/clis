@@ -17,7 +17,7 @@ pub fn list_plants(
         store.plants.iter().collect()
     };
 
-    let plant_refs: Vec<&Plant> = plants.iter().map(|p| *p).collect();
+    let plant_refs: Vec<&Plant> = plants.clone();
 
     match output_format {
         OutputFormat::Json => {

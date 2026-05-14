@@ -18,7 +18,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.get_entry(&name).is_some() {
-        anyhow::bail!("Contact '{}' already exists", name);
+        anyhow::bail!("Contact '{name}' already exists");
     }
 
     let contact = storage::add_contact(
@@ -43,7 +43,7 @@ pub fn handle_add(
     if !contact.relationship.is_empty() {
         println!("{} {}", "Relationship:".style(owo_colors::Style::new().bold()), contact.relationship);
     }
-    print_success(&format!("Contact '{}' created successfully", name));
+    print_success(&format!("Contact '{name}' created successfully"));
 
     Ok(())
 }

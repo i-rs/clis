@@ -37,7 +37,7 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
 
     let rows: Vec<StepRow> = entries.iter().map(|e| StepRow::from_entry(e)).collect();
     let table = format_table(&rows);
-    println!("{}", table);
+    println!("{table}");
 
     print_entry_count(entries.len());
 

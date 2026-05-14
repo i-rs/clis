@@ -17,7 +17,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.snippets.contains_key(&name) {
-        anyhow::bail!("Snippet '{}' already exists", name);
+        anyhow::bail!("Snippet '{name}' already exists");
     }
 
     let now = Utc::now();

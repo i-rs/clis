@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_snippet(&mut store, &name).is_none() {
-        anyhow::bail!("Snippet '{}' not found", name);
+        anyhow::bail!("Snippet '{name}' not found");
     }
 
     storage::save_store(&store)?;

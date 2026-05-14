@@ -14,7 +14,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.notes.contains_key(&name) {
-        anyhow::bail!("Note '{}' already exists", name);
+        anyhow::bail!("Note '{name}' already exists");
     }
 
     let now = Utc::now();

@@ -32,8 +32,8 @@ pub enum TaxType {
 impl std::fmt::Display for TaxType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TaxType::Personal => write!(f, "个人所得税"),
-            TaxType::Vat => write!(f, "增值税"),
+            Self::Personal => write!(f, "个人所得税"),
+            Self::Vat => write!(f, "增值税"),
         }
     }
 }
@@ -41,8 +41,8 @@ impl std::fmt::Display for TaxType {
 impl TaxType {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "个人所得税" | "personal" => Some(TaxType::Personal),
-            "增值税" | "vat" => Some(TaxType::Vat),
+            "个人所得税" | "personal" => Some(Self::Personal),
+            "增值税" | "vat" => Some(Self::Vat),
             _ => None,
         }
     }
@@ -68,10 +68,10 @@ pub enum TaxStatus {
 impl std::fmt::Display for TaxStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TaxStatus::Unreported => write!(f, "未申报"),
-            TaxStatus::Filing => write!(f, "申报中"),
-            TaxStatus::Filed => write!(f, "已申报"),
-            TaxStatus::Paid => write!(f, "已缴纳"),
+            Self::Unreported => write!(f, "未申报"),
+            Self::Filing => write!(f, "申报中"),
+            Self::Filed => write!(f, "已申报"),
+            Self::Paid => write!(f, "已缴纳"),
         }
     }
 }
@@ -79,10 +79,10 @@ impl std::fmt::Display for TaxStatus {
 impl TaxStatus {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "未申报" | "unreported" => Some(TaxStatus::Unreported),
-            "申报中" | "filing" => Some(TaxStatus::Filing),
-            "已申报" | "filed" => Some(TaxStatus::Filed),
-            "已缴纳" | "paid" => Some(TaxStatus::Paid),
+            "未申报" | "unreported" => Some(Self::Unreported),
+            "申报中" | "filing" => Some(Self::Filing),
+            "已申报" | "filed" => Some(Self::Filed),
+            "已缴纳" | "paid" => Some(Self::Paid),
             _ => None,
         }
     }
@@ -125,14 +125,8 @@ impl TaxRecordRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct TaxStore {
     pub entries: std::collections::BTreeMap<String, TaxRecord>,
 }
 
-impl Default for TaxStore {
-    fn default() -> Self {
-        Self {
-            entries: std::collections::BTreeMap::new(),
-        }
-    }
-}

@@ -22,7 +22,7 @@ pub fn handle_update(
         match store.get_entry(&word_lower) {
             Some(v) => v.word.clone(),
             None => {
-                anyhow::bail!("Word '{}' not found", word_key);
+                anyhow::bail!("Word '{word_key}' not found");
             }
         }
     };
@@ -31,7 +31,7 @@ pub fn handle_update(
         let vocab = match store.get_entry_mut(&word_lower) {
             Some(v) => v,
             None => {
-                anyhow::bail!("Word '{}' not found", word_key);
+                anyhow::bail!("Word '{word_key}' not found");
             }
         };
 
@@ -45,7 +45,7 @@ pub fn handle_update(
             match VocabStatus::from_str(&status_str) {
                 Some(s) => vocab.status = s,
                 None => {
-                    anyhow::bail!("Invalid status '{}'", status_str);
+                    anyhow::bail!("Invalid status '{status_str}'");
                 }
             }
         }

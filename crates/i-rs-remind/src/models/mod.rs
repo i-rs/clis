@@ -35,7 +35,7 @@ impl Remind {
 
     pub fn is_today(&self) -> bool {
         let days = self.days_until_event();
-        days >= 0 && days < 1
+        (0..1).contains(&days)
     }
 
     pub fn is_upcoming(&self, days: i64) -> bool {
@@ -45,17 +45,11 @@ impl Remind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct RemindStore {
     pub reminds: std::collections::BTreeMap<String, Remind>,
 }
 
-impl Default for RemindStore {
-    fn default() -> Self {
-        Self {
-            reminds: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct RemindRow {
@@ -77,15 +71,15 @@ impl RemindRow {
     pub fn from_remind(remind: &Remind) -> Self {
         let days = remind.days_until_event();
         let (days_str, status) = if remind.is_done {
-            (format!("-"), "DONE".green().to_string())
+            ("-".to_string(), "DONE".green().to_string())
         } else if remind.is_past() {
             (format!("{} days ago", days.abs()), "PAST".dimmed().to_string())
         } else if remind.is_today() {
             ("TODAY!".red().bold().to_string(), "TODAY".red().bold().to_string())
         } else if days <= 7 {
-            (format!("{} days", days), format!("{}", "SOON".yellow()))
+            (format!("{days} days"), format!("{}", "SOON".yellow()))
         } else {
-            (format!("{} days", days), "UPCOMING".cyan().to_string())
+            (format!("{days} days"), "UPCOMING".cyan().to_string())
         };
 
         Self {

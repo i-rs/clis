@@ -23,7 +23,7 @@ pub fn handle_update(
     let record = match store.get_entry_mut(&name) {
         Some(r) => r,
         None => {
-            anyhow::bail!("Exercise '{}' not found", name);
+            anyhow::bail!("Exercise '{name}' not found");
         }
     };
 

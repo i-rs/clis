@@ -7,7 +7,7 @@ pub fn handle_delete(id: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_quote(&mut store, &id).is_none() {
-        anyhow::bail!("Quote '{}' not found", id);
+        anyhow::bail!("Quote '{id}' not found");
     }
 
     storage::save_store(&store)?;

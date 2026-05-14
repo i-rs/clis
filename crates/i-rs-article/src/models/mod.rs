@@ -30,24 +30,21 @@ mod opt_ts_seconds {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ReadStatus {
+    #[default]
     Unread,
     Reading,
     Read,
 }
 
-impl Default for ReadStatus {
-    fn default() -> Self {
-        ReadStatus::Unread
-    }
-}
 
 impl std::fmt::Display for ReadStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ReadStatus::Unread => write!(f, "unread"),
-            ReadStatus::Reading => write!(f, "reading"),
-            ReadStatus::Read => write!(f, "read"),
+            Self::Unread => write!(f, "unread"),
+            Self::Reading => write!(f, "reading"),
+            Self::Read => write!(f, "read"),
         }
     }
 }
@@ -55,9 +52,9 @@ impl std::fmt::Display for ReadStatus {
 impl From<&str> for ReadStatus {
     fn from(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "reading" => ReadStatus::Reading,
-            "read" => ReadStatus::Read,
-            _ => ReadStatus::Unread,
+            "reading" => Self::Reading,
+            "read" => Self::Read,
+            _ => Self::Unread,
         }
     }
 }
@@ -85,17 +82,11 @@ pub struct Article {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ArticleStore {
     pub articles: std::collections::BTreeMap<String, Article>,
 }
 
-impl Default for ArticleStore {
-    fn default() -> Self {
-        Self {
-            articles: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct ArticleRow {

@@ -21,17 +21,11 @@ pub struct Movie {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MovieStore {
     pub movies: BTreeMap<String, Movie>,
 }
 
-impl Default for MovieStore {
-    fn default() -> Self {
-        Self {
-            movies: BTreeMap::new(),
-        }
-    }
-}
 
 impl MovieStore {
     pub fn add_entry(&mut self, movie: Movie) {
@@ -117,10 +111,10 @@ impl MovieRow {
     pub fn from_movie(movie: &Movie) -> Self {
         Self {
             name: movie.name.clone(),
-            year: movie.year.map(|y| y.to_string()).unwrap_or_else(|| "-".to_string()),
+            year: movie.year.map_or_else(|| "-".to_string(), |y| y.to_string()),
             director: movie.director.clone().unwrap_or_else(|| "-".to_string()),
             watched: if movie.watched { "✓" } else { "-" }.to_string(),
-            rating: movie.rating.map(|r| format!("{:.1}", r)).unwrap_or_else(|| "-".to_string()),
+            rating: movie.rating.map_or_else(|| "-".to_string(), |r| format!("{r:.1}")),
             tags: if movie.tags.is_empty() {
                 "-".to_string()
             } else {

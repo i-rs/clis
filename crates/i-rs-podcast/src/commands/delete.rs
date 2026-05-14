@@ -7,7 +7,7 @@ pub fn handle_delete(name: String, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.podcasts.remove(&name).is_none() {
-        anyhow::bail!("Podcast '{}' not found", name);
+        anyhow::bail!("Podcast '{name}' not found");
     }
 
     storage::save_store(&store)?;

@@ -16,12 +16,12 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if storage::project_exists(&store, &name) {
-        anyhow::bail!("Project '{}' already exists", name);
+        anyhow::bail!("Project '{name}' already exists");
     }
 
     let status = match status.as_deref() {
         Some("active") => ProjectStatus::Active,
-        Some("onhold") | Some("on_hold") => ProjectStatus::OnHold,
+        Some("onhold" | "on_hold") => ProjectStatus::OnHold,
         Some("completed") => ProjectStatus::Completed,
         Some("cancelled") => ProjectStatus::Cancelled,
         None => ProjectStatus::Active,

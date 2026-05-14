@@ -12,7 +12,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     let record = match store.get_entry(&date) {
         Some(r) => r,
         None => {
-            anyhow::bail!("No record found for {}", date);
+            anyhow::bail!("No record found for {date}");
         }
     };
 
@@ -41,7 +41,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     }
 
     println!();
-    println!("{}", "Date:".dimmed(),);
+    println!("{}", "Date:".dimmed());
     println!("  {}", record.date.format("%Y-%m-%d").cyan());
     println!();
     println!("{}", "Height:".dimmed());
@@ -55,14 +55,14 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
         println!();
         println!("{}", "Tags:".dimmed());
         for tag in &record.tags {
-            println!("  {}", format!("#{}", tag).green());
+            println!("  {}", format!("#{tag}").green());
         }
     }
     if !record.remark.is_empty() {
         println!();
         println!("{}", "Remark:".dimmed());
         for r in &record.remark {
-            println!("  {}", r);
+            println!("  {r}");
         }
     }
     println!();

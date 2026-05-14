@@ -13,9 +13,7 @@ pub fn handle_add(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let parsed_date = date
-        .map(|d| chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d").unwrap_or_else(|_| chrono::Utc::now().date_naive()))
-        .unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let parsed_date = date.map_or_else(|| chrono::Utc::now().date_naive(), |d| chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d").unwrap_or_else(|_| chrono::Utc::now().date_naive()));
 
     let entry = CalEntry::new(food_name.clone(), calories, tag, remark, parsed_date);
 

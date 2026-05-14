@@ -54,7 +54,7 @@ pub fn format_car_detail(detail: &CarDetail) -> String {
     if !detail.remark.is_empty() {
         lines.push(format!("{}:", "Remarks".cyan().bold()));
         for r in &detail.remark {
-            lines.push(format!("  - {}", r));
+            lines.push(format!("  - {r}"));
         }
     }
 

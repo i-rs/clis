@@ -50,7 +50,7 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
     }
 
     let table = format_run_table(&records_ref);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_run_count(records_ref.len());
 

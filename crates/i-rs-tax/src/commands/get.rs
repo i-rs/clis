@@ -33,7 +33,7 @@ pub fn execute(args: &GetArgs) -> anyhow::Result<()> {
         });
         let format = if args.json { OutputFormat::Json } else { OutputFormat::Default };
         let output = output_item(&data, format);
-        println!("{}", output);
+        println!("{output}");
     } else {
         println!("\n{} {}\n", "税务记录:".cyan().bold(), entry.name.green());
         println!("{} {}", "  税种:".dimmed(), entry.tax_type);

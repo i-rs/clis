@@ -12,8 +12,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
                 }));
-            } else {
-            }
+            } 
             anyhow::bail!("Budget not found");
         }
         storage::save_store(&store)?;
@@ -24,7 +23,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
                 "data": { "message": format!("Budget for '{}' deleted", cat) }
             }));
         } else {
-            print_success(&format!("Deleted budget for '{}'", cat));
+            print_success(&format!("Deleted budget for '{cat}'"));
         }
     } else if let Some(id) = expense_id {
         if store.expenses.remove(&id).is_none() {
@@ -33,8 +32,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
                 }));
-            } else {
-            }
+            } 
             anyhow::bail!("Expense not found");
         }
         storage::save_store(&store)?;
@@ -45,7 +43,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
                 "data": { "message": format!("Expense '{}' deleted", id) }
             }));
         } else {
-            print_success(&format!("Deleted expense '{}'", id));
+            print_success(&format!("Deleted expense '{id}'"));
         }
     } else {
         if matches!(format, OutputFormat::Json) {

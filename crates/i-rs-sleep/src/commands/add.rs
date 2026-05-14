@@ -9,7 +9,7 @@ pub fn handle_add(bedtime_str: String, wake_time_str: String, quality: i32, tags
     let bedtime = parse_time(&bedtime_str)?;
     let wake_time = parse_time(&wake_time_str)?;
 
-    if quality < 1 || quality > 5 {
+    if !(1..=5).contains(&quality) {
         anyhow::bail!("Quality must be between 1 and 5");
     }
 
@@ -18,7 +18,7 @@ pub fn handle_add(bedtime_str: String, wake_time_str: String, quality: i32, tags
 
     print_header("Sleep Record Created");
     println!("{} {}", "ID:".style(owo_colors::Style::new().bold()), record.id);
-    println!("{} {}h", "Duration:".style(owo_colors::Style::new().bold()), format!("{:.1}", record.duration_hours()));
+    println!("{} {:.1}h", "Duration:".style(owo_colors::Style::new().bold()), record.duration_hours());
     println!("{} {}", "Quality:".style(owo_colors::Style::new().bold()), record.quality_label());
     print_success("Sleep record created successfully");
 

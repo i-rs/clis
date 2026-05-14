@@ -16,14 +16,14 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(car_name) = &args.car {
         if !store.cars.contains_key(car_name) {
-            anyhow::bail!("Car '{}' not found", car_name);
+            anyhow::bail!("Car '{car_name}' not found");
         }
 
         let fuel_count = store.get_fuel_records(Some(car_name)).len();
         let maintenance_count = store.get_maintenance_records(Some(car_name)).len();
         let total_fuel_cost = store.total_fuel_cost(Some(car_name));
         let total_maintenance_cost = store.total_maintenance_cost(Some(car_name));
-        let latest_mileage = store.get_car(car_name).map(|c| c.mileage).unwrap_or(0.0);
+        let latest_mileage = store.get_car(car_name).map_or(0.0, |c| c.mileage);
 
         let car_stats = CarStats {
             fuel_count,
@@ -44,7 +44,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
                 "latest_mileage": car_stats.latest_mileage
             }), output_format));
         } else {
-            println!("=== {} Statistics ===", car_name);
+            println!("=== {car_name} Statistics ===");
             println!("Mileage: {:.0} km", car_stats.latest_mileage);
             println!("Fuel Records: {}", car_stats.fuel_count);
             println!("Total Fuel Cost: {:.2}", car_stats.total_fuel_cost);

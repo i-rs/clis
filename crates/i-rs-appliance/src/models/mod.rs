@@ -35,7 +35,7 @@ pub struct Appliance {
 
 impl Appliance {
     pub fn expiry_date(&self) -> NaiveDate {
-        self.purchase_date.date_naive() + Duration::days(365 * self.lifespan_years as i64)
+        self.purchase_date.date_naive() + Duration::days(365 * i64::from(self.lifespan_years))
     }
 
     pub fn days_until_expiry(&self) -> i64 {
@@ -48,22 +48,16 @@ impl Appliance {
 
     pub fn needs_replacement_soon(&self) -> bool {
         let days = self.days_until_expiry();
-        days >= 0 && days <= 90
+        (0..=90).contains(&days)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ApplianceStore {
     pub appliances: BTreeMap<String, Appliance>,
 }
 
-impl Default for ApplianceStore {
-    fn default() -> Self {
-        Self {
-            appliances: BTreeMap::new(),
-        }
-    }
-}
 
 impl ApplianceStore {
     pub fn add_entry(&mut self, appliance: Appliance) {

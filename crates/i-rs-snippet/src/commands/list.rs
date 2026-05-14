@@ -45,7 +45,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&snippets);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_snippet_count(snippets.len());
 

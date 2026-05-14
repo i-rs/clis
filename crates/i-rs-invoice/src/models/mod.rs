@@ -32,8 +32,8 @@ pub enum InvoiceType {
 impl std::fmt::Display for InvoiceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InvoiceType::Electronic => write!(f, "electronic"),
-            InvoiceType::Paper => write!(f, "paper"),
+            Self::Electronic => write!(f, "electronic"),
+            Self::Paper => write!(f, "paper"),
         }
     }
 }
@@ -43,9 +43,9 @@ impl std::str::FromStr for InvoiceType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "electronic" | "e" => Ok(InvoiceType::Electronic),
-            "paper" | "p" => Ok(InvoiceType::Paper),
-            _ => Err(format!("Invalid invoice type: {}. Use 'electronic' or 'paper'", s)),
+            "electronic" | "e" => Ok(Self::Electronic),
+            "paper" | "p" => Ok(Self::Paper),
+            _ => Err(format!("Invalid invoice type: {s}. Use 'electronic' or 'paper'")),
         }
     }
 }
@@ -93,5 +93,5 @@ pub fn filter_by_tag<'a>(store: &'a InvoiceStore, tag: &str) -> Vec<&'a Invoice>
 }
 
 pub fn parse_date(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
-    Ok(i_rs_core::parse_datetime(date_str)?)
+    i_rs_core::parse_datetime(date_str)
 }

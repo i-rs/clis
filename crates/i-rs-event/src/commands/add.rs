@@ -37,7 +37,7 @@ pub fn run(args: &AddArgs, json: bool) -> Result<()> {
 
     let event_type: EventType = args.event_type.parse().map_err(|e: String| {
         print_error(&e);
-        anyhow::anyhow!("{}", e)
+        anyhow::anyhow!("{e}")
     })?;
 
     let date = parse_date(&args.date)?;
@@ -104,5 +104,5 @@ fn parse_date(date_str: &str) -> Result<DateTime<Utc>> {
         }
     }
 
-    Err(anyhow::anyhow!("Invalid date format: {}", date_str))
+    Err(anyhow::anyhow!("Invalid date format: {date_str}"))
 }

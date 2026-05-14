@@ -6,7 +6,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !store.investments.contains_key(&name) {
-        anyhow::bail!("Investment '{}' not found", name);
+        anyhow::bail!("Investment '{name}' not found");
     }
 
     storage::remove_investment(&mut store, &name);

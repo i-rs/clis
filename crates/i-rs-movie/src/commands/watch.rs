@@ -5,18 +5,17 @@ use chrono::Utc;
 use owo_colors::OwoColorize;
 
 pub fn handle_watch(name: String, rating: Option<f32>, review: Option<Vec<String>>, output_format: OutputFormat) -> Result<()> {
-    if let Some(r) = rating {
-        if !(0.0..=10.0).contains(&r) {
+    if let Some(r) = rating
+        && !(0.0..=10.0).contains(&r) {
             anyhow::bail!("Rating must be between 0 and 10");
         }
-    }
 
     let mut store = storage::load_store()?;
 
     let movie = match store.movies.get_mut(&name) {
         Some(m) => m,
         None => {
-            anyhow::bail!("Movie '{}' not found", name);
+            anyhow::bail!("Movie '{name}' not found");
         }
     };
 
@@ -39,7 +38,7 @@ pub fn handle_watch(name: String, rating: Option<f32>, review: Option<Vec<String
         }));
     } else {
         let rating_str = if let Some(r) = rating {
-            format!(" (Rating: {:.1}/10)", r)
+            format!(" (Rating: {r:.1}/10)")
         } else {
             String::new()
         };

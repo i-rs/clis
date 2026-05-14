@@ -30,7 +30,7 @@ impl HasTags for TimeEntry {
 }
 
 impl TimeEntry {
-    pub fn is_running(&self) -> bool {
+    pub const fn is_running(&self) -> bool {
         self.end_time.is_none()
     }
 
@@ -55,19 +55,12 @@ impl TimeEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct TimeStore {
     pub entries: BTreeMap<String, TimeEntry>,
     pub active_entry_id: Option<String>,
 }
 
-impl Default for TimeStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-            active_entry_id: None,
-        }
-    }
-}
 
 impl TimeStore {
     pub fn add_entry(&mut self, entry: TimeEntry) {
@@ -160,9 +153,7 @@ impl TimeEntryRow {
             name: entry.name.clone(),
             start_time: entry.start_time.format("%Y-%m-%d %H:%M").to_string(),
             end_time: entry
-                .end_time
-                .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
-                .unwrap_or_else(|| "Running...".to_string()),
+                .end_time.map_or_else(|| "Running...".to_string(), |t| t.format("%Y-%m-%d %H:%M").to_string()),
             duration,
             tags: if entry.tags.is_empty() {
                 "-".to_string()

@@ -53,7 +53,7 @@ pub fn handle_list(tag: Option<String>, gift_type: Option<String>, format: Outpu
     }
 
     let table = format_table(&gifts);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_gift_count(gifts.len());
 

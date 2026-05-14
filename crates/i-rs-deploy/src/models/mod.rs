@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tabled::Tabled;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, clap::ValueEnum)]
 pub enum DeployStatus {
     #[value(name = "success")]
     Success,
@@ -18,10 +18,10 @@ pub enum DeployStatus {
 impl std::fmt::Display for DeployStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DeployStatus::Success => write!(f, "success"),
-            DeployStatus::Failed => write!(f, "failed"),
-            DeployStatus::RollingBack => write!(f, "rolling_back"),
-            DeployStatus::RolledBack => write!(f, "rolled_back"),
+            Self::Success => write!(f, "success"),
+            Self::Failed => write!(f, "failed"),
+            Self::RollingBack => write!(f, "rolling_back"),
+            Self::RolledBack => write!(f, "rolled_back"),
         }
     }
 }
@@ -48,17 +48,11 @@ pub struct DeployRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct DeployStore {
     pub entries: BTreeMap<String, DeployRecord>,
 }
 
-impl Default for DeployStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl DeployStore {
     pub fn add_entry(&mut self, entry: DeployRecord) {

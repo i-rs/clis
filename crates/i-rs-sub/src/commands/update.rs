@@ -5,6 +5,7 @@ use chrono::Utc;
 use owo_colors::OwoColorize;
 use i_rs_core::parse_datetime;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     name: String,
     amount: Option<f64>,
@@ -19,7 +20,7 @@ pub fn handle_update(
     let entry = match storage::get_entry_mut(&mut store, &name) {
         Some(e) => e,
         None => {
-            anyhow::bail!("Subscription '{}' not found", name);
+            anyhow::bail!("Subscription '{name}' not found");
         }
     };
 

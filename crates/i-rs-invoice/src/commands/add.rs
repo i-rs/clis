@@ -46,8 +46,8 @@ pub fn run_add(args: AddArgs) -> Result<()> {
     let invoice_type: InvoiceType = match args.invoice_type.parse() {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("{}", format!("Error: {}", e).red());
-            anyhow::bail!("{}", e);
+            eprintln!("{}", format!("Error: {e}").red());
+            anyhow::bail!("{e}");
         }
     };
 

@@ -10,7 +10,7 @@ pub fn handle_delete(date: String) -> Result<()> {
     let parsed_date = parse_date(&date)?;
 
     if storage::remove_entry(&mut store, &parsed_date).is_none() {
-        anyhow::bail!("No record for {}", date);
+        anyhow::bail!("No record for {date}");
     }
 
     storage::save_store(&store)?;

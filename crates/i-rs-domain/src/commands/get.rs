@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let domain = match storage::get_domain(&store, &name) {
-        Some(d) => d,
-        None => {
-            let msg = format!("Domain '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let domain = if let Some(d) = storage::get_domain(&store, &name) { d } else {
+        let msg = format!("Domain '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -71,7 +67,7 @@ pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Re
     } else if days <= 30 {
         format!("{} ({} days left)", "EXPIRING SOON".yellow().bold(), days)
     } else {
-        format!("{} days left", days)
+        format!("{days} days left")
     };
     println!("{:16} {}", "Status:".style(style), status);
 
@@ -84,14 +80,14 @@ pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Re
             if show_password {
                 println!("{:16} {}", "Password:".style(style), pwd.red());
             } else {
-                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed().to_string());
+                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed());
             }
         }
         Ok(None) => {
-            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed().to_string());
+            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed());
         }
         Err(e) => {
-            println!("{:16} {}", "Password:".style(style), format!("(error: {})", e).red());
+            println!("{:16} {}", "Password:".style(style), format!("(error: {e})").red());
         }
     }
 

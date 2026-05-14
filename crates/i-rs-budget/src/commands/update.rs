@@ -14,18 +14,14 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let budget = match store.budgets.get_mut(&category) {
-        Some(b) => b,
-        None => {
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", serde_json::json!({
-                    "success": false,
-                    "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", category) }
-                }));
-            } else {
-            }
-            anyhow::bail!("Budget not found");
-        }
+    let budget = if let Some(b) = store.budgets.get_mut(&category) { b } else {
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", serde_json::json!({
+                "success": false,
+                "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", category) }
+            }));
+        } 
+        anyhow::bail!("Budget not found");
     };
 
     if let Some(a) = amount {
@@ -44,8 +40,7 @@ pub fn handle_update(
                         "success": false,
                         "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
                     }));
-                } else {
-                }
+                } 
                 anyhow::bail!("Invalid period");
             }
         };
@@ -91,7 +86,7 @@ pub fn handle_update(
             }
         }));
     } else {
-        print_success(&format!("Updated budget for '{}'", category));
+        print_success(&format!("Updated budget for '{category}'"));
     }
 
     Ok(())

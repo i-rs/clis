@@ -26,7 +26,7 @@ pub fn add_sleep(store: &mut SleepStore, bedtime: DateTime<Utc>, wake_time: Date
 
 pub fn delete_sleep(store: &mut SleepStore, id: &str) -> Result<SleepRecord> {
     store.remove_entry(id)
-        .ok_or_else(|| anyhow::anyhow!("Sleep record '{}' not found", id))
+        .ok_or_else(|| anyhow::anyhow!("Sleep record '{id}' not found"))
 }
 
 pub fn update_sleep(
@@ -39,7 +39,7 @@ pub fn update_sleep(
     remark: Option<Vec<String>>,
 ) -> Result<SleepRecord> {
     let record = store.get_entry_mut(id)
-        .ok_or_else(|| anyhow::anyhow!("Sleep record '{}' not found", id))?;
+        .ok_or_else(|| anyhow::anyhow!("Sleep record '{id}' not found"))?;
     
     if let Some(b) = bedtime {
         record.bedtime = b;

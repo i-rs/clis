@@ -20,17 +20,11 @@ pub struct Bookmark {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct BookmarkStore {
     pub bookmarks: std::collections::BTreeMap<String, Bookmark>,
 }
 
-impl Default for BookmarkStore {
-    fn default() -> Self {
-        Self {
-            bookmarks: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct BookmarkRow {

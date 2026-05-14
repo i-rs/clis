@@ -30,24 +30,22 @@ pub struct Args {
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    if let Some(new_name) = &args.rename {
-        if new_name != &args.name && store.debts.contains_key(new_name) {
-            anyhow::bail!("Debt '{}' already exists", new_name);
+    if let Some(new_name) = &args.rename
+        && new_name != &args.name && store.debts.contains_key(new_name) {
+            anyhow::bail!("Debt '{new_name}' already exists");
         }
-    }
 
     {
         if !store.debts.contains_key(&args.name) {
             anyhow::bail!("Debt '{}' not found", args.name);
         }
 
-        if let Some(new_name) = &args.rename {
-            if new_name != &args.name {
+        if let Some(new_name) = &args.rename
+            && new_name != &args.name {
                 let mut old_debt = store.debts.remove(&args.name).expect("contains_key check above guarantees existence");
                 old_debt.name = new_name.clone();
                 store.debts.insert(new_name.clone(), old_debt);
             }
-        }
     }
 
     let final_name = args.rename.clone().unwrap_or_else(|| args.name.clone());
@@ -56,7 +54,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         let debt = match store.debts.get_mut(&final_name) {
             Some(d) => d,
             None => {
-                anyhow::bail!("Debt '{}' not found", final_name);
+                anyhow::bail!("Debt '{final_name}' not found");
             }
         };
 
@@ -74,7 +72,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         }
 
         if let Some(rate) = args.interest_rate {
-            if rate < 0.0 || rate > 100.0 {
+            if !(0.0..=100.0).contains(&rate) {
                 anyhow::bail!("Interest rate must be between 0 and 100");
             }
             debt.interest_rate = Some(rate);
@@ -120,9 +118,9 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {
-        println!("{{\"success\": true, \"data\": {{\"name\": \"{}\"}}}}", final_name);
+        println!("{{\"success\": true, \"data\": {{\"name\": \"{final_name}\"}}}}");
     } else {
-        print_success(&format!("Debt '{}' updated successfully", final_name));
+        print_success(&format!("Debt '{final_name}' updated successfully"));
     }
 
     Ok(())

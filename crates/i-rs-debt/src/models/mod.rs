@@ -13,9 +13,9 @@ pub enum DebtType {
 impl std::fmt::Display for DebtType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DebtType::CreditCard => write!(f, "credit_card"),
-            DebtType::Loan => write!(f, "loan"),
-            DebtType::Borrowed => write!(f, "borrowed"),
+            Self::CreditCard => write!(f, "credit_card"),
+            Self::Loan => write!(f, "loan"),
+            Self::Borrowed => write!(f, "borrowed"),
         }
     }
 }
@@ -25,10 +25,10 @@ impl std::str::FromStr for DebtType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "credit_card" | "creditcard" | "cc" => Ok(DebtType::CreditCard),
-            "loan" | "l" => Ok(DebtType::Loan),
-            "borrowed" | "b" => Ok(DebtType::Borrowed),
-            _ => Err(format!("Invalid debt type: {}", s)),
+            "credit_card" | "creditcard" | "cc" => Ok(Self::CreditCard),
+            "loan" | "l" => Ok(Self::Loan),
+            "borrowed" | "b" => Ok(Self::Borrowed),
+            _ => Err(format!("Invalid debt type: {s}")),
         }
     }
 }
@@ -119,28 +119,21 @@ impl Debt {
     }
 
     pub fn days_overdue(&self) -> Option<i64> {
-        if self.is_overdue() {
-            if let Some(due) = self.due_date {
+        if self.is_overdue()
+            && let Some(due) = self.due_date {
                 return Some((Utc::now() - due).num_days());
             }
-        }
         None
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Store {
     #[serde(default)]
     pub debts: std::collections::BTreeMap<String, Debt>,
 }
 
-impl Default for Store {
-    fn default() -> Self {
-        Self {
-            debts: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Tabled)]
 pub struct DebtRow {
@@ -159,7 +152,7 @@ impl DebtRow {
         use owo_colors::OwoColorize;
 
         let progress = debt.progress_percentage();
-        let progress_str = format!("{:.1}%", progress);
+        let progress_str = format!("{progress:.1}%");
 
         let progress_colored = if debt.is_overdue() {
             progress_str.red().to_string()

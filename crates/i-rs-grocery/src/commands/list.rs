@@ -13,7 +13,7 @@ pub fn handle_list(tag: Option<String>, purchased: Option<bool>, format: OutputF
     };
 
     if let Some(p) = purchased {
-        items = items.into_iter().filter(|item| item.purchased == p).collect();
+        items.retain(|item| item.purchased == p);
     }
 
     if format == OutputFormat::Json {

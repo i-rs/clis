@@ -14,13 +14,13 @@ pub fn handle_random() -> Result<()> {
     }
 
     use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hash, Hasher};
+    use std::hash::BuildHasher;
 
     let random_index = {
         let rs = RandomState::new();
-        let mut hasher = rs.build_hasher();
-        std::time::SystemTime::now().hash(&mut hasher);
-        (hasher.finish() as usize) % quotes.len()
+        
+        
+        (rs.hash_one(std::time::SystemTime::now()) as usize) % quotes.len()
     };
 
     let quote = quotes[random_index];

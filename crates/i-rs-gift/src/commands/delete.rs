@@ -12,7 +12,7 @@ pub fn handle_delete(name: String) -> Result<()> {
             print_success(&format!("✓ Gift '{}' deleted successfully", name.green()));
         }
         None => {
-            anyhow::bail!("Gift '{}' not found", name);
+            anyhow::bail!("Gift '{name}' not found");
         }
     }
 

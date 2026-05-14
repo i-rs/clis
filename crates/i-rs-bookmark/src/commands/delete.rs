@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_bookmark(&mut store, &name).is_none() {
-        anyhow::bail!("Bookmark '{}' not found", name);
+        anyhow::bail!("Bookmark '{name}' not found");
     }
 
     storage::delete_password(&name)?;

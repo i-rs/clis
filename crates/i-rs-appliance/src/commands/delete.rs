@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.get_by_name(&name).is_none() {
-        anyhow::bail!("Appliance '{}' not found", name);
+        anyhow::bail!("Appliance '{name}' not found");
     }
 
     store.remove_appliance_by_name(&name);

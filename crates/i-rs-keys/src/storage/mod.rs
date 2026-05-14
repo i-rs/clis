@@ -32,10 +32,10 @@ pub fn get_entry_mut<'a>(store: &'a mut KeyStore, name: &str) -> Option<&'a mut 
 
 pub fn store_key(name: &str, key: &str) -> Result<()> {
     let entry = Entry::new(SERVICE_NAME, name)
-        .map_err(|e| anyhow::anyhow!("Failed to create keyring entry: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create keyring entry: {e}"))?;
     entry
         .set_password(key)
-        .map_err(|e| anyhow::anyhow!("Failed to store key: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to store key: {e}"))?;
     Ok(())
 }
 
@@ -44,11 +44,11 @@ pub fn get_key(name: &str) -> Result<Option<String>> {
         Ok(entry) => match entry.get_password() {
             Ok(key) => Ok(Some(key)),
             Err(e) => {
-                let err_str = format!("{}", e);
+                let err_str = format!("{e}");
                 if err_str.contains("NoEntry") || err_str.contains("not found") {
                     Ok(None)
                 } else {
-                    Err(anyhow::anyhow!("Failed to get key: {}", e))
+                    Err(anyhow::anyhow!("Failed to get key: {e}"))
                 }
             }
         },
@@ -57,11 +57,8 @@ pub fn get_key(name: &str) -> Result<Option<String>> {
 }
 
 pub fn delete_key(name: &str) -> Result<()> {
-    match Entry::new(SERVICE_NAME, name) {
-        Ok(entry) => {
-            let _ = entry.delete_credential();
-        }
-        Err(_) => {}
+    if let Ok(entry) = Entry::new(SERVICE_NAME, name) {
+        let _ = entry.delete_credential();
     }
     Ok(())
 }

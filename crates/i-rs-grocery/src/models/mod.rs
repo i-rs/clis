@@ -27,17 +27,11 @@ impl HasTags for GroceryItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct GroceryStore {
     pub entries: BTreeMap<String, GroceryItem>,
 }
 
-impl Default for GroceryStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl GroceryStore {
     pub fn add_entry(&mut self, entry: GroceryItem) {

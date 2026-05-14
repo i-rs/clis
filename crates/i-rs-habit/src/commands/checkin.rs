@@ -11,7 +11,7 @@ pub fn handle_checkin(name: String) -> anyhow::Result<()> {
     print_header("Habit Checkin");
     println!("{} {}", "Name:".style(owo_colors::Style::new().bold()), name);
     println!("{} {}", "Checkins:".style(owo_colors::Style::new().bold()), habit.checkins.len());
-    print_success(&format!("Checked in for habit '{}'!", name));
+    print_success(&format!("Checked in for habit '{name}'!"));
 
     Ok(())
 }

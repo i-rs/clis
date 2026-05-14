@@ -18,17 +18,11 @@ pub struct Quote {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct QuoteStore {
     pub quotes: std::collections::BTreeMap<String, Quote>,
 }
 
-impl Default for QuoteStore {
-    fn default() -> Self {
-        Self {
-            quotes: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct QuoteRow {

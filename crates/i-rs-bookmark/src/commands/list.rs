@@ -43,7 +43,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&bookmarks);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_bookmark_count(bookmarks.len());
 

@@ -22,7 +22,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.records.contains_key(&name) {
-        anyhow::bail!("Exercise '{}' already exists", name);
+        anyhow::bail!("Exercise '{name}' already exists");
     }
 
     let now = Utc::now();

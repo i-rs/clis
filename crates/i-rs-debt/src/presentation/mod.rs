@@ -25,11 +25,10 @@ pub fn format_debt_detail(debt: &Debt) -> String {
         lines.push(format!("{}: {}", "Due Date".cyan().bold(), due));
     }
     lines.push(format!("{}: {:.1}%", "Progress".cyan().bold(), detail.progress));
-    if detail.is_overdue {
-        if let Some(days) = detail.days_overdue {
+    if detail.is_overdue
+        && let Some(days) = detail.days_overdue {
             lines.push(format!("{}: {} days", "Overdue".red().bold(), days));
         }
-    }
     lines.push(format!("{}: {}", "Payments".cyan().bold(), detail.payment_count));
     if !detail.tags.is_empty() {
         lines.push(format!("{}: {}", "Tags".cyan().bold(), detail.tags.join(", ")));
@@ -37,7 +36,7 @@ pub fn format_debt_detail(debt: &Debt) -> String {
     if !detail.remark.is_empty() {
         lines.push(format!("{}:", "Remarks".cyan().bold()));
         for r in &detail.remark {
-            lines.push(format!("  - {}", r));
+            lines.push(format!("  - {r}"));
         }
     }
     lines.push(format!("{}: {}", "Created".cyan().bold(), detail.created_at));

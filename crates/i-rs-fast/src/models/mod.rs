@@ -28,15 +28,11 @@ impl FastEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct FastStore {
     pub entries: BTreeMap<String, FastEntry>,
 }
 
-impl Default for FastStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl FastStore {
     pub fn add_entry(&mut self, entry: FastEntry) {
@@ -66,7 +62,7 @@ pub struct FastRow {
 
 impl FastRow {
     pub fn from_entry(entry: &FastEntry) -> Self {
-        let actual_str = entry.actual_hours.map(|h| format!("{}h", h)).unwrap_or_else(|| "-".to_string());
+        let actual_str = entry.actual_hours.map_or_else(|| "-".to_string(), |h| format!("{h}h"));
         let status = if entry.end_time.is_some() { "DONE" } else { "ACTIVE" };
         Self {
             id: entry.id[..8].to_string(),

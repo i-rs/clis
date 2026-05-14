@@ -23,7 +23,7 @@ pub fn handle_add(
     }
 
     if store.entries.contains_key(&name) {
-        anyhow::bail!("Entry '{}' already exists", name);
+        anyhow::bail!("Entry '{name}' already exists");
     }
 
     let start = parse_datetime(&start_date)?;

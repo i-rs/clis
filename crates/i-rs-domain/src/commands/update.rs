@@ -18,7 +18,7 @@ pub fn handle_update(
     let domain = match storage::get_domain_mut(&mut store, &name) {
         Some(d) => d,
         None => {
-            anyhow::bail!("Domain '{}' not found", name);
+            anyhow::bail!("Domain '{name}' not found");
         }
     };
 

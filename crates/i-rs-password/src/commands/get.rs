@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entry = match storage::get_entry(&store, &name) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Entry '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, &name) { e } else {
+        let msg = format!("Entry '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -68,14 +64,14 @@ pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Re
             if show_password {
                 println!("{:16} {}", "Password:".style(style), pwd.red());
             } else {
-                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed().to_string());
+                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed());
             }
         }
         Ok(None) => {
-            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed().to_string());
+            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed());
         }
         Err(e) => {
-            println!("{:16} {}", "Password:".style(style), format!("(error: {})", e).red());
+            println!("{:16} {}", "Password:".style(style), format!("(error: {e})").red());
         }
     }
 

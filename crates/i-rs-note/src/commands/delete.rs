@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_note(&mut store, &name).is_none() {
-        anyhow::bail!("Note '{}' not found", name);
+        anyhow::bail!("Note '{name}' not found");
     }
 
     storage::save_store(&store)?;

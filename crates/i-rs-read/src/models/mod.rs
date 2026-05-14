@@ -25,27 +25,24 @@ pub struct Book {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum BookStatus {
     Reading,
     Completed,
     Paused,
     Dropped,
     #[serde(rename = "to_read")]
+    #[default]
     ToRead,
 }
 
-impl Default for BookStatus {
-    fn default() -> Self {
-        BookStatus::ToRead
-    }
-}
 
 impl Book {
     pub fn new(name: String, author: String, total_pages: u32) -> Self {
         let now = Utc::now();
-        Book {
+        Self {
             name,
             author,
             total_pages,
@@ -82,16 +79,14 @@ pub struct BookRow {
 
 impl BookRow {
     pub fn from_book(book: &Book) -> Self {
-        BookRow {
+        Self {
             name: book.name.clone(),
             author: book.author.clone(),
             pages: format!("{}/{}", book.current_page, book.total_pages),
             status: format!("{:?}", book.status),
             progress: format!("{:.1}%", book.progress_percentage()),
             rating: book
-                .rating
-                .map(|r| format!("{:.1}", r))
-                .unwrap_or_else(|| "-".to_string()),
+                .rating.map_or_else(|| "-".to_string(), |r| format!("{r:.1}")),
         }
     }
 }

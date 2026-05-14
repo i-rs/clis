@@ -17,7 +17,7 @@ pub fn add_contact(
 ) -> Result<Contact> {
     let now = Utc::now();
     let contact = Contact {
-        name: name.clone(),
+        name,
         phone,
         email,
         relationship,
@@ -35,7 +35,7 @@ pub fn add_contact(
 
 pub fn delete_contact(store: &mut ContactStore, name: &str) -> Result<Contact> {
     store.remove_entry(name)
-        .ok_or_else(|| anyhow::anyhow!("Contact '{}' not found", name))
+        .ok_or_else(|| anyhow::anyhow!("Contact '{name}' not found"))
 }
 
 pub fn update_contact(
@@ -48,7 +48,7 @@ pub fn update_contact(
     remark: Option<Vec<String>>,
 ) -> Result<Contact> {
     let contact = store.get_entry_mut(name)
-        .ok_or_else(|| anyhow::anyhow!("Contact '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Contact '{name}' not found"))?;
     
     if let Some(p) = phone {
         contact.phone = p;
@@ -72,7 +72,7 @@ pub fn update_contact(
 
 pub fn record_contact(store: &mut ContactStore, name: &str) -> Result<Contact> {
     let contact = store.get_entry_mut(name)
-        .ok_or_else(|| anyhow::anyhow!("Contact '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Contact '{name}' not found"))?;
     
     let now = Utc::now();
     contact.last_contact = Some(now);

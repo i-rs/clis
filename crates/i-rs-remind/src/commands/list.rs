@@ -49,7 +49,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&reminds);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_remind_count(reminds.len());
 

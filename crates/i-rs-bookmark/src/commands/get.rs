@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let bookmark = match storage::get_bookmark(&store, &name) {
-        Some(b) => b,
-        None => {
-            let msg = format!("Bookmark '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let bookmark = if let Some(b) = storage::get_bookmark(&store, &name) { b } else {
+        let msg = format!("Bookmark '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -68,14 +64,14 @@ pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Re
             if show_password {
                 println!("{:16} {}", "Password:".style(style), pwd.red());
             } else {
-                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed().to_string());
+                println!("{:16} {}", "Password:".style(style), "(stored in keychain)".dimmed());
             }
         }
         Ok(None) => {
-            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed().to_string());
+            println!("{:16} {}", "Password:".style(style), "(not set)".dimmed());
         }
         Err(e) => {
-            println!("{:16} {}", "Password:".style(style), format!("(error: {})", e).red());
+            println!("{:16} {}", "Password:".style(style), format!("(error: {e})").red());
         }
     }
 

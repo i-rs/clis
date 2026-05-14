@@ -33,7 +33,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if let Some(ref rename_str) = args.rename {
         if store.cars.contains_key(rename_str) {
-            anyhow::bail!("Car '{}' already exists", rename_str);
+            anyhow::bail!("Car '{rename_str}' already exists");
         }
 
         for record in &mut store.fuel_records {
@@ -112,9 +112,9 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {
-        println!("{{\"success\": true, \"data\": {{\"name\": \"{}\"}}}}", final_name);
+        println!("{{\"success\": true, \"data\": {{\"name\": \"{final_name}\"}}}}");
     } else {
-        print_success(&format!("Car '{}' updated successfully", final_name));
+        print_success(&format!("Car '{final_name}' updated successfully"));
     }
 
     Ok(())

@@ -18,17 +18,16 @@ pub fn handle_delete(id_or_date: String) -> Result<()> {
 }
 
 fn find_and_remove(store: &mut crate::models::CyclingStore, id_or_date: &str) -> Result<String, anyhow::Error> {
-    if let Ok(uuid) = Uuid::parse_str(id_or_date) {
-        if store.remove_entry(&uuid).is_some() {
+    if let Ok(uuid) = Uuid::parse_str(id_or_date)
+        && store.remove_entry(&uuid).is_some() {
             return Ok(id_or_date.to_string());
         }
-    }
 
     let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
     for format in &formats {
         if let Ok(date) = NaiveDate::parse_from_str(id_or_date, format) {
             let mut found_id: Option<String> = None;
-            for (id, record) in store.records.iter() {
+            for (id, record) in &store.records {
                 if record.date == date {
                     found_id = Some(id.to_string());
                     break;
@@ -41,5 +40,5 @@ fn find_and_remove(store: &mut crate::models::CyclingStore, id_or_date: &str) ->
         }
     }
 
-    anyhow::bail!("Record '{}' not found", id_or_date)
+    anyhow::bail!("Record '{id_or_date}' not found")
 }

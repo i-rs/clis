@@ -18,7 +18,7 @@ pub fn handle_update(
     let server = match storage::get_server_mut(&mut store, &name) {
         Some(s) => s,
         None => {
-            anyhow::bail!("Server '{}' not found", name);
+            anyhow::bail!("Server '{name}' not found");
         }
     };
 

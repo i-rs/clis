@@ -7,6 +7,7 @@ use i_rs_core::validate_name;
 use owo_colors::OwoColorize;
 use i_rs_core::parse_datetime;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     name: String,
     amount: f64,
@@ -24,7 +25,7 @@ pub fn handle_add(
     }
 
     if store.entries.contains_key(&name) {
-        anyhow::bail!("Subscription '{}' already exists", name);
+        anyhow::bail!("Subscription '{name}' already exists");
     }
 
     let start = parse_datetime(&start_date)?;
@@ -66,7 +67,7 @@ fn calculate_next_billing(start: &DateTime<Utc>, cycle: &str) -> DateTime<Utc> {
         _ => 30,
     };
     while next < now {
-        next = next + chrono::Duration::days(days);
+        next += chrono::Duration::days(days);
     }
     next
 }

@@ -18,22 +18,22 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
         return;
     }
     let title = match days {
-        Some(d) => format!("Height Trend (Last {} days)", d),
+        Some(d) => format!("Height Trend (Last {d} days)"),
         None => "Height Trend (All Time)".to_string(),
     };
     println!("\n{}", title.bold().cyan());
     println!("{}", "─".repeat(40).dimmed());
     let heights: Vec<f64> = records.iter().map(|r| r.height_cm).collect();
-    let min_h = heights.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max_h = heights.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min_h = heights.iter().copied().fold(f64::INFINITY, f64::min);
+    let max_h = heights.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     if (max_h - min_h).abs() < 0.1 {
         let avg = heights.iter().sum::<f64>() / heights.len() as f64;
-        println!(" {:.1} ────────────────── {:.1}", avg, avg);
+        println!(" {avg:.1} ────────────────── {avg:.1}");
         println!("      │");
         println!("  ────┼────");
         println!("      │");
-        println!(" {:.1} ────────────────── {:.1}", avg, avg);
-        println!("\n  All values around {:.1} cm", avg);
+        println!(" {avg:.1} ────────────────── {avg:.1}");
+        println!("\n  All values around {avg:.1} cm");
         return;
     }
     let chart_height = 8;
@@ -56,7 +56,9 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
         if i > 0 {
             let prev_y = chart_height - 1 - scale(heights[i - 1]);
             let curr_y = chart_height - 1 - scale(h);
-            if prev_y != curr_y {
+            if prev_y == curr_y {
+                chart[prev_y][i] = "─".dimmed().to_string();
+            } else {
                 let (lo, hi) = if prev_y < curr_y {
                     (prev_y, curr_y)
                 } else {
@@ -67,8 +69,6 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
                         chart[y][i] = "│".dimmed().to_string();
                     }
                 }
-            } else {
-                chart[prev_y][i] = "─".dimmed().to_string();
             }
         }
     }
@@ -76,12 +76,12 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
         .rev()
         .map(|i| {
             let h = min_h + (range * i as f64 / chart_height as f64);
-            format!("{:.1}", h)
+            format!("{h:.1}")
         })
         .collect();
     for (i, row) in chart.iter().enumerate() {
         let label = format!("{:>5}", height_labels[i]);
-        let line: String = row.iter().map(|c| c.as_str()).collect();
+        let line: String = row.iter().map(std::string::String::as_str).collect();
         println!("{} {}", label.dimmed(), line);
     }
     if !records.is_empty() {
@@ -96,8 +96,8 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
         );
     }
     println!("\n  {} → {}", "Start".dimmed(), "End".dimmed());
-    if let Some(first) = records.first() {
-        if let Some(last) = records.last() {
+    if let Some(first) = records.first()
+        && let Some(last) = records.last() {
             let change = last.height_cm - first.height_cm;
             let sign = if change >= 0.0 { "+" } else { "" };
             let direction = if change > 0.0 {
@@ -116,15 +116,14 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
                 direction
             );
         }
-    }
 }
 pub fn print_stats(records: &[&HeightRecord], store: &crate::models::HeightStore) {
     if records.is_empty() {
         return;
     }
     let heights: Vec<f64> = records.iter().map(|r| r.height_cm).collect();
-    let min = heights.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = heights.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min = heights.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = heights.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let avg = heights.iter().sum::<f64>() / heights.len() as f64;
     let change = if records.len() >= 2 {
         Some(records.last().expect("records.len() >= 2 checked above").height_cm - records.first().expect("records.len() >= 2 checked above").height_cm)
@@ -139,12 +138,11 @@ pub fn print_stats(records: &[&HeightRecord], store: &crate::models::HeightStore
         let sign = if change >= 0.0 { "+" } else { "" };
         println!("  {:12} {}{:.1} cm", "Change:".dimmed(), sign, change);
     }
-    if let Some(target) = store.get_target() {
-        if let Some(last) = records.last() {
+    if let Some(target) = store.get_target()
+        && let Some(last) = records.last() {
             let diff = target - last.height_cm;
             let sign = if diff >= 0.0 { "+" } else { "" };
             println!("  {:12} {:.1} cm", "Target:".dimmed(), target);
             println!("  {:12} {}{:.1} cm to target", "Gap:".dimmed(), sign, diff);
         }
-    }
 }

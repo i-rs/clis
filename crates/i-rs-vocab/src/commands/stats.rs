@@ -17,9 +17,9 @@ pub fn handle_stats() -> Result<()> {
 
     println!();
     println!("{}", "By Status:".bold().cyan());
-    println!("  {} {} (🆕)", "New:".dimmed().to_string(), stats.new_count.to_string().yellow());
-    println!("  {} {} (📖)", "Learning:".dimmed().to_string(), stats.learning_count.to_string().blue());
-    println!("  {} {} (✅)", "Mastered:".dimmed().to_string(), stats.mastered_count.to_string().green());
+    println!("  {} {} (🆕)", "New:".dimmed(), stats.new_count.to_string().yellow());
+    println!("  {} {} (📖)", "Learning:".dimmed(), stats.learning_count.to_string().blue());
+    println!("  {} {} (✅)", "Mastered:".dimmed(), stats.mastered_count.to_string().green());
 
     if stats.total > 0 {
         println!();
@@ -28,7 +28,7 @@ pub fn handle_stats() -> Result<()> {
         let bar_width = 30;
         let filled = (mastered_pct / 100.0 * bar_width as f64) as usize;
         let bar: String = "█".repeat(filled) + &"░".repeat(bar_width - filled);
-        println!("  [{}] {:.1}% mastered", bar, mastered_pct);
+        println!("  [{bar}] {mastered_pct:.1}% mastered");
     }
 
     Ok(())

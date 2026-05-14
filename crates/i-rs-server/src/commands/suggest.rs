@@ -10,7 +10,7 @@ pub fn handle_suggest(name: String, command: Option<String>) -> Result<()> {
     let server = match storage::get_server(&store, &name) {
         Some(s) => s,
         None => {
-            anyhow::bail!("Server '{}' not found", name);
+            anyhow::bail!("Server '{name}' not found");
         }
     };
 
@@ -21,8 +21,8 @@ pub fn handle_suggest(name: String, command: Option<String>) -> Result<()> {
 
 fn ssh_cmd(user: &Option<String>, host: &str, port: u16) -> String {
     match user {
-        Some(u) => format!("ssh {}@{} -p {}", u, host, port),
-        None => format!("ssh root@{} -p {}", host, port),
+        Some(u) => format!("ssh {u}@{host} -p {port}"),
+        None => format!("ssh root@{host} -p {port}"),
     }
 }
 
@@ -77,157 +77,157 @@ fn print_suggestions(server: &Server, filter: Option<&str>) {
                 host
             ),
         ),
-        ("disk", "Disk Usage", format!("{} 'df -h'", ssh)),
-        ("disk_inode", "Inode Usage", format!("{} 'df -i'", ssh)),
+        ("disk", "Disk Usage", format!("{ssh} 'df -h'")),
+        ("disk_inode", "Inode Usage", format!("{ssh} 'df -i'")),
         (
             "disk_large",
             "Find Large Directories",
-            format!("{} 'du -sh /* 2>/dev/null | sort -hr | head -20'", ssh),
+            format!("{ssh} 'du -sh /* 2>/dev/null | sort -hr | head -20'"),
         ),
         (
             "cpu",
             "CPU Info & Load",
-            format!("{} 'cat /proc/cpuinfo | grep processor | wc -l && uptime'", ssh),
+            format!("{ssh} 'cat /proc/cpuinfo | grep processor | wc -l && uptime'"),
         ),
-        ("memory", "Memory Usage", format!("{} 'free -h'", ssh)),
+        ("memory", "Memory Usage", format!("{ssh} 'free -h'")),
         (
             "proc_mem",
             "Top Memory Processes",
-            format!("{} 'ps aux --sort=-%mem | head -10'", ssh),
+            format!("{ssh} 'ps aux --sort=-%mem | head -10'"),
         ),
         (
             "proc_cpu",
             "Top CPU Processes",
-            format!("{} 'ps aux --sort=-%cpu | head -10'", ssh),
+            format!("{ssh} 'ps aux --sort=-%cpu | head -10'"),
         ),
-        ("port", "Port Usage (ss)", format!("{} 'ss -tlnp'", ssh)),
+        ("port", "Port Usage (ss)", format!("{ssh} 'ss -tlnp'")),
         (
             "port_netstat",
             "Port Usage (netstat)",
-            format!("{} 'netstat -tlnp'", ssh),
+            format!("{ssh} 'netstat -tlnp'"),
         ),
         (
             "listen_port",
             "Find Process on Port",
-            format!("{} 'lsof -i :{}'", ssh, port),
+            format!("{ssh} 'lsof -i :{port}'"),
         ),
         (
             "connection",
             "Network Connections",
-            format!("{} 'ss -tan'", ssh),
+            format!("{ssh} 'ss -tan'"),
         ),
         (
             "sys_info",
             "System Information",
-            format!("{} 'uname -a && cat /etc/os-release'", ssh),
+            format!("{ssh} 'uname -a && cat /etc/os-release'"),
         ),
-        ("uptime", "System Uptime", format!("{} 'uptime'", ssh)),
-        ("who", "Logged In Users", format!("{} 'who'", ssh)),
-        ("last", "Recent Logins", format!("{} 'last -10'", ssh)),
+        ("uptime", "System Uptime", format!("{ssh} 'uptime'")),
+        ("who", "Logged In Users", format!("{ssh} 'who'")),
+        ("last", "Recent Logins", format!("{ssh} 'last -10'")),
         (
             "service",
             "Running Services",
-            format!("{} 'systemctl list-units --type=service --state=running'", ssh),
+            format!("{ssh} 'systemctl list-units --type=service --state=running'"),
         ),
         (
             "service_status",
             "Check Service Status",
-            format!("{} 'systemctl status nginx'", ssh),
+            format!("{ssh} 'systemctl status nginx'"),
         ),
         (
             "journal",
             "Systemd Journal",
-            format!("{} 'journalctl -xe --no-pager -n 50'", ssh),
+            format!("{ssh} 'journalctl -xe --no-pager -n 50'"),
         ),
-        ("docker_ps", "Docker Containers", format!("{} 'docker ps'", ssh)),
+        ("docker_ps", "Docker Containers", format!("{ssh} 'docker ps'")),
         (
             "docker_psa",
             "All Docker Containers",
-            format!("{} 'docker ps -a'", ssh),
+            format!("{ssh} 'docker ps -a'"),
         ),
         (
             "docker_images",
             "Docker Images",
-            format!("{} 'docker images'", ssh),
+            format!("{ssh} 'docker images'"),
         ),
         (
             "docker_logs",
             "Docker Container Logs",
-            format!("{} 'docker logs --tail 100 container_name'", ssh),
+            format!("{ssh} 'docker logs --tail 100 container_name'"),
         ),
         (
             "docker_stats",
             "Docker Stats",
-            format!("{} 'docker stats --no-stream'", ssh),
+            format!("{ssh} 'docker stats --no-stream'"),
         ),
         (
             "docker_cleanup",
             "Docker Cleanup",
-            format!("{} 'docker system prune -af'", ssh),
+            format!("{ssh} 'docker system prune -af'"),
         ),
         (
             "nginx_access",
             "Nginx Access Log",
-            format!("{} 'tail -100 /var/log/nginx/access.log'", ssh),
+            format!("{ssh} 'tail -100 /var/log/nginx/access.log'"),
         ),
         (
             "nginx_error",
             "Nginx Error Log",
-            format!("{} 'tail -100 /var/log/nginx/error.log'", ssh),
+            format!("{ssh} 'tail -100 /var/log/nginx/error.log'"),
         ),
-        ("syslog", "System Logs", format!("{} 'tail -100 /var/log/syslog'", ssh)),
+        ("syslog", "System Logs", format!("{ssh} 'tail -100 /var/log/syslog'")),
         (
             "auth_log",
             "Auth Logs (Failed Login)",
-            format!("{} 'grep failed /var/log/auth.log | tail -50'", ssh),
+            format!("{ssh} 'grep failed /var/log/auth.log | tail -50'"),
         ),
-        ("cron", "Cron Jobs", format!("{} 'crontab -l'", ssh)),
-        ("sysctl", "Kernel Parameters", format!("{} 'sysctl -a'", ssh)),
-        ("limits", "User Limits", format!("{} 'ulimit -a'", ssh)),
+        ("cron", "Cron Jobs", format!("{ssh} 'crontab -l'")),
+        ("sysctl", "Kernel Parameters", format!("{ssh} 'sysctl -a'")),
+        ("limits", "User Limits", format!("{ssh} 'ulimit -a'")),
         (
             "firewall",
             "Firewall Status (ufw)",
-            format!("{} 'ufw status'", ssh),
+            format!("{ssh} 'ufw status'"),
         ),
         (
             "firewall_iptables",
             "iptables Rules",
-            format!("{} 'iptables -L -n'", ssh),
+            format!("{ssh} 'iptables -L -n'"),
         ),
-        ("mount", "Mount Points", format!("{} 'mount | column -t'", ssh)),
-        ("fstab", "Fstab Config", format!("{} 'cat /etc/fstab'", ssh)),
-        ("dns", "DNS Configuration", format!("{} 'cat /etc/resolv.conf'", ssh)),
-        ("hosts", "Hosts File", format!("{} 'cat /etc/hosts'", ssh)),
+        ("mount", "Mount Points", format!("{ssh} 'mount | column -t'")),
+        ("fstab", "Fstab Config", format!("{ssh} 'cat /etc/fstab'")),
+        ("dns", "DNS Configuration", format!("{ssh} 'cat /etc/resolv.conf'")),
+        ("hosts", "Hosts File", format!("{ssh} 'cat /etc/hosts'")),
         (
             "process_tree",
             "Process Tree",
-            format!("{} 'pstree -p'", ssh),
+            format!("{ssh} 'pstree -p'"),
         ),
         (
             "killed_procs",
             "OOM Killed Processes",
-            format!("{} 'dmesg | grep -i killed | tail -20'", ssh),
+            format!("{ssh} 'dmesg | grep -i killed | tail -20'"),
         ),
         (
             "sysload",
             "System Load (vmstat)",
-            format!("{} 'vmstat 1 5'", ssh),
+            format!("{ssh} 'vmstat 1 5'"),
         ),
-        ("iostat", "IO Statistics", format!("{} 'iostat -xz 1 5'", ssh)),
+        ("iostat", "IO Statistics", format!("{ssh} 'iostat -xz 1 5'")),
         (
             "mpstat",
             "CPU Per-Core Stats",
-            format!("{} 'mpstat -P ALL 1 1'", ssh),
+            format!("{ssh} 'mpstat -P ALL 1 1'"),
         ),
         (
             "sar_net",
             "Network Stats (sar)",
-            format!("{} 'sar -n DEV 1 3'", ssh),
+            format!("{ssh} 'sar -n DEV 1 3'"),
         ),
         (
             "tcpdump",
             "Capture Traffic (sudo)",
-            format!("{} 'sudo tcpdump -i eth0 -c 100'", ssh),
+            format!("{ssh} 'sudo tcpdump -i eth0 -c 100'"),
         ),
     ];
 

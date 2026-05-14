@@ -14,7 +14,7 @@ pub fn handle_update(
     storage::update_contact(&mut store, &name, phone, email, relationship, tags, remark)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Contact '{}' updated successfully", name));
+    print_success(&format!("Contact '{name}' updated successfully"));
 
     Ok(())
 }

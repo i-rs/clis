@@ -20,15 +20,15 @@ pub fn execute(args: &DeleteArgs) -> anyhow::Result<()> {
     storage::remove_entry(&mut store, &args.name);
     storage::save_store(&store)?;
 
-    if !args.json {
-        print_success(&format!("已删除税务记录 '{}'", args.name));
-    } else {
+    if args.json {
         println!("{}", serde_json::json!({
             "success": true,
             "data": {
                 "deleted": args.name
             }
         }));
+    } else {
+        print_success(&format!("已删除税务记录 '{}'", args.name));
     }
 
     Ok(())

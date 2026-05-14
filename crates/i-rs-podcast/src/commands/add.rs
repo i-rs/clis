@@ -22,7 +22,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.podcasts.contains_key(&name) {
-        anyhow::bail!("Podcast '{}' already exists", name);
+        anyhow::bail!("Podcast '{name}' already exists");
     }
 
     let now = Utc::now();

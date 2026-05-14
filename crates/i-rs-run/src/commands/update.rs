@@ -5,6 +5,7 @@ use chrono::Utc;
 use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     id: String,
     date: Option<String>,
@@ -19,7 +20,7 @@ pub fn handle_update(
 
     let record = match store.get_entry_mut(&id) {
         Some(r) => r,
-        None => anyhow::bail!("Record '{}' not found", id),
+        None => anyhow::bail!("Record '{id}' not found"),
     };
 
     if let Some(d) = date {

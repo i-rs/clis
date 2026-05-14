@@ -32,7 +32,7 @@ pub fn execute(args: &UpdateArgs) -> Result<()> {
     };
 
     if let Some(ref t) = args.tax_type {
-        record.tax_type = TaxType::from_str(t).ok_or_else(|| anyhow::anyhow!("无效税种: {}", t))?;
+        record.tax_type = TaxType::from_str(t).ok_or_else(|| anyhow::anyhow!("无效税种: {t}"))?;
     }
     if let Some(a) = args.amount {
         record.amount = a;
@@ -43,7 +43,7 @@ pub fn execute(args: &UpdateArgs) -> Result<()> {
         record.year = record.date.year();
     }
     if let Some(ref s) = args.status {
-        record.status = TaxStatus::from_str(s).ok_or_else(|| anyhow::anyhow!("无效状态: {}", s))?;
+        record.status = TaxStatus::from_str(s).ok_or_else(|| anyhow::anyhow!("无效状态: {s}"))?;
     }
     if let Some(ref t) = args.tag {
         record.tags = t.clone();

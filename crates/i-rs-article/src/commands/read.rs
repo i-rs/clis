@@ -11,7 +11,7 @@ pub fn handle_read(name: String) -> Result<()> {
     let article = match storage::get_article_mut(&mut store, &name) {
         Some(a) => a,
         None => {
-            anyhow::bail!("Article '{}' not found", name);
+            anyhow::bail!("Article '{name}' not found");
         }
     };
 

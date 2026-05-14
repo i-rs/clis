@@ -16,12 +16,9 @@ pub fn update_plant(
 
     let plant_name = name.clone();
     {
-        let plant = match storage::find_plant_mut(&mut store, &name) {
-            Some(p) => p,
-            None => {
-                let error_msg = format!("Plant '{}' not found", name);
-                anyhow::bail!("{}", error_msg);
-            }
+        let plant = if let Some(p) = storage::find_plant_mut(&mut store, &name) { p } else {
+            let error_msg = format!("Plant '{name}' not found");
+            anyhow::bail!("{error_msg}");
         };
 
         if let Some(s) = species {
@@ -63,7 +60,7 @@ pub fn update_plant(
             ));
         }
         OutputFormat::Table | OutputFormat::Default => {
-            print_success(&format!("Plant '{}' updated", plant_name));
+            print_success(&format!("Plant '{plant_name}' updated"));
         }
     }
 

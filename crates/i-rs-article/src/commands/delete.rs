@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if !store.articles.contains_key(&name) {
-        anyhow::bail!("Article '{}' not found", name);
+        anyhow::bail!("Article '{name}' not found");
     }
 
     storage::remove_article(&mut store, &name);

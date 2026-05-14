@@ -34,17 +34,11 @@ impl StepEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct StepStore {
     pub entries: BTreeMap<NaiveDate, StepEntry>,
 }
 
-impl Default for StepStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl StepStore {
     pub fn add_entry(&mut self, entry: StepEntry) {
@@ -90,7 +84,7 @@ impl StepRow {
         Self {
             date: entry.date.format("%Y-%m-%d").to_string(),
             steps: format!("{}", entry.steps),
-            distance: entry.distance.map(|d| format!("{:.1}km", d)).unwrap_or_else(|| "-".to_string()),
+            distance: entry.distance.map_or_else(|| "-".to_string(), |d| format!("{d:.1}km")),
             tags: if entry.tags.is_empty() {
                 "-".to_string()
             } else {

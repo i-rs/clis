@@ -16,7 +16,7 @@ pub fn handle_stats(period: String, format: OutputFormat) -> anyhow::Result<()> 
             return Ok(());
         }
         _ => {
-            anyhow::bail!("Invalid period: {}", period);
+            anyhow::bail!("Invalid period: {period}");
         }
     };
 
@@ -41,7 +41,7 @@ pub fn handle_stats(period: String, format: OutputFormat) -> anyhow::Result<()> 
 }
 
 fn calculate_week_stats(store: &crate::models::TimeStore, today: NaiveDate) -> anyhow::Result<StatsData> {
-    let start_of_week = today - chrono::Duration::days(today.weekday().num_days_from_monday() as i64);
+    let start_of_week = today - chrono::Duration::days(i64::from(today.weekday().num_days_from_monday()));
     let end_of_week = start_of_week + chrono::Duration::days(6);
 
     let entries: Vec<_> = store.get_entries_in_range(start_of_week, end_of_week)

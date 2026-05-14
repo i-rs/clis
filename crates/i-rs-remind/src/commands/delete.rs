@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_remind(&mut store, &name).is_none() {
-        anyhow::bail!("Remind '{}' not found", name);
+        anyhow::bail!("Remind '{name}' not found");
     }
 
     storage::save_store(&store)?;

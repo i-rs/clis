@@ -21,7 +21,7 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
 
     if records.is_empty() {
         if matches!(format, OutputFormat::Json) {
-            let filter = days.map(|d| format!("last {} days", d));
+            let filter = days.map(|d| format!("last {d} days"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
             print_warning("No height records found.");
@@ -49,13 +49,13 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
             remark: r.remark.clone(),
         }).collect();
 
-        let filter = days.map(|d| format!("last {} days", d));
+        let filter = days.map(|d| format!("last {d} days"));
         println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
         return Ok(());
     }
 
     let table = format_table(&records_ref);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_record_count(records_ref.len());
 

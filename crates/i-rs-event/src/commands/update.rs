@@ -43,7 +43,7 @@ pub fn run(args: &UpdateArgs, json: bool) -> Result<()> {
                 "gathering" => EventType::Gathering,
                 "course" => EventType::Course,
                 "other" => EventType::Other,
-                _ => anyhow::bail!("Invalid event type: {}", et),
+                _ => anyhow::bail!("Invalid event type: {et}"),
             };
         }
         if let Some(ref loc) = args.location {
@@ -65,9 +65,9 @@ pub fn run(args: &UpdateArgs, json: bool) -> Result<()> {
     storage::save_store(&store)?;
 
     if json {
-        println!("{{\"success\":true,\"data\":{{\"name\":\"{}\"}}}}", event_name);
+        println!("{{\"success\":true,\"data\":{{\"name\":\"{event_name}\"}}}}");
     } else {
-        println!("✓ Event '{}' updated successfully", event_name);
+        println!("✓ Event '{event_name}' updated successfully");
     }
 
     Ok(())

@@ -21,7 +21,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.get_by_name(&name).is_some() {
-        anyhow::bail!("Appliance '{}' already exists", name);
+        anyhow::bail!("Appliance '{name}' already exists");
     }
 
     let now = Utc::now();

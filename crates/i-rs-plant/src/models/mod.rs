@@ -42,7 +42,7 @@ impl Plant {
     }
 
     pub fn days_until_next_watering(&self) -> i64 {
-        let next_watering = self.last_watered + chrono::Duration::days(self.watering_interval_days as i64);
+        let next_watering = self.last_watered + chrono::Duration::days(i64::from(self.watering_interval_days));
         (next_watering - Utc::now()).num_days()
     }
 
@@ -52,15 +52,11 @@ impl Plant {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PlantStore {
     pub plants: Vec<Plant>,
 }
 
-impl Default for PlantStore {
-    fn default() -> Self {
-        Self { plants: Vec::new() }
-    }
-}
 
 #[derive(Debug, Clone, Tabled)]
 pub struct PlantRow {
@@ -78,7 +74,7 @@ impl PlantRow {
         let days_str = if days <= 0 {
             format!("{} days overdue", -days)
         } else {
-            format!("{} days", days)
+            format!("{days} days")
         };
 
         Self {

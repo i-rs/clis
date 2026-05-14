@@ -19,7 +19,7 @@ pub fn add_project(store: &mut ProjectStore, project: Project) {
     store.projects.push(project);
 }
 
-pub fn remove_project<'a>(store: &'a mut ProjectStore, name: &str) -> Option<Project> {
+pub fn remove_project(store: &mut ProjectStore, name: &str) -> Option<Project> {
     let index = store.projects.iter().position(|p| p.name.eq_ignore_ascii_case(name))?;
     Some(store.projects.remove(index))
 }

@@ -12,7 +12,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
             .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%Y/%m/%d"))
             .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%d-%m-%Y"))
             .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%d/%m/%Y"))
-            .map_err(|_| anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", date_str))?;
+            .map_err(|_| anyhow::anyhow!("Invalid date format: {date_str}. Use YYYY-MM-DD"))?;
 
         let entries: Vec<&crate::models::MealEntry> = storage::get_entries_by_date(&store, parsed_date);
 
@@ -20,7 +20,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
             if matches!(format, OutputFormat::Json) {
                 println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&date_str), format));
             } else {
-                print_warning(&format!("No meals on {}", date_str));
+                print_warning(&format!("No meals on {date_str}"));
             }
             return Ok(());
         }
@@ -33,7 +33,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
 
         let rows: Vec<MealRow> = entries.iter().map(|e| MealRow::from_entry(e)).collect();
         let table = format_table(&rows);
-        println!("\n{}", table);
+        println!("\n{table}");
         print_entry_count(entries.len());
         return Ok(());
     }
@@ -58,7 +58,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
 
     let rows: Vec<MealRow> = entries.iter().map(|e| MealRow::from_entry(e)).collect();
     let table = format_table(&rows);
-    println!("\n{}", table);
+    println!("\n{table}");
     print_entry_count(entries.len());
 
     Ok(())

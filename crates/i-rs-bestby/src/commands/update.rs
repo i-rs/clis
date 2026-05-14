@@ -17,7 +17,7 @@ pub fn handle_update(
     let entity = match storage::get_entry_mut(&mut store, &name) {
         Some(e) => e,
         None => {
-            anyhow::bail!("Item '{}' not found", name);
+            anyhow::bail!("Item '{name}' not found");
         }
     };
 
@@ -31,9 +31,9 @@ pub fn handle_update(
         if days_until < 0 {
             println!("  {}", format!("(expired {} days ago)", days_until.abs()).red());
         } else if days_until <= 7 {
-            println!("  {}", format!("({} days until replacement)", days_until).yellow());
+            println!("  {}", format!("({days_until} days until replacement)").yellow());
         } else {
-            println!("  {}", format!("({} days until replacement)", days_until).green());
+            println!("  {}", format!("({days_until} days until replacement)").green());
         }
     }
 

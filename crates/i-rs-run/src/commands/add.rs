@@ -7,6 +7,7 @@ use owo_colors::OwoColorize;
 use uuid::Uuid;
 use i_rs_core::parse_date;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     date: String,
     distance: f64,
@@ -54,8 +55,8 @@ fn format_duration(minutes: f64) -> String {
     let mins = (minutes % 60.0) as u32;
     let secs = ((minutes * 60.0) % 60.0) as u32;
     if hours > 0 {
-        format!("{}:{:02}:{:02}", hours, mins, secs)
+        format!("{hours}:{mins:02}:{secs:02}")
     } else {
-        format!("{}:{:02}", mins, secs)
+        format!("{mins}:{secs:02}")
     }
 }

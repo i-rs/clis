@@ -14,17 +14,11 @@ pub struct WeightRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct WeightStore {
     pub records: BTreeMap<NaiveDate, WeightRecord>,
 }
 
-impl Default for WeightStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-        }
-    }
-}
 
 impl WeightStore {
     pub fn add_entry(&mut self, record: WeightRecord) {

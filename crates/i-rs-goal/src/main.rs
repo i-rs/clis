@@ -4,7 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use commands::*;
+use commands::{add, list, get, delete, update, deposit, list_milestones, remove_milestone, add_milestone, stats, example};
 use presentation::OutputFormat;
 
 #[derive(Parser, Debug)]

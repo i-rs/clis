@@ -17,7 +17,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.servers.contains_key(&name) {
-        anyhow::bail!("Server '{}' already exists", name);
+        anyhow::bail!("Server '{name}' already exists");
     }
 
     let port = port.unwrap_or(22);

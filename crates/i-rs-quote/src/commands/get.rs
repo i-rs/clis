@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let quote = match storage::get_quote(&store, &id) {
-        Some(q) => q,
-        None => {
-            let msg = format!("Quote '{}' not found", id);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let quote = if let Some(q) = storage::get_quote(&store, &id) { q } else {
+        let msg = format!("Quote '{id}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {

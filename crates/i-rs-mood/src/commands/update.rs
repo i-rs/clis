@@ -19,7 +19,7 @@ pub fn handle_update(
     let record = match store.records.get_mut(&date) {
         Some(r) => r,
         None => {
-            anyhow::bail!("No record found for {}", date);
+            anyhow::bail!("No record found for {date}");
         }
     };
 
@@ -54,12 +54,11 @@ fn parse_mood(mood_str: &str) -> Result<u8> {
         "bad" | "2" | "😔" => Ok(2),
         "terrible" | "1" | "😢" => Ok(1),
         _ => {
-            if let Ok(num) = mood_str.parse::<u8>() {
-                if num >= 1 && num <= 5 {
+            if let Ok(num) = mood_str.parse::<u8>()
+                && (1..=5).contains(&num) {
                     return Ok(num);
                 }
-            }
-            Err(anyhow::anyhow!("Invalid mood: {}. Use 1-5, great/good/okay/bad/terrible, or emoji", mood_str))
+            Err(anyhow::anyhow!("Invalid mood: {mood_str}. Use 1-5, great/good/okay/bad/terrible, or emoji"))
         }
     }
 }

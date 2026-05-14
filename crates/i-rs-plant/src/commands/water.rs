@@ -9,12 +9,9 @@ pub fn water_plant(name: String, output_format: OutputFormat) -> Result<()> {
     let plant_name = name.clone();
     let interval_days;
     {
-        let plant = match storage::find_plant_mut(&mut store, &name) {
-            Some(p) => p,
-            None => {
-                let error_msg = format!("Plant '{}' not found", name);
-                anyhow::bail!("{}", error_msg);
-            }
+        let plant = if let Some(p) = storage::find_plant_mut(&mut store, &name) { p } else {
+            let error_msg = format!("Plant '{name}' not found");
+            anyhow::bail!("{error_msg}");
         };
 
         plant.last_watered = Utc::now();
@@ -39,9 +36,7 @@ pub fn water_plant(name: String, output_format: OutputFormat) -> Result<()> {
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_success(&format!(
-                "Plant '{}' watered! Next watering in {} days",
-                plant_name,
-                interval_days
+                "Plant '{plant_name}' watered! Next watering in {interval_days} days"
             ));
         }
     }

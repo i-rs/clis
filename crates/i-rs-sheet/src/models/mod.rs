@@ -26,15 +26,11 @@ impl SheetEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SheetStore {
     pub entries: BTreeMap<String, SheetEntry>,
 }
 
-impl Default for SheetStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl SheetStore {
     pub fn add_entry(&mut self, entry: SheetEntry) {

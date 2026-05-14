@@ -47,7 +47,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&domains);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_domain_count(domains.len());
 

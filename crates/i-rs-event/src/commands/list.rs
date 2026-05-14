@@ -27,7 +27,7 @@ pub fn run(args: &ListArgs, json: bool) -> Result<()> {
         events.retain(|e| e.event_type.to_string() == *et);
     }
 
-    events.sort_by(|a, b| b.date.cmp(&a.date));
+    events.sort_by_key(|b| std::cmp::Reverse(b.date));
 
     let event_refs: Vec<&Event> = events;
     let count = event_refs.len();

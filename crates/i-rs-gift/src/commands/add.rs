@@ -5,6 +5,7 @@ use anyhow::Result;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     name: String,
     gift_type: String,
@@ -18,19 +19,19 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.gifts.contains_key(&name) {
-        anyhow::bail!("Gift '{}' already exists", name);
+        anyhow::bail!("Gift '{name}' already exists");
     }
 
     let parsed_type = match gift_type.to_lowercase().as_str() {
         "sent" | "s" => GiftType::Sent,
         "received" | "r" => GiftType::Received,
         _ => {
-            anyhow::bail!("Invalid gift type: {}", gift_type);
+            anyhow::bail!("Invalid gift type: {gift_type}");
         }
     };
 
     let parsed_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
-        .map_err(|e| anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", e))?;
+        .map_err(|e| anyhow::anyhow!("Invalid date format: {e}. Use YYYY-MM-DD"))?;
     let parsed_date = parsed_date.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid");
     let parsed_date = chrono::DateTime::<Utc>::from_naive_utc_and_offset(parsed_date, Utc);
 

@@ -25,17 +25,11 @@ pub struct VisionRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct VisionStore {
     pub records: BTreeMap<NaiveDate, VisionRecord>,
 }
 
-impl Default for VisionStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-        }
-    }
-}
 
 impl VisionStore {
     pub fn add_entry(&mut self, record: VisionRecord) {
@@ -105,12 +99,12 @@ impl VisionRow {
     pub fn from_record(record: &VisionRecord) -> Self {
         Self {
             date: record.date.format("%Y-%m-%d").to_string(),
-            left_sphere: record.left_sphere.map(|s| format_sphere(s)).unwrap_or_else(|| "-".to_string()),
-            right_sphere: record.right_sphere.map(|s| format_sphere(s)).unwrap_or_else(|| "-".to_string()),
-            left_cylinder: record.left_cylinder.map(|s| format_sphere(s)).unwrap_or_else(|| "-".to_string()),
-            right_cylinder: record.right_cylinder.map(|s| format_sphere(s)).unwrap_or_else(|| "-".to_string()),
-            left_axis: record.left_axis.map(|a| a.to_string()).unwrap_or_else(|| "-".to_string()),
-            right_axis: record.right_axis.map(|a| a.to_string()).unwrap_or_else(|| "-".to_string()),
+            left_sphere: record.left_sphere.map_or_else(|| "-".to_string(), format_sphere),
+            right_sphere: record.right_sphere.map_or_else(|| "-".to_string(), format_sphere),
+            left_cylinder: record.left_cylinder.map_or_else(|| "-".to_string(), format_sphere),
+            right_cylinder: record.right_cylinder.map_or_else(|| "-".to_string(), format_sphere),
+            left_axis: record.left_axis.map_or_else(|| "-".to_string(), |a| a.to_string()),
+            right_axis: record.right_axis.map_or_else(|| "-".to_string(), |a| a.to_string()),
             tags: if record.tags.is_empty() {
                 "-".to_string()
             } else {
@@ -127,5 +121,5 @@ impl VisionRow {
 
 fn format_sphere(value: f64) -> String {
     let sign = if value >= 0.0 { "+" } else { "" };
-    format!("{}{:.2}", sign, value)
+    format!("{sign}{value:.2}")
 }

@@ -46,20 +46,19 @@ pub fn stop_timer(store: &mut TimeStore) -> Result<TimeEntry> {
 }
 
 pub fn delete_entry(store: &mut TimeStore, id: &str) -> Result<TimeEntry> {
-    if let Some(active_id) = &store.active_entry_id {
-        if active_id == id {
+    if let Some(active_id) = &store.active_entry_id
+        && active_id == id {
             store.active_entry_id = None;
         }
-    }
 
     store.remove_entry(id)
-        .ok_or_else(|| anyhow::anyhow!("Entry '{}' not found", id))
+        .ok_or_else(|| anyhow::anyhow!("Entry '{id}' not found"))
 }
 
 pub fn get_entry(store: &TimeStore, id: &str) -> Result<TimeEntry> {
     store.get_entry(id)
         .cloned()
-        .ok_or_else(|| anyhow::anyhow!("Entry '{}' not found", id))
+        .ok_or_else(|| anyhow::anyhow!("Entry '{id}' not found"))
 }
 
 pub fn list_entries(store: &TimeStore) -> Vec<&TimeEntry> {

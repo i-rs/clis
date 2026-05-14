@@ -9,16 +9,12 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = match storage::get_entry(&store, short_id) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Record '{}' not found", id);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, short_id) { e } else {
+        let msg = format!("Record '{id}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -33,7 +29,7 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
 
     let style = OwoStyle::new().bold();
 
-    let tank_str = entry.tank_size_liters.map(|s| format!("{}L", s)).unwrap_or_else(|| "-".to_string());
+    let tank_str = entry.tank_size_liters.map_or_else(|| "-".to_string(), |s| format!("{s}L"));
     println!("{:16} {}", "Tank size:".style(style), tank_str.cyan());
     println!("{:16} {}", "Changed at:".style(style), entry.changed_at.format("%Y-%m-%d %H:%M").to_string().yellow());
     if !entry.tags.is_empty() {

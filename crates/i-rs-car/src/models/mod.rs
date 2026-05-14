@@ -170,12 +170,11 @@ impl Store {
         let mileage = record.mileage;
         let car_name = record.car_name.clone();
         self.fuel_records.push(record);
-        if let Some(car) = self.cars.get_mut(&car_name) {
-            if mileage > car.mileage {
+        if let Some(car) = self.cars.get_mut(&car_name)
+            && mileage > car.mileage {
                 car.mileage = mileage;
                 car.updated_at = Utc::now();
             }
-        }
     }
 
     pub fn get_fuel_records(&self, car_name: Option<&str>) -> Vec<&FuelRecord> {
@@ -195,12 +194,11 @@ impl Store {
         let mileage = record.mileage;
         let car_name = record.car_name.clone();
         self.maintenance_records.push(record);
-        if let Some(car) = self.cars.get_mut(&car_name) {
-            if mileage > car.mileage {
+        if let Some(car) = self.cars.get_mut(&car_name)
+            && mileage > car.mileage {
                 car.mileage = mileage;
                 car.updated_at = Utc::now();
             }
-        }
     }
 
     pub fn get_maintenance_records(&self, car_name: Option<&str>) -> Vec<&MaintenanceRecord> {
@@ -281,7 +279,7 @@ impl FuelRow {
     pub fn from_record(record: &FuelRecord, prev_mileage: Option<f64>) -> Self {
         let efficiency = if let Some(prev) = prev_mileage {
             if let Some(eff) = record.fuel_efficiency(prev) {
-                format!("{:.1} km/L", eff)
+                format!("{eff:.1} km/L")
             } else {
                 "-".to_string()
             }

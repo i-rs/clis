@@ -10,16 +10,12 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
 
     let parsed_date = parse_date(&date)?;
 
-    let entry = match storage::get_entry(&store, &parsed_date) {
-        Some(e) => e,
-        None => {
-            let msg = format!("No record for {}", date);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, &parsed_date) { e } else {
+        let msg = format!("No record for {date}");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {

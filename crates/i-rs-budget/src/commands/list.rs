@@ -52,7 +52,7 @@ pub fn handle_list(
                 println!("{}", output_list(&items, items.len(), filter, format));
             } else {
                 let table = format_budget_table(&budgets_ref);
-                println!("\n{}", table);
+                println!("\n{table}");
                 print_budget_count(budgets_ref.len());
             }
         }
@@ -99,7 +99,7 @@ pub fn handle_list(
                 println!("{}", output_list(&items, items.len(), filter, format));
             } else {
                 let table = format_expense_table(&expenses_ref);
-                println!("\n{}", table);
+                println!("\n{table}");
                 print_expense_count(expenses_ref.len());
             }
         }
@@ -109,8 +109,7 @@ pub fn handle_list(
                     "success": false,
                     "error": { "code": "INVALID_TYPE", "message": "Invalid list type. Use: budgets, expenses" }
                 }));
-            } else {
-            }
+            } 
             anyhow::bail!("Invalid list type");
         }
     }

@@ -28,15 +28,11 @@ impl FeedpetEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct FeedpetStore {
     pub entries: BTreeMap<String, FeedpetEntry>,
 }
 
-impl Default for FeedpetStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl FeedpetStore {
     pub fn add_entry(&mut self, entry: FeedpetEntry) {

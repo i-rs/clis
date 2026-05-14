@@ -20,7 +20,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
     let mut type_count: HashMap<String, usize> = HashMap::new();
 
     for record in store.get_all_records() {
-        *type_duration.entry(record.exercise_type.clone()).or_insert(0) += record.duration_minutes as u64;
+        *type_duration.entry(record.exercise_type.clone()).or_insert(0) += u64::from(record.duration_minutes);
         *type_count.entry(record.exercise_type.clone()).or_insert(0) += 1;
     }
 
@@ -46,7 +46,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
                 }).collect::<Vec<_>>()
             }
         });
-        println!("{}", stats_json);
+        println!("{stats_json}");
         return Ok(());
     }
 
@@ -79,7 +79,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
                      exercise_type.dimmed(), 
                      count.to_string().yellow(), 
                      duration.to_string().cyan(),
-                     format!("{:.1}", avg).dimmed());
+                     format!("{avg:.1}").dimmed());
         }
     }
 

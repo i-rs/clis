@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let server = match storage::get_server(&store, &name) {
-        Some(s) => s,
-        None => {
-            let msg = format!("Server '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let server = if let Some(s) = storage::get_server(&store, &name) { s } else {
+        let msg = format!("Server '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -90,7 +86,7 @@ pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Re
                 println!(
                     "{:16} {}",
                     "Password:".style(style),
-                    "(stored in keychain)".dimmed().to_string()
+                    "(stored in keychain)".dimmed()
                 );
             }
         }
@@ -98,14 +94,14 @@ pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Re
             println!(
                 "{:16} {}",
                 "Password:".style(style),
-                "(not set)".dimmed().to_string()
+                "(not set)".dimmed()
             );
         }
         Err(e) => {
             println!(
                 "{:16} {}",
                 "Password:".style(style),
-                format!("(error: {})", e).red()
+                format!("(error: {e})").red()
             );
         }
     }

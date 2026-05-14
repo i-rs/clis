@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let note = match storage::get_note(&store, &name) {
-        Some(n) => n,
-        None => {
-            let msg = format!("Note '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
+    let note = if let Some(n) = storage::get_note(&store, &name) { n } else {
+        let msg = format!("Note '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
         }
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -59,7 +55,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     if !note.content.is_empty() {
         println!("\n{}:", "Content".bold());
         for line in &note.content {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
 

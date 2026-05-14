@@ -49,17 +49,11 @@ impl WantEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct WantStore {
     pub entries: BTreeMap<String, WantEntry>,
 }
 
-impl Default for WantStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl WantStore {
     pub fn add_entry(&mut self, entry: WantEntry) {
@@ -96,8 +90,8 @@ pub struct WantRow {
 impl WantRow {
     pub fn from_entry(entry: &WantEntry) -> Self {
         let price_str = match (entry.price, &entry.currency) {
-            (Some(p), Some(c)) => format!("{:.2} {}", p, c),
-            (Some(p), None) => format!("{:.2}", p),
+            (Some(p), Some(c)) => format!("{p:.2} {c}"),
+            (Some(p), None) => format!("{p:.2}"),
             (None, _) => "-".to_string(),
         };
 

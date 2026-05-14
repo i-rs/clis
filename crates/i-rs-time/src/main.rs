@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 #![allow(dead_code)]
 use clap::{Parser, Subcommand};
 use commands::{handle_start, handle_stop, handle_list, handle_stats, handle_report, handle_delete, handle_get, handle_update, handle_example, handle_skill, SkillCommand};

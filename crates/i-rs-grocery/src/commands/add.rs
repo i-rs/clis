@@ -6,7 +6,7 @@ pub fn handle_add(name: String, quantity: i32, unit: String, tags: Vec<String>, 
     let mut store = storage::load_store()?;
 
     if store.get_entry(&name).is_some() {
-        anyhow::bail!("Item '{}' already exists", name);
+        anyhow::bail!("Item '{name}' already exists");
     }
 
     let item = storage::add_item(&mut store, name.clone(), quantity, unit, tags, remark)?;
@@ -15,7 +15,7 @@ pub fn handle_add(name: String, quantity: i32, unit: String, tags: Vec<String>, 
     print_header("Grocery Item Added");
     println!("{} {}", "Name:".style(owo_colors::Style::new().bold()), name);
     println!("{} {} {}", "Quantity:".style(owo_colors::Style::new().bold()), item.quantity, item.unit);
-    print_success(&format!("Item '{}' added to grocery list", name));
+    print_success(&format!("Item '{name}' added to grocery list"));
 
     Ok(())
 }

@@ -19,7 +19,7 @@ pub fn handle_add(
     }
 
     if store.entries.contains_key(&key) {
-        anyhow::bail!("Key '{}' already exists", key);
+        anyhow::bail!("Key '{key}' already exists");
     }
 
     let now = Utc::now();

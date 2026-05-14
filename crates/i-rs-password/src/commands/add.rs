@@ -16,7 +16,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.entries.contains_key(&name) {
-        anyhow::bail!("Entry '{}' already exists", name);
+        anyhow::bail!("Entry '{name}' already exists");
     }
 
     if let Some(ref pwd) = password {

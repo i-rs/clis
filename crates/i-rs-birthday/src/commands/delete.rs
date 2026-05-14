@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_birthday(&mut store, &name).is_none() {
-        anyhow::bail!("Birthday '{}' not found", name);
+        anyhow::bail!("Birthday '{name}' not found");
     }
 
     storage::save_store(&store)?;

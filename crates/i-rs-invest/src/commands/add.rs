@@ -19,7 +19,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.investments.contains_key(&name) {
-        anyhow::bail!("Investment '{}' already exists", name);
+        anyhow::bail!("Investment '{name}' already exists");
     }
 
     if let Err(e) = validate_name(&name) {
@@ -34,11 +34,10 @@ pub fn handle_add(
         anyhow::bail!("Buy price must be greater than 0");
     }
 
-    if let Some(cp) = current_price {
-        if cp < 0.0 {
+    if let Some(cp) = current_price
+        && cp < 0.0 {
             anyhow::bail!("Current price cannot be negative");
         }
-    }
 
     let parsed_buy_date = if let Some(date_str) = buy_date {
         let date = i_rs_core::parse_date(&date_str)?;

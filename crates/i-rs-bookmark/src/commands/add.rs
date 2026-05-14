@@ -16,7 +16,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.bookmarks.contains_key(&name) {
-        anyhow::bail!("Bookmark '{}' already exists", name);
+        anyhow::bail!("Bookmark '{name}' already exists");
     }
 
     if let Some(ref pwd) = password {

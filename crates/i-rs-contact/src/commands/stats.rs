@@ -57,7 +57,7 @@ pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
             let mut relationships: Vec<_> = stats.by_relationship.iter().collect();
             relationships.sort_by(|a, b| b.1.cmp(a.1));
             for (rel, count) in relationships {
-                println!("  {}: {}", rel, count);
+                println!("  {rel}: {count}");
             }
         }
 
@@ -66,14 +66,14 @@ pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
             let mut tags: Vec<_> = stats.by_tag.iter().collect();
             tags.sort_by(|a, b| b.1.cmp(a.1));
             for (tag, count) in tags {
-                println!("  {}: {}", tag, count);
+                println!("  {tag}: {count}");
             }
         }
 
         if !stats.needs_reminder.is_empty() {
             println!("\n{} {}", "Needs Reminder (30+ days):".bold().yellow(), stats.needs_reminder.len());
             for name in &stats.needs_reminder {
-                println!("  - {}", name);
+                println!("  - {name}");
             }
         }
     }

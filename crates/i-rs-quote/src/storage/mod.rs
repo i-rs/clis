@@ -16,7 +16,7 @@ pub fn get_quote<'a>(store: &'a QuoteStore, id: &str) -> Option<&'a Quote> {
     store.quotes.get(id)
 }
 
-pub fn get_all_quotes<'a>(store: &'a QuoteStore) -> Vec<&'a Quote> {
+pub fn get_all_quotes(store: &QuoteStore) -> Vec<&Quote> {
     store.quotes.values().collect()
 }
 
@@ -41,8 +41,7 @@ pub fn filter_by_author<'a>(store: &'a QuoteStore, author: Option<&str>) -> Vec<
             .filter(|q| {
                 q.author
                     .as_ref()
-                    .map(|a| a.to_lowercase().contains(&author_lower))
-                    .unwrap_or(false)
+                    .is_some_and(|a| a.to_lowercase().contains(&author_lower))
             })
             .collect()
     } else {

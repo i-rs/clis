@@ -50,12 +50,12 @@ fn handle_add_milestone(
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Project '{}' not found", project_name);
+            anyhow::bail!("Project '{project_name}' not found");
         }
     };
 
     if project.milestones.iter().any(|m| m.name.eq_ignore_ascii_case(&name)) {
-        anyhow::bail!("Milestone '{}' already exists", name);
+        anyhow::bail!("Milestone '{name}' already exists");
     }
 
     let due = due_date.and_then(|d| {
@@ -87,14 +87,14 @@ fn handle_complete_milestone(project_name: String, name: String) -> Result<()> {
     let project = match storage::find_project_mut(&mut store, &project_name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Project '{}' not found", project_name);
+            anyhow::bail!("Project '{project_name}' not found");
         }
     };
 
     let milestone = match project.milestones.iter_mut().find(|m| m.name.eq_ignore_ascii_case(&name)) {
         Some(m) => m,
         None => {
-            anyhow::bail!("Milestone '{}' not found", name);
+            anyhow::bail!("Milestone '{name}' not found");
         }
     };
 

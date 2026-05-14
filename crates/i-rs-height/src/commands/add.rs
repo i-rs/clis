@@ -18,7 +18,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.records.contains_key(&date) {
-        anyhow::bail!("Record for {} already exists", date);
+        anyhow::bail!("Record for {date} already exists");
     }
 
     let record = HeightRecord {

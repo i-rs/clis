@@ -22,7 +22,7 @@ pub fn handle_list(
     };
 
     let mut entries: Vec<_> = entries;
-    entries.sort_by(|a, b| b.deployed_at.cmp(&a.deployed_at));
+    entries.sort_by_key(|e| std::cmp::Reverse(e.deployed_at));
 
     if entries.is_empty() {
         if matches!(format, OutputFormat::Json) {
@@ -41,7 +41,7 @@ pub fn handle_list(
 
     let rows: Vec<DeployRow> = entries.iter().map(|e| DeployRow::from_record(e)).collect();
     let table = format_table(&rows);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_deploy_count(entries.len());
 

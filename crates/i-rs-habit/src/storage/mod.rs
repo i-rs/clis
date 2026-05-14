@@ -6,7 +6,7 @@ use chrono::Utc;
 pub fn add_habit(store: &mut HabitStore, name: String, description: String, frequency: String, tags: Vec<String>, remark: Vec<String>) -> Result<Habit> {
     let now = Utc::now();
     let habit = Habit {
-        name: name.clone(),
+        name,
         description,
         frequency,
         tags,
@@ -22,12 +22,12 @@ pub fn add_habit(store: &mut HabitStore, name: String, description: String, freq
 
 pub fn delete_habit(store: &mut HabitStore, name: &str) -> Result<Habit> {
     store.remove_entry(name)
-        .ok_or_else(|| anyhow::anyhow!("Habit '{}' not found", name))
+        .ok_or_else(|| anyhow::anyhow!("Habit '{name}' not found"))
 }
 
 pub fn checkin_habit(store: &mut HabitStore, name: &str) -> Result<Habit> {
     let habit = store.get_entry_mut(name)
-        .ok_or_else(|| anyhow::anyhow!("Habit '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Habit '{name}' not found"))?;
     
     let now = Utc::now();
     let today_checkin = Checkin { date: now };
@@ -46,7 +46,7 @@ pub fn update_habit(
     remark: Option<Vec<String>>,
 ) -> Result<Habit> {
     let habit = store.get_entry_mut(name)
-        .ok_or_else(|| anyhow::anyhow!("Habit '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Habit '{name}' not found"))?;
     
     if let Some(d) = description {
         habit.description = d;

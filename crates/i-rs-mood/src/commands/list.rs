@@ -21,7 +21,7 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
 
     if records.is_empty() {
         if matches!(format, OutputFormat::Json) {
-            let filter = days.map(|d| format!("last {} days", d));
+            let filter = days.map(|d| format!("last {d} days"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
             print_warning("No mood records found.");
@@ -47,20 +47,20 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
             content: r.content.clone(),
         }).collect();
 
-        let filter = days.map(|d| format!("last {} days", d));
+        let filter = days.map(|d| format!("last {d} days"));
         println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
         return Ok(());
     }
 
     let table = format_table(&records);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_record_count(records.len());
 
     if let Some((min_mood, max_mood, avg)) = store.mood_stats() {
         println!("\n{}", "Statistics:".bold().cyan());
-        println!("  {:12} {}", "Best:".dimmed(), format!("{} {}", min_mood, min_mood.label()));
-        println!("  {:12} {}", "Worst:".dimmed(), format!("{} {}", max_mood, max_mood.label()));
+        println!("  {:12} {} {}", "Best:".dimmed(), min_mood, min_mood.label());
+        println!("  {:12} {} {}", "Worst:".dimmed(), max_mood, max_mood.label());
         println!("  {:12} {:.1}/5", "Average:".dimmed(), avg);
     }
 

@@ -5,7 +5,7 @@ pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 
 pub fn format_table(rows: &[TimeEntryRow]) -> String {
-    i_rs_core::render_table(&rows)
+    i_rs_core::render_table(rows)
 }
 
 pub fn print_entry_count(count: usize) {
@@ -17,12 +17,12 @@ pub fn format_minutes(minutes: i64) -> String {
         let hours = minutes / 60;
         let mins = minutes % 60;
         if mins == 0 {
-            format!("{}h", hours)
+            format!("{hours}h")
         } else {
-            format!("{}h {}m", hours, mins)
+            format!("{hours}h {mins}m")
         }
     } else {
-        format!("{}m", minutes)
+        format!("{minutes}m")
     }
 }
 

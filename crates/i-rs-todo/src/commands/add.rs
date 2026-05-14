@@ -15,7 +15,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.todos.contains_key(&name) {
-        anyhow::bail!("Todo '{}' already exists", name);
+        anyhow::bail!("Todo '{name}' already exists");
     }
 
     let priority = match priority {

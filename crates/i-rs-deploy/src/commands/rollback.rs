@@ -20,7 +20,7 @@ pub fn handle_rollback(
         .filter(|r| matches!(r.status, DeployStatus::Success))
         .collect();
 
-    candidates.sort_by(|a, b| b.deployed_at.cmp(&a.deployed_at));
+    candidates.sort_by_key(|e| std::cmp::Reverse(e.deployed_at));
 
     let target_record = if let Some(ref id) = rollback_to_id {
         candidates
@@ -31,43 +31,39 @@ pub fn handle_rollback(
         candidates.get(1).copied()
     };
 
-    match target_record {
-        Some(target) => {
-            let rollback_from = target.id.clone();
-            let target_version = target.version.clone();
-            let id = Uuid::new_v4().to_string();
-            let now = Utc::now();
+    if let Some(target) = target_record {
+        let rollback_from = target.id.clone();
+        let target_version = target.version.clone();
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now();
 
-            let entry = DeployRecord {
-                id: id.clone(),
-                project: target.project.clone(),
-                environment: target.environment.clone(),
-                version: target.version.clone(),
-                status: DeployStatus::RolledBack,
-                deployed_at: now,
-                rollback_from: Some(rollback_from),
-                tags: vec!["rollback".to_string()],
-                remark: vec![],
-                created_at: now,
-                updated_at: now,
-            };
+        let entry = DeployRecord {
+            id: id.clone(),
+            project: target.project.clone(),
+            environment: target.environment.clone(),
+            version: target.version.clone(),
+            status: DeployStatus::RolledBack,
+            deployed_at: now,
+            rollback_from: Some(rollback_from),
+            tags: vec!["rollback".to_string()],
+            remark: vec![],
+            created_at: now,
+            updated_at: now,
+        };
 
-            storage::add_entry(&mut store, entry);
-            storage::save_store(&store)?;
+        storage::add_entry(&mut store, entry);
+        storage::save_store(&store)?;
 
-            print_success(&format!(
-                "✓ Rolled back to {} ({})",
-                target_version.green(),
-                &id[..8.min(id.len())]
-            ));
-        }
-        None => {
-            if rollback_to_id.is_some() {
-                print_error("Target deployment not found");
-            } else {
-            }
-            anyhow::bail!("Rollback failed");
-        }
+        print_success(&format!(
+            "✓ Rolled back to {} ({})",
+            target_version.green(),
+            &id[..8.min(id.len())]
+        ));
+    } else {
+        if rollback_to_id.is_some() {
+            print_error("Target deployment not found");
+        } 
+        anyhow::bail!("Rollback failed");
     }
 
     Ok(())

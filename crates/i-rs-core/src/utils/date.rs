@@ -22,12 +22,12 @@ pub fn parse_date(date_str: &str) -> anyhow::Result<NaiveDate> {
     }
 
     Err(anyhow::anyhow!(
-        "Invalid date format: {}. Use YYYY-MM-DD",
-        date_str
+        "Invalid date format: {date_str}. Use YYYY-MM-DD"
     ))
 }
 
-/// Parse a date string that may optionally include time. Returns DateTime<Utc>.
+/// Parse a date string that may optionally include time. Returns `DateTime`<Utc>.
+///
 /// Supports formats: "YYYY-MM-DD[ HH:MM[:SS]]", "YYYY/MM/DD[ HH:MM[:SS]]",
 /// "DD-MM-YYYY", "DD/MM/YYYY"
 /// If no time is provided, defaults to 00:00:00 UTC.
@@ -49,11 +49,11 @@ pub fn parse_datetime(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
     }
 
     Err(anyhow::anyhow!(
-        "Invalid date format: {}. Use YYYY-MM-DD or YYYY-MM-DD HH:MM",
-        date_str
+        "Invalid date format: {date_str}. Use YYYY-MM-DD or YYYY-MM-DD HH:MM"
     ))
 }
 
+#[must_use] 
 pub fn format_date(date: NaiveDate) -> String {
     date.format("%Y-%m-%d").to_string()
 }

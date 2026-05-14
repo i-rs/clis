@@ -18,20 +18,13 @@ pub struct HeightRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct HeightStore {
     pub records: BTreeMap<NaiveDate, HeightRecord>,
     #[serde(default)]
     pub target_height: Option<f64>,
 }
 
-impl Default for HeightStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-            target_height: None,
-        }
-    }
-}
 
 impl HeightStore {
     pub fn add_entry(&mut self, record: HeightRecord) {
@@ -46,11 +39,11 @@ impl HeightStore {
         self.records.remove(date)
     }
 
-    pub fn set_target(&mut self, height: f64) {
+    pub const fn set_target(&mut self, height: f64) {
         self.target_height = Some(height);
     }
 
-    pub fn get_target(&self) -> Option<f64> {
+    pub const fn get_target(&self) -> Option<f64> {
         self.target_height
     }
 }
@@ -74,7 +67,7 @@ impl HeightRow {
             date: record.date.format("%Y-%m-%d").to_string(),
             height: format!("{:.1}", record.height_cm),
             weight: match record.weight_kg {
-                Some(w) => format!("{:.1}", w),
+                Some(w) => format!("{w:.1}"),
                 None => "-".to_string(),
             },
             tags: if record.tags.is_empty() {

@@ -38,19 +38,12 @@ pub struct RunPlan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct RunStore {
     pub records: BTreeMap<String, RunRecord>,
     pub plans: BTreeMap<String, RunPlan>,
 }
 
-impl Default for RunStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-            plans: BTreeMap::new(),
-        }
-    }
-}
 
 impl RunStore {
     pub fn add_entry(&mut self, record: RunRecord) {
@@ -108,8 +101,8 @@ impl RunStore {
         }
         let pace_min_per_km = total_time / total_dist;
         let pace_min = pace_min_per_km as u32;
-        let pace_sec = ((pace_min_per_km - pace_min as f64) * 60.0) as u32;
-        Some(format!("{}:{:02}", pace_min, pace_sec))
+        let pace_sec = ((pace_min_per_km - f64::from(pace_min)) * 60.0) as u32;
+        Some(format!("{pace_min}:{pace_sec:02}"))
     }
 
     pub fn records_count(&self) -> usize {
@@ -148,9 +141,7 @@ impl RunRow {
             duration: format_duration(record.duration_minutes),
             pace: record.pace.clone(),
             heart_rate: record
-                .heart_rate
-                .map(|hr| hr.to_string())
-                .unwrap_or_else(|| "-".to_string()),
+                .heart_rate.map_or_else(|| "-".to_string(), |hr| hr.to_string()),
             weather: record
                 .weather
                 .clone()
@@ -197,9 +188,9 @@ pub fn format_duration(minutes: f64) -> String {
     let mins = (minutes % 60.0) as u32;
     let secs = ((minutes * 60.0) % 60.0) as u32;
     if hours > 0 {
-        format!("{}:{:02}:{:02}", hours, mins, secs)
+        format!("{hours}:{mins:02}:{secs:02}")
     } else {
-        format!("{}:{:02}", mins, secs)
+        format!("{mins}:{secs:02}")
     }
 }
 
@@ -209,8 +200,8 @@ pub fn format_pace(distance_km: f64, duration_minutes: f64) -> String {
     }
     let pace_min_per_km = duration_minutes / distance_km;
     let pace_min = pace_min_per_km as u32;
-    let pace_sec = ((pace_min_per_km - pace_min as f64) * 60.0) as u32;
-    format!("{}:{:02}", pace_min, pace_sec)
+    let pace_sec = ((pace_min_per_km - f64::from(pace_min)) * 60.0) as u32;
+    format!("{pace_min}:{pace_sec:02}")
 }
 
 fn format_schedule(days: &[u8]) -> String {

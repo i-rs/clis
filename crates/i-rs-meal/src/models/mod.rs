@@ -37,17 +37,11 @@ impl MealEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MealStore {
     pub entries: BTreeMap<String, MealEntry>,
 }
 
-impl Default for MealStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl MealStore {
     pub fn add_entry(&mut self, entry: MealEntry) {
@@ -89,7 +83,7 @@ impl MealRow {
             id: entry.id[..8].to_string(),
             meal_type: entry.meal_type.clone(),
             food_items: entry.food_items.clone(),
-            calories: entry.calories.map(|c| c.to_string()).unwrap_or_else(|| "-".to_string()),
+            calories: entry.calories.map_or_else(|| "-".to_string(), |c| c.to_string()),
             tags: if entry.tags.is_empty() {
                 "-".to_string()
             } else {

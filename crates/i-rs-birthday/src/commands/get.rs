@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let birthday = match storage::get_birthday(&store, &name) {
-        Some(b) => b,
-        None => {
-            let msg = format!("Birthday '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let birthday = if let Some(b) = storage::get_birthday(&store, &name) { b } else {
+        let msg = format!("Birthday '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -74,9 +70,9 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     } else if days == 1 {
         format!("{} (tomorrow)", "1 day".yellow().bold())
     } else if days <= 7 {
-        format!("{} days left", days).yellow().to_string()
+        format!("{days} days left").yellow().to_string()
     } else {
-        format!("{} days left", days)
+        format!("{days} days left")
     };
     println!("{:16} {}", "Next Birthday:".style(style), days_status);
 
@@ -89,7 +85,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     if !birthday.remark.is_empty() {
         println!("\n{}:", "Remark".bold());
         for line in &birthday.remark {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
 

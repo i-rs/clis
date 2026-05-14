@@ -36,7 +36,7 @@ impl CyclingRecord {
         remark: Vec<String>,
     ) -> Self {
         let avg_speed = if duration_minutes > 0 {
-            distance_km / (duration_minutes as f64 / 60.0)
+            distance_km / (f64::from(duration_minutes) / 60.0)
         } else {
             0.0
         };
@@ -59,7 +59,7 @@ impl CyclingRecord {
 
     pub fn recalc_avg_speed(&mut self) {
         self.avg_speed = if self.duration_minutes > 0 {
-            self.distance_km / (self.duration_minutes as f64 / 60.0)
+            self.distance_km / (f64::from(self.duration_minutes) / 60.0)
         } else {
             0.0
         };
@@ -68,17 +68,11 @@ impl CyclingRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CyclingStore {
     pub records: BTreeMap<Uuid, CyclingRecord>,
 }
 
-impl Default for CyclingStore {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-        }
-    }
-}
 
 impl CyclingStore {
     pub fn add_entry(&mut self, record: CyclingRecord) {
@@ -106,7 +100,7 @@ impl CyclingStore {
     }
 
     pub fn total_duration(&self) -> u64 {
-        self.records.values().map(|r| r.duration_minutes as u64).sum()
+        self.records.values().map(|r| u64::from(r.duration_minutes)).sum()
     }
 
     pub fn total_elevation(&self) -> f64 {
@@ -167,7 +161,7 @@ impl CyclingRow {
             duration: format!("{} min", record.duration_minutes),
             avg_speed: format!("{:.1} km/h", record.avg_speed),
             elevation: match record.elevation_gain {
-                Some(e) => format!("{:.0} m", e),
+                Some(e) => format!("{e:.0} m"),
                 None => "-".to_string(),
             },
             route: record.route.clone().unwrap_or_else(|| "-".to_string()),
@@ -216,7 +210,7 @@ impl CyclingDetailRow {
         if let Some(elevation) = record.elevation_gain {
             rows.push(Self {
                 key: "Elevation Gain".to_string(),
-                value: format!("{:.0} m", elevation),
+                value: format!("{elevation:.0} m"),
             });
         }
 

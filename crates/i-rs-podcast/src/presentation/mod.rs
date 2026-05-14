@@ -45,10 +45,10 @@ fn format_duration_full(secs: i64) -> String {
     let minutes = (secs % 3600) / 60;
     let seconds = secs % 60;
     if hours > 0 {
-        format!("{}h {}m {}s", hours, minutes, seconds)
+        format!("{hours}h {minutes}m {seconds}s")
     } else if minutes > 0 {
-        format!("{}m {}s", minutes, seconds)
+        format!("{minutes}m {seconds}s")
     } else {
-        format!("{}s", seconds)
+        format!("{seconds}s")
     }
 }

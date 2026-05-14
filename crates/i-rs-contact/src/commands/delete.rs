@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> anyhow::Result<()> {
     storage::delete_contact(&mut store, &name)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Contact '{}' deleted successfully", name));
+    print_success(&format!("Contact '{name}' deleted successfully"));
 
     Ok(())
 }

@@ -5,18 +5,15 @@ use tabled::Tabled;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum BudgetPeriod {
     Daily,
     Weekly,
+    #[default]
     Monthly,
     Yearly,
 }
 
-impl Default for BudgetPeriod {
-    fn default() -> Self {
-        Self::Monthly
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Budget {
@@ -77,19 +74,12 @@ impl Expense {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct BudgetStore {
     pub budgets: BTreeMap<String, Budget>,
     pub expenses: BTreeMap<String, Expense>,
 }
 
-impl Default for BudgetStore {
-    fn default() -> Self {
-        Self {
-            budgets: BTreeMap::new(),
-            expenses: BTreeMap::new(),
-        }
-    }
-}
 
 impl BudgetStore {
     pub fn add_budget(&mut self, budget: Budget) {
@@ -243,9 +233,9 @@ impl BudgetStatsRow {
         Self {
             category: budget.category.clone(),
             budget: format!("{:.2}", budget.amount),
-            spent: format!("{:.2}", spent),
-            remaining: format!("{:.2}", remaining),
-            percentage: format!("{:.1}%", percentage),
+            spent: format!("{spent:.2}"),
+            remaining: format!("{remaining:.2}"),
+            percentage: format!("{percentage:.1}%"),
         }
     }
 }

@@ -20,7 +20,7 @@ pub fn add_plant(
     let mut store = storage::load_store()?;
 
     if storage::find_plant(&store, &name).is_some() {
-        anyhow::bail!("Plant '{}' already exists", name);
+        anyhow::bail!("Plant '{name}' already exists");
     }
 
     let mut plant = Plant::new(name.clone(), species, location, watering_interval_days);
@@ -38,7 +38,7 @@ pub fn add_plant(
             ));
         }
         OutputFormat::Table | OutputFormat::Default => {
-            print_success(&format!("Plant '{}' added successfully", name));
+            print_success(&format!("Plant '{name}' added successfully"));
         }
     }
 

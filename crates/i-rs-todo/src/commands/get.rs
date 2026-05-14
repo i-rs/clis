@@ -8,16 +8,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let todo = match store.get_entry(&name) {
-        Some(t) => t,
-        None => {
-            let msg = format!("Todo '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let todo = if let Some(t) = store.get_entry(&name) { t } else {
+        let msg = format!("Todo '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -86,7 +82,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     if !todo.content.is_empty() {
         println!("\n{}:", "Content".bold());
         for line in &todo.content {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
 

@@ -43,7 +43,7 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> Result<()> {
             } else {
                 print_header("Books");
                 let table = format_table(&filtered_books);
-                println!("{}", table);
+                println!("{table}");
                 print_book_count(filtered_books.len());
             }
         }

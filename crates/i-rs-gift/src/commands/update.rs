@@ -6,6 +6,7 @@ use chrono::Utc;
 use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     name: String,
     gift_type: Option<String>,
@@ -20,7 +21,7 @@ pub fn handle_update(
 
     let gift = match store.gifts.get_mut(&name) {
         Some(g) => g,
-        None => anyhow::bail!("Gift '{}' not found", name),
+        None => anyhow::bail!("Gift '{name}' not found"),
     };
 
     if let Some(gt) = gift_type {

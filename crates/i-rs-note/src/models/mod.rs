@@ -18,17 +18,9 @@ pub struct Note {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NoteStore {
     pub notes: std::collections::BTreeMap<String, Note>,
-}
-
-impl Default for NoteStore {
-    fn default() -> Self {
-        Self {
-            notes: std::collections::BTreeMap::new(),
-        }
-    }
 }
 
 #[derive(Tabled)]

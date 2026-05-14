@@ -60,9 +60,9 @@ pub fn run_update(args: UpdateArgs) -> Result<()> {
                 match type_str.parse() {
                     Ok(t) => inv.invoice_type = t,
                     Err(e) => {
-                        anyhow::bail!("{}", e);
+                        anyhow::bail!("{e}");
                     }
-                };
+                }
             }
 
             if let Some(reimbursed) = args.reimbursed {

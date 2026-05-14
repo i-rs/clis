@@ -6,18 +6,15 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let investment = match store.investments.get(&name) {
-        Some(inv) => inv,
-        None => {
-            println!("{}", format!("Investment '{}' not found", name.red()));
-            anyhow::bail!("Investment '{}' not found", name);
-        }
+    let investment = if let Some(inv) = store.investments.get(&name) { inv } else {
+        println!("{}", format!("Investment '{}' not found", name.red()));
+        anyhow::bail!("Investment '{name}' not found");
     };
 
     match format {
         OutputFormat::Json => {
             let json_output = output_item(investment, format);
-            println!("{}", json_output);
+            println!("{json_output}");
         }
         OutputFormat::Table | OutputFormat::Default => {
             println!("{}", "Investment Details".cyan().bold());

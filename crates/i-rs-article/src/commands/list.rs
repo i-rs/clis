@@ -46,7 +46,7 @@ pub fn handle_list(tag: Option<String>, status: Option<String>, format: OutputFo
     }
 
     let table = format_table(&articles);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_article_count(articles.len());
 

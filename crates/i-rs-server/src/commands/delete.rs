@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_server(&mut store, &name).is_none() {
-        anyhow::bail!("Server '{}' not found", name);
+        anyhow::bail!("Server '{name}' not found");
     }
 
     storage::delete_password(&name)?;

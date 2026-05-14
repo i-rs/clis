@@ -12,7 +12,7 @@ pub fn handle_upcoming(days: Option<i64>, format: OutputFormat) -> Result<()> {
         if matches!(format, OutputFormat::Json) {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
         } else {
-            print_warning(&format!("No upcoming birthdays in the next {} days.", days));
+            print_warning(&format!("No upcoming birthdays in the next {days} days."));
         }
         return Ok(());
     }
@@ -51,11 +51,11 @@ pub fn handle_upcoming(days: Option<i64>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    print_header(&format!("Upcoming Birthdays (Next {} Days)", days));
+    print_header(&format!("Upcoming Birthdays (Next {days} Days)"));
     println!();
 
     let table = format_table(&birthdays);
-    println!("{}", table);
+    println!("{table}");
 
     print_birthday_count(birthdays.len());
 

@@ -20,34 +20,32 @@ pub fn handle_add(
                 "success": false,
                 "error": { "code": "ALREADY_EXISTS", "message": format!("Budget for category '{}' already exists", category) }
             }));
-        } else {
-        }
-        anyhow::bail!("Budget for category '{}' already exists", category);
+        } 
+        anyhow::bail!("Budget for category '{category}' already exists");
     }
 
     let budget_period = match period.as_deref() {
-        Some("daily") | Some("d") => BudgetPeriod::Daily,
-        Some("weekly") | Some("w") => BudgetPeriod::Weekly,
-        Some("yearly") | Some("y") => BudgetPeriod::Yearly,
-        Some("monthly") | Some("m") | None => BudgetPeriod::Monthly,
+        Some("daily" | "d") => BudgetPeriod::Daily,
+        Some("weekly" | "w") => BudgetPeriod::Weekly,
+        Some("yearly" | "y") => BudgetPeriod::Yearly,
+        Some("monthly" | "m") | None => BudgetPeriod::Monthly,
         _ => {
             if matches!(format, OutputFormat::Json) {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
                 }));
-            } else {
-            }
+            } 
             anyhow::bail!("Invalid period");
         }
     };
 
     let mut budget = Budget::new(category.clone(), amount, budget_period);
-    budget.tags = tags.clone();
+    budget.tags = tags;
     budget.remark = remark;
     budget.updated_at = Utc::now();
 
-    let period_str = format!("{:?}", budget_period).to_lowercase();
+    let period_str = format!("{budget_period:?}").to_lowercase();
     let tags_to_use = budget.tags.clone();
 
     store.add_budget(budget);
@@ -71,7 +69,7 @@ pub fn handle_add(
             }
         }));
     } else {
-        print_success(&format!("Added budget for '{}': {:.2}", category, amount));
+        print_success(&format!("Added budget for '{category}': {amount:.2}"));
     }
 
     Ok(())

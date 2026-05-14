@@ -20,17 +20,11 @@ pub struct Snippet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SnippetStore {
     pub snippets: std::collections::BTreeMap<String, Snippet>,
 }
 
-impl Default for SnippetStore {
-    fn default() -> Self {
-        Self {
-            snippets: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct SnippetRow {

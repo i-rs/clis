@@ -36,7 +36,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         if output_format == OutputFormat::Json {
             let data: Vec<_> = records_with_prev.iter().map(|(r, prev)| {
                 let efficiency = if let Some(p) = prev {
-                    r.fuel_efficiency(*p).map(|e| format!("{:.1}", e))
+                    r.fuel_efficiency(*p).map(|e| format!("{e:.1}"))
                 } else {
                     None
                 };
@@ -56,7 +56,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         } else {
             let table = format_fuel_table(&records_with_prev);
             if !table.is_empty() {
-                println!("{}", table);
+                println!("{table}");
             }
             print_fuel_count(fuel_records.len());
         }
@@ -80,7 +80,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         } else {
             let table = format_maintenance_table(&maintenance_records);
             if !table.is_empty() {
-                println!("{}", table);
+                println!("{table}");
             }
             print_maintenance_count(maintenance_records.len());
         }

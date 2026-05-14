@@ -14,10 +14,9 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
 
         if entries.is_empty() {
             if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&format!("No meals on {}", date_str), "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("No meals on {}", date_str);
+                println!("{}", output_error(&format!("No meals on {date_str}"), "NOT_FOUND", format));
+            } 
+            anyhow::bail!("No meals on {date_str}");
         }
 
         if matches!(format, OutputFormat::Json) {
@@ -44,16 +43,12 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = match storage::get_entry(&store, short_id) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Meal '{}' not found", id);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, short_id) { e } else {
+        let msg = format!("Meal '{id}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {

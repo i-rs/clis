@@ -5,6 +5,7 @@ use anyhow::Result;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     name: String,
     title: Option<String>,
@@ -20,7 +21,7 @@ pub fn handle_update(
     let article = match storage::get_article_mut(&mut store, &name) {
         Some(a) => a,
         None => {
-            anyhow::bail!("Article '{}' not found", name);
+            anyhow::bail!("Article '{name}' not found");
         }
     };
 

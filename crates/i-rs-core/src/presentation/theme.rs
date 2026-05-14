@@ -59,6 +59,7 @@ impl Theme {
         }
     }
 
+    #[must_use] 
     pub fn load() -> Self {
         let path = Self::config_path();
         if !path.exists() {
@@ -76,6 +77,7 @@ pub fn get_theme() -> &'static Theme {
     THEME.get_or_init(Theme::load)
 }
 
+#[must_use] 
 pub fn apply(text: &str, spec: &str) -> String {
     let parts: Vec<&str> = spec.split_whitespace().collect();
     let has_bold = parts.contains(&"bold");
@@ -99,7 +101,7 @@ pub fn apply(text: &str, spec: &str) -> String {
         (false, Some("green"))   => c!(text.green()),
         (false, Some("blue"))    => c!(text.blue()),
         (false, Some("cyan"))    => c!(text.cyan()),
-        (false, Some("magenta") | Some("purple")) => c!(text.magenta()),
+        (false, Some("magenta" | "purple")) => c!(text.magenta()),
         (false, Some("yellow"))  => c!(text.yellow()),
         (false, Some("white"))   => c!(text.white()),
         (false, Some("black"))   => c!(text.black()),
@@ -107,7 +109,7 @@ pub fn apply(text: &str, spec: &str) -> String {
         (true, Some("green"))    => c!(text.bright_green()),
         (true, Some("blue"))     => c!(text.bright_blue()),
         (true, Some("cyan"))     => c!(text.bright_cyan()),
-        (true, Some("magenta") | Some("purple")) => c!(text.bright_magenta()),
+        (true, Some("magenta" | "purple")) => c!(text.bright_magenta()),
         (true, Some("yellow"))   => c!(text.bright_yellow()),
         (true, Some("white"))    => c!(text.bright_white()),
         (true, Some("black"))    => c!(text.bright_black()),
@@ -122,7 +124,7 @@ pub fn apply(text: &str, spec: &str) -> String {
 
 pub fn print_error(msg: &str) {
     let theme = get_theme();
-    eprintln!("{}", apply(&format!("Error: {}", msg), &theme.error));
+    eprintln!("{}", apply(&format!("Error: {msg}"), &theme.error));
 }
 
 pub fn print_success(msg: &str) {
@@ -147,14 +149,17 @@ pub fn println_dimmed(msg: &str) {
 
 use tabled::settings::Color;
 
+#[must_use] 
 pub fn table_border_color() -> Color {
     table_color(&get_theme().table_border)
 }
 
+#[must_use] 
 pub fn table_header_style() -> Color {
     table_color(&get_theme().table_header) | Color::BOLD
 }
 
+#[must_use] 
 pub fn table_row_style() -> Color {
     table_color(&get_theme().table_row)
 }
@@ -170,7 +175,7 @@ fn table_color(spec: &str) -> Color {
         Some("green")   => Color::FG_GREEN,
         Some("blue")    => Color::FG_BLUE,
         Some("cyan")    => Color::FG_CYAN,
-        Some("magenta") | Some("purple") => Color::FG_MAGENTA,
+        Some("magenta" | "purple") => Color::FG_MAGENTA,
         Some("yellow")  => Color::FG_YELLOW,
         Some("white")   => Color::FG_WHITE,
         Some("black")   => Color::FG_BLACK,

@@ -20,7 +20,7 @@ pub fn handle_add(
     }
 
     if store.entries.contains_key(&name) {
-        anyhow::bail!("Item '{}' already exists", name);
+        anyhow::bail!("Item '{name}' already exists");
     }
 
     let purchase = parse_datetime(&purchase_date)?;

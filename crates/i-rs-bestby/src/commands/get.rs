@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entity = match storage::get_entry(&store, &name) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Item '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entity = if let Some(e) = storage::get_entry(&store, &name) { e } else {
+        let msg = format!("Item '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -76,11 +72,11 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         } else if days <= 7 {
             format!("{} ({} days left)", "REPLACE SOON".yellow().bold(), days)
         } else {
-            format!("{} days left", days)
+            format!("{days} days left")
         };
-        println!("{:16} {} ({})", "Cycle:".style(style), format!("{} days", cycle).cyan(), status);
+        println!("{:16} {} ({})", "Cycle:".style(style), format!("{cycle} days").cyan(), status);
     } else {
-        println!("{:16} {}", "Cycle:".style(style), "(not set)".dimmed().to_string());
+        println!("{:16} {}", "Cycle:".style(style), "(not set)".dimmed());
         println!("  {}", "Use 'update' command to set replacement cycle".dimmed());
     }
 

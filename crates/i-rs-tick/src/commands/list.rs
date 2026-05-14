@@ -34,7 +34,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let rows: Vec<TickRow> = entries.iter().map(|e| TickRow::from_entry(e)).collect();
     let table = format_table(&rows);
-    println!("{}", table);
+    println!("{table}");
 
     print_entry_count(entries.len());
 

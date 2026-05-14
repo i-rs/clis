@@ -37,17 +37,11 @@ impl DoseEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct DoseStore {
     pub entries: BTreeMap<String, DoseEntry>,
 }
 
-impl Default for DoseStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl DoseStore {
     pub fn add_entry(&mut self, entry: DoseEntry) {

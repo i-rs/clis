@@ -34,17 +34,11 @@ impl HasTags for Contact {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ContactStore {
     pub entries: BTreeMap<String, Contact>,
 }
 
-impl Default for ContactStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl ContactStore {
     pub fn add_entry(&mut self, entry: Contact) {
@@ -87,9 +81,7 @@ impl ContactRow {
             phone: if contact.phone.is_empty() { "-".to_string() } else { contact.phone.clone() },
             email: if contact.email.is_empty() { "-".to_string() } else { contact.email.clone() },
             relationship: if contact.relationship.is_empty() { "-".to_string() } else { contact.relationship.clone() },
-            last_contact: contact.last_contact
-                .map(|dt| dt.format("%Y-%m-%d").to_string())
-                .unwrap_or_else(|| "-".to_string()),
+            last_contact: contact.last_contact.map_or_else(|| "-".to_string(), |dt| dt.format("%Y-%m-%d").to_string()),
             tags: if contact.tags.is_empty() { "-".to_string() } else { contact.tags.join(", ") },
         }
     }

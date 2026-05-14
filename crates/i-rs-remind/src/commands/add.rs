@@ -16,7 +16,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.reminds.contains_key(&name) {
-        anyhow::bail!("Remind '{}' already exists", name);
+        anyhow::bail!("Remind '{name}' already exists");
     }
 
     let event = parse_datetime(&event_date)?;

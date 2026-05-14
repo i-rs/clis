@@ -16,11 +16,11 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.birthdays.contains_key(&name) {
-        anyhow::bail!("Birthday '{}' already exists", name);
+        anyhow::bail!("Birthday '{name}' already exists");
     }
 
     if let Err(e) = validate_birth_date(&birth_date) {
-        anyhow::bail!("{}", e);
+        anyhow::bail!("{e}");
     }
 
     let now = Utc::now();
@@ -46,7 +46,7 @@ pub fn handle_add(
 fn validate_birth_date(date: &str) -> Result<(), String> {
     let parts: Vec<&str> = date.split('-').collect();
     if parts.len() != 2 {
-        return Err(format!("Invalid birth date format: {}. Use MM-DD (e.g., 06-15)", date));
+        return Err(format!("Invalid birth date format: {date}. Use MM-DD (e.g., 06-15)"));
     }
 
     let month: u32 = parts[0]
@@ -56,19 +56,19 @@ fn validate_birth_date(date: &str) -> Result<(), String> {
         .parse()
         .map_err(|_| format!("Invalid day: {}. Must be 01-31", parts[1]))?;
 
-    if month < 1 || month > 12 {
-        return Err(format!("Invalid month: {}. Must be 01-12", month));
+    if !(1..=12).contains(&month) {
+        return Err(format!("Invalid month: {month}. Must be 01-12"));
     }
 
     let max_day = days_in_month(month);
     if day < 1 || day > max_day {
-        return Err(format!("Invalid day: {} for month {}. Must be 01-{}", day, month, max_day));
+        return Err(format!("Invalid day: {day} for month {month}. Must be 01-{max_day}"));
     }
 
     Ok(())
 }
 
-fn days_in_month(month: u32) -> u32 {
+const fn days_in_month(month: u32) -> u32 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,

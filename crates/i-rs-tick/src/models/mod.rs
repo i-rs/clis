@@ -44,27 +44,21 @@ impl TickEntry {
         let seconds = self.duration_seconds % 60;
 
         if hours > 0 {
-            format!("{}h {}m {}s", hours, minutes, seconds)
+            format!("{hours}h {minutes}m {seconds}s")
         } else if minutes > 0 {
-            format!("{}m {}s", minutes, seconds)
+            format!("{minutes}m {seconds}s")
         } else {
-            format!("{}s", seconds)
+            format!("{seconds}s")
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct TickStore {
     pub entries: BTreeMap<String, TickEntry>,
 }
 
-impl Default for TickStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl TickStore {
     pub fn add_entry(&mut self, entry: TickEntry) {
@@ -156,11 +150,11 @@ impl From<&TickStore> for Summary {
         let seconds = total_seconds % 60;
 
         let duration_str = if hours > 0 {
-            format!("{}h {}m {}s", hours, minutes, seconds)
+            format!("{hours}h {minutes}m {seconds}s")
         } else if minutes > 0 {
-            format!("{}m {}s", minutes, seconds)
+            format!("{minutes}m {seconds}s")
         } else {
-            format!("{}s", seconds)
+            format!("{seconds}s")
         };
 
         Self {

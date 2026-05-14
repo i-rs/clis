@@ -24,12 +24,10 @@ pub fn handle_list(
         if matches!(format, OutputFormat::Json) {
             let filter = tag.as_deref();
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
+        } else if tag.is_some() {
+            print_warning(&format!("No cycling records found with tag '{}'", tag.as_ref().unwrap()));
         } else {
-            if tag.is_some() {
-                print_warning(&format!("No cycling records found with tag '{}'", tag.as_ref().expect("tag.is_some() checked above")));
-            } else {
-                print_warning("No cycling records found.");
-            }
+            print_warning("No cycling records found.");
         }
         return Ok(());
     }
@@ -68,7 +66,7 @@ pub fn handle_list(
     }
 
     let table = format_table(&records_ref);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_record_count(records_ref.len());
 

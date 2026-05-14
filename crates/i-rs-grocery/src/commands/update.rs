@@ -7,7 +7,7 @@ pub fn handle_update(name: String, quantity: Option<i32>, unit: Option<String>, 
     storage::update_item(&mut store, &name, quantity, unit, tags, remark)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Item '{}' updated successfully", name));
+    print_success(&format!("Item '{name}' updated successfully"));
 
     Ok(())
 }

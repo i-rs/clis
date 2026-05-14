@@ -14,7 +14,7 @@ pub fn handle_update(
 
     let entry = match store.get_entry_mut(&id) {
         Some(e) => e,
-        None => anyhow::bail!("Entry '{}' not found", id),
+        None => anyhow::bail!("Entry '{id}' not found"),
     };
 
     if let Some(n) = name {

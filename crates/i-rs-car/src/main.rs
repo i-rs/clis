@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 #![allow(dead_code)]
 use clap::{Parser, Subcommand};
 use commands::{add, delete, example, fuel, get, list, maintain, skill, stats, update};

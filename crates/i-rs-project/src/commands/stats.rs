@@ -26,7 +26,7 @@ pub fn handle_stats() -> Result<()> {
     let high_priority_projects = store.projects.iter().filter(|p| p.priority == crate::models::Priority::High).count();
 
     let overdue_milestones = store.projects.iter().flat_map(|p| &p.milestones)
-        .filter(|m| !m.completed && m.due_date.map_or(false, |d| d < Utc::now()))
+        .filter(|m| !m.completed && m.due_date.is_some_and(|d| d < Utc::now()))
         .count();
 
     println!();

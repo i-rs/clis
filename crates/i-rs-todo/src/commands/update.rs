@@ -17,7 +17,7 @@ pub fn handle_update(
     let todo = match store.get_entry_mut(&name) {
         Some(t) => t,
         None => {
-            anyhow::bail!("Todo '{}' not found", name);
+            anyhow::bail!("Todo '{name}' not found");
         }
     };
 

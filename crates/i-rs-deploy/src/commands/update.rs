@@ -15,7 +15,7 @@ pub fn handle_update(
 
     let entry = match store.get_entry_mut(&id) {
         Some(e) => e,
-        None => anyhow::bail!("Deploy entry '{}' not found", id),
+        None => anyhow::bail!("Deploy entry '{id}' not found"),
     };
 
     if let Some(s) = status {

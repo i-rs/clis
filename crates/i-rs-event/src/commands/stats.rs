@@ -48,29 +48,28 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
         if json {
             let type_json: String = by_type
                 .iter()
-                .map(|(k, v)| format!("\"{}\": {}", k, v))
+                .map(|(k, v)| format!("\"{k}\": {v}"))
                 .collect::<Vec<_>>()
                 .join(", ");
             let month_json: String = by_month
                 .iter()
-                .map(|(k, v)| format!("\"{}\": {}", k, v))
+                .map(|(k, v)| format!("\"{k}\": {v}"))
                 .collect::<Vec<_>>()
                 .join(", ");
             let tag_json: String = all_tags
                 .iter()
-                .map(|(k, v)| format!("\"{}\": {}", k, v))
+                .map(|(k, v)| format!("\"{k}\": {v}"))
                 .collect::<Vec<_>>()
                 .join(", ");
             println!(
-                r#"{{"success": true, "data": {{"year": {}, "total": {}, "by_type": {{{}}}, "by_month": {{{}}}, "tags": {{{}}}}}}}"#,
-                target_year, total, type_json, month_json, tag_json
+                r#"{{"success": true, "data": {{"year": {target_year}, "total": {total}, "by_type": {{{type_json}}}, "by_month": {{{month_json}}}, "tags": {{{tag_json}}}}}}}"#
             );
         } else {
-            print_header(&format!("Event Statistics - {}", target_year));
+            print_header(&format!("Event Statistics - {target_year}"));
             println!("\n{} {} events", "Total:".cyan().bold(), total.to_string().green());
 
             println!("\n{}", "By Type:".cyan().bold());
-            for (etype, count) in by_type.iter() {
+            for (etype, count) in &by_type {
                 let label = match etype.as_str() {
                     "meeting" => "Meeting",
                     "gathering" => "Gathering",
@@ -97,15 +96,12 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
                 }
             }
         }
+    } else if json {
+        println!(
+            r#"{{"success": true, "data": {{"year": {target_year}, "total": 0}}}}"#
+        );
     } else {
-        if json {
-            println!(
-                r#"{{"success": true, "data": {{"year": {}, "total": 0}}}}"#,
-                target_year
-            );
-        } else {
-            print_warning(&format!("No events found for year {}", target_year));
-        }
+        print_warning(&format!("No events found for year {target_year}"));
     }
 
     Ok(())

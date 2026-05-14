@@ -4,6 +4,7 @@ use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     name: String,
     title: String,
@@ -15,7 +16,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.articles.contains_key(&name) {
-        anyhow::bail!("Article '{}' already exists", name);
+        anyhow::bail!("Article '{name}' already exists");
     }
 
     if let Err(e) = i_rs_core::validate_url(&url) {
@@ -44,7 +45,7 @@ pub fn handle_add(
     storage::add_article(&mut store, article);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Article added successfully"));
+    print_success("✓ Article added successfully");
 
     Ok(())
 }

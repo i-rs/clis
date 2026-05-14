@@ -66,7 +66,7 @@ pub fn delete_goal(store: &mut Store, name: &str) -> Result<bool> {
 
 pub fn deposit_to_goal(store: &mut Store, name: &str, amount: f64) -> Result<SavingsGoal> {
     let goal = find_goal(store, name)
-        .ok_or_else(|| anyhow::anyhow!("Goal '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Goal '{name}' not found"))?;
     
     goal.current_amount += amount;
     goal.updated_at = Utc::now();
@@ -80,7 +80,7 @@ pub fn deposit_to_goal(store: &mut Store, name: &str, amount: f64) -> Result<Sav
 
 pub fn add_milestone(store: &mut Store, goal_name: &str, name: String, amount: f64) -> Result<SavingsGoal> {
     let goal = find_goal(store, goal_name)
-        .ok_or_else(|| anyhow::anyhow!("Goal '{}' not found", goal_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Goal '{goal_name}' not found"))?;
     
     let milestone = Milestone {
         id: Uuid::new_v4().to_string(),
@@ -101,7 +101,7 @@ pub fn add_milestone(store: &mut Store, goal_name: &str, name: String, amount: f
 
 pub fn remove_milestone(store: &mut Store, goal_name: &str, milestone_id: &str) -> Result<SavingsGoal> {
     let goal = find_goal(store, goal_name)
-        .ok_or_else(|| anyhow::anyhow!("Goal '{}' not found", goal_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Goal '{goal_name}' not found"))?;
     
     let initial_len = goal.milestones.len();
     goal.milestones.retain(|m| m.id != milestone_id);
@@ -112,6 +112,6 @@ pub fn remove_milestone(store: &mut Store, goal_name: &str, milestone_id: &str) 
         save_store(store)?;
         Ok(updated_goal)
     } else {
-        Err(anyhow::anyhow!("Milestone '{}' not found", milestone_id))
+        Err(anyhow::anyhow!("Milestone '{milestone_id}' not found"))
     }
 }

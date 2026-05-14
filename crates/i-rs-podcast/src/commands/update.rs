@@ -18,7 +18,7 @@ pub fn handle_update(
     let podcast = match store.podcasts.get_mut(&name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Podcast '{}' not found", name);
+            anyhow::bail!("Podcast '{name}' not found");
         }
     };
 
@@ -56,7 +56,7 @@ pub fn handle_update(
             "message": format!("Podcast '{}' updated successfully", name)
         }));
     } else {
-        print_success(&format!("✓ Podcast '{}' updated", name));
+        print_success(&format!("✓ Podcast '{name}' updated"));
     }
 
     Ok(())

@@ -35,7 +35,7 @@ pub fn get(args: GetArgs, output_format: OutputFormat) -> anyhow::Result<()> {
                     if !goal.remark.is_empty() {
                         println!("\nRemarks:");
                         for r in &goal.remark {
-                            println!("  - {}", r);
+                            println!("  - {r}");
                         }
                     }
                     

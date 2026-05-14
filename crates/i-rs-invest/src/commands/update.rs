@@ -19,7 +19,7 @@ pub fn handle_update(
     let investment = match storage::get_investment_mut(&mut store, &name) {
         Some(inv) => inv,
         None => {
-            anyhow::bail!("Investment '{}' not found", name);
+            anyhow::bail!("Investment '{name}' not found");
         }
     };
 

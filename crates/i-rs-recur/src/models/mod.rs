@@ -40,17 +40,11 @@ impl RecurEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct RecurStore {
     pub entries: BTreeMap<String, RecurEntry>,
 }
 
-impl Default for RecurStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl RecurStore {
     pub fn add_entry(&mut self, entry: RecurEntry) {
@@ -90,7 +84,7 @@ impl RecurRow {
         let next_str = if days < 0 {
             format!("{}d ago", days.abs())
         } else {
-            format!("{}d", days)
+            format!("{days}d")
         };
 
         Self {

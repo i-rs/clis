@@ -7,7 +7,7 @@ pub fn handle_delete(id: String) -> anyhow::Result<()> {
     storage::delete_sleep(&mut store, &id)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Sleep record '{}' deleted successfully", id));
+    print_success(&format!("Sleep record '{id}' deleted successfully"));
 
     Ok(())
 }

@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.remove_entry(&name).is_none() {
-        anyhow::bail!("Todo '{}' not found", name);
+        anyhow::bail!("Todo '{name}' not found");
     }
 
     storage::save_store(&store)?;

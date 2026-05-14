@@ -16,4 +16,4 @@ serde_json.workspace = true
 tabled.workspace = true
 owo-colors.workspace = true
 chrono.workspace = true
-uuid.workspace = true
+uuid = { version = "1.0", features = ["v4", "serde"] }

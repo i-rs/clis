@@ -14,9 +14,9 @@ pub fn handle_purchase(name: String) -> anyhow::Result<()> {
     println!("{} {}", "Status:".style(owo_colors::Style::new().bold()), status);
     
     if item.purchased {
-        print_success(&format!("Item '{}' marked as purchased", name));
+        print_success(&format!("Item '{name}' marked as purchased"));
     } else {
-        print_success(&format!("Item '{}' marked as needed", name));
+        print_success(&format!("Item '{name}' marked as needed"));
     }
 
     Ok(())

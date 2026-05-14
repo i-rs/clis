@@ -5,17 +5,14 @@ use tabled::Tabled;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum PodcastStatus {
+    #[default]
     NotStarted,
     InProgress,
     Completed,
 }
 
-impl Default for PodcastStatus {
-    fn default() -> Self {
-        Self::NotStarted
-    }
-}
 
 impl std::fmt::Display for PodcastStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -54,17 +51,11 @@ pub struct Podcast {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PodcastStore {
     pub podcasts: BTreeMap<String, Podcast>,
 }
 
-impl Default for PodcastStore {
-    fn default() -> Self {
-        Self {
-            podcasts: BTreeMap::new(),
-        }
-    }
-}
 
 impl PodcastStore {
     pub fn add_entry(&mut self, podcast: Podcast) {
@@ -201,9 +192,9 @@ fn format_duration(secs: Option<i64>) -> String {
             let minutes = (s % 3600) / 60;
             let seconds = s % 60;
             if hours > 0 {
-                format!("{}:{:02}:{:02}", hours, minutes, seconds)
+                format!("{hours}:{minutes:02}:{seconds:02}")
             } else {
-                format!("{}:{:02}", minutes, seconds)
+                format!("{minutes}:{seconds:02}")
             }
         }
         None => "-".to_string(),

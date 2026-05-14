@@ -10,7 +10,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let article = match storage::get_article(&store, &name) {
         Some(a) => a,
         None => {
-            anyhow::bail!("Article '{}' not found", name);
+            anyhow::bail!("Article '{name}' not found");
         }
     };
 
@@ -36,14 +36,14 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     if !article.remark.is_empty() {
         println!("  {}:", "Remarks".dimmed());
         for remark in &article.remark {
-            println!("    - {}", remark);
+            println!("    - {remark}");
         }
     }
     
     if !article.notes.is_empty() {
         println!("  {}:", "Notes".dimmed());
         for note in &article.notes {
-            println!("    - {}", note);
+            println!("    - {note}");
         }
     }
     

@@ -6,15 +6,11 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let movie = match store.movies.get(&name) {
-        Some(m) => m,
-        None => {
-            if matches!(output_format, OutputFormat::Json) {
-                println!("{}", output_error(&format!("Movie '{}' not found", name), "NOT_FOUND", output_format));
-            } else {
-            }
-            anyhow::bail!("Movie '{}' not found", name);
-        }
+    let movie = if let Some(m) = store.movies.get(&name) { m } else {
+        if matches!(output_format, OutputFormat::Json) {
+            println!("{}", output_error(&format!("Movie '{name}' not found"), "NOT_FOUND", output_format));
+        } 
+        anyhow::bail!("Movie '{name}' not found");
     };
 
     if matches!(output_format, OutputFormat::Json) {
@@ -39,10 +35,10 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
             director: movie.director.as_deref(),
             watched: movie.watched,
             rating: movie.rating,
-            review: movie.review.iter().map(|s| s.as_str()).collect(),
+            review: movie.review.iter().map(std::string::String::as_str).collect(),
             release_date: movie.release_date.map(|d| d.format("%Y-%m-%d").to_string()),
-            tags: movie.tags.iter().map(|s| s.as_str()).collect(),
-            remark: movie.remark.iter().map(|s| s.as_str()).collect(),
+            tags: movie.tags.iter().map(std::string::String::as_str).collect(),
+            remark: movie.remark.iter().map(std::string::String::as_str).collect(),
             created_at: movie.created_at.timestamp(),
             updated_at: movie.updated_at.timestamp(),
         };

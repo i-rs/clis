@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entry = match storage::get_entry(&store, &name) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Entry '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, &name) { e } else {
+        let msg = format!("Entry '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -41,7 +37,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     } else if days <= 7 {
         format!("{} ({} days)", "DUE SOON".yellow().bold(), days)
     } else {
-        format!("{} days", days)
+        format!("{days} days")
     };
     println!("{:16} {}", "Next In:".style(style), next_str);
 

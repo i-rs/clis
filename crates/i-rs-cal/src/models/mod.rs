@@ -26,15 +26,11 @@ impl CalEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CalStore {
     pub entries: BTreeMap<String, CalEntry>,
 }
 
-impl Default for CalStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl CalStore {
     pub fn add_entry(&mut self, entry: CalEntry) {

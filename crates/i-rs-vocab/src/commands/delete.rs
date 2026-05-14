@@ -8,7 +8,7 @@ pub fn handle_delete(word_key: String) -> Result<()> {
 
     let word_lower = word_key.to_lowercase();
     if store.remove_entry(&word_lower).is_none() {
-        anyhow::bail!("Word '{}' not found", word_key);
+        anyhow::bail!("Word '{word_key}' not found");
     }
 
     storage::save_store(&store)?;

@@ -15,7 +15,7 @@ pub fn handle_update(
     let note = match storage::get_note_mut(&mut store, &name) {
         Some(n) => n,
         None => {
-            anyhow::bail!("Note '{}' not found", name);
+            anyhow::bail!("Note '{name}' not found");
         }
     };
 

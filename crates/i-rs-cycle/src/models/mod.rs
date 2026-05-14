@@ -26,15 +26,11 @@ impl CycleEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CycleStore {
     pub entries: BTreeMap<String, CycleEntry>,
 }
 
-impl Default for CycleStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl CycleStore {
     pub fn add_entry(&mut self, entry: CycleEntry) {

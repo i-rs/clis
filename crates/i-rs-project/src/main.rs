@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 use clap::{Parser, Subcommand};
 use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_milestone, handle_skill, handle_stats, handle_task, handle_update, SkillCommand, milestone::MilestoneCommand, task::TaskCommand};
 use presentation::OutputFormat;

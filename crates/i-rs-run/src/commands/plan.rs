@@ -80,7 +80,7 @@ pub fn handle_plan_list(format: OutputFormat) -> Result<()> {
     }
 
     let table = format_plan_table(&plans_ref);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_plan_count(plans_ref.len());
 
@@ -121,9 +121,9 @@ pub fn handle_plan_get(id: String, format: OutputFormat) -> Result<()> {
             println!("  {:12} {}", "ID:".dimmed(), plan.id);
             println!("  {:12} {}", "Name:".dimmed(), plan.name);
             println!(
-                "  {:12} {} km",
+                "  {:12} {:.2} km",
                 "Target:".dimmed(),
-                format!("{:.2}", plan.target_distance_km)
+                plan.target_distance_km
             );
             println!("  {:12} {}/km", "Pace:".dimmed(), plan.target_pace);
             println!("  {:12} {:?}", "Schedule:".dimmed(), plan.schedule_days);
@@ -138,11 +138,10 @@ pub fn handle_plan_get(id: String, format: OutputFormat) -> Result<()> {
         if matches!(format, OutputFormat::Json) {
             println!(
                 "{}",
-                output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {}", id)), format)
+                output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format)
             );
-        } else {
-        }
-        anyhow::bail!("No plan found with ID: {}", id);
+        } 
+        anyhow::bail!("No plan found with ID: {id}");
     }
 
     Ok(())
@@ -152,7 +151,7 @@ pub fn handle_plan_delete(id: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if store.remove_plan(&id).is_none() {
-        anyhow::bail!("No plan found with ID: {}", id);
+        anyhow::bail!("No plan found with ID: {id}");
     }
 
     storage::save_store(&store)?;

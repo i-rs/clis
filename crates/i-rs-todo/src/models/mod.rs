@@ -5,8 +5,10 @@ use tabled::Tabled;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum Priority {
     High,
+    #[default]
     Medium,
     Low,
 }
@@ -14,27 +16,22 @@ pub enum Priority {
 impl Priority {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "high" | "h" | "3" => Some(Priority::High),
-            "medium" | "med" | "m" | "2" => Some(Priority::Medium),
-            "low" | "l" | "1" => Some(Priority::Low),
+            "high" | "h" | "3" => Some(Self::High),
+            "medium" | "med" | "m" | "2" => Some(Self::Medium),
+            "low" | "l" | "1" => Some(Self::Low),
             _ => None,
         }
     }
 
-    pub fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
-            Priority::High => "High",
-            Priority::Medium => "Medium",
-            Priority::Low => "Low",
+            Self::High => "High",
+            Self::Medium => "Medium",
+            Self::Low => "Low",
         }
     }
 }
 
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Medium
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
@@ -63,17 +60,11 @@ impl Todo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct TodoStore {
     pub todos: BTreeMap<String, Todo>,
 }
 
-impl Default for TodoStore {
-    fn default() -> Self {
-        Self {
-            todos: BTreeMap::new(),
-        }
-    }
-}
 
 impl TodoStore {
     pub fn add_entry(&mut self, todo: Todo) {

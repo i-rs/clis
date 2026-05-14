@@ -20,7 +20,7 @@ pub fn handle_add(
     }
 
     if store.entries.contains_key(&name) {
-        anyhow::bail!("Key '{}' already exists", name);
+        anyhow::bail!("Key '{name}' already exists");
     }
 
     storage::store_key(&name, &key_value)?;

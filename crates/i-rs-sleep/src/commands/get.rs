@@ -7,7 +7,7 @@ pub fn handle_get(id: String, format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
     let record = store.get_entry(&id)
-        .ok_or_else(|| anyhow::anyhow!("Sleep record '{}' not found", id))?;
+        .ok_or_else(|| anyhow::anyhow!("Sleep record '{id}' not found"))?;
 
     if format == OutputFormat::Json {
         let item: ListItem = record.into();

@@ -25,11 +25,7 @@ pub fn handle_list(
         if matches!(output_format, OutputFormat::Json) {
             let filter = if let Some(w) = watched {
                 Some(if w { "watched" } else { "unwatched" }.to_string())
-            } else if let Some(ref t) = tag {
-                Some(format!("tag:{}", t))
-            } else {
-                None
-            };
+            } else { tag.as_ref().map(|t| format!("tag:{t}")) };
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), output_format));
         } else {
             print_warning("No movies found.");
@@ -54,23 +50,19 @@ pub fn handle_list(
             director: m.director.as_deref(),
             watched: m.watched,
             rating: m.rating,
-            tags: m.tags.iter().map(|s| s.as_str()).collect(),
+            tags: m.tags.iter().map(std::string::String::as_str).collect(),
         }).collect();
 
         let filter = if let Some(w) = watched {
             Some(if w { "watched" } else { "unwatched" }.to_string())
-        } else if let Some(ref t) = tag {
-            Some(format!("tag:{}", t))
-        } else {
-            None
-        };
+        } else { tag.as_ref().map(|t| format!("tag:{t}")) };
 
         println!("{}", output_list(&items, items.len(), filter.as_deref(), output_format));
         return Ok(());
     }
 
     let table = format_table(&movies);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     let total = movies.len();
     let watched_count = movies.iter().filter(|m| m.watched).count();

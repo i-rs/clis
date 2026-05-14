@@ -7,7 +7,7 @@ pub fn handle_delete(key: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if storage::remove_entry(&mut store, &key).is_none() {
-        anyhow::bail!("Key '{}' not found", key);
+        anyhow::bail!("Key '{key}' not found");
     }
 
     storage::save_store(&store)?;

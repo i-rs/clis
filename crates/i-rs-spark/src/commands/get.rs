@@ -9,16 +9,12 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = match storage::get_entry(&store, short_id) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Spark '{}' not found", id);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, short_id) { e } else {
+        let msg = format!("Spark '{id}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {

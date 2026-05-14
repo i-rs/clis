@@ -5,7 +5,7 @@ pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 
 pub fn format_table(rows: &[SleepRow]) -> String {
-    i_rs_core::render_table(&rows)
+    i_rs_core::render_table(rows)
 }
 
 pub fn print_stats(stats: &SleepStats) {

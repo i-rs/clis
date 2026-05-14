@@ -51,7 +51,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&birthdays);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_birthday_count(birthdays.len());
 

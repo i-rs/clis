@@ -44,7 +44,7 @@ pub fn deposit(args: DepositArgs, output_format: OutputFormat) -> anyhow::Result
                 OutputFormat::Table | OutputFormat::Default => {
                     print_header("Deposit Successful");
                     print_success(&format!("Deposited {:.2} to '{}'", args.amount, updated_goal.name));
-                    println!("\nPrevious: {:.2} ({:.1}%)", previous_amount, previous_progress);
+                    println!("\nPrevious: {previous_amount:.2} ({previous_progress:.1}%)");
                     println!("Current: {:.2} ({:.1}%)", updated_goal.current_amount, new_progress);
                     println!("Remaining: {:.2}", updated_goal.remaining_amount());
                     
@@ -58,7 +58,7 @@ pub fn deposit(args: DepositArgs, output_format: OutputFormat) -> anyhow::Result
                     let reached_count = updated_goal.milestones.iter().filter(|m| m.reached).count();
                     let total_count = updated_goal.milestones.len();
                     if total_count > 0 {
-                        println!("\nMilestones: {}/{} reached", reached_count, total_count);
+                        println!("\nMilestones: {reached_count}/{total_count} reached");
                     }
                 }
             }

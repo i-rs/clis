@@ -28,7 +28,7 @@ pub struct TaxStats {
     pub total: f64,
 }
 impl TaxStats {
-    pub fn new(year: i32) -> Self {
+    pub const fn new(year: i32) -> Self {
         Self {
             year,
             personal_total: 0.0,

@@ -7,7 +7,7 @@ pub fn handle_delete(name: String) -> anyhow::Result<()> {
     storage::delete_habit(&mut store, &name)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Habit '{}' deleted successfully", name));
+    print_success(&format!("Habit '{name}' deleted successfully"));
 
     Ok(())
 }

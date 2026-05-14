@@ -28,15 +28,11 @@ impl AllergyEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AllergyStore {
     pub entries: BTreeMap<String, AllergyEntry>,
 }
 
-impl Default for AllergyStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl AllergyStore {
     pub fn add_entry(&mut self, entry: AllergyEntry) {

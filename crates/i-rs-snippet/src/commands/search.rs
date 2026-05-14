@@ -11,7 +11,7 @@ pub fn handle_search(query: String, format: OutputFormat) -> Result<()> {
         if matches!(format, OutputFormat::Json) {
             println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&query), format));
         } else {
-            print_warning(&format!("No snippets found matching '{}'", query));
+            print_warning(&format!("No snippets found matching '{query}'"));
         }
         return Ok(());
     }
@@ -45,7 +45,7 @@ pub fn handle_search(query: String, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&snippets);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_snippet_count(snippets.len());
 

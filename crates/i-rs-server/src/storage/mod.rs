@@ -16,10 +16,10 @@ pub fn init_keyring() {
 
 pub fn store_password(server_name: &str, password: &str) -> Result<()> {
     let entry = Entry::new(SERVICE_NAME, server_name)
-        .map_err(|e| anyhow::anyhow!("Failed to create keyring entry: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to create keyring entry: {e}"))?;
     entry
         .set_password(password)
-        .map_err(|e| anyhow::anyhow!("Failed to store password: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to store password: {e}"))?;
     Ok(())
 }
 
@@ -28,11 +28,11 @@ pub fn get_password(server_name: &str) -> Result<Option<String>> {
         Ok(entry) => match entry.get_password() {
             Ok(pwd) => Ok(Some(pwd)),
             Err(e) => {
-                let err_str = format!("{}", e);
+                let err_str = format!("{e}");
                 if err_str.contains("NoEntry") || err_str.contains("not found") {
                     Ok(None)
                 } else {
-                    Err(anyhow::anyhow!("Failed to get password: {}", e))
+                    Err(anyhow::anyhow!("Failed to get password: {e}"))
                 }
             }
         },
@@ -41,11 +41,8 @@ pub fn get_password(server_name: &str) -> Result<Option<String>> {
 }
 
 pub fn delete_password(server_name: &str) -> Result<()> {
-    match Entry::new(SERVICE_NAME, server_name) {
-        Ok(entry) => {
-            let _ = entry.delete_credential();
-        }
-        Err(_) => {}
+    if let Ok(entry) = Entry::new(SERVICE_NAME, server_name) {
+        let _ = entry.delete_credential();
     }
     Ok(())
 }

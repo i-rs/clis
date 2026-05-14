@@ -35,17 +35,11 @@ impl PigEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PigStore {
     pub entries: BTreeMap<String, PigEntry>,
 }
 
-impl Default for PigStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl PigStore {
     pub fn add_entry(&mut self, entry: PigEntry) {

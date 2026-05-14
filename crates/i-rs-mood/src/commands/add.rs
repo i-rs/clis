@@ -19,7 +19,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.records.contains_key(&date) {
-        anyhow::bail!("Record for {} already exists", date);
+        anyhow::bail!("Record for {date} already exists");
     }
 
     let now = chrono::Utc::now();
@@ -52,12 +52,11 @@ fn parse_mood(mood_str: &str) -> Result<u8> {
         "bad" | "2" | "😔" => Ok(2),
         "terrible" | "1" | "😢" => Ok(1),
         _ => {
-            if let Ok(num) = mood_str.parse::<u8>() {
-                if num >= 1 && num <= 5 {
+            if let Ok(num) = mood_str.parse::<u8>()
+                && (1..=5).contains(&num) {
                     return Ok(num);
                 }
-            }
-            Err(anyhow::anyhow!("Invalid mood: {}. Use 1-5, great/good/okay/bad/terrible, or emoji", mood_str))
+            Err(anyhow::anyhow!("Invalid mood: {mood_str}. Use 1-5, great/good/okay/bad/terrible, or emoji"))
         }
     }
 }

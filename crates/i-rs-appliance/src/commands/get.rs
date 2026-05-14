@@ -9,7 +9,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let appliance = match store.get_by_name(&name) {
         Some(a) => a,
         None => {
-            anyhow::bail!("Appliance '{}' not found", name);
+            anyhow::bail!("Appliance '{name}' not found");
         }
     };
 
@@ -94,15 +94,15 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         println!("  {:12} {}", "Remark:".dimmed(), appliance.remark.join(", "));
     }
 
-    if !appliance.maintenance_records.is_empty() {
+    if appliance.maintenance_records.is_empty() {
+        println!();
+        print_warning("No maintenance records.");
+    } else {
         println!();
         println!("{}", "Maintenance Records:".bold().cyan());
         for record in &appliance.maintenance_records {
             println!("  {} - {}", record.date.format("%Y-%m-%d").dimmed(), record.description);
         }
-    } else {
-        println!();
-        print_warning("No maintenance records.");
     }
 
     Ok(())

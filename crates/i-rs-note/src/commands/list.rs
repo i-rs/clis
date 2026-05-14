@@ -41,7 +41,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     }
 
     let table = format_table(&notes);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_note_count(notes.len());
 

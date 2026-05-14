@@ -58,15 +58,11 @@ impl SavingsGoal {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Store {
     pub goals: Vec<SavingsGoal>,
 }
 
-impl Default for Store {
-    fn default() -> Self {
-        Self { goals: Vec::new() }
-    }
-}
 
 #[derive(Tabled, Clone)]
 pub struct SavingsGoalRow {
@@ -93,7 +89,7 @@ impl SavingsGoalRow {
             name: goal.name.clone(),
             target: format!("{:.2}", goal.target_amount),
             current: format!("{:.2}", goal.current_amount),
-            progress: format!("{:.1}%", progress),
+            progress: format!("{progress:.1}%"),
             days_left: if days_left < 0 {
                 "Overdue".to_string()
             } else {

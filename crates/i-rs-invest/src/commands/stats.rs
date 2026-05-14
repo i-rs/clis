@@ -110,9 +110,9 @@ pub fn handle_stats() -> Result<()> {
 
         print!("  {}. {} [{}]: ", i + 1, inv.name, inv.symbol);
         if pl >= 0.0 {
-            println!("{}", format!("{:+.2}%", pl).green());
+            println!("{}", format!("{pl:+.2}%").green());
         } else {
-            println!("{}", format!("{:+.2}%", pl).red());
+            println!("{}", format!("{pl:+.2}%").red());
         }
     }
 

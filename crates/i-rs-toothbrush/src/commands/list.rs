@@ -25,7 +25,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let rows: Vec<ToothbrushRow> = entries.iter().map(|e| ToothbrushRow::from_entry(e)).collect();
     let table = format_table(&rows);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_entry_count(entries.len());
 

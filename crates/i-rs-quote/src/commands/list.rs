@@ -16,9 +16,9 @@ pub fn handle_list(tag: Option<String>, author: Option<String>, format: OutputFo
     if quotes.is_empty() {
         if matches!(format, OutputFormat::Json) {
             let filter_str = if let Some(ref a) = author {
-                format!("author:{}", a)
+                format!("author:{a}")
             } else if let Some(ref t) = tag {
-                format!("tag:{}", t)
+                format!("tag:{t}")
             } else {
                 "all".to_string()
             };
@@ -50,7 +50,7 @@ pub fn handle_list(tag: Option<String>, author: Option<String>, format: OutputFo
         }).collect();
 
         let filter_str: Option<String> = author.as_ref()
-            .map(|a| format!("author:{}", a))
+            .map(|a| format!("author:{a}"))
             .or_else(|| tag.clone());
 
         println!("{}", output_list(&items, items.len(), filter_str.as_deref(), format));
@@ -58,7 +58,7 @@ pub fn handle_list(tag: Option<String>, author: Option<String>, format: OutputFo
     }
 
     let table = format_table(&quotes);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_quote_count(quotes.len());
 

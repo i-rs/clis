@@ -9,7 +9,7 @@ pub fn handle_add(duration_minutes: i32, tag: Vec<String>, remark: Vec<String>) 
     let mut store = storage::load_store()?;
 
     let now = Utc::now();
-    let started_at = now - chrono::Duration::minutes(duration_minutes as i64);
+    let started_at = now - chrono::Duration::minutes(i64::from(duration_minutes));
     let ended_at = now;
 
     let entry = SitEntry::new(duration_minutes, started_at, ended_at, tag, remark);

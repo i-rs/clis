@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(key: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entry = match storage::get_entry(&store, &key) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Key '{}' not found", key);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, &key) { e } else {
+        let msg = format!("Key '{key}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {

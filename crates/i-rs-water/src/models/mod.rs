@@ -33,15 +33,11 @@ impl WaterEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct WaterStore {
     pub entries: BTreeMap<String, WaterEntry>,
 }
 
-impl Default for WaterStore {
-    fn default() -> Self {
-        Self { entries: BTreeMap::new() }
-    }
-}
 
 impl WaterStore {
     pub fn add_entry(&mut self, entry: WaterEntry) {

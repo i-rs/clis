@@ -32,17 +32,11 @@ impl SparkEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SparkStore {
     pub entries: BTreeMap<String, SparkEntry>,
 }
 
-impl Default for SparkStore {
-    fn default() -> Self {
-        Self {
-            entries: BTreeMap::new(),
-        }
-    }
-}
 
 impl SparkStore {
     pub fn add_entry(&mut self, entry: SparkEntry) {

@@ -28,7 +28,7 @@ pub fn print_mood_calendar(records: &[&MoodRecord], days: usize) {
         } else {
             "·".dimmed().to_string()
         };
-        print!("{} ", mood_str);
+        print!("{mood_str} ");
         current += chrono::Duration::days(1);
     }
     println!();

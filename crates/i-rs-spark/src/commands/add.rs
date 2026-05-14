@@ -17,7 +17,7 @@ pub fn handle_add(
     storage::add_entry(&mut store, entry);
     storage::save_store(&store)?;
 
-    let preview = if content.len() > 30 { format!("{}...", &content[..30]) } else { content.clone() };
+    let preview = if content.len() > 30 { format!("{}...", &content[..30]) } else { content };
     print_success(&format!("✓ Spark recorded: {}", preview.green()));
 
     Ok(())

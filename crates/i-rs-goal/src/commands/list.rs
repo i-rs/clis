@@ -14,25 +14,26 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     
     let goals: Vec<SavingsGoal> = match &args.tag {
         Some(tag) => store.goals.iter().filter(|g| g.tags.contains(tag)).cloned().collect(),
-        None => store.goals.clone(),
+        None => store.goals,
     };
     
     if goals.is_empty() {
         if matches!(output_format, OutputFormat::Json) {
-            let filter = args.tag.clone();
+            let filter = args.tag;
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), output_format));
         } else {
             print_warning("No goals found.");
-            if args.tag.is_some() {
-                println!("(Filtered by tag: {})", args.tag.as_ref().expect("args.tag.is_some() checked above"));
-            }
+            if args.tag.is_some()
+                && let Some(ref tag) = args.tag {
+                    println!("(Filtered by tag: {tag})");
+                }
         }
         return Ok(());
     }
     
     match output_format {
         OutputFormat::Json => {
-            let filter = args.tag.clone();
+            let filter = args.tag;
             println!("{}", output_list(&goals, goals.len(), filter.as_deref(), output_format));
         }
         OutputFormat::Table | OutputFormat::Default => {

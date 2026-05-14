@@ -15,26 +15,26 @@ pub enum VocabStatus {
 impl VocabStatus {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "new" => Some(VocabStatus::New),
-            "learning" | "learn" => Some(VocabStatus::Learning),
-            "mastered" | "master" => Some(VocabStatus::Mastered),
+            "new" => Some(Self::New),
+            "learning" | "learn" => Some(Self::Learning),
+            "mastered" | "master" => Some(Self::Mastered),
             _ => None,
         }
     }
 
-    pub fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
-            VocabStatus::New => "New",
-            VocabStatus::Learning => "Learning",
-            VocabStatus::Mastered => "Mastered",
+            Self::New => "New",
+            Self::Learning => "Learning",
+            Self::Mastered => "Mastered",
         }
     }
 
-    pub fn emoji(&self) -> &'static str {
+    pub const fn emoji(&self) -> &'static str {
         match self {
-            VocabStatus::New => "🆕",
-            VocabStatus::Learning => "📖",
-            VocabStatus::Mastered => "✅",
+            Self::New => "🆕",
+            Self::Learning => "📖",
+            Self::Mastered => "✅",
         }
     }
 }
@@ -66,17 +66,11 @@ pub struct VocabWord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct VocabStore {
     pub words: BTreeMap<String, VocabWord>,
 }
 
-impl Default for VocabStore {
-    fn default() -> Self {
-        Self {
-            words: BTreeMap::new(),
-        }
-    }
-}
 
 impl VocabStore {
     pub fn add_entry(&mut self, word: VocabWord) {
@@ -135,7 +129,7 @@ impl VocabStore {
             .filter(|w| w.status != VocabStatus::Mastered)
             .collect();
 
-        learning_words.sort_by(|a, b| a.review_count.cmp(&b.review_count));
+        learning_words.sort_by_key(|a| a.review_count);
         learning_words.truncate(limit);
         learning_words
     }

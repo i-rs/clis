@@ -22,25 +22,22 @@ pub fn run_get(args: GetArgs) -> Result<()> {
 
     match invoice {
         Some(inv) => {
-            match format {
-                OutputFormat::Json => {
-                    println!("{}", crate::presentation::output_item(inv, OutputFormat::Json));
+            if format == OutputFormat::Json {
+                println!("{}", crate::presentation::output_item(inv, OutputFormat::Json));
+            } else {
+                print_header("Invoice Details");
+                println!("{}: {}", "ID".cyan(), inv.id);
+                println!("{}: {}", "Name".cyan(), inv.name);
+                println!("{}: {:.2}", "Amount".cyan(), inv.amount);
+                println!("{}: {}", "Date".cyan(), inv.date.format("%Y-%m-%d"));
+                println!("{}: {}", "Type".cyan(), inv.invoice_type);
+                println!("{}: {}", "Reimbursed".cyan(), if inv.reimbursed { "Yes" } else { "No" });
+                println!("{}: {}", "Tags".cyan(), inv.tags.join(", "));
+                if !inv.remark.is_empty() {
+                    println!("{}: {}", "Remark".cyan(), inv.remark.join(", "));
                 }
-                _ => {
-                    print_header("Invoice Details");
-                    println!("{}: {}", "ID".cyan(), inv.id);
-                    println!("{}: {}", "Name".cyan(), inv.name);
-                    println!("{}: {:.2}", "Amount".cyan(), inv.amount);
-                    println!("{}: {}", "Date".cyan(), inv.date.format("%Y-%m-%d"));
-                    println!("{}: {}", "Type".cyan(), inv.invoice_type);
-                    println!("{}: {}", "Reimbursed".cyan(), if inv.reimbursed { "Yes" } else { "No" });
-                    println!("{}: {}", "Tags".cyan(), inv.tags.join(", "));
-                    if !inv.remark.is_empty() {
-                        println!("{}: {}", "Remark".cyan(), inv.remark.join(", "));
-                    }
-                    println!("{}: {}", "Created".cyan(), inv.created_at.format("%Y-%m-%d %H:%M:%S"));
-                    println!("{}: {}", "Updated".cyan(), inv.updated_at.format("%Y-%m-%d %H:%M:%S"));
-                }
+                println!("{}: {}", "Created".cyan(), inv.created_at.format("%Y-%m-%d %H:%M:%S"));
+                println!("{}: {}", "Updated".cyan(), inv.updated_at.format("%Y-%m-%d %H:%M:%S"));
             }
         }
         None => {

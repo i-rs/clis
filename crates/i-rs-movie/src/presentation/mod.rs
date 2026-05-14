@@ -19,8 +19,8 @@ pub fn print_stats(stats: &MovieStats) {
     println!("{} {}", "Watched:".dimmed(), stats.watched.to_string().green());
     println!("{} {}", "Unwatched:".dimmed(), stats.unwatched.to_string().green());
     if let Some(avg) = stats.avg_rating {
-        println!("{} {:.2}", "Avg Rating:".dimmed(), format!("{:.2}", avg).green());
+        println!("{} {:.2}", "Avg Rating:".dimmed(), format!("{avg:.2}").green());
     } else {
-        println!("{} {}", "Avg Rating:".dimmed(), "-".to_string());
+        println!("{} -", "Avg Rating:".dimmed());
     }
 }

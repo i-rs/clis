@@ -11,7 +11,7 @@ pub fn handle_copy(name: String) -> Result<()> {
     let snippet = match storage::get_snippet(&store, &name) {
         Some(s) => s,
         None => {
-            anyhow::bail!("Snippet '{}' not found", name);
+            anyhow::bail!("Snippet '{name}' not found");
         }
     };
 

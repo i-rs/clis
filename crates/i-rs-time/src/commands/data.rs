@@ -18,7 +18,7 @@ pub fn handle(command: &DataCommand) -> anyhow::Result<()> {
     match command {
         DataCommand::Export => {
             let exported = crate::storage::export_data()?;
-            println!("{}", exported);
+            println!("{exported}");
             Ok(())
         }
         DataCommand::Import { file } => {

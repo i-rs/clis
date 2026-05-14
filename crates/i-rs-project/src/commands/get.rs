@@ -11,7 +11,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let project = match storage::find_project(&store, &name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Project '{}' not found", name);
+            anyhow::bail!("Project '{name}' not found");
         }
     };
 
@@ -41,11 +41,14 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     if !project.remark.is_empty() {
         println!("\n{}", "Remarks:".dimmed());
         for r in &project.remark {
-            println!("  - {}", r);
+            println!("  - {r}");
         }
     }
 
-    if !project.milestones.is_empty() {
+    if project.milestones.is_empty() {
+        println!("\n{}", "Milestones:".bold().cyan());
+        println!("  {}", "No milestones yet".dimmed());
+    } else {
         println!("\n{}", "Milestones:".bold().cyan());
         let completed = project.milestones.iter().filter(|m| m.completed).count();
         println!("  {:12} {}/{} completed", "Progress:".dimmed(), completed, project.milestones.len());
@@ -60,7 +63,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
                     } else if days == 0 {
                         " (due today)".to_string()
                     } else {
-                        format!(" ({} days left)", days)
+                        format!(" ({days} days left)")
                     }
                 })
                 .unwrap_or_default();
@@ -70,12 +73,12 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
                 println!("     {}", milestone.description.dimmed());
             }
         }
-    } else {
-        println!("\n{}", "Milestones:".bold().cyan());
-        println!("  {}", "No milestones yet".dimmed());
     }
 
-    if !project.tasks.is_empty() {
+    if project.tasks.is_empty() {
+        println!("\n{}", "Tasks:".bold().cyan());
+        println!("  {}", "No tasks yet".dimmed());
+    } else {
         println!("\n{}", "Tasks:".bold().cyan());
         let completed = project.tasks.iter().filter(|t| t.completed).count();
         println!("  {:12} {}/{} completed", "Progress:".dimmed(), completed, project.tasks.len());
@@ -90,9 +93,6 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
                 println!("     Tags: {}", task.tags.join(", ").dimmed());
             }
         }
-    } else {
-        println!("\n{}", "Tasks:".bold().cyan());
-        println!("  {}", "No tasks yet".dimmed());
     }
 
     Ok(())

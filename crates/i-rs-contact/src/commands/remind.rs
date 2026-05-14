@@ -28,19 +28,19 @@ pub fn handle_remind(days: Option<i64>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    print_header(&format!("Contacts to Reach Out ({} days+)", threshold));
+    print_header(&format!("Contacts to Reach Out ({threshold} days+)"));
     println!();
 
     for (name, days_since) in &needs_contact {
         let days_str = if *days_since == i64::MAX {
             "Never".to_string()
         } else {
-            format!("{} days", days_since)
+            format!("{days_since} days")
         };
         
         let contact = store.get_entry(name).expect("entry comes from store keys, must exist");
         
-        println!("{} {}", name.bold().cyan(), format!("({})", days_str).dimmed());
+        println!("{} {}", name.bold().cyan(), format!("({days_str})").dimmed());
         
         if !contact.phone.is_empty() {
             println!("  Phone: {}", contact.phone);

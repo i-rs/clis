@@ -11,12 +11,9 @@ pub fn handle_list(
     let store = storage::load_store()?;
 
     let words: Vec<&VocabWord> = if let Some(ref status_str) = status_filter {
-        match VocabStatus::from_str(status_str) {
-            Some(status) => store.filter_by_status(status),
-            None => {
-                print_warning(&format!("Invalid status '{}'. Showing all words.", status_str));
-                store.get_all_words()
-            }
+        if let Some(status) = VocabStatus::from_str(status_str) { store.filter_by_status(status) } else {
+            print_warning(&format!("Invalid status '{status_str}'. Showing all words."));
+            store.get_all_words()
         }
     } else if let Some(ref tag) = tag_filter {
         store.filter_by_tag(tag)
@@ -60,7 +57,7 @@ pub fn handle_list(
     }
 
     let table = format_table(&words);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_word_count(words.len());
 

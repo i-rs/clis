@@ -66,7 +66,7 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
     }
 
     let table = format_table(&todos);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_todo_count(store.pending_count(), store.done_count());
 

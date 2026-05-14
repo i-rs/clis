@@ -22,7 +22,7 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
 
     if records.is_empty() {
         if matches!(format, OutputFormat::Json) {
-            let filter = days.map(|d| format!("last {} days", d));
+            let filter = days.map(|d| format!("last {d} days"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
             print_warning("No weight records found.");
@@ -46,13 +46,13 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
             remark: r.remark.clone(),
         }).collect();
 
-        let filter = days.map(|d| format!("last {} days", d));
+        let filter = days.map(|d| format!("last {d} days"));
         println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
         return Ok(());
     }
 
     let table = format_table(&records_ref);
-    println!("\n{}", table);
+    println!("\n{table}");
 
     print_record_count(records_ref.len());
 
@@ -88,8 +88,8 @@ fn calculate_stats(records: &[&WeightRecord]) -> (Option<f64>, Option<f64>, Opti
     }
 
     let weights: Vec<f64> = records.iter().map(|r| r.weight).collect();
-    let min = weights.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = weights.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min = weights.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = weights.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let avg = weights.iter().sum::<f64>() / weights.len() as f64;
 
     let change = if records.len() >= 2 {

@@ -6,6 +6,7 @@ use i_rs_core::parse_date;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     name: String,
     year: Option<i32>,
@@ -24,16 +25,15 @@ pub fn handle_add(
         None
     };
 
-    if let Some(r) = rating {
-        if !(0.0..=10.0).contains(&r) {
+    if let Some(r) = rating
+        && !(0.0..=10.0).contains(&r) {
             anyhow::bail!("Rating must be between 0 and 10");
         }
-    }
 
     let mut store = storage::load_store()?;
 
     if store.movies.contains_key(&name) {
-        anyhow::bail!("Movie '{}' already exists", name);
+        anyhow::bail!("Movie '{name}' already exists");
     }
 
     let now = Utc::now();

@@ -6,6 +6,7 @@ use i_rs_core::parse_date;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     date: String,
     left_sphere: Option<f64>,
@@ -26,7 +27,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.records.contains_key(&date) {
-        anyhow::bail!("Record for {} already exists", date);
+        anyhow::bail!("Record for {date} already exists");
     }
 
     let record = VisionRecord {

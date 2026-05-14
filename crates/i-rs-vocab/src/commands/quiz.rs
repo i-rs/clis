@@ -63,7 +63,7 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
         if !word.example.is_empty() {
             println!("\n  {}:", "Example".dimmed());
             for ex in &word.example {
-                println!("    • {}", ex);
+                println!("    • {ex}");
             }
         }
 
@@ -85,9 +85,9 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
     println!();
     println!("{}", "═".repeat(50).dimmed());
     print_header("Quiz Complete!");
-    println!("  {} {}", "Correct:".dimmed(), format!("{}/{}", correct, total).green());
+    println!("  {} {}", "Correct:".dimmed(), format!("{correct}/{total}").green());
     if total > 0 {
-        let percentage = (correct as f64 / total as f64) * 100.0;
+        let percentage = (f64::from(correct) / f64::from(total)) * 100.0;
         println!("  {} {:.1}%", "Score:".dimmed(), percentage);
     }
 

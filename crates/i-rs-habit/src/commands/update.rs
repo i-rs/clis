@@ -7,7 +7,7 @@ pub fn handle_update(name: String, description: Option<String>, frequency: Optio
     storage::update_habit(&mut store, &name, description, frequency, tags, remark)?;
     storage::save_store(&store)?;
 
-    print_success(&format!("Habit '{}' updated successfully", name));
+    print_success(&format!("Habit '{name}' updated successfully"));
 
     Ok(())
 }

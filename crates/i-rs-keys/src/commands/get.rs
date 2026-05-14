@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, show_value: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entry = match storage::get_entry(&store, &name) {
-        Some(e) => e,
-        None => {
-            let msg = format!("Key '{}' not found", name);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let entry = if let Some(e) = storage::get_entry(&store, &name) { e } else {
+        let msg = format!("Key '{name}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     let key_value = storage::get_key(&name)?;
@@ -60,11 +56,11 @@ pub fn handle_get(name: String, show_value: bool, format: OutputFormat) -> Resul
             if show_value {
                 println!("{:16} {}", "Value:".style(style), value.red());
             } else {
-                println!("{:16} {}", "Value:".style(style), "(use --show-value to reveal)".dimmed().to_string());
+                println!("{:16} {}", "Value:".style(style), "(use --show-value to reveal)".dimmed());
             }
         }
         None => {
-            println!("{:16} {}", "Value:".style(style), "(not set)".dimmed().to_string());
+            println!("{:16} {}", "Value:".style(style), "(not set)".dimmed());
         }
     }
 

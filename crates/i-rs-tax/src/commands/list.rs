@@ -54,7 +54,7 @@ pub fn execute(args: &ListArgs) -> anyhow::Result<()> {
         let filter = args.tag.clone().or(args.year.map(|y| y.to_string())).unwrap_or_default();
         let format = if args.json { OutputFormat::Json } else { OutputFormat::Default };
         let output = output_list(&data, entities.len(), Some(&filter), format);
-        println!("{}", output);
+        println!("{output}");
     } else {
         if !entities.is_empty() {
             let entity_refs: Vec<_> = entities.iter().map(|e| e as &crate::models::TaxRecord).collect();

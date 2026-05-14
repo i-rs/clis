@@ -6,15 +6,11 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let podcast = match store.podcasts.get(&name) {
-        Some(p) => p,
-        None => {
-            if matches!(output_format, OutputFormat::Json) {
-                println!("{}", output_error(&format!("Podcast '{}' not found", name), "NOT_FOUND", output_format));
-            } else {
-            }
-            anyhow::bail!("Podcast '{}' not found", name);
-        }
+    let podcast = if let Some(p) = store.podcasts.get(&name) { p } else {
+        if matches!(output_format, OutputFormat::Json) {
+            println!("{}", output_error(&format!("Podcast '{name}' not found"), "NOT_FOUND", output_format));
+        } 
+        anyhow::bail!("Podcast '{name}' not found");
     };
 
     if matches!(output_format, OutputFormat::Json) {
@@ -38,9 +34,9 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
             duration_secs: podcast.duration_secs,
             current_position_secs: podcast.current_position_secs,
             status: podcast.status.to_string(),
-            notes: podcast.notes.iter().map(|s| s.as_str()).collect(),
-            tags: podcast.tags.iter().map(|s| s.as_str()).collect(),
-            remark: podcast.remark.iter().map(|s| s.as_str()).collect(),
+            notes: podcast.notes.iter().map(std::string::String::as_str).collect(),
+            tags: podcast.tags.iter().map(std::string::String::as_str).collect(),
+            remark: podcast.remark.iter().map(std::string::String::as_str).collect(),
             created_at: podcast.created_at.timestamp(),
             updated_at: podcast.updated_at.timestamp(),
         };
@@ -57,7 +53,7 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
         };
         let current_str = format_duration(current);
         let total_str = format_duration(total);
-        format!("{} / {} ({}%)", current_str, total_str, percent)
+        format!("{current_str} / {total_str} ({percent}%)")
     } else if let Some(current) = podcast.current_position_secs {
         format!("{} / -", format_duration(current))
     } else {
@@ -122,8 +118,8 @@ fn format_duration(secs: i64) -> String {
     let minutes = (secs % 3600) / 60;
     let seconds = secs % 60;
     if hours > 0 {
-        format!("{}:{:02}:{:02}", hours, minutes, seconds)
+        format!("{hours}:{minutes:02}:{seconds:02}")
     } else {
-        format!("{}:{:02}", minutes, seconds)
+        format!("{minutes}:{seconds:02}")
     }
 }

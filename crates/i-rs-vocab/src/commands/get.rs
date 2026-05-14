@@ -7,16 +7,12 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let word = match storage::get_entry(&store, &word_key) {
-        Some(w) => w,
-        None => {
-            let msg = format!("Word '{}' not found", word_key);
-            if matches!(format, OutputFormat::Json) {
-                println!("{}", output_error(&msg, "NOT_FOUND", format));
-            } else {
-            }
-            anyhow::bail!("{}", msg);
-        }
+    let word = if let Some(w) = storage::get_entry(&store, &word_key) { w } else {
+        let msg = format!("Word '{word_key}' not found");
+        if matches!(format, OutputFormat::Json) {
+            println!("{}", output_error(&msg, "NOT_FOUND", format));
+        } 
+        anyhow::bail!("{msg}");
     };
 
     if matches!(format, OutputFormat::Json) {
@@ -62,7 +58,7 @@ pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
     if !word.example.is_empty() {
         println!("\n{}:", "Examples".bold());
         for ex in &word.example {
-            println!("  • {}", ex);
+            println!("  • {ex}");
         }
     }
 
@@ -76,7 +72,7 @@ pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
     if !word.remark.is_empty() {
         println!("\n{}:", "Remarks".bold());
         for r in &word.remark {
-            println!("  {}", r);
+            println!("  {r}");
         }
     }
 

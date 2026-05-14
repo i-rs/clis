@@ -20,7 +20,7 @@ pub fn handle_update(
     let entry_mut = match store.entries.get_mut(short_id) {
         Some(e) => e,
         None => {
-            anyhow::bail!("Entry '{}' not found", id);
+            anyhow::bail!("Entry '{id}' not found");
         }
     };
 

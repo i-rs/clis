@@ -40,8 +40,8 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
             println!("\n{}", "Run Record Details:".bold().cyan());
             println!("  {:12} {}", "ID:".dimmed(), record.id);
             println!("  {:12} {}", "Date:".dimmed(), record.date);
-            println!("  {:12} {} km", "Distance:".dimmed(), format!("{:.2}", record.distance_km));
-            println!("  {:12} {} min", "Duration:".dimmed(), format!("{:.2}", record.duration_minutes));
+            println!("  {:12} {} km", "Distance:".dimmed(), record.distance_km);
+            println!("  {:12} {} min", "Duration:".dimmed(), record.duration_minutes);
             println!("  {:12} {}/km", "Pace:".dimmed(), record.pace);
             if let Some(hr) = record.heart_rate {
                 println!("  {:12} {} bpm", "Heart Rate:".dimmed(), hr);
@@ -58,10 +58,9 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         }
     } else {
         if matches!(format, OutputFormat::Json) {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {}", id)), format));
-        } else {
-        }
-        anyhow::bail!("No record found with ID: {}", id);
+            println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format));
+        } 
+        anyhow::bail!("No record found with ID: {id}");
     }
 
     Ok(())

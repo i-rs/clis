@@ -84,7 +84,7 @@ pub fn handle_stats(
         println!("{}\n", "─".repeat(50).dimmed());
 
         let table = format_budget_stats_table(&budgets, &spent_map);
-        println!("{}", table);
+        println!("{table}");
 
         println!("\n{}", "Summary:".bold().cyan());
         println!("  {} {:.2}", "Total Budget:".dimmed(), total_budget);
@@ -107,7 +107,7 @@ fn get_period_dates(now: &NaiveDate, period: Option<&str>) -> Result<(NaiveDate,
         }
         "weekly" | "w" => {
             let days_from_monday = now.weekday().num_days_from_monday();
-            let start = *now - chrono::Duration::days(days_from_monday as i64);
+            let start = *now - chrono::Duration::days(i64::from(days_from_monday));
             let end = start + chrono::Duration::days(6);
             Ok((start, end))
         }
@@ -122,7 +122,7 @@ fn get_period_dates(now: &NaiveDate, period: Option<&str>) -> Result<(NaiveDate,
             Ok((start, end))
         }
         p => {
-            anyhow::bail!("Invalid period '{}'. Use: daily, weekly, monthly, yearly", p);
+            anyhow::bail!("Invalid period '{p}'. Use: daily, weekly, monthly, yearly");
         }
     }
 }

@@ -25,13 +25,13 @@ impl Birthday {
         let (month, day) = self.parse_birth_date();
         
         let this_year_birthday = NaiveDate::from_ymd_opt(today.year(), month, day)
-            .unwrap_or_else(|| today);
+            .unwrap_or(today);
         
         if this_year_birthday >= today {
             (this_year_birthday - today).num_days()
         } else {
             let next_year_birthday = NaiveDate::from_ymd_opt(today.year() + 1, month, day)
-                .unwrap_or_else(|| this_year_birthday);
+                .unwrap_or(this_year_birthday);
             (next_year_birthday - today).num_days()
         }
     }
@@ -51,7 +51,7 @@ impl Birthday {
             let mut age = today.year() - birth_year;
             let (month, day) = self.parse_birth_date();
             let birth_date_this_year = NaiveDate::from_ymd_opt(today.year(), month, day)
-                .unwrap_or_else(|| today);
+                .unwrap_or(today);
             if today < birth_date_this_year {
                 age -= 1;
             }
@@ -72,17 +72,11 @@ impl Birthday {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct BirthdayStore {
     pub birthdays: std::collections::BTreeMap<String, Birthday>,
 }
 
-impl Default for BirthdayStore {
-    fn default() -> Self {
-        Self {
-            birthdays: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct BirthdayRow {
@@ -106,16 +100,14 @@ impl BirthdayRow {
         let days_str = if birthday.is_today() {
             "TODAY!".red().bold().to_string()
         } else if days <= 7 {
-            format!("{} days", days).yellow().to_string()
+            format!("{days} days").yellow().to_string()
         } else if days <= 30 {
-            format!("{} days", days).cyan().to_string()
+            format!("{days} days").cyan().to_string()
         } else {
-            format!("{} days", days)
+            format!("{days} days")
         };
 
-        let age_str = birthday.age()
-            .map(|a| a.to_string())
-            .unwrap_or_else(|| "-".to_string());
+        let age_str = birthday.age().map_or_else(|| "-".to_string(), |a| a.to_string());
 
         Self {
             name: birthday.name.clone(),

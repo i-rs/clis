@@ -18,7 +18,7 @@ pub fn handle_add(
     storage::add_entry(&mut store, entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Recorded {} {} {} at {}", medicine_name.green(), dosage.cyan(), unit.yellow(), chrono::Utc::now().format("%H:%M").to_string()));
+    print_success(&format!("✓ Recorded {} {} {} at {}", medicine_name.green(), dosage.cyan(), unit.yellow(), chrono::Utc::now().format("%H:%M")));
 
     Ok(())
 }

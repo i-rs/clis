@@ -22,7 +22,7 @@ pub fn handle_expense(
                 "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found. Create it first with 'add' command.", category) }
             }));
         } else {
-            print_error(&format!("Budget for category '{}' not found", category));
+            print_error(&format!("Budget for category '{category}' not found"));
             print_warning("Create it first with: i-rs-budget add <category> <amount>");
         }
         anyhow::bail!("Budget not found");
@@ -61,7 +61,7 @@ pub fn handle_expense(
             tags: expense.tags,
         }, format));
     } else {
-        print_success(&format!("Added expense {:.2} to '{}'", amount, category));
+        print_success(&format!("Added expense {amount:.2} to '{category}'"));
         println!("  ID: {}", expense.id[..8].to_string().cyan());
     }
 

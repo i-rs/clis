@@ -16,7 +16,7 @@ pub fn handle_listen(
     let podcast = match store.podcasts.get_mut(&name) {
         Some(p) => p,
         None => {
-            anyhow::bail!("Podcast '{}' not found", name);
+            anyhow::bail!("Podcast '{name}' not found");
         }
     };
 
@@ -24,11 +24,10 @@ pub fn handle_listen(
         anyhow::bail!("Position must be non-negative");
     }
 
-    if let Some(total) = podcast.duration_secs {
-        if position > total {
+    if let Some(total) = podcast.duration_secs
+        && position > total {
             anyhow::bail!("Position exceeds total duration");
         }
-    }
 
     podcast.current_position_secs = Some(position);
     podcast.updated_at = Utc::now();
@@ -99,8 +98,8 @@ fn format_duration(secs: i64) -> String {
     let minutes = (secs % 3600) / 60;
     let seconds = secs % 60;
     if hours > 0 {
-        format!("{}:{:02}:{:02}", hours, minutes, seconds)
+        format!("{hours}:{minutes:02}:{seconds:02}")
     } else {
-        format!("{}:{:02}", minutes, seconds)
+        format!("{minutes}:{seconds:02}")
     }
 }

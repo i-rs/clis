@@ -7,7 +7,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
     let habit = store.get_entry(&name)
-        .ok_or_else(|| anyhow::anyhow!("Habit '{}' not found", name))?;
+        .ok_or_else(|| anyhow::anyhow!("Habit '{name}' not found"))?;
 
     if format == OutputFormat::Json {
         let item: ListItem = habit.into();

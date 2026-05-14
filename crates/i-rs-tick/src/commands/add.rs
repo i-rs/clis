@@ -28,10 +28,11 @@ pub fn handle_add(
     storage::save_store(&store)?;
 
     let duration_str = format_duration(duration_seconds);
-    print_success(&format!("✓ Recorded {} for '{}' ({} total)", task_name.green(), duration_str.cyan(), format!("{}h {}m {}s",
+    let total_str = format!("{}h {}m {}s",
         duration_seconds / 3600,
         (duration_seconds % 3600) / 60,
-        duration_seconds % 60)));
+        duration_seconds % 60);
+    print_success(&format!("✓ Recorded {} for '{}' ({} total)", task_name.green(), duration_str.cyan(), total_str));
 
     Ok(())
 }
@@ -53,7 +54,7 @@ fn parse_datetime(datetime_str: &str) -> Result<DateTime<Utc>> {
         return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid")));
     }
 
-    Err(anyhow::anyhow!("Invalid datetime format: {}", datetime_str))
+    Err(anyhow::anyhow!("Invalid datetime format: {datetime_str}"))
 }
 
 fn format_duration(seconds: i64) -> String {
@@ -62,10 +63,10 @@ fn format_duration(seconds: i64) -> String {
     let seconds = seconds % 60;
 
     if hours > 0 {
-        format!("{}h {}m {}s", hours, minutes, seconds)
+        format!("{hours}h {minutes}m {seconds}s")
     } else if minutes > 0 {
-        format!("{}m {}s", minutes, seconds)
+        format!("{minutes}m {seconds}s")
     } else {
-        format!("{}s", seconds)
+        format!("{seconds}s")
     }
 }

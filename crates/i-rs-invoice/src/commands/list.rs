@@ -39,16 +39,13 @@ pub fn run_list(args: ListArgs) -> Result<()> {
     }
 
     let mut sorted = filtered;
-    sorted.sort_by(|a, b| b.date.cmp(&a.date));
+    sorted.sort_by_key(|e| std::cmp::Reverse(e.date));
 
-    match format {
-        OutputFormat::Json => {
-            println!("{}", crate::presentation::output_list(&sorted, sorted.len(), args.tag.as_deref(), OutputFormat::Json));
-        }
-        _ => {
-            println!("{}", format_table(&sorted));
-            print_invoice_count(sorted.len());
-        }
+    if format == OutputFormat::Json {
+        println!("{}", crate::presentation::output_list(&sorted, sorted.len(), args.tag.as_deref(), OutputFormat::Json));
+    } else {
+        println!("{}", format_table(&sorted));
+        print_invoice_count(sorted.len());
     }
 
     Ok(())

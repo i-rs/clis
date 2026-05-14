@@ -37,17 +37,11 @@ impl Domain {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct DomainStore {
     pub domains: std::collections::BTreeMap<String, Domain>,
 }
 
-impl Default for DomainStore {
-    fn default() -> Self {
-        Self {
-            domains: std::collections::BTreeMap::new(),
-        }
-    }
-}
 
 #[derive(Tabled)]
 pub struct DomainRow {
@@ -69,9 +63,9 @@ impl DomainRow {
     pub fn from_domain(domain: &Domain) -> Self {
         let days = domain.days_until_expiry();
         let days_str = if domain.is_expired() {
-            format!("{} (expired)", days)
+            format!("{days} (expired)")
         } else if days <= 30 {
-            format!("{} (soon!)", days)
+            format!("{days} (soon!)")
         } else {
             days.to_string()
         };
