@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_with_time() {
-        let dt = parse_datetime("2024-01-15 14:30:00").unwrap();
+        let dt = parse_datetime("2024-01-15 14:30:00").expect("valid datetime");
         assert_eq!(dt.year(), 2024);
         assert_eq!(dt.month(), 1);
         assert_eq!(dt.day(), 15);
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_date_only() {
-        let dt = parse_datetime("2024-01-15").unwrap();
+        let dt = parse_datetime("2024-01-15").expect("valid date");
         assert_eq!(dt.year(), 2024);
         assert_eq!(dt.month(), 1);
         assert_eq!(dt.day(), 15);
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_format_date() {
-        let date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+        let date = NaiveDate::from_ymd_opt(2024, 1, 15).expect("2024-01-15 is valid");
         assert_eq!(format_date(date), "2024-01-15");
     }
 }
