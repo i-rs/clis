@@ -16,6 +16,14 @@ members = [
     "crates/i-rs-recur",
     "crates/i-rs-ledger",
     "crates/i-rs-keys",
+    "crates/i-rs-pig",
+    "crates/i-rs-meal",
+    "crates/i-rs-step",
+    "crates/i-rs-dose",
+    "crates/i-rs-sub",
+    "crates/i-rs-want",
+    "crates/i-rs-spark",
+    "crates/i-rs-tick",
 ]
 
 [workspace.package]
