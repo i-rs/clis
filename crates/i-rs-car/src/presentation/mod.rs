@@ -1,7 +1,7 @@
 use crate::models::{Car, CarDetail, CarRow, FuelRecord, FuelRow, MaintenanceRecord, MaintenanceRow, Stats};
 use owo_colors::OwoColorize;
 
-pub use i_rs_core::presentation::{print_error, print_success, OutputFormat};
+pub use i_rs_core::presentation::{print_success, OutputFormat};
 pub use i_rs_core::presentation::output::output_item;
 
 pub fn format_car_table(cars: &[&Car]) -> String {

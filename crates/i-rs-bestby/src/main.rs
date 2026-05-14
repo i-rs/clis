@@ -2,7 +2,6 @@
 use clap::{Parser, Subcommand};
 use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update, SkillCommand};
 use presentation::OutputFormat;
-use crate::presentation::print_error;
 
 mod commands;
 mod models;
@@ -71,17 +70,7 @@ fn main() {
         OutputFormat::Table
     };
 
-    if let Err(e) = run(cli.command, format) {
-        if cli.json {
-            println!("{}", serde_json::json!({
-                "success": false,
-                "error": { "code": "UNKNOWN", "message": e.to_string() }
-            }));
-        } else {
-            print_error(&format!("{}", e));
-        }
-        std::process::exit(1);
-    }
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
 }
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {

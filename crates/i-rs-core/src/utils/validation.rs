@@ -94,3 +94,98 @@ pub fn validate_amount(amount: f64) -> Result<(), ValidationError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_name_valid() {
+        assert!(validate_name("hello").is_ok());
+        assert!(validate_name(&"a".repeat(100)).is_ok());
+        assert!(validate_name("my-entry_123").is_ok());
+    }
+
+    #[test]
+    fn test_validate_name_empty() {
+        let err = validate_name("").unwrap_err();
+        assert_eq!(err.field, "name");
+    }
+
+    #[test]
+    fn test_validate_name_too_long() {
+        let err = validate_name(&"a".repeat(101)).unwrap_err();
+        assert_eq!(err.field, "name");
+    }
+
+    #[test]
+    fn test_validate_name_invalid_chars() {
+        assert!(validate_name("hello/world").is_err());
+        assert!(validate_name("path\\name").is_err());
+        assert!(validate_name("name:sub").is_err());
+        assert!(validate_name("name*star").is_err());
+        assert!(validate_name("name?quest").is_err());
+        assert!(validate_name("<tag>").is_err());
+        assert!(validate_name("pipe|").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_valid() {
+        assert!(validate_url("http://example.com").is_ok());
+        assert!(validate_url("https://example.com").is_ok());
+        // "https://a" = 9 chars, 200 times = 1800 chars (under 2000 limit)
+        assert!(validate_url(&"https://a".repeat(200)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_empty() {
+        assert!(validate_url("").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_no_scheme() {
+        assert!(validate_url("example.com").is_err());
+        assert!(validate_url("ftp://example.com").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_too_long() {
+        let long = "https://a".repeat(1001);
+        assert!(validate_url(&long).is_err());
+    }
+
+    #[test]
+    fn test_validate_weight_valid() {
+        assert!(validate_weight(1.0).is_ok());
+        assert!(validate_weight(500.0).is_ok());
+        assert!(validate_weight(1000.0).is_ok());
+    }
+
+    #[test]
+    fn test_validate_weight_zero() {
+        assert!(validate_weight(0.0).is_err());
+        assert!(validate_weight(-1.0).is_err());
+    }
+
+    #[test]
+    fn test_validate_weight_too_high() {
+        assert!(validate_weight(1000.1).is_err());
+    }
+
+    #[test]
+    fn test_validate_amount_valid() {
+        assert!(validate_amount(1.0).is_ok());
+        assert!(validate_amount(1_000_000_000.0).is_ok());
+    }
+
+    #[test]
+    fn test_validate_amount_zero() {
+        assert!(validate_amount(0.0).is_err());
+        assert!(validate_amount(-1.0).is_err());
+    }
+
+    #[test]
+    fn test_validate_amount_too_high() {
+        assert!(validate_amount(1_000_000_001.0).is_err());
+    }
+}

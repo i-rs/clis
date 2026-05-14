@@ -1,7 +1,7 @@
 use crate::models::{PlanRow, RunRecord, RunRow};
 use owo_colors::OwoColorize;
 
-pub use i_rs_core::presentation::{print_error, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::{print_success, print_warning, OutputFormat};
 pub use i_rs_core::presentation::output::output_list;
 
 pub fn format_run_table(records: &[&RunRecord]) -> String {

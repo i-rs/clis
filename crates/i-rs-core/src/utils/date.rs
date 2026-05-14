@@ -57,3 +57,64 @@ pub fn parse_datetime(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
 pub fn format_date(date: NaiveDate) -> String {
     date.format("%Y-%m-%d").to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Datelike;
+    use chrono::Timelike;
+
+    #[test]
+    fn test_parse_date_standard() {
+        assert!(parse_date("2024-01-15").is_ok());
+        assert!(parse_date("2024/01/15").is_ok());
+        assert!(parse_date("15-01-2024").is_ok());
+        assert!(parse_date("15/01/2024").is_ok());
+    }
+
+    #[test]
+    fn test_parse_date_invalid() {
+        assert!(parse_date("not-a-date").is_err());
+        assert!(parse_date("").is_err());
+        assert!(parse_date("2024-13-01").is_err());
+    }
+
+    #[test]
+    fn test_parse_datetime_with_time() {
+        let dt = parse_datetime("2024-01-15 14:30:00").unwrap();
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), 1);
+        assert_eq!(dt.day(), 15);
+        assert_eq!(dt.hour(), 14);
+        assert_eq!(dt.minute(), 30);
+    }
+
+    #[test]
+    fn test_parse_datetime_date_only() {
+        let dt = parse_datetime("2024-01-15").unwrap();
+        assert_eq!(dt.year(), 2024);
+        assert_eq!(dt.month(), 1);
+        assert_eq!(dt.day(), 15);
+        assert_eq!(dt.hour(), 0);
+        assert_eq!(dt.minute(), 0);
+    }
+
+    #[test]
+    fn test_parse_datetime_slash_formats() {
+        assert!(parse_datetime("2024/01/15 14:30:00").is_ok());
+        assert!(parse_datetime("2024/01/15 14:30").is_ok());
+        assert!(parse_datetime("2024/01/15").is_ok());
+    }
+
+    #[test]
+    fn test_parse_datetime_invalid() {
+        assert!(parse_datetime("not-a-date").is_err());
+        assert!(parse_datetime("").is_err());
+    }
+
+    #[test]
+    fn test_format_date() {
+        let date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+        assert_eq!(format_date(date), "2024-01-15");
+    }
+}

@@ -1,6 +1,6 @@
 use crate::models::{VisionRecord, VisionRow};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_error, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::{print_success, print_warning, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_table(records: &[&VisionRecord]) -> String {
     let rows: Vec<VisionRow> = records

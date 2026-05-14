@@ -1,6 +1,6 @@
 use crate::models::{Investment, InvestmentRow};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_error, print_header, OutputFormat};
+pub use i_rs_core::presentation::{print_header, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_table(investments: &[&Investment]) -> String {
     let rows: Vec<InvestmentRow> = investments

@@ -112,6 +112,11 @@ github-repo = "clis"
 tap = "i-rs/homebrew-tap"
 publish-jobs = ["npm", "homebrew"]
 
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1
+
 [profile.dist]
 inherits = "release"
 lto = "thin"

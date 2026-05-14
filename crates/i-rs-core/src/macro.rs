@@ -91,6 +91,39 @@ macro_rules! skill_command {
     };
 }
 
+/// Handle a CLI `Result` by printing the error and exiting.
+///
+/// If `json` is true, the error is printed as JSON. Otherwise, it's printed as
+/// a colored error message via `print_error`.
+///
+/// Usage in `main.rs`:
+/// ```ignore
+/// fn main() {
+///     let cli = Cli::parse();
+///     let json = cli.json;
+///     i_rs_core::exit_on_error!(run(cli.command), json);
+/// }
+/// ```
+#[macro_export]
+macro_rules! exit_on_error {
+    ($result:expr, $json:expr) => {
+        if let Err(e) = $result {
+            if $json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "success": false,
+                        "error": { "code": "UNKNOWN", "message": e.to_string() }
+                    })
+                );
+            } else {
+                $crate::print_error(&format!("{}", e));
+            }
+            ::std::process::exit(1);
+        }
+    };
+}
+
 /// Generate the `handle_example()` function.
 ///
 /// Shows CLI usage examples from a static string.

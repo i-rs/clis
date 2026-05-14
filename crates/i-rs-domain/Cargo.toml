@@ -13,7 +13,6 @@ clap.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-dirs.workspace = true
 keyring.workspace = true
 keyring-core.workspace = true
 tabled.workspace = true

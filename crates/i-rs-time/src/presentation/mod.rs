@@ -1,7 +1,7 @@
 use crate::models::{TimeEntryRow, StatsData, ReportData};
 use owo_colors::OwoColorize;
 
-pub use i_rs_core::presentation::{print_error, print_header, print_success, OutputFormat};
+pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item};
 
 pub fn format_table(rows: &[TimeEntryRow]) -> String {
