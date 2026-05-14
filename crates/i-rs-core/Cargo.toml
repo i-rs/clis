@@ -1,16 +1,13 @@
 [package]
-name = "i-rs-server"
+name = "i-rs-core"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Server management CLI"
-homepage.workspace = true
+description = "Shared core library for i-rs CLI tools"
 
 [dependencies]
-i-rs-core = { path = "../i-rs-core" }
-clap.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

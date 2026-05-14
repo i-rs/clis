@@ -58,14 +58,17 @@ impl WeightStore {
         self.records.values().collect()
     }
 
+    #[allow(dead_code)]
     pub fn min_weight(&self) -> Option<f64> {
         self.records.values().map(|r| r.weight).reduce(f64::min)
     }
 
+    #[allow(dead_code)]
     pub fn max_weight(&self) -> Option<f64> {
         self.records.values().map(|r| r.weight).reduce(f64::max)
     }
 
+    #[allow(dead_code)]
     pub fn avg_weight(&self) -> Option<f64> {
         if self.records.is_empty() {
             return None;
@@ -74,6 +77,7 @@ impl WeightStore {
         Some(sum / self.records.len() as f64)
     }
 
+    #[allow(dead_code)]
     pub fn total_change(&self) -> Option<f64> {
         let records: Vec<_> = self.records.values().collect();
         if records.len() < 2 {

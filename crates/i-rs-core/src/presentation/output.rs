@@ -49,12 +49,13 @@ pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Opti
                     filter: filter.map(String::from),
                 },
             };
-            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
+            serde_json::to_string_pretty(&response)
         }
         OutputFormat::Table => {
-            serde_json::to_string(items).unwrap_or_default()
+            serde_json::to_string(items)
         }
     }
+    .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
 }
 
 pub fn output_item<T: Serialize>(item: &T, format: OutputFormat) -> String {
@@ -64,12 +65,13 @@ pub fn output_item<T: Serialize>(item: &T, format: OutputFormat) -> String {
                 success: true,
                 data: item,
             };
-            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
+            serde_json::to_string_pretty(&response)
         }
         OutputFormat::Table => {
-            serde_json::to_string(item).unwrap_or_default()
+            serde_json::to_string(item)
         }
     }
+    .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
 }
 
 pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
@@ -82,10 +84,11 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
                     message: message.to_string(),
                 },
             };
-            serde_json::to_string_pretty(&response).unwrap_or_else(|_| r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#.to_string())
+            serde_json::to_string_pretty(&response)
         }
         OutputFormat::Table => {
-            format!("Error: {}", message)
+            Ok(format!("Error: {}", message))
         }
     }
+    .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#.to_string())
 }

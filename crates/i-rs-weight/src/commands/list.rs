@@ -1,6 +1,5 @@
 use crate::models::WeightRecord;
-use crate::presentation::{format_table, print_chart, print_record_count, print_warning};
-use crate::presentation::output::{output_list, OutputFormat};
+use crate::presentation::{format_table, print_chart, print_record_count, print_warning, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;

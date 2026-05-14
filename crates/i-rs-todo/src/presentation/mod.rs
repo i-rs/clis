@@ -2,23 +2,8 @@ use crate::models::{Todo, TodoRow};
 use owo_colors::OwoColorize;
 use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
 
-pub mod output;
-
-pub fn print_success(msg: &str) {
-    println!("{}", msg.green());
-}
-
-pub fn print_header(msg: &str) {
-    println!("\n{}", msg.bold().cyan());
-}
-
-pub fn print_error(msg: &str) {
-    eprintln!("{}", msg.red());
-}
-
-pub fn print_warning(msg: &str) {
-    println!("{}", msg.yellow());
-}
+pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
 
 pub fn format_table(todos: &[&Todo]) -> String {
     let rows: Vec<TodoRow> = todos

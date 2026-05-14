@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Note management CLI"
 
 [dependencies]
+i-rs-core = { path = "../i-rs-core" }
 clap.workspace = true
 anyhow.workspace = true
 serde.workspace = true

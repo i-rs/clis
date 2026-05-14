@@ -1,5 +1,4 @@
-use crate::presentation::{format_table, print_remind_count, print_warning};
-use crate::presentation::output::{output_list, OutputFormat};
+use crate::presentation::{format_table, print_remind_count, print_warning, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 

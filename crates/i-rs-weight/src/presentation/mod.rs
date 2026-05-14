@@ -2,19 +2,8 @@ use crate::models::{WeightRecord, WeightRow};
 use owo_colors::OwoColorize;
 use tabled::{settings::Color, settings::object::Rows, settings::object::Segment, settings::style::BorderColor, settings::style::Style, settings::themes::Colorization, Table};
 
-pub mod output;
-
-pub fn print_success(msg: &str) {
-    println!("{}", msg.green());
-}
-
-pub fn print_error(msg: &str) {
-    eprintln!("{}", msg.red());
-}
-
-pub fn print_warning(msg: &str) {
-    println!("{}", msg.yellow());
-}
+pub use i_rs_core::presentation::{print_error, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::output::output_list;
 
 pub fn format_table(records: &[&WeightRecord]) -> String {
     let rows: Vec<WeightRow> = records
@@ -32,25 +21,6 @@ pub fn format_table(records: &[&WeightRecord]) -> String {
 
 pub fn print_record_count(count: usize) {
     println!("\n{} {} records", "Total:".dimmed(), count.to_string().cyan());
-}
-
-#[allow(dead_code)]
-pub fn print_stats(store: &crate::models::WeightStore) {
-    println!("\n{}", "Statistics:".bold().cyan());
-
-    if let Some(min) = store.min_weight() {
-        println!("  {:12} {:.1} kg", "Min:".dimmed(), min);
-    }
-    if let Some(max) = store.max_weight() {
-        println!("  {:12} {:.1} kg", "Max:".dimmed(), max);
-    }
-    if let Some(avg) = store.avg_weight() {
-        println!("  {:12} {:.1} kg", "Average:".dimmed(), avg);
-    }
-    if let Some(change) = store.total_change() {
-        let sign = if change >= 0.0 { "+" } else { "" };
-        println!("  {:12} {}{:.1} kg", "Change:".dimmed(), sign, change);
-    }
 }
 
 pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
