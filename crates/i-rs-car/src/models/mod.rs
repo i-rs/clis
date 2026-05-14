@@ -146,10 +146,6 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     #[allow(dead_code)]
     pub fn add_car(&mut self, car: Car) {
         self.cars.insert(car.name.clone(), car);

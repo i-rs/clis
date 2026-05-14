@@ -1,6 +1,4 @@
 use crate::models::{Event, EventStore};
-use anyhow::{Context, Result};
-use std::path::PathBuf;
 
 use i_rs_core::Storage;
 
@@ -14,29 +12,6 @@ pub fn save_store(store: &EventStore) -> anyhow::Result<()> {
     let storage = Storage::<EventStore>::new("event");
     storage.save_data(store)
 }
-
-
-pub fn get_config_dir() -> Result<PathBuf> {
-    let config_dir = if let Some(dir) = std::env::var_os("CONFIG_DIR") {
-        PathBuf::from(dir)
-    } else {
-        dirs::config_dir()
-            .context("Cannot find config directory")?
-            .join("i-rs")
-    };
-
-    if !config_dir.exists() {
-        std::fs::create_dir_all(&config_dir)
-            .context(format!("Failed to create config directory: {:?}", config_dir))?;
-    }
-
-    Ok(config_dir)
-}
-
-pub fn get_store_path() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join("event.json"))
-}
-
 
 pub fn add_event(store: &mut EventStore, event: Event) {
     store.events.insert(event.name.clone(), event);

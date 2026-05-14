@@ -136,9 +136,3 @@ impl Default for TaxStore {
         }
     }
 }
-
-impl TaxStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}

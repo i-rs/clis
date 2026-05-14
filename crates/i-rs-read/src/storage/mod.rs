@@ -1,9 +1,6 @@
 use crate::models::Book;
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 
 use i_rs_core::Storage;
 
@@ -18,35 +15,10 @@ pub fn save_store(store: &Store) -> anyhow::Result<()> {
     storage.save_data(store)
 }
 
-
-const CONFIG_DIR_NAME: &str = "i-rs";
-const CONFIG_FILE_NAME: &str = "read.json";
-
-fn get_config_path() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?
-        .join(CONFIG_DIR_NAME);
-
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)?;
-    }
-
-    Ok(config_dir.join(CONFIG_FILE_NAME))
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Store {
     pub books: HashMap<String, Book>,
 }
-
-impl Store {
-    pub fn new() -> Self {
-        Store {
-            books: HashMap::new(),
-        }
-    }
-}
-
 
 pub fn add_book(book: Book, store: &mut Store) {
     store.books.insert(book.name.clone(), book);

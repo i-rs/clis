@@ -1,5 +1,4 @@
 use crate::models::{TaxRecord, TaxStore};
-use std::path::PathBuf;
 
 use i_rs_core::Storage;
 
@@ -13,22 +12,6 @@ pub fn save_store(store: &TaxStore) -> anyhow::Result<()> {
     let storage = Storage::<TaxStore>::new("tax");
     storage.save_data(store)
 }
-
-
-pub fn get_config_dir() -> PathBuf {
-    if let Some(config_dir) = std::env::var_os("CONFIG_DIR") {
-        PathBuf::from(config_dir)
-    } else {
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("i-rs")
-    }
-}
-
-pub fn get_file_path() -> PathBuf {
-    get_config_dir().join("tax.json")
-}
-
 
 pub fn add_entry(store: &mut TaxStore, entry: TaxRecord) {
     store.entries.insert(entry.name.clone(), entry);
