@@ -90,6 +90,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-weight/examples' },
               { text: 'Test', link: '/crates/i-rs-weight/test' }
             ]
+          },
+          {
+            text: 'i-rs-mood',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-mood/' },
+              { text: 'Usage', link: '/crates/i-rs-mood/usage' },
+              { text: 'Examples', link: '/crates/i-rs-mood/examples' },
+              { text: 'Test', link: '/crates/i-rs-mood/test' }
+            ]
           }
         ]
       }

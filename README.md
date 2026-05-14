@@ -13,12 +13,13 @@ A collection of cross-platform CLI tools built with Rust.
 | [i-rs-domain](crates/i-rs-domain) | Domain management CLI |
 | [i-rs-remind](crates/i-rs-remind) | Reminder management CLI |
 | [i-rs-weight](crates/i-rs-weight) | Weight tracking CLI |
+| [i-rs-mood](crates/i-rs-mood) | Mood tracking CLI |
 
 ## Quick Install
 
 ```bash
 # npm
-npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note @i-rs/i-rs-domain @i-rs/i-rs-remind @i-rs/i-rs-weight
+npm install -g @i-rs/i-rs-server @i-rs/i-rs-password @i-rs/i-rs-bookmark @i-rs/i-rs-note @i-rs/i-rs-domain @i-rs/i-rs-remind @i-rs/i-rs-weight @i-rs/i-rs-mood
 
 # Homebrew
 brew install i-rs/homebrew-tap/i-rs-server
@@ -28,6 +29,7 @@ brew install i-rs/homebrew-tap/i-rs-note
 brew install i-rs/homebrew-tap/i-rs-domain
 brew install i-rs/homebrew-tap/i-rs-remind
 brew install i-rs/homebrew-tap/i-rs-weight
+brew install i-rs/homebrew-tap/i-rs-mood
 ```
 
 ## Development
@@ -44,6 +46,7 @@ cargo run -p i-rs-note -- --help
 cargo run -p i-rs-domain -- --help
 cargo run -p i-rs-remind -- --help
 cargo run -p i-rs-weight -- --help
+cargo run -p i-rs-mood -- --help
 ```
 
 ## Release
@@ -65,6 +68,7 @@ CI will automatically build, create GitHub Release, publish to npm and Homebrew.
 - [crates/i-rs-domain/README.md](crates/i-rs-domain/README.md)
 - [crates/i-rs-remind/README.md](crates/i-rs-remind/README.md)
 - [crates/i-rs-weight/README.md](crates/i-rs-weight/README.md)
+- [crates/i-rs-mood/README.md](crates/i-rs-mood/README.md)
 
 ## License
 

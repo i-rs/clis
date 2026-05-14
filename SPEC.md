@@ -14,12 +14,13 @@ i-rs-clis/
 │       │   │   ├── delete.rs
 │       │   │   ├── get.rs
 │       │   │   ├── list.rs
-│       │   │   └── update.rs
+│       │   │   ├── update.rs
+│       │   │   └── {special}.rs  # 可选特殊命令 (done, suggest 等)
 │       │   ├── models/       # 数据模型
 │       │   │   └── mod.rs
 │       │   ├── storage/      # 存储和密钥链
 │       │   │   └── mod.rs
-│       │   └── presentation/ # 输出展示
+│       │   └── presentation/  # 输出展示
 │       │       └── mod.rs
 │       ├── Cargo.toml
 │       └── README.md
@@ -29,24 +30,46 @@ i-rs-clis/
 │   │   └── getting-started.md    # 快速入门
 │   ├── crates/
 │   │   └── i-rs-{name}/
-│   │       ├── index.md          # 工具概览
-│   │       ├── usage.md          # 命令参考
-│   │       ├── examples.md       # 使用示例
-│   │       └── test.md           # 测试记录
+│   │       ├── index.md          # 工具概览 (overview)
+│   │       ├── usage.md         # 命令参考
+│   │       ├── examples.md      # 使用示例
+│   │       └── test.md          # 测试记录
 │   └── .vitepress/
-│       └── config.ts             # VitePress 配置
+│       └── config.ts             # VitePress 侧边栏配置
 ├── skills/                   # AI 技能文档
 │   └── i-rs-{name}/
 │       └── SKILL.md
 ├── scripts/                  # 发布脚本
 ├── Cargo.toml                # Workspace 配置
-└── README.md                 # 项目总览
+├── README.md                 # 项目总览
+└── SPEC.md                  # 本规范文档
 ```
 
-## 2. Crate 规范
+## 2. 工具列表 (当前 8 个)
 
-### 2.1 Cargo.toml 结构
+| 工具 | 描述 | 特殊命令 |
+|------|------|---------|
+| i-rs-server | 服务器管理 | suggest |
+| i-rs-password | 密码管理 | - |
+| i-rs-bookmark | 书签管理 | - |
+| i-rs-note | 笔记管理 | - |
+| i-rs-domain | 域名管理 | - |
+| i-rs-remind | 提醒管理 | done |
+| i-rs-weight | 体重追踪 | chart, stats |
+| i-rs-mood | 心情记录 | calendar |
 
+## 3. Crate 开发流程
+
+### 3.1 创建新工具步骤
+
+1. **创建目录结构**
+```bash
+mkdir -p crates/i-rs-{name}/src/{models,storage,commands,presentation}
+mkdir -p docs/crates/i-rs-{name}
+mkdir -p skills/i-rs-{name}
+```
+
+2. **创建 Cargo.toml** (使用 workspace 依赖)
 ```toml
 [package]
 name = "i-rs-{name}"
@@ -63,26 +86,63 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
-keyring.workspace = true
+keyring.workspace = true       # 如需密码存储
 keyring-core.workspace = true
 tabled.workspace = true
 owo-colors.workspace = true
 chrono.workspace = true
 ```
 
-### 2.2 模块职责
+3. **实现 5 个核心模块**
+- `models/mod.rs` - 数据结构 + 表格行结构
+- `storage/mod.rs` - 数据持久化 + keyring
+- `presentation/mod.rs` - 表格格式化 + 颜色
+- `commands/mod.rs` - 命令路由
+- `main.rs` - CLI 解析
+
+4. **更新 Workspace 配置**
+```toml
+# Cargo.toml
+[workspace]
+members = [
+    ...
+    "crates/i-rs-{name}",
+]
+```
+
+5. **更新 VitePress 配置**
+```typescript
+// docs/.vitepress/config.ts
+{
+  text: 'i-rs-{name}',
+  collapsed: true,
+  items: [
+    { text: 'Overview', link: '/crates/i-rs-{name}/' },
+    { text: 'Usage', link: '/crates/i-rs-{name}/usage' },
+    { text: 'Examples', link: '/crates/i-rs-{name}/examples' },
+    { text: 'Test', link: '/crates/i-rs-{name}/test' }
+  ]
+}
+```
+
+6. **编译验证**
+```bash
+cargo build -p i-rs-{name}
+```
+
+### 3.2 模块职责
 
 | 模块 | 职责 |
 |------|------|
 | `models/` | 数据结构定义（Struct、Serialize/Deserialize） |
 | `storage/` | 数据持久化、keyring 密码存储 |
 | `commands/` | CLI 命令处理器（add、delete、get、list、update） |
-| `presentation/` | 输出格式化（表格、颜色） |
+| `presentation/` | 输出格式化（表格、颜色、图表） |
 | `main.rs` | CLI 解析和命令分发 |
 
-## 3. 数据模型规范
+## 4. 数据模型规范
 
-### 3.1 实体结构
+### 4.1 实体结构
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,13 +163,17 @@ pub struct Entity {
 }
 ```
 
-### 3.2 表格行结构
+### 4.2 表格行结构
 
 ```rust
 #[derive(Tabled)]
 pub struct EntityRow {
     #[tabled(rename = "NAME")]
     name: String,
+    #[tabled(rename = "CREATED")]
+    created_at: String,
+    #[tabled(rename = "UPDATED")]
+    updated_at: String,
     // ... 其他列
 }
 
@@ -117,15 +181,31 @@ impl EntityRow {
     pub fn from_entity(entity: &Entity) -> Self {
         Self {
             name: entity.name.clone(),
+            created_at: entity.created_at.format("%Y-%m-%d %H:%M").to_string(),
+            updated_at: entity.updated_at.format("%Y-%m-%d %H:%M").to_string(),
             // ...
         }
     }
 }
 ```
 
-## 4. CLI 设计规范
+### 4.3 时间计算 (用于 domain/remind/weight/mood)
 
-### 4.1 命令结构
+```rust
+// 距离到期/事件天数
+pub fn days_until(&self) -> i64 {
+    (self.event_date - Utc::now()).num_days()
+}
+
+// 是否已过期/已过去
+pub fn is_past(&self) -> bool {
+    self.days_until() < 0
+}
+```
+
+## 5. CLI 设计规范
+
+### 5.1 命令结构
 
 ```rust
 #[derive(Parser, Debug)]
@@ -157,7 +237,7 @@ enum Commands {
     Get {
         name: String,
         #[arg(short = 's', long)]
-        show_sensitive: bool,
+        show_password: bool,
     },
     Update {
         name: String,
@@ -166,7 +246,7 @@ enum Commands {
 }
 ```
 
-### 4.2 短选项命名
+### 5.2 短选项命名
 
 | 选项 | 短选项 | 说明 |
 |------|--------|------|
@@ -175,10 +255,30 @@ enum Commands {
 | `--tag` | `-t` | 标签 |
 | `--remark` | `-r` | 备注 |
 | `--show-password` | `-s` | 显示密码 |
+| `--days` | `-d` | 天数 |
+| `--chart` | `-c` | 图表 |
+| `--stats` | `-s` | 统计 |
+| `--calendar` | `-c` | 日历 |
+| `--content` | 无 | 内容行 |
+| `--mood` | `-m` | 心情 |
 
-## 5. 存储规范
+### 5.3 日期解析
 
-### 5.1 密码存储
+```rust
+fn parse_date(date_str: &str) -> Result<NaiveDate> {
+    let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
+    for format in &formats {
+        if let Ok(date) = NaiveDate::parse_from_str(date_str, format) {
+            return Ok(date);
+        }
+    }
+    Err(anyhow::anyhow!("Invalid date format: {}. Use YYYY-MM-DD", date_str))
+}
+```
+
+## 6. 存储规范
+
+### 6.1 密码存储
 
 **密码必须存储在 OS keychain 中，绝不存储在配置文件中。**
 
@@ -192,14 +292,14 @@ pub fn store_password(name: &str, password: &str) -> Result<()> {
 }
 ```
 
-### 5.2 数据文件
+### 6.2 数据文件
 
 - 位置：`~/.config/i-rs/{name}.json`
 - 覆盖方式：`CONFIG_DIR` 环境变量可自定义路径
 
-## 6. 表格展示规范
+## 7. 表格展示规范
 
-### 6.1 颜色配置
+### 7.1 颜色配置
 
 ```rust
 Table::new(&rows)
@@ -210,7 +310,7 @@ Table::new(&rows)
     .to_string()
 ```
 
-### 6.2 颜色含义
+### 7.2 颜色含义
 
 | 元素 | 颜色 |
 |------|------|
@@ -218,120 +318,38 @@ Table::new(&rows)
 | 表头 | 青色 + 粗体 |
 | 数据行 | 绿色 (FG_GREEN) |
 
-## 7. 文档规范
+## 8. 文档规范
 
-文档采用 VitePress 静态站点，位于 `docs/` 目录。
+### 8.1 VitePress 配置
 
-### 7.1 VitePress 配置 (`docs/.vitepress/config.ts`)
+侧边栏采用折叠菜单，每个 crate 包含 4 个子页面：
 
 ```typescript
-import { defineConfig } from 'vitepress'
-
-export default defineConfig({
-  title: 'i-rs CLI Tools',
-  description: 'Cross-platform CLI tools built with Rust',
-  appearance: 'dark',
-  themeConfig: {
-    nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Guide', link: '/guide/getting-started' },
-      { text: 'Tools', link: '/crates/i-rs-server/' }
-    ],
-    sidebar: [
-      {
-        text: 'Guide',
-        items: [
-          { text: 'Getting Started', link: '/guide/getting-started' }
-        ]
-      },
-      {
-        text: 'CLI Tools',
-        items: [
-          { text: 'i-rs-{name}', link: '/crates/i-rs-{name}/' }
-        ]
-      }
-    ],
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/i-rs/clis' }
-    ]
-  }
-})
+// docs/.vitepress/config.ts
+{
+  text: 'i-rs-{name}',
+  collapsed: true,
+  items: [
+    { text: 'Overview', link: '/crates/i-rs-{name}/' },
+    { text: 'Usage', link: '/crates/i-rs-{name}/usage' },
+    { text: 'Examples', link: '/crates/i-rs-{name}/examples' },
+    { text: 'Test', link: '/crates/i-rs-{name}/test' }
+  ]
+}
 ```
 
-### 7.2 文档目录结构
+### 8.2 文档内容要求
 
-每个 crate 在 `docs/crates/i-rs-{name}/` 下包含 4 个文件：
+| 文件 | 内容要求 |
+|------|---------|
+| `index.md` | 概述、Quick Start、安装命令、特性列表、mood levels/data storage |
+| `usage.md` | 详细命令参考，所有选项说明 |
+| `examples.md` | 丰富示例：基础操作、实际场景、脚本集成 |
+| `test.md` | 测试记录：正常流程、错误处理 |
 
-| 文件 | 用途 |
-|------|------|
-| `index.md` | 工具概览、Quick Start、安全说明、数据存储位置、子页面链接 |
-| `usage.md` | 详细命令参考（所有命令及选项说明） |
-| `examples.md` | 丰富使用示例（基础操作、实际场景、脚本集成、故障排查） |
-| `test.md` | 测试记录（手动测试用例、安全测试、跨平台测试、性能基准） |
+### 8.3 skills/{name}/SKILL.md
 
-### 7.3 文档首页 (`docs/index.md`)
-
-采用 VitePress home layout，包含 hero 区域和 feature 列表：
-
-```yaml
----
-layout: home
-hero:
-  name: i-rs CLI Tools
-  text: Cross-platform CLI tools built with Rust
-  tagline: <简短的项目说明>
-  actions:
-    - theme: brand
-      text: Get Started
-      link: /guide/getting-started
-features:
-  - title: <Feature 名称>
-    details: <Feature 描述>
----
-```
-
-### 7.4 快速入门 (`docs/guide/getting-started.md`)
-
-包含安装方式（npm/Homebrew/源码编译）、每个工具的 quick start 示例、
-数据存储说明、安全说明、开发与发布指南。
-
-### 7.5 README.md (crate 根目录)
-
-每个 crate 的 README.md 与 `docs/crates/i-rs-{name}/index.md` 内容保持一致，
-作为 GitHub 仓库直接浏览时的入口文档。
-
-```markdown
-# i-rs-{name}
-
-工具描述
-
-## Install
-安装命令
-
-## Security
-安全说明（密码存储方式）
-
-## Usage
-命令使用说明
-
-## Examples
-使用示例
-
-## Data Storage
-数据存储位置
-
-## Commands
-
-- [Usage](./docs/crates/i-rs-{name}/usage.md) - 详细命令参考
-- [Examples](./docs/crates/i-rs-{name}/examples.md) - 使用示例
-- [Test](./docs/crates/i-rs-{name}/test.md) - 测试记录
-
-## License
-```
-
-### 7.6 skills/{name}/SKILL.md
-
-AI 技能文档，供 AI 助手理解工具用途和调用方式。
+AI 技能文档，供 AI 助手理解工具用途和调用方式：
 
 ```markdown
 ---
@@ -340,8 +358,7 @@ description: "工具描述。当用户需要...时使用。"
 ---
 
 # i-rs-{name}
-
-## Security
+[简短描述]
 ## Storage
 ## Commands
 ### add
@@ -351,33 +368,6 @@ description: "工具描述。当用户需要...时使用。"
 ### delete
 ## Examples
 ```
-
-## 8. 发布规范
-
-### 8.1 版本号
-
-遵循 Semantic Versioning：`0.0.x`
-
-### 8.2 发布流程
-
-```bash
-# 1. 更新版本
-git tag v0.0.x
-git push origin v0.0.x
-
-# 2. CI 自动构建并发布
-# - GitHub Release
-# - npm
-# - Homebrew
-```
-
-### 8.3 npm 包名
-
-格式：`@i-rs/i-rs-{name}`
-
-### 8.4 Homebrew tap
-
-格式：`i-rs/homebrew-tap/i-rs-{name}`
 
 ## 9. Workspace 依赖
 
@@ -420,3 +410,4 @@ fn run() -> anyhow::Result<()> {
 - 使用 `camelCase` 命名 CLI 参数（clap 自动转换）
 - 避免使用 `unwrap()`，使用 `?` 操作符
 - 敏感字段添加 `#[allow(dead_code)]`
+- 导出函数添加 `#[allow(dead_code)]` 如有未使用警告

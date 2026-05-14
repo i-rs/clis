@@ -8,6 +8,7 @@ members = [
     "crates/i-rs-domain",
     "crates/i-rs-remind",
     "crates/i-rs-weight",
+    "crates/i-rs-mood",
 ]
 
 [workspace.package]
