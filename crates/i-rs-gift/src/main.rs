@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_stats, SkillCommand};
+use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_stats, handle_update, SkillCommand};
 use presentation::OutputFormat;
 use crate::presentation::print_error;
 
@@ -54,6 +54,24 @@ enum Commands {
         #[arg(value_name = "NAME")]
         name: String,
     },
+    Update {
+        #[arg(value_name = "NAME")]
+        name: String,
+        #[arg(short = 'y', long)]
+        gift_type: Option<String>,
+        #[arg(short = 'r', long)]
+        recipient: Option<String>,
+        #[arg(short = 'o', long)]
+        occasion: Option<String>,
+        #[arg(short = 'v', long)]
+        value: Option<f64>,
+        #[arg(short = 'd', long)]
+        date: Option<String>,
+        #[arg(short = 'T', long)]
+        tag: Option<Vec<String>>,
+        #[arg(short, long)]
+        remark: Option<Vec<String>>,
+    },
     Stats {},
     Example {},
     Skill {
@@ -105,6 +123,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         }
         Commands::Get { name } => {
             handle_get(name, format)?;
+        }
+        Commands::Update { name, gift_type, recipient, occasion, value, date, tag, remark } => {
+            handle_update(name, gift_type, recipient, occasion, value, date, tag, remark)?;
         }
         Commands::Stats {} => {
             handle_stats()?;

@@ -10,6 +10,8 @@ pub struct Note {
     pub tags: Vec<String>,
     #[serde(default)]
     pub content: Vec<String>,
+    #[serde(default)]
+    pub remark: Vec<String>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(with = "chrono::serde::ts_seconds")]

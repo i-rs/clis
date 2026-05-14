@@ -28,6 +28,7 @@ pub fn handle_add(
         mood: mood_obj,
         tags: tag,
         content,
+        remark: Vec::new(),
         created_at: now,
         updated_at: now,
     };

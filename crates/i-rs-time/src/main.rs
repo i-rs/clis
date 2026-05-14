@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use clap::{Parser, Subcommand};
-use commands::{handle_start, handle_stop, handle_list, handle_stats, handle_report, handle_delete, handle_get, handle_example, handle_skill, SkillCommand};
+use commands::{handle_start, handle_stop, handle_list, handle_stats, handle_report, handle_delete, handle_get, handle_update, handle_example, handle_skill, SkillCommand};
 use presentation::OutputFormat;
 use crate::presentation::print_error;
 
@@ -55,6 +55,16 @@ enum Commands {
         #[arg(value_name = "ID")]
         id: String,
     },
+    Update {
+        #[arg(value_name = "ID")]
+        id: String,
+        #[arg(short, long)]
+        name: Option<String>,
+        #[arg(short = 'T', long)]
+        tag: Option<Vec<String>>,
+        #[arg(short, long)]
+        remark: Option<Vec<String>>,
+    },
     Example {},
     Skill {
         #[arg(value_name = "SUB_COMMAND")]
@@ -105,6 +115,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         }
         Commands::Delete { id } => {
             handle_delete(id, format)?;
+        }
+        Commands::Update { id, name, tag, remark } => {
+            handle_update(id, name, tag, remark)?;
         }
         Commands::Example {} => {
             handle_example();

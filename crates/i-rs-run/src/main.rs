@@ -4,7 +4,7 @@ use crate::presentation::print_error;
 use commands::{
     handle_add, handle_delete, handle_example, handle_get, handle_list, handle_plan_add,
     handle_plan_delete, handle_plan_get, handle_plan_list, handle_skill, handle_stats,
-    SkillCommand,
+    handle_update, SkillCommand,
 };
 use presentation::OutputFormat;
 
@@ -50,6 +50,24 @@ enum Commands {
     Delete {
         #[arg(value_name = "ID")]
         id: String,
+    },
+    Update {
+        #[arg(value_name = "ID")]
+        id: String,
+        #[arg(short, long)]
+        date: Option<String>,
+        #[arg(short = 'd', long)]
+        distance: Option<f64>,
+        #[arg(short = 'u', long)]
+        duration: Option<f64>,
+        #[arg(short = 'r', long)]
+        heart_rate: Option<Option<u32>>,
+        #[arg(short = 'w', long)]
+        weather: Option<Option<String>>,
+        #[arg(short = 'T', long)]
+        tags: Option<Vec<String>>,
+        #[arg(short, long)]
+        remark: Option<Vec<String>>,
     },
     Stats {},
     PlanAdd {
@@ -127,6 +145,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         }
         Commands::Delete { id } => {
             handle_delete(id)?;
+        }
+        Commands::Update { id, date, distance, duration, heart_rate, weather, tags, remark } => {
+            handle_update(id, date, distance, duration, heart_rate, weather, tags, remark)?;
         }
         Commands::Stats {} => {
             handle_stats()?;

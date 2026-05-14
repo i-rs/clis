@@ -21,6 +21,7 @@ pub fn handle_add(
     let record = WeightRecord {
         date,
         weight,
+        tags: Vec::new(),
         remark,
     };
 

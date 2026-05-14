@@ -8,6 +8,8 @@ pub struct WeightRecord {
     pub date: NaiveDate,
     pub weight: f64,
     #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
     pub remark: Vec<String>,
 }
 
@@ -44,6 +46,8 @@ pub struct WeightRow {
     date: String,
     #[tabled(rename = "WEIGHT")]
     weight: String,
+    #[tabled(rename = "TAGS")]
+    tags: String,
     #[tabled(rename = "REMARK")]
     remark: String,
 }
@@ -53,6 +57,11 @@ impl WeightRow {
         Self {
             date: record.date.format("%Y-%m-%d").to_string(),
             weight: format!("{:.1}", record.weight),
+            tags: if record.tags.is_empty() {
+                "-".to_string()
+            } else {
+                record.tags.join(", ")
+            },
             remark: if record.remark.is_empty() {
                 "-".to_string()
             } else {

@@ -60,6 +60,8 @@ pub struct MoodRecord {
     pub tags: Vec<String>,
     #[serde(default)]
     pub content: Vec<String>,
+    #[serde(default)]
+    pub remark: Vec<String>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: DateTime<Utc>,
     #[serde(with = "chrono::serde::ts_seconds")]
@@ -140,6 +142,8 @@ pub struct MoodRow {
     tags: String,
     #[tabled(rename = "CONTENT")]
     content: String,
+    #[tabled(rename = "REMARK")]
+    remark: String,
 }
 
 impl MoodRow {
@@ -156,6 +160,11 @@ impl MoodRow {
                 "-".to_string()
             } else {
                 record.content.join("; ")
+            },
+            remark: if record.remark.is_empty() {
+                "-".to_string()
+            } else {
+                record.remark.join(", ")
             },
         }
     }

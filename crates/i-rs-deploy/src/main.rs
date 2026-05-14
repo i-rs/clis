@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_rollback, handle_skill, handle_stats, SkillCommand};
+use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_rollback, handle_skill, handle_stats, handle_update, SkillCommand};
 use models::DeployStatus;
 use presentation::OutputFormat;
 use crate::presentation::print_error;
@@ -54,6 +54,16 @@ enum Commands {
     Get {
         #[arg(value_name = "ID")]
         id: String,
+    },
+    Update {
+        #[arg(value_name = "ID")]
+        id: String,
+        #[arg(short, long, help = "New status")]
+        status: Option<DeployStatus>,
+        #[arg(short = 'T', long, help = "New tags")]
+        tag: Option<Vec<String>>,
+        #[arg(short, long, help = "New remarks")]
+        remark: Option<Vec<String>>,
     },
     Rollback {
         #[arg(value_name = "PROJECT")]
@@ -110,6 +120,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         }
         Commands::Get { id } => {
             handle_get(id, format)?;
+        }
+        Commands::Update { id, status, tag, remark } => {
+            handle_update(id, status, tag, remark)?;
         }
         Commands::Rollback { project, environment, rollback_to } => {
             handle_rollback(project, environment, rollback_to)?;

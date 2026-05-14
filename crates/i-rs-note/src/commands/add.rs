@@ -23,6 +23,7 @@ pub fn handle_add(
         title,
         tags: tag,
         content,
+        remark: Vec::new(),
         created_at: now,
         updated_at: now,
     };

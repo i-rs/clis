@@ -25,6 +25,8 @@ enum Commands {
     Get(commands::get::GetArgs),
     #[command(about = "删除税务记录")]
     Delete(commands::delete::DeleteArgs),
+    #[command(about = "更新税务记录")]
+    Update(commands::update::UpdateArgs),
     #[command(about = "查看年度统计")]
     Stats(commands::stats::StatsArgs),
     #[command(about = "显示使用示例")]
@@ -46,6 +48,9 @@ fn main() {
         Commands::Delete(args) => {
             commands::delete::run(&args);
             return;
+        }
+        Commands::Update(ref args) => {
+            commands::update::execute(args)
         }
         Commands::Stats(args) => {
             commands::stats::run(&args);

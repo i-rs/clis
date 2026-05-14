@@ -33,6 +33,9 @@ pub enum Commands {
     #[command(about = "Delete an event")]
     Delete(commands::delete::DeleteArgs),
 
+    #[command(about = "Update an event")]
+    Update(commands::update::UpdateArgs),
+
     #[command(about = "View event statistics")]
     Stats(commands::stats::StatsArgs),
 
@@ -62,6 +65,10 @@ fn main() {
         Commands::Delete(args) => {
             let json = cli.json;
             commands::delete::run(args, json)
+        }
+        Commands::Update(args) => {
+            let json = cli.json;
+            commands::update::run(args, json)
         }
         Commands::Stats(args) => {
             let json = cli.json;

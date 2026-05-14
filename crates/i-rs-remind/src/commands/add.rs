@@ -28,6 +28,7 @@ pub fn handle_add(
         title,
         tags: tag,
         content,
+        remark: Vec::new(),
         is_done: false,
         created_at: now,
         updated_at: now,

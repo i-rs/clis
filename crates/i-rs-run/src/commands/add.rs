@@ -30,6 +30,7 @@ pub fn handle_add(
         tags,
         remark,
         created_at: Utc::now(),
+        updated_at: Utc::now(),
     };
 
     let mut store = storage::load_store()?;

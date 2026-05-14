@@ -5,3 +5,4 @@ pub mod get;
 pub mod list;
 pub mod skill;
 pub mod stats;
+pub mod update;

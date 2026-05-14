@@ -14,6 +14,8 @@ pub struct Remind {
     #[serde(default)]
     pub content: Vec<String>,
     #[serde(default)]
+    pub remark: Vec<String>,
+    #[serde(default)]
     pub is_done: bool,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: DateTime<Utc>,
@@ -67,6 +69,8 @@ pub struct RemindRow {
     status: String,
     #[tabled(rename = "TAGS")]
     tags: String,
+    #[tabled(rename = "REMARK")]
+    remark: String,
 }
 
 impl RemindRow {
@@ -93,6 +97,11 @@ impl RemindRow {
                 "-".to_string()
             } else {
                 remind.tags.join(", ")
+            },
+            remark: if remind.remark.is_empty() {
+                "-".to_string()
+            } else {
+                remind.remark.join(", ")
             },
         }
     }
