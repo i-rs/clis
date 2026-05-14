@@ -44,6 +44,12 @@ members = [
     "crates/i-rs-habit",
     "crates/i-rs-sleep",
     "crates/i-rs-grocery",
+    "crates/i-rs-exercise",
+    "crates/i-rs-read",
+    "crates/i-rs-movie",
+    "crates/i-rs-budget",
+    "crates/i-rs-project",
+    "crates/i-rs-birthday",
 ]
 
 [workspace.package]

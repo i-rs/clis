@@ -196,6 +196,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-sleep/examples' },
               { text: 'Test', link: '/crates/i-rs-sleep/test' }
             ]
+          },
+          {
+            text: 'i-rs-exercise',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-exercise/' },
+              { text: 'Usage', link: '/crates/i-rs-exercise/usage' },
+              { text: 'Examples', link: '/crates/i-rs-exercise/examples' },
+              { text: 'Test', link: '/crates/i-rs-exercise/test' }
+            ]
           }
         ]
       },
@@ -481,6 +491,62 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-aqua/usage' },
               { text: 'Examples', link: '/crates/i-rs-aqua/examples' },
               { text: 'Test', link: '/crates/i-rs-aqua/test' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Productivity & Tracking',
+        collapsed: false,
+        items: [
+          {
+            text: 'i-rs-read',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-read/' },
+              { text: 'Usage', link: '/crates/i-rs-read/usage' },
+              { text: 'Examples', link: '/crates/i-rs-read/examples' },
+              { text: 'Test', link: '/crates/i-rs-read/test' }
+            ]
+          },
+          {
+            text: 'i-rs-movie',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-movie/' },
+              { text: 'Usage', link: '/crates/i-rs-movie/usage' },
+              { text: 'Examples', link: '/crates/i-rs-movie/examples' },
+              { text: 'Test', link: '/crates/i-rs-movie/test' }
+            ]
+          },
+          {
+            text: 'i-rs-budget',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-budget/' },
+              { text: 'Usage', link: '/crates/i-rs-budget/usage' },
+              { text: 'Examples', link: '/crates/i-rs-budget/examples' },
+              { text: 'Test', link: '/crates/i-rs-budget/test' }
+            ]
+          },
+          {
+            text: 'i-rs-project',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-project/' },
+              { text: 'Usage', link: '/crates/i-rs-project/usage' },
+              { text: 'Examples', link: '/crates/i-rs-project/examples' },
+              { text: 'Test', link: '/crates/i-rs-project/test' }
+            ]
+          },
+          {
+            text: 'i-rs-birthday',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-birthday/' },
+              { text: 'Usage', link: '/crates/i-rs-birthday/usage' },
+              { text: 'Examples', link: '/crates/i-rs-birthday/examples' },
+              { text: 'Test', link: '/crates/i-rs-birthday/test' }
             ]
           }
         ]

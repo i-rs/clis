@@ -1,0 +1,26 @@
+use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::storage;
+use anyhow::Result;
+use owo_colors::OwoColorize;
+
+pub fn handle_delete(name: String, output_format: OutputFormat) -> Result<()> {
+    let mut store = storage::load_store()?;
+
+    if store.movies.remove(&name).is_none() {
+        print_error(&format!("Movie '{}' not found", name));
+        anyhow::bail!("Movie '{}' not found", name);
+    }
+
+    storage::save_store(&store)?;
+
+    if matches!(output_format, OutputFormat::Json) {
+        println!("{}", serde_json::json!({
+            "success": true,
+            "message": format!("Movie '{}' deleted successfully", name)
+        }));
+    } else {
+        print_success(&format!("✓ Movie '{}' deleted", name.green()));
+    }
+
+    Ok(())
+}
