@@ -298,6 +298,16 @@ export default defineConfig({
               { text: 'Examples', link: '/crates/i-rs-keys/examples' },
               { text: 'Test', link: '/crates/i-rs-keys/test' }
             ]
+          },
+          {
+            text: 'i-rs-invest',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-invest/' },
+              { text: 'Usage', link: '/crates/i-rs-invest/usage' },
+              { text: 'Examples', link: '/crates/i-rs-invest/examples' },
+              { text: 'Test', link: '/crates/i-rs-invest/test' }
+            ]
           }
         ]
       },
@@ -547,6 +557,36 @@ export default defineConfig({
               { text: 'Usage', link: '/crates/i-rs-birthday/usage' },
               { text: 'Examples', link: '/crates/i-rs-birthday/examples' },
               { text: 'Test', link: '/crates/i-rs-birthday/test' }
+            ]
+          },
+          {
+            text: 'i-rs-contact',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-contact/' },
+              { text: 'Usage', link: '/crates/i-rs-contact/usage' },
+              { text: 'Examples', link: '/crates/i-rs-contact/examples' },
+              { text: 'Test', link: '/crates/i-rs-contact/test' }
+            ]
+          },
+          {
+            text: 'i-rs-podcast',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-podcast/' },
+              { text: 'Usage', link: '/crates/i-rs-podcast/usage' },
+              { text: 'Examples', link: '/crates/i-rs-podcast/examples' },
+              { text: 'Test', link: '/crates/i-rs-podcast/test' }
+            ]
+          },
+          {
+            text: 'i-rs-snippet',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-snippet/' },
+              { text: 'Usage', link: '/crates/i-rs-snippet/usage' },
+              { text: 'Examples', link: '/crates/i-rs-snippet/examples' },
+              { text: 'Test', link: '/crates/i-rs-snippet/test' }
             ]
           }
         ]

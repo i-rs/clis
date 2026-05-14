@@ -1,0 +1,32 @@
+use crate::models::RunStore;
+use anyhow::Result;
+use std::path::PathBuf;
+
+pub fn get_data_path() -> PathBuf {
+    if let Ok(config_dir) = std::env::var("CONFIG_DIR") {
+        PathBuf::from(config_dir).join("i-rs").join("runs.json")
+    } else {
+        let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        config_dir.join("i-rs").join("runs.json")
+    }
+}
+
+pub fn load_store() -> Result<RunStore> {
+    let path = get_data_path();
+    if path.exists() {
+        let content = std::fs::read_to_string(&path)?;
+        Ok(serde_json::from_str(&content)?)
+    } else {
+        Ok(RunStore::default())
+    }
+}
+
+pub fn save_store(store: &RunStore) -> Result<()> {
+    let path = get_data_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let content = serde_json::to_string_pretty(store)?;
+    std::fs::write(&path, content)?;
+    Ok(())
+}

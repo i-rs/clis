@@ -50,6 +50,12 @@ members = [
     "crates/i-rs-budget",
     "crates/i-rs-project",
     "crates/i-rs-birthday",
+    "crates/i-rs-contact",
+    "crates/i-rs-podcast",
+    "crates/i-rs-run",
+    "crates/i-rs-snippet",
+    "crates/i-rs-invest",
+    "crates/i-rs-goal",
 ]
 
 [workspace.package]
