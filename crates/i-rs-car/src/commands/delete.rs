@@ -28,7 +28,7 @@ pub fn run(args: &Args) -> Result<()> {
         }
     }
 
-    store.delete_car(&args.name);
+    store.remove_entry(&args.name);
     store.fuel_records.retain(|r| r.car_name != args.name);
     store.maintenance_records.retain(|r| r.car_name != args.name);
     storage::save_store(&store)?;

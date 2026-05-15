@@ -38,7 +38,7 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> Result<()> {
     book.tags = args.tags;
     book.remark = args.remark;
 
-    storage::add_book(book.clone(), &mut store);
+    storage::add_entry(book.clone(), &mut store);
     storage::save_store(&store)?;
 
     match output_format {

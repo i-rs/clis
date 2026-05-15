@@ -48,11 +48,11 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     
     let mut store = storage::load_store()?;
     
-    if store.goals.iter().any(|g| g.name == args.name) {
+    if store.goals.contains_key(&args.name) {
         anyhow::bail!("Goal '{}' already exists", args.name);
     }
     
-    let goal = storage::add_goal(
+    let goal = storage::add_entry(
         &mut store,
         args.name,
         args.target,

@@ -17,7 +17,7 @@ pub struct Args {
 
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
-    let mut debts: Vec<&Debt> = storage::list_debts(&store);
+    let mut debts: Vec<&Debt> = storage::list_entries(&store);
 
     if let Some(tag) = &args.tag {
         debts.retain(|d| d.tags.iter().any(|t| t.to_lowercase() == tag.to_lowercase()));

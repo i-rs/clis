@@ -13,8 +13,8 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
     
     let goals: Vec<SavingsGoal> = match &args.tag {
-        Some(tag) => store.goals.iter().filter(|g| g.tags.contains(tag)).cloned().collect(),
-        None => store.goals,
+        Some(tag) => store.goals.values().filter(|g| g.tags.contains(tag)).cloned().collect(),
+        None => store.goals.values().cloned().collect(),
     };
     
     if goals.is_empty() {

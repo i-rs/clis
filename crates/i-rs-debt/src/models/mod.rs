@@ -129,7 +129,7 @@ impl Debt {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Default)]
-pub struct Store {
+pub struct DebtStore {
     #[serde(default)]
     pub debts: std::collections::BTreeMap<String, Debt>,
 }

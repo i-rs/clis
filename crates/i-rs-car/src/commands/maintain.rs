@@ -38,7 +38,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         None => chrono::Utc::now().date_naive(),
     };
 
-    if let Some(car) = store.get_car(&args.car)
+    if let Some(car) = store.get_entry(&args.car)
         && args.mileage < car.mileage {
             anyhow::bail!("Maintenance record mileage cannot be less than car's current mileage");
         }

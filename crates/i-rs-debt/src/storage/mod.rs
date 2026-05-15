@@ -1,30 +1,30 @@
-use crate::models::{Debt, Store};
+use crate::models::{Debt, DebtStore};
 
 
-i_rs_core::create_store!(Store, "debt");
+i_rs_core::create_store!(DebtStore, "debt");
 
 
-pub fn add_debt(store: &mut Store, debt: Debt) {
+pub fn add_entry(store: &mut DebtStore, debt: Debt) {
     store.debts.insert(debt.name.clone(), debt);
 }
 
-pub fn get_debt<'a>(store: &'a Store, name: &str) -> Option<&'a Debt> {
+pub fn get_entry<'a>(store: &'a DebtStore, name: &str) -> Option<&'a Debt> {
     store.debts.get(name)
 }
 
-pub fn get_debt_mut<'a>(store: &'a mut Store, name: &str) -> Option<&'a mut Debt> {
+pub fn get_entry_mut<'a>(store: &'a mut DebtStore, name: &str) -> Option<&'a mut Debt> {
     store.debts.get_mut(name)
 }
 
-pub fn delete_debt(store: &mut Store, name: &str) -> bool {
+pub fn remove_entry(store: &mut DebtStore, name: &str) -> bool {
     store.debts.remove(name).is_some()
 }
 
-pub fn list_debts(store: &Store) -> Vec<&Debt> {
+pub fn list_entries(store: &DebtStore) -> Vec<&Debt> {
     store.debts.values().collect()
 }
 
-pub fn filter_by_tag<'a>(store: &'a Store, tag: &str) -> Vec<&'a Debt> {
+pub fn filter_by_tag<'a>(store: &'a DebtStore, tag: &str) -> Vec<&'a Debt> {
     store
         .debts
         .values()

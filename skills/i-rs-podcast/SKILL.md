@@ -14,6 +14,7 @@ Podcast and course tracking CLI tool for managing your audio/video learning cont
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add

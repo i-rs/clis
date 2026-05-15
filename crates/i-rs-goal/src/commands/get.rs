@@ -11,7 +11,7 @@ pub struct GetArgs {
 pub fn get(args: GetArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
     
-    let goal = store.goals.iter().find(|g| g.name == args.name);
+    let goal = store.goals.get(&args.name);
     
     match goal {
         Some(goal) => {

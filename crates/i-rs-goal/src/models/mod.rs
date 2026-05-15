@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tabled::Tabled;
@@ -59,8 +60,8 @@ impl SavingsGoal {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Default)]
-pub struct Store {
-    pub goals: Vec<SavingsGoal>,
+pub struct GoalStore {
+    pub goals: BTreeMap<String, SavingsGoal>,
 }
 
 

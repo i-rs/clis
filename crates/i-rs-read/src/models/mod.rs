@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tabled::Tabled;
@@ -64,6 +65,11 @@ impl Book {
             (self.current_page as f32 / self.total_pages as f32) * 100.0
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ReadStore {
+    pub books: BTreeMap<String, Book>,
 }
 
 #[derive(Debug, Clone, Tabled)]

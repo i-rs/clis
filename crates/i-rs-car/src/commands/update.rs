@@ -46,7 +46,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
                 record.car_name = rename_str.clone();
             }
         }
-        store.delete_car(&args.name);
+        store.remove_entry(&args.name);
         new_name = Some(rename_str.clone());
     }
 
@@ -56,7 +56,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         args.name.clone()
     };
 
-    let car = match store.get_car_mut(&args.name) {
+        let car = match store.get_entry_mut(&args.name) {
         Some(c) => c,
         None => {
             anyhow::bail!("Car '{}' not found", args.name);

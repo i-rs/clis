@@ -11,7 +11,7 @@ pub struct StatsArgs {
 
 pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
-    let books: Vec<&crate::models::Book> = storage::list_books(&store);
+    let books: Vec<&crate::models::Book> = storage::list_entries(&store);
 
     let total_books = books.len();
     let total_pages: u32 = books.iter().map(|b| b.total_pages).sum();

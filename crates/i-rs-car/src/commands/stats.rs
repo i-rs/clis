@@ -23,7 +23,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         let maintenance_count = store.get_maintenance_records(Some(car_name)).len();
         let total_fuel_cost = store.total_fuel_cost(Some(car_name));
         let total_maintenance_cost = store.total_maintenance_cost(Some(car_name));
-        let latest_mileage = store.get_car(car_name).map_or(0.0, |c| c.mileage);
+        let latest_mileage = store.get_entry(car_name).map_or(0.0, |c| c.mileage);
 
         let car_stats = CarStats {
             fuel_count,
@@ -61,7 +61,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     let mut by_car: BTreeMap<String, CarStats> = BTreeMap::new();
 
-    for car in store.list_cars() {
+    for car in store.list_entries() {
         let car_name = &car.name;
         let fuel_records = store.get_fuel_records(Some(car_name));
         let maintenance_records = store.get_maintenance_records(Some(car_name));

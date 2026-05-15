@@ -12,7 +12,7 @@ pub struct GetArgs {
 pub fn get(args: GetArgs, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    if let Some(book) = storage::get_book(&args.name, &store) {
+    if let Some(book) = storage::get_entry(&args.name, &store) {
         match output_format {
             OutputFormat::Json => {
                 println!("{}", output_item(book, output_format));

@@ -11,7 +11,7 @@ pub struct Args {
 
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
-    let cars: Vec<_> = store.list_cars().into_iter().cloned().collect();
+    let cars: Vec<_> = store.list_entries().into_iter().cloned().collect();
 
     if let Some(car_name) = &args.car {
         let filtered: Vec<_> = cars.iter().filter(|c| &c.name == car_name).collect();

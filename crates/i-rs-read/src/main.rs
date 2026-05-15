@@ -51,19 +51,18 @@ Data(commands::data::DataCommand),
 }
 
 fn main() {
-    i_rs_core::exit_on_error!(run(), false);
-}
-
-fn run() -> Result<()> {
     let cli = Cli::parse();
-
-    let output_format = if cli.json {
+    let format = if cli.json {
         OutputFormat::Json
     } else {
         OutputFormat::Table
     };
 
-    match cli.command {
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
+}
+
+fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
+    match command {
         Commands::Add(args) => commands::add(args, output_format)?,
         Commands::Delete(args) => commands::delete(args, output_format)?,
         Commands::Get(args) => commands::get(args, output_format)?,

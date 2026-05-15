@@ -9,7 +9,7 @@ Vehicle management CLI tool for tracking car information, fuel records, maintena
 
 ## Storage
 
-- Config: `~/.config/i-rs/cars.json`
+- Config: `~/.config/i-rs/car.json`
 
 ## Global Flags
 

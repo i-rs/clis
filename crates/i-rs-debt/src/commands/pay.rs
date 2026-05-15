@@ -17,7 +17,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
     let is_paid_off_before = {
-        let debt = match storage::get_debt_mut(&mut store, &args.name) {
+        let debt = match storage::get_entry_mut(&mut store, &args.name) {
             Some(d) => d,
             None => {
                 anyhow::bail!("Debt '{}' not found", args.name);

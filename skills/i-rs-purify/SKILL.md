@@ -93,8 +93,8 @@ i-rs-purify skill [summary|content|raw]
 
 ```bash
 # Record replacement
-i-rs-purify add "RO Membrane" [OPTIONS]
-i-rs-purify add "Carbon Filter" --tag kitchen [OPTIONS]
+i-rs-purify add "RO Membrane"
+i-rs-purify add "Carbon Filter" --tag kitchen
 
 # List records
 i-rs-purify list [OPTIONS]

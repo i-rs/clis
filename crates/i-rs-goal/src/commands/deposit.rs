@@ -18,7 +18,7 @@ pub fn deposit(args: DepositArgs, output_format: OutputFormat) -> anyhow::Result
     
     let mut store = storage::load_store()?;
     
-    let goal = store.goals.iter().find(|g| g.name == args.name);
+    let goal = store.goals.get(&args.name);
     
     match goal {
         Some(old_goal) => {

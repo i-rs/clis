@@ -17,7 +17,7 @@ pub struct Args {
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let car = match store.get_car(&args.name) {
+    let car = match store.get_entry(&args.name) {
         Some(c) => c,
         None => {
             anyhow::bail!("Car '{}' not found", args.name);

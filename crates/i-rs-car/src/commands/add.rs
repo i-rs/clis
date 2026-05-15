@@ -49,7 +49,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         car.remark = args.remark.clone();
     }
 
-    store.add_car(car);
+    store.add_entry(car);
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {

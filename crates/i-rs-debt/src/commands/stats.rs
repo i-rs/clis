@@ -13,7 +13,7 @@ pub struct Args {
 
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
-    let debts: Vec<&Debt> = storage::list_debts(&store);
+    let debts: Vec<&Debt> = storage::list_entries(&store);
 
     if debts.is_empty() {
         if output_format == OutputFormat::Json {

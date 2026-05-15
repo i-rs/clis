@@ -24,7 +24,7 @@ pub struct MilestoneArgs {
 pub fn list_milestones(args: MilestoneArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
     
-    let goal = store.goals.iter().find(|g| g.name == args.goal);
+    let goal = store.goals.get(&args.goal);
     
     match goal {
         Some(goal) => {

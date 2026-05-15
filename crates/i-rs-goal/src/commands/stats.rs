@@ -15,8 +15,8 @@ pub fn stats(args: StatsArgs, output_format: OutputFormat) -> anyhow::Result<()>
     let store = storage::load_store()?;
     
     let goals: Vec<&SavingsGoal> = match &args.tag {
-        Some(tag) => store.goals.iter().filter(|g| g.tags.contains(tag)).collect(),
-        None => store.goals.iter().collect(),
+        Some(tag) => store.goals.values().filter(|g| g.tags.contains(tag)).collect(),
+        None => store.goals.values().collect(),
     };
     
     if goals.is_empty() {

@@ -60,7 +60,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         debt.remark = args.remark.clone();
     }
 
-    storage::add_debt(&mut store, debt);
+    storage::add_entry(&mut store, debt);
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {

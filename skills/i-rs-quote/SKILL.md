@@ -14,27 +14,28 @@ description: "Manages quotes (add/list/get/delete/random). Invoke when user need
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
 Add a new quote.
 
 ```bash
-i-rs-quote add --content "Quote text" [--author "Author"] [--source "Source"] [--tag TAG] [--remark "Note"]
+i-rs-quote add --content <TEXT> [OPTIONS]
 ```
 
 Options:
-- `--content, -c`: Quote content (required)
-- `--author, -a`: Quote author
-- `--source, -s`: Quote source (book, speech, etc.)
-- `--tag, -g`: Tags (repeatable)
-- `--remark, -r`: Personal remarks (repeatable)
+- `-c, --content <TEXT>` - Quote content (required)
+- `-a, --author <AUTHOR>` - Quote author
+- `-s, --source <SOURCE>` - Quote source (book, speech, etc.)
+- `-t, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <REMARK>` - Personal remarks (repeatable)
 
 ### list
 List all quotes or filter by tag/author.
 
 ```bash
-i-rs-quote list [--tag TAG] [--author AUTHOR]
+i-rs-quote list [OPTIONS]
 ```
 
 Options:

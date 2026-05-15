@@ -136,7 +136,7 @@ impl MaintenanceRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Store {
+pub struct CarStore {
     #[serde(default)]
     pub cars: BTreeMap<String, Car>,
     #[serde(default)]
@@ -145,24 +145,24 @@ pub struct Store {
     pub maintenance_records: Vec<MaintenanceRecord>,
 }
 
-impl Store {
-    pub fn add_car(&mut self, car: Car) {
+impl CarStore {
+    pub fn add_entry(&mut self, car: Car) {
         self.cars.insert(car.name.clone(), car);
     }
 
-    pub fn get_car(&self, name: &str) -> Option<&Car> {
+    pub fn get_entry(&self, name: &str) -> Option<&Car> {
         self.cars.get(name)
     }
 
-    pub fn get_car_mut(&mut self, name: &str) -> Option<&mut Car> {
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Car> {
         self.cars.get_mut(name)
     }
 
-    pub fn delete_car(&mut self, name: &str) -> bool {
+    pub fn remove_entry(&mut self, name: &str) -> bool {
         self.cars.remove(name).is_some()
     }
 
-    pub fn list_cars(&self) -> Vec<&Car> {
+    pub fn list_entries(&self) -> Vec<&Car> {
         self.cars.values().collect()
     }
 

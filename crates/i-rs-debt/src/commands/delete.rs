@@ -28,7 +28,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         }
     }
 
-    storage::delete_debt(&mut store, &args.name);
+    storage::remove_entry(&mut store, &args.name);
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {

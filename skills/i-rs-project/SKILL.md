@@ -14,6 +14,7 @@ Project management CLI tool for organizing and tracking projects with milestones
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Project Status
 
 | Value | Description |

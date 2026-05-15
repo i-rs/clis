@@ -18,7 +18,7 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> Result<()> {
     let books: Vec<&crate::models::Book> = if let Some(ref tag) = args.tag {
         storage::filter_by_tag(tag, &store)
     } else {
-        storage::list_books(&store)
+        storage::list_entries(&store)
     };
 
     let filtered_books: Vec<&crate::models::Book> = if let Some(ref status) = args.status {
