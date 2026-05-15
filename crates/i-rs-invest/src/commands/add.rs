@@ -64,7 +64,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_entry(&mut store, investment);
+    store.add_entry(investment);
     storage::save_store(&store)?;
 
     println!("{}", format!("✓ Investment '{}' added successfully", name.green()));

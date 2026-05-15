@@ -17,7 +17,7 @@ pub fn handle_add(
 
     let entry = CalEntry::new(food_name.clone(), calories, tag, remark, parsed_date);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded {} ({} kcal)", food_name.green(), calories.to_string().cyan()));

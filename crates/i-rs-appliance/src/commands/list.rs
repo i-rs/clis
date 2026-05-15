@@ -12,7 +12,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     };
 
     if appliances.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = tag.map(|t| format!("tag: {t}"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
@@ -21,7 +21,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             id: String,

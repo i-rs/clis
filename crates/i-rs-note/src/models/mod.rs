@@ -37,6 +37,24 @@ pub struct NoteRow {
     updated_at: String,
 }
 
+impl NoteStore {
+    pub fn add_entry(&mut self, entry: Note) {
+        self.notes.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Note> {
+        self.notes.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Note> {
+        self.notes.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Note> {
+        self.notes.get_mut(key)
+    }
+}
+
 impl NoteRow {
     pub fn from_note(note: &Note) -> Self {
         Self {

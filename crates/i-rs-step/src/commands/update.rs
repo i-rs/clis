@@ -15,7 +15,7 @@ pub fn handle_update(
 
     let parsed_date = parse_date(&date)?;
 
-    let entry = match storage::get_entry_mut(&mut store, &parsed_date) {
+    let entry = match store.get_entry_mut(&parsed_date) {
         Some(e) => e,
         None => {
             anyhow::bail!("No record for {date}");

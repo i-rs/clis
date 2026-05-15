@@ -104,6 +104,24 @@ pub struct ArticleRow {
     created_at: String,
 }
 
+impl ArticleStore {
+    pub fn add_entry(&mut self, entry: Article) {
+        self.articles.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Article> {
+        self.articles.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Article> {
+        self.articles.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Article> {
+        self.articles.get_mut(key)
+    }
+}
+
 impl ArticleRow {
     pub fn from_article(article: &Article) -> Self {
         Self {

@@ -13,7 +13,7 @@ pub struct GetArgs {
 pub fn execute(args: &GetArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
-    let entry = crate::storage::get_entry(&store, &args.name).ok_or_else(|| {
+    let entry = store.get_entry(&args.name).ok_or_else(|| {
         anyhow::anyhow!("税务记录 '{}' 不存在", args.name)
     })?;
 

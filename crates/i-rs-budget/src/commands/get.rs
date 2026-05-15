@@ -8,7 +8,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
 
     if let Some(cat) = category {
         if let Some(budget) = store.budgets.get(&cat) {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 #[derive(serde::Serialize)]
                 struct BudgetData {
                     category: String,
@@ -40,7 +40,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
                 }
             }
         } else {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
@@ -50,7 +50,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
         }
     } else if let Some(id) = expense_id {
         if let Some(expense) = store.expenses.get(&id) {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 #[derive(serde::Serialize)]
                 struct ExpenseData {
                     id: String,
@@ -81,7 +81,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
                 }
             }
         } else {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
@@ -90,7 +90,7 @@ pub fn handle_get(category: Option<String>, expense_id: Option<String>, format: 
             anyhow::bail!("Expense not found");
         }
     } else {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": false,
                 "error": { "code": "MISSING_ARGUMENT", "message": "Provide either --category or --expense-id" }

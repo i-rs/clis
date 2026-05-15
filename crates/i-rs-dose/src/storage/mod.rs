@@ -1,20 +1,6 @@
 use crate::models::{DoseEntry, DoseStore};
 
-
 i_rs_core::create_store!(DoseStore, "dose");
-
-
-pub fn add_entry(store: &mut DoseStore, entry: DoseEntry) {
-    store.add_entry(entry);
-}
-
-pub fn remove_entry(store: &mut DoseStore, id: &str) -> Option<DoseEntry> {
-    store.remove_entry(id)
-}
-
-pub fn get_entry<'a>(store: &'a DoseStore, id: &str) -> Option<&'a DoseEntry> {
-    store.get_entry(id)
-}
 
 pub fn filter_by_tag<'a>(store: &'a DoseStore, tag: Option<&'a str>) -> Vec<&'a DoseEntry> {
     match tag {

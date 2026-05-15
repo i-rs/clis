@@ -15,7 +15,7 @@ pub fn handle_update(
     let mut store = storage::load_store()?;
 
     let budget = if let Some(b) = store.budgets.get_mut(&category) { b } else {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": false,
                 "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", category) }
@@ -35,7 +35,7 @@ pub fn handle_update(
             "yearly" | "y" => BudgetPeriod::Yearly,
             "monthly" | "m" => BudgetPeriod::Monthly,
             _ => {
-                if matches!(format, OutputFormat::Json) {
+                if format.is_json() {
                     println!("{}", serde_json::json!({
                         "success": false,
                         "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
@@ -66,7 +66,7 @@ pub fn handle_update(
 
     storage::save_store(&store)?;
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct BudgetData {
             category: String,

@@ -15,7 +15,7 @@ pub fn handle_list(tag: Option<String>, exercise_type: Option<String>, format: O
     };
 
     if records.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = tag.as_ref().or(exercise_type.as_ref()).map(std::string::String::as_str);
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
         } else if let Some(ref t) = tag {
@@ -30,7 +30,7 @@ pub fn handle_list(tag: Option<String>, exercise_type: Option<String>, format: O
 
     let records_ref: Vec<&crate::models::ExerciseRecord> = records.clone();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let items: Vec<ListItem> = records.iter().map(|r| ListItem::from(*r)).collect();
         let filter = tag.as_ref().or(exercise_type.as_ref()).map(std::string::String::as_str);
         println!("{}", output_list(&items, items.len(), filter, format));

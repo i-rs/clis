@@ -21,7 +21,7 @@ pub fn delete(args: DeleteArgs, output_format: OutputFormat) -> Result<()> {
         anyhow::bail!(msg);
     }
 
-    let book = storage::remove_entry(&args.name, &mut store);
+    let book = store.remove_entry(&args.name);
     storage::save_store(&store)?;
 
     match output_format {

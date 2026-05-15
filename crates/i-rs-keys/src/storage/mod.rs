@@ -3,31 +3,12 @@ use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
 
-
 i_rs_core::create_store!(KeyStore, "keys");
-
 
 const SERVICE_NAME: &str = "i-rs-keys";
 
 pub fn init_keyring() {
     let _ = use_native_store(false);
-}
-
-
-pub fn add_entry(store: &mut KeyStore, entry: KeyEntry) {
-    store.add_entry(entry);
-}
-
-pub fn remove_entry(store: &mut KeyStore, name: &str) -> Option<KeyEntry> {
-    store.remove_entry(name)
-}
-
-pub fn get_entry<'a>(store: &'a KeyStore, name: &str) -> Option<&'a KeyEntry> {
-    store.get_entry(name)
-}
-
-pub fn get_entry_mut<'a>(store: &'a mut KeyStore, name: &str) -> Option<&'a mut KeyEntry> {
-    store.get_entry_mut(name)
 }
 
 pub fn store_key(name: &str, key: &str) -> Result<()> {

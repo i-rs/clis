@@ -38,7 +38,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_entry(&mut store, domain);
+    store.add_entry(domain);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Domain '{}' added successfully", name.green()));

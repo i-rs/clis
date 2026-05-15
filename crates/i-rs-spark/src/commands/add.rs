@@ -14,7 +14,7 @@ pub fn handle_add(
 
     let entry = SparkEntry::new(content.clone(), source, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     let preview = if content.len() > 30 { format!("{}...", &content[..30]) } else { content };

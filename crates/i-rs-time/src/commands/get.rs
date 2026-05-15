@@ -6,10 +6,13 @@ use owo_colors::OwoColorize;
 pub fn handle_get(id: String, format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
-    let entry = storage::get_entry(&store, &id)?;
+    let entry = match store.get_entry(&id) {
+        Some(e) => e,
+        None => anyhow::bail!("Entry '{id}' not found"),
+    };
 
-    if format == OutputFormat::Json {
-        let item: ListItem = (&entry).into();
+    if format.is_json() {
+        let item: ListItem = entry.into();
         println!("{}", output_item(&item, format));
     } else {
         print_header(&format!("Time Entry: {}", entry.name));

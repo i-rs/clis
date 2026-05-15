@@ -9,13 +9,13 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
 
     let entry = if let Some(e) = store.get_entry(&name) { e } else {
         let msg = format!("Exercise '{name}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let output = crate::models::ListItem::from(entry);
         println!("{}", output_item(&output, format));
         return Ok(());

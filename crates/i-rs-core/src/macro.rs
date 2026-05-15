@@ -185,3 +185,55 @@ macro_rules! example_command {
         }
     };
 }
+
+/// Generate the `DataCommand` enum and `handle` function for data export/import/clear.
+///
+/// Usage in `crates/i-rs-xxx/src/commands/data.rs`:
+/// ```ignore
+/// i_rs_core::data_command!();
+/// ```
+#[macro_export]
+macro_rules! data_command {
+    () => {
+        #[derive(::clap::Subcommand, Debug, Clone)]
+        pub enum DataCommand {
+            #[command(about = "Export all data as JSON")]
+            Export,
+            #[command(about = "Import data from JSON file or stdin")]
+            Import {
+                #[arg(value_name = "FILE")]
+                file: Option<String>,
+            },
+            #[command(about = "Clear all data")]
+            Clear,
+        }
+
+        pub fn handle(command: &DataCommand) -> ::anyhow::Result<()> {
+            use ::std::io::Read;
+            match command {
+                DataCommand::Export => {
+                    let exported = crate::storage::export_data()?;
+                    println!("{exported}");
+                    Ok(())
+                }
+                DataCommand::Import { file } => {
+                    let input = if let Some(path) = &file {
+                        ::std::fs::read_to_string(path)?
+                    } else {
+                        let mut buf = String::new();
+                        ::std::io::stdin().read_to_string(&mut buf)?;
+                        buf
+                    };
+                    crate::storage::import_data(&input)?;
+                    println!("Data imported successfully");
+                    Ok(())
+                }
+                DataCommand::Clear => {
+                    crate::storage::clear_data()?;
+                    println!("Data cleared successfully");
+                    Ok(())
+                }
+            }
+        }
+    };
+}

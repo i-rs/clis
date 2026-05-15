@@ -26,6 +26,26 @@ pub struct PasswordStore {
 }
 
 
+
+
+impl PasswordStore {
+    pub fn add_entry(&mut self, entry: PasswordEntry) {
+        self.entries.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<PasswordEntry> {
+        self.entries.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&PasswordEntry> {
+        self.entries.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut PasswordEntry> {
+        self.entries.get_mut(key)
+    }
+}
+
 #[derive(Tabled)]
 pub struct PasswordRow {
     #[tabled(rename = "NAME")]

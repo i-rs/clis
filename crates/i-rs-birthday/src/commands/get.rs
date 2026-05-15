@@ -7,15 +7,15 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let birthday = if let Some(b) = storage::get_entry(&store, &name) { b } else {
+    let birthday = if let Some(b) = store.get_entry(&name) { b } else {
         let msg = format!("Birthday '{name}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct GetOutput {
             name: String,

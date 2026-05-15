@@ -28,7 +28,7 @@ pub fn handle_add(
         created_at: now,
     };
 
-    storage::add_entry(&mut store, quote);
+    store.add_entry(quote);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Quote '{}' added successfully", id.green().bold()));

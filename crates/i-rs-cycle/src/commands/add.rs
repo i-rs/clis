@@ -18,7 +18,7 @@ pub fn handle_add(
 
     let entry = CycleEntry::new(parsed_date, event_type.clone(), symptom, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded {} for {}", event_type.green(), date.cyan()));

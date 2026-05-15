@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 pub fn get_plant(name: String, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    if let Some(plant) = storage::get_entry(&store, &name) {
+    if let Some(plant) = store.get_entry(&name) {
         match output_format {
             OutputFormat::Json => {
                 let json_data = serde_json::json!({

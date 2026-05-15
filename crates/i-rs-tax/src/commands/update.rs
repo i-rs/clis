@@ -26,7 +26,7 @@ pub struct UpdateArgs {
 pub fn execute(args: &UpdateArgs) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let record = match crate::storage::get_entry_mut(&mut store, &args.name) {
+    let record = match store.get_entry_mut(&args.name) {
         Some(r) => r,
         None => anyhow::bail!("税务记录 '{}' 不存在", args.name),
     };

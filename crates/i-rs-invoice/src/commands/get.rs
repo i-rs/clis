@@ -16,7 +16,7 @@ pub struct GetArgs {
 pub fn run_get(args: GetArgs) -> Result<()> {
     let store = storage::load_store()?;
 
-    let invoice = storage::get_entry(&store, &args.id);
+    let invoice = store.get_entry(&args.id);
 
     let format = args.format.unwrap_or(OutputFormat::Default);
 

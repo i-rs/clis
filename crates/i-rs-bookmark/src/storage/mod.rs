@@ -3,16 +3,13 @@ use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
 
-
 i_rs_core::create_store!(BookmarkStore, "bookmark");
-
 
 const SERVICE_NAME: &str = "i-rs-bookmark";
 
 pub fn init_keyring() {
     let _ = use_native_store(false);
 }
-
 
 pub fn store_password(name: &str, password: &str) -> Result<()> {
     let entry = Entry::new(SERVICE_NAME, name)
@@ -45,23 +42,6 @@ pub fn delete_password(name: &str) -> Result<()> {
         let _ = entry.delete_credential();
     }
     Ok(())
-}
-
-
-pub fn add_entry(store: &mut BookmarkStore, bookmark: Bookmark) {
-    store.bookmarks.insert(bookmark.name.clone(), bookmark);
-}
-
-pub fn remove_entry(store: &mut BookmarkStore, name: &str) -> Option<Bookmark> {
-    store.bookmarks.remove(name)
-}
-
-pub fn get_entry<'a>(store: &'a BookmarkStore, name: &str) -> Option<&'a Bookmark> {
-    store.bookmarks.get(name)
-}
-
-pub fn get_entry_mut<'a>(store: &'a mut BookmarkStore, name: &str) -> Option<&'a mut Bookmark> {
-    store.bookmarks.get_mut(name)
 }
 
 pub fn filter_by_tag<'a>(store: &'a BookmarkStore, tag: Option<&str>) -> Vec<&'a Bookmark> {

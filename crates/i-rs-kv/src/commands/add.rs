@@ -33,11 +33,11 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
-    if matches!(format, OutputFormat::Json) {
-        let saved = storage::get_entry(&store, &key);
+    if format.is_json() {
+        let saved = store.get_entry(&key);
         if let Some(entry) = saved {
             let output = ListItem::from(entry);
             println!("{}", output_item(&output, format));

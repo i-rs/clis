@@ -102,6 +102,24 @@ pub struct InvestmentRow {
     tags: String,
 }
 
+impl InvestmentStore {
+    pub fn add_entry(&mut self, entry: Investment) {
+        self.investments.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Investment> {
+        self.investments.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Investment> {
+        self.investments.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Investment> {
+        self.investments.get_mut(key)
+    }
+}
+
 impl InvestmentRow {
     pub fn from_investment(investment: &Investment) -> Self {
         let profit_loss_pct = investment

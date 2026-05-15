@@ -1,20 +1,6 @@
 use crate::models::{AquaEntry, AquaStore};
 
-
 i_rs_core::create_store!(AquaStore, "aqua");
-
-
-pub fn add_entry(store: &mut AquaStore, entry: AquaEntry) {
-    store.add_entry(entry);
-}
-
-pub fn remove_entry(store: &mut AquaStore, id: &str) -> Option<AquaEntry> {
-    store.remove_entry(id)
-}
-
-pub fn get_entry<'a>(store: &'a AquaStore, id: &str) -> Option<&'a AquaEntry> {
-    store.get_entry(id)
-}
 
 pub fn filter_by_tag<'a>(store: &'a AquaStore, tag: Option<&'a str>) -> Vec<&'a AquaEntry> {
     match tag {

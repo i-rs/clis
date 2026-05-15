@@ -130,3 +130,21 @@ pub struct TaxStore {
     pub entries: std::collections::BTreeMap<String, TaxRecord>,
 }
 
+impl TaxStore {
+    pub fn add_entry(&mut self, entry: TaxRecord) {
+        self.entries.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<TaxRecord> {
+        self.entries.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&TaxRecord> {
+        self.entries.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut TaxRecord> {
+        self.entries.get_mut(key)
+    }
+}
+

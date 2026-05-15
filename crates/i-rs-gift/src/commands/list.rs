@@ -14,7 +14,7 @@ pub fn handle_list(tag: Option<String>, gift_type: Option<String>, format: Outpu
     };
 
     if gifts.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = tag.or(gift_type);
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
@@ -23,7 +23,7 @@ pub fn handle_list(tag: Option<String>, gift_type: Option<String>, format: Outpu
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             name: String,

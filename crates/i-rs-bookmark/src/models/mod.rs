@@ -26,6 +26,26 @@ pub struct BookmarkStore {
 }
 
 
+
+
+impl BookmarkStore {
+    pub fn add_entry(&mut self, entry: Bookmark) {
+        self.bookmarks.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Bookmark> {
+        self.bookmarks.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Bookmark> {
+        self.bookmarks.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Bookmark> {
+        self.bookmarks.get_mut(key)
+    }
+}
+
 #[derive(Tabled)]
 pub struct BookmarkRow {
     #[tabled(rename = "NAME")]

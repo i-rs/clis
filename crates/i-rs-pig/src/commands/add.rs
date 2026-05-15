@@ -14,7 +14,7 @@ pub fn handle_add(
 
     let entry = PigEntry::new(food_name.clone(), description, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded '{}' at {}", food_name.green(), chrono::Utc::now().format("%H:%M").to_string().cyan()));

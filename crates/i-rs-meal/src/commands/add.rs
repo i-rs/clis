@@ -19,7 +19,7 @@ pub fn handle_add(
 
     let entry = MealEntry::new(meal_type.clone(), food_items.clone(), calories, tag, remark, parsed_date);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Added {}: {} on {}", meal_type.green(), food_items.cyan(), parsed_date.format("%Y-%m-%d").to_string().yellow()));

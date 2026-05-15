@@ -10,13 +10,13 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
 
     let todo = if let Some(t) = store.get_entry(&name) { t } else {
         let msg = format!("Todo '{name}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct GetOutput {
             name: String,

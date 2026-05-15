@@ -15,7 +15,7 @@ pub fn handle_add(
 
     let entry = DoseEntry::new(medicine_name.clone(), dosage.clone(), unit.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded {} {} {} at {}", medicine_name.green(), dosage.cyan(), unit.yellow(), chrono::Utc::now().format("%H:%M")));

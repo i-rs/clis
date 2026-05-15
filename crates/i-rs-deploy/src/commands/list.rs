@@ -25,7 +25,7 @@ pub fn handle_list(
     entries.sort_by_key(|e| std::cmp::Reverse(e.deployed_at));
 
     if entries.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
         } else {
             print_warning("No deploy records found.");
@@ -33,7 +33,7 @@ pub fn handle_list(
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(*e)).collect();
         println!("{}", output_list(&items, items.len(), None, format));
         return Ok(());

@@ -9,7 +9,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     let entities: Vec<&crate::models::Entity> = storage::filter_by_tag(&store, tag.as_deref());
 
     if entities.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
         } else {
             print_warning("No items found.");
@@ -17,7 +17,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let items: Vec<ListItem> = entities.iter().map(|e| ListItem::from(*e)).collect();
         println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
         return Ok(());

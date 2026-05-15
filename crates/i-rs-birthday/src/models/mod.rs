@@ -94,6 +94,24 @@ pub struct BirthdayRow {
     tags: String,
 }
 
+impl BirthdayStore {
+    pub fn add_entry(&mut self, entry: Birthday) {
+        self.birthdays.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Birthday> {
+        self.birthdays.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Birthday> {
+        self.birthdays.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Birthday> {
+        self.birthdays.get_mut(key)
+    }
+}
+
 impl BirthdayRow {
     pub fn from_birthday(birthday: &Birthday) -> Self {
         let days = birthday.days_until_birthday();

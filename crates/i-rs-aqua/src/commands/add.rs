@@ -9,7 +9,7 @@ pub fn handle_add(tank_size: Option<i32>, tag: Vec<String>, remark: Vec<String>)
 
     let entry = AquaEntry::new(tank_size, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     let size_str = tank_size.map_or_else(|| "unknown".to_string(), |s| format!("{s}L"));

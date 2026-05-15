@@ -11,7 +11,7 @@ pub struct DeleteArgs {
 pub fn delete(args: DeleteArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
     
-    if storage::remove_entry(&mut store, &args.name)? {
+    if store.remove_entry(&args.name)? {
         match output_format {
             OutputFormat::Json => {
                 println!("{}", output_error(&format!("Goal '{}' deleted successfully", args.name), "goal_deleted", output_format));

@@ -16,7 +16,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
         }
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct Item {
             date: String,

@@ -72,6 +72,25 @@ pub struct ReadStore {
     pub books: BTreeMap<String, Book>,
 }
 
+impl ReadStore {
+    pub fn add_entry(&mut self, entry: Book) {
+        self.books.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, name: &str) -> Option<Book> {
+        self.books.remove(name)
+    }
+
+    pub fn get_entry(&self, name: &str) -> Option<&Book> {
+        self.books.get(name)
+    }
+
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Book> {
+        self.books.get_mut(name)
+    }
+}
+
+
 #[derive(Debug, Clone, Tabled)]
 pub struct BookRow {
     pub name: String,

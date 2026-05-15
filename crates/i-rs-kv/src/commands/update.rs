@@ -14,7 +14,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let entry = match storage::get_entry_mut(&mut store, &key) {
+    let entry = match store.get_entry_mut(&key) {
         Some(e) => e,
         None => {
             anyhow::bail!("Key '{key}' not found");
@@ -37,8 +37,8 @@ pub fn handle_update(
 
     storage::save_store(&store)?;
 
-    if matches!(format, OutputFormat::Json) {
-        let updated = storage::get_entry(&store, &key);
+    if format.is_json() {
+        let updated = store.get_entry(&key);
         if let Some(entry) = updated {
             let output = ListItem::from(entry);
             println!("{}", output_item(&output, format));

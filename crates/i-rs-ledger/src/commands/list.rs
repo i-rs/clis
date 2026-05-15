@@ -9,7 +9,7 @@ pub fn handle_list(category: Option<String>, format: OutputFormat) -> Result<()>
 
     let entries: Vec<&crate::models::LedgerEntry> = storage::filter_by_category(&store, category.as_deref());
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         if entries.is_empty() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, category.as_deref(), format));
             return Ok(());

@@ -6,8 +6,8 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let gift = if let Some(g) = storage::get_entry(&store, &name) { g } else {
-        if matches!(format, OutputFormat::Json) {
+    let gift = if let Some(g) = store.get_entry(&name) { g } else {
+        if format.is_json() {
             println!("{}", output_item(&serde_json::json!({
                 "error": "not_found",
                 "message": format!("Gift '{}' not found", name)
@@ -16,7 +16,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         anyhow::bail!("Gift '{name}' not found");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct GiftDetail {
             name: String,

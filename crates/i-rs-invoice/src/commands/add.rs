@@ -71,7 +71,7 @@ pub fn run_add(args: AddArgs) -> Result<()> {
         updated_at: now,
     };
 
-    storage::add_entry(&mut store, invoice);
+    store.add_entry(invoice);
     storage::save_store(&store)?;
 
     print_success("Invoice added successfully");

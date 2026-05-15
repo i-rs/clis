@@ -9,7 +9,7 @@ pub fn handle_add(pet_name: String, tag: Vec<String>, remark: Vec<String>) -> Re
 
     let entry = PetbathEntry::new(pet_name.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ {} took a bath", pet_name.green()));

@@ -24,7 +24,7 @@ pub fn handle_add(
 
     let entry = TickEntry::new(task_name.clone(), duration_seconds, description, tag, remark, start, end);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     let duration_str = format_duration(duration_seconds);

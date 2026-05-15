@@ -16,7 +16,7 @@ pub fn handle_expense(
     let mut store = storage::load_store()?;
 
     if !store.budgets.contains_key(&category) {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": false,
                 "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found. Create it first with 'add' command.", category) }
@@ -42,7 +42,7 @@ pub fn handle_expense(
     store.add_expense(expense.clone());
     storage::save_store(&store)?;
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct ExpenseData {
             id: String,

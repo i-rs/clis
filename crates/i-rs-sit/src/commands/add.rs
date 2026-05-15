@@ -14,7 +14,7 @@ pub fn handle_add(duration_minutes: i32, tag: Vec<String>, remark: Vec<String>) 
 
     let entry = SitEntry::new(duration_minutes, started_at, ended_at, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded {} minutes of sitting", duration_minutes.green()));

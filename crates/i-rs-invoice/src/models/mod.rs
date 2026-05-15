@@ -84,6 +84,26 @@ pub struct InvoiceStore {
     pub entries: std::collections::BTreeMap<String, Invoice>,
 }
 
+
+
+impl InvoiceStore {
+    pub fn add_entry(&mut self, entry: Invoice) {
+        self.entries.insert(entry.id.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Invoice> {
+        self.entries.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Invoice> {
+        self.entries.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Invoice> {
+        self.entries.get_mut(key)
+    }
+}
+
 pub fn filter_by_tag<'a>(store: &'a InvoiceStore, tag: &str) -> Vec<&'a Invoice> {
     store
         .entries

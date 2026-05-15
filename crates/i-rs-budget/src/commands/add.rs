@@ -15,7 +15,7 @@ pub fn handle_add(
     let mut store = storage::load_store()?;
 
     if store.budgets.contains_key(&category) {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": false,
                 "error": { "code": "ALREADY_EXISTS", "message": format!("Budget for category '{}' already exists", category) }
@@ -30,7 +30,7 @@ pub fn handle_add(
         Some("yearly" | "y") => BudgetPeriod::Yearly,
         Some("monthly" | "m") | None => BudgetPeriod::Monthly,
         _ => {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
@@ -51,7 +51,7 @@ pub fn handle_add(
     store.add_budget(budget);
     storage::save_store(&store)?;
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct BudgetData {
             category: String,

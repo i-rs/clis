@@ -14,7 +14,7 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
     };
 
     if todos.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = tag.or_else(|| {
                 if pending {
                     Some("pending".to_string())
@@ -31,7 +31,7 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             name: String,

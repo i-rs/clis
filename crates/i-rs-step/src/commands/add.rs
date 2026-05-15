@@ -18,7 +18,7 @@ pub fn handle_add(
 
     let entry = StepEntry::new(steps, distance, parsed_date, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     let dist_str = distance.map(|d| format!(" ({d:.1} km)")).unwrap_or_default();

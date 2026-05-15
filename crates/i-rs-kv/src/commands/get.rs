@@ -7,15 +7,15 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(key: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entry = if let Some(e) = storage::get_entry(&store, &key) { e } else {
+    let entry = if let Some(e) = store.get_entry(&key) { e } else {
         let msg = format!("Key '{key}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let output = crate::models::ListItem::from(entry);
         println!("{}", output_item(&output, format));
         return Ok(());

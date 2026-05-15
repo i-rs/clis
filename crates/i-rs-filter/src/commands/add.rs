@@ -14,7 +14,7 @@ pub fn handle_add(
 
     let entry = FilterEntry::new(appliance_name.clone(), filter_type.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Cleaned {} filter ({})", appliance_name.green(), filter_type.cyan()));

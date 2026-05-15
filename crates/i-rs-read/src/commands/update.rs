@@ -34,7 +34,7 @@ pub struct UpdateArgs {
 pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let book = if let Some(b) = storage::get_entry_mut(&args.name, &mut store) { b } else {
+    let book = if let Some(b) = store.get_entry_mut(&args.name) { b } else {
         let msg = format!("Book '{}' not found", args.name);
         anyhow::bail!(msg);
     };

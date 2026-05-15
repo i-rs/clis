@@ -27,7 +27,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
     let most_common_type = type_count.iter().max_by_key(|&(_, count)| *count).map(|(t, _)| t.clone());
     let longest_type = type_duration.iter().max_by_key(|&(_, dur)| *dur).map(|(t, _)| t.clone());
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let stats_json = serde_json::json!({
             "success": true,
             "data": {

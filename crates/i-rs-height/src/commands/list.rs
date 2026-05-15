@@ -20,7 +20,7 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
     };
 
     if records.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = days.map(|d| format!("last {d} days"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
@@ -31,7 +31,7 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
 
     let records_ref: Vec<&HeightRecord> = records.iter().collect();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             date: String,

@@ -34,7 +34,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_entry(&mut store, remind);
+    store.add_entry(remind);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Remind '{}' added successfully", name.green()));

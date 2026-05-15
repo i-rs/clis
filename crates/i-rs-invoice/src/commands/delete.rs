@@ -17,7 +17,7 @@ pub fn run_delete(args: DeleteArgs) -> Result<()> {
 
     let format = args.format.unwrap_or(OutputFormat::Default);
 
-    if storage::get_entry(&store, &args.id).is_none() {
+    if store.get_entry(&args.id).is_none() {
         match format {
             OutputFormat::Json => {
                 println!("{}", crate::presentation::output_error(&format!("Invoice '{}' not found", args.id), "NOT_FOUND", OutputFormat::Json));
@@ -29,7 +29,7 @@ pub fn run_delete(args: DeleteArgs) -> Result<()> {
         anyhow::bail!("Invoice '{}' not found", args.id);
     }
 
-    storage::remove_entry(&mut store, &args.id);
+    store.remove_entry(&args.id);
     storage::save_store(&store)?;
 
     match format {

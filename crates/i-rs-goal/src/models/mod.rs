@@ -65,6 +65,19 @@ pub struct GoalStore {
 }
 
 
+
+
+impl GoalStore {
+    pub fn remove_entry(&mut self, name: &str) -> ::anyhow::Result<bool> {
+        if self.goals.remove(name).is_some() {
+            crate::storage::save_store(self)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+}
+
 #[derive(Tabled, Clone)]
 pub struct SavingsGoalRow {
     #[tabled(rename = "Name")]

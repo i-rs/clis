@@ -75,7 +75,7 @@ pub fn run(args: &AddArgs, json: bool) -> Result<()> {
         anyhow::bail!("Event '{}' already exists", args.name);
     }
 
-    storage::add_entry(&mut store, event);
+    store.add_entry(event);
     storage::save_store(&store)?;
 
     if json {

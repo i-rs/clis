@@ -1,24 +1,6 @@
 use crate::models::{DeployRecord, DeployStore};
 
-
 i_rs_core::create_store!(DeployStore, "deploy");
-
-
-pub fn add_entry(store: &mut DeployStore, entry: DeployRecord) {
-    store.add_entry(entry);
-}
-
-pub fn remove_entry(store: &mut DeployStore, id: &str) -> Option<DeployRecord> {
-    store.remove_entry(id)
-}
-
-pub fn get_entry<'a>(store: &'a DeployStore, id: &str) -> Option<&'a DeployRecord> {
-    store.get_entry(id)
-}
-
-pub fn get_entry_mut<'a>(store: &'a mut DeployStore, id: &str) -> Option<&'a mut DeployRecord> {
-    store.get_entry_mut(id)
-}
 
 pub fn filter_by_project<'a>(store: &'a DeployStore, project: Option<&'a str>) -> Vec<&'a DeployRecord> {
     match project {

@@ -47,7 +47,7 @@ fn handle_add_milestone(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let project = match storage::get_entry_mut(&mut store, &project_name) {
+    let project = match store.get_entry_mut(&project_name) {
         Some(p) => p,
         None => {
             anyhow::bail!("Project '{project_name}' not found");
@@ -84,7 +84,7 @@ fn handle_add_milestone(
 fn handle_complete_milestone(project_name: String, name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let project = match storage::get_entry_mut(&mut store, &project_name) {
+    let project = match store.get_entry_mut(&project_name) {
         Some(p) => p,
         None => {
             anyhow::bail!("Project '{project_name}' not found");

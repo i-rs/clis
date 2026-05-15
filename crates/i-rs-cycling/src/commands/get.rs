@@ -9,7 +9,7 @@ pub fn handle_get(id_or_date: String, format: OutputFormat) -> Result<()> {
 
     let record = find_record(&store, &id_or_date)?;
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct RecordItem {
             id: String,

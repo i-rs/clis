@@ -42,7 +42,7 @@ pub fn handle_plan_list(format: OutputFormat) -> Result<()> {
     let plans: Vec<RunPlan> = store.plans.values().cloned().collect();
 
     if plans.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
         } else {
             print_warning("No run plans found.");
@@ -52,7 +52,7 @@ pub fn handle_plan_list(format: OutputFormat) -> Result<()> {
 
     let plans_ref: Vec<&RunPlan> = plans.iter().collect();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct PlanItem {
             id: String,
@@ -91,7 +91,7 @@ pub fn handle_plan_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     if let Some(plan) = store.get_plan(&id) {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             #[derive(serde::Serialize, Clone)]
             struct PlanItem {
                 id: String,
@@ -135,7 +135,7 @@ pub fn handle_plan_get(id: String, format: OutputFormat) -> Result<()> {
             }
         }
     } else {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!(
                 "{}",
                 output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format)

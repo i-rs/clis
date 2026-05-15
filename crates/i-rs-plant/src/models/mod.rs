@@ -88,6 +88,26 @@ impl PlantRow {
     }
 }
 
+impl PlantStore {
+    pub fn add_entry(&mut self, entry: Plant) {
+        self.plants.push(entry);
+    }
+
+    pub fn remove_entry(&mut self, name: &str) -> Option<Plant> {
+        let idx = self.plants.iter().position(|p| p.name == name)?;
+        Some(self.plants.remove(idx))
+    }
+
+    pub fn get_entry(&self, name: &str) -> Option<&Plant> {
+        self.plants.iter().find(|p| p.name == name)
+    }
+
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Plant> {
+        self.plants.iter_mut().find(|p| p.name == name)
+    }
+}
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlantStats {
     pub total_plants: usize,

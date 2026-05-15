@@ -106,6 +106,22 @@ pub struct EventStore {
 }
 
 impl EventStore {
+    pub fn add_entry(&mut self, entry: Event) {
+        self.events.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Event> {
+        self.events.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Event> {
+        self.events.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Event> {
+        self.events.get_mut(key)
+    }
+
     pub const fn new() -> Self {
         Self {
             events: std::collections::BTreeMap::new(),

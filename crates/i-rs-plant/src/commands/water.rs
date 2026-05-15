@@ -9,7 +9,7 @@ pub fn water_plant(name: String, output_format: OutputFormat) -> Result<()> {
     let plant_name = name.clone();
     let interval_days;
     {
-        let plant = if let Some(p) = storage::get_entry_mut(&mut store, &name) { p } else {
+        let plant = if let Some(p) = store.get_entry_mut(&name) { p } else {
             let error_msg = format!("Plant '{name}' not found");
             anyhow::bail!("{error_msg}");
         };
@@ -23,7 +23,7 @@ pub fn water_plant(name: String, output_format: OutputFormat) -> Result<()> {
 
     match output_format {
         OutputFormat::Json => {
-            let plant = storage::get_entry(&store, &plant_name).expect("plant existence validated above");
+            let plant = store.get_entry(&plant_name).expect("plant existence validated above");
             println!("{}", crate::presentation::output_item(
                 &serde_json::json!({
                     "name": plant.name,

@@ -14,7 +14,7 @@ pub fn handle_list(tag: Option<String>, author: Option<String>, format: OutputFo
     };
 
     if quotes.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter_str = if let Some(ref a) = author {
                 format!("author:{a}")
             } else if let Some(ref t) = tag {
@@ -29,7 +29,7 @@ pub fn handle_list(tag: Option<String>, author: Option<String>, format: OutputFo
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             id: String,

@@ -18,7 +18,7 @@ pub fn handle_list(tag: Option<String>, status: Option<String>, format: OutputFo
     }).collect();
 
     if projects.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = tag.clone().or(status.clone());
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
@@ -27,7 +27,7 @@ pub fn handle_list(tag: Option<String>, status: Option<String>, format: OutputFo
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let items: Vec<ProjectListItem> = projects.iter().map(|p| ProjectListItem::from(*p)).collect();
         let filter = tag.clone().or(status.clone());
         println!("{}", output_list(&items, items.len(), filter.as_deref(), format));

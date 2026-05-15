@@ -9,7 +9,7 @@ pub fn handle_add(item_type: String, tag: Vec<String>, remark: Vec<String>) -> R
 
     let entry = BedEntry::new(item_type.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Replaced {} (mattress/pillow)", item_type.green()));

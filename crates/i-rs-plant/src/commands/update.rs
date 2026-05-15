@@ -16,7 +16,7 @@ pub fn update_plant(
 
     let plant_name = name.clone();
     {
-        let plant = if let Some(p) = storage::get_entry_mut(&mut store, &name) { p } else {
+        let plant = if let Some(p) = store.get_entry_mut(&name) { p } else {
             let error_msg = format!("Plant '{name}' not found");
             anyhow::bail!("{error_msg}");
         };
@@ -42,7 +42,7 @@ pub fn update_plant(
 
     storage::save_store(&store)?;
 
-    let plant = storage::get_entry(&store, &plant_name).expect("plant existence validated above");
+    let plant = store.get_entry(&plant_name).expect("plant existence validated above");
 
     match output_format {
         OutputFormat::Json => {

@@ -51,7 +51,7 @@ pub fn execute(args: &AddArgs, format: &OutputFormat) -> anyhow::Result<()> {
 
     let mut store = storage::load_store()?;
 
-    if crate::storage::get_entry(&store, &args.name).is_some() {
+    if store.get_entry(&args.name).is_some() {
         anyhow::bail!("税务记录 '{}' 已存在", args.name);
     }
 
@@ -69,7 +69,7 @@ pub fn execute(args: &AddArgs, format: &OutputFormat) -> anyhow::Result<()> {
         updated_at: now,
     };
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     if matches!(*format, OutputFormat::Json) {

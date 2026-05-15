@@ -43,6 +43,26 @@ pub struct DomainStore {
 }
 
 
+
+
+impl DomainStore {
+    pub fn add_entry(&mut self, entry: Domain) {
+        self.domains.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Domain> {
+        self.domains.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Domain> {
+        self.domains.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Domain> {
+        self.domains.get_mut(key)
+    }
+}
+
 #[derive(Tabled)]
 pub struct DomainRow {
     #[tabled(rename = "NAME")]

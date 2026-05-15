@@ -17,7 +17,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
         let entries: Vec<&crate::models::MealEntry> = storage::get_entries_by_date(&store, parsed_date);
 
         if entries.is_empty() {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&date_str), format));
             } else {
                 print_warning(&format!("No meals on {date_str}"));
@@ -25,7 +25,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
             return Ok(());
         }
 
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(*e)).collect();
             println!("{}", output_list(&items, items.len(), Some(&date_str), format));
             return Ok(());
@@ -42,7 +42,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
     let entries: Vec<&crate::models::MealEntry> = storage::get_entries_by_date(&store, today);
 
     if entries.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
         } else {
             print_warning("No meals recorded today.");
@@ -50,7 +50,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(*e)).collect();
         println!("{}", output_list(&items, items.len(), None, format));
         return Ok(());

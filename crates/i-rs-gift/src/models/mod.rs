@@ -63,6 +63,24 @@ pub struct GiftRow {
     remark: String,
 }
 
+impl GiftStore {
+    pub fn add_entry(&mut self, entry: Gift) {
+        self.gifts.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Gift> {
+        self.gifts.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Gift> {
+        self.gifts.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Gift> {
+        self.gifts.get_mut(key)
+    }
+}
+
 impl GiftRow {
     pub fn from_gift(gift: &Gift) -> Self {
         Self {

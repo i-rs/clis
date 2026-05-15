@@ -7,12 +7,12 @@ use owo_colors::OwoColorize;
 pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let record = storage::get_entry(&store, &id)
+    let record = store.get_entry(&id)
         .or_else(|| store.entries.values().find(|r| r.id.starts_with(&id)));
 
     match record {
         Some(r) => {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 let item = ListItem::from(r);
                 println!("{}", serde_json::to_string(&item).unwrap_or_default());
                 return Ok(());
@@ -38,7 +38,7 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
             println!("{} {}", "Updated:".cyan(), r.updated_at.format("%Y-%m-%d %H:%M:%S"));
         }
         None => {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Deploy record '{}' not found", id) }

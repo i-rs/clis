@@ -7,15 +7,15 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let bookmark = if let Some(b) = storage::get_entry(&store, &name) { b } else {
+    let bookmark = if let Some(b) = store.get_entry(&name) { b } else {
         let msg = format!("Bookmark '{name}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let password = if show_password {
             storage::get_password(&name).ok().flatten()
         } else {

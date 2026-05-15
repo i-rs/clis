@@ -12,11 +12,11 @@ pub struct DeleteArgs {
 pub fn execute(args: &DeleteArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
-    if crate::storage::get_entry(&store, &args.name).is_none() {
+    if store.get_entry(&args.name).is_none() {
         anyhow::bail!("税务记录 '{}' 不存在", args.name);
     }
 
-    storage::remove_entry(&mut store, &args.name);
+    store.remove_entry(&args.name);
     storage::save_store(&store)?;
 
     if matches!(*format, OutputFormat::Json) {

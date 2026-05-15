@@ -7,14 +7,14 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let article = match storage::get_entry(&store, &name) {
+    let article = match store.get_entry(&name) {
         Some(a) => a,
         None => {
             anyhow::bail!("Article '{name}' not found");
         }
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let detail = ArticleDetail::from(article);
         println!("{}", output_item(&detail, format));
         return Ok(());

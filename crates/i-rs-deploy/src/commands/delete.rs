@@ -11,7 +11,7 @@ pub fn handle_delete(id: String) -> Result<()> {
     match record {
         Some(r) => {
             let record_id = r.id.clone();
-            storage::remove_entry(&mut store, &record_id);
+            store.remove_entry(&record_id);
             storage::save_store(&store)?;
             print_success(&format!("✓ Deploy record '{}' deleted", record_id.green()));
         }

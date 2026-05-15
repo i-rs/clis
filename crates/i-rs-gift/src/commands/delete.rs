@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 pub fn handle_delete(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    match storage::remove_entry(&mut store, &name) {
+    match store.remove_entry(&name) {
         Some(_) => {
             storage::save_store(&store)?;
             print_success(&format!("✓ Gift '{}' deleted successfully", name.green()));

@@ -9,6 +9,12 @@ pub enum OutputFormat {
     Json,
 }
 
+impl OutputFormat {
+    pub fn is_json(&self) -> bool {
+        matches!(self, OutputFormat::Json)
+    }
+}
+
 impl FromStr for OutputFormat {
     type Err = String;
 

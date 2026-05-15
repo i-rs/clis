@@ -22,7 +22,7 @@ pub fn handle_list(
     };
 
     if words.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = status_filter.or(tag_filter);
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
         } else {
@@ -31,7 +31,7 @@ pub fn handle_list(
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             word: String,

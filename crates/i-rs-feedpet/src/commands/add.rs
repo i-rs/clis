@@ -15,7 +15,7 @@ pub fn handle_add(
 
     let entry = FeedpetEntry::new(pet_name.clone(), food_type.clone(), amount.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Fed {} with {} ({})", pet_name.green(), food_type.cyan(), amount.yellow()));

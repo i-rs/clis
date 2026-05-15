@@ -9,7 +9,7 @@ pub fn handle_upcoming(days: Option<i64>, format: OutputFormat) -> Result<()> {
     let birthdays = storage::get_upcoming_birthdays(&store, days);
 
     if birthdays.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
         } else {
             print_warning(&format!("No upcoming birthdays in the next {days} days."));
@@ -17,7 +17,7 @@ pub fn handle_upcoming(days: Option<i64>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             name: String,

@@ -7,7 +7,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     if store.records.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": true,
                 "data": {
@@ -23,7 +23,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
 
     let records: Vec<_> = store.records.values().collect();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct StatsData {
             total_records: usize,

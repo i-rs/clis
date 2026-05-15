@@ -1,24 +1,6 @@
 use crate::models::{Article, ArticleStore, ReadStatus};
 
-
 i_rs_core::create_store!(ArticleStore, "article");
-
-
-pub fn add_entry(store: &mut ArticleStore, article: Article) {
-    store.articles.insert(article.name.clone(), article);
-}
-
-pub fn remove_entry(store: &mut ArticleStore, name: &str) -> Option<Article> {
-    store.articles.remove(name)
-}
-
-pub fn get_entry<'a>(store: &'a ArticleStore, name: &str) -> Option<&'a Article> {
-    store.articles.get(name)
-}
-
-pub fn get_entry_mut<'a>(store: &'a mut ArticleStore, name: &str) -> Option<&'a mut Article> {
-    store.articles.get_mut(name)
-}
 
 pub fn filter_by_tag_and_status<'a>(
     store: &'a ArticleStore,

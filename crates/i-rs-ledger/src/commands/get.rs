@@ -9,15 +9,15 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = if let Some(e) = storage::get_entry(&store, short_id) { e } else {
+    let entry = if let Some(e) = store.get_entry(short_id) { e } else {
         let msg = format!("Entry '{id}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let output = crate::models::ListItem::from(entry);
         println!("{}", output_item(&output, format));
         return Ok(());

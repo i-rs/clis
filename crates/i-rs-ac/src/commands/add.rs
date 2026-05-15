@@ -9,7 +9,7 @@ pub fn handle_add(location: String, tag: Vec<String>, remark: Vec<String>) -> Re
 
     let entry = AcEntry::new(location.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded AC cleaning: {}", location.green()));

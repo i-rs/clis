@@ -21,7 +21,7 @@ pub fn handle_list(
     };
 
     if records.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = tag.as_deref();
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
         } else if tag.is_some() {
@@ -36,7 +36,7 @@ pub fn handle_list(
 
     let records_ref: Vec<&CyclingRecord> = records.iter().collect();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             id: String,

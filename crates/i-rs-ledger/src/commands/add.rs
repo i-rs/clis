@@ -35,7 +35,7 @@ pub fn handle_add(
         created_at: now,
     };
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Entry '{}' added successfully", id.green()));

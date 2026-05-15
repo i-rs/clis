@@ -11,7 +11,7 @@ pub fn handle_list(tag: Option<String>, status: Option<String>, format: OutputFo
     let articles: Vec<&Article> = storage::filter_by_tag_and_status(&store, tag.as_deref(), status_filter);
 
     if articles.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
         } else {
             print_warning("No articles found.");
@@ -19,7 +19,7 @@ pub fn handle_list(tag: Option<String>, status: Option<String>, format: OutputFo
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             name: String,

@@ -7,7 +7,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
 
     if let Some(cat) = category {
         if store.budgets.remove(&cat).is_none() {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
@@ -17,7 +17,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
         }
         storage::save_store(&store)?;
 
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": true,
                 "data": { "message": format!("Budget for '{}' deleted", cat) }
@@ -27,7 +27,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
         }
     } else if let Some(id) = expense_id {
         if store.expenses.remove(&id).is_none() {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
@@ -37,7 +37,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
         }
         storage::save_store(&store)?;
 
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": true,
                 "data": { "message": format!("Expense '{}' deleted", id) }
@@ -46,7 +46,7 @@ pub fn handle_delete(category: Option<String>, expense_id: Option<String>, forma
             print_success(&format!("Deleted expense '{id}'"));
         }
     } else {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": false,
                 "error": { "code": "MISSING_ARGUMENT", "message": "Provide either --category or --expense-id" }

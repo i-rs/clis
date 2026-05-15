@@ -8,7 +8,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     let notes: Vec<&crate::models::Note> = storage::filter_by_tag(&store, tag.as_deref());
 
     if notes.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
         } else {
             print_warning("No notes found.");
@@ -16,7 +16,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             name: String,

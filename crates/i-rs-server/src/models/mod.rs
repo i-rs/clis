@@ -27,6 +27,26 @@ pub struct ServerStore {
 }
 
 
+
+
+impl ServerStore {
+    pub fn add_entry(&mut self, entry: Server) {
+        self.servers.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Server> {
+        self.servers.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Server> {
+        self.servers.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Server> {
+        self.servers.get_mut(key)
+    }
+}
+
 #[derive(Tabled)]
 pub struct ServerRow {
     #[tabled(rename = "NAME")]

@@ -14,7 +14,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let remind = match storage::get_entry_mut(&mut store, &name) {
+    let remind = match store.get_entry_mut(&name) {
         Some(r) => r,
         None => {
             anyhow::bail!("Remind '{name}' not found");

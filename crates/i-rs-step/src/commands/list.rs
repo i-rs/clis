@@ -9,7 +9,7 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
 
     let entries: Vec<&crate::models::StepEntry> = store.entries.values().collect();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         if entries.is_empty() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
             return Ok(());

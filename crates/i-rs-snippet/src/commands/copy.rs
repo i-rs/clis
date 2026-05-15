@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 pub fn handle_copy(name: String) -> Result<()> {
     let store = storage::load_store()?;
 
-    let snippet = match storage::get_entry(&store, &name) {
+    let snippet = match store.get_entry(&name) {
         Some(s) => s,
         None => {
             anyhow::bail!("Snippet '{name}' not found");

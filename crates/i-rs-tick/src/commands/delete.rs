@@ -8,7 +8,7 @@ pub fn handle_delete(id: String) -> Result<()> {
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    if storage::remove_entry(&mut store, short_id).is_none() {
+    if store.remove_entry(short_id).is_none() {
         anyhow::bail!("Entry '{id}' not found");
     }
 

@@ -3,16 +3,13 @@ use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
 
-
 i_rs_core::create_store!(PasswordStore, "password");
-
 
 const SERVICE_NAME: &str = "i-rs-password";
 
 pub fn init_keyring() {
     let _ = use_native_store(false);
 }
-
 
 pub fn store_password(name: &str, password: &str) -> Result<()> {
     let entry = Entry::new(SERVICE_NAME, name)
@@ -45,23 +42,6 @@ pub fn delete_password(name: &str) -> Result<()> {
         let _ = entry.delete_credential();
     }
     Ok(())
-}
-
-
-pub fn add_entry(store: &mut PasswordStore, entry: PasswordEntry) {
-    store.entries.insert(entry.name.clone(), entry);
-}
-
-pub fn remove_entry(store: &mut PasswordStore, name: &str) -> Option<PasswordEntry> {
-    store.entries.remove(name)
-}
-
-pub fn get_entry<'a>(store: &'a PasswordStore, name: &str) -> Option<&'a PasswordEntry> {
-    store.entries.get(name)
-}
-
-pub fn get_entry_mut<'a>(store: &'a mut PasswordStore, name: &str) -> Option<&'a mut PasswordEntry> {
-    store.entries.get_mut(name)
 }
 
 pub fn filter_by_tag<'a>(store: &'a PasswordStore, tag: Option<&str>) -> Vec<&'a PasswordEntry> {

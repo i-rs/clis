@@ -8,14 +8,14 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let project = match storage::get_entry(&store, &name) {
+    let project = match store.get_entry(&name) {
         Some(p) => p,
         None => {
             anyhow::bail!("Project '{name}' not found");
         }
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let detail = ProjectDetail::from(project);
         println!("{}", output_item(&detail, format));
         return Ok(());

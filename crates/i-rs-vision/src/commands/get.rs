@@ -38,7 +38,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
 
         println!("{}", output_item(&item, format));
     } else {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", serde_json::json!({
                 "success": false,
                 "error": {

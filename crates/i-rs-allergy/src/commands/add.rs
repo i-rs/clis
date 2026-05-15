@@ -15,7 +15,7 @@ pub fn handle_add(
 
     let entry = AllergyEntry::new(allergen.clone(), severity.clone(), symptom, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded {} reaction ({} severity)", allergen.green(), severity.yellow()));

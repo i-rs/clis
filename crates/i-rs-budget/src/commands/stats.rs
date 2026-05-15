@@ -22,7 +22,7 @@ pub fn handle_stats(
     };
 
     if budgets.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let filter = category.as_deref().or(period.as_deref());
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
         } else {
@@ -44,7 +44,7 @@ pub fn handle_stats(
     let total_budget: f64 = budgets.iter().map(|b| b.amount).sum();
     let total_spent: f64 = spent_map.values().sum();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct StatsItem {
             category: String,

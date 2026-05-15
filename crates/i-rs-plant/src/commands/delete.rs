@@ -5,12 +5,12 @@ use anyhow::Result;
 pub fn delete_plant(name: String, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    if storage::get_entry(&store, &name).is_none() {
+    if store.get_entry(&name).is_none() {
         let error_msg = format!("Plant '{name}' not found");
         anyhow::bail!("{error_msg}");
     }
 
-    storage::remove_entry(&mut store, &name);
+    store.remove_entry(&name);
     storage::save_store(&store)?;
 
     match output_format {

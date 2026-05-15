@@ -21,7 +21,7 @@ pub fn handle_list(
             };
 
             if budgets.is_empty() {
-                if matches!(format, OutputFormat::Json) {
+                if format.is_json() {
                     let filter = category.as_deref();
                     println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
                 } else {
@@ -32,7 +32,7 @@ pub fn handle_list(
 
             let budgets_ref: Vec<&Budget> = budgets;
 
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 #[derive(serde::Serialize, Clone)]
                 struct BudgetListItem {
                     category: String,
@@ -64,7 +64,7 @@ pub fn handle_list(
             };
 
             if expenses.is_empty() {
-                if matches!(format, OutputFormat::Json) {
+                if format.is_json() {
                     let filter = category.as_deref();
                     println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
                 } else {
@@ -75,7 +75,7 @@ pub fn handle_list(
 
             let expenses_ref: Vec<&Expense> = expenses;
 
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 #[derive(serde::Serialize, Clone)]
                 struct ExpenseListItem {
                     id: String,
@@ -104,7 +104,7 @@ pub fn handle_list(
             }
         }
         _ => {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", serde_json::json!({
                     "success": false,
                     "error": { "code": "INVALID_TYPE", "message": "Invalid list type. Use: budgets, expenses" }

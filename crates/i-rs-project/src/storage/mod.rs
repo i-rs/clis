@@ -1,25 +1,7 @@
-use crate::models::{Project, ProjectStore};
-
+use crate::models::ProjectStore;
 
 i_rs_core::create_store!(ProjectStore, "project");
 
-pub fn get_entry<'a>(store: &'a ProjectStore, name: &str) -> Option<&'a Project> {
-    store.projects.iter().find(|p| p.name.eq_ignore_ascii_case(name))
-}
-
-pub fn get_entry_mut<'a>(store: &'a mut ProjectStore, name: &str) -> Option<&'a mut Project> {
-    store.projects.iter_mut().find(|p| p.name.eq_ignore_ascii_case(name))
-}
-
 pub fn project_exists(store: &ProjectStore, name: &str) -> bool {
-    get_entry(store, name).is_some()
-}
-
-pub fn add_entry(store: &mut ProjectStore, project: Project) {
-    store.projects.push(project);
-}
-
-pub fn remove_entry(store: &mut ProjectStore, name: &str) -> Option<Project> {
-    let index = store.projects.iter().position(|p| p.name.eq_ignore_ascii_case(name))?;
-    Some(store.projects.remove(index))
+    store.get_entry(name).is_some()
 }

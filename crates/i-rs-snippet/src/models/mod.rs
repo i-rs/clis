@@ -26,6 +26,26 @@ pub struct SnippetStore {
 }
 
 
+
+
+impl SnippetStore {
+    pub fn add_entry(&mut self, entry: Snippet) {
+        self.snippets.insert(entry.id.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Snippet> {
+        self.snippets.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Snippet> {
+        self.snippets.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Snippet> {
+        self.snippets.get_mut(key)
+    }
+}
+
 #[derive(Tabled)]
 pub struct SnippetRow {
     #[tabled(rename = "NAME")]

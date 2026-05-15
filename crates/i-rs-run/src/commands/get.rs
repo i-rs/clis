@@ -7,7 +7,7 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     if let Some(record) = store.get_entry(&id) {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             #[derive(serde::Serialize, Clone)]
             struct RecordItem {
                 id: String,
@@ -57,7 +57,7 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
             }
         }
     } else {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format));
         } 
         anyhow::bail!("No record found with ID: {id}");

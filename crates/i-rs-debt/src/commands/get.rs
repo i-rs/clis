@@ -14,7 +14,7 @@ pub struct Args {
 pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let debt = match storage::get_entry(&store, &args.name) {
+    let debt = match store.get_entry(&args.name) {
         Some(d) => d,
         None => {
             anyhow::bail!("Debt '{}' not found", args.name);

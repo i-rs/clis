@@ -135,6 +135,25 @@ pub struct DebtStore {
 }
 
 
+impl DebtStore {
+    pub fn add_entry(&mut self, entry: Debt) {
+        self.debts.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Debt> {
+        self.debts.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Debt> {
+        self.debts.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Debt> {
+        self.debts.get_mut(key)
+    }
+}
+
+
 #[derive(Debug, Clone, Serialize, Deserialize, Tabled)]
 pub struct DebtRow {
     pub name: String,

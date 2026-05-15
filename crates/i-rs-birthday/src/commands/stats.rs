@@ -62,7 +62,7 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
         }
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct StatsOutput {
             total: usize,

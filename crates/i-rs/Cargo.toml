@@ -8,3 +8,6 @@ repository.workspace = true
 description = "Unified CLI for all i-rs tools"
 
 [dependencies]
+
+[build-dependencies]
+toml = "0.8"

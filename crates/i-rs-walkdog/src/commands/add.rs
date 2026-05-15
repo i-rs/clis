@@ -9,7 +9,7 @@ pub fn handle_add(dog_name: String, duration_minutes: i32, tag: Vec<String>, rem
 
     let entry = WalkdogEntry::new(dog_name.clone(), duration_minutes, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Walked {} for {} minutes", dog_name.green(), duration_minutes.to_string().cyan()));

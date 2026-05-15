@@ -8,7 +8,7 @@ pub fn handle_search(query: String, format: OutputFormat) -> Result<()> {
     let snippets: Vec<&crate::models::Snippet> = storage::search_snippets(&store, &query);
 
     if snippets.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&query), format));
         } else {
             print_warning(&format!("No snippets found matching '{query}'"));
@@ -16,7 +16,7 @@ pub fn handle_search(query: String, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             name: String,

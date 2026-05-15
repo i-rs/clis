@@ -13,7 +13,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         }
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize)]
         struct ApplianceDetail {
             id: String,

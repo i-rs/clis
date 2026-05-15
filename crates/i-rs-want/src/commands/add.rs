@@ -26,7 +26,7 @@ pub fn handle_add(
 
     let entry = WantEntry::new(name.clone(), url, price, currency, priority, tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Item '{}' added to wishlist", name.green()));

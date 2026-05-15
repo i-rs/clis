@@ -9,7 +9,7 @@ pub fn handle_add(sheet_type: String, tag: Vec<String>, remark: Vec<String>) -> 
 
     let entry = SheetEntry::new(sheet_type.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Recorded sheet change: {}", sheet_type.green()));

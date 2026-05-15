@@ -24,6 +24,27 @@ pub struct QuoteStore {
 }
 
 
+
+
+impl QuoteStore {
+    pub fn add_entry(&mut self, entry: Quote) {
+        self.quotes.insert(entry.id.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Quote> {
+        self.quotes.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Quote> {
+        self.quotes.get(key)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Quote> {
+        self.quotes.get_mut(key)
+    }
+}
+
 #[derive(Tabled)]
 pub struct QuoteRow {
     #[tabled(rename = "ID")]

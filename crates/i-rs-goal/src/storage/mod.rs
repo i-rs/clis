@@ -48,15 +48,6 @@ pub fn add_entry(
     Ok(goal)
 }
 
-pub fn remove_entry(store: &mut GoalStore, name: &str) -> Result<bool> {
-    if store.goals.remove(name).is_some() {
-        save_store(store)?;
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
 pub fn deposit_to_goal(store: &mut GoalStore, name: &str, amount: f64) -> Result<SavingsGoal> {
     let goal = store.goals.get_mut(name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{name}' not found"))?;

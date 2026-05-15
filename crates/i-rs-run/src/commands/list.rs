@@ -8,7 +8,7 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
     let records: Vec<RunRecord> = store.records.values().cloned().collect();
 
     if records.is_empty() {
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
         } else {
             print_warning("No run records found.");
@@ -18,7 +18,7 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
 
     let records_ref: Vec<&RunRecord> = records.iter().collect();
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         #[derive(serde::Serialize, Clone)]
         struct ListItem {
             id: String,

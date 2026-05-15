@@ -9,7 +9,7 @@ pub fn handle_add(filter_type: String, tag: Vec<String>, remark: Vec<String>) ->
 
     let entry = PurifyEntry::new(filter_type.clone(), tag, remark);
 
-    storage::add_entry(&mut store, entry);
+    store.add_entry(entry);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Replaced {} filter", filter_type.green()));

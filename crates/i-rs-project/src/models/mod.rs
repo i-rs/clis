@@ -102,6 +102,26 @@ pub struct ProjectStore {
 }
 
 
+impl ProjectStore {
+    pub fn add_entry(&mut self, entry: Project) {
+        self.projects.push(entry);
+    }
+
+    pub fn remove_entry(&mut self, name: &str) -> Option<Project> {
+        let idx = self.projects.iter().position(|p| p.name.eq_ignore_ascii_case(name))?;
+        Some(self.projects.remove(idx))
+    }
+
+    pub fn get_entry(&self, name: &str) -> Option<&Project> {
+        self.projects.iter().find(|p| p.name.eq_ignore_ascii_case(name))
+    }
+
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Project> {
+        self.projects.iter_mut().find(|p| p.name.eq_ignore_ascii_case(name))
+    }
+}
+
+
 #[derive(Debug, Clone, Tabled)]
 pub struct ProjectRow {
     #[tabled(rename = "Name")]

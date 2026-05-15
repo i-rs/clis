@@ -67,6 +67,24 @@ pub struct RemindRow {
     remark: String,
 }
 
+impl RemindStore {
+    pub fn add_entry(&mut self, entry: Remind) {
+        self.reminds.insert(entry.name.clone(), entry);
+    }
+
+    pub fn remove_entry(&mut self, key: &str) -> Option<Remind> {
+        self.reminds.remove(key)
+    }
+
+    pub fn get_entry(&self, key: &str) -> Option<&Remind> {
+        self.reminds.get(key)
+    }
+
+    pub fn get_entry_mut(&mut self, key: &str) -> Option<&mut Remind> {
+        self.reminds.get_mut(key)
+    }
+}
+
 impl RemindRow {
     pub fn from_remind(remind: &Remind) -> Self {
         let days = remind.days_until_event();

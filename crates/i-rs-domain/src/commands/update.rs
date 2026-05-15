@@ -15,7 +15,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let domain = match storage::get_entry_mut(&mut store, &name) {
+    let domain = match store.get_entry_mut(&name) {
         Some(d) => d,
         None => {
             anyhow::bail!("Domain '{name}' not found");

@@ -40,7 +40,7 @@ pub struct UpdateArgs {
 pub fn run_update(args: UpdateArgs) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let invoice = storage::get_entry_mut(&mut store, &args.id);
+    let invoice = store.get_entry_mut(&args.id);
 
     match invoice {
         Some(inv) => {

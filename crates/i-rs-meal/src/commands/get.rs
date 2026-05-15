@@ -13,13 +13,13 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
         let entries = storage::get_entries_by_date(&store, parsed_date);
 
         if entries.is_empty() {
-            if matches!(format, OutputFormat::Json) {
+            if format.is_json() {
                 println!("{}", output_error(&format!("No meals on {date_str}"), "NOT_FOUND", format));
             } 
             anyhow::bail!("No meals on {date_str}");
         }
 
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             let items: Vec<crate::models::ListItem> = entries.iter().map(|e| crate::models::ListItem::from(*e)).collect();
             println!("{}", output_item(&items, format));
             return Ok(());
@@ -43,15 +43,15 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = if let Some(e) = storage::get_entry(&store, short_id) { e } else {
+    let entry = if let Some(e) = store.get_entry(short_id) { e } else {
         let msg = format!("Meal '{id}' not found");
-        if matches!(format, OutputFormat::Json) {
+        if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
         } 
         anyhow::bail!("{msg}");
     };
 
-    if matches!(format, OutputFormat::Json) {
+    if format.is_json() {
         let output = crate::models::ListItem::from(entry);
         println!("{}", output_item(&output, format));
         return Ok(());
