@@ -3,7 +3,7 @@
 # Link all i-rs CLI tools to PATH
 # Usage: ./link_to_path.sh
 
-RELEASE_DIR="$(cd "$(dirname "$0")/target/release" && pwd)"
+RELEASE_DIR="$(cd "$(dirname "$0")/.." && pwd)/target/release"
 BIN_DIR="$HOME/.local/bin"
 
 mkdir -p "$BIN_DIR"
