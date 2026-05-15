@@ -87,10 +87,10 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
                 },
             };
             serde_json::to_string_pretty(&response)
+                .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#.to_string())
         }
         OutputFormat::Table | OutputFormat::Default => {
-            Ok(format!("Error: {message}"))
+            format!("Error: {message}")
         }
     }
-    .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#.to_string())
 }

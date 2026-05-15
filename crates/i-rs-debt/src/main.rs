@@ -7,6 +7,7 @@ mod storage;
 use anyhow::Result;
 use clap::Parser;
 use presentation::OutputFormat;
+use commands::{handle_skill, parse_skill_arg};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -71,11 +72,7 @@ fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
         Commands::Stats(args) => commands::stats::run(&args, output_format),
         Commands::Example(args) => commands::example::run(&args),
         Commands::Skill { sub } => {
-            commands::skill::handle_skill(sub.map(|s| match s.as_str() {
-                "summary" => commands::skill::SkillCommand::Summary,
-                "content" => commands::skill::SkillCommand::Content,
-                _ => commands::skill::SkillCommand::Raw,
-            }));
+            handle_skill(parse_skill_arg(sub.as_deref()));
             Ok(())
         }
         Commands::Data(commands) => commands::data::handle(&commands),

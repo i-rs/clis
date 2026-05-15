@@ -19,7 +19,6 @@ pub use delete::handle_delete;
 pub use get::handle_get;
 pub use update::handle_update;
 pub use example::handle_example;
-pub use skill::handle_skill;
-pub use skill::SkillCommand;
+pub use skill::{handle_skill, parse_skill_arg};
 
 pub mod data;

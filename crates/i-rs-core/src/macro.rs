@@ -112,6 +112,22 @@ macro_rules! skill_command {
                 }
             }
         }
+
+        /// Parse a skill subcommand argument. Returns `None` for empty input
+        /// (show raw), `Some(cmd)` for valid subcommands, and exits with an
+        /// error for invalid input.
+        pub fn parse_skill_arg(sub: Option<&str>) -> Option<SkillCommand> {
+            match sub {
+                Some("summary") => Some(SkillCommand::Summary),
+                Some("content") => Some(SkillCommand::Content),
+                Some("raw") => Some(SkillCommand::Raw),
+                None => None,
+                Some(_) => {
+                    $crate::print_error("Invalid subcommand. Use: summary, content, or raw");
+                    ::std::process::exit(1);
+                }
+            }
+        }
     };
 }
 

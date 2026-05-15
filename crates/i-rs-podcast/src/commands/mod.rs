@@ -14,7 +14,7 @@ pub use example::handle_example;
 pub use get::handle_get;
 pub use listen::handle_listen;
 pub use list::handle_list;
-pub use skill::{handle_skill, SkillCommand};
+pub use skill::{handle_skill, parse_skill_arg};
 pub use stats::handle_stats;
 pub use update::handle_update;
 

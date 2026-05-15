@@ -5,6 +5,7 @@ mod storage;
 
 use clap::{Parser, Subcommand};
 use i_rs_core::presentation::OutputFormat;
+use commands::{handle_skill, parse_skill_arg};
 
 #[derive(Parser)]
 #[command(name = "i-rs-invoice")]
@@ -70,11 +71,7 @@ fn run(command: Commands, _format: OutputFormat) -> anyhow::Result<()> {
         Commands::Stats(args) => commands::run_stats(args),
         Commands::Example(args) => commands::run_example(args),
         Commands::Skill { sub } => {
-            commands::handle_skill(sub.map(|s| match s.as_str() {
-                "summary" => commands::SkillCommand::Summary,
-                "content" => commands::SkillCommand::Content,
-                _ => commands::SkillCommand::Raw,
-            }));
+            handle_skill(parse_skill_arg(sub.as_deref()));
             Ok(())
         }
         Commands::Data(commands) => commands::data::handle(&commands),

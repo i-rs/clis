@@ -9,7 +9,7 @@ pub use add::handle_add;
 pub use delete::handle_delete;
 pub use example::handle_example;
 pub use list::handle_list;
-pub use skill::{handle_skill, SkillCommand};
+pub use skill::{handle_skill, parse_skill_arg};
 pub use update::handle_update;
 
 pub mod data;

@@ -1,7 +1,8 @@
 #![allow(clippy::all)]
 #![allow(dead_code)]
 use clap::{Parser, Subcommand};
-use commands::{add, delete, example, fuel, get, list, maintain, skill, stats, update};
+use commands::{add, delete, example, fuel, get, list, maintain, stats, update};
+use commands::skill::{handle_skill, parse_skill_arg};
 use presentation::OutputFormat;
 
 mod commands;
@@ -167,12 +168,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Example {} => {
             example::run(&example::Args {})?;
         }
-        Commands::Skill { sub } =>
-            skill::handle_skill(sub.map(|s| match s.as_str() {
-                "summary" => skill::SkillCommand::Summary,
-                "content" => skill::SkillCommand::Content,
-                _ => skill::SkillCommand::Raw,
-            })),
+        Commands::Skill { sub } => {
+            handle_skill(parse_skill_arg(sub.as_deref()));
+        }
         Commands::Data(commands) => { commands::data::handle(&commands)? }
     }
 

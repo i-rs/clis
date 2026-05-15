@@ -32,6 +32,8 @@ async fn main() {
     println!("🚀 i-rs-api server starting on http://{}", addr);
     println!("📖 API docs: http://{}/api/docs", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await
+        .expect("Failed to bind to address. Is port 8080 already in use?");
+    axum::serve(listener, app).await
+        .expect("Server error");
 }

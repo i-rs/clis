@@ -30,7 +30,7 @@ pub fn execute(args: &ListArgs, format: &OutputFormat) -> anyhow::Result<()> {
         });
     }
 
-    entities.sort_by(|a, b| b.date.cmp(&a.date));
+    entities.sort_by_key(|e| std::cmp::Reverse(e.date));
 
     if matches!(*format, OutputFormat::Json) {
         let data: Vec<_> = entities.iter().map(|e| {

@@ -15,7 +15,7 @@ pub use get::handle_get;
 pub use list::handle_list;
 pub use search::handle_search;
 pub use copy::handle_copy;
-pub use skill::{handle_skill, SkillCommand};
+pub use skill::{handle_skill, parse_skill_arg};
 pub use update::handle_update;
 
 pub mod data;

@@ -4,7 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use commands::{add, list, get, delete, update, deposit, list_milestones, remove_milestone, add_milestone, stats, example};
+use commands::{add, list, get, delete, update, deposit, list_milestones, remove_milestone, add_milestone, stats, example, handle_skill, parse_skill_arg};
 use presentation::OutputFormat;
 
 #[derive(Parser, Debug)]
@@ -86,11 +86,7 @@ fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
         Commands::Stats(args) => stats(args, output_format),
         Commands::Example(args) => example(args),
         Commands::Skill { sub } => {
-            commands::handle_skill(sub.map(|s| match s.as_str() {
-                "summary" => commands::SkillCommand::Summary,
-                "content" => commands::SkillCommand::Content,
-                _ => commands::SkillCommand::Raw,
-            }));
+            handle_skill(parse_skill_arg(sub.as_deref()));
             Ok(())
         }
         Commands::Data(commands) => commands::data::handle(&commands),

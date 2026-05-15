@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update, SkillCommand};
+use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update, parse_skill_arg};
 use presentation::OutputFormat;
 
 mod commands;
@@ -107,17 +107,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             handle_example();
         }
         Commands::Skill { sub } => {
-            let skill_cmd = match sub.as_deref() {
-                Some("summary") => Some(SkillCommand::Summary),
-                Some("content") => Some(SkillCommand::Content),
-                Some("raw") => Some(SkillCommand::Raw),
-                None => None,
-                _ => {
-                    eprintln!("Invalid subcommand. Use: summary, content, or raw");
-                    std::process::exit(1);
-                }
-            };
-            handle_skill(skill_cmd);
+            handle_skill(parse_skill_arg(sub.as_deref()));
         }
         Commands::Data(commands) => { commands::data::handle(&commands)? }
     }
