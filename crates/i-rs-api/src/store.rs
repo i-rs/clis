@@ -60,4 +60,17 @@ impl<T: serde::Serialize + serde::de::DeserializeOwned + Default> SharedStore<T>
             serde_json::to_string_pretty(data).unwrap_or_else(|_| "{}".to_string())
         })
     }
+
+    /// Import data from a JSON string, replacing all contents.
+    pub fn import_json(&self, json_str: &str) -> Result<(), String> {
+        let data: T =
+            serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON: {e}"))?;
+        self.write(|store| *store = data);
+        Ok(())
+    }
+
+    /// Clear all data (reset to default/empty state).
+    pub fn clear(&self) {
+        self.write(|store| *store = T::default());
+    }
 }
