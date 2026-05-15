@@ -14,18 +14,25 @@ Vocabulary learning CLI tool for managing and reviewing vocabulary words with sp
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
 Add a new vocabulary word.
 ```bash
-i-rs-vocab add <WORD> <DEFINITION> [--tag] [--example] [--status]
+i-rs-vocab add <WORD> <DEFINITION> [OPTIONS]
 ```
+
+Options:
+- `-e, --example <TEXT>` - Example sentences (repeatable)
+- `-s, --status <STATUS>` - Learning status (learning, reviewing, mastered)
+- `-t, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <REMARK>` - Remarks (repeatable)
 
 ### list
 List vocabulary words.
 ```bash
-i-rs-vocab list [--status STATUS] [--tag TAG]
+i-rs-vocab list [OPTIONS]
 ```
 
 ### get

@@ -94,9 +94,9 @@ i-rs-towel skill [summary|content|raw]
 
 ```bash
 # Record replacement
-i-rs-towel add bath [OPTIONS]
-i-rs-towel add face --tag bedroom [OPTIONS]
+i-rs-towel add bath
+i-rs-towel add face --tag bedroom
 
 # List records
-i-rs-towel list [OPTIONS]
+i-rs-towel list
 ```

@@ -11,17 +11,17 @@
 Add a wish list item.
 
 ```bash
-i-rs-want add <NAME> [OPTIONS]
+i-rs-want add <NAME> <PRIORITY> [OPTIONS]
 ```
 
 Arguments:
 - `NAME` - Item name
+- `PRIORITY` - Priority (low, medium, high)
 
 Options:
-- `--price <PRICE>` - Item price
-- `--currency <CURRENCY>` - Currency (default: CNY)
-- `--url <URL>` - Product URL
-- `--priority <PRIORITY>` - Priority (low, medium, high)
+- `-u, --url <URL>` - Product URL
+- `-p, --price <PRICE>` - Item price
+- `-c, --currency <CURRENCY>` - Currency (default: CNY)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -30,12 +30,11 @@ Options:
 List wish list items.
 
 ```bash
-i-rs-want list
+i-rs-want list [OPTIONS]
 ```
 
 Options:
-- `--done` - Show completed items
-- `--pending` - Show pending items (default)
+- `-t, --tag <TAG>` - Filter by tag
 
 ### get
 
@@ -62,13 +61,13 @@ i-rs-want update <NAME> [OPTIONS]
 ```
 
 Options:
-- `--price <PRICE>` - Update price
-- `--url <URL>` - Update URL
+- `-p, --price <PRICE>` - Update price
+- `-c, --currency <CURRENCY>` - Update currency
+- `-u, --url <URL>` - Update URL
 - `--priority <PRIORITY>` - Update priority
-- `--done` - Mark as done
-- `--undone` - Mark as pending
-- `-t, --tag <TAG>` - Add tags
-- `-r, --remark <REMARK>` - Add remarks
+- `--done` - Mark as done/pending
+- `-t, --tag <TAG>` - Update tags
+- `-r, --remark <REMARK>` - Update remarks
 
 ## Priority Levels
 
@@ -90,6 +89,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -97,6 +97,7 @@ Show usage examples.
 ```bash
 i-rs-want example
 ```
+
 ### skill
 
 Show skill information.

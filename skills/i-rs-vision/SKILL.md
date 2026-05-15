@@ -14,6 +14,88 @@ Vision tracking CLI tool for recording and tracking eye prescription measurement
 ## Global Flags
 
 - `--json` — Output in JSON format
+
+## Commands
+
+### add
+
+Add a vision record.
+
+```bash
+i-rs-vision add <DATE> [OPTIONS]
+```
+
+Options:
+- `--left-sphere <D>` - Left eye sphere (diopters)
+- `--right-sphere <D>` - Right eye sphere (diopters)
+- `--left-cylinder <D>` - Left eye cylinder (diopters)
+- `--right-cylinder <D>` - Right eye cylinder (diopters)
+- `--left-axis <DEG>` - Left eye axis (degrees)
+- `--right-axis <DEG>` - Right eye axis (degrees)
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
+### list
+
+List vision records.
+
+```bash
+i-rs-vision list [OPTIONS]
+```
+
+Options:
+- `-d, --days <N>` - Show records from last N days
+
+### get
+
+Get record details.
+
+```bash
+i-rs-vision get <DATE>
+```
+
+### delete
+
+Delete a record.
+
+```bash
+i-rs-vision delete <DATE>
+```
+
+### stats
+
+Show vision statistics.
+
+```bash
+i-rs-vision stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-vision data export
+i-rs-vision data import [FILE]
+i-rs-vision data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-vision example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-vision skill [summary|content|raw]
+```
+
 ## Vision Parameters
 
 - **Sphere**: Refractive error (negative = myopia, positive = hyperopia)

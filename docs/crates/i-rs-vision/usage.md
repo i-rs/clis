@@ -16,12 +16,12 @@ i-rs-vision add <DATE> [OPTIONS]
 
 **Options:**
 
-- `-l, --left-sphere <D>` - Left eye sphere (diopters)
-- `-r, --right-sphere <D>` - Right eye sphere (diopters)
-- `-L, --left-cylinder <D>` - Left eye cylinder (diopters)
-- `-R, --right-cylinder <D>` - Right eye cylinder (diopters)
-- `-a, --left-axis <DEG>` - Left eye axis (degrees)
-- `-b, --right-axis <DEG>` - Right eye axis (degrees)
+- `--left-sphere <D>` - Left eye sphere (diopters)
+- `--right-sphere <D>` - Right eye sphere (diopters)
+- `--left-cylinder <D>` - Left eye cylinder (diopters)
+- `--right-cylinder <D>` - Right eye cylinder (diopters)
+- `--left-axis <DEG>` - Left eye axis (degrees)
+- `--right-axis <DEG>` - Right eye axis (degrees)
 - `-t, --tag <TAG>` - Tags (repeatable)
 - `-r, --remark <TEXT>` - Remarks (repeatable)
 
@@ -29,13 +29,13 @@ i-rs-vision add <DATE> [OPTIONS]
 
 ```bash
 # Basic record
-i-rs-vision add 2025-06-14 -l -3.50 -r -4.00
+i-rs-vision add 2025-06-14 --left-sphere -3.50 --right-sphere -4.00
 
 # Full record with cylinder and axis
-i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 -L -0.50 -R -0.75 -a 180 -b 5
+i-rs-vision add 2025-06-14 --left-sphere -3.50 --right-sphere -4.00 --left-cylinder -0.50 --right-cylinder -0.75 --left-axis 180 --right-axis 5
 
 # With tags and remarks
-i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 -t myopia -r "Annual checkup"
+i-rs-vision add 2025-06-14 --left-sphere -3.50 --right-sphere -4.00 -t myopia --remark "Annual checkup"
 ```
 
 ### list

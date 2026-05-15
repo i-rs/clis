@@ -14,6 +14,7 @@ Wish list CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,14 +22,17 @@ Wish list CLI tool.
 Add a wish list item.
 
 ```bash
-i-rs-want add <NAME> [OPTIONS]
+i-rs-want add <NAME> <PRIORITY> [OPTIONS]
 ```
 
+Arguments:
+- `NAME` - Item name
+- `PRIORITY` - Priority (low, medium, high)
+
 Options:
-- `--price <PRICE>` - Item price
-- `--currency <CURRENCY>` - Currency (default: CNY)
-- `--url <URL>` - Product URL
-- `--priority <PRIORITY>` - Priority (low, medium, high)
+- `-u, --url <URL>` - Product URL
+- `-p, --price <PRICE>` - Item price
+- `-c, --currency <CURRENCY>` - Currency (default: CNY)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -41,8 +45,7 @@ i-rs-want list [OPTIONS]
 ```
 
 Options:
-- `--done` - Show completed items
-- `--pending` - Show pending items (default)
+- `-t, --tag <TAG>` - Filter by tag
 
 ### get
 
@@ -69,13 +72,13 @@ i-rs-want update <NAME> [OPTIONS]
 ```
 
 Options:
-- `--price <PRICE>` - Update price
-- `--url <URL>` - Update URL
+- `-p, --price <PRICE>` - Update price
+- `-c, --currency <CURRENCY>` - Update currency
+- `-u, --url <URL>` - Update URL
 - `--priority <PRIORITY>` - Update priority
-- `--done` - Mark as done
-- `--undone` - Mark as pending
-- `-t, --tag <TAG>` - Add tags
-- `-r, --remark <REMARK>` - Add remarks
+- `--done` - Mark as done/pending
+- `-t, --tag <TAG>` - Update tags
+- `-r, --remark <REMARK>` - Update remarks
 
 ### data
 
@@ -107,12 +110,12 @@ i-rs-want skill [summary|content|raw]
 
 ```bash
 # Add wish list items
-i-rs-want add "New Headphones" --price 299.99 --priority high [OPTIONS]
-i-rs-want add "Book: Rust Programming" --price 49.99 --priority medium [OPTIONS]
-i-rs-want add "Keyboard" --url "https://example.com/keyboard" --priority high [OPTIONS]
+i-rs-want add "New Headphones" high --price 299.99
+i-rs-want add "Book: Rust Programming" medium --price 49.99
+i-rs-want add "Keyboard" high --url "https://example.com/keyboard"
 
 # List items
-i-rs-want list [OPTIONS]
+i-rs-want list
 
 # Mark as done
 i-rs-want update "New Headphones" --done

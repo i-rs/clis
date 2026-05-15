@@ -14,6 +14,7 @@ Water intake tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -85,11 +86,11 @@ i-rs-water skill [summary|content|raw]
 
 ```bash
 # Record water intake
-i-rs-water add 250 [OPTIONS]
-i-rs-water add 500 --tag morning [OPTIONS]
+i-rs-water add 250
+i-rs-water add 500 --tag morning
 
 # List records
-i-rs-water list [OPTIONS]
+i-rs-water list
 
 # Get details
 i-rs-water get abc12345

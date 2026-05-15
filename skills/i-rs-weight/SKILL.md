@@ -45,7 +45,7 @@ Options:
 Update a weight record.
 
 ```bash
-i-rs-weight update <DATE>
+i-rs-weight update <DATE> [OPTIONS]
 ```
 
 Options:
@@ -90,13 +90,13 @@ i-rs-weight skill [summary|content|raw]
 
 ```bash
 # Add a weight record
-i-rs-weight add 2025-01-15 70.5 [OPTIONS]
+i-rs-weight add 2025-01-15 70.5
 
 # Add with remarks
-i-rs-weight add 2025-01-16 70.3 --remark "After workout" [OPTIONS]
+i-rs-weight add 2025-01-16 70.3 --remark "After workout"
 
 # List all records
-i-rs-weight list [OPTIONS]
+i-rs-weight list
 
 # List last 30 days with chart and stats
 i-rs-weight list --days 30 --chart --stats

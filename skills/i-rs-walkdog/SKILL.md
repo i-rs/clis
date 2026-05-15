@@ -14,6 +14,7 @@ Dog walking tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -85,9 +86,9 @@ i-rs-walkdog skill [summary|content|raw]
 
 ```bash
 # Record walk
-i-rs-walkdog add "Buddy" 30 [OPTIONS]
-i-rs-walkdog add "Max" 45 --tag morning [OPTIONS]
+i-rs-walkdog add "Buddy" 30
+i-rs-walkdog add "Max" 45 --tag morning
 
 # List records
-i-rs-walkdog list [OPTIONS]
+i-rs-walkdog list
 ```
