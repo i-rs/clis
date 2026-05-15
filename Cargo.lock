@@ -1442,6 +1442,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-rs"
+version = "0.0.2"
+
+[[package]]
 name = "i-rs-ac"
 version = "0.0.2"
 dependencies = [

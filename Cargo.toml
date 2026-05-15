@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/i-rs-core",
+    "crates/i-rs",
     "crates/i-rs-server",
     "crates/i-rs-password",
     "crates/i-rs-bookmark",

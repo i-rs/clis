@@ -1,0 +1,10 @@
+[package]
+name = "i-rs"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Unified CLI for all i-rs tools"
+
+[dependencies]
