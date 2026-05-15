@@ -79,3 +79,6 @@ fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

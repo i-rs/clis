@@ -72,3 +72,6 @@ fn run(command: Commands, json: bool) -> anyhow::Result<()> {
         Commands::Data(commands) => commands::data::handle(&commands),
     }
 }
+
+#[cfg(test)]
+mod tests;

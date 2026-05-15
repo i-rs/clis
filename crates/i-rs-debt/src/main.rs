@@ -78,3 +78,6 @@ fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
         Commands::Data(commands) => commands::data::handle(&commands),
     }
 }
+
+#[cfg(test)]
+mod tests;

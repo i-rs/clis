@@ -141,3 +141,6 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

@@ -30,7 +30,7 @@ pub struct SnippetStore {
 
 impl SnippetStore {
     pub fn add_entry(&mut self, entry: Snippet) {
-        self.snippets.insert(entry.id.clone(), entry);
+        self.snippets.insert(entry.name.clone(), entry);
     }
 
     pub fn remove_entry(&mut self, key: &str) -> Option<Snippet> {

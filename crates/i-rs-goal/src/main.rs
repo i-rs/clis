@@ -92,3 +92,6 @@ fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
         Commands::Data(commands) => commands::data::handle(&commands),
     }
 }
+
+#[cfg(test)]
+mod tests;
