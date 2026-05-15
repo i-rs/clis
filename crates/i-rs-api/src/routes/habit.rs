@@ -32,9 +32,9 @@ pub struct AddHabitRequest {
 async fn list_habits(
     State(state): State<Arc<AppState>>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let records: Vec<i_rs_habit::models::ListItem> = state.habit.read(|store| {
-        store.entries.values().map(|h| h.into()).collect()
-    });
+    let records = state.habit.read(|store| {
+        i_rs_habit::service::list_habits(store, None).map_err(ApiError::from)
+    })?;
     Ok(ok_json_list(records))
 }
 
@@ -46,27 +46,9 @@ async fn add_habit(
     let description = req.description.unwrap_or_default();
     let frequency = req.frequency.unwrap_or_else(|| "daily".to_string());
     let tags = req.tag.unwrap_or_default();
-
-    let exists = state.habit.read(|store| store.entries.contains_key(&name));
-    if exists {
-        return Err(ApiError::Conflict(format!("Habit '{name}' already exists")));
-    }
-
-    let now = chrono::Utc::now();
     let habit = state.habit.write(|store| {
-        let habit = i_rs_habit::models::Habit {
-            name: name.clone(),
-            description,
-            frequency,
-            tags,
-            remark: Vec::new(),
-            checkins: Vec::new(),
-            created_at: now,
-            updated_at: now,
-        };
-        store.add_entry(habit.clone());
-        habit
-    });
+        i_rs_habit::service::add_habit(store, name, description, frequency, tags, Vec::new()).map_err(ApiError::from)
+    })?;
     Ok(ok_json(habit))
 }
 
@@ -74,10 +56,9 @@ async fn get_habit(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let habit = state
-        .habit
-        .read(|store| store.entries.get(&name).cloned())
-        .ok_or_else(|| ApiError::NotFound(format!("Habit '{name}' not found")))?;
+    let habit = state.habit.read(|store| {
+        i_rs_habit::service::get_habit(store, &name).map_err(ApiError::from)
+    })?;
     Ok(ok_json(habit))
 }
 
@@ -86,15 +67,7 @@ async fn checkin_habit(
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let habit = state.habit.write(|store| {
-        let habit = store
-            .entries
-            .get_mut(&name)
-            .ok_or_else(|| anyhow::anyhow!("Habit '{name}' not found"))?;
-        habit.checkins.push(i_rs_habit::models::Checkin {
-            date: chrono::Utc::now(),
-        });
-        habit.updated_at = chrono::Utc::now();
-        Ok::<_, anyhow::Error>(habit.clone())
+        i_rs_habit::service::checkin_habit(store, &name).map_err(ApiError::from)
     })?;
     Ok(ok_json(habit))
 }
@@ -103,15 +76,11 @@ async fn habit_stats(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let stats = state.habit.read(|store| {
-        store
-            .entries
-            .get(&name)
-            .map(|h| (h.name.clone(), h.checkins.len()))
-            .ok_or_else(|| ApiError::NotFound(format!("Habit '{name}' not found")))
+    let habit = state.habit.read(|store| {
+        i_rs_habit::service::get_habit(store, &name).map_err(ApiError::from)
     })?;
     Ok(ok_json(serde_json::json!({
-        "name": stats.0,
-        "checkin_count": stats.1,
+        "name": habit.name,
+        "checkin_count": habit.checkins.len(),
     })))
 }

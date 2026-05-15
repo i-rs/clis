@@ -11,7 +11,6 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
-use i_rs_core::parse_date;
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -32,8 +31,8 @@ async fn list_weights(
     State(state): State<Arc<AppState>>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let records = state.weight.read(|store| {
-        store.records.values().cloned().collect::<Vec<_>>()
-    });
+        i_rs_weight::service::list_weights(store, None).map_err(ApiError::from)
+    })?;
     Ok(ok_json_list(records))
 }
 
@@ -42,25 +41,11 @@ async fn add_weight(
     Json(req): Json<AddWeightRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let date = req.date.unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
-    let parsed_date = parse_date(&date)?;
     let weight = req.weight;
     let remark = req.remark.unwrap_or_default();
-
-    let exists = state.weight.read(|store| store.records.contains_key(&parsed_date));
-    if exists {
-        return Err(ApiError::Conflict(format!("Record for {date} already exists")));
-    }
-
     let record = state.weight.write(|store| {
-        let record = i_rs_weight::models::WeightRecord {
-            date: parsed_date,
-            weight,
-            tags: Vec::new(),
-            remark,
-        };
-        store.add_entry(record.clone());
-        record
-    });
+        i_rs_weight::service::add_weight(store, date, weight, remark).map_err(ApiError::from)
+    })?;
     Ok(ok_json(record))
 }
 
@@ -68,11 +53,9 @@ async fn get_weight(
     State(state): State<Arc<AppState>>,
     Path(date): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let parsed_date = parse_date(&date)?;
-    let record = state
-        .weight
-        .read(|store| store.records.get(&parsed_date).cloned())
-        .ok_or_else(|| ApiError::NotFound(format!("No record found for {date}")))?;
+    let record = state.weight.read(|store| {
+        i_rs_weight::service::get_weight(store, &date).map_err(ApiError::from)
+    })?;
     Ok(ok_json(record))
 }
 

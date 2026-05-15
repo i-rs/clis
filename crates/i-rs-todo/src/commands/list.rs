@@ -2,7 +2,8 @@ use crate::presentation::{format_table, print_todo_count, print_warning, output_
 use anyhow::Result;
 
 pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let todos = crate::service::list_todos(pending, done, tag.clone())?;
+    let store = crate::storage::load_store()?;
+    let todos = crate::service::list_todos(&store, pending, done, tag.clone())?;
 
     if todos.is_empty() {
         if format.is_json() {
@@ -60,8 +61,7 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
     let table = format_table(&refs);
     println!("\n{table}");
 
-    // Count from the actual store for accurate counts
-    let store = crate::storage::load_store()?;
+    // Count from the already-loaded store
     print_todo_count(store.pending_count(), store.done_count());
 
     Ok(())

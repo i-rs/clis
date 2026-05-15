@@ -3,7 +3,8 @@ use crate::presentation::{format_table, print_header, OutputFormat, output_item}
 use owo_colors::OwoColorize;
 
 pub fn handle_get(name: String, format: OutputFormat) -> anyhow::Result<()> {
-    let habit = crate::service::get_habit(&name)?;
+    let store = crate::storage::load_store()?;
+    let habit = crate::service::get_habit(&store, &name)?;
 
     if format == OutputFormat::Json {
         let item: ListItem = (&habit).into();

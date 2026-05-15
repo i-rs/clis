@@ -1,12 +1,10 @@
-use crate::models::{Mood, MoodRecord};
-use crate::storage;
+use crate::models::{Mood, MoodRecord, MoodStore};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use i_rs_core::parse_date;
 
 /// List mood records, optionally filtered by recent days.
-pub fn list_moods(days: Option<usize>) -> Result<Vec<MoodRecord>> {
-    let store = storage::load_store()?;
+pub fn list_moods(store: &MoodStore, days: Option<usize>) -> Result<Vec<MoodRecord>> {
     let records: Vec<MoodRecord> = if let Some(d) = days {
         let cutoff = Utc::now().date_naive() - chrono::Duration::days(d as i64);
         store
@@ -22,9 +20,8 @@ pub fn list_moods(days: Option<usize>) -> Result<Vec<MoodRecord>> {
 }
 
 /// Get a single mood record by date string.
-pub fn get_mood(date_str: &str) -> Result<MoodRecord> {
+pub fn get_mood(store: &MoodStore, date_str: &str) -> Result<MoodRecord> {
     let date = parse_date(date_str)?;
-    let store = storage::load_store()?;
     store
         .records
         .get(&date)
@@ -34,13 +31,13 @@ pub fn get_mood(date_str: &str) -> Result<MoodRecord> {
 
 /// Add a mood record.
 pub fn add_mood(
+    store: &mut MoodStore,
     date_str: String,
     mood: String,
     tags: Vec<String>,
     content: Vec<String>,
 ) -> Result<MoodRecord> {
     let date = parse_date(&date_str)?;
-    let mut store = storage::load_store()?;
 
     if store.records.contains_key(&date) {
         anyhow::bail!("Mood record for {date} already exists");
@@ -59,19 +56,18 @@ pub fn add_mood(
     };
 
     store.add_entry(record.clone());
-    storage::save_store(&store)?;
     Ok(record)
 }
 
 /// Update a mood record.
 pub fn update_mood(
+    store: &mut MoodStore,
     date_str: String,
     mood: Option<String>,
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<MoodRecord> {
     let date = parse_date(&date_str)?;
-    let mut store = storage::load_store()?;
 
     let record = store
         .records
@@ -90,26 +86,23 @@ pub fn update_mood(
     record.updated_at = Utc::now();
 
     let updated = record.clone();
-    storage::save_store(&store)?;
     Ok(updated)
 }
 
 /// Delete a mood record by date string.
-pub fn delete_mood(date_str: String) -> Result<()> {
+pub fn delete_mood(store: &mut MoodStore, date_str: String) -> Result<()> {
     let date = parse_date(&date_str)?;
-    let mut store = storage::load_store()?;
 
     if store.remove_entry(&date).is_none() {
         anyhow::bail!("No mood record found for {date}");
     }
 
-    storage::save_store(&store)?;
     Ok(())
 }
 
 /// Calculate mood statistics.
-pub fn mood_stats() -> Result<Option<(Mood, Mood, f64)>> {
-    let store = storage::load_store()?;
+#[allow(dead_code)]
+pub fn mood_stats(store: &MoodStore) -> Result<Option<(Mood, Mood, f64)>> {
     Ok(store.mood_stats())
 }
 

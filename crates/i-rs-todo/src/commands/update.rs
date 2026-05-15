@@ -9,7 +9,9 @@ pub fn handle_update(
     tag: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<()> {
-    crate::service::update_todo(name.clone(), title, priority, tag, content)?;
+    let mut store = crate::storage::load_store()?;
+    crate::service::update_todo(&mut store, name.clone(), title, priority, tag, content)?;
+    crate::storage::save_store(&store)?;
     print_success(&format!("✓ Todo '{}' updated", name.green()));
     Ok(())
 }

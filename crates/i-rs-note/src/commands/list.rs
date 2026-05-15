@@ -3,7 +3,8 @@ use crate::presentation::{format_table, print_note_count, print_warning, output_
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let notes = crate::service::list_notes(tag.clone())?;
+    let store = crate::storage::load_store()?;
+    let notes = crate::service::list_notes(&store, tag.clone())?;
     let notes_ref: Vec<&Note> = notes.iter().collect();
 
     if notes_ref.is_empty() {

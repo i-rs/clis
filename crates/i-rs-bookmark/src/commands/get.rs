@@ -5,7 +5,8 @@ use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
-    let bookmark = match crate::service::get_bookmark(&name) {
+    let store = crate::storage::load_store()?;
+    let bookmark = match crate::service::get_bookmark(&store, &name) {
         Ok(b) => b,
         Err(e) => {
             if format.is_json() {

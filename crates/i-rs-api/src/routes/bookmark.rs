@@ -36,18 +36,9 @@ async fn list_bookmarks(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let records: Vec<i_rs_bookmark::models::Bookmark> = state.bookmark.read(|store| {
-        if let Some(ref tag) = params.tag {
-            store
-                .bookmarks
-                .values()
-                .filter(|b| b.tags.contains(tag))
-                .cloned()
-                .collect()
-        } else {
-            store.bookmarks.values().cloned().collect()
-        }
-    });
+    let records = state.bookmark.read(|store| {
+        i_rs_bookmark::service::list_bookmarks(store, params.tag.clone()).map_err(ApiError::from)
+    })?;
     Ok(ok_json_list(records))
 }
 
@@ -58,27 +49,9 @@ async fn add_bookmark(
     let name = req.name;
     let url = req.url;
     let tags = req.tag.unwrap_or_default();
-
-    let exists = state.bookmark.read(|store| store.bookmarks.contains_key(&name));
-    if exists {
-        return Err(ApiError::Conflict(format!("Bookmark '{name}' already exists")));
-    }
-
-    let now = chrono::Utc::now();
     let bookmark = state.bookmark.write(|store| {
-        let bookmark = i_rs_bookmark::models::Bookmark {
-            name: name.clone(),
-            url,
-            account: None,
-            password: None,
-            tags,
-            remark: Vec::new(),
-            created_at: now,
-            updated_at: now,
-        };
-        store.add_entry(bookmark.clone());
-        bookmark
-    });
+        i_rs_bookmark::service::add_bookmark(store, name, url, None, None, tags, Vec::new()).map_err(ApiError::from)
+    })?;
     Ok(ok_json(bookmark))
 }
 
@@ -86,10 +59,9 @@ async fn get_bookmark(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let bookmark = state
-        .bookmark
-        .read(|store| store.bookmarks.get(&name).cloned())
-        .ok_or_else(|| ApiError::NotFound(format!("Bookmark '{name}' not found")))?;
+    let bookmark = state.bookmark.read(|store| {
+        i_rs_bookmark::service::get_bookmark(store, &name).map_err(ApiError::from)
+    })?;
     Ok(ok_json(bookmark))
 }
 
@@ -98,10 +70,7 @@ async fn delete_bookmark(
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     state.bookmark.write(|store| {
-        store
-            .bookmarks
-            .remove(&name)
-            .ok_or_else(|| anyhow::anyhow!("Bookmark '{name}' not found"))
+        i_rs_bookmark::service::delete_bookmark(store, &name).map_err(ApiError::from)
     })?;
     Ok(ok_json_message())
 }

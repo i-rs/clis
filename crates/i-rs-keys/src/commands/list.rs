@@ -3,7 +3,8 @@ use crate::presentation::{format_table, print_entry_count, print_warning, output
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let entries = crate::service::list_keys(tag.clone())?;
+    let store = crate::storage::load_store()?;
+    let entries = crate::service::list_keys(&store, tag.clone())?;
     let entries_ref: Vec<&crate::models::KeyEntry> = entries.iter().collect();
 
     if entries_ref.is_empty() {

@@ -3,7 +3,8 @@ use crate::presentation::{format_table, print_habit_count, OutputFormat, output_
 use owo_colors::OwoColorize;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<()> {
-    let habits = crate::service::list_habits(tag.clone())?;
+    let store = crate::storage::load_store()?;
+    let habits = crate::service::list_habits(&store, tag.clone())?;
 
     if format == OutputFormat::Json {
         let items: Vec<ListItem> = habits.iter().map(|h| h.into()).collect();

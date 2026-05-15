@@ -49,23 +49,11 @@ async fn list_todos(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let records: Vec<i_rs_todo::models::Todo> = state.todo.read(|store| {
-        let pending = params.pending.unwrap_or(false);
-        let done = params.done.unwrap_or(false);
-        let todos: Vec<&i_rs_todo::models::Todo> = if pending && !done {
-            store.get_pending_todos()
-        } else if done && !pending {
-            store.get_done_todos()
-        } else {
-            store.get_all_todos()
-        };
-        let filtered = if let Some(ref tag) = params.tag {
-            todos.into_iter().filter(|t| t.tags.contains(tag)).collect()
-        } else {
-            todos
-        };
-        filtered.into_iter().cloned().collect()
-    });
+    let pending = params.pending.unwrap_or(false);
+    let done = params.done.unwrap_or(false);
+    let records = state.todo.read(|store| {
+        i_rs_todo::service::list_todos(store, pending, done, params.tag.clone()).map_err(ApiError::from)
+    })?;
     Ok(ok_json_list(records))
 }
 
@@ -75,41 +63,22 @@ async fn add_todo(
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
     let title = req.title;
-    let priority = req.priority.and_then(|p| i_rs_todo::models::Priority::from_str(&p)).unwrap_or_default();
+    let priority = req.priority;
     let tag = req.tag.unwrap_or_default();
     let content = req.content.unwrap_or_default();
-
-    let exists = state.todo.read(|store| store.todos.contains_key(&name));
-    if exists {
-        return Err(ApiError::Conflict(format!("Todo '{name}' already exists")));
-    }
-
-    let now = chrono::Utc::now();
-    let todo = state.todo.write(|store| {
-        let todo = i_rs_todo::models::Todo {
-            name: name.clone(),
-            title,
-            priority,
-            tags: tag,
-            content,
-            is_done: false,
-            created_at: now,
-            updated_at: now,
-        };
-        store.add_entry(todo.clone());
-        todo
-    });
-    Ok(ok_json(todo))
+    let record = state.todo.write(|store| {
+        i_rs_todo::service::add_todo(store, name, title, priority, tag, content).map_err(ApiError::from)
+    })?;
+    Ok(ok_json(record))
 }
 
 async fn get_todo(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let todo = state
-        .todo
-        .read(|store| store.todos.get(&name).cloned())
-        .ok_or_else(|| ApiError::NotFound(format!("Todo '{name}' not found")))?;
+    let todo = state.todo.read(|store| {
+        i_rs_todo::service::get_todo(store, &name).map_err(ApiError::from)
+    })?;
     Ok(ok_json(todo))
 }
 
@@ -119,26 +88,7 @@ async fn update_todo(
     Json(req): Json<UpdateTodoRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let todo = state.todo.write(|store| {
-        let todo = store
-            .todos
-            .get_mut(&name)
-            .ok_or_else(|| anyhow::anyhow!("Todo '{name}' not found"))?;
-        if let Some(title) = req.title {
-            todo.title = Some(title);
-        }
-        if let Some(priority_str) = req.priority {
-            if let Some(p) = i_rs_todo::models::Priority::from_str(&priority_str) {
-                todo.priority = p;
-            }
-        }
-        if let Some(tag) = req.tag {
-            todo.tags = tag;
-        }
-        if let Some(content) = req.content {
-            todo.content = content;
-        }
-        todo.updated_at = chrono::Utc::now();
-        Ok::<_, anyhow::Error>(todo.clone())
+        i_rs_todo::service::update_todo(store, name, req.title, req.priority, req.tag, req.content).map_err(ApiError::from)
     })?;
     Ok(ok_json(todo))
 }
@@ -148,12 +98,7 @@ async fn done_todo(
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let todo = state.todo.write(|store| {
-        let todo = store
-            .todos
-            .get_mut(&name)
-            .ok_or_else(|| anyhow::anyhow!("Todo '{name}' not found"))?;
-        todo.toggle_done();
-        Ok::<_, anyhow::Error>(todo.clone())
+        i_rs_todo::service::toggle_todo_done(store, &name).map_err(ApiError::from)
     })?;
     Ok(ok_json(todo))
 }
@@ -163,10 +108,7 @@ async fn delete_todo(
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     state.todo.write(|store| {
-        store
-            .todos
-            .remove(&name)
-            .ok_or_else(|| anyhow::anyhow!("Todo '{name}' not found"))
+        i_rs_todo::service::delete_todo(store, &name).map_err(ApiError::from)
     })?;
     Ok(ok_json_message())
 }

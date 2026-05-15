@@ -1,11 +1,10 @@
-use crate::models::Bookmark;
+use crate::models::{Bookmark, BookmarkStore};
 use crate::storage;
 use anyhow::{Context, Result};
 use chrono::Utc;
 
 /// List bookmarks, optionally filtered by tag.
-pub fn list_bookmarks(tag: Option<String>) -> Result<Vec<Bookmark>> {
-    let store = storage::load_store()?;
+pub fn list_bookmarks(store: &BookmarkStore, tag: Option<String>) -> Result<Vec<Bookmark>> {
     let bookmarks: Vec<Bookmark> = if let Some(ref tag_filter) = tag {
         store
             .bookmarks
@@ -20,8 +19,7 @@ pub fn list_bookmarks(tag: Option<String>) -> Result<Vec<Bookmark>> {
 }
 
 /// Get a single bookmark by name.
-pub fn get_bookmark(name: &str) -> Result<Bookmark> {
-    let store = storage::load_store()?;
+pub fn get_bookmark(store: &BookmarkStore, name: &str) -> Result<Bookmark> {
     store
         .get_entry(name)
         .cloned()
@@ -30,6 +28,7 @@ pub fn get_bookmark(name: &str) -> Result<Bookmark> {
 
 /// Add a new bookmark. Optionally stores password in OS keychain.
 pub fn add_bookmark(
+    store: &mut BookmarkStore,
     name: String,
     url: String,
     account: Option<String>,
@@ -37,7 +36,6 @@ pub fn add_bookmark(
     tags: Vec<String>,
     remark: Vec<String>,
 ) -> Result<Bookmark> {
-    let mut store = storage::load_store()?;
 
     if store.bookmarks.contains_key(&name) {
         anyhow::bail!("Bookmark '{name}' already exists");
@@ -61,12 +59,12 @@ pub fn add_bookmark(
     };
 
     store.add_entry(bookmark.clone());
-    storage::save_store(&store)?;
     Ok(bookmark)
 }
 
 /// Update a bookmark.
 pub fn update_bookmark(
+    store: &mut BookmarkStore,
     name: String,
     url: Option<String>,
     account: Option<String>,
@@ -74,7 +72,6 @@ pub fn update_bookmark(
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<Bookmark> {
-    let mut store = storage::load_store()?;
 
     let bookmark = store
         .get_entry_mut(&name)
@@ -98,19 +95,15 @@ pub fn update_bookmark(
     bookmark.updated_at = Utc::now();
 
     let updated = bookmark.clone();
-    storage::save_store(&store)?;
     Ok(updated)
 }
 
 /// Delete a bookmark and its keychain password.
-pub fn delete_bookmark(name: &str) -> Result<()> {
-    let mut store = storage::load_store()?;
-
+pub fn delete_bookmark(store: &mut BookmarkStore, name: &str) -> Result<()> {
     if store.remove_entry(name).is_none() {
         anyhow::bail!("Bookmark '{name}' not found");
     }
 
     storage::delete_password(name)?;
-    storage::save_store(&store)?;
     Ok(())
 }

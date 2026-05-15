@@ -4,7 +4,8 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 
 pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) -> Result<()> {
-    let records = crate::service::list_moods(days)?;
+    let store = crate::storage::load_store()?;
+    let records = crate::service::list_moods(&store, days)?;
     let records_ref: Vec<&MoodRecord> = records.iter().collect();
 
     if records_ref.is_empty() {
@@ -45,8 +46,7 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
 
     print_record_count(records_ref.len());
 
-    // Re-load store for stats (mood_stats needs the full data set)
-    let store = crate::storage::load_store()?;
+    // Stats from the already-loaded store
     if let Some((min_mood, max_mood, avg)) = store.mood_stats() {
         println!("\n{}", "Statistics:".bold().cyan());
         println!("  {:12} {} {}", "Best:".dimmed(), min_mood, min_mood.label());

@@ -1,6 +1,6 @@
 #![allow(clippy::needless_range_loop)]
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_list, handle_skill, handle_update, parse_skill_arg};
+use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update, parse_skill_arg};
 use presentation::OutputFormat;
 
 mod commands;
@@ -31,6 +31,10 @@ enum Commands {
         remark: Vec<String>,
     },
     Delete {
+        #[arg(value_name = "DATE")]
+        date: String,
+    },
+    Get {
         #[arg(value_name = "DATE")]
         date: String,
     },
@@ -77,6 +81,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         }
         Commands::Delete { date } => {
             handle_delete(date)?;
+        }
+        Commands::Get { date } => {
+            handle_get(date, format)?;
         }
         Commands::List { days, chart, stats } => {
             handle_list(days, chart, stats, format)?;

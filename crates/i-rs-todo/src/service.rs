@@ -1,11 +1,9 @@
-use crate::models::{Priority, Todo};
-use crate::storage;
+use crate::models::{Priority, Todo, TodoStore};
 use anyhow::{Context, Result};
 use chrono::Utc;
 
 /// List todos with optional filters. Returns owned Todos.
-pub fn list_todos(pending: bool, done: bool, tag: Option<String>) -> Result<Vec<Todo>> {
-    let store = storage::load_store()?;
+pub fn list_todos(store: &TodoStore, pending: bool, done: bool, tag: Option<String>) -> Result<Vec<Todo>> {
     let todos: Vec<&Todo> = match (pending, done, &tag) {
         (_, _, Some(t)) => store.filter_by_tag(t),
         (true, false, None) => store.get_pending_todos(),
@@ -16,8 +14,7 @@ pub fn list_todos(pending: bool, done: bool, tag: Option<String>) -> Result<Vec<
 }
 
 /// Get a single todo by name.
-pub fn get_todo(name: &str) -> Result<Todo> {
-    let store = storage::load_store()?;
+pub fn get_todo(store: &TodoStore, name: &str) -> Result<Todo> {
     let todo = store
         .get_entry(name)
         .cloned()
@@ -27,13 +24,13 @@ pub fn get_todo(name: &str) -> Result<Todo> {
 
 /// Add a new todo. Returns the created Todo.
 pub fn add_todo(
+    store: &mut TodoStore,
     name: String,
     title: Option<String>,
     priority: Option<String>,
     tags: Vec<String>,
     content: Vec<String>,
 ) -> Result<Todo> {
-    let mut store = storage::load_store()?;
 
     if store.todos.contains_key(&name) {
         anyhow::bail!("Todo '{name}' already exists");
@@ -57,19 +54,18 @@ pub fn add_todo(
     };
 
     store.add_entry(todo.clone());
-    storage::save_store(&store)?;
     Ok(todo)
 }
 
 /// Update an existing todo. Returns the updated Todo.
 pub fn update_todo(
+    store: &mut TodoStore,
     name: String,
     title: Option<String>,
     priority: Option<String>,
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<Todo> {
-    let mut store = storage::load_store()?;
 
     let todo = store
         .get_entry_mut(&name)
@@ -90,25 +86,20 @@ pub fn update_todo(
 
     todo.updated_at = Utc::now();
     let updated = todo.clone();
-    storage::save_store(&store)?;
     Ok(updated)
 }
 
 /// Delete a todo by name.
-pub fn delete_todo(name: &str) -> Result<()> {
-    let mut store = storage::load_store()?;
-
+pub fn delete_todo(store: &mut TodoStore, name: &str) -> Result<()> {
     if store.remove_entry(name).is_none() {
         anyhow::bail!("Todo '{name}' not found");
     }
 
-    storage::save_store(&store)?;
     Ok(())
 }
 
 /// Toggle a todo's done/pending status. Returns the toggled Todo.
-pub fn toggle_todo_done(name: &str) -> Result<Todo> {
-    let mut store = storage::load_store()?;
+pub fn toggle_todo_done(store: &mut TodoStore, name: &str) -> Result<Todo> {
 
     let todo = store
         .get_entry_mut(name)
@@ -116,6 +107,5 @@ pub fn toggle_todo_done(name: &str) -> Result<Todo> {
 
     todo.toggle_done();
     let updated = todo.clone();
-    storage::save_store(&store)?;
     Ok(updated)
 }

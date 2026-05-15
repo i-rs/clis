@@ -5,7 +5,8 @@ use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
-    let todo = match crate::service::get_todo(&name) {
+    let store = crate::storage::load_store()?;
+    let todo = match crate::service::get_todo(&store, &name) {
         Ok(t) => t,
         Err(e) => {
             if format.is_json() {

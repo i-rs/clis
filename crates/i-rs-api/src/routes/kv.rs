@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     routing::{get, post, delete},
-    extract::{Path, Query, State},
+    extract::{Path, State},
     Json,
 };
 use serde::Deserialize;
@@ -25,31 +25,12 @@ pub struct SetKvRequest {
     pub value: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ListKvQuery {
-    pub search: Option<String>,
-}
-
 async fn list_kv(
     State(state): State<Arc<AppState>>,
-    Query(query): Query<ListKvQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let records: Vec<i_rs_kv::models::ListItem> = state.kv.read(|store| {
-        if let Some(ref search) = query.search {
-            store
-                .entries
-                .values()
-                .filter(|e| {
-                    e.key.contains(search)
-                        || e.value.contains(search)
-                        || e.tags.contains(search)
-                })
-                .map(|e| e.into())
-                .collect()
-        } else {
-            store.entries.values().map(|e| e.into()).collect()
-        }
-    });
+    let records = state.kv.read(|store| {
+        i_rs_kv::service::list_kv(store, None).map_err(ApiError::from)
+    })?;
     Ok(ok_json_list(records))
 }
 
@@ -59,19 +40,9 @@ async fn set_kv(
     Json(req): Json<SetKvRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let value = req.value;
-    let now = chrono::Utc::now();
     let entry = state.kv.write(|store| {
-        let entry = i_rs_kv::models::KvEntry {
-            key: key.clone(),
-            value,
-            tags: Vec::new(),
-            remark: Vec::new(),
-            created_at: now,
-            updated_at: now,
-        };
-        store.add_entry(entry.clone());
-        entry
-    });
+        i_rs_kv::service::add_kv(store, key, value, Vec::new(), Vec::new()).map_err(ApiError::from)
+    })?;
     Ok(ok_json(entry))
 }
 
@@ -79,10 +50,9 @@ async fn get_kv(
     State(state): State<Arc<AppState>>,
     Path(key): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let entry = state
-        .kv
-        .read(|store| store.entries.get(&key).cloned())
-        .ok_or_else(|| ApiError::NotFound(format!("Key '{key}' not found")))?;
+    let entry = state.kv.read(|store| {
+        i_rs_kv::service::get_kv(store, &key).map_err(ApiError::from)
+    })?;
     Ok(ok_json(entry))
 }
 
@@ -91,10 +61,7 @@ async fn delete_kv(
     Path(key): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     state.kv.write(|store| {
-        store
-            .entries
-            .remove(&key)
-            .ok_or_else(|| anyhow::anyhow!("Key '{key}' not found"))
+        i_rs_kv::service::delete_kv(store, &key).map_err(ApiError::from)
     })?;
     Ok(ok_json_message())
 }

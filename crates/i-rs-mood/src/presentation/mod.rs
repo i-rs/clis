@@ -1,7 +1,7 @@
 use crate::models::{MoodRecord, MoodRow};
 use owo_colors::OwoColorize;
 pub use i_rs_core::presentation::{print_success, print_warning, OutputFormat};
-pub use i_rs_core::presentation::output::output_list;
+pub use i_rs_core::presentation::output::{output_error, output_item, output_list};
 pub fn format_table(records: &[&MoodRecord]) -> String {
     let rows: Vec<MoodRow> = records
         .iter()

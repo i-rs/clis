@@ -84,22 +84,6 @@ impl MoodStore {
         self.records.remove(date)
     }
 
-    pub fn get_entry(&self, date: &NaiveDate) -> Option<&MoodRecord> {
-        self.records.get(date)
-    }
-
-    pub fn get_recent_records(&self, days: usize) -> Vec<&MoodRecord> {
-        let cutoff = Utc::now().date_naive() - chrono::Duration::days(days as i64);
-        self.records
-            .values()
-            .filter(|r| r.date >= cutoff)
-            .collect()
-    }
-
-    pub fn get_all_records(&self) -> Vec<&MoodRecord> {
-        self.records.values().collect()
-    }
-
     pub fn mood_stats(&self) -> Option<(Mood, Mood, f64)> {
         if self.records.is_empty() {
             return None;

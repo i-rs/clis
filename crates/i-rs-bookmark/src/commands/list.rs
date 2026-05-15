@@ -3,7 +3,8 @@ use crate::presentation::{format_table, print_bookmark_count, print_warning, out
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let bookmarks = crate::service::list_bookmarks(tag.clone())?;
+    let store = crate::storage::load_store()?;
+    let bookmarks = crate::service::list_bookmarks(&store, tag.clone())?;
     let bookmarks_ref: Vec<&Bookmark> = bookmarks.iter().collect();
 
     if bookmarks_ref.is_empty() {

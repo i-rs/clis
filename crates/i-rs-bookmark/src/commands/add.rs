@@ -11,7 +11,9 @@ pub fn handle_add(
     remark: Vec<String>,
 ) -> Result<()> {
     let has_password = password.is_some();
-    crate::service::add_bookmark(name.clone(), url, account, password, tag, remark)?;
+    let mut store = crate::storage::load_store()?;
+    crate::service::add_bookmark(&mut store, name.clone(), url, account, password, tag, remark)?;
+    crate::storage::save_store(&store)?;
     print_success(&format!("✓ Bookmark '{}' added successfully", name.green()));
     if has_password {
         println!("  {}", "Password stored securely in keychain".dimmed());

@@ -36,18 +36,9 @@ async fn list_notes(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let records: Vec<i_rs_note::models::Note> = state.note.read(|store| {
-        if let Some(ref tag) = params.tag {
-            store
-                .notes
-                .values()
-                .filter(|n| n.tags.contains(tag))
-                .cloned()
-                .collect()
-        } else {
-            store.notes.values().cloned().collect()
-        }
-    });
+    let records = state.note.read(|store| {
+        i_rs_note::service::list_notes(store, params.tag.clone()).map_err(ApiError::from)
+    })?;
     Ok(ok_json_list(records))
 }
 
@@ -58,26 +49,9 @@ async fn add_note(
     let name = req.name;
     let content = vec![req.content];
     let tags = req.tag.unwrap_or_default();
-
-    let exists = state.note.read(|store| store.notes.contains_key(&name));
-    if exists {
-        return Err(ApiError::Conflict(format!("Note '{name}' already exists")));
-    }
-
-    let now = chrono::Utc::now();
     let note = state.note.write(|store| {
-        let note = i_rs_note::models::Note {
-            name: name.clone(),
-            title: None,
-            tags,
-            content,
-            remark: Vec::new(),
-            created_at: now,
-            updated_at: now,
-        };
-        store.add_entry(note.clone());
-        note
-    });
+        i_rs_note::service::add_note(store, name, None, tags, content).map_err(ApiError::from)
+    })?;
     Ok(ok_json(note))
 }
 
@@ -85,10 +59,9 @@ async fn get_note(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let note = state
-        .note
-        .read(|store| store.notes.get(&name).cloned())
-        .ok_or_else(|| ApiError::NotFound(format!("Note '{name}' not found")))?;
+    let note = state.note.read(|store| {
+        i_rs_note::service::get_note(store, &name).map_err(ApiError::from)
+    })?;
     Ok(ok_json(note))
 }
 
@@ -97,10 +70,7 @@ async fn delete_note(
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     state.note.write(|store| {
-        store
-            .notes
-            .remove(&name)
-            .ok_or_else(|| anyhow::anyhow!("Note '{name}' not found"))
+        i_rs_note::service::delete_note(store, &name).map_err(ApiError::from)
     })?;
     Ok(ok_json_message())
 }

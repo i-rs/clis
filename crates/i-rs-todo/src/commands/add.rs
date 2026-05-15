@@ -9,7 +9,9 @@ pub fn handle_add(
     tag: Vec<String>,
     content: Vec<String>,
 ) -> Result<()> {
-    crate::service::add_todo(name.clone(), title, priority, tag, content)?;
+    let mut store = crate::storage::load_store()?;
+    crate::service::add_todo(&mut store, name.clone(), title, priority, tag, content)?;
+    crate::storage::save_store(&store)?;
     print_success(&format!("✓ Todo '{}' added successfully", name.green()));
     Ok(())
 }

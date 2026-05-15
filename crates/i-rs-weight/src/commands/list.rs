@@ -4,7 +4,8 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 
 pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: OutputFormat) -> Result<()> {
-    let records = crate::service::list_weights(days)?;
+    let store = crate::storage::load_store()?;
+    let records = crate::service::list_weights(&store, days)?;
 
     if records.is_empty() {
         if format.is_json() {

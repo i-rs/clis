@@ -3,7 +3,9 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 
 pub fn handle_delete(key: String, format: OutputFormat) -> Result<()> {
-    crate::service::delete_kv(&key)?;
+    let mut store = crate::storage::load_store()?;
+    crate::service::delete_kv(&mut store, &key)?;
+    crate::storage::save_store(&store)?;
 
     if format.is_json() {
         return Ok(());

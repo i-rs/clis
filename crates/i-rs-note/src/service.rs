@@ -1,11 +1,9 @@
-use crate::models::Note;
-use crate::storage;
+use crate::models::{Note, NoteStore};
 use anyhow::{Context, Result};
 use chrono::Utc;
 
 /// List notes, optionally filtered by tag.
-pub fn list_notes(tag: Option<String>) -> Result<Vec<Note>> {
-    let store = storage::load_store()?;
+pub fn list_notes(store: &NoteStore, tag: Option<String>) -> Result<Vec<Note>> {
     let notes: Vec<Note> = if let Some(ref tag_filter) = tag {
         store
             .notes
@@ -20,8 +18,7 @@ pub fn list_notes(tag: Option<String>) -> Result<Vec<Note>> {
 }
 
 /// Get a single note by name.
-pub fn get_note(name: &str) -> Result<Note> {
-    let store = storage::load_store()?;
+pub fn get_note(store: &NoteStore, name: &str) -> Result<Note> {
     store
         .get_entry(name)
         .cloned()
@@ -30,12 +27,12 @@ pub fn get_note(name: &str) -> Result<Note> {
 
 /// Add a new note.
 pub fn add_note(
+    store: &mut NoteStore,
     name: String,
     title: Option<String>,
     tags: Vec<String>,
     content: Vec<String>,
 ) -> Result<Note> {
-    let mut store = storage::load_store()?;
 
     if store.notes.contains_key(&name) {
         anyhow::bail!("Note '{name}' already exists");
@@ -53,18 +50,17 @@ pub fn add_note(
     };
 
     store.add_entry(note.clone());
-    storage::save_store(&store)?;
     Ok(note)
 }
 
 /// Update a note.
 pub fn update_note(
+    store: &mut NoteStore,
     name: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<Note> {
-    let mut store = storage::load_store()?;
 
     let note = store
         .get_entry_mut(&name)
@@ -82,18 +78,14 @@ pub fn update_note(
     note.updated_at = Utc::now();
 
     let updated = note.clone();
-    storage::save_store(&store)?;
     Ok(updated)
 }
 
 /// Delete a note by name.
-pub fn delete_note(name: &str) -> Result<()> {
-    let mut store = storage::load_store()?;
-
+pub fn delete_note(store: &mut NoteStore, name: &str) -> Result<()> {
     if store.remove_entry(name).is_none() {
         anyhow::bail!("Note '{name}' not found");
     }
 
-    storage::save_store(&store)?;
     Ok(())
 }
