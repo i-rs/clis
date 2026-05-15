@@ -14,6 +14,7 @@ Sleep tracking CLI tool for recording bedtime, wake time, and sleep quality.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add

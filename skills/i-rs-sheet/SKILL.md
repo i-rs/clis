@@ -93,8 +93,8 @@ i-rs-sheet skill [summary|content|raw]
 
 ```bash
 # Record change
-i-rs-sheet add bedsheet [OPTIONS]
-i-rs-sheet add pillowcase --tag bedroom [OPTIONS]
+i-rs-sheet add bedsheet
+i-rs-sheet add pillowcase --tag bedroom
 
 # List records
 i-rs-sheet list [OPTIONS]

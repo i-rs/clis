@@ -14,6 +14,7 @@ Sitting duration tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add

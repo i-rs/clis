@@ -18,7 +18,7 @@ Arguments:
 - `CONTENT` - The inspiration or idea
 
 Options:
-- `--source <SOURCE>` - Source of inspiration (dream, book, conversation, etc.)
+- `-s, --source <SOURCE>` - Source of inspiration (dream, book, conversation, etc.)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -27,7 +27,7 @@ Options:
 List all sparks.
 
 ```bash
-i-rs-spark list
+i-rs-spark list [OPTIONS]
 ```
 
 Options:
@@ -63,6 +63,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -70,6 +71,7 @@ Show usage examples.
 ```bash
 i-rs-spark example
 ```
+
 ### skill
 
 Show skill information.

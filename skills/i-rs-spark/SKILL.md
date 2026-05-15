@@ -14,6 +14,7 @@ Inspiration and ideas tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -25,7 +26,7 @@ i-rs-spark add <CONTENT> [OPTIONS]
 ```
 
 Options:
-- `--source <SOURCE>` - Source of inspiration (dream, book, conversation, etc.)
+- `-s, --source <SOURCE>` - Source of inspiration (dream, book, conversation, etc.)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 

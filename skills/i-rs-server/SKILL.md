@@ -24,13 +24,14 @@ Passwords are stored securely in the OS keychain:
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
 Add a new server.
 
 ```bash
-i-rs-server add <NAME> <HOST> [PORT]
+i-rs-server add <NAME> <HOST> [PORT] [OPTIONS]
 ```
 
 Options:

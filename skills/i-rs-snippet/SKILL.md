@@ -14,6 +14,7 @@ Code snippet management CLI tool for storing, organizing, and quickly retrieving
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,15 +22,22 @@ Code snippet management CLI tool for storing, organizing, and quickly retrieving
 Add a new code snippet.
 
 ```bash
-i-rs-snippet add <NAME> --language <LANG> --code <CODE> [--tag] [--description] [--remark]
+i-rs-snippet add <NAME> [OPTIONS]
 ```
+
+Options:
+- `-l, --language <LANG>` - Programming language (required)
+- `-c, --code <CODE>` - Code lines (repeatable, required)
+- `-d, --description <DESC>` - Description lines (repeatable)
+- `-g, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <REMARK>` - Remarks (repeatable)
 
 ### list
 
 List all snippets or filter by tag.
 
 ```bash
-i-rs-snippet list [--tag TAG]
+i-rs-snippet list [OPTIONS]
 ```
 
 ### search

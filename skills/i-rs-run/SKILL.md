@@ -14,6 +14,7 @@ Running record CLI tool for tracking running activities with detailed metrics.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -25,7 +26,7 @@ i-rs-run add <DATE> <DISTANCE> <DURATION> [--heart-rate] [--weather] [--tags] [-
 ### list
 List all run records.
 ```bash
-i-rs-run list [--json]
+i-rs-run list
 ```
 
 ### get
