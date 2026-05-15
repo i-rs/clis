@@ -1,25 +1,13 @@
 use crate::models::MoodRecord;
 use crate::presentation::{format_table, print_mood_calendar, print_record_count, print_warning, output_list, OutputFormat};
-use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
 pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
+    let records = crate::service::list_moods(days)?;
+    let records_ref: Vec<&MoodRecord> = records.iter().collect();
 
-    let records: Vec<&MoodRecord> = if let Some(d) = days {
-        let cutoff = Utc::now().date_naive() - chrono::Duration::days(d as i64);
-        store
-            .records
-            .values()
-            .filter(|r| r.date >= cutoff)
-            .collect()
-    } else {
-        store.get_all_records()
-    };
-
-    if records.is_empty() {
+    if records_ref.is_empty() {
         if format.is_json() {
             let filter = days.map(|d| format!("last {d} days"));
             println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
@@ -39,7 +27,7 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
             content: Vec<String>,
         }
 
-        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
+        let items: Vec<ListItem> = records_ref.iter().map(|r| ListItem {
             date: r.date.format("%Y-%m-%d").to_string(),
             mood: r.mood.to_string(),
             mood_label: r.mood.label().to_string(),
@@ -52,11 +40,13 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
         return Ok(());
     }
 
-    let table = format_table(&records);
+    let table = format_table(&records_ref);
     println!("\n{table}");
 
-    print_record_count(records.len());
+    print_record_count(records_ref.len());
 
+    // Re-load store for stats (mood_stats needs the full data set)
+    let store = crate::storage::load_store()?;
     if let Some((min_mood, max_mood, avg)) = store.mood_stats() {
         println!("\n{}", "Statistics:".bold().cyan());
         println!("  {:12} {} {}", "Best:".dimmed(), min_mood, min_mood.label());
@@ -66,7 +56,7 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
 
     if calendar {
         let cal_days = days.unwrap_or(30);
-        print_mood_calendar(&records, cal_days);
+        print_mood_calendar(&records_ref, cal_days);
     }
 
     Ok(())

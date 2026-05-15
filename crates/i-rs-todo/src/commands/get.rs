@@ -1,19 +1,18 @@
 use crate::models::Priority;
 use crate::presentation::{output_error, output_item, print_header, OutputFormat};
-use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let todo = if let Some(t) = store.get_entry(&name) { t } else {
-        let msg = format!("Todo '{name}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
-        anyhow::bail!("{msg}");
+    let todo = match crate::service::get_todo(&name) {
+        Ok(t) => t,
+        Err(e) => {
+            if format.is_json() {
+                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
+            }
+            return Err(e);
+        }
     };
 
     if format.is_json() {

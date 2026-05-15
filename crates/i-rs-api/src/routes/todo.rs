@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::api::run_cli;
+use crate::api::{call_service, call_service_unit};
 
 #[derive(Debug, Deserialize)]
 pub struct AddTodoRequest {
@@ -46,79 +46,43 @@ pub fn router() -> Router {
 async fn list_todos(
     Query(params): Query<ListQuery>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["list".to_string()];
-    if params.pending.unwrap_or(false) {
-        args.push("--pending".to_string());
-    }
-    if params.done.unwrap_or(false) {
-        args.push("--done".to_string());
-    }
-    if let Some(ref tag) = params.tag {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-    run_cli("i-rs-todo", args).await
+    let pending = params.pending.unwrap_or(false);
+    let done = params.done.unwrap_or(false);
+    let tag = params.tag;
+    call_service(move || i_rs_todo::service::list_todos(pending, done, tag)).await
 }
 
 async fn add_todo(
     Json(req): Json<AddTodoRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["add".to_string(), req.name.clone()];
-    if let Some(ref title) = req.title {
-        args.push("--title".to_string());
-        args.push(title.clone());
-    }
-    if let Some(ref priority) = req.priority {
-        args.push("-p".to_string());
-        args.push(priority.clone());
-    }
-    for tag in req.tag.iter().flatten() {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-    for content in req.content.iter().flatten() {
-        args.push("--content".to_string());
-        args.push(content.clone());
-    }
-    run_cli("i-rs-todo", args).await
+    let name = req.name;
+    let title = req.title;
+    let priority = req.priority;
+    let tag = req.tag.unwrap_or_default();
+    let content = req.content.unwrap_or_default();
+    call_service(move || i_rs_todo::service::add_todo(name, title, priority, tag, content)).await
 }
 
 async fn get_todo(Path(name): Path<String>) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-todo", vec!["get".to_string(), name]).await
+    call_service(move || i_rs_todo::service::get_todo(&name)).await
 }
 
 async fn update_todo(
     Path(name): Path<String>,
     Json(req): Json<UpdateTodoRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["update".to_string(), name];
-    if let Some(ref title) = req.title {
-        args.push("--title".to_string());
-        args.push(title.clone());
-    }
-    if let Some(ref priority) = req.priority {
-        args.push("-p".to_string());
-        args.push(priority.clone());
-    }
-    if let Some(ref tags) = req.tag {
-        for tag in tags {
-            args.push("--tag".to_string());
-            args.push(tag.clone());
-        }
-    }
-    if let Some(ref contents) = req.content {
-        for content in contents {
-            args.push("--content".to_string());
-            args.push(content.clone());
-        }
-    }
-    run_cli("i-rs-todo", args).await
+    let name = name;
+    let title = req.title;
+    let priority = req.priority;
+    let tag = req.tag;
+    let content = req.content;
+    call_service(move || i_rs_todo::service::update_todo(name, title, priority, tag, content)).await
 }
 
 async fn done_todo(Path(name): Path<String>) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-todo", vec!["done".to_string(), name]).await
+    call_service(move || i_rs_todo::service::toggle_todo_done(&name)).await
 }
 
 async fn delete_todo(Path(name): Path<String>) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-todo", vec!["delete".to_string(), name]).await
+    call_service_unit(move || i_rs_todo::service::delete_todo(&name)).await
 }

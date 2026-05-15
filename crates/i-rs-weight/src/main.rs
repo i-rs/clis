@@ -6,6 +6,7 @@ use presentation::OutputFormat;
 mod commands;
 mod models;
 mod presentation;
+mod service;
 mod storage;
 
 #[derive(Parser, Debug)]

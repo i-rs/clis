@@ -5,14 +5,14 @@ use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, show_value: bool, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let entry = if let Some(e) = store.get_entry(&name) { e } else {
-        let msg = format!("Key '{name}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
-        anyhow::bail!("{msg}");
+    let entry = match crate::service::get_key(&name) {
+        Ok(e) => e,
+        Err(e) => {
+            if format.is_json() {
+                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
+            }
+            return Err(e);
+        }
     };
 
     let key_value = storage::get_key(&name)?;

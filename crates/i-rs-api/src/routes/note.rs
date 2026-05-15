@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::api::run_cli;
+use crate::api::{call_service, call_service_unit};
 
 pub fn router() -> Router {
     Router::new()
@@ -27,47 +27,33 @@ pub struct AddNoteRequest {
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
     pub tag: Option<String>,
-    pub search: Option<String>,
 }
 
 async fn list_notes(
     Query(params): Query<ListQuery>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["list".to_string()];
-    if let Some(ref tag) = params.tag {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-    if let Some(ref search) = params.search {
-        args.push("--search".to_string());
-        args.push(search.clone());
-    }
-
-    run_cli("i-rs-note", args).await
+    let tag = params.tag;
+    call_service(move || i_rs_note::service::list_notes(tag)).await
 }
 
 async fn add_note(
     Json(req): Json<AddNoteRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["add".to_string(), req.name.clone()];
-    args.push("--content".to_string());
-    args.push(req.content.clone());
-    for tag in req.tag.iter().flatten() {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-
-    run_cli("i-rs-note", args).await
+    let name = req.name;
+    let title = None;
+    let content = vec![req.content];
+    let tags = req.tag.unwrap_or_default();
+    call_service(move || i_rs_note::service::add_note(name, title, tags, content)).await
 }
 
 async fn get_note(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-note", vec!["get".to_string(), name]).await
+    call_service(move || i_rs_note::service::get_note(&name)).await
 }
 
 async fn delete_note(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-note", vec!["delete".to_string(), name]).await
+    call_service_unit(move || i_rs_note::service::delete_note(&name)).await
 }

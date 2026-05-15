@@ -1,13 +1,12 @@
+use crate::models::Bookmark;
 use crate::presentation::{format_table, print_bookmark_count, print_warning, output_list, OutputFormat};
-use crate::storage;
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
+    let bookmarks = crate::service::list_bookmarks(tag.clone())?;
+    let bookmarks_ref: Vec<&Bookmark> = bookmarks.iter().collect();
 
-    let bookmarks: Vec<&crate::models::Bookmark> = storage::filter_by_tag(&store, tag.as_deref());
-
-    if bookmarks.is_empty() {
+    if bookmarks_ref.is_empty() {
         if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
         } else {
@@ -28,7 +27,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             updated_at: String,
         }
 
-        let items: Vec<ListItem> = bookmarks.iter().map(|b| ListItem {
+        let items: Vec<ListItem> = bookmarks_ref.iter().map(|b| ListItem {
             name: b.name.clone(),
             url: b.url.clone(),
             account: b.account.clone(),
@@ -42,10 +41,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    let table = format_table(&bookmarks);
+    let table = format_table(&bookmarks_ref);
     println!("\n{table}");
 
-    print_bookmark_count(bookmarks.len());
+    print_bookmark_count(bookmarks_ref.len());
 
     Ok(())
 }

@@ -1,3 +1,4 @@
+use fs2::FileExt;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -52,7 +53,13 @@ impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
             return Ok(&mut self.data);
         }
 
+        // Open file and acquire shared lock for reading
+        let file = fs::File::open(&path)?;
+        file.lock_shared()?;
         let content = fs::read_to_string(&path)?;
+        // Lock released when `file` is dropped
+        drop(file);
+
         self.data = serde_json::from_str(&content)
             .map_err(|e| anyhow::anyhow!("Failed to parse {}: {}", path.display(), e))?;
 
@@ -74,8 +81,13 @@ impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
         let content = serde_json::to_string_pretty(data)
             .map_err(|e| anyhow::anyhow!("Failed to serialize: {e}"))?;
 
+        // Create (or truncate) file and acquire exclusive lock for writing
+        let file = fs::File::create(&path)?;
+        file.lock_exclusive()?;
         fs::write(&path, content)
             .map_err(|e| anyhow::anyhow!("Failed to write {}: {}", path.display(), e))?;
+        // Lock released when `file` is dropped
+        drop(file);
 
         Ok(())
     }

@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::api::run_cli;
+use crate::api::{call_service, call_service_unit};
 
 pub fn router() -> Router {
     Router::new()
@@ -31,34 +31,28 @@ pub struct ListKeysQuery {
 async fn list_keys(
     Query(query): Query<ListKeysQuery>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["list".to_string()];
-    if let Some(ref search) = query.search {
-        args.push("--search".to_string());
-        args.push(search.clone());
-    }
-    run_cli("i-rs-keys", args).await
+    let tag = query.search;
+    call_service(move || i_rs_keys::service::list_keys(tag)).await
 }
 
 async fn add_key(
     Path(name): Path<String>,
     Json(req): Json<AddKeyRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["add".to_string(), name, req.value];
-    if let Some(ref remark) = req.remark {
-        args.push("--remark".to_string());
-        args.push(remark.clone());
-    }
-    run_cli("i-rs-keys", args).await
+    let name = name;
+    let value = req.value;
+    let remark = req.remark.unwrap_or_default();
+    call_service(move || i_rs_keys::service::add_key(name, "api_key".to_string(), value, vec![], vec![remark])).await
 }
 
 async fn get_key(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-keys", vec!["get".to_string(), name]).await
+    call_service(move || i_rs_keys::service::get_key(&name)).await
 }
 
 async fn delete_key(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-keys", vec!["delete".to_string(), name]).await
+    call_service_unit(move || i_rs_keys::service::delete_key(&name)).await
 }

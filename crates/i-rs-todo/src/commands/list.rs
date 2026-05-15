@@ -1,17 +1,8 @@
-use crate::models::Todo;
 use crate::presentation::{format_table, print_todo_count, print_warning, output_list, OutputFormat};
-use crate::storage;
 use anyhow::Result;
 
 pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let todos: Vec<&Todo> = match (pending, done, &tag) {
-        (_, _, Some(t)) => store.filter_by_tag(t),
-        (true, false, None) => store.get_pending_todos(),
-        (false, true, None) => store.get_done_todos(),
-        _ => store.get_all_todos(),
-    };
+    let todos = crate::service::list_todos(pending, done, tag.clone())?;
 
     if todos.is_empty() {
         if format.is_json() {
@@ -65,9 +56,12 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
         return Ok(());
     }
 
-    let table = format_table(&todos);
+    let refs: Vec<&crate::models::Todo> = todos.iter().collect();
+    let table = format_table(&refs);
     println!("\n{table}");
 
+    // Count from the actual store for accurate counts
+    let store = crate::storage::load_store()?;
     print_todo_count(store.pending_count(), store.done_count());
 
     Ok(())

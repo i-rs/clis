@@ -5,14 +5,14 @@ use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, show_password: bool, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let bookmark = if let Some(b) = store.get_entry(&name) { b } else {
-        let msg = format!("Bookmark '{name}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
-        anyhow::bail!("{msg}");
+    let bookmark = match crate::service::get_bookmark(&name) {
+        Ok(b) => b,
+        Err(e) => {
+            if format.is_json() {
+                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
+            }
+            return Err(e);
+        }
     };
 
     if format.is_json() {

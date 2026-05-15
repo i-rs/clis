@@ -1,37 +1,9 @@
-use crate::models::Note;
 use crate::presentation::print_success;
-use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
-pub fn handle_add(
-    name: String,
-    title: Option<String>,
-    tag: Vec<String>,
-    content: Vec<String>,
-) -> Result<()> {
-    let mut store = storage::load_store()?;
-
-    if store.notes.contains_key(&name) {
-        anyhow::bail!("Note '{name}' already exists");
-    }
-
-    let now = Utc::now();
-    let note = Note {
-        name: name.clone(),
-        title,
-        tags: tag,
-        content,
-        remark: Vec::new(),
-        created_at: now,
-        updated_at: now,
-    };
-
-    store.add_entry(note);
-    storage::save_store(&store)?;
-
+pub fn handle_add(name: String, title: Option<String>, tag: Vec<String>, content: Vec<String>) -> Result<()> {
+    crate::service::add_note(name.clone(), title, tag, content)?;
     print_success(&format!("✓ Note '{}' added successfully", name.green()));
-
     Ok(())
 }

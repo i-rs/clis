@@ -96,9 +96,10 @@ tabled = { version = "0.20.0", features = ["ansi"] }
 owo-colors = "4.3.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4"] }
-axum = { version = "0.7" }
+axum = { version = "0.8" }
 tokio = { version = "1.0", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors"] }
+fs2 = "0.4"
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.31.0"

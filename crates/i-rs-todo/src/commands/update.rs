@@ -1,8 +1,5 @@
-use crate::models::Priority;
 use crate::presentation::print_success;
-use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
 pub fn handle_update(
@@ -12,33 +9,7 @@ pub fn handle_update(
     tag: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<()> {
-    let mut store = storage::load_store()?;
-
-    let todo = match store.get_entry_mut(&name) {
-        Some(t) => t,
-        None => {
-            anyhow::bail!("Todo '{name}' not found");
-        }
-    };
-
-    if let Some(t) = title {
-        todo.title = Some(t);
-    }
-    if let Some(p) = priority {
-        todo.priority = Priority::from_str(&p).unwrap_or(Priority::Medium);
-    }
-    if let Some(tags) = tag {
-        todo.tags = tags;
-    }
-    if let Some(c) = content {
-        todo.content = c;
-    }
-
-    todo.updated_at = Utc::now();
-
-    storage::save_store(&store)?;
-
+    crate::service::update_todo(name.clone(), title, priority, tag, content)?;
     print_success(&format!("✓ Todo '{}' updated", name.green()));
-
     Ok(())
 }

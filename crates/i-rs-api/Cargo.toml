@@ -9,6 +9,14 @@ description = "REST API server for i-rs CLI tools"
 
 [dependencies]
 i-rs-core = { path = "../i-rs-core" }
+i-rs-todo = { path = "../i-rs-todo" }
+i-rs-weight = { path = "../i-rs-weight" }
+i-rs-habit = { path = "../i-rs-habit" }
+i-rs-note = { path = "../i-rs-note" }
+i-rs-bookmark = { path = "../i-rs-bookmark" }
+i-rs-mood = { path = "../i-rs-mood" }
+i-rs-kv = { path = "../i-rs-kv" }
+i-rs-keys = { path = "../i-rs-keys" }
 axum = { workspace = true, features = ["macros"] }
 tokio.workspace = true
 tower-http.workspace = true

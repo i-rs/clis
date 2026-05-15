@@ -1,18 +1,17 @@
 use crate::presentation::{output_error, output_item, print_header, OutputFormat};
-use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let note = if let Some(n) = store.get_entry(&name) { n } else {
-        let msg = format!("Note '{name}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
+    let note = match crate::service::get_note(&name) {
+        Ok(n) => n,
+        Err(e) => {
+            if format.is_json() {
+                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
+            }
+            return Err(e);
         }
-        anyhow::bail!("{msg}");
     };
 
     if format.is_json() {

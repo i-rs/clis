@@ -1,13 +1,12 @@
+use crate::models::Note;
 use crate::presentation::{format_table, print_note_count, print_warning, output_list, OutputFormat};
-use crate::storage;
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
+    let notes = crate::service::list_notes(tag.clone())?;
+    let notes_ref: Vec<&Note> = notes.iter().collect();
 
-    let notes: Vec<&crate::models::Note> = storage::filter_by_tag(&store, tag.as_deref());
-
-    if notes.is_empty() {
+    if notes_ref.is_empty() {
         if format.is_json() {
             println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
         } else {
@@ -27,7 +26,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             updated_at: String,
         }
 
-        let items: Vec<ListItem> = notes.iter().map(|n| ListItem {
+        let items: Vec<ListItem> = notes_ref.iter().map(|n| ListItem {
             name: n.name.clone(),
             title: n.title.clone(),
             tags: n.tags.clone(),
@@ -40,10 +39,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    let table = format_table(&notes);
+    let table = format_table(&notes_ref);
     println!("\n{table}");
 
-    print_note_count(notes.len());
+    print_note_count(notes_ref.len());
 
     Ok(())
 }

@@ -1,39 +1,9 @@
 use crate::presentation::print_success;
-use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
-pub fn handle_update(
-    name: String,
-    title: Option<String>,
-    tag: Option<Vec<String>>,
-    content: Option<Vec<String>>,
-) -> Result<()> {
-    let mut store = storage::load_store()?;
-
-    let note = match store.get_entry_mut(&name) {
-        Some(n) => n,
-        None => {
-            anyhow::bail!("Note '{name}' not found");
-        }
-    };
-
-    if let Some(title) = title {
-        note.title = Some(title);
-    }
-    if let Some(tag) = tag {
-        note.tags = tag;
-    }
-    if let Some(content) = content {
-        note.content = content;
-    }
-
-    note.updated_at = Utc::now();
-
-    storage::save_store(&store)?;
-
+pub fn handle_update(name: String, title: Option<String>, tag: Option<Vec<String>>, content: Option<Vec<String>>) -> Result<()> {
+    crate::service::update_note(name.clone(), title, tag, content)?;
     print_success(&format!("✓ Note '{}' updated successfully", name.green()));
-
     Ok(())
 }

@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::api::run_cli;
+use crate::api::{call_service, call_service_unit};
 
 pub fn router() -> Router {
     Router::new()
@@ -30,29 +30,27 @@ pub struct ListKvQuery {
 async fn list_kv(
     Query(query): Query<ListKvQuery>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["list".to_string()];
-    if let Some(ref search) = query.search {
-        args.push("--search".to_string());
-        args.push(search.clone());
-    }
-    run_cli("i-rs-kv", args).await
+    let tag = query.search; // API uses "search" but KV service uses tag filtering
+    call_service(move || i_rs_kv::service::list_kv(tag)).await
 }
 
 async fn set_kv(
     Path(key): Path<String>,
     Json(req): Json<SetKvRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-kv", vec!["add".to_string(), key, req.value]).await
+    let key = key;
+    let value = req.value;
+    call_service(move || i_rs_kv::service::add_kv(key, value, vec![], vec![])).await
 }
 
 async fn get_kv(
     Path(key): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-kv", vec!["get".to_string(), key]).await
+    call_service(move || i_rs_kv::service::get_kv(&key)).await
 }
 
 async fn delete_kv(
     Path(key): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-kv", vec!["delete".to_string(), key]).await
+    call_service_unit(move || i_rs_kv::service::delete_kv(&key)).await
 }

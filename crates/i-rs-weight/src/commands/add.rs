@@ -1,35 +1,9 @@
-use crate::models::WeightRecord;
 use crate::presentation::print_success;
-use crate::storage;
 use anyhow::Result;
-use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
-pub fn handle_add(
-    date: String,
-    weight: f64,
-    remark: Vec<String>,
-) -> Result<()> {
-    let date = parse_date(&date)?;
-
-    let mut store = storage::load_store()?;
-
-    if store.records.contains_key(&date) {
-        anyhow::bail!("Record for {date} already exists");
-    }
-
-    let record = WeightRecord {
-        date,
-        weight,
-        tags: Vec::new(),
-        remark,
-    };
-
-    store.add_entry(record);
-    storage::save_store(&store)?;
-
+pub fn handle_add(date: String, weight: f64, remark: Vec<String>) -> Result<()> {
+    crate::service::add_weight(date, weight, remark)?;
     print_success(&format!("✓ Weight record added: {} kg", weight.green()));
-
     Ok(())
 }
-

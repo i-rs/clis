@@ -1,8 +1,5 @@
-use crate::models::Bookmark;
 use crate::presentation::print_success;
-use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
 pub fn handle_add(
@@ -13,36 +10,11 @@ pub fn handle_add(
     tag: Vec<String>,
     remark: Vec<String>,
 ) -> Result<()> {
-    let mut store = storage::load_store()?;
-
-    if store.bookmarks.contains_key(&name) {
-        anyhow::bail!("Bookmark '{name}' already exists");
-    }
-
-    if let Some(ref pwd) = password {
-        storage::store_password(&name, pwd)?;
-    }
-
-    let now = Utc::now();
-    let bookmark = Bookmark {
-        name: name.clone(),
-        url,
-        account,
-        password: None,
-        tags: tag,
-        remark,
-        created_at: now,
-        updated_at: now,
-    };
-
-    store.add_entry(bookmark);
-    storage::save_store(&store)?;
-
+    let has_password = password.is_some();
+    crate::service::add_bookmark(name.clone(), url, account, password, tag, remark)?;
     print_success(&format!("✓ Bookmark '{}' added successfully", name.green()));
-
-    if password.is_some() {
+    if has_password {
         println!("  {}", "Password stored securely in keychain".dimmed());
     }
-
     Ok(())
 }

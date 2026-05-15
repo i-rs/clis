@@ -1,51 +1,34 @@
-use std::process::Command;
-use axum::{
-    Json,
-    http::StatusCode,
-};
-use serde_json::json;
+use axum::Json;
+use axum::http::StatusCode;
 
-pub async fn run_cli(
-    binary: &str,
-    args: Vec<String>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    let output = Command::new(binary)
-        .arg("--json")
-        .args(&args)
-        .output()
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to execute {binary}: {e}")))?;
+/// Call a sync service function that returns data, wrapped in spawn_blocking.
+/// Returns JSON: `{ "success": true, "data": <result> }`
+pub async fn call_service<F, T>(f: F) -> Result<Json<serde_json::Value>, (StatusCode, String)>
+where
+    F: FnOnce() -> anyhow::Result<T> + Send + 'static,
+    T: serde::Serialize + Send + 'static,
+{
+    let data = tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Server error: {e}")))?
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Command failed: {}", stderr)));
-    }
+    let value = serde_json::to_value(data)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Serialize error: {e}")))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stdout = stdout.trim();
-
-    if stdout.is_empty() {
-        return Ok(Json(json!({
-            "success": true,
-            "data": null,
-            "message": "OK"
-        })));
-    }
-
-    let json: serde_json::Value = serde_json::from_str(stdout)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("JSON parse error: {}", e)))?;
-
-    Ok(Json(json))
+    Ok(Json(serde_json::json!({ "success": true, "data": value })))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Call a sync service function that returns `()`, wrapped in spawn_blocking.
+/// Returns JSON: `{ "success": true, "message": "OK" }`
+pub async fn call_service_unit<F>(f: F) -> Result<Json<serde_json::Value>, (StatusCode, String)>
+where
+    F: FnOnce() -> anyhow::Result<()> + Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Server error: {e}")))?
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    #[tokio::test]
-    async fn test_run_cli_empty_output() {
-        let result = run_cli("true", vec![]).await;
-        assert!(result.is_ok());
-        let json = result.unwrap();
-        assert_eq!(json.get("success").unwrap(), true);
-    }
+    Ok(Json(serde_json::json!({ "success": true, "message": "OK" })))
 }

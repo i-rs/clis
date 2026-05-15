@@ -1,22 +1,21 @@
 use crate::presentation::{output_error, output_item, print_header, OutputFormat};
-use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(key: String, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let entry = if let Some(e) = store.get_entry(&key) { e } else {
-        let msg = format!("Key '{key}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
-        anyhow::bail!("{msg}");
+    let entry = match crate::service::get_kv(&key) {
+        Ok(e) => e,
+        Err(e) => {
+            if format.is_json() {
+                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
+            }
+            return Err(e);
+        }
     };
 
     if format.is_json() {
-        let output = crate::models::ListItem::from(entry);
+        let output = crate::models::ListItem::from(&entry);
         println!("{}", output_item(&output, format));
         return Ok(());
     }

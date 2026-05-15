@@ -1,13 +1,7 @@
 use crate::presentation::print_success;
-use crate::storage;
 
 pub fn handle_delete(name: String) -> anyhow::Result<()> {
-    let mut store = storage::load_store()?;
-
-    storage::delete_habit(&mut store, &name)?;
-    storage::save_store(&store)?;
-
+    crate::service::delete_habit(&name)?;
     print_success(&format!("Habit '{name}' deleted successfully"));
-
     Ok(())
 }

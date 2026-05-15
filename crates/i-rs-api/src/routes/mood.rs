@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::api::run_cli;
+use crate::api::{call_service, call_service_unit};
 
 pub fn router() -> Router {
     Router::new()
@@ -28,53 +28,47 @@ pub struct AddMoodRequest {
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
     pub days: Option<i32>,
-    pub tag: Option<String>,
 }
 
 async fn list_moods(
     Query(params): Query<ListQuery>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["list".to_string()];
-    if let Some(days) = params.days {
-        args.push("--days".to_string());
-        args.push(days.to_string());
-    }
-    if let Some(ref tag) = params.tag {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-
-    run_cli("i-rs-mood", args).await
+    let days = params.days.map(|d| d as usize);
+    call_service(move || i_rs_mood::service::list_moods(days)).await
 }
 
 async fn add_mood(
     Json(req): Json<AddMoodRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["add".to_string(), req.mood.clone()];
-    if let Some(ref note) = req.note {
-        args.push("--note".to_string());
-        args.push(note.clone());
-    }
-    for tag in req.tag.iter().flatten() {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-
-    run_cli("i-rs-mood", args).await
+    let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let mood = req.mood;
+    let content = req.note.map(|n| vec![n]).unwrap_or_default();
+    let tags = req.tag.unwrap_or_default();
+    call_service(move || i_rs_mood::service::add_mood(date, mood, tags, content)).await
 }
 
 async fn get_mood(
     Path(date): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-mood", vec!["get".to_string(), date]).await
+    call_service(move || i_rs_mood::service::get_mood(&date)).await
 }
 
 async fn delete_mood(
     Path(date): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-mood", vec!["delete".to_string(), date]).await
+    call_service_unit(move || i_rs_mood::service::delete_mood(date)).await
 }
 
 async fn mood_stats() -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-mood", vec!["stats".to_string()]).await
+    call_service(|| -> anyhow::Result<serde_json::Value> {
+        let stats = i_rs_mood::service::mood_stats()?;
+        match stats {
+            Some((min, max, avg)) => Ok(serde_json::json!({
+                "best": min.label(),
+                "worst": max.label(),
+                "average": format!("{:.1}/5", avg),
+            })),
+            None => Ok(serde_json::json!({ "message": "No mood records" })),
+        }
+    }).await
 }

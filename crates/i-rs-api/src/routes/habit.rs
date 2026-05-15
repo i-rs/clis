@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::api::run_cli;
+use crate::api::call_service;
 
 pub fn router() -> Router {
     Router::new()
@@ -21,54 +21,46 @@ pub fn router() -> Router {
 #[derive(Debug, Deserialize)]
 pub struct AddHabitRequest {
     pub name: String,
-    pub title: Option<String>,
     pub description: Option<String>,
     pub frequency: Option<String>,
     pub tag: Option<Vec<String>>,
 }
 
 async fn list_habits() -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-habit", vec!["list".to_string()]).await
+    call_service(|| i_rs_habit::service::list_habits(None)).await
 }
 
 async fn add_habit(
     Json(req): Json<AddHabitRequest>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let mut args = vec!["add".to_string(), req.name.clone()];
-    if let Some(ref title) = req.title {
-        args.push("--title".to_string());
-        args.push(title.clone());
-    }
-    if let Some(ref description) = req.description {
-        args.push("--description".to_string());
-        args.push(description.clone());
-    }
-    if let Some(ref frequency) = req.frequency {
-        args.push("--frequency".to_string());
-        args.push(frequency.clone());
-    }
-    for tag in req.tag.iter().flatten() {
-        args.push("--tag".to_string());
-        args.push(tag.clone());
-    }
-
-    run_cli("i-rs-habit", args).await
+    let name = req.name;
+    let description = req.description.unwrap_or_default();
+    let frequency = req.frequency.unwrap_or_else(|| "daily".to_string());
+    let tags = req.tag.unwrap_or_default();
+    let remark = Vec::new();
+    call_service(move || i_rs_habit::service::add_habit(name, description, frequency, tags, remark)).await
 }
 
 async fn get_habit(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-habit", vec!["get".to_string(), name]).await
+    call_service(move || i_rs_habit::service::get_habit(&name)).await
 }
 
 async fn checkin_habit(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-habit", vec!["checkin".to_string(), name]).await
+    call_service(move || i_rs_habit::service::checkin_habit(&name)).await
 }
 
 async fn habit_stats(
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    run_cli("i-rs-habit", vec!["stats".to_string(), name]).await
+    call_service(move || {
+        let habit = i_rs_habit::service::get_habit(&name)?;
+        Ok(serde_json::json!({
+            "name": habit.name,
+            "checkin_count": habit.checkins.len(),
+        }))
+    }).await
 }

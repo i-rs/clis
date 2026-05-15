@@ -1,24 +1,10 @@
 use crate::models::WeightRecord;
 use crate::presentation::{format_table, print_chart, print_record_count, print_warning, output_list, OutputFormat};
-use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
 pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: OutputFormat) -> Result<()> {
-    let store = storage::load_store()?;
-
-    let records: Vec<WeightRecord> = if let Some(d) = days {
-        let cutoff = Utc::now().date_naive() - chrono::Duration::days(d as i64);
-        store
-            .records
-            .values()
-            .filter(|r| r.date >= cutoff)
-            .cloned()
-            .collect()
-    } else {
-        store.records.values().cloned().collect()
-    };
+    let records = crate::service::list_weights(days)?;
 
     if records.is_empty() {
         if format.is_json() {

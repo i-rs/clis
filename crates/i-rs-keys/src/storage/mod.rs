@@ -1,4 +1,4 @@
-use crate::models::{KeyEntry, KeyStore};
+use crate::models::KeyStore;
 use anyhow::Result;
 use keyring::use_native_store;
 use keyring_core::Entry;
@@ -42,15 +42,4 @@ pub fn delete_key(name: &str) -> Result<()> {
         let _ = entry.delete_credential();
     }
     Ok(())
-}
-
-pub fn filter_by_tag<'a>(store: &'a KeyStore, tag: Option<&'a str>) -> Vec<&'a KeyEntry> {
-    match tag {
-        Some(t) => store
-            .entries
-            .values()
-            .filter(|e| e.tags.iter().any(|tag| tag == t))
-            .collect(),
-        None => store.entries.values().collect(),
-    }
 }
