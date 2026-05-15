@@ -73,6 +73,7 @@ members = [
     "crates/i-rs-vision",
     "crates/i-rs-appliance",
     "crates/i-rs-event",
+    "crates/i-rs-api",
 ]
 
 [workspace.package]
@@ -95,6 +96,9 @@ tabled = { version = "0.20.0", features = ["ansi"] }
 owo-colors = "4.3.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4"] }
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors"] }
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.31.0"

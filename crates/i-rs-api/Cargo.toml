@@ -1,0 +1,20 @@
+[package]
+name = "i-rs-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "REST API server for i-rs CLI tools"
+
+[dependencies]
+i-rs-core = { path = "../i-rs-core" }
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1.0", features = ["full"] }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+
+[features]
+default = []

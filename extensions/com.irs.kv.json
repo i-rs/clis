@@ -1,0 +1,9 @@
+{
+  "name": "com.irs.kv",
+  "description": "i-rs KV Native Messaging Host",
+  "path": "/usr/local/bin/i-rs-native-msg",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://fijgpbjcalkdgahiifcekifnklmbimag/"
+  ]
+}

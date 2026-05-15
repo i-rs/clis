@@ -2,7 +2,12 @@
 
 ## Project Overview
 
-Rust monorepo with **70 cross-platform CLI tools** for personal data management, plus 1 shared core library.
+Rust monorepo with **70 cross-platform CLI tools** for personal data management, plus special crates and browser extensions:
+
+- **`i-rs`** - Meta CLI (unified entry point)
+- **`i-rs-core`** - Shared core library
+- **`i-rs-api`** - 🌱 Experimental REST API server
+- **`extensions/`** - Browser extensions via Native Messaging
 
 **Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core.
 
@@ -11,8 +16,14 @@ Rust monorepo with **70 cross-platform CLI tools** for personal data management,
 ```
 i-rs-clis/
 ├── crates/
+│   ├── i-rs/               # Meta CLI (unified entry point for all tools)
 │   ├── i-rs-core/          # Shared core library (macros, Storage, presentation, utils)
+│   ├── i-rs-api/           # 🌱 Experimental REST API server (Axum)
 │   ├── i-rs-{name}...      # 70 CLI tools
+├── extensions/              # Browser extensions (Native Messaging)
+│   ├── i-rs-kv-chrome/     # Chrome extension for i-rs-kv
+│   ├── i-rs-native-msg/    # Native messaging host (Rust)
+│   └── install-*.sh        # Installation scripts
 ├── docs/                   # VitePress documentation
 │   └── .vitepress/
 │       └── config.ts       # Documentation sidebar config
@@ -28,6 +39,121 @@ i-rs-clis/
 ├── SPEC.md                 # Detailed specifications (Chinese)
 └── AGENTS.md               # This file
 ```
+
+## Special Crates
+
+These crates are **not standard CLI tools** and have different development requirements:
+
+| Crate | Type | Description |
+|-------|------|-------------|
+| `i-rs` | Meta CLI | Unified entry point that delegates to all 70 CLI tools |
+| `i-rs-core` | Shared Library | Core library providing `Storage<T>`, macros, presentation, and utilities |
+| `i-rs-api` | 🌱 Experimental | REST API server built with Axum, wrapping CLI tools as HTTP endpoints |
+
+### i-rs (Meta CLI)
+
+`i-rs` is a **meta wrapper** that provides a unified CLI entry point:
+
+```bash
+i-rs weight list     # Calls i-rs-weight list
+i-rs mood calendar   # Calls i-rs-mood calendar
+```
+
+It does NOT have its own models/storage/commands - it only routes to other tools.
+
+### i-rs-core (Shared Library)
+
+`i-rs-core` is the **foundation** for all 70 CLI tools:
+
+- **Must NOT depend on any other i-rs-* crates**
+- Provides: `Storage<T>`, `create_store!`, `skill_command!`, `exit_on_error!`, presentation helpers, validation utilities
+- 21 unit tests verify core functionality
+
+### i-rs-api (🌱 Experimental)
+
+`i-rs-api` is an **experimental REST API** built with Axum:
+
+- Wraps CLI tools as HTTP endpoints
+- Uses `i-rs-core` but NOT the standard CLI crate pattern
+- Does NOT have: `storage/mod.rs`, `commands/`, `models/`, `presentation/`
+- May have different conventions than standard CLI crates
+- **API stability not guaranteed** - breaking changes may occur
+
+## Browser Extensions (Native Messaging)
+
+Browser extensions can communicate with i-rs tools using Chrome/Firefox Native Messaging.
+
+### Architecture
+
+```
+┌─────────────────┐     Native Messaging      ┌──────────────────┐
+│  Browser        │ ◄──── JSON over stdio ────► │  Native Host     │
+│  Extension JS   │                            │  (Rust binary)   │
+└─────────────────┘                            └────────┬─────────┘
+                                                        │
+                                                        │ reads/writes
+                                                        ▼
+                                               ┌──────────────────┐
+                                               │  ~/.config/i-rs/ │
+                                               │      kv.json     │
+                                               └──────────────────┘
+```
+
+### Directory Structure
+
+```
+extensions/
+├── i-rs-kv-chrome/          # Chrome extension for i-rs-kv
+│   ├── manifest.json        # Extension manifest (Manifest V3)
+│   ├── popup.html/css/js    # Popup UI
+│   ├── background.js        # Service worker
+│   └── icons/               # Extension icons
+├── i-rs-native-msg/         # Native Messaging host (Rust)
+│   ├── src/main.rs          # Host implementation
+│   └── Cargo.toml           # Dependencies
+├── install-macos.sh         # One-click installer for macOS
+└── install-linux.sh         # One-click installer for Linux
+```
+
+### Message Protocol
+
+Messages are JSON objects with an `action` field:
+
+```json
+{ "action": "List" }
+{ "action": "Get", "key": "my-key" }
+{ "action": "Set", "key": "my-key", "value": "my-value" }
+{ "action": "Delete", "key": "my-key" }
+{ "action": "Search", "query": "term" }
+```
+
+Response format:
+```json
+{ "success": true, "message": "OK", "data": [...] }
+```
+
+### Installation
+
+1. Build native messaging host:
+   ```bash
+   cd extensions/i-rs-native-msg
+   cargo build --release
+   ```
+
+2. Install binary to PATH and create host manifest:
+   ```bash
+   # macOS
+   ./extensions/install-macos.sh
+   
+   # Linux
+   ./extensions/install-linux.sh
+   ```
+
+3. Load extension in browser:
+   - Chrome: `chrome://extensions/` → Load unpacked
+   - Firefox: `about:debugging` → Load Temporary Add-on
+
+4. Update extension ID in host manifest
 
 ## CLI Tools Summary (70 tools)
 

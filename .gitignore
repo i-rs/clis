@@ -10,4 +10,11 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 
 /.sisyphus
-/.sisyphus
+
+# Chrome Extension build artifacts
+extensions/**/*.zip
+extensions/**/dist/
+extensions/**/build/
+
+# Native Messaging host build artifacts
+extensions/i-rs-native-msg/target/
