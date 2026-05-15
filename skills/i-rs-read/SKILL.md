@@ -1,6 +1,6 @@
 ---
 name: "i-rs-read"
-description: "阅读进度追踪 CLI 工具，用于管理书籍、追踪阅读进度、添加评分和评论。适用于需要追踪阅读计划、管理待读书单、记录阅读进度的场景。"
+description: "Reading progress tracking CLI tool for managing books, tracking reading progress, adding ratings and reviews. Invoke when user needs to track reading plans, manage reading lists, or record reading progress."
 ---
 
 # i-rs-read
@@ -9,86 +9,86 @@ description: "阅读进度追踪 CLI 工具，用于管理书籍、追踪阅读�
 
 - `--json` — Output in JSON format
 
-i-rs-read 是一个阅读进度追踪 CLI 工具，帮助用户管理书籍、追踪阅读进度、添加评分和评论。
+i-rs-read is a reading progress tracking CLI tool that helps users manage books, track reading progress, add ratings and reviews.
 
-## 存储
+## Storage
 
-- **配置文件**: `~/.config/i-rs/read.json`
-- **环境变量**: 可通过 `CONFIG_DIR` 覆盖配置目录
+- **Config file**: `~/.config/i-rs/read.json`
+- **Environment**: `CONFIG_DIR` overrides default path
 
-## 命令
+## Commands
 
 ### add
 
-添加一本新书。
+Add a new book.
 
 ```bash
-i-rs-read add <书名> <作者> <总页数> [选项]
+i-rs-read add <NAME> <AUTHOR> <TOTAL_PAGES> [OPTIONS]
 
-选项:
-  --tags <标签>       添加标签
-  --remark <备注>     添加备注
+Options:
+  --tags <TAGS>       Add tags
+  --remark <REMARK>   Add remarks
 ```
 
 ### list
 
-列出所有书籍。
+List all books.
 
 ```bash
-i-rs-read list [选项]
+i-rs-read list [OPTIONS]
 
-选项:
-  --tag <标签>        按标签筛选
-  --status <状态>     按状态筛选
+Options:
+  --tag <TAG>         Filter by tag
+  --status <STATUS>   Filter by status
 ```
 
 ### get
 
-获取书籍详情。
+Get book details.
 
 ```bash
-i-rs-read get <书名>
+i-rs-read get <NAME>
 ```
 
 ### update
 
-更新书籍信息。
+Update book information.
 
 ```bash
-i-rs-read update <书名> [选项]
+i-rs-read update <NAME> [OPTIONS]
 
-选项:
-  --current-page <页码>  更新当前页数
-  --status <状态>        更新状态 (reading, completed, paused, dropped, to_read)
-  --rating <评分>        添加评分 (0-5)
-  --review <评论>        添加评论
-  --tags <标签>          更新标签
-  --add-remark <备注>    添加备注
-  --remove-remark <索引> 删除备注
+Options:
+  --current-page <PAGE>   Update current page
+  --status <STATUS>       Update status (reading, completed, paused, dropped, to_read)
+  --rating <RATING>       Add rating (0-5)
+  --review <REVIEW>       Add review
+  --tags <TAGS>           Update tags
+  --add-remark <REMARK>   Add remarks
+  --remove-remark <INDEX> Remove remarks
 ```
 
 ### delete
 
-删除书籍。
+Delete a book.
 
 ```bash
-i-rs-read delete <书名>
+i-rs-read delete <NAME>
 ```
 
 ### stats
 
-显示阅读统计。
+Show reading statistics.
 
 ```bash
-i-rs-read stats [选项]
+i-rs-read stats [OPTIONS]
 
-选项:
-  --tag <标签>  按标签筛选统计
+Options:
+  --tag <TAG>  Filter statistics by tag
 ```
 
 ### example
 
-显示使用示例。
+Show usage examples.
 
 ```bash
 i-rs-read example
@@ -96,37 +96,37 @@ i-rs-read example
 
 ### skill
 
-显示 AI 技能文档。
+View AI skill documentation.
 
 ```bash
 i-rs-read skill [--summary] [--content]
 ```
 
-## 阅读状态
+## Reading Status
 
-| 状态 | 说明 |
-|------|------|
-| `to_read` | 待读 |
-| `reading` | 阅读中 |
-| `completed` | 已完成 |
-| `paused` | 暂停 |
-| `dropped` | 放弃 |
+| Status | Description |
+|--------|-------------|
+| `to_read` | To read |
+| `reading` | Currently reading |
+| `completed` | Finished |
+| `paused` | Paused |
+| `dropped` | Abandoned |
 
-## 数据结构
+## Data Structure
 
 ```json
 {
   "books": {
-    "书名": {
-      "name": "书名",
-      "author": "作者",
+    "Book Name": {
+      "name": "Book Name",
+      "author": "Author",
       "total_pages": 500,
       "current_page": 250,
       "status": "reading",
       "rating": 4.5,
-      "review": "评论内容",
+      "review": "Review content",
       "tags": ["tag1", "tag2"],
-      "remark": ["备注1", "备注2"],
+      "remark": ["remark1", "remark2"],
       "created_at": 1234567890,
       "updated_at": 1234567890
     }
@@ -134,31 +134,25 @@ i-rs-read skill [--summary] [--content]
 }
 ```
 
-## 示例
+## Examples
 
 ```bash
-# 添加书籍
+# Add a book
+i-rs-read add "The Rust Programming Language" "Steve Klabnik" 500
 
-i-rs-read add "Rust 编程之道" "Steve Klabnik" 500
+# Update reading progress
+i-rs-read update "The Rust Programming Language" --current-page 250
 
-# 更新阅读进度
+# Mark as completed with rating
+i-rs-read update "The Rust Programming Language" --status completed --rating 5
 
-i-rs-read update "Rust 编程之道" --current-page 250
-
-# 标记为已完成并评分
-
-i-rs-read update "Rust 编程之道" --status completed --rating 5
-
-# 列出所有书籍
-
+# List all books
 i-rs-read list
 
-# 按标签筛选
-
+# Filter by tag
 i-rs-read list --tag programming
 
-# 查看统计
-
+# View statistics
 i-rs-read stats
 ```
 
@@ -176,6 +170,5 @@ i-rs-read data clear
 
 ```bash
 # JSON output
-
 i-rs-read list --json
 ```

@@ -1,93 +1,93 @@
 # i-rs-quote
 
-语录收藏 CLI 工具 - 用于收集、整理和展示名人名言、书籍摘录等。
+Quote collection CLI tool for collecting, organizing, and displaying quotes and book excerpts.
 
-## 功能特点
+## Features
 
-- 语录内容管理（内容、作者、出处）
-- 标签分类系统
-- 按作者搜索
-- 随机展示语录
-- 个人备注支持
-- JSON 输出支持
+- Quote content management (content, author, source)
+- Tag classification system
+- Search by author
+- Random quote display
+- Personal notes support
+- JSON output support
 
-## 安装
+## Install
 
 ```bash
 npm install -g @i-rs/i-rs-quote
-# 或者
+# or
 brew install i-rs/homebrew-tap/i-rs-quote
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 添加语录
+# Add a quote
 i-rs-quote add --content "The only way to do great work is to love what you do." --author "Steve Jobs"
 
-# 按作者搜索
+# Search by author
 i-rs-quote list --author "Steve"
 
-# 列出所有语录
+# List all quotes
 i-rs-quote list
 
-# 随机展示
+# Random quote
 i-rs-quote random
 
-# 查看详情
+# View details
 i-rs-quote get <uuid>
 
-# 删除语录
+# Delete a quote
 i-rs-quote delete <uuid>
 ```
 
-## 数据存储
+## Commands
 
-- macOS: `~/.config/i-rs/quotes.json`
-- Linux: `~/.config/i-rs/quotes.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
-
-## 命令详解
-
-### add - 添加语录
+### add - Add a quote
 
 ```bash
-i-rs-quote add --content "语录内容" [--author "作者"] [--source "出处"] [--tag 标签] [--remark "备注"]
+i-rs-quote add --content "Quote text" [--author "Author"] [--source "Source"] [--tag TAG] [--remark "Note"]
 ```
 
-### list - 列出语录
+### list - List quotes
 
 ```bash
-i-rs-quote list [--tag 标签] [--author 作者]
+i-rs-quote list [--tag TAG] [--author AUTHOR]
 ```
 
-### get - 查看详情
+### get - View details
 
 ```bash
 i-rs-quote get <ID>
 ```
 
-### random - 随机展示
+### random - Random display
 
 ```bash
 i-rs-quote random
 ```
 
-### delete - 删除语录
+### delete - Delete quote
 
 ```bash
 i-rs-quote delete <ID>
 ```
 
-## JSON 输出
+## Data Storage
 
-所有命令支持 `--json` 全局标志：
+- macOS: `~/.config/i-rs/quotes.json`
+- Linux: `~/.config/i-rs/quotes.json`
+- Windows: `~\AppData\Roaming\i-rs\quotes.json`
+
+## JSON Output
+
+All commands support `--json` global flag:
 
 ```bash
 i-rs-quote list --json
 i-rs-quote get <ID> --json
 ```
 
-## 许可证
+## License
 
 MIT OR Apache-2.0

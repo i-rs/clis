@@ -1,121 +1,121 @@
 # i-rs-tax
 
-税务记录管理 CLI 工具，用于记录个人所得税、增值税等税务信息。
+Tax record management CLI tool for recording personal income tax, VAT, and other tax information.
 
-## 功能特性
+## Features
 
-- 税务记录管理（个税/增值税）
-- 金额和日期追踪
-- 报税状态管理
-- 标签分类
-- 年度统计
-- JSON 输出支持
+- Tax record management (personal income tax / VAT)
+- Amount and date tracking
+- Filing status management
+- Tag-based categorization
+- Annual statistics
+- JSON output support
 
-## 安装
+## Install
 
 ```bash
 cargo install i-rs-tax
-# 或
+# or
 brew install i-rs/homebrew-tap/i-rs-tax
 ```
 
-## 快速开始
+## Quick Start
 
-### 添加税务记录
+### Add Tax Record
 
 ```bash
-# 添加个人所得税
-i-rs-tax add 个税2024 --tax-type personal --amount 12000 --date 2024-03-15
+# Add personal income tax
+i-rs-tax add Income2024 --tax-type personal --amount 12000 --date 2024-03-15
 
-# 添加增值税记录
-i-rs-tax add 增值税Q1 --tax-type vat --amount 5000 --date 2024-04-01 --status filed
+# Add VAT record
+i-rs-tax add VAT-Q1 --tax-type vat --amount 5000 --date 2024-04-01 --status filed
 ```
 
-### 查看记录
+### View Records
 
 ```bash
-# 列出所有记录
+# List all records
 i-rs-tax list
 
-# 按年度筛选
+# Filter by year
 i-rs-tax list --year 2024
 
-# 按标签筛选
-i-rs-tax list --tag 工资
+# Filter by tag
+i-rs-tax list --tag salary
 
-# 按税种筛选
+# Filter by tax type
 i-rs-tax list --tax-type personal
 ```
 
-### 查看详情
+### View Details
 
 ```bash
-i-rs-tax get 个税2024
+i-rs-tax get Income2024
 ```
 
-### 删除记录
+### Delete Record
 
 ```bash
-i-rs-tax delete 个税2024
+i-rs-tax delete Income2024
 ```
 
-### 年度统计
+### Annual Statistics
 
 ```bash
-# 当前年度统计
+# Current year stats
 i-rs-tax stats
 
-# 指定年度统计
+# Specific year stats
 i-rs-tax stats --year 2024
 ```
 
-## 税种类型
+## Tax Types
 
-- `personal` / `个人所得税`: 个人所得税
-- `vat` / `增值税`: 增值税
+- `personal`: Personal income tax
+- `vat`: Value-added tax
 
-## 报税状态
+## Filing Status
 
-- `unreported` / `未申报`: 尚未申报
-- `filing` / `申报中`: 申报中
-- `filed` / `已申报`: 已申报
-- `paid` / `已缴纳`: 已缴纳
+- `unreported`: Not yet filed
+- `filing`: Filing in progress
+- `filed`: Already filed
+- `paid`: Already paid
 
-## 数据存储
+## Data Storage
 
 - macOS: `~/.config/i-rs/tax.json`
 - Linux: `~/.config/i-rs/tax.json`
 - Windows: `~\AppData\Roaming\i-rs\tax.json`
 
-可通过环境变量 `CONFIG_DIR` 覆盖配置目录。
+Override with `CONFIG_DIR` environment variable.
 
-## JSON 输出
+## JSON Output
 
-所有命令支持 `--json` 标志：
+All commands support `--json` flag:
 
 ```bash
 i-rs-tax list --json
-i-rs-tax get 个税2024 --json
+i-rs-tax get Income2024 --json
 i-rs-tax stats --year 2024 --json
 ```
 
-## 示例
+## Examples
 
 ```bash
-# 添加完整的税务记录
-i-rs-tax add 个税2024 \
+# Add a complete tax record
+i-rs-tax add Income2024 \
   --tax-type personal \
   --amount 12000 \
   --date 2024-03-15 \
   --status filed \
-  --tag 工资 \
-  --tag 年终奖 \
-  --remark 年终奖申报
+  --tag salary \
+  --tag bonus \
+  --remark Year-end bonus declaration
 
-# 查看所有个人所得税记录
+# View all personal income tax records
 i-rs-tax list --tax-type personal
 
-# 统计 2024 年度税务
+# View 2024 annual tax statistics
 i-rs-tax stats --year 2024
 ```
 

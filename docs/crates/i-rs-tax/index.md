@@ -1,59 +1,38 @@
-# i-rs-tax 税务记录管理
+# i-rs-tax Tax Record Management
 
-税务记录管理 CLI 工具，用于记录个人所得税、增值税等税务信息，支持年度统计和报税状态跟踪。
+Tax record management CLI tool for recording personal income tax, VAT, and other tax information with annual statistics and filing status tracking.
 
-## 功能特性
+## Features
 
-- **税务记录管理**: 支持个人所得税和增值税两种税种
-- **金额追踪**: 记录每笔税务的金额
-- **日期管理**: 记录税务发生的日期，自动提取年度
-- **报税状态**: 支持未申报、申报中、已申报、已缴纳四种状态
-- **标签分类**: 使用标签组织和筛选记录
-- **年度统计**: 按年度统计税务情况
-- **JSON 输出**: 支持 JSON 格式输出
+- **Tax Record Management**: Support for personal income tax and VAT
+- **Amount Tracking**: Record tax amounts
+- **Date Management**: Record tax dates with automatic year extraction
+- **Filing Status**: Support unreported, filing, filed, paid statuses
+- **Tag System**: Organize tax records with tags
+- **Annual Statistics**: View yearly tax summaries
 
-## 安装
-
-```bash
-cargo install i-rs-tax
-```
-
-## 快速开始
-
-### 添加税务记录
+## Quick Start
 
 ```bash
-i-rs-tax add 个税2024 \
-  --tax-type personal \
-  --amount 12000 \
-  --date 2024-03-15
-```
+# Add personal income tax
+i-rs-tax add Income2024 --tax-type personal --amount 12000 --date 2024-03-15
 
-### 列出记录
-
-```bash
+# List all records
 i-rs-tax list
-```
 
-### 查看详情
+# Filter by year
+i-rs-tax list --year 2024
 
-```bash
-i-rs-tax get 个税2024
-```
-
-### 年度统计
-
-```bash
+# View annual statistics
 i-rs-tax stats --year 2024
 ```
 
-## 数据存储
+## Data Storage
 
-- 配置文件: `~/.config/i-rs/tax.json`
-- 可通过环境变量 `CONFIG_DIR` 覆盖
+- macOS: `~/.config/i-rs/tax.json`
+- Linux: `~/.config/i-rs/tax.json`
+- Windows: `~\AppData\Roaming\i-rs\tax.json`
 
-## 相关链接
+## License
 
-- [使用文档](./usage.md)
-- [示例](./examples.md)
-- [测试记录](./test.md)
+MIT OR Apache-2.0

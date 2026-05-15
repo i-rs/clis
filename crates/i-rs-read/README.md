@@ -1,116 +1,116 @@
 # i-rs-read
 
-阅读进度追踪 CLI 工具，帮助你追踪和管理正在阅读的书籍。
+Reading progress tracking CLI tool to help you track and manage books you are reading.
 
-## 功能特性
+## Features
 
-- 添加和管理书籍信息（书名、作者、总页数）
-- 追踪阅读进度（当前页数、完成百分比）
-- 支持多种阅读状态（Reading、Completed、Paused、Dropped、ToRead）
-- 书籍评分和评论功能
-- 标签分类支持
-- 阅读统计（总书籍数、总页数、已完成数量、平均评分等）
-- 支持 JSON 输出格式
+- Add and manage book info (title, author, total pages)
+- Track reading progress (current page, completion percentage)
+- Multiple reading statuses (Reading, Completed, Paused, Dropped, ToRead)
+- Book rating and review
+- Tag-based organization
+- Reading statistics (total books, pages, completed, average rating)
+- JSON output support
 
-## 安装
+## Install
 
 ```bash
 npm install -g @i-rs/i-rs-read
-# 或者
+# or
 brew install i-rs/homebrew-tap/i-rs-read
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 添加新书籍
-i-rs-read add "Rust 编程之道" "Steve Klabnik" 500
+# Add a new book
+i-rs-read add "The Rust Programming Language" "Steve Klabnik" 500
 
-# 更新阅读进度
-i-rs-read update "Rust 编程之道" --current-page 250
+# Update reading progress
+i-rs-read update "The Rust Programming Language" --current-page 250
 
-# 标记为已完成并评分
-i-rs-read update "Rust 编程之道" --status completed --rating 5
+# Mark as completed with rating
+i-rs-read update "The Rust Programming Language" --status completed --rating 5
 
-# 列出所有书籍
+# List all books
 i-rs-read list
 
-# 查看阅读统计
+# View reading statistics
 i-rs-read stats
 ```
 
-## 命令说明
+## Commands
 
-| 命令 | 说明 |
-|------|------|
-| `add` | 添加新书籍 |
-| `list` | 列出所有书籍 |
-| `get` | 获取书籍详情 |
-| `update` | 更新书籍信息 |
-| `delete` | 删除书籍 |
-| `stats` | 显示阅读统计 |
-| `example` | 显示使用示例 |
-| `skill` | 显示 AI 技能文档 |
+| Command | Description |
+|---------|-------------|
+| `add` | Add a new book |
+| `list` | List all books |
+| `get` | Get book details |
+| `update` | Update book information |
+| `delete` | Delete a book |
+| `stats` | Show reading statistics |
+| `example` | Show usage examples |
+| `skill` | Show AI skill documentation |
 
-### add - 添加书籍
-
-```bash
-i-rs-read add <书名> <作者> <总页数> [选项]
-
-选项:
-  --tags <标签>       添加标签（可多次指定）
-  --remark <备注>     添加备注（可多次指定）
-```
-
-### list - 列出书籍
+### add - Add a book
 
 ```bash
-i-rs-read list [选项]
+i-rs-read add <NAME> <AUTHOR> <TOTAL_PAGES> [OPTIONS]
 
-选项:
-  --tag <标签>        按标签筛选
-  --status <状态>     按状态筛选（reading, completed, paused, dropped, to_read）
+Options:
+  --tags <TAGS>       Add tags (repeatable)
+  --remark <REMARK>   Add remarks (repeatable)
 ```
 
-### update - 更新书籍
+### list - List books
 
 ```bash
-i-rs-read update <书名> [选项]
+i-rs-read list [OPTIONS]
 
-选项:
-  --current-page <页码>  更新当前页数
-  --status <状态>        更新阅读状态
-  --rating <评分>        添加评分（0-5）
-  --review <评论>         添加评论
-  --tags <标签>          更新标签（逗号分隔）
-  --add-remark <备注>    添加备注
-  --remove-remark <索引>  删除备注（1-based）
+Options:
+  --tag <TAG>         Filter by tag
+  --status <STATUS>   Filter by status (reading, completed, paused, dropped, to_read)
 ```
 
-### stats - 阅读统计
+### update - Update book
 
 ```bash
-i-rs-read stats [选项]
+i-rs-read update <NAME> [OPTIONS]
 
-选项:
-  --tag <标签>  按标签筛选统计
+Options:
+  --current-page <PAGE>   Update current page
+  --status <STATUS>       Update reading status
+  --rating <RATING>       Add rating (0-5)
+  --review <REVIEW>       Add review
+  --tags <TAGS>           Update tags (comma separated)
+  --add-remark <REMARK>   Add remark
+  --remove-remark <INDEX> Remove remark (1-based)
 ```
 
-## 数据存储
+### stats - Reading statistics
+
+```bash
+i-rs-read stats [OPTIONS]
+
+Options:
+  --tag <TAG>  Filter statistics by tag
+```
+
+## Data Storage
 
 - macOS: `~/.config/i-rs/read.json`
 - Linux: `~/.config/i-rs/read.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\read.json`
 
-可通过 `CONFIG_DIR` 环境变量覆盖配置目录。
+Override with `CONFIG_DIR` environment variable.
 
-## JSON 输出
+## JSON Output
 
-所有命令支持 `--json` 全局标志以 JSON 格式输出：
+All commands support `--json` global flag:
 
 ```bash
 i-rs-read list --json
-i-rs-read get "书名" --json
+i-rs-read get "Book Name" --json
 i-rs-read stats --json
 ```
 

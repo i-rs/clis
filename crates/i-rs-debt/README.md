@@ -1,53 +1,53 @@
 # i-rs-debt
 
-债务管理 CLI 工具，用于追踪信用卡债务、贷款和借款，支持还款记录和逾期提醒。
+Debt management CLI tool for tracking credit card debts, loans, and borrowed money with payment history and overdue reminders.
 
-## 功能特点
+## Features
 
-- 支持多种债务类型：信用卡、贷款、借款
-- 记录还款历史
-- 分期还款追踪
-- 逾期提醒
-- 标签支持
-- 统计数据视图
-- JSON 输出支持
+- Multiple debt types: credit card, loan, borrowed
+- Payment history tracking
+- Installment payment tracking
+- Overdue reminders
+- Tag support
+- Statistics view
+- JSON output support
 
-## 安装
+## Install
 
 ```bash
 npm install -g @i-rs/i-rs-debt
-# 或
+# or
 brew install i-rs/homebrew-tap/i-rs-debt
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 添加信用卡债务
-i-rs-debt add "信用卡A" --debt-type credit_card --amount 10000 --interest-rate 15.0
+# Add credit card debt
+i-rs-debt add "Credit Card A" --debt-type credit_card --amount 10000 --interest-rate 15.0
 
-# 添加贷款
-i-rs-debt add "车贷" --debt-type loan --amount 50000 --tags car,vehicle
+# Add a loan
+i-rs-debt add "Car Loan" --debt-type loan --amount 50000 --tags car,vehicle
 
-# 列出所有债务
+# List all debts
 i-rs-debt list
 
-# 记录还款
-i-rs-debt pay "信用卡A" --amount 500
+# Record a payment
+i-rs-debt pay "Credit Card A" --amount 500
 
-# 查看债务详情
-i-rs-debt get "信用卡A"
+# View debt details
+i-rs-debt get "Credit Card A"
 
-# 查看统计
+# View statistics
 i-rs-debt stats
 ```
 
-## 数据存储
+## Data Storage
 
 - macOS: `~/.config/i-rs/debt.json`
 - Linux: `~/.config/i-rs/debt.json`
 - Windows: `~\AppData\Roaming\i-rs\debt.json`
 
-## 许可
+## License
 
 MIT OR Apache-2.0

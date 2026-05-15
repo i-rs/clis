@@ -1,46 +1,46 @@
-# i-rs-debt 使用指南
+# i-rs-debt Usage Guide
 
-## add - 添加债务
+## add - Add Debt
 
-创建新的债务记录。
+Create a new debt record.
 
 ```bash
 i-rs-debt add <name> --debt-type <type> --amount <amount> [options]
 ```
 
-**必填参数:**
-- `name`: 债务名称
-- `--debt-type`: 债务类型 (credit_card, loan, borrowed)
-- `--amount`: 债务总额
+**Required:**
+- `name`: Debt name
+- `--debt-type`: Debt type (credit_card, loan, borrowed)
+- `--amount`: Total debt amount
 
-**可选参数:**
-- `--interest-rate`: 年利率 (百分比)
-- `--due-date`: 到期日期 (YYYY-MM-DD)
-- `--tags`: 标签 (逗号分隔)
-- `--remark`: 备注 (可多次使用)
+**Options:**
+- `--interest-rate`: Annual interest rate (percentage)
+- `--due-date`: Due date (YYYY-MM-DD)
+- `--tags`: Tags (comma separated)
+- `--remark`: Remarks (repeatable)
 
-**示例:**
+**Examples:**
 ```bash
-i-rs-debt add "信用卡A" --debt-type credit_card --amount 10000 --interest-rate 15.0
-i-rs-debt add "车贷" --debt-type loan --amount 50000 --tags car,vehicle --due-date 2026-12-31
+i-rs-debt add "Credit Card A" --debt-type credit_card --amount 10000 --interest-rate 15.0
+i-rs-debt add "Car Loan" --debt-type loan --amount 50000 --tags car,vehicle --due-date 2026-12-31
 ```
 
 ---
 
-## list - 列出债务
+## list - List Debts
 
-列出所有债务，支持筛选。
+List all debts with optional filtering.
 
 ```bash
 i-rs-debt list [options]
 ```
 
-**可选参数:**
-- `--tag`: 按标签筛选
-- `--overdue`: 只显示逾期债务
-- `--paid-off`: 只显示已还清债务
+**Options:**
+- `--tag`: Filter by tag
+- `--overdue`: Show only overdue debts
+- `--paid-off`: Show only paid-off debts
 
-**示例:**
+**Examples:**
 ```bash
 i-rs-debt list
 i-rs-debt list --tag car
@@ -49,103 +49,103 @@ i-rs-debt list --overdue
 
 ---
 
-## get - 查看债务详情
+## get - View Debt Details
 
-查看单个债务的详细信息。
+View detailed information for a single debt.
 
 ```bash
 i-rs-debt get <name> [options]
 ```
 
-**可选参数:**
-- `--payments`: 显示还款历史
+**Options:**
+- `--payments`: Show payment history
 
-**示例:**
+**Examples:**
 ```bash
-i-rs-debt get "信用卡A"
-i-rs-debt get "信用卡A" --payments
+i-rs-debt get "Credit Card A"
+i-rs-debt get "Credit Card A" --payments
 ```
 
 ---
 
-## pay - 记录还款
+## pay - Record Payment
 
-记录一笔还款。
+Record a payment.
 
 ```bash
 i-rs-debt pay <name> --amount <amount> [options]
 ```
 
-**必填参数:**
-- `name`: 债务名称
-- `--amount`: 还款金额
+**Required:**
+- `name`: Debt name
+- `--amount`: Payment amount
 
-**可选参数:**
-- `--note`: 还款备注
+**Options:**
+- `--note`: Payment note
 
-**示例:**
+**Examples:**
 ```bash
-i-rs-debt pay "信用卡A" --amount 500 --note "月供"
+i-rs-debt pay "Credit Card A" --amount 500 --note "Monthly payment"
 ```
 
 ---
 
-## update - 更新债务
+## update - Update Debt
 
-更新债务信息。
+Update debt information.
 
 ```bash
 i-rs-debt update <name> [options]
 ```
 
-**可选参数:**
-- `--rename`: 新名称
-- `--debt-type`: 新债务类型
-- `--amount`: 新债务总额
-- `--interest-rate`: 新利率
-- `--due-date`: 新到期日期
-- `--add-tags`: 添加标签
-- `--remove-tags`: 移除标签
-- `--add-remark`: 添加备注
+**Options:**
+- `--rename`: New name
+- `--debt-type`: New debt type
+- `--amount`: New total amount
+- `--interest-rate`: New interest rate
+- `--due-date`: New due date
+- `--add-tags`: Add tags
+- `--remove-tags`: Remove tags
+- `--add-remark`: Add remarks
 
-**示例:**
+**Examples:**
 ```bash
-i-rs-debt update "信用卡A" --interest-rate 12.0
-i-rs-debt update "信用卡A" --add-tags important
+i-rs-debt update "Credit Card A" --interest-rate 12.0
+i-rs-debt update "Credit Card A" --add-tags important
 ```
 
 ---
 
-## delete - 删除债务
+## delete - Delete Debt
 
-删除债务记录。
+Delete a debt record.
 
 ```bash
 i-rs-debt delete <name> [options]
 ```
 
-**可选参数:**
-- `--force`: 跳过确认直接删除
+**Options:**
+- `--force`: Skip confirmation
 
-**示例:**
+**Examples:**
 ```bash
-i-rs-debt delete "旧债务" --force
+i-rs-debt delete "Old Debt" --force
 ```
 
 ---
 
-## stats - 统计数据
+## stats - Statistics
 
-显示债务统计信息。
+Show debt statistics.
 
 ```bash
 i-rs-debt stats [options]
 ```
 
-**可选参数:**
-- `--by-type`: 按债务类型分组显示
+**Options:**
+- `--by-type`: Group by debt type
 
-**示例:**
+**Examples:**
 ```bash
 i-rs-debt stats
 i-rs-debt stats --by-type
@@ -153,15 +153,15 @@ i-rs-debt stats --by-type
 
 ---
 
-## 全局选项
+## Global Options
 
-- `--json`: 以 JSON 格式输出
+- `--json`: Output in JSON format
 
 ---
 
-## example - 使用示例
+## example - Usage Examples
 
-显示详细的使用示例。
+Show detailed usage examples.
 
 ```bash
 i-rs-debt example
@@ -169,11 +169,11 @@ i-rs-debt example
 
 ---
 
-## skill - AI 技能文档
+## skill - AI Skill Documentation
 
-查看 AI 技能文档。
+View AI skill documentation.
 
 ```bash
-i-rs-debt skill      # 显示完整文档
-i-rs-debt skill summary  # 显示摘要
+i-rs-debt skill      # Show full document
+i-rs-debt skill summary  # Show summary
 ```

@@ -1,88 +1,88 @@
 # i-rs-exercise
 
-运动记录追踪 CLI 工具，用于记录和管理健身活动。
+Exercise record tracking CLI tool for logging and managing fitness activities.
 
-## 功能特性
+## Features
 
-- **运动记录管理**：添加、查看、更新、删除运动记录
-- **多种运动类型**：支持自定义运动类型（跑步、游泳、健身等）
-- **卡路里追踪**：可选记录每次运动的卡路里消耗
-- **标签支持**：使用标签组织和筛选运动记录
-- **统计分析**：查看运动时长、卡路里消耗等统计数据
-- **支持 JSON 输出**：所有命令支持 `--json` 全局标志
+- **Record Management**: Add, view, update, delete exercise records
+- **Multiple Types**: Support custom exercise types (running, swimming, gym, etc.)
+- **Calorie Tracking**: Optional calorie tracking per session
+- **Tags**: Organize and filter records with tags
+- **Statistics**: View total duration, calories burned, and more
+- **JSON Output**: All commands support `--json` global flag
 
-## 安装
+## Install
 
 ```bash
 npm install -g @i-rs/i-rs-exercise
-# 或
+# or
 brew install i-rs/homebrew-tap/i-rs-exercise
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 添加运动记录
+# Add an exercise record
 i-rs-exercise add "Morning Run" running 30 -c 300 -t morning -t cardio
 
-# 列出所有运动记录
+# List all records
 i-rs-exercise list
 
-# 按标签筛选
+# Filter by tag
 i-rs-exercise list --tag cardio
 
-# 按运动类型筛选
+# Filter by exercise type
 i-rs-exercise list --exercise-type running
 
-# 查看统计信息
+# View statistics
 i-rs-exercise stats
 
-# 获取详细记录
+# Get record details
 i-rs-exercise get "Morning Run"
 
-# 更新记录
+# Update record
 i-rs-exercise update "Morning Run" --duration-minutes 45
 
-# 删除记录
+# Delete record
 i-rs-exercise delete "Morning Run"
 ```
 
-## 命令说明
+## Commands
 
 ### add
 
-添加新的运动记录。
+Add a new exercise record.
 
 ```bash
 i-rs-exercise add <NAME> <TYPE> <DURATION> [OPTIONS]
 ```
 
-参数：
-- `NAME` - 运动名称
-- `TYPE` - 运动类型（如 running、swimming、gym）
-- `DURATION` - 持续时间（分钟）
+Arguments:
+- `NAME` - Exercise name
+- `TYPE` - Exercise type (e.g. running, swimming, gym)
+- `DURATION` - Duration in minutes
 
-选项：
-- `-c, --calories <CALORIES>` - 消耗卡路里
-- `-t, --tag <TAG>` - 标签（可多次使用）
-- `-n, --notes <NOTES>` - 备注（可多次使用）
-- `-r, --remark <REMARK>` - 备注（可多次使用）
+Options:
+- `-c, --calories <CALORIES>` - Calories burned
+- `-t, --tag <TAG>` - Tags (repeatable)
+- `-n, --notes <NOTES>` - Notes (repeatable)
+- `-r, --remark <REMARK>` - Remarks (repeatable)
 
 ### list
 
-列出所有运动记录。
+List all exercise records.
 
 ```bash
 i-rs-exercise list [OPTIONS]
 ```
 
-选项：
-- `-t, --tag <TAG>` - 按标签筛选
-- `-y, --exercise-type <TYPE>` - 按运动类型筛选
+Options:
+- `-t, --tag <TAG>` - Filter by tag
+- `-y, --exercise-type <TYPE>` - Filter by exercise type
 
 ### get
 
-获取运动记录的详细信息。
+Get exercise record details.
 
 ```bash
 i-rs-exercise get <NAME>
@@ -90,23 +90,23 @@ i-rs-exercise get <NAME>
 
 ### update
 
-更新现有运动记录。
+Update an existing exercise record.
 
 ```bash
 i-rs-exercise update <NAME> [OPTIONS]
 ```
 
-选项：
-- `-y, --exercise-type <TYPE>` - 新运动类型
-- `-d, --duration-minutes <DURATION>` - 新持续时间
-- `-c, --calories <CALORIES>` - 新卡路里值（使用 `--calories ''` 清空）
-- `-t, --tag <TAG>` - 新标签（覆盖）
-- `-n, --notes <NOTES>` - 新备注
-- `-r, --remark <REMARK>` - 新备注
+Options:
+- `-y, --exercise-type <TYPE>` - New exercise type
+- `-d, --duration-minutes <DURATION>` - New duration
+- `-c, --calories <CALORIES>` - New calories (use `--calories ''` to clear)
+- `-t, --tag <TAG>` - New tags (overwrites)
+- `-n, --notes <NOTES>` - New notes
+- `-r, --remark <REMARK>` - New remarks
 
 ### delete
 
-删除运动记录。
+Delete an exercise record.
 
 ```bash
 i-rs-exercise delete <NAME>
@@ -114,24 +114,24 @@ i-rs-exercise delete <NAME>
 
 ### stats
 
-显示运动统计数据。
+Show exercise statistics.
 
 ```bash
 i-rs-exercise stats
 ```
 
-显示：
-- 总记录数
-- 总运动时长
-- 总消耗卡路里
-- 运动类型数量
-- 最常见运动类型
-- 时长最长运动类型
-- 按类型分类的详细统计
+Shows:
+- Total records
+- Total exercise duration
+- Total calories burned
+- Exercise type count
+- Most common exercise type
+- Longest duration type
+- Detailed breakdown by type
 
 ### example
 
-显示使用示例。
+Show usage examples.
 
 ```bash
 i-rs-exercise example
@@ -139,33 +139,23 @@ i-rs-exercise example
 
 ### skill
 
-查看 AI 技能文档。
+View AI skill documentation.
 
 ```bash
-i-rs-exercise skill          # 显示完整技能文档
-i-rs-exercise skill summary  # 显示摘要
-i-rs-exercise skill content  # 显示内容
-i-rs-exercise skill raw      # 显示原始文档
+i-rs-exercise skill [summary|content|raw]
 ```
 
-## 数据存储
+## Data Storage
 
-配置存储在本地：
 - macOS: `~/.config/i-rs/exercises.json`
 - Linux: `~/.config/i-rs/exercises.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\exercises.json`
 
-## 环境变量
+Override with `CONFIG_DIR` environment variable.
 
-- `CONFIG_DIR` - 覆盖配置目录路径
+## JSON Output
 
-```bash
-CONFIG_DIR=/tmp i-rs-exercise list
-```
-
-## JSON 输出
-
-所有命令支持 `--json` 全局标志获取 JSON 格式输出：
+All commands support `--json` global flag:
 
 ```bash
 i-rs-exercise list --json
@@ -173,6 +163,6 @@ i-rs-exercise stats --json
 i-rs-exercise get "Morning Run" --json
 ```
 
-## 许可
+## License
 
 MIT OR Apache-2.0

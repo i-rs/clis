@@ -66,7 +66,7 @@ i-rs-remind delete <NAME>
 
 ```bash
 # Add a reminder
-i-rs-remind add meeting 2025-06-15 14:00 --title "Team Meeting" --tag work --content "Discuss project进展"
+i-rs-remind add meeting 2025-06-15 --title "Team Meeting" --tag work --content "Discuss project progress"
 
 # Add a birthday reminder
 i-rs-remind add birthday 2025-08-20 --title "Friend's Birthday" --tag personal
@@ -92,18 +92,9 @@ i-rs-remind delete meeting
 
 ## Data Storage
 
-Configuration is stored locally at:
 - macOS: `~/.config/i-rs/reminds.json`
 - Linux: `~/.config/i-rs/reminds.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
-
-## Environment Variables
-
-- `CONFIG_DIR` - Override config directory path
-
-```bash
-CONFIG_DIR=/tmp i-rs-remind list
-```
+- Windows: `~\AppData\Roaming\i-rs\config.json` (Override with `CONFIG_DIR`)
 
 ## License
 
