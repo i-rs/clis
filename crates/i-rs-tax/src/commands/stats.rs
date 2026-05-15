@@ -17,7 +17,7 @@ pub fn execute(args: &StatsArgs, format: &OutputFormat) -> anyhow::Result<()> {
 
     let mut stats = TaxStats::new(year);
 
-    for entry in store.entries.values() {
+    for entry in crate::storage::filter_by_tag(&store, None) {
         if entry.year != year {
             continue;
         }

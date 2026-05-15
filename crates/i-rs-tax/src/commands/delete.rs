@@ -12,7 +12,7 @@ pub struct DeleteArgs {
 pub fn execute(args: &DeleteArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
-    if !store.entries.contains_key(&args.name) {
+    if crate::storage::get_entry(&store, &args.name).is_none() {
         anyhow::bail!("税务记录 '{}' 不存在", args.name);
     }
 

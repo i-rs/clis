@@ -51,7 +51,7 @@ pub fn execute(args: &AddArgs, format: &OutputFormat) -> anyhow::Result<()> {
 
     let mut store = storage::load_store()?;
 
-    if store.entries.contains_key(&args.name) {
+    if crate::storage::get_entry(&store, &args.name).is_some() {
         anyhow::bail!("税务记录 '{}' 已存在", args.name);
     }
 

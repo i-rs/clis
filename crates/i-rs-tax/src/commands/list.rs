@@ -15,11 +15,7 @@ pub struct ListArgs {
 
 pub fn execute(args: &ListArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
-    let mut entities: Vec<_> = store.entries.values().collect();
-
-    if let Some(tag) = &args.tag {
-        entities.retain(|e| e.tags.iter().any(|t| t.contains(tag)));
-    }
+    let mut entities = crate::storage::filter_by_tag(&store, args.tag.as_deref());
 
     if let Some(year) = args.year {
         entities.retain(|e| e.year == year);
