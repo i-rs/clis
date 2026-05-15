@@ -14,6 +14,7 @@ Bed item replacement tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Bed item replacement tracking CLI tool.
 Record bed item replacement.
 
 ```bash
-i-rs-bed add <ITEM_TYPE>
+i-rs-bed add <ITEM_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List bed item replacement records.
 
 ```bash
-i-rs-bed list
+i-rs-bed list [OPTIONS]
 ```
 
 Options:
@@ -54,13 +55,6 @@ Delete a record.
 ```bash
 i-rs-bed delete <ID>
 ```
-
-## Bed Item Types
-
-- `mattress` - Mattress
-- `pillow` - Pillow
-- `duvet` - Duvet/comforter
-- `mattress-protector` - Mattress protector
 
 ### data
 
@@ -88,13 +82,20 @@ Show skill information.
 i-rs-bed skill [summary|content|raw]
 ```
 
+## Bed Item Types
+
+- `mattress` - Mattress
+- `pillow` - Pillow
+- `duvet` - Duvet/comforter
+- `mattress-protector` - Mattress protector
+
 ## Examples
 
 ```bash
 # Record replacement
-i-rs-bed add mattress
-i-rs-bed add pillow --tag bedroom
+i-rs-bed add mattress [OPTIONS]
+i-rs-bed add pillow --tag bedroom [OPTIONS]
 
 # List records
-i-rs-bed list
+i-rs-bed list [OPTIONS]
 ```

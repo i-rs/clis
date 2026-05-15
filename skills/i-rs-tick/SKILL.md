@@ -40,7 +40,7 @@ Options:
 List duration records.
 
 ```bash
-i-rs-tick list
+i-rs-tick list [OPTIONS]
 ```
 
 Options:
@@ -98,11 +98,11 @@ i-rs-tick skill [summary|content|raw]
 
 ```bash
 # Record task duration
-i-rs-tick add "Meeting" --duration 3600
-i-rs-tick add "Coding" --duration 7200 --remark "Feature implementation"
+i-rs-tick add "Meeting" --duration 3600 [OPTIONS]
+i-rs-tick add "Coding" --duration 7200 --remark "Feature implementation" [OPTIONS]
 
 # List records
-i-rs-tick list
+i-rs-tick list [OPTIONS]
 
 # Get details
 i-rs-tick get abc12345

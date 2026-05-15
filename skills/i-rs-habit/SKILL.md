@@ -103,13 +103,13 @@ i-rs-habit skill [summary|content|raw]
 
 ```bash
 # Create a daily habit
-i-rs-habit add daily_walk --description "Walk 30 minutes" --frequency daily --tag health
+i-rs-habit add daily_walk --description "Walk 30 minutes" --frequency daily --tag health [OPTIONS]
 
 # Checkin for today
 i-rs-habit checkin daily_walk
 
 # List habits with streaks
-i-rs-habit list
+i-rs-habit list [OPTIONS]
 ```
 
 ## Streak Calculation

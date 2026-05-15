@@ -106,9 +106,50 @@ Displays:
 - Latest vision measurements
 - Vision changes over time
 
-### Global Options
+### data
 
-- `--json` - Output in JSON format
+Manage data (export, import, clear).
+
+```bash
+i-rs-vision data export
+i-rs-vision data import [FILE]
+i-rs-vision data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-vision example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-vision skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/vision.json`
+- Linux: `~/.config/i-rs/vision.json`
+- Windows: `~\AppData\Roaming\i-rs\vision.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-vision list
+```
 
 ## Understanding Vision Values
 
@@ -133,32 +174,3 @@ Orientation of astigmatism:
 
 - Range: 0-180 degrees
 - Only relevant when cylinder is present
-
-### data
-
-Manage data (export, import, clear).
-
-```bash
-i-rs-vision data export
-i-rs-vision data import [FILE]
-i-rs-vision data clear
-```
-
-Subcommands:
-- `export` - Export all data as JSON to stdout
-- `import [FILE]` - Import data from JSON file or stdin
-- `clear` - Clear all data
-### example
-
-Show usage examples.
-
-```bash
-i-rs-vision example
-```
-### skill
-
-Show skill information.
-
-```bash
-i-rs-vision skill [summary|content|raw]
-```

@@ -5,11 +5,6 @@ description: "个人预算管理工具。用于设置预算、记录支出、查
 
 # i-rs-budget
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
-
 个人预算管理 CLI 工具，帮助用户设置预算类别、记录支出、查看统计分析。
 
 ## 存储
@@ -17,6 +12,10 @@ description: "个人预算管理工具。用于设置预算、记录支出、查
 - **配置文件**: `~/.config/i-rs/budget.json`
 - **环境变量**: `CONFIG_DIR` 可覆盖默认路径
 - **数据格式**: JSON，包含 budgets 和 expenses 两个集合
+
+## Global Flags
+
+- `--json` — Output in JSON format
 
 ## 核心概念
 
@@ -48,11 +47,15 @@ description: "个人预算管理工具。用于设置预算、记录支出、查
 添加新预算:
 
 ```bash
-i-rs-budget add <CATEGORY> <AMOUNT> [--period daily|weekly|monthly|yearly] [--tags TAG1,TAG2] [--remark NOTE]
+i-rs-budget add <CATEGORY> <AMOUNT> [OPTIONS]
 ```
 
-示例:
+选项:
+- `-p, --period <PERIOD>` - 预算周期: daily, weekly, monthly, yearly
+- `-t, --tags <TAGS>` - 标签列表
+- `-r, --remark <REMARK>` - 备注信息
 
+示例:
 ```bash
 i-rs-budget add food 500                              # 月度预算
 i-rs-budget add groceries 300 --period weekly         # 周预算
@@ -65,11 +68,15 @@ i-rs-budget add entertainment 200 --tags fun,leisure    # 带标签
 记录支出:
 
 ```bash
-i-rs-budget expense <CATEGORY> <AMOUNT> --description <DESC> [--date YYYY-MM-DD] [--tags TAG1,TAG2]
+i-rs-budget expense <CATEGORY> <AMOUNT> [OPTIONS]
 ```
 
-示例:
+选项:
+- `-d, --description <DESC>` - 支出描述（必填）
+- `--date <DATE>` - 支出日期，格式: YYYY-MM-DD
+- `-t, --tags <TAGS>` - 标签列表
 
+示例:
 ```bash
 i-rs-budget expense food 25.50 --description "午餐"
 i-rs-budget expense groceries 120.00 --date 2024-01-15
@@ -81,11 +88,13 @@ i-rs-budget expense entertainment 60.00 --tags movie
 列出预算或支出:
 
 ```bash
-i-rs-budget list [budgets|expenses] [--category <CATEGORY>]
+i-rs-budget list [TYPE] [OPTIONS]
 ```
 
-示例:
+选项:
+- `-c, --category <CAT>` - 按类别筛选
 
+示例:
 ```bash
 i-rs-budget list budgets                              # 列出所有预算
 i-rs-budget list expenses                             # 列出所有支出
@@ -97,11 +106,14 @@ i-rs-budget list expenses --category food             # 按类别筛选
 查看预算统计:
 
 ```bash
-i-rs-budget stats [--category <CATEGORY>] [--period daily|weekly|monthly|yearly]
+i-rs-budget stats [OPTIONS]
 ```
 
-示例:
+选项:
+- `-c, --category <CAT>` - 按类别筛选
+- `-p, --period <PERIOD>` - 统计周期: daily, weekly, monthly, yearly
 
+示例:
 ```bash
 i-rs-budget stats                                     # 本月统计
 i-rs-budget stats --period weekly                     # 本周统计
@@ -109,30 +121,33 @@ i-rs-budget stats --category food                    # 特定类别统计
 i-rs-budget stats --category food --period monthly    # 组合筛选
 ```
 
-统计输出包含:
-- 预算金额 vs 已花费金额
-- 剩余金额
-- 完成百分比
-
 ### get
 
 获取单个预算或支出详情:
 
 ```bash
-i-rs-budget get --category <CATEGORY>
-i-rs-budget get --expense-id <ID>
+i-rs-budget get [OPTIONS]
 ```
+
+选项:
+- `-c, --category <CAT>` - 获取指定预算类别
+- `--expense-id <ID>` - 获取指定支出记录
 
 ### update
 
 更新预算信息:
 
 ```bash
-i-rs-budget update <CATEGORY> [--amount <AMOUNT>] [--period <PERIOD>] [--tags <TAGS>] [--remark <REMARK>]
+i-rs-budget update <CATEGORY> [OPTIONS]
 ```
 
-示例:
+选项:
+- `-a, --amount <AMOUNT>` - 新的预算金额
+- `-p, --period <PERIOD>` - 新的预算周期
+- `-t, --tags <TAGS>` - 新的标签列表
+- `-r, --remark <REMARK>` - 新的备注信息
 
+示例:
 ```bash
 i-rs-budget update food --amount 600                  # 更新金额
 i-rs-budget update food --period weekly              # 更新周期
@@ -144,8 +159,21 @@ i-rs-budget update food --tags essentials             # 更新标签
 删除预算或支出:
 
 ```bash
-i-rs-budget delete --category <CATEGORY>              # 删除预算（包含所有相关支出）
-i-rs-budget delete --expense-id <ID>                  # 删除单笔支出
+i-rs-budget delete [OPTIONS]
+```
+
+选项:
+- `-c, --category <CAT>` - 删除指定预算类别（包含所有相关支出）
+- `--expense-id <ID>` - 删除单笔支出
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-budget data export
+i-rs-budget data import [FILE]
+i-rs-budget data clear
 ```
 
 ### example
@@ -161,61 +189,7 @@ i-rs-budget example
 查看 AI 技能文档:
 
 ```bash
-i-rs-budget skill          # 显示原始文档
-i-rs-budget skill summary  # 显示摘要
-i-rs-budget skill content  # 显示完整内容
-```
-
-## 全局选项
-
-| 选项 | 说明 |
-|------|------|
-| `--json` | JSON 格式输出 |
-
-## JSON 响应格式
-
-**成功响应**:
-
-```json
-{
-  "success": true,
-  "data": [...],
-  "meta": {
-    "count": 10,
-    "filter": "food"
-  }
-}
-```
-
-**统计响应 (stats)**:
-
-```json
-{
-  "success": true,
-  "data": [...],
-  "meta": {
-    "count": 5,
-    "filter": null,
-    "extra": {
-      "period": "2024-01-01 to 2024-01-31",
-      "total_budget": 5000.0,
-      "total_spent": 1200.0,
-      "total_remaining": 3800.0
-    }
-  }
-}
-```
-
-**错误响应**:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Budget 'xxx' not found"
-  }
-}
+i-rs-budget skill [summary|content|raw]
 ```
 
 ## 常见使用场景
@@ -224,30 +198,15 @@ i-rs-budget skill content  # 显示完整内容
 
 ```bash
 # 设置月度预算
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
-i-rs-budget add food 1000 --period monthly
-i-rs-budget add groceries 500 --period monthly
-i-rs-budget add entertainment 300 --period monthly
+i-rs-budget add food 1000 --period monthly [OPTIONS]
+i-rs-budget add groceries 500 --period monthly [OPTIONS]
+i-rs-budget add entertainment 300 --period monthly [OPTIONS]
 
 # 日常记录
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget expense food 35.00 --description "午餐"
 i-rs-budget expense groceries 150.00 --description "超市"
 
 # 查看进度
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget stats --period monthly
 ```
 
@@ -255,28 +214,13 @@ i-rs-budget stats --period monthly
 
 ```bash
 # 设置周预算
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
-i-rs-budget add groceries 300 --period weekly
+i-rs-budget add groceries 300 --period weekly [OPTIONS]
 
 # 周内记录
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget expense groceries 80.00 --description "周一采购"
 i-rs-budget expense groceries 120.00 --description "周三补货"
 
 # 查看剩余
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget stats --period weekly --category groceries
 ```
 
@@ -284,37 +228,12 @@ i-rs-budget stats --period weekly --category groceries
 
 ```bash
 # 查看所有支出
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget list expenses
 
 # 按类别分析
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget stats --category food
 i-rs-budget stats --category entertainment
 
 # 年度总览
-
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-budget stats --period yearly
-```
-
-### data
-
-Manage data (export, import, clear).
-
-```bash
-i-rs-budget data export
-i-rs-budget data import [FILE]
-i-rs-budget data clear
 ```

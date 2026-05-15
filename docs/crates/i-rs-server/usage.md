@@ -389,3 +389,17 @@ Show skill information.
 ```bash
 i-rs-server skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/server.json`
+- Linux: `~/.config/i-rs/server.json`
+- Windows: `~\AppData\Roaming\i-rs\server.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-server list
+```

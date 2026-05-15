@@ -100,7 +100,7 @@ i-rs-run skill [summary|content|raw]
 
 ```bash
 # Add a run
-i-rs-run add 2025-06-14 5.0 30 -r 145 -w sunny
+i-rs-run add 2025-06-14 5.0 30 -r 145 -w sunny [OPTIONS]
 
 # View stats
 i-rs-run stats

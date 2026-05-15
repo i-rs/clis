@@ -14,6 +14,7 @@ Sheet change tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Sheet change tracking CLI tool.
 Record sheet change.
 
 ```bash
-i-rs-sheet add <SHEET_TYPE>
+i-rs-sheet add <SHEET_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List sheet change records.
 
 ```bash
-i-rs-sheet list
+i-rs-sheet list [OPTIONS]
 ```
 
 Options:
@@ -54,13 +55,6 @@ Delete a record.
 ```bash
 i-rs-sheet delete <ID>
 ```
-
-## Sheet Types
-
-- `bedsheet` - Bottom or top sheet
-- `pillowcase` - Pillow cover
-- `duvet-cover` - Comforter/duvet cover
-- `mattress-protector` - Mattress protector
 
 ### data
 
@@ -88,13 +82,20 @@ Show skill information.
 i-rs-sheet skill [summary|content|raw]
 ```
 
+## Sheet Types
+
+- `bedsheet` - Bottom or top sheet
+- `pillowcase` - Pillow cover
+- `duvet-cover` - Comforter/duvet cover
+- `mattress-protector` - Mattress protector
+
 ## Examples
 
 ```bash
 # Record change
-i-rs-sheet add bedsheet
-i-rs-sheet add pillowcase --tag bedroom
+i-rs-sheet add bedsheet [OPTIONS]
+i-rs-sheet add pillowcase --tag bedroom [OPTIONS]
 
 # List records
-i-rs-sheet list
+i-rs-sheet list [OPTIONS]
 ```

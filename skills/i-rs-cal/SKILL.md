@@ -14,6 +14,7 @@ Calorie tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Calorie tracking CLI tool.
 Record calorie intake.
 
 ```bash
-i-rs-cal add <FOOD_NAME> <CALORIES>
+i-rs-cal add <FOOD_NAME> <CALORIES> [OPTIONS]
 ```
 
 Options:
@@ -34,7 +35,7 @@ Options:
 List calorie records.
 
 ```bash
-i-rs-cal list
+i-rs-cal list [OPTIONS]
 ```
 
 Options:
@@ -86,9 +87,9 @@ i-rs-cal skill [summary|content|raw]
 
 ```bash
 # Record calories
-i-rs-cal add "Apple" 95
-i-rs-cal add "Pizza" 285 --tag lunch
+i-rs-cal add "Apple" 95 [OPTIONS]
+i-rs-cal add "Pizza" 285 --tag lunch [OPTIONS]
 
 # List records
-i-rs-cal list
+i-rs-cal list [OPTIONS]
 ```

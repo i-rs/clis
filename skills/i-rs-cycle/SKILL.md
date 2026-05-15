@@ -14,6 +14,7 @@ Menstrual cycle tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Menstrual cycle tracking CLI tool.
 Record cycle event.
 
 ```bash
-i-rs-cycle add <DATE> <EVENT_TYPE>
+i-rs-cycle add <DATE> <EVENT_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -34,7 +35,7 @@ Options:
 List cycle records.
 
 ```bash
-i-rs-cycle list
+i-rs-cycle list [OPTIONS]
 ```
 
 Options:
@@ -55,13 +56,6 @@ Delete a record.
 ```bash
 i-rs-cycle delete <ID>
 ```
-
-## Event Types
-
-- `period` - Menstrual period
-- `spotting` - Light bleeding
-- `ovulation` - Ovulation day
-- `fertile` - Fertile window
 
 ### data
 
@@ -89,15 +83,22 @@ Show skill information.
 i-rs-cycle skill [summary|content|raw]
 ```
 
+## Event Types
+
+- `period` - Menstrual period
+- `spotting` - Light bleeding
+- `ovulation` - Ovulation day
+- `fertile` - Fertile window
+
 ## Examples
 
 ```bash
 # Record period
-i-rs-cycle add 2024-01-15 period
+i-rs-cycle add 2024-01-15 period [OPTIONS]
 
 # Record with symptoms
-i-rs-cycle add 2024-01-15 period --symptom cramps
+i-rs-cycle add 2024-01-15 period --symptom cramps [OPTIONS]
 
 # List records
-i-rs-cycle list
+i-rs-cycle list [OPTIONS]
 ```

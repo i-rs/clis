@@ -27,7 +27,7 @@ Vision tracking CLI tool for recording and tracking eye prescription measurement
 Add a vision record.
 
 ```bash
-i-rs-vision add <DATE> \
+i-rs-vision add <DATE> \ [OPTIONS]
   --left-sphere <D> \
   --right-sphere <D> \
   --left-cylinder <D> \
@@ -114,16 +114,16 @@ i-rs-vision skill [summary|content|raw]
 
 ```bash
 # Add basic record
-i-rs-vision add 2025-06-14 -l -3.50 -r -4.00
+i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 [OPTIONS]
 
 # Add full record
-i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 -L -0.50 -R -0.75 -a 180 -b 5
+i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 -L -0.50 -R -0.75 -a 180 -b 5 [OPTIONS]
 
 # Add with tags
-i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 -t myopia -t annual
+i-rs-vision add 2025-06-14 -l -3.50 -r -4.00 -t myopia -t annual [OPTIONS]
 
 # List all records
-i-rs-vision list
+i-rs-vision list [OPTIONS]
 
 # List recent records
 i-rs-vision list --days 30

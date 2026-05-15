@@ -11,7 +11,7 @@
 Add a new code snippet.
 
 ```bash
-i-rs-snippet add <NAME> --language <LANG> --code <CODE> [options]
+i-rs-snippet add <NAME> [OPTIONS]
 ```
 
 Options:
@@ -26,8 +26,11 @@ Options:
 List all snippets or filter by tag.
 
 ```bash
-i-rs-snippet list [--tag <TAG>]
+i-rs-snippet list [OPTIONS]
 ```
+
+Options:
+- `-g, --tag <TAG>` - Filter by tag
 
 ### search
 
@@ -60,7 +63,7 @@ i-rs-snippet copy <NAME>
 Update a snippet.
 
 ```bash
-i-rs-snippet update <NAME> [options]
+i-rs-snippet update <NAME> [OPTIONS]
 ```
 
 Options:
@@ -78,10 +81,6 @@ Delete a snippet.
 i-rs-snippet delete <NAME>
 ```
 
-### Global Options
-
-- `--json`: Output in JSON format
-
 ### data
 
 Manage data (export, import, clear).
@@ -96,6 +95,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -103,10 +103,25 @@ Show usage examples.
 ```bash
 i-rs-snippet example
 ```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-snippet skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/snippets.json`
+- Linux: `~/.config/i-rs/snippets.json`
+- Windows: `~\AppData\Roaming\i-rs\snippets.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-snippet list
 ```

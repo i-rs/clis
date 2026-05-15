@@ -21,7 +21,7 @@ Pet bath tracking CLI tool.
 Record pet bath.
 
 ```bash
-i-rs-petbath add <PET_NAME>
+i-rs-petbath add <PET_NAME> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 List pet bath records.
 
 ```bash
-i-rs-petbath list
+i-rs-petbath list [OPTIONS]
 ```
 
 Options:
@@ -85,9 +85,9 @@ i-rs-petbath skill [summary|content|raw]
 
 ```bash
 # Record bath
-i-rs-petbath add "Cat"
-i-rs-petbath add "Dog" --tag summer
+i-rs-petbath add "Cat" [OPTIONS]
+i-rs-petbath add "Dog" --tag summer [OPTIONS]
 
 # List records
-i-rs-petbath list
+i-rs-petbath list [OPTIONS]
 ```

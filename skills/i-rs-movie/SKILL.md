@@ -130,13 +130,13 @@ i-rs-movie skill [summary|content|raw]
 
 ```bash
 # Add a movie
-i-rs-movie add "Inception" --year 2010 --director "Christopher Nolan"
+i-rs-movie add "Inception" --year 2010 --director "Christopher Nolan" [OPTIONS]
 
 # Add as watched with rating
-i-rs-movie add "The Matrix" --watched --rating 9.0
+i-rs-movie add "The Matrix" --watched --rating 9.0 [OPTIONS]
 
 # List all movies
-i-rs-movie list
+i-rs-movie list [OPTIONS]
 
 # List unwatched movies
 i-rs-movie list --unwatched

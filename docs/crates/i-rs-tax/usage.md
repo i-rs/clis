@@ -217,3 +217,17 @@ Show skill information.
 ```bash
 i-rs-tax skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/tax.json`
+- Linux: `~/.config/i-rs/tax.json`
+- Windows: `~\AppData\Roaming\i-rs\tax.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-tax list
+```

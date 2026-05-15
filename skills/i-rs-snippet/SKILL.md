@@ -102,10 +102,10 @@ i-rs-snippet skill [summary|content|raw]
 
 ```bash
 # Add snippet
-i-rs-snippet add hello --language rust --code 'fn main() { println!("Hello!"); }' --tag rust
+i-rs-snippet add hello --language rust --code 'fn main() { println!("Hello!"); }' --tag rust [OPTIONS]
 
 # List all
-i-rs-snippet list
+i-rs-snippet list [OPTIONS]
 
 # Search
 i-rs-snippet search hello

@@ -39,7 +39,7 @@ Project management CLI tool for organizing and tracking projects with milestones
 Add a new project.
 
 ```bash
-i-rs-project add <NAME>
+i-rs-project add <NAME> [OPTIONS]
 ```
 
 Options:
@@ -54,7 +54,7 @@ Options:
 List all projects.
 
 ```bash
-i-rs-project list
+i-rs-project list [OPTIONS]
 ```
 
 Options:
@@ -170,10 +170,10 @@ i-rs-project skill [summary|content|raw]
 
 ```bash
 # Add a new project
-i-rs-project add my-project --description "My project" --priority high --tag work
+i-rs-project add my-project --description "My project" --priority high --tag work [OPTIONS]
 
 # List all projects
-i-rs-project list
+i-rs-project list [OPTIONS]
 
 # Filter by tag
 i-rs-project list --tag work

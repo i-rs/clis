@@ -1,15 +1,14 @@
-# Usage
+# i-rs-run Usage
 
 ## Global Flags
 
 - `--json` — Output in JSON format
 
-
 ## Commands
 
 ### add
 
-Add a new run record.
+Add a new running record.
 
 ```bash
 i-rs-run add <DATE> <DISTANCE> <DURATION> [OPTIONS]
@@ -17,47 +16,50 @@ i-rs-run add <DATE> <DISTANCE> <DURATION> [OPTIONS]
 
 **Arguments:**
 - `DATE` - Date in YYYY-MM-DD format
-- `DISTANCE` - Distance in kilometers
+- `DISTANCE` - Distance in km
 - `DURATION` - Duration in minutes
 
 **Options:**
-- `-r, --heart-rate <HR>` - Heart rate in bpm
-- `-w, --weather <WEATHER>` - Weather conditions
-- `-t, --tags <TAGS>` - Tags (repeatable)
-- `--remark <REMARK>` - Remarks (repeatable)
-
-**Example:**
-```bash
-i-rs-run add 2025-06-14 5.0 30 -r 145 -w sunny -t marathon
-```
+- `--heart-rate <BPM>` - Average heart rate
+- `-w, --weather <COND>` - Weather condition
+- `-t, --tags <TAG>` - Tags (repeatable)
+- `-r, --remark <TEXT>` - Remarks (repeatable)
 
 ### list
 
-List all run records.
+List running records.
 
 ```bash
-i-rs-run list [--json]
+i-rs-run list
 ```
 
 ### get
 
-Get details of a specific run record.
+Get record details.
 
 ```bash
-i-rs-run get <ID> [--json]
+i-rs-run get <ID>
 ```
 
 ### delete
 
-Delete a run record.
+Delete a record.
 
 ```bash
 i-rs-run delete <ID>
 ```
 
+### update
+
+Update a record.
+
+```bash
+i-rs-run update <ID> [OPTIONS]
+```
+
 ### stats
 
-Show cumulative statistics.
+Show running statistics.
 
 ```bash
 i-rs-run stats
@@ -65,54 +67,35 @@ i-rs-run stats
 
 ### plan-add
 
-Add a new running plan.
+Add a training plan.
 
 ```bash
 i-rs-run plan-add <NAME> <TARGET> <PACE> [OPTIONS]
 ```
 
-**Arguments:**
-- `NAME` - Plan name
-- `TARGET` - Target distance in km
-- `PACE` - Target pace (e.g., 6:00 for 6 min/km)
-
-**Options:**
-- `-s, --schedule <DAYS>` - Schedule days (0-6 for Sun-Sat)
-- `-t, --tags <TAGS>` - Tags
-- `--remark <REMARK>` - Remarks
-
-**Example:**
-```bash
-i-rs-run plan-add "5K Training" 5.0 6:00 --schedule 1 3 5
-```
-
 ### plan-list
 
-List all running plans.
+List training plans.
 
 ```bash
-i-rs-run plan-list [--json]
+i-rs-run plan-list
 ```
 
 ### plan-get
 
-Get details of a specific plan.
+Get plan details.
 
 ```bash
-i-rs-run plan-get <ID> [--json]
+i-rs-run plan-get <ID>
 ```
 
 ### plan-delete
 
-Delete a running plan.
+Delete a plan.
 
 ```bash
 i-rs-run plan-delete <ID>
 ```
-
-## Global Options
-
-- `--json` - Output in JSON format
 
 ### data
 
@@ -128,6 +111,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -135,10 +119,25 @@ Show usage examples.
 ```bash
 i-rs-run example
 ```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-run skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/runs.json`
+- Linux: `~/.config/i-rs/runs.json`
+- Windows: `~\AppData\Roaming\i-rs\runs.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-run list
 ```

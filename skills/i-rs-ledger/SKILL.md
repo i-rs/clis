@@ -38,7 +38,7 @@ Options:
 List ledger entries.
 
 ```bash
-i-rs-ledger list
+i-rs-ledger list [OPTIONS]
 ```
 
 Options:
@@ -91,14 +91,14 @@ i-rs-ledger skill [summary|content|raw]
 
 ```bash
 # Add income
-i-rs-ledger add --type income --amount 5000 --category salary
+i-rs-ledger add --type income --amount 5000 --category salary [OPTIONS]
 
 # Add expense
-i-rs-ledger add --type expense --amount 150 --category food
+i-rs-ledger add --type expense --amount 150 --category food [OPTIONS]
 
 # Add transfer
-i-rs-ledger add --type transfer --amount 1000 --category savings
+i-rs-ledger add --type transfer --amount 1000 --category savings [OPTIONS]
 
 # List entries
-i-rs-ledger list
+i-rs-ledger list [OPTIONS]
 ```

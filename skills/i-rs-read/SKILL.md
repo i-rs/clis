@@ -9,7 +9,6 @@ description: "阅读进度追踪 CLI 工具，用于管理书籍、追踪阅读�
 
 - `--json` — Output in JSON format
 
-
 i-rs-read 是一个阅读进度追踪 CLI 工具，帮助用户管理书籍、追踪阅读进度、添加评分和评论。
 
 ## 存储
@@ -140,49 +139,25 @@ i-rs-read skill [--summary] [--content]
 ```bash
 # 添加书籍
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-read add "Rust 编程之道" "Steve Klabnik" 500
 
 # 更新阅读进度
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-read update "Rust 编程之道" --current-page 250
 
 # 标记为已完成并评分
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-read update "Rust 编程之道" --status completed --rating 5
 
 # 列出所有书籍
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-read list
 
 # 按标签筛选
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-read list --tag programming
 
 # 查看统计
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-read stats
 ```
@@ -201,10 +176,6 @@ i-rs-read data clear
 
 ```bash
 # JSON output
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-read list --json
 ```

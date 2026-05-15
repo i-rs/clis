@@ -39,7 +39,7 @@ Options:
 List all key entries.
 
 ```bash
-i-rs-keys list
+i-rs-keys list [OPTIONS]
 ```
 
 ### get
@@ -105,14 +105,14 @@ i-rs-keys skill [summary|content|raw]
 
 ```bash
 # Add API key (NAME VALUE TYPE --tag TAG --remark REMARK)
-i-rs-keys add "github-token" "ghp_xxx" api_key --remark "GitHub PAT"
-i-rs-keys add "openai-api" "sk_xxx" api_key --tag ai
+i-rs-keys add "github-token" "ghp_xxx" api_key --remark "GitHub PAT" [OPTIONS]
+i-rs-keys add "openai-api" "sk_xxx" api_key --tag ai [OPTIONS]
 
 # Add AWS credentials
-i-rs-keys add "aws-access" "AKIAXXX" aws_key --tag production
+i-rs-keys add "aws-access" "AKIAXXX" aws_key --tag production [OPTIONS]
 
 # List keys
-i-rs-keys list
+i-rs-keys list [OPTIONS]
 
 # Get key (with value from keychain)
 i-rs-keys get github-token --show-value

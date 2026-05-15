@@ -12,21 +12,17 @@ Add a new vocabulary word.
 
 ```bash
 i-rs-vocab add <WORD> <DEFINITION> [OPTIONS]
-
-Options:
-  -e, --example <TEXT>    Example sentence (repeatable)
-  -s, --status <STATUS>  Initial status (new/learning/mastered)
-  -t, --tag <TAG>        Tags (repeatable)
-  -r, --remark <TEXT>    Remarks (repeatable)
 ```
 
-Examples:
+**Arguments:**
+- `WORD` - The vocabulary word
+- `DEFINITION` - Word definition
 
-```bash
-i-rs-vocab add hello "greeting; hello world" --tag basic
-i-rs-vocab add ephemeral "lasting for a very short time" --tag advanced
-i-rs-vocab add serendipity "the occurrence of events by chance in a happy way" --tag vocabulary
-```
+**Options:**
+- `-e, --example <TEXT>` - Example sentences (repeatable)
+- `-s, --status <STATUS>` - Learning status (learning, reviewing, mastered)
+- `-t, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <TEXT>` - Remarks (repeatable)
 
 ### list
 
@@ -34,24 +30,15 @@ List vocabulary words.
 
 ```bash
 i-rs-vocab list [OPTIONS]
-
-Options:
-  -s, --status <STATUS>  Filter by status (new/learning/mastered)
-  -t, --tag <TAG>        Filter by tag
 ```
 
-Examples:
-
-```bash
-i-rs-vocab list
-i-rs-vocab list --status new
-i-rs-vocab list --status learning
-i-rs-vocab list --tag basic
-```
+**Options:**
+- `-s, --status <STATUS>` - Filter by status
+- `-t, --tag <TAG>` - Filter by tag
 
 ### get
 
-Show word details.
+Get word details.
 
 ```bash
 i-rs-vocab get <WORD>
@@ -63,14 +50,6 @@ Update a word.
 
 ```bash
 i-rs-vocab update <WORD> [OPTIONS]
-
-Options:
-  -d, --definition <TEXT>  Update definition
-  -e, --example <TEXT>    Update examples (repeatable)
-  -s, --status <STATUS>   Update status
-  -t, --tag <TAG>         Update tags (repeatable)
-  -r, --remark <TEXT>     Update remarks (repeatable)
-  --review                Increment review count
 ```
 
 ### delete
@@ -83,38 +62,22 @@ i-rs-vocab delete <WORD>
 
 ### quiz
 
-Practice vocabulary with quiz mode.
+Start a vocabulary quiz.
 
 ```bash
 i-rs-vocab quiz [OPTIONS]
-
-Options:
-  -c, --count <N>  Number of words to quiz (default: 5)
 ```
+
+**Options:**
+- `-c, --count <N>` - Number of questions
 
 ### stats
 
-Show learning statistics.
+Show vocabulary statistics.
 
 ```bash
 i-rs-vocab stats
 ```
-
-## Status Values
-
-| Status | Description |
-|--------|-------------|
-| `new` | Newly added word |
-| `learning` | Word being actively learned |
-| `mastered` | Word fully mastered |
-
-## Global Options
-
-| Option | Description |
-|--------|-------------|
-| `--json` | Output in JSON format |
-| `-h, --help` | Show help |
-| `-V, --version` | Show version |
 
 ### data
 
@@ -130,6 +93,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -137,6 +101,7 @@ Show usage examples.
 ```bash
 i-rs-vocab example
 ```
+
 ### skill
 
 Show skill information.
@@ -150,3 +115,11 @@ i-rs-vocab skill [summary|content|raw]
 - macOS: `~/.config/i-rs/vocab.json`
 - Linux: `~/.config/i-rs/vocab.json`
 - Windows: `~\AppData\Roaming\i-rs\vocab.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-vocab list
+```

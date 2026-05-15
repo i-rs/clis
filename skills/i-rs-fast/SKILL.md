@@ -21,7 +21,7 @@ Fasting tracking CLI tool.
 Start a fast.
 
 ```bash
-i-rs-fast add <TARGET_HOURS>
+i-rs-fast add <TARGET_HOURS> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 List fasting records.
 
 ```bash
-i-rs-fast list
+i-rs-fast list [OPTIONS]
 ```
 
 Options:
@@ -85,9 +85,9 @@ i-rs-fast skill [summary|content|raw]
 
 ```bash
 # Start fasting
-i-rs-fast add 16
-i-rs-fast add 24 --tag omad
+i-rs-fast add 16 [OPTIONS]
+i-rs-fast add 24 --tag omad [OPTIONS]
 
 # List records
-i-rs-fast list
+i-rs-fast list [OPTIONS]
 ```

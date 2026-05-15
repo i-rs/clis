@@ -324,3 +324,17 @@ Show skill information.
 ```bash
 i-rs-read skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/read.json`
+- Linux: `~/.config/i-rs/read.json`
+- Windows: `~\AppData\Roaming\i-rs\read.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-read list
+```

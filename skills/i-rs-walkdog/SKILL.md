@@ -21,7 +21,7 @@ Dog walking tracking CLI tool.
 Record dog walk.
 
 ```bash
-i-rs-walkdog add <DOG_NAME> <DURATION_MINUTES>
+i-rs-walkdog add <DOG_NAME> <DURATION_MINUTES> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 List dog walk records.
 
 ```bash
-i-rs-walkdog list
+i-rs-walkdog list [OPTIONS]
 ```
 
 Options:
@@ -85,9 +85,9 @@ i-rs-walkdog skill [summary|content|raw]
 
 ```bash
 # Record walk
-i-rs-walkdog add "Buddy" 30
-i-rs-walkdog add "Max" 45 --tag morning
+i-rs-walkdog add "Buddy" 30 [OPTIONS]
+i-rs-walkdog add "Max" 45 --tag morning [OPTIONS]
 
 # List records
-i-rs-walkdog list
+i-rs-walkdog list [OPTIONS]
 ```

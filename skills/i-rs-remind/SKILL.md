@@ -21,7 +21,7 @@ Reminder management CLI tool for managing events and reminders.
 Add a new reminder.
 
 ```bash
-i-rs-remind add <NAME> <EVENT_DATE>
+i-rs-remind add <NAME> <EVENT_DATE> [OPTIONS]
 ```
 
 Options:
@@ -34,7 +34,7 @@ Options:
 List reminders.
 
 ```bash
-i-rs-remind list
+i-rs-remind list [OPTIONS]
 ```
 
 Options:
@@ -108,13 +108,13 @@ i-rs-remind skill [summary|content|raw]
 
 ```bash
 # Add a reminder
-i-rs-remind add meeting 2025-06-15 14:00 --title "Team Meeting" --tag work
+i-rs-remind add meeting 2025-06-15 14:00 --title "Team Meeting" --tag work [OPTIONS]
 
 # Add a birthday
-i-rs-remind add birthday 2025-08-20 --tag personal
+i-rs-remind add birthday 2025-08-20 --tag personal [OPTIONS]
 
 # List all reminders
-i-rs-remind list
+i-rs-remind list [OPTIONS]
 
 # Get reminder details
 i-rs-remind get meeting

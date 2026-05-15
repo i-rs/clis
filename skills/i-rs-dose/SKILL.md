@@ -39,7 +39,7 @@ Options:
 List medicine records.
 
 ```bash
-i-rs-dose list
+i-rs-dose list [OPTIONS]
 ```
 
 Options:
@@ -91,11 +91,11 @@ i-rs-dose skill [summary|content|raw]
 
 ```bash
 # Record medicine
-i-rs-dose add "Vitamin D" 1000 IU
-i-rs-dose add "Ibuprofen" 400 mg
+i-rs-dose add "Vitamin D" 1000 IU [OPTIONS]
+i-rs-dose add "Ibuprofen" 400 mg [OPTIONS]
 
 # List records
-i-rs-dose list
+i-rs-dose list [OPTIONS]
 
 # Get details
 i-rs-dose get abc12345

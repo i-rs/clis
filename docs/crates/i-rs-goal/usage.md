@@ -143,16 +143,6 @@ i-rs-goal stats
 i-rs-goal stats --tag emergency
 ```
 
-## Global Options
-
-- `--json` - Output in JSON format
-
-**Example:**
-```bash
-i-rs-goal list --json
-i-rs-goal get "Emergency Fund" --json
-```
-
 ### data
 
 Manage data (export, import, clear).
@@ -180,4 +170,18 @@ Show skill information.
 
 ```bash
 i-rs-goal skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/goal.json`
+- Linux: `~/.config/i-rs/goal.json`
+- Windows: `~\AppData\Roaming\i-rs\goal.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-goal list
 ```

@@ -50,6 +50,37 @@ Delete a record.
 i-rs-cycle delete <ID>
 ```
 
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-cycle data export
+i-rs-cycle data import [FILE]
+i-rs-cycle data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-cycle example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-cycle skill [summary|content|raw]
+```
+
 ## Event Types
 
 | Type | Description |
@@ -68,37 +99,16 @@ i-rs-cycle delete <ID>
 - fatigue
 - breast-tenderness
 
-### data
-
-Manage data (export, import, clear).
-
-```bash
-i-rs-cycle data export
-i-rs-cycle data import [FILE]
-i-rs-cycle data clear
-```
-
-Subcommands:
-- `export` - Export all data as JSON to stdout
-- `import [FILE]` - Import data from JSON file or stdin
-- `clear` - Clear all data
-### example
-
-Show usage examples.
-
-```bash
-i-rs-cycle example
-```
-### skill
-
-Show skill information.
-
-```bash
-i-rs-cycle skill [summary|content|raw]
-```
-
 ## Data Storage
 
 - macOS: `~/.config/i-rs/cycles.json`
 - Linux: `~/.config/i-rs/cycles.json`
 - Windows: `~\AppData\Roaming\i-rs\cycle.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-cycle list
+```

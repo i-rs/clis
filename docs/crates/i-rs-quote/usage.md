@@ -198,3 +198,17 @@ Show skill information.
 ```bash
 i-rs-quote skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/quote.json`
+- Linux: `~/.config/i-rs/quote.json`
+- Windows: `~\AppData\Roaming\i-rs\quote.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-quote list
+```

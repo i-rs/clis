@@ -96,13 +96,13 @@ i-rs-gift skill [summary|content|raw]
 
 ```bash
 # Add a sent gift
-i-rs-gift add "Birthday Watch" sent "Mom" birthday 500 2024-12-25 --tag family
+i-rs-gift add "Birthday Watch" sent "Mom" birthday 500 2024-12-25 --tag family [OPTIONS]
 
 # Add a received gift
-i-rs-gift add "AirPods Pro" received "Boss" christmas 1200 2024-12-25 --tag work
+i-rs-gift add "AirPods Pro" received "Boss" christmas 1200 2024-12-25 --tag work [OPTIONS]
 
 # List all gifts
-i-rs-gift list
+i-rs-gift list [OPTIONS]
 
 # List sent gifts only
 i-rs-gift list --type sent

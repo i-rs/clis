@@ -8,102 +8,51 @@
 
 ### start
 
-Start a new timer.
+Start tracking time for a task.
 
 ```bash
-i-rs-time start "Task name"
-i-rs-time start "Meeting" --tag work
-i-rs-time start "Coding" --tag development --remark "Feature implementation"
+i-rs-time start <NAME> [OPTIONS]
 ```
-
-Options:
-- `--tag, -t` - Add tags to the entry
-- `--remark, -r` - Add remarks to the entry
 
 ### stop
 
-Stop the current timer.
+Stop tracking current task.
 
 ```bash
 i-rs-time stop
 ```
 
-### list
-
-List all time entries.
-
-```bash
-i-rs-time list
-i-rs-time list --tag work
-```
-
-Options:
-- `--tag, -t` - Filter by tag
-
-### stats
-
-Show statistics for a period.
-
-```bash
-i-rs-time stats today
-i-rs-time stats yesterday
-i-rs-time stats week
-```
-
-Periods: `today`, `yesterday`, `week`
-
 ### report
 
-Generate work reports.
+Generate time report.
 
 ```bash
-i-rs-time report --days 7
-i-rs-time report --start 2024-01-01 --end 2024-01-31
+i-rs-time report [OPTIONS]
 ```
 
-Options:
-- `--days` - Number of days to report
-- `--start` - Start date (YYYY-MM-DD)
-- `--end` - End date (YYYY-MM-DD)
+### list
+
+List time entries.
+
+```bash
+i-rs-time list [OPTIONS]
+```
 
 ### get
 
-Get entry details by ID.
+Get time entry details.
 
 ```bash
-i-rs-time get <entry-id>
+i-rs-time get <ID>
 ```
 
 ### delete
 
-Delete an entry by ID.
+Delete a time entry.
 
 ```bash
-i-rs-time delete <entry-id>
+i-rs-time delete <ID>
 ```
-
-### example
-
-Show usage examples.
-
-```bash
-i-rs-time example
-```
-
-### skill
-
-View AI skill documentation.
-
-```bash
-i-rs-time skill
-i-rs-time skill summary
-i-rs-time skill content
-i-rs-time skill raw
-```
-
-## Global Options
-
-- `--json, -j` - Output in JSON format
 
 ### data
 
@@ -119,3 +68,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-time example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-time skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/time.json`
+- Linux: `~/.config/i-rs/time.json`
+- Windows: `~\AppData\Roaming\i-rs\time.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-time list
+```

@@ -68,18 +68,6 @@ Show gift statistics including:
 i-rs-gift stats
 ```
 
-### example
-
-Show usage examples.
-
-```bash
-i-rs-gift example
-```
-
-### Global Options
-
-- `--json`: Output in JSON format
-
 ### data
 
 Manage data (export, import, clear).
@@ -94,10 +82,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-gift example
+```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-gift skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/gifts.json`
+- Linux: `~/.config/i-rs/gifts.json`
+- Windows: `~\AppData\Roaming\i-rs\gifts.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-gift list
 ```

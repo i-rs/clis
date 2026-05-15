@@ -231,3 +231,17 @@ Show skill information.
 ```bash
 i-rs-password skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/password.json`
+- Linux: `~/.config/i-rs/password.json`
+- Windows: `~\AppData\Roaming\i-rs\password.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-password list
+```

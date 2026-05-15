@@ -14,6 +14,7 @@ Water purifier filter replacement tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Water purifier filter replacement tracking CLI tool.
 Record filter replacement.
 
 ```bash
-i-rs-purify add <FILTER_TYPE>
+i-rs-purify add <FILTER_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List filter replacement records.
 
 ```bash
-i-rs-purify list
+i-rs-purify list [OPTIONS]
 ```
 
 Options:
@@ -54,13 +55,6 @@ Delete a record.
 ```bash
 i-rs-purify delete <ID>
 ```
-
-## Filter Types
-
-- `RO Membrane` - Reverse osmosis membrane
-- `Carbon Filter` - Activated carbon filter
-- `Sediment Filter` - Pre-filter for sediment
-- `Mineral Filter` - Post-filter adding minerals
 
 ### data
 
@@ -88,13 +82,20 @@ Show skill information.
 i-rs-purify skill [summary|content|raw]
 ```
 
+## Filter Types
+
+- `RO Membrane` - Reverse osmosis membrane
+- `Carbon Filter` - Activated carbon filter
+- `Sediment Filter` - Pre-filter for sediment
+- `Mineral Filter` - Post-filter adding minerals
+
 ## Examples
 
 ```bash
 # Record replacement
-i-rs-purify add "RO Membrane"
-i-rs-purify add "Carbon Filter" --tag kitchen
+i-rs-purify add "RO Membrane" [OPTIONS]
+i-rs-purify add "Carbon Filter" --tag kitchen [OPTIONS]
 
 # List records
-i-rs-purify list
+i-rs-purify list [OPTIONS]
 ```

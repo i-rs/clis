@@ -14,6 +14,7 @@ Toothbrush replacement tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Toothbrush replacement tracking CLI tool.
 Record toothbrush replacement.
 
 ```bash
-i-rs-toothbrush add <BRUSH_TYPE>
+i-rs-toothbrush add <BRUSH_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List toothbrush replacement records.
 
 ```bash
-i-rs-toothbrush list
+i-rs-toothbrush list [OPTIONS]
 ```
 
 Options:
@@ -54,13 +55,6 @@ Delete a record.
 ```bash
 i-rs-toothbrush delete <ID>
 ```
-
-## Brush Types
-
-- `Electric` - Electric toothbrush head
-- `Manual` - Regular manual toothbrush
-- `Kids` - Children's toothbrush
-- `Interdental` - Interdental brush
 
 ### data
 
@@ -88,13 +82,20 @@ Show skill information.
 i-rs-toothbrush skill [summary|content|raw]
 ```
 
+## Brush Types
+
+- `Electric` - Electric toothbrush head
+- `Manual` - Regular manual toothbrush
+- `Kids` - Children's toothbrush
+- `Interdental` - Interdental brush
+
 ## Examples
 
 ```bash
 # Record replacement
-i-rs-toothbrush add "Electric"
-i-rs-toothbrush add "Manual" --tag travel
+i-rs-toothbrush add "Electric" [OPTIONS]
+i-rs-toothbrush add "Manual" --tag travel [OPTIONS]
 
 # List records
-i-rs-toothbrush list
+i-rs-toothbrush list [OPTIONS]
 ```

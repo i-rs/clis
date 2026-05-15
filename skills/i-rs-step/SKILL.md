@@ -38,7 +38,7 @@ Options:
 List step records.
 
 ```bash
-i-rs-step list
+i-rs-step list [OPTIONS]
 ```
 
 Options:
@@ -104,11 +104,11 @@ i-rs-step skill [summary|content|raw]
 
 ```bash
 # Record steps
-i-rs-step add 10000
-i-rs-step add 8000 --distance 6.4
+i-rs-step add 10000 [OPTIONS]
+i-rs-step add 8000 --distance 6.4 [OPTIONS]
 
 # List records
-i-rs-step list
+i-rs-step list [OPTIONS]
 
 # Get details
 i-rs-step get 2024-01-15

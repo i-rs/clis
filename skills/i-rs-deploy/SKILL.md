@@ -82,7 +82,7 @@ i-rs-deploy skill [summary|content|raw]
 
 ```bash
 # Add deployment
-i-rs-deploy add myapp production v1.2.3 --status success --tag frontend
+i-rs-deploy add myapp production v1.2.3 --status success --tag frontend [OPTIONS]
 
 # List deployments
 i-rs-deploy list --project myapp

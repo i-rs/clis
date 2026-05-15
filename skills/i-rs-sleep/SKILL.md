@@ -106,7 +106,7 @@ i-rs-sleep skill [summary|content|raw]
 
 ```bash
 # Record sleep
-i-rs-sleep add 22:30 06:45 4 --tag workday
+i-rs-sleep add 22:30 06:45 4 --tag workday [OPTIONS]
 
 # View statistics
 i-rs-sleep stats

@@ -125,10 +125,6 @@ Displays:
 - Average distance per ride
 - Average duration per ride
 
-### Global Options
-
-- `--json` - Output in JSON format
-
 ### data
 
 Manage data (export, import, clear).
@@ -143,6 +139,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -150,10 +147,25 @@ Show usage examples.
 ```bash
 i-rs-cycling example
 ```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-cycling skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/cycling.json`
+- Linux: `~/.config/i-rs/cycling.json`
+- Windows: `~\AppData\Roaming\i-rs\cycling.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-cycling list
 ```

@@ -232,38 +232,6 @@ i-rs-budget delete --expense-id abc12345
 
 ---
 
-## 全局选项
-
-所有命令支持以下全局选项:
-
-| 选项 | 说明 |
-|------|------|
-| `--json` | 以 JSON 格式输出结果 |
-| `-h, --help` | 显示帮助信息 |
-| `-V, --version` | 显示版本信息 |
-
----
-
-## example - 使用示例
-
-显示详细的使用示例。
-
-```bash
-i-rs-budget example
-```
-
----
-
-## skill - AI 技能文档
-
-查看集成在 CLI 中的 AI 技能文档。
-
-```bash
-i-rs-budget skill          # 显示原始文档
-i-rs-budget skill summary  # 显示摘要
-i-rs-budget skill content  # 显示完整内容
-```
-
 ### data
 
 Manage data (export, import, clear).
@@ -278,17 +246,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
-Show usage examples.
+显示详细的使用示例。
 
 ```bash
 i-rs-budget example
 ```
+
 ### skill
 
-Show skill information.
+查看 AI 技能文档。
 
 ```bash
 i-rs-budget skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/budget.json`
+- Linux: `~/.config/i-rs/budget.json`
+- Windows: `~\AppData\Roaming\i-rs\budget.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-budget list
 ```

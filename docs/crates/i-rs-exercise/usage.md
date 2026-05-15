@@ -344,3 +344,17 @@ Show skill information.
 ```bash
 i-rs-exercise skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/exercise.json`
+- Linux: `~/.config/i-rs/exercise.json`
+- Windows: `~\AppData\Roaming\i-rs\exercise.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-exercise list
+```

@@ -19,13 +19,13 @@ Plant care tracking CLI tool for managing indoor and outdoor plants.
 ### add
 Add a new plant:
 ```bash
-i-rs-plant add --name "Monstera" --species "Monstera deliciosa" --location "Living room" --interval 7
+i-rs-plant add --name "Monstera" --species "Monstera deliciosa" --location "Living room" --interval 7 [OPTIONS]
 ```
 
 ### list
 List all plants:
 ```bash
-i-rs-plant list
+i-rs-plant list [OPTIONS]
 i-rs-plant list --tag indoor
 ```
 
@@ -89,10 +89,10 @@ i-rs-plant skill [summary|content|raw]
 
 ```bash
 # Add a plant with tags
-i-rs-plant add --name "Snake Plant" --species "Sansevieria" --location "Office" --interval 14 --tag succulent
+i-rs-plant add --name "Snake Plant" --species "Sansevieria" --location "Office" --interval 14 --tag succulent [OPTIONS]
 
 # List all plants
-i-rs-plant list
+i-rs-plant list [OPTIONS]
 
 # Water all plants
 for plant in $(i-rs-plant list --json | jq -r '.data[].name'); do

@@ -14,20 +14,21 @@ Vehicle management CLI tool for tracking car information, fuel records, maintena
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
 Create a new car entry.
 ```bash
-i-rs-car add <name> --license-plate <plate> --brand <brand> --model <model> --mileage <km> [options]
+i-rs-car add <NAME> [OPTIONS]
 ```
 Options:
-- `--license-plate`: License plate number
-- `--brand`: Car brand (e.g., Toyota, Honda, BMW)
-- `--model`: Car model (e.g., Camry, Civic, X5)
-- `--mileage`: Current mileage in km
-- `--tags`: Comma-separated tags (optional)
-- `--remark`: Remarks (optional, multiple)
+- `-l, --license-plate <PLATE>` - License plate number
+- `-b, --brand <BRAND>` - Car brand
+- `-m, --model <MODEL>` - Car model
+- `-i, --mileage <KM>` - Current mileage in km
+- `-t, --tags <TAGS>` - Comma-separated tags
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### list
 List all cars.
@@ -132,7 +133,7 @@ i-rs-car data clear
 
 ```bash
 # Add a car
-i-rs-car add "My Car" --license-plate "ABC123" --brand "Toyota" --model "Camry" --mileage 50000
+i-rs-car add "My Car" --license-plate "ABC123" --brand "Toyota" --model "Camry" --mileage 50000 [OPTIONS]
 
 # Add fuel record
 i-rs-car fuel "My Car" --mileage 51000 --fuel-amount 45 --price 8.5

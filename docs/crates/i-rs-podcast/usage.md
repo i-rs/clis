@@ -15,9 +15,9 @@ i-rs-podcast add <NAME> [OPTIONS]
 ```
 
 **Options:**
-- `--author, -a <TEXT>` - Author/host name
-- `--duration, -d <SECONDS>` - Total duration in seconds
-- `--tag, -t <TAG>` - Tags (repeatable)
+- `-a, --author <TEXT>` - Author/host name
+- `-d, --duration <SECONDS>` - Total duration in seconds
+- `-t, --tag <TAG>` - Tags (repeatable)
 - `--remark <TEXT>` - Remark lines (repeatable)
 - `--notes <TEXT>` - Note lines (repeatable)
 
@@ -37,7 +37,7 @@ i-rs-podcast list [OPTIONS]
 
 **Options:**
 - `--status <STATUS>` - Filter by status (not_started, in_progress, completed)
-- `--tag, -t <TAG>` - Filter by tag
+- `-t, --tag <TAG>` - Filter by tag
 
 **Example:**
 ```bash
@@ -68,7 +68,7 @@ i-rs-podcast listen <NAME> --position <SECONDS> [OPTIONS]
 ```
 
 **Options:**
-- `--position, -p <SECONDS>` - Current position in seconds
+- `-p, --position <SECONDS>` - Current position in seconds
 - `--notes <TEXT>` - Add note lines (repeatable)
 
 **Example:**
@@ -86,9 +86,9 @@ i-rs-podcast update <NAME> [OPTIONS]
 ```
 
 **Options:**
-- `--author, -a <TEXT>` - Author/host name
-- `--duration, -d <SECONDS>` - Total duration in seconds
-- `--tag, -t <TAG>` - Tags (repeatable)
+- `-a, --author <TEXT>` - Author/host name
+- `-d, --duration <SECONDS>` - Total duration in seconds
+- `-t, --tag <TAG>` - Tags (repeatable)
 - `--remark <TEXT>` - Remark lines (repeatable)
 - `--notes <TEXT>` - Note lines (repeatable)
 
@@ -119,21 +119,6 @@ Show podcast collection statistics.
 i-rs-podcast stats
 ```
 
-**Example:**
-```bash
-i-rs-podcast stats
-```
-
-### Global Options
-
-- `--json` - Output in JSON format
-
-**Example:**
-```bash
-i-rs-podcast list --json
-i-rs-podcast get "The Daily" --json
-```
-
 ### data
 
 Manage data (export, import, clear).
@@ -148,6 +133,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -155,10 +141,25 @@ Show usage examples.
 ```bash
 i-rs-podcast example
 ```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-podcast skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/podcasts.json`
+- Linux: `~/.config/i-rs/podcasts.json`
+- Windows: `~\AppData\Roaming\i-rs\podcasts.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-podcast list
 ```

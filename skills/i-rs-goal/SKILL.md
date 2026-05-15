@@ -107,7 +107,7 @@ i-rs-goal skill [summary|content|raw]
 
 ```bash
 # Create a savings goal
-i-rs-goal add "Emergency Fund" --target 10000 --deadline 2025-12-31
+i-rs-goal add "Emergency Fund" --target 10000 --deadline 2025-12-31 [OPTIONS]
 
 # Deposit to a goal
 i-rs-goal deposit "Emergency Fund" --amount 500

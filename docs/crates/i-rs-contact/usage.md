@@ -1,5 +1,9 @@
 # i-rs-contact Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -18,7 +22,7 @@ Options:
 - `-e, --email <EMAIL>` - Email address
 - `-r, --relationship <REL>` - Relationship (family/friend/colleague/client/other)
 - `-t, --tag <TAG>` - Tags (can be repeated)
-- `-m, --remark <REMARK>` - Remarks (can be repeated)
+- `--remark <REMARK>` - Remarks (can be repeated)
 
 ### list
 
@@ -55,7 +59,7 @@ Options:
 - `-e, --email <EMAIL>` - Update email address
 - `-r, --relationship <REL>` - Update relationship
 - `-t, --tag <TAG>` - Update tags
-- `-m, --remark <REMARK>` - Update remarks
+- `--remark <REMARK>` - Update remarks
 
 ### delete
 
@@ -93,37 +97,6 @@ i-rs-contact remind [OPTIONS]
 Options:
 - `-d, --days <DAYS>` - Days threshold (default: 30)
 
-### example
-
-Show usage examples.
-
-```bash
-i-rs-contact example
-```
-
-### skill
-
-Show AI skill documentation.
-
-```bash
-i-rs-contact skill [subcommand]
-```
-
-Subcommands:
-- `summary` - Show skill summary
-- `content` - Show skill content
-- `raw` - Show raw skill document
-
-## Relationship Options
-
-| Option | Description |
-|--------|-------------|
-| family | Family members |
-| friend | Friends |
-| colleague | Work colleagues |
-| client | Clients |
-| other | Other relationships |
-
 ### data
 
 Manage data (export, import, clear).
@@ -139,12 +112,42 @@ Subcommands:
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
 
+### example
+
+Show usage examples.
+
+```bash
+i-rs-contact example
+```
+
+### skill
+
+Show AI skill documentation.
+
+```bash
+i-rs-contact skill [summary|content|raw]
+```
+
+## Relationship Options
+
+| Option | Description |
+|--------|-------------|
+| family | Family members |
+| friend | Friends |
+| colleague | Work colleagues |
+| client | Clients |
+| other | Other relationships |
+
 ## Data Storage
 
 - macOS: `~/.config/i-rs/contacts.json`
 - Linux: `~/.config/i-rs/contacts.json`
 - Windows: `~\AppData\Roaming\i-rs\contacts.json`
 
-## Global Flags
+## Environment Variables
 
-- `--json` - Output in JSON format
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-contact list
+```

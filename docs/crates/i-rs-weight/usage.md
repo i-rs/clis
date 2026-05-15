@@ -178,3 +178,17 @@ Show skill information.
 ```bash
 i-rs-weight skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/weights.json`
+- Linux: `~/.config/i-rs/weights.json`
+- Windows: `~\AppData\Roaming\i-rs\weights.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-weight list
+```

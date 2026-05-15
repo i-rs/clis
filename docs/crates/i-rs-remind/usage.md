@@ -148,3 +148,17 @@ Show skill information.
 ```bash
 i-rs-remind skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/remind.json`
+- Linux: `~/.config/i-rs/remind.json`
+- Windows: `~\AppData\Roaming\i-rs\remind.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-remind list
+```

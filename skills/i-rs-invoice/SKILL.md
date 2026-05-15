@@ -127,10 +127,10 @@ i-rs-invoice skill [summary|content|raw]
 
 ```bash
 # Add electronic invoice
-i-rs-invoice add "Office Supplies" --amount 299.99 --type electronic --tags expense
+i-rs-invoice add "Office Supplies" --amount 299.99 --type electronic --tags expense [OPTIONS]
 
 # Add paper invoice with reimbursement
-i-rs-invoice add "Travel" --amount 1500.00 --type paper --reimbursed --tags travel
+i-rs-invoice add "Travel" --amount 1500.00 --type paper --reimbursed --tags travel [OPTIONS]
 
 # List unreimbursed invoices
 i-rs-invoice list --unreimbursed

@@ -14,6 +14,7 @@ Towel replacement tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Towel replacement tracking CLI tool.
 Record towel replacement.
 
 ```bash
-i-rs-towel add <TOWEL_TYPE>
+i-rs-towel add <TOWEL_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List towel replacement records.
 
 ```bash
-i-rs-towel list
+i-rs-towel list [OPTIONS]
 ```
 
 Options:
@@ -54,14 +55,6 @@ Delete a record.
 ```bash
 i-rs-towel delete <ID>
 ```
-
-## Towel Types
-
-- `bath` - Bath towel
-- `face` - Face towel
-- `hand` - Hand towel
-- `beach` - Beach towel
-- `sports` - Sports towel
 
 ### data
 
@@ -89,13 +82,21 @@ Show skill information.
 i-rs-towel skill [summary|content|raw]
 ```
 
+## Towel Types
+
+- `bath` - Bath towel
+- `face` - Face towel
+- `hand` - Hand towel
+- `beach` - Beach towel
+- `sports` - Sports towel
+
 ## Examples
 
 ```bash
 # Record replacement
-i-rs-towel add bath
-i-rs-towel add face --tag bedroom
+i-rs-towel add bath [OPTIONS]
+i-rs-towel add face --tag bedroom [OPTIONS]
 
 # List records
-i-rs-towel list
+i-rs-towel list [OPTIONS]
 ```

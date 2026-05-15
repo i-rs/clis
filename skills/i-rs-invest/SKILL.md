@@ -21,7 +21,7 @@ Investment returns tracking CLI tool for stocks, funds, and cryptocurrencies.
 Add a new investment.
 
 ```bash
-i-rs-invest add <NAME>
+i-rs-invest add <NAME> [OPTIONS]
 ```
 
 Options:
@@ -39,7 +39,7 @@ Options:
 List all investments.
 
 ```bash
-i-rs-invest list
+i-rs-invest list [OPTIONS]
 ```
 
 Options:
@@ -119,19 +119,19 @@ i-rs-invest skill [summary|content|raw]
 
 ```bash
 # Add a stock
-i-rs-invest add Apple --symbol AAPL --type stock --quantity 10 --price 150.00
+i-rs-invest add Apple --symbol AAPL --type stock --quantity 10 --price 150.00 [OPTIONS]
 
 # Add a fund
-i-rs-invest add "S&P 500 Fund" --symbol VOO --type fund --qty 50 --price 400
+i-rs-invest add "S&P 500 Fund" --symbol VOO --type fund --qty 50 --price 400 [OPTIONS]
 
 # Add a cryptocurrency
-i-rs-invest add Bitcoin --symbol BTC --type crypto --quantity 0.5 --price 40000
+i-rs-invest add Bitcoin --symbol BTC --type crypto --quantity 0.5 --price 40000 [OPTIONS]
 
 # Update current price
 i-rs-invest update Apple --current-price 175.50
 
 # List all investments
-i-rs-invest list
+i-rs-invest list [OPTIONS]
 
 # Filter by type
 i-rs-invest list --type stock

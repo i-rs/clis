@@ -37,7 +37,7 @@ Options:
 List recurring expenses.
 
 ```bash
-i-rs-recur list
+i-rs-recur list [OPTIONS]
 ```
 
 ### get
@@ -100,12 +100,12 @@ i-rs-recur skill [summary|content|raw]
 
 ```bash
 # Add recurring expense
-i-rs-recur add "Netflix" --amount 15.99 --frequency monthly
-i-rs-recur add "Rent" --amount 2000 --frequency monthly
-i-rs-recur add "Gym" --amount 300 --frequency monthly
+i-rs-recur add "Netflix" --amount 15.99 --frequency monthly [OPTIONS]
+i-rs-recur add "Rent" --amount 2000 --frequency monthly [OPTIONS]
+i-rs-recur add "Gym" --amount 300 --frequency monthly [OPTIONS]
 
 # List expenses
-i-rs-recur list
+i-rs-recur list [OPTIONS]
 
 # Get details
 i-rs-recur get Netflix

@@ -14,6 +14,7 @@ Aquarium water change tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -34,7 +35,7 @@ Options:
 List water change records.
 
 ```bash
-i-rs-aqua list
+i-rs-aqua list [OPTIONS]
 ```
 
 Options:
@@ -87,8 +88,8 @@ i-rs-aqua skill [summary|content|raw]
 ```bash
 # Record water change
 i-rs-aqua add
-i-rs-aqua add --tank-size 100
+i-rs-aqua add --tank-size 100 [OPTIONS]
 
 # List records
-i-rs-aqua list
+i-rs-aqua list [OPTIONS]
 ```

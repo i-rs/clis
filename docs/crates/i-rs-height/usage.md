@@ -16,19 +16,12 @@ i-rs-height add <DATE> <HEIGHT> [OPTIONS]
 
 **Arguments:**
 - `DATE` - Date in YYYY-MM-DD format
-- `HEIGHT` - Height in centimeters
+- `HEIGHT` - Height in cm
 
 **Options:**
-- `-w, --weight <KG>` - Weight in kilograms (optional)
-- `-t, --tag <TAG>` - Tags (can be repeated)
-- `-r, --remark <TEXT>` - Remarks (can be repeated)
-
-**Examples:**
-```bash
-i-rs-height add 2025-06-14 175.5
-i-rs-height add 2025-06-14 175.5 --weight 68.5
-i-rs-height add 2025-06-14 175.5 --tag "morning" --remark "After breakfast"
-```
+- `-w, --weight <KG>` - Weight in kg
+- `-t, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <TEXT>` - Remarks (repeatable)
 
 ### list
 
@@ -40,90 +33,40 @@ i-rs-height list [OPTIONS]
 
 **Options:**
 - `-d, --days <N>` - Show records from last N days
-- `-c, --chart` - Display ASCII chart
+- `-c, --chart` - Show chart
 - `-s, --stats` - Show statistics
-
-**Examples:**
-```bash
-i-rs-height list
-i-rs-height list --days 30
-i-rs-height list --chart
-i-rs-height list --days 7 --chart --stats
-```
 
 ### get
 
-Get details of a specific record.
+Get specific record.
 
 ```bash
 i-rs-height get <DATE>
 ```
 
-**Examples:**
-```bash
-i-rs-height get 2025-06-14
-```
-
 ### delete
 
-Delete a height record.
+Delete a record.
 
 ```bash
 i-rs-height delete <DATE>
 ```
 
-**Examples:**
-```bash
-i-rs-height delete 2025-06-15
-```
-
 ### set
 
-Set target height.
+Set a height target.
 
 ```bash
 i-rs-height set <HEIGHT>
 ```
 
-**Examples:**
-```bash
-i-rs-height set 180.0
-```
-
 ### target
 
-Show current target height.
+Show current height target.
 
 ```bash
 i-rs-height target
 ```
-
-### example
-
-Show usage examples.
-
-```bash
-i-rs-height example
-```
-
-### skill
-
-View AI skill documentation.
-
-```bash
-i-rs-height skill [SUB_COMMAND]
-```
-
-**Sub commands:**
-- `summary` - Show skill summary
-- `content` - Show skill content
-- `raw` - Show raw skill document
-
-## Global Options
-
-- `--json` - Output in JSON format
-- `-h, --help` - Show help information
-- `-V, --version` - Show version information
 
 ### data
 
@@ -139,3 +82,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-height example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-height skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/height.json`
+- Linux: `~/.config/i-rs/height.json`
+- Windows: `~\AppData\Roaming\i-rs\height.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-height list
+```

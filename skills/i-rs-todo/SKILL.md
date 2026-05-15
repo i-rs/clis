@@ -29,7 +29,7 @@ Todo management CLI tool for tracking tasks and to-do items.
 Add a new todo.
 
 ```bash
-i-rs-todo add <NAME>
+i-rs-todo add <NAME> [OPTIONS]
 ```
 
 Options:
@@ -43,7 +43,7 @@ Options:
 List todos.
 
 ```bash
-i-rs-todo list
+i-rs-todo list [OPTIONS]
 ```
 
 Options:
@@ -119,10 +119,10 @@ i-rs-todo skill [summary|content|raw]
 
 ```bash
 # Add a todo
-i-rs-todo add task-1 --title "Complete report" --priority high --tag work
+i-rs-todo add task-1 --title "Complete report" --priority high --tag work [OPTIONS]
 
 # List all
-i-rs-todo list
+i-rs-todo list [OPTIONS]
 
 # List pending only
 i-rs-todo list --pending

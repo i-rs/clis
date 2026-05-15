@@ -14,6 +14,7 @@ Contact management CLI tool for managing contacts, tracking relationships and co
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -29,7 +30,7 @@ Options:
 - `-e, --email <EMAIL>` - Email address
 - `-r, --relationship <REL>` - Relationship (family/friend/colleague/client/other)
 - `-t, --tag <TAG>` - Tags (can be repeated)
-- `-m, --remark <REMARK>` - Remarks (can be repeated)
+- `--remark <REMARK>` - Remarks (can be repeated)
 
 ### list
 
@@ -121,13 +122,13 @@ i-rs-contact skill [summary|content|raw]
 
 ```bash
 # Add a contact
-i-rs-contact add John --phone 13800138000 --email john@example.com --relationship friend
+i-rs-contact add John --phone 13800138000 --email john@example.com --relationship friend [OPTIONS]
 
 # Add with tags
-i-rs-contact add Alice --phone 13900139000 --tag family --tag important
+i-rs-contact add Alice --phone 13900139000 --tag family --tag important [OPTIONS]
 
 # List contacts
-i-rs-contact list
+i-rs-contact list [OPTIONS]
 
 # View statistics
 i-rs-contact stats

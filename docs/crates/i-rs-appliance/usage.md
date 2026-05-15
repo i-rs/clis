@@ -22,8 +22,8 @@ i-rs-appliance add <NAME> <BRAND> <MODEL> <PURCHASE_DATE> <LIFESPAN_YEARS> [OPTI
 - `LIFESPAN_YEARS` - Expected lifespan in years
 
 **Options:**
-- `--tag, -t` - Add tags (repeatable)
-- `--remark, -r` - Add remarks (repeatable)
+- `-t, --tag <TAG>` - Add tags (repeatable)
+- `-r, --remark <REMARK>` - Add remarks (repeatable)
 
 **Example:**
 ```bash
@@ -39,7 +39,7 @@ i-rs-appliance list [OPTIONS]
 ```
 
 **Options:**
-- `--tag, -t` - Filter by tag
+- `-t, --tag <TAG>` - Filter by tag
 
 **Example:**
 ```bash
@@ -69,13 +69,13 @@ i-rs-appliance update <NAME> [OPTIONS]
 ```
 
 **Options:**
-- `--brand, -b` - Update brand
-- `--model, -m` - Update model
-- `--lifespan, -l` - Update lifespan years
-- `--tag, -t` - Update tags
-- `--remark, -r` - Update remarks
-- `--add-maintenance` - Add maintenance record description
-- `--maintenance-date` - Maintenance record date (YYYY-MM-DD)
+- `-b, --brand <BRAND>` - Update brand
+- `-m, --model <MODEL>` - Update model
+- `-l, --lifespan <YEARS>` - Update lifespan years
+- `-t, --tag <TAG>` - Update tags
+- `-r, --remark <REMARK>` - Update remarks
+- `--add-maintenance <DESC>` - Add maintenance record description
+- `--maintenance-date <DATE>` - Maintenance record date (YYYY-MM-DD)
 
 **Example:**
 ```bash
@@ -104,28 +104,6 @@ Show statistics overview.
 i-rs-appliance stats
 ```
 
-### Global Options
-
-- `--json` - Output in JSON format
-
-### example
-
-Show usage examples.
-
-```bash
-i-rs-appliance example
-```
-
-### skill
-
-View AI skill documentation.
-
-```bash
-i-rs-appliance skill
-i-rs-appliance skill summary
-i-rs-appliance skill content
-```
-
 ### data
 
 Manage data (export, import, clear).
@@ -140,3 +118,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-appliance example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-appliance skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/appliances.json`
+- Linux: `~/.config/i-rs/appliances.json`
+- Windows: `~\AppData\Roaming\i-rs\appliances.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-appliance list
+```

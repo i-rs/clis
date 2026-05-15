@@ -33,7 +33,7 @@ i-rs-bookmark add <NAME> <URL> [OPTIONS]
 
 | Short | Long | Description |
 |-------|------|-------------|
-| `-u` | `--account` | Account/username (optional) |
+| `-a` | `--account` | Account/username (optional) |
 | `-p` | `--password` | Password (stored securely in keychain, optional) |
 | `-t` | `--tag` | Tags (can be specified multiple times) |
 | `-r` | `--remark` | Remarks (can be specified multiple times) |
@@ -85,7 +85,7 @@ i-rs-bookmark update <NAME> [OPTIONS]
 | Short | Long | Description |
 |-------|------|-------------|
 | | `--url` | New URL |
-| `-u` | `--account` | New account |
+| `-a` | `--account` | New account |
 | `-p` | `--password` | New password (stored in keychain) |
 | `-t` | `--tag` | New tags |
 | `-r` | `--remark` | New remarks |
@@ -114,6 +114,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -121,10 +122,25 @@ Show usage examples.
 ```bash
 i-rs-bookmark example
 ```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-bookmark skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/bookmark.json`
+- Linux: `~/.config/i-rs/bookmark.json`
+- Windows: `~\AppData\Roaming\i-rs\bookmark.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-bookmark list
 ```

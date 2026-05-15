@@ -38,7 +38,7 @@ Options:
 List subscriptions.
 
 ```bash
-i-rs-sub list
+i-rs-sub list [OPTIONS]
 ```
 
 ### get
@@ -102,11 +102,11 @@ i-rs-sub skill [summary|content|raw]
 
 ```bash
 # Add subscription
-i-rs-sub add "Netflix" --amount 15.99 --cycle monthly --next-date 2024-02-15
-i-rs-sub add "Spotify" --amount 9.99 --cycle monthly --next-date 2024-02-20
+i-rs-sub add "Netflix" --amount 15.99 --cycle monthly --next-date 2024-02-15 [OPTIONS]
+i-rs-sub add "Spotify" --amount 9.99 --cycle monthly --next-date 2024-02-20 [OPTIONS]
 
 # List subscriptions
-i-rs-sub list
+i-rs-sub list [OPTIONS]
 
 # Get details
 i-rs-sub get Netflix

@@ -14,6 +14,7 @@ Home appliance lifecycle management CLI tool for tracking appliances, maintenanc
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -94,10 +95,10 @@ i-rs-appliance skill [summary|content|raw]
 
 ```bash
 # Add appliance
-i-rs-appliance add "Refrigerator" Samsung "RF28R7551" 2020-01-15 10 --tag kitchen
+i-rs-appliance add "Refrigerator" Samsung "RF28R7551" 2020-01-15 10 --tag kitchen [OPTIONS]
 
 # List appliances
-i-rs-appliance list
+i-rs-appliance list [OPTIONS]
 i-rs-appliance list --tag kitchen
 
 # Get details

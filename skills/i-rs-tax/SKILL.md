@@ -9,7 +9,6 @@ description: "税务记录管理 CLI 工具。用于记录个人所得税、增�
 
 - `--json` — Output in JSON format
 
-
 税务记录管理 CLI 工具，用于记录个人所得税、增值税等税务信息，支持年度统计和报税状态跟踪。
 
 ## 存储
@@ -127,10 +126,6 @@ i-rs-tax data clear
 
 ```bash
 # JSON output
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-tax list --json
 ```

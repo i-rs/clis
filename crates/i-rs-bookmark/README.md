@@ -28,7 +28,7 @@ i-rs-bookmark add <NAME> <URL> [OPTIONS]
 ```
 
 Options:
-- `-u, --account <ACCOUNT>` - Account/username (optional)
+- `-a, --account <ACCOUNT>` - Account/username (optional)
 - `-p, --password <PASSWORD>` - Password (stored securely in keychain, optional)
 - `-t, --tag <TAG>` - Tags (can be specified multiple times)
 - `-r, --remark <REMARK>` - Remarks (can be specified multiple times)

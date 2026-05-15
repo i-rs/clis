@@ -37,7 +37,7 @@ Options:
 List wish list items.
 
 ```bash
-i-rs-want list
+i-rs-want list [OPTIONS]
 ```
 
 Options:
@@ -107,12 +107,12 @@ i-rs-want skill [summary|content|raw]
 
 ```bash
 # Add wish list items
-i-rs-want add "New Headphones" --price 299.99 --priority high
-i-rs-want add "Book: Rust Programming" --price 49.99 --priority medium
-i-rs-want add "Keyboard" --url "https://example.com/keyboard" --priority high
+i-rs-want add "New Headphones" --price 299.99 --priority high [OPTIONS]
+i-rs-want add "Book: Rust Programming" --price 49.99 --priority medium [OPTIONS]
+i-rs-want add "Keyboard" --url "https://example.com/keyboard" --priority high [OPTIONS]
 
 # List items
-i-rs-want list
+i-rs-want list [OPTIONS]
 
 # Mark as done
 i-rs-want update "New Headphones" --done

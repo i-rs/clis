@@ -21,7 +21,7 @@ Sitting duration tracking CLI tool.
 Record sitting duration.
 
 ```bash
-i-rs-sit add <DURATION_MINUTES>
+i-rs-sit add <DURATION_MINUTES> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 List sitting records.
 
 ```bash
-i-rs-sit list
+i-rs-sit list [OPTIONS]
 ```
 
 Options:
@@ -85,9 +85,9 @@ i-rs-sit skill [summary|content|raw]
 
 ```bash
 # Record sitting
-i-rs-sit add 60
-i-rs-sit add 120 --tag work
+i-rs-sit add 60 [OPTIONS]
+i-rs-sit add 120 --tag work [OPTIONS]
 
 # List records
-i-rs-sit list
+i-rs-sit list [OPTIONS]
 ```

@@ -14,6 +14,7 @@ AC cleaning tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ AC cleaning tracking CLI tool.
 Record AC cleaning.
 
 ```bash
-i-rs-ac add <LOCATION>
+i-rs-ac add <LOCATION> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List AC cleaning records.
 
 ```bash
-i-rs-ac list
+i-rs-ac list [OPTIONS]
 ```
 
 Options:
@@ -85,9 +86,9 @@ i-rs-ac skill [summary|content|raw]
 
 ```bash
 # Record cleaning
-i-rs-ac add "Living Room"
-i-rs-ac add "Bedroom" --tag summer
+i-rs-ac add "Living Room" [OPTIONS]
+i-rs-ac add "Bedroom" --tag summer [OPTIONS]
 
 # List records
-i-rs-ac list
+i-rs-ac list [OPTIONS]
 ```

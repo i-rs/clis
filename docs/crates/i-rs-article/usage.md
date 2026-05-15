@@ -15,9 +15,9 @@ i-rs-article add <NAME> <URL> <TITLE> [OPTIONS]
 ```
 
 Options:
-- `--source, -s`: Article source (e.g., blog name, website)
-- `--tag, -g`: Tags (repeatable)
-- `--remark, -r`: Remarks (repeatable)
+- `-s, --source <SOURCE>` - Article source (e.g., blog name, website)
+- `-g, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <REMARK>` - Remarks (repeatable)
 
 Example:
 ```bash
@@ -33,8 +33,8 @@ i-rs-article list [OPTIONS]
 ```
 
 Options:
-- `--tag, -g`: Filter by tag
-- `--status`: Filter by status (unread/reading/read)
+- `-g, --tag <TAG>` - Filter by tag
+- `-s, --status <STATUS>` - Filter by status (unread/reading/read)
 
 Examples:
 ```bash
@@ -79,13 +79,13 @@ i-rs-article update <NAME> [OPTIONS]
 ```
 
 Options:
-- `--title`: Update title
-- `--url`: Update URL
-- `--source, -s`: Update source
-- `--status`: Update status (unread/reading/read)
-- `--tag, -g`: Update tags
-- `--remark, -r`: Update remarks
-- `--notes, -n`: Update notes
+- `--title <TITLE>` - Update title
+- `--url <URL>` - Update URL
+- `-s, --source <SOURCE>` - Update source
+- `-s, --status <STATUS>` - Update status (unread/reading/read)
+- `-g, --tag <TAG>` - Update tags
+- `-r, --remark <REMARK>` - Update remarks
+- `-n, --notes <NOTES>` - Update notes
 
 Examples:
 ```bash
@@ -115,10 +115,6 @@ Show reading statistics.
 i-rs-article stats
 ```
 
-## Global Options
-
-- `--json`: Output in JSON format
-
 ### data
 
 Manage data (export, import, clear).
@@ -133,6 +129,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -140,10 +137,25 @@ Show usage examples.
 ```bash
 i-rs-article example
 ```
+
 ### skill
 
 Show skill information.
 
 ```bash
 i-rs-article skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/articles.json`
+- Linux: `~/.config/i-rs/articles.json`
+- Windows: `~\AppData\Roaming\i-rs\articles.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-article list
 ```

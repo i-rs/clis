@@ -14,6 +14,7 @@ description: "Debt management CLI tool. Track credit card debts, loans, borrowed
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -114,10 +115,10 @@ i-rs-debt data clear
 
 ```bash
 # 添加信用卡债务
-i-rs-debt add "信用卡A" --debt-type credit_card --amount 10000 --interest-rate 15.0
+i-rs-debt add "信用卡A" --debt-type credit_card --amount 10000 --interest-rate 15.0 [OPTIONS]
 
 # 添加贷款
-i-rs-debt add "车贷" --debt-type loan --amount 50000 --tags car,vehicle
+i-rs-debt add "车贷" --debt-type loan --amount 50000 --tags car,vehicle [OPTIONS]
 
 # 记录还款
 i-rs-debt pay "信用卡A" --amount 500 --note "月供"

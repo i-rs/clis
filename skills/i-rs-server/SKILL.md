@@ -43,7 +43,7 @@ Options:
 List servers.
 
 ```bash
-i-rs-server list
+i-rs-server list [OPTIONS]
 ```
 
 Options:
@@ -121,10 +121,10 @@ i-rs-server skill [summary|content|raw]
 
 ```bash
 # Add server (password stored in keychain)
-i-rs-server add web1 192.168.1.100 22 --user admin --password secret --tag production
+i-rs-server add web1 192.168.1.100 22 --user admin --password secret --tag production [OPTIONS]
 
 # List servers
-i-rs-server list
+i-rs-server list [OPTIONS]
 
 # Get details (password hidden by default)
 i-rs-server get web1

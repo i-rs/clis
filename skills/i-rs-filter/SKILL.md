@@ -14,6 +14,7 @@ Appliance filter cleaning tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Appliance filter cleaning tracking CLI tool.
 Record filter cleaning.
 
 ```bash
-i-rs-filter add <APPLIANCE_NAME> <FILTER_TYPE>
+i-rs-filter add <APPLIANCE_NAME> <FILTER_TYPE> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +34,7 @@ Options:
 List filter cleaning records.
 
 ```bash
-i-rs-filter list
+i-rs-filter list [OPTIONS]
 ```
 
 Options:
@@ -54,13 +55,6 @@ Delete a record.
 ```bash
 i-rs-filter delete <ID>
 ```
-
-## Filter Types
-
-- `HEPA` - High-efficiency particulate air
-- `Carbon` - Activated carbon filter
-- `Foam` - Foam filter
-- `Dust` - Dust collection filter
 
 ### data
 
@@ -88,13 +82,20 @@ Show skill information.
 i-rs-filter skill [summary|content|raw]
 ```
 
+## Filter Types
+
+- `HEPA` - High-efficiency particulate air
+- `Carbon` - Activated carbon filter
+- `Foam` - Foam filter
+- `Dust` - Dust collection filter
+
 ## Examples
 
 ```bash
 # Record cleaning
-i-rs-filter add "Air Purifier" HEPA
-i-rs-filter add "Vacuum" dust --tag living-room
+i-rs-filter add "Air Purifier" HEPA [OPTIONS]
+i-rs-filter add "Vacuum" dust --tag living-room [OPTIONS]
 
 # List records
-i-rs-filter list
+i-rs-filter list [OPTIONS]
 ```

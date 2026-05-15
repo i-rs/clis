@@ -34,7 +34,7 @@ Options:
 List craving records.
 
 ```bash
-i-rs-pig list
+i-rs-pig list [OPTIONS]
 ```
 
 Options:
@@ -86,11 +86,11 @@ i-rs-pig skill [summary|content|raw]
 
 ```bash
 # Record a craving
-i-rs-pig add "Chocolate bar"
-i-rs-pig add "French fries" --remark "Fast food lunch"
+i-rs-pig add "Chocolate bar" [OPTIONS]
+i-rs-pig add "French fries" --remark "Fast food lunch" [OPTIONS]
 
 # List records
-i-rs-pig list
+i-rs-pig list [OPTIONS]
 
 # Get details
 i-rs-pig get abc12345

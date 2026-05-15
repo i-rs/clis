@@ -93,13 +93,13 @@ i-rs-podcast skill [summary|content|raw]
 
 ```bash
 # Add podcast
-i-rs-podcast add "The Daily" --author "NYT" --duration 3600
+i-rs-podcast add "The Daily" --author "NYT" --duration 3600 [OPTIONS]
 
 # Update progress
 i-rs-podcast listen "The Daily" --position 1800
 
 # List all
-i-rs-podcast list
+i-rs-podcast list [OPTIONS]
 
 # View stats
 i-rs-podcast stats

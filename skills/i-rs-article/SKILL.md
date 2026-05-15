@@ -14,6 +14,7 @@ Article read-later CLI tool for saving and organizing articles for future readin
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -88,7 +89,7 @@ i-rs-article skill [summary|content|raw]
 
 ```bash
 # Add an article
-i-rs-article add rust-blog https://rust-lang.org/blog "Rust Blog" --source rust-lang.org --tag programming
+i-rs-article add rust-blog https://rust-lang.org/blog "Rust Blog" --source rust-lang.org --tag programming [OPTIONS]
 
 # List unread articles
 i-rs-article list --status unread

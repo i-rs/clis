@@ -39,7 +39,7 @@ Options:
 List all items.
 
 ```bash
-i-rs-bestby list
+i-rs-bestby list [OPTIONS]
 ```
 
 ### get
@@ -101,13 +101,13 @@ i-rs-bestby skill [summary|content|raw]
 
 ```bash
 # Add item with cycle
-i-rs-bestby add "Milk" 2024-01-01 --cycle-days 7
+i-rs-bestby add "Milk" 2024-01-01 --cycle-days 7 [OPTIONS]
 
 # Add item without cycle
-i-rs-bestby add "Phone Battery" 2023-06-01
+i-rs-bestby add "Phone Battery" 2023-06-01 [OPTIONS]
 
 # List items
-i-rs-bestby list
+i-rs-bestby list [OPTIONS]
 
 # Get details
 i-rs-bestby get Milk

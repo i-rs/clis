@@ -14,6 +14,7 @@ Cycling record tracking CLI tool for recording and managing cycling activities.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -82,16 +83,16 @@ i-rs-cycling skill [summary|content|raw]
 
 ```bash
 # Add a simple record
-i-rs-cycling add 2025-06-14 25.5 60
+i-rs-cycling add 2025-06-14 25.5 60 [OPTIONS]
 
 # Add with elevation
-i-rs-cycling add 2025-06-15 30.2 75 --elevation 450
+i-rs-cycling add 2025-06-15 30.2 75 --elevation 450 [OPTIONS]
 
 # Add with tags and route
-i-rs-cycling add 2025-06-16 15.0 30 --route "Morning ride" --tag morning
+i-rs-cycling add 2025-06-16 15.0 30 --route "Morning ride" --tag morning [OPTIONS]
 
 # List records
-i-rs-cycling list
+i-rs-cycling list [OPTIONS]
 
 # Filter by tag
 i-rs-cycling list --tag mountain

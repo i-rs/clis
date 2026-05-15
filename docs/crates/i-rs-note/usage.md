@@ -134,3 +134,17 @@ Show skill information.
 ```bash
 i-rs-note skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/note.json`
+- Linux: `~/.config/i-rs/note.json`
+- Windows: `~\AppData\Roaming\i-rs\note.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-note list
+```

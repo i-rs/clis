@@ -111,11 +111,11 @@ i-rs-grocery skill [summary|content|raw]
 
 ```bash
 # Add items
-i-rs-grocery add milk 2 bottles --tag dairy
-i-rs-grocery add eggs 1 dozen --tag dairy
+i-rs-grocery add milk 2 bottles --tag dairy [OPTIONS]
+i-rs-grocery add eggs 1 dozen --tag dairy [OPTIONS]
 
 # List items
-i-rs-grocery list
+i-rs-grocery list [OPTIONS]
 i-rs-grocery list --needed
 
 # Mark as purchased

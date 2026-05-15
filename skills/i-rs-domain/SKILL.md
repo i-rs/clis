@@ -31,7 +31,7 @@ Passwords are stored securely in the OS keychain:
 Add a new domain.
 
 ```bash
-i-rs-domain add <NAME> <EXPIRY_DATE>
+i-rs-domain add <NAME> <EXPIRY_DATE> [OPTIONS]
 ```
 
 Options:
@@ -45,7 +45,7 @@ Options:
 List domains.
 
 ```bash
-i-rs-domain list
+i-rs-domain list [OPTIONS]
 ```
 
 Options:
@@ -115,13 +115,13 @@ i-rs-domain skill [summary|content|raw]
 
 ```bash
 # Add a domain
-i-rs-domain add example.com 2025-12-31 --registrar GoDaddy --tag important
+i-rs-domain add example.com 2025-12-31 --registrar GoDaddy --tag important [OPTIONS]
 
 # Add a domain without password
-i-rs-domain add github.io 2026-06-15 --tag personal
+i-rs-domain add github.io 2026-06-15 --tag personal [OPTIONS]
 
 # List all domains
-i-rs-domain list
+i-rs-domain list [OPTIONS]
 
 # Get domain details (shows days until expiry)
 i-rs-domain get example.com

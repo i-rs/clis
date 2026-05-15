@@ -128,3 +128,17 @@ Show skill information.
 ```bash
 i-rs-domain skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/domain.json`
+- Linux: `~/.config/i-rs/domain.json`
+- Windows: `~\AppData\Roaming\i-rs\domain.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-domain list
+```

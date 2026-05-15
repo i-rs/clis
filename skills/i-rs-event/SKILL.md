@@ -98,13 +98,13 @@ i-rs-event data clear
 
 ```bash
 # Add a meeting
-i-rs-event add "Team Meeting" --date 2024-03-15 --type meeting --location "Conference Room" -p "Alice,Bob" -t work
+i-rs-event add "Team Meeting" --date 2024-03-15 --type meeting --location "Conference Room" -p "Alice,Bob" -t work [OPTIONS]
 
 # Add a gathering
-i-rs-event add "Birthday Party" --date 2024-04-20 --type gathering --location "Home" -p "Family,Friends" -t celebration
+i-rs-event add "Birthday Party" --date 2024-04-20 --type gathering --location "Home" -p "Family,Friends" -t celebration [OPTIONS]
 
 # List all events
-i-rs-event list
+i-rs-event list [OPTIONS]
 
 # List work events
 i-rs-event list --tag work

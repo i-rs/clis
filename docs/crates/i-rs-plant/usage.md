@@ -1,102 +1,79 @@
-# Usage
+# i-rs-plant Usage
 
 ## Global Flags
 
 - `--json` — Output in JSON format
 
-
 ## Commands
 
 ### add
 
-Add a new plant:
+Add a new plant.
 
 ```bash
-i-rs-plant add --name "Monstera" --species "Monstera deliciosa" --location "Living room" --interval 7
+i-rs-plant add <NAME> <SPECIES> <LOCATION> <WATERING_INTERVAL_DAYS> [OPTIONS]
 ```
 
-Options:
-- `--name, -n`: Plant name (required)
-- `--species, -s`: Plant species (required)
-- `--location, -l`: Plant location (required)
-- `--interval, -i`: Watering interval in days (default: 7)
-- `--tag, -t`: Add tags (can be repeated)
-- `--remark, -r`: Add remarks (can be repeated)
+**Arguments:**
+- `NAME` - Plant name
+- `SPECIES` - Plant species
+- `LOCATION` - Plant location
+- `WATERING_INTERVAL_DAYS` - Watering interval in days
+
+**Options:**
+- `-t, --tag <TAG>` - Tags (repeatable)
+- `-r, --remark <REMARK>` - Remarks (repeatable)
 
 ### list
 
-List all plants:
+List all plants.
 
 ```bash
-i-rs-plant list
+i-rs-plant list [OPTIONS]
 ```
 
-Filter by tag:
+**Options:**
+- `-t, --tag <TAG>` - Filter by tag
+
+### water
+
+Water a plant.
 
 ```bash
-i-rs-plant list --tag indoor
+i-rs-plant water <NAME>
 ```
 
 ### get
 
-Get plant details:
+Get plant details.
 
 ```bash
-i-rs-plant get Monstera
-```
-
-### water
-
-Record watering:
-
-```bash
-i-rs-plant water Monstera
+i-rs-plant get <NAME>
 ```
 
 ### update
 
-Update plant info:
+Update plant information.
 
 ```bash
-i-rs-plant update Monstera --location "Bedroom" --interval 10
+i-rs-plant update <NAME> [OPTIONS]
 ```
 
 ### delete
 
-Delete a plant:
+Delete a plant.
 
 ```bash
-i-rs-plant delete Monstera
+i-rs-plant delete <NAME>
 ```
 
 ### stats
 
-View plant statistics:
+Show plant care statistics.
 
 ```bash
 i-rs-plant stats
 ```
-
-### example
-
-Show usage examples:
-
-```bash
-i-rs-plant example
-```
-
-### skill
-
-Show AI skill documentation:
-
-```bash
-i-rs-plant skill          # Show full content
-i-rs-plant skill summary   # Show summary
-```
-
-## Global Options
-
-- `--json`: Output in JSON format
 
 ### data
 
@@ -112,3 +89,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-plant example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-plant skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/plants.json`
+- Linux: `~/.config/i-rs/plants.json`
+- Windows: `~\AppData\Roaming\i-rs\plants.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-plant list
+```

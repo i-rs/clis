@@ -94,10 +94,10 @@ i-rs-height skill [summary|content|raw]
 
 ```bash
 # Add record
-i-rs-height add 2025-06-14 175.5
+i-rs-height add 2025-06-14 175.5 [OPTIONS]
 
 # Add with weight
-i-rs-height add 2025-06-14 175.5 --weight 68.5
+i-rs-height add 2025-06-14 175.5 --weight 68.5 [OPTIONS]
 
 # List with chart
 i-rs-height list --chart

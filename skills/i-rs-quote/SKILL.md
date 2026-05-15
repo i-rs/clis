@@ -92,13 +92,13 @@ i-rs-quote data clear
 
 ```bash
 # Add a simple quote
-i-rs-quote add --content "Stay hungry, stay foolish."
+i-rs-quote add --content "Stay hungry, stay foolish." [OPTIONS]
 
 # Add with author and tags
-i-rs-quote add --content "The only way to do great work is to love what you do." --author "Steve Jobs" --source "Stanford Speech" --tag inspiration --tag career
+i-rs-quote add --content "The only way to do great work is to love what you do." --author "Steve Jobs" --source "Stanford Speech" --tag inspiration --tag career [OPTIONS]
 
 # List all quotes
-i-rs-quote list
+i-rs-quote list [OPTIONS]
 
 # Filter by tag
 i-rs-quote list --tag inspiration

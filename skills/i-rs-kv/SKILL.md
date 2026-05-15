@@ -103,11 +103,11 @@ i-rs-kv skill [summary|content|raw]
 
 ```bash
 # Store values
-i-rs-kv add username john
-i-rs-kv add api-url "https://api.example.com"
+i-rs-kv add username john [OPTIONS]
+i-rs-kv add api-url "https://api.example.com" [OPTIONS]
 
 # List entries
-i-rs-kv list
+i-rs-kv list [OPTIONS]
 
 # Get value
 i-rs-kv get username

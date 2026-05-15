@@ -21,7 +21,7 @@ Pet feeding tracking CLI tool.
 Record pet feeding.
 
 ```bash
-i-rs-feedpet add <PET_NAME> <FOOD_TYPE> <AMOUNT>
+i-rs-feedpet add <PET_NAME> <FOOD_TYPE> <AMOUNT> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 List feeding records.
 
 ```bash
-i-rs-feedpet list
+i-rs-feedpet list [OPTIONS]
 ```
 
 Options:
@@ -85,9 +85,9 @@ i-rs-feedpet skill [summary|content|raw]
 
 ```bash
 # Record feeding
-i-rs-feedpet add "Cat" dry-food "50g"
-i-rs-feedpet add "Dog" wet-food "200g" --tag morning
+i-rs-feedpet add "Cat" dry-food "50g" [OPTIONS]
+i-rs-feedpet add "Dog" wet-food "200g" --tag morning [OPTIONS]
 
 # List records
-i-rs-feedpet list
+i-rs-feedpet list [OPTIONS]
 ```

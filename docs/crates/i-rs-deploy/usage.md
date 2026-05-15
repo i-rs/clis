@@ -180,3 +180,17 @@ Show skill information.
 ```bash
 i-rs-deploy skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/deploy.json`
+- Linux: `~/.config/i-rs/deploy.json`
+- Windows: `~\AppData\Roaming\i-rs\deploy.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-deploy list
+```

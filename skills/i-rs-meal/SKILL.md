@@ -39,7 +39,7 @@ Options:
 List meal records.
 
 ```bash
-i-rs-meal list
+i-rs-meal list [OPTIONS]
 ```
 
 Options:
@@ -92,13 +92,13 @@ i-rs-meal skill [summary|content|raw]
 
 ```bash
 # Record meals
-i-rs-meal add breakfast --food "Oatmeal with berries"
-i-rs-meal add lunch --food "Salad with chicken"
-i-rs-meal add dinner --food "Pasta with seafood"
+i-rs-meal add breakfast --food "Oatmeal with berries" [OPTIONS]
+i-rs-meal add lunch --food "Salad with chicken" [OPTIONS]
+i-rs-meal add dinner --food "Pasta with seafood" [OPTIONS]
 
 # With calories
-i-rs-meal add lunch --food "Grilled fish" --calories 350
+i-rs-meal add lunch --food "Grilled fish" --calories 350 [OPTIONS]
 
 # List meals
-i-rs-meal list
+i-rs-meal list [OPTIONS]
 ```

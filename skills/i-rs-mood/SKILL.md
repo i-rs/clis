@@ -31,7 +31,7 @@ Mood tracking CLI tool for recording and visualizing daily mood.
 Add a mood record.
 
 ```bash
-i-rs-mood add <DATE> <MOOD>
+i-rs-mood add <DATE> <MOOD> [OPTIONS]
 ```
 
 Options:
@@ -43,7 +43,7 @@ Options:
 List mood records.
 
 ```bash
-i-rs-mood list
+i-rs-mood list [OPTIONS]
 ```
 
 Options:
@@ -101,13 +101,13 @@ i-rs-mood skill [summary|content|raw]
 
 ```bash
 # Record today's mood
-i-rs-mood add 2025-01-15 good
+i-rs-mood add 2025-01-15 good [OPTIONS]
 
 # Record with emoji
-i-rs-mood add 2025-01-16 😊 --tag weekend --content "Great day"
+i-rs-mood add 2025-01-16 😊 --tag weekend --content "Great day" [OPTIONS]
 
 # List all records
-i-rs-mood list
+i-rs-mood list [OPTIONS]
 
 # List last 7 days with calendar
 i-rs-mood list --days 7 --calendar

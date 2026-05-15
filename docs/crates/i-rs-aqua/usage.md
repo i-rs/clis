@@ -60,6 +60,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -67,6 +68,7 @@ Show usage examples.
 ```bash
 i-rs-aqua example
 ```
+
 ### skill
 
 Show skill information.

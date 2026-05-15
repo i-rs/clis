@@ -14,6 +14,7 @@ Birthday reminder CLI tool for managing birthdays and never missing an important
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Birthday reminder CLI tool for managing birthdays and never missing an important
 Add a new birthday.
 
 ```bash
-i-rs-birthday add <NAME> <BIRTH_DATE>
+i-rs-birthday add <NAME> <BIRTH_DATE> [OPTIONS]
 ```
 
 Arguments:
@@ -39,7 +40,7 @@ Options:
 List all birthdays.
 
 ```bash
-i-rs-birthday list
+i-rs-birthday list [OPTIONS]
 ```
 
 Options:
@@ -58,7 +59,7 @@ i-rs-birthday get <NAME>
 Update a birthday.
 
 ```bash
-i-rs-birthday update <NAME>
+i-rs-birthday update <NAME> [OPTIONS]
 ```
 
 Options:
@@ -97,7 +98,7 @@ Shows:
 View upcoming birthdays.
 
 ```bash
-i-rs-birthday upcoming
+i-rs-birthday upcoming [OPTIONS]
 ```
 
 Options:
@@ -133,13 +134,13 @@ i-rs-birthday skill [summary|content|raw]
 
 ```bash
 # Add a friend
-i-rs-birthday add John 06-15 --year 1990 --relationship friend --tag personal
+i-rs-birthday add John 06-15 --year 1990 --relationship friend --tag personal [OPTIONS]
 
 # Add family member
-i-rs-birthday add Mom 08-20 --year 1965 --relationship family --tag important
+i-rs-birthday add Mom 08-20 --year 1965 --relationship family --tag important [OPTIONS]
 
 # List all birthdays
-i-rs-birthday list
+i-rs-birthday list [OPTIONS]
 
 # List by tag
 i-rs-birthday list --tag family

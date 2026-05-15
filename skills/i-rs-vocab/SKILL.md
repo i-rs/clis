@@ -88,10 +88,10 @@ i-rs-vocab skill [summary|content|raw]
 
 ```bash
 # Add a word
-i-rs-vocab add hello "greeting" --tag basics --example "Hello, how are you?"
+i-rs-vocab add hello "greeting" --tag basics --example "Hello, how are you?" [OPTIONS]
 
 # List words
-i-rs-vocab list
+i-rs-vocab list [OPTIONS]
 i-rs-vocab list --status new
 i-rs-vocab list --tag basics
 

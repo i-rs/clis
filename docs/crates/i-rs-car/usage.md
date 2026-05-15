@@ -8,137 +8,71 @@
 
 ### add
 
-Create a new car entry.
+Add a new vehicle.
 
 ```bash
-i-rs-car add <name> [options]
+i-rs-car add <NAME> [OPTIONS]
 ```
 
-Options:
-- `--license-plate`, `-l`: License plate number
-- `--brand`, `-b`: Car brand (e.g., Toyota, Honda, BMW)
-- `--model`, `-m`: Car model (e.g., Camry, Civic, X5)
-- `--mileage`: Current mileage in km
-- `--tags`: Comma-separated tags (optional)
-- `--remark`: Remarks (optional, multiple)
+**Arguments:**
+- `NAME` - Car name
+
+**Options:**
+- `-l, --license-plate <PLATE>` - License plate number
+- `-b, --brand <BRAND>` - Car brand
+- `-m, --model <MODEL>` - Car model
+- `-i, --mileage <KM>` - Current mileage
 
 ### list
 
-List all cars.
+List all vehicles.
 
 ```bash
-i-rs-car list [options]
+i-rs-car list [OPTIONS]
 ```
 
-Options:
-- `--car`: Filter by car name
-
-### get
-
-Show car details or records.
-
-```bash
-i-rs-car get <name> [options]
-```
-
-Options:
-- `--fuel`: Show fuel records
-- `--maintain`: Show maintenance records
-
-### update
-
-Update car information.
-
-```bash
-i-rs-car update <name> [options]
-```
-
-Options:
-- `--rename`: New car name
-- `--license-plate`, `-l`: New license plate
-- `--brand`, `-b`: New brand
-- `--model`, `-m`: New model
-- `--mileage`, `-m`: New mileage
-- `--add-tags`: Add tags (comma-separated)
-- `--remove-tags`: Remove tags (comma-separated)
-- `--add-remark`: Add remarks
-
-### delete
-
-Delete a car entry.
-
-```bash
-i-rs-car delete <name> [options]
-```
-
-Options:
-- `--force`: Skip confirmation
+**Options:**
+- `--car <NAME>` - Filter by car name
 
 ### fuel
 
-Add a fuel record.
+Add fuel record.
 
 ```bash
-i-rs-car fuel <car> [options]
+i-rs-car fuel <NAME> [OPTIONS]
 ```
-
-Options:
-- `--date`: Fuel date YYYY-MM-DD (default: today)
-- `--mileage`, `-m`: Current mileage (km)
-- `--fuel-amount`, `-f`: Fuel amount in liters
-- `--price`, `-p`: Price per liter
-- `--fuel-type`: Fuel type (e.g., 92, 95, 98, diesel)
-- `--station`: Gas station name (optional)
-- `--note`: Note (optional)
 
 ### maintain
 
-Add a maintenance record.
+Add maintenance record.
 
 ```bash
-i-rs-car maintain <car> [options]
+i-rs-car maintain <NAME> [OPTIONS]
 ```
 
-Options:
-- `--date`: Maintenance date YYYY-MM-DD (default: today)
-- `--mileage`, `-m`: Current mileage (km)
-- `--maintenance-type`, `-t`: Type (e.g., oil_change, tire, brake, inspection)
-- `--cost`, `-c`: Maintenance cost
-- `--description`: Description (optional)
-- `--shop`: Shop name (optional)
-- `--note`: Note (optional)
+### get
+
+Get vehicle details.
+
+```bash
+i-rs-car get <NAME>
+```
+
+### delete
+
+Delete a vehicle.
+
+```bash
+i-rs-car delete <NAME>
+```
 
 ### stats
 
-Show statistics.
+Show vehicle statistics.
 
 ```bash
-i-rs-car stats [options]
+i-rs-car stats
 ```
-
-Options:
-- `--car`: Show statistics for specific car
-
-### example
-
-Show usage examples.
-
-```bash
-i-rs-car example
-```
-
-### skill
-
-Show skill documentation.
-
-```bash
-i-rs-car skill
-i-rs-car skill summary
-```
-
-## Global Options
-
-- `--json`: Output in JSON format
 
 ### data
 
@@ -154,3 +88,33 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-car example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-car skill [summary|content|raw]
+```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/cars.json`
+- Linux: `~/.config/i-rs/cars.json`
+- Windows: `~\AppData\Roaming\i-rs\cars.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-car list
+```

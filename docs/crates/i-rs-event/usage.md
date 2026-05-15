@@ -100,3 +100,17 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/event.json`
+- Linux: `~/.config/i-rs/event.json`
+- Windows: `~\AppData\Roaming\i-rs\event.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-event list
+```

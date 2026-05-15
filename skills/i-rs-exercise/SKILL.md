@@ -9,7 +9,6 @@ description: "运动记录追踪 CLI 工具，用于记录和管理健身活动�
 
 - `--json` — Output in JSON format
 
-
 运动记录追踪 CLI 工具，用于记录和管理健身活动。
 
 ## 存储位置
@@ -103,89 +102,45 @@ i-rs-exercise stats
 ```bash
 # 添加跑步记录
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-exercise add "Morning Run" running 30 -c 300 -t morning -t cardio
 
 # 添加健身房记录
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-exercise add "Leg Day" gym 60 -c 500 -t strength -t legs
 
 # 添加游泳记录
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-exercise add "Lunch Swim" swimming 45 -c 400
 
 # 列出所有记录
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-exercise list
 
 # 按标签筛选
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-exercise list --tag cardio
 
 # 按类型筛选
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-exercise list --exercise-type running
 
 # 获取详情
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-exercise get "Morning Run"
 
 # 更新记录
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-exercise update "Morning Run" --duration-minutes 45 -c 350
 
 # 查看统计
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-exercise stats
 
 # 删除记录
 
-## Global Flags
-
-- `--json` — Output in JSON format
-
 i-rs-exercise delete "Morning Run"
 
 # JSON 输出
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-exercise list --json
 i-rs-exercise stats --json
@@ -221,10 +176,6 @@ i-rs-exercise skill [summary|content|raw]
 
 ```bash
 # JSON output
-
-## Global Flags
-
-- `--json` — Output in JSON format
 
 i-rs-exercise list --json
 ```

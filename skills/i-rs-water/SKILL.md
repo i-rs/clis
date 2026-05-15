@@ -21,7 +21,7 @@ Water intake tracking CLI tool.
 Record water intake.
 
 ```bash
-i-rs-water add <AMOUNT_ML>
+i-rs-water add <AMOUNT_ML> [OPTIONS]
 ```
 
 Options:
@@ -33,7 +33,7 @@ Options:
 List water records.
 
 ```bash
-i-rs-water list
+i-rs-water list [OPTIONS]
 ```
 
 Options:
@@ -85,11 +85,11 @@ i-rs-water skill [summary|content|raw]
 
 ```bash
 # Record water intake
-i-rs-water add 250
-i-rs-water add 500 --tag morning
+i-rs-water add 250 [OPTIONS]
+i-rs-water add 500 --tag morning [OPTIONS]
 
 # List records
-i-rs-water list
+i-rs-water list [OPTIONS]
 
 # Get details
 i-rs-water get abc12345

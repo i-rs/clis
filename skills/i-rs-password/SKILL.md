@@ -31,7 +31,7 @@ Passwords are stored securely in the OS keychain:
 Add a new password entry.
 
 ```bash
-i-rs-password add <NAME> <URL>
+i-rs-password add <NAME> <URL> [OPTIONS]
 ```
 
 Options:
@@ -45,7 +45,7 @@ Options:
 List password entries.
 
 ```bash
-i-rs-password list
+i-rs-password list [OPTIONS]
 ```
 
 Options:
@@ -115,13 +115,13 @@ i-rs-password skill [summary|content|raw]
 
 ```bash
 # Add website account (password stored in keychain)
-i-rs-password add github https://github.com --account user@example.com --password secret123 --tag work
+i-rs-password add github https://github.com --account user@example.com --password secret123 --tag work [OPTIONS]
 
 # Add database credential
-i-rs-password add db-prod mysql://db.example.com:3306 --account admin --password dbpass --tag production
+i-rs-password add db-prod mysql://db.example.com:3306 --account admin --password dbpass --tag production [OPTIONS]
 
 # List all entries
-i-rs-password list
+i-rs-password list [OPTIONS]
 
 # List entries by tag
 i-rs-password list --tag work

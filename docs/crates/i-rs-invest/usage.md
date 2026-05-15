@@ -270,3 +270,17 @@ Show skill information.
 ```bash
 i-rs-invest skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/invest.json`
+- Linux: `~/.config/i-rs/invest.json`
+- Windows: `~\AppData\Roaming\i-rs\invest.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-invest list
+```

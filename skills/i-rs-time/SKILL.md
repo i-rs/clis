@@ -39,7 +39,7 @@ i-rs-time stop
 List all time entries.
 
 ```bash
-i-rs-time list
+i-rs-time list [OPTIONS]
 i-rs-time list --tag work
 ```
 
@@ -121,7 +121,7 @@ i-rs-time stats today
 i-rs-time report --days 7
 
 # List all entries
-i-rs-time list
+i-rs-time list [OPTIONS]
 
 # Filter by tag
 i-rs-time list --tag work

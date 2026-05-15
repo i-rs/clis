@@ -21,7 +21,7 @@ Note management CLI tool for managing notes locally.
 Add a new note.
 
 ```bash
-i-rs-note add <NAME>
+i-rs-note add <NAME> [OPTIONS]
 ```
 
 Options:
@@ -34,7 +34,7 @@ Options:
 List notes.
 
 ```bash
-i-rs-note list
+i-rs-note list [OPTIONS]
 ```
 
 Options:
@@ -99,10 +99,10 @@ i-rs-note skill [summary|content|raw]
 
 ```bash
 # Add a note
-i-rs-note add todo --title "Todo List" --tag work --content "Buy groceries"
+i-rs-note add todo --title "Todo List" --tag work --content "Buy groceries" [OPTIONS]
 
 # List all notes
-i-rs-note list
+i-rs-note list [OPTIONS]
 
 # Get note
 i-rs-note get todo

@@ -34,7 +34,7 @@ Options:
 List all sparks.
 
 ```bash
-i-rs-spark list
+i-rs-spark list [OPTIONS]
 ```
 
 Options:
@@ -86,11 +86,11 @@ i-rs-spark skill [summary|content|raw]
 
 ```bash
 # Capture inspiration
-i-rs-spark add "Use machine learning for text classification"
-i-rs-spark add "New app idea" --source "Dream"
+i-rs-spark add "Use machine learning for text classification" [OPTIONS]
+i-rs-spark add "New app idea" --source "Dream" [OPTIONS]
 
 # List sparks
-i-rs-spark list
+i-rs-spark list [OPTIONS]
 
 # Get details
 i-rs-spark get abc12345

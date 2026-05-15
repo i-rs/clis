@@ -14,6 +14,7 @@ Allergy tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,7 +22,7 @@ Allergy tracking CLI tool.
 Record allergy reaction.
 
 ```bash
-i-rs-allergy add <ALLERGEN> <SEVERITY>
+i-rs-allergy add <ALLERGEN> <SEVERITY> [OPTIONS]
 ```
 
 Options:
@@ -34,7 +35,7 @@ Options:
 List allergy records.
 
 ```bash
-i-rs-allergy list
+i-rs-allergy list [OPTIONS]
 ```
 
 Options:
@@ -55,12 +56,6 @@ Delete a record.
 ```bash
 i-rs-allergy delete <ID>
 ```
-
-## Severity Levels
-
-- `mild` - Minor reaction
-- `moderate` - Noticeable reaction
-- `severe` - Serious reaction
 
 ### data
 
@@ -88,13 +83,19 @@ Show skill information.
 i-rs-allergy skill [summary|content|raw]
 ```
 
+## Severity Levels
+
+- `mild` - Minor reaction
+- `moderate` - Noticeable reaction
+- `severe` - Serious reaction
+
 ## Examples
 
 ```bash
 # Record allergy
-i-rs-allergy add "Peanuts" mild --symptom hives
-i-rs-allergy add "Pollen" severe --symptom sneezing
+i-rs-allergy add "Peanuts" mild --symptom hives [OPTIONS]
+i-rs-allergy add "Pollen" severe --symptom sneezing [OPTIONS]
 
 # List records
-i-rs-allergy list
+i-rs-allergy list [OPTIONS]
 ```

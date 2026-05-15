@@ -202,3 +202,17 @@ Show skill information.
 ```bash
 i-rs-debt skill [summary|content|raw]
 ```
+
+## Data Storage
+
+- macOS: `~/.config/i-rs/debt.json`
+- Linux: `~/.config/i-rs/debt.json`
+- Windows: `~\AppData\Roaming\i-rs\debt.json`
+
+## Environment Variables
+
+- `CONFIG_DIR` - Override config directory path
+
+```bash
+CONFIG_DIR=/tmp i-rs-debt list
+```
