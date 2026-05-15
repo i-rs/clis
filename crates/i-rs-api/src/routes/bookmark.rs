@@ -16,8 +16,8 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_bookmarks))
         .route("/", post(add_bookmark))
-        .route("/:name", get(get_bookmark))
-        .route("/:name", delete(delete_bookmark))
+        .route("/{name}", get(get_bookmark))
+        .route("/{name}", delete(delete_bookmark))
 }
 
 #[derive(Debug, Deserialize)]

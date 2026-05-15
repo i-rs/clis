@@ -88,3 +88,86 @@ impl Default for ApiMeta {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn test_api_error_not_found_display() {
+        let err = ApiError::NotFound("test not found".to_string());
+        assert_eq!(err.to_string(), "test not found");
+    }
+
+    #[test]
+    fn test_api_error_bad_request_display() {
+        let err = ApiError::BadRequest("bad input".to_string());
+        assert_eq!(err.to_string(), "bad input");
+    }
+
+    #[test]
+    fn test_api_error_not_found_status() {
+        let err = ApiError::NotFound("missing".to_string());
+        let (status, json) = err.into_response();
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(json.0["success"], false);
+        assert_eq!(json.0["error"]["code"], "NOT_FOUND");
+    }
+
+    #[test]
+    fn test_api_error_bad_request_status() {
+        let err = ApiError::BadRequest("invalid".to_string());
+        let (status, _json) = err.into_response();
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn test_api_error_conflict_status() {
+        let err = ApiError::Conflict("exists".to_string());
+        let (status, _json) = err.into_response();
+        assert_eq!(status, StatusCode::CONFLICT);
+    }
+
+    #[test]
+    fn test_api_error_internal_status() {
+        let err = ApiError::Internal("server error".to_string());
+        let (status, _json) = err.into_response();
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn test_from_anyhow_not_found() {
+        let e = anyhow::anyhow!("record not found");
+        let api_err: ApiError = e.into();
+        assert!(matches!(api_err, ApiError::NotFound(_)));
+    }
+
+    #[test]
+    fn test_from_anyhow_conflict() {
+        let e = anyhow::anyhow!("item already exists");
+        let api_err: ApiError = e.into();
+        assert!(matches!(api_err, ApiError::Conflict(_)));
+    }
+
+    #[test]
+    fn test_from_anyhow_bad_request() {
+        let e = anyhow::anyhow!("invalid input");
+        let api_err: ApiError = e.into();
+        assert!(matches!(api_err, ApiError::BadRequest(_)));
+    }
+
+    #[test]
+    fn test_from_anyhow_internal() {
+        let e = anyhow::anyhow!("something went wrong");
+        let api_err: ApiError = e.into();
+        assert!(matches!(api_err, ApiError::Internal(_)));
+    }
+
+    #[test]
+    fn test_api_meta_contains_timestamp_and_version() {
+        let meta = ApiMeta::new();
+        assert!(!meta.timestamp.is_empty());
+        assert_eq!(meta.version, "0.0.2");
+    }
+}

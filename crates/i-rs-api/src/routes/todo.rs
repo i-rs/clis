@@ -39,10 +39,10 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_todos))
         .route("/", post(add_todo))
-        .route("/:name", get(get_todo))
-        .route("/:name", put(update_todo))
-        .route("/:name/done", post(done_todo))
-        .route("/:name", delete(delete_todo))
+        .route("/{name}", get(get_todo))
+        .route("/{name}", put(update_todo))
+        .route("/{name}/done", post(done_todo))
+        .route("/{name}", delete(delete_todo))
 }
 
 async fn list_todos(

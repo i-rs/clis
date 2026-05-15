@@ -16,8 +16,8 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_moods))
         .route("/", post(add_mood))
-        .route("/:date", get(get_mood))
-        .route("/:date", delete(delete_mood))
+        .route("/{date}", get(get_mood))
+        .route("/{date}", delete(delete_mood))
         .route("/stats", get(mood_stats))
 }
 

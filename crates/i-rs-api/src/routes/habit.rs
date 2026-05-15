@@ -16,9 +16,9 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_habits))
         .route("/", post(add_habit))
-        .route("/:name", get(get_habit))
-        .route("/:name/checkin", post(checkin_habit))
-        .route("/:name/stats", get(habit_stats))
+        .route("/{name}", get(get_habit))
+        .route("/{name}/checkin", post(checkin_habit))
+        .route("/{name}/stats", get(habit_stats))
 }
 
 #[derive(Debug, Deserialize)]

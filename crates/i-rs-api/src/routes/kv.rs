@@ -15,9 +15,9 @@ use crate::AppState;
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_kv))
-        .route("/:key", get(get_kv))
-        .route("/:key", post(set_kv))
-        .route("/:key", delete(delete_kv))
+        .route("/{key}", get(get_kv))
+        .route("/{key}", post(set_kv))
+        .route("/{key}", delete(delete_kv))
 }
 
 #[derive(Debug, Deserialize)]
