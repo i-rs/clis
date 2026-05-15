@@ -4,19 +4,19 @@ use crate::models::{Snippet, SnippetStore};
 i_rs_core::create_store!(SnippetStore, "snippet");
 
 
-pub fn add_snippet(store: &mut SnippetStore, snippet: Snippet) {
+pub fn add_entry(store: &mut SnippetStore, snippet: Snippet) {
     store.snippets.insert(snippet.name.clone(), snippet);
 }
 
-pub fn remove_snippet(store: &mut SnippetStore, name: &str) -> Option<Snippet> {
+pub fn remove_entry(store: &mut SnippetStore, name: &str) -> Option<Snippet> {
     store.snippets.remove(name)
 }
 
-pub fn get_snippet<'a>(store: &'a SnippetStore, name: &str) -> Option<&'a Snippet> {
+pub fn get_entry<'a>(store: &'a SnippetStore, name: &str) -> Option<&'a Snippet> {
     store.snippets.get(name)
 }
 
-pub fn get_snippet_mut<'a>(store: &'a mut SnippetStore, name: &str) -> Option<&'a mut Snippet> {
+pub fn get_entry_mut<'a>(store: &'a mut SnippetStore, name: &str) -> Option<&'a mut Snippet> {
     store.snippets.get_mut(name)
 }
 

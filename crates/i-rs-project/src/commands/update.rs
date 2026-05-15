@@ -15,7 +15,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let project = match storage::find_project_mut(&mut store, &name) {
+    let project = match storage::get_entry_mut(&mut store, &name) {
         Some(p) => p,
         None => {
             anyhow::bail!("Project '{name}' not found");

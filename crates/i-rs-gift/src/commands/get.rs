@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let gift = if let Some(g) = storage::get_gift(&store, &name) { g } else {
+    let gift = if let Some(g) = storage::get_entry(&store, &name) { g } else {
         if matches!(format, OutputFormat::Json) {
             println!("{}", output_item(&serde_json::json!({
                 "error": "not_found",

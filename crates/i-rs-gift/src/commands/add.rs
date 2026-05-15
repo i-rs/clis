@@ -49,7 +49,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_gift(&mut store, gift);
+    storage::add_entry(&mut store, gift);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Gift '{}' added successfully", name.green()));

@@ -7,7 +7,7 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let snippet = if let Some(s) = storage::get_snippet(&store, &name) { s } else {
+    let snippet = if let Some(s) = storage::get_entry(&store, &name) { s } else {
         let msg = format!("Snippet '{name}' not found");
         if matches!(format, OutputFormat::Json) {
             println!("{}", output_error(&msg, "NOT_FOUND", format));

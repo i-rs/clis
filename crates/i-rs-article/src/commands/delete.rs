@@ -10,7 +10,7 @@ pub fn handle_delete(name: String) -> Result<()> {
         anyhow::bail!("Article '{name}' not found");
     }
 
-    storage::remove_article(&mut store, &name);
+    storage::remove_entry(&mut store, &name);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Article '{}' deleted successfully", name.green()));

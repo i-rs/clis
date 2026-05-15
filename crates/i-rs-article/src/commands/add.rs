@@ -42,7 +42,7 @@ pub fn handle_add(
         read_at: None,
     };
 
-    storage::add_article(&mut store, article);
+    storage::add_entry(&mut store, article);
     storage::save_store(&store)?;
 
     print_success("✓ Article added successfully");

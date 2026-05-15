@@ -8,7 +8,7 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let project = match storage::find_project(&store, &name) {
+    let project = match storage::get_entry(&store, &name) {
         Some(p) => p,
         None => {
             anyhow::bail!("Project '{name}' not found");

@@ -4,15 +4,15 @@ use crate::models::{Quote, QuoteStore};
 i_rs_core::create_store!(QuoteStore, "quote");
 
 
-pub fn add_quote(store: &mut QuoteStore, quote: Quote) {
+pub fn add_entry(store: &mut QuoteStore, quote: Quote) {
     store.quotes.insert(quote.id.clone(), quote);
 }
 
-pub fn remove_quote(store: &mut QuoteStore, id: &str) -> Option<Quote> {
+pub fn remove_entry(store: &mut QuoteStore, id: &str) -> Option<Quote> {
     store.quotes.remove(id)
 }
 
-pub fn get_quote<'a>(store: &'a QuoteStore, id: &str) -> Option<&'a Quote> {
+pub fn get_entry<'a>(store: &'a QuoteStore, id: &str) -> Option<&'a Quote> {
     store.quotes.get(id)
 }
 

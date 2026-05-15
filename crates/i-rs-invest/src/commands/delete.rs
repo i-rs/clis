@@ -9,7 +9,7 @@ pub fn handle_delete(name: String) -> Result<()> {
         anyhow::bail!("Investment '{name}' not found");
     }
 
-    storage::remove_investment(&mut store, &name);
+    storage::remove_entry(&mut store, &name);
     storage::save_store(&store)?;
 
     println!("{}", format!("✓ Investment '{}' deleted successfully", name.green()));

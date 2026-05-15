@@ -10,7 +10,7 @@ pub fn handle_delete(name: String) -> Result<()> {
         anyhow::bail!("Project '{name}' not found");
     }
 
-    let removed = storage::remove_project(&mut store, &name)
+    let removed = storage::remove_entry(&mut store, &name)
         .ok_or_else(|| anyhow::anyhow!("Failed to remove project"))?;
 
     storage::save_store(&store)?;

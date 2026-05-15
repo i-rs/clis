@@ -7,7 +7,7 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let article = match storage::get_article(&store, &name) {
+    let article = match storage::get_entry(&store, &name) {
         Some(a) => a,
         None => {
             anyhow::bail!("Article '{name}' not found");

@@ -8,7 +8,7 @@ use owo_colors::OwoColorize;
 pub fn handle_read(name: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let article = match storage::get_article_mut(&mut store, &name) {
+    let article = match storage::get_entry_mut(&mut store, &name) {
         Some(a) => a,
         None => {
             anyhow::bail!("Article '{name}' not found");

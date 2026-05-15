@@ -55,7 +55,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_project(&mut store, project);
+    storage::add_entry(&mut store, project);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Project '{}' added successfully", name.green()));

@@ -16,7 +16,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let investment = match storage::get_investment_mut(&mut store, &name) {
+    let investment = match storage::get_entry_mut(&mut store, &name) {
         Some(inv) => inv,
         None => {
             anyhow::bail!("Investment '{name}' not found");

@@ -23,7 +23,7 @@ pub fn run(args: &DeleteArgs, json: bool) -> Result<()> {
         anyhow::bail!("Event '{}' not found", args.name);
     }
 
-    storage::remove_event(&mut store, &args.name);
+    storage::remove_entry(&mut store, &args.name);
     storage::save_store(&store)?;
 
     if json {

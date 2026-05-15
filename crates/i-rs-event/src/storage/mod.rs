@@ -3,19 +3,19 @@ use crate::models::{Event, EventStore};
 
 i_rs_core::create_store!(EventStore, "event");
 
-pub fn add_event(store: &mut EventStore, event: Event) {
+pub fn add_entry(store: &mut EventStore, event: Event) {
     store.events.insert(event.name.clone(), event);
 }
 
-pub fn get_event<'a>(store: &'a EventStore, name: &str) -> Option<&'a Event> {
+pub fn get_entry<'a>(store: &'a EventStore, name: &str) -> Option<&'a Event> {
     store.events.get(name)
 }
 
-pub fn get_event_mut<'a>(store: &'a mut EventStore, name: &str) -> Option<&'a mut Event> {
+pub fn get_entry_mut<'a>(store: &'a mut EventStore, name: &str) -> Option<&'a mut Event> {
     store.events.get_mut(name)
 }
 
-pub fn remove_event(store: &mut EventStore, name: &str) -> bool {
+pub fn remove_entry(store: &mut EventStore, name: &str) -> bool {
     store.events.remove(name).is_some()
 }
 

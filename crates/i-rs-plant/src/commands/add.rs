@@ -19,7 +19,7 @@ pub fn add_plant(
 
     let mut store = storage::load_store()?;
 
-    if storage::find_plant(&store, &name).is_some() {
+    if storage::get_entry(&store, &name).is_some() {
         anyhow::bail!("Plant '{name}' already exists");
     }
 
@@ -27,7 +27,7 @@ pub fn add_plant(
     plant.tags = tags;
     plant.remark = remark;
 
-    storage::add_plant(&mut store, plant);
+    storage::add_entry(&mut store, plant);
     storage::save_store(&store)?;
 
     match output_format {

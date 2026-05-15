@@ -33,7 +33,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_snippet(&mut store, snippet);
+    storage::add_entry(&mut store, snippet);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Snippet '{}' added successfully", name.green()));

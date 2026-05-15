@@ -14,7 +14,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let snippet = match storage::get_snippet_mut(&mut store, &name) {
+    let snippet = match storage::get_entry_mut(&mut store, &name) {
         Some(s) => s,
         None => {
             anyhow::bail!("Snippet '{name}' not found");

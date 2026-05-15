@@ -35,7 +35,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_birthday(&mut store, birthday);
+    storage::add_entry(&mut store, birthday);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Birthday '{}' added successfully", name.green()));
