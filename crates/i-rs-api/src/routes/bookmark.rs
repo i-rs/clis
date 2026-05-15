@@ -1,15 +1,18 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
     routing::{get, post, delete},
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     Json,
-    response::IntoResponse,
 };
 use serde::Deserialize;
 
-use crate::api::{call_service, call_service_unit};
+use crate::api::{ok_json, ok_json_list, ok_json_message};
+use crate::response::{ApiError, ApiResult};
+use crate::AppState;
 
-pub fn router() -> Router {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_bookmarks))
         .route("/", post(add_bookmark))
@@ -30,29 +33,75 @@ pub struct ListQuery {
 }
 
 async fn list_bookmarks(
+    State(state): State<Arc<AppState>>,
     Query(params): Query<ListQuery>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let tag = params.tag;
-    call_service(move || i_rs_bookmark::service::list_bookmarks(tag)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let records: Vec<i_rs_bookmark::models::Bookmark> = state.bookmark.read(|store| {
+        if let Some(ref tag) = params.tag {
+            store
+                .bookmarks
+                .values()
+                .filter(|b| b.tags.contains(tag))
+                .cloned()
+                .collect()
+        } else {
+            store.bookmarks.values().cloned().collect()
+        }
+    });
+    Ok(ok_json_list(records))
 }
 
 async fn add_bookmark(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AddBookmarkRequest>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
+) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
     let url = req.url;
     let tags = req.tag.unwrap_or_default();
-    call_service(move || i_rs_bookmark::service::add_bookmark(name, url, None, None, tags, vec![])).await
+
+    let exists = state.bookmark.read(|store| store.bookmarks.contains_key(&name));
+    if exists {
+        return Err(ApiError::Conflict(format!("Bookmark '{name}' already exists")));
+    }
+
+    let now = chrono::Utc::now();
+    let bookmark = state.bookmark.write(|store| {
+        let bookmark = i_rs_bookmark::models::Bookmark {
+            name: name.clone(),
+            url,
+            account: None,
+            password: None,
+            tags,
+            remark: Vec::new(),
+            created_at: now,
+            updated_at: now,
+        };
+        store.add_entry(bookmark.clone());
+        bookmark
+    });
+    Ok(ok_json(bookmark))
 }
 
 async fn get_bookmark(
+    State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(move || i_rs_bookmark::service::get_bookmark(&name)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let bookmark = state
+        .bookmark
+        .read(|store| store.bookmarks.get(&name).cloned())
+        .ok_or_else(|| ApiError::NotFound(format!("Bookmark '{name}' not found")))?;
+    Ok(ok_json(bookmark))
 }
 
 async fn delete_bookmark(
+    State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service_unit(move || i_rs_bookmark::service::delete_bookmark(&name)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    state.bookmark.write(|store| {
+        store
+            .bookmarks
+            .remove(&name)
+            .ok_or_else(|| anyhow::anyhow!("Bookmark '{name}' not found"))
+    })?;
+    Ok(ok_json_message())
 }

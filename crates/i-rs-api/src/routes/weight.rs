@@ -1,15 +1,19 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
     routing::{get, post},
-    extract::Path,
+    extract::{Path, State},
     Json,
-    response::IntoResponse,
 };
 use serde::Deserialize;
 
-use crate::api::call_service;
+use crate::api::{ok_json, ok_json_list};
+use crate::response::{ApiError, ApiResult};
+use crate::AppState;
+use i_rs_core::parse_date;
 
-pub fn router() -> Router {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_weights))
         .route("/", post(add_weight))
@@ -24,29 +28,57 @@ pub struct AddWeightRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_weights() -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(|| i_rs_weight::service::list_weights(None)).await
+async fn list_weights(
+    State(state): State<Arc<AppState>>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let records = state.weight.read(|store| {
+        store.records.values().cloned().collect::<Vec<_>>()
+    });
+    Ok(ok_json_list(records))
 }
 
 async fn add_weight(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AddWeightRequest>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
+) -> ApiResult<Json<serde_json::Value>> {
     let date = req.date.unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
+    let parsed_date = parse_date(&date)?;
     let weight = req.weight;
     let remark = req.remark.unwrap_or_default();
-    call_service(move || i_rs_weight::service::add_weight(date, weight, remark)).await
+
+    let exists = state.weight.read(|store| store.records.contains_key(&parsed_date));
+    if exists {
+        return Err(ApiError::Conflict(format!("Record for {date} already exists")));
+    }
+
+    let record = state.weight.write(|store| {
+        let record = i_rs_weight::models::WeightRecord {
+            date: parsed_date,
+            weight,
+            tags: Vec::new(),
+            remark,
+        };
+        store.add_entry(record.clone());
+        record
+    });
+    Ok(ok_json(record))
 }
 
 async fn get_weight(
+    State(state): State<Arc<AppState>>,
     Path(date): Path<String>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(move || i_rs_weight::service::get_weight(&date)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let parsed_date = parse_date(&date)?;
+    let record = state
+        .weight
+        .read(|store| store.records.get(&parsed_date).cloned())
+        .ok_or_else(|| ApiError::NotFound(format!("No record found for {date}")))?;
+    Ok(ok_json(record))
 }
 
-async fn weight_stats() -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(|| -> anyhow::Result<serde_json::Value> {
-        let mut storage = i_rs_core::Storage::<i_rs_weight::models::WeightStore>::new("weights");
-        storage.load()?;
-        Ok(serde_json::json!({ "count": storage.data.records.len() }))
-    }).await
+async fn weight_stats(
+    State(state): State<Arc<AppState>>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let count = state.weight.read(|store| store.records.len());
+    Ok(ok_json(serde_json::json!({ "count": count })))
 }

@@ -2,23 +2,71 @@ use axum::{
     response::{Json, IntoResponse},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fmt;
 
-#[derive(Debug, Serialize)]
-pub struct ApiResponse<T> {
-    pub success: bool,
-    pub data: Option<T>,
-    pub error: Option<ApiError>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub meta: Option<ApiMeta>,
+/// Typed API error with proper HTTP status code mapping.
+#[derive(Debug)]
+pub enum ApiError {
+    NotFound(String),
+    BadRequest(String),
+    Conflict(String),
+    Internal(String),
 }
 
-#[derive(Debug, Serialize)]
-pub struct ApiError {
-    pub code: String,
-    pub message: String,
+impl ApiError {
+    pub fn into_response(self) -> (StatusCode, Json<serde_json::Value>) {
+        let (code_str, status) = match &self {
+            ApiError::NotFound(_) => ("NOT_FOUND", StatusCode::NOT_FOUND),
+            ApiError::BadRequest(_) => ("BAD_REQUEST", StatusCode::BAD_REQUEST),
+            ApiError::Conflict(_) => ("CONFLICT", StatusCode::CONFLICT),
+            ApiError::Internal(_) => ("SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR),
+        };
+        (status, Json(serde_json::json!({
+            "success": false,
+            "error": {
+                "code": code_str,
+                "message": self.to_string()
+            },
+            "meta": ApiMeta::new()
+        })))
+    }
 }
+
+impl From<anyhow::Error> for ApiError {
+    fn from(e: anyhow::Error) -> Self {
+        let msg = e.to_string();
+        let lower = msg.to_lowercase();
+        if lower.contains("not found") || lower.starts_with("no ") {
+            ApiError::NotFound(msg)
+        } else if lower.contains("already exists") {
+            ApiError::Conflict(msg)
+        } else if lower.contains("invalid") || lower.contains("parse") || lower.contains("validation") {
+            ApiError::BadRequest(msg)
+        } else {
+            ApiError::Internal(msg)
+        }
+    }
+}
+
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ApiError::NotFound(msg)
+            | ApiError::BadRequest(msg)
+            | ApiError::Conflict(msg)
+            | ApiError::Internal(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> axum::response::Response {
+        self.into_response().into_response()
+    }
+}
+
+pub type ApiResult<T> = Result<T, ApiError>;
 
 #[derive(Debug, Serialize)]
 pub struct ApiMeta {
@@ -38,69 +86,5 @@ impl ApiMeta {
 impl Default for ApiMeta {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl<T: Serialize> ApiResponse<T> {
-    pub fn success(data: T) -> Json<Self> {
-        Json(Self {
-            success: true,
-            data: Some(data),
-            error: None,
-            meta: Some(ApiMeta::new()),
-        })
-    }
-}
-
-impl ApiResponse<String> {
-    pub fn server_error(message: &str) -> impl IntoResponse {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(Self {
-                success: false,
-                data: None,
-                error: Some(ApiError {
-                    code: "SERVER_ERROR".to_string(),
-                    message: message.to_string(),
-                }),
-                meta: Some(ApiMeta::new()),
-            }),
-        )
-    }
-
-    pub fn not_found(message: &str) -> impl IntoResponse {
-        (
-            StatusCode::NOT_FOUND,
-            Json(Self {
-                success: false,
-                data: None,
-                error: Some(ApiError {
-                    code: "NOT_FOUND".to_string(),
-                    message: message.to_string(),
-                }),
-                meta: Some(ApiMeta::new()),
-            }),
-        )
-    }
-
-    pub fn bad_request(message: &str) -> impl IntoResponse {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(Self {
-                success: false,
-                data: None,
-                error: Some(ApiError {
-                    code: "BAD_REQUEST".to_string(),
-                    message: message.to_string(),
-                }),
-                meta: Some(ApiMeta::new()),
-            }),
-        )
-    }
-}
-
-impl fmt::Display for ApiResponse<String> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap_or_default())
     }
 }

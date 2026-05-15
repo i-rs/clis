@@ -1,13 +1,15 @@
 use axum::{
     Router,
     routing::{get, post, put, delete},
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     Json,
-    response::IntoResponse,
 };
 use serde::Deserialize;
+use std::sync::Arc;
 
-use crate::api::{call_service, call_service_unit};
+use crate::api::{ok_json, ok_json_list, ok_json_message};
+use crate::response::{ApiError, ApiResult};
+use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct AddTodoRequest {
@@ -33,7 +35,7 @@ pub struct ListQuery {
     pub tag: Option<String>,
 }
 
-pub fn router() -> Router {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_todos))
         .route("/", post(add_todo))
@@ -44,45 +46,127 @@ pub fn router() -> Router {
 }
 
 async fn list_todos(
+    State(state): State<Arc<AppState>>,
     Query(params): Query<ListQuery>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let pending = params.pending.unwrap_or(false);
-    let done = params.done.unwrap_or(false);
-    let tag = params.tag;
-    call_service(move || i_rs_todo::service::list_todos(pending, done, tag)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let records: Vec<i_rs_todo::models::Todo> = state.todo.read(|store| {
+        let pending = params.pending.unwrap_or(false);
+        let done = params.done.unwrap_or(false);
+        let todos: Vec<&i_rs_todo::models::Todo> = if pending && !done {
+            store.get_pending_todos()
+        } else if done && !pending {
+            store.get_done_todos()
+        } else {
+            store.get_all_todos()
+        };
+        let filtered = if let Some(ref tag) = params.tag {
+            todos.into_iter().filter(|t| t.tags.contains(tag)).collect()
+        } else {
+            todos
+        };
+        filtered.into_iter().cloned().collect()
+    });
+    Ok(ok_json_list(records))
 }
 
 async fn add_todo(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AddTodoRequest>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
+) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
     let title = req.title;
-    let priority = req.priority;
+    let priority = req.priority.and_then(|p| i_rs_todo::models::Priority::from_str(&p)).unwrap_or_default();
     let tag = req.tag.unwrap_or_default();
     let content = req.content.unwrap_or_default();
-    call_service(move || i_rs_todo::service::add_todo(name, title, priority, tag, content)).await
+
+    let exists = state.todo.read(|store| store.todos.contains_key(&name));
+    if exists {
+        return Err(ApiError::Conflict(format!("Todo '{name}' already exists")));
+    }
+
+    let now = chrono::Utc::now();
+    let todo = state.todo.write(|store| {
+        let todo = i_rs_todo::models::Todo {
+            name: name.clone(),
+            title,
+            priority,
+            tags: tag,
+            content,
+            is_done: false,
+            created_at: now,
+            updated_at: now,
+        };
+        store.add_entry(todo.clone());
+        todo
+    });
+    Ok(ok_json(todo))
 }
 
-async fn get_todo(Path(name): Path<String>) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(move || i_rs_todo::service::get_todo(&name)).await
+async fn get_todo(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let todo = state
+        .todo
+        .read(|store| store.todos.get(&name).cloned())
+        .ok_or_else(|| ApiError::NotFound(format!("Todo '{name}' not found")))?;
+    Ok(ok_json(todo))
 }
 
 async fn update_todo(
+    State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
     Json(req): Json<UpdateTodoRequest>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let name = name;
-    let title = req.title;
-    let priority = req.priority;
-    let tag = req.tag;
-    let content = req.content;
-    call_service(move || i_rs_todo::service::update_todo(name, title, priority, tag, content)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let todo = state.todo.write(|store| {
+        let todo = store
+            .todos
+            .get_mut(&name)
+            .ok_or_else(|| anyhow::anyhow!("Todo '{name}' not found"))?;
+        if let Some(title) = req.title {
+            todo.title = Some(title);
+        }
+        if let Some(priority_str) = req.priority {
+            if let Some(p) = i_rs_todo::models::Priority::from_str(&priority_str) {
+                todo.priority = p;
+            }
+        }
+        if let Some(tag) = req.tag {
+            todo.tags = tag;
+        }
+        if let Some(content) = req.content {
+            todo.content = content;
+        }
+        todo.updated_at = chrono::Utc::now();
+        Ok::<_, anyhow::Error>(todo.clone())
+    })?;
+    Ok(ok_json(todo))
 }
 
-async fn done_todo(Path(name): Path<String>) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(move || i_rs_todo::service::toggle_todo_done(&name)).await
+async fn done_todo(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let todo = state.todo.write(|store| {
+        let todo = store
+            .todos
+            .get_mut(&name)
+            .ok_or_else(|| anyhow::anyhow!("Todo '{name}' not found"))?;
+        todo.toggle_done();
+        Ok::<_, anyhow::Error>(todo.clone())
+    })?;
+    Ok(ok_json(todo))
 }
 
-async fn delete_todo(Path(name): Path<String>) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service_unit(move || i_rs_todo::service::delete_todo(&name)).await
+async fn delete_todo(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    state.todo.write(|store| {
+        store
+            .todos
+            .remove(&name)
+            .ok_or_else(|| anyhow::anyhow!("Todo '{name}' not found"))
+    })?;
+    Ok(ok_json_message())
 }

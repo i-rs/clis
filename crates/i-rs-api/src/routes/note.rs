@@ -1,15 +1,18 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
     routing::{get, post, delete},
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     Json,
-    response::IntoResponse,
 };
 use serde::Deserialize;
 
-use crate::api::{call_service, call_service_unit};
+use crate::api::{ok_json, ok_json_list, ok_json_message};
+use crate::response::{ApiError, ApiResult};
+use crate::AppState;
 
-pub fn router() -> Router {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_notes))
         .route("/", post(add_note))
@@ -30,30 +33,74 @@ pub struct ListQuery {
 }
 
 async fn list_notes(
+    State(state): State<Arc<AppState>>,
     Query(params): Query<ListQuery>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    let tag = params.tag;
-    call_service(move || i_rs_note::service::list_notes(tag)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let records: Vec<i_rs_note::models::Note> = state.note.read(|store| {
+        if let Some(ref tag) = params.tag {
+            store
+                .notes
+                .values()
+                .filter(|n| n.tags.contains(tag))
+                .cloned()
+                .collect()
+        } else {
+            store.notes.values().cloned().collect()
+        }
+    });
+    Ok(ok_json_list(records))
 }
 
 async fn add_note(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AddNoteRequest>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
+) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
-    let title = None;
     let content = vec![req.content];
     let tags = req.tag.unwrap_or_default();
-    call_service(move || i_rs_note::service::add_note(name, title, tags, content)).await
+
+    let exists = state.note.read(|store| store.notes.contains_key(&name));
+    if exists {
+        return Err(ApiError::Conflict(format!("Note '{name}' already exists")));
+    }
+
+    let now = chrono::Utc::now();
+    let note = state.note.write(|store| {
+        let note = i_rs_note::models::Note {
+            name: name.clone(),
+            title: None,
+            tags,
+            content,
+            remark: Vec::new(),
+            created_at: now,
+            updated_at: now,
+        };
+        store.add_entry(note.clone());
+        note
+    });
+    Ok(ok_json(note))
 }
 
 async fn get_note(
+    State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service(move || i_rs_note::service::get_note(&name)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    let note = state
+        .note
+        .read(|store| store.notes.get(&name).cloned())
+        .ok_or_else(|| ApiError::NotFound(format!("Note '{name}' not found")))?;
+    Ok(ok_json(note))
 }
 
 async fn delete_note(
+    State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
-) -> Result<Json<serde_json::Value>, impl IntoResponse> {
-    call_service_unit(move || i_rs_note::service::delete_note(&name)).await
+) -> ApiResult<Json<serde_json::Value>> {
+    state.note.write(|store| {
+        store
+            .notes
+            .remove(&name)
+            .ok_or_else(|| anyhow::anyhow!("Note '{name}' not found"))
+    })?;
+    Ok(ok_json_message())
 }
