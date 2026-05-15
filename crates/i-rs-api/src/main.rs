@@ -178,7 +178,7 @@ make_app_tools!(
     walkdog: i_rs_walkdog::models::WalkdogStore => "walkdog",
     want: i_rs_want::models::WantStore => "want",
     water: i_rs_water::models::WaterStore => "water",
-    weight: i_rs_weight::models::WeightStore => "weights",
+    weight: i_rs_weight::models::WeightStore => "weight",
 );
 
 // ═══════════════════════════════════════════════════════════════
@@ -202,8 +202,31 @@ async fn main() {
         .await
         .expect("Failed to bind to address. Is port 8080 already in use?");
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .expect("Server error");
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = tokio::signal::ctrl_c();
+
+    #[cfg(unix)]
+    {
+        let mut terminate = tokio::signal::unix::signal(
+            tokio::signal::unix::SignalKind::terminate(),
+        )
+        .expect("failed to install SIGTERM handler");
+
+        tokio::select! {
+            _ = ctrl_c => {},
+            _ = terminate.recv() => {},
+        }
+    }
+
+    #[cfg(not(unix))]
+    ctrl_c.await.ok();
+
+    println!("Shutdown signal received, gracefully shutting down...");
 }
 
 #[cfg(test)]

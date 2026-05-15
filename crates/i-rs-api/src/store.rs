@@ -37,14 +37,20 @@ impl<T: serde::Serialize + serde::de::DeserializeOwned + Default> SharedStore<T>
     /// Read data under a read lock.
     /// Multiple readers can proceed concurrently.
     pub fn read<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        let guard = self.inner.read().expect("SharedStore read lock poisoned");
+        let guard = self.inner.read().unwrap_or_else(|err| {
+            eprintln!("[SharedStore] Read lock recovered from poison");
+            err.into_inner()
+        });
         f(&guard)
     }
 
     /// Write data under a write lock, then flush to disk.
     /// Only one writer at a time.
     pub fn write<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut guard = self.inner.write().expect("SharedStore write lock poisoned");
+        let mut guard = self.inner.write().unwrap_or_else(|err| {
+            eprintln!("[SharedStore] Write lock recovered from poison");
+            err.into_inner()
+        });
         let result = f(&mut guard);
         // Flush to disk after every mutation
         let storage = i_rs_core::Storage::<T>::new(&self.filename);
