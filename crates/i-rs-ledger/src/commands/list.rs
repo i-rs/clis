@@ -25,11 +25,7 @@ pub fn handle_list(category: Option<String>, format: OutputFormat) -> Result<()>
     println!();
     println!("  {:12} {}{}", "Income:".cyan(), summary.total_income, summary.currency);
     println!("  {:12} {}{}", "Expense:".red(), summary.total_expense, summary.currency);
-    let balance_str = if summary.balance >= 0.0 {
-        format!("{}", summary.balance)
-    } else {
-        format!("{}", summary.balance)
-    };
+    let balance_str = format!("{}", summary.balance);
     println!("  {:12} {}{}", "Balance:".cyan(), balance_str, summary.currency);
     println!();
 

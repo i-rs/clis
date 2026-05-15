@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_snippets))
         .route("/", post(add_snippet))
         .route("/{id}", get(get_snippet))
-        .route("/{id}", delete(delete_snippet).put(update_snippet))
+        .route("/{id}", delete(delete_snippet).patch(update_snippet))
 }
 
 #[derive(Debug, Deserialize)]

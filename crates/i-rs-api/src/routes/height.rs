@@ -35,7 +35,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_heights))
         .route("/", post(add_height))
         .route("/{id}", get(get_height))
-        .route("/{id}", delete(delete_height).put(update_height))
+        .route("/{id}", delete(delete_height).patch(update_height))
 }
 
 #[derive(Debug, Deserialize)]

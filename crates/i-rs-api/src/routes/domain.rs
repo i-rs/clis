@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_domains))
         .route("/", post(add_domain))
         .route("/{id}", get(get_domain))
-        .route("/{id}", delete(delete_domain).put(update_domain))
+        .route("/{id}", delete(delete_domain).patch(update_domain))
 }
 
 #[derive(Debug, Deserialize)]

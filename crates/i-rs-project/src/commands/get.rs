@@ -21,7 +21,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    println!("\n{}", format!("Project: {}", project.name.green().bold()));
+    println!("\nProject: {}", project.name.green().bold());
     println!("{}", "=".repeat(50));
     println!("  {:12} {}", "Status:".dimmed(), format!("{:?}", project.status).to_lowercase());
     println!("  {:12} {}", "Priority:".dimmed(), format!("{:?}", project.priority).to_lowercase());

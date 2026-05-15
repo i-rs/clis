@@ -38,7 +38,7 @@ pub fn add_todo(
 
     let priority = priority
         .as_deref()
-        .and_then(Priority::from_str)
+        .and_then(Priority::parse_str)
         .unwrap_or(Priority::Medium);
 
     let now = Utc::now();
@@ -75,7 +75,7 @@ pub fn update_todo(
         todo.title = Some(t);
     }
     if let Some(ref p) = priority {
-        todo.priority = Priority::from_str(p).unwrap_or(Priority::Medium);
+        todo.priority = Priority::parse_str(p).unwrap_or(Priority::Medium);
     }
     if let Some(t) = tags {
         todo.tags = t;

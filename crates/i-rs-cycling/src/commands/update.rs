@@ -5,6 +5,7 @@ use chrono::Utc;
 use owo_colors::OwoColorize;
 use uuid::Uuid;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     id_or_date: String,
     distance: Option<f64>,

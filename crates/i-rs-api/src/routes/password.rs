@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_passwords))
         .route("/", post(add_password))
         .route("/{id}", get(get_password))
-        .route("/{id}", delete(delete_password).put(update_password))
+        .route("/{id}", delete(delete_password).patch(update_password))
 }
 
 #[derive(Debug, Deserialize)]

@@ -193,6 +193,7 @@ macro_rules! example_command {
 /// i_rs_core::data_command!();
 /// ```
 #[macro_export]
+#[allow(clippy::crate_in_macro_def)]
 macro_rules! data_command {
     () => {
         #[derive(::clap::Subcommand, Debug, Clone)]

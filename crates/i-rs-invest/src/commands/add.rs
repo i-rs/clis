@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use i_rs_core::validate_name;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     name: String,
     symbol: String,
@@ -67,7 +68,7 @@ pub fn handle_add(
     store.add_entry(investment);
     storage::save_store(&store)?;
 
-    println!("{}", format!("✓ Investment '{}' added successfully", name.green()));
+    println!("✓ Investment '{}' added successfully", name.green());
 
     Ok(())
 }

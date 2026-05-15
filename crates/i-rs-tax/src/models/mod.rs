@@ -39,7 +39,7 @@ impl std::fmt::Display for TaxType {
 }
 
 impl TaxType {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_str(s: &str) -> Option<Self> {
         match s {
             "个人所得税" | "personal" => Some(Self::Personal),
             "增值税" | "vat" => Some(Self::Vat),
@@ -77,7 +77,7 @@ impl std::fmt::Display for TaxStatus {
 }
 
 impl TaxStatus {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_str(s: &str) -> Option<Self> {
         match s {
             "未申报" | "unreported" => Some(Self::Unreported),
             "申报中" | "filing" => Some(Self::Filing),

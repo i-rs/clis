@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_fasts))
         .route("/", post(add_fast))
         .route("/{id}", get(get_fast))
-        .route("/{id}", delete(delete_fast).put(update_fast))
+        .route("/{id}", delete(delete_fast).patch(update_fast))
 }
 
 #[derive(Debug, Deserialize)]

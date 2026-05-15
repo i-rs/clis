@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_bestbys))
         .route("/", post(add_bestby))
         .route("/{id}", get(get_bestby))
-        .route("/{id}", delete(delete_bestby).put(update_bestby))
+        .route("/{id}", delete(delete_bestby).patch(update_bestby))
 }
 
 #[derive(Debug, Deserialize)]

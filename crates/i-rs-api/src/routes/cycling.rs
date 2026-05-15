@@ -35,7 +35,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_cyclings))
         .route("/", post(add_cycling))
         .route("/{id}", get(get_cycling))
-        .route("/{id}", delete(delete_cycling).put(update_cycling))
+        .route("/{id}", delete(delete_cycling).patch(update_cycling))
 }
 
 #[derive(Debug, Deserialize)]

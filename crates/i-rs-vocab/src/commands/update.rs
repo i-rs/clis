@@ -42,7 +42,7 @@ pub fn handle_update(
             vocab.example = ex;
         }
         if let Some(status_str) = status {
-            match VocabStatus::from_str(&status_str) {
+            match VocabStatus::parse_str(&status_str) {
                 Some(s) => vocab.status = s,
                 None => {
                     anyhow::bail!("Invalid status '{status_str}'");

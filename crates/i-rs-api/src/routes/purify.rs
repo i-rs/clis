@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_purifys))
         .route("/", post(add_purify))
         .route("/{id}", get(get_purify))
-        .route("/{id}", delete(delete_purify).put(update_purify))
+        .route("/{id}", delete(delete_purify).patch(update_purify))
 }
 
 #[derive(Debug, Deserialize)]

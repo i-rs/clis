@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_petbaths))
         .route("/", post(add_petbath))
         .route("/{id}", get(get_petbath))
-        .route("/{id}", delete(delete_petbath).put(update_petbath))
+        .route("/{id}", delete(delete_petbath).patch(update_petbath))
 }
 
 #[derive(Debug, Deserialize)]

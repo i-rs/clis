@@ -21,7 +21,7 @@ pub fn handle_remind(days: Option<i64>) -> anyhow::Result<()> {
         }
     }
 
-    needs_contact.sort_by(|a, b| b.1.cmp(&a.1));
+    needs_contact.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     if needs_contact.is_empty() {
         println!("{}", "All contacts are up to date!".green());

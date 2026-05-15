@@ -17,7 +17,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
 
         let rows: Vec<HabitRow> = habits
             .iter()
-            .map(|h| HabitRow::from_habit(h))
+            .map(HabitRow::from_habit)
             .collect();
 
         println!("{}", format_table(&rows));

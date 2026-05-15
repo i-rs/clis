@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_towels))
         .route("/", post(add_towel))
         .route("/{id}", get(get_towel))
-        .route("/{id}", delete(delete_towel).put(update_towel))
+        .route("/{id}", delete(delete_towel).patch(update_towel))
 }
 
 #[derive(Debug, Deserialize)]

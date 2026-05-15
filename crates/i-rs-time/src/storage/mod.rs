@@ -63,7 +63,7 @@ pub fn get_entry(store: &TimeStore, id: &str) -> Result<TimeEntry> {
 
 pub fn list_entries(store: &TimeStore) -> Vec<&TimeEntry> {
     let mut entries: Vec<_> = store.get_all_entries();
-    entries.sort_by(|a, b| b.start_time.cmp(&a.start_time));
+    entries.sort_by_key(|a| std::cmp::Reverse(a.start_time));
     entries
 }
 
@@ -74,6 +74,6 @@ pub fn list_entries_by_tag<'a>(store: &'a TimeStore, tag: &str) -> Vec<&'a TimeE
         .into_iter()
         .filter(|e| e.tags.contains(&tag_str))
         .collect();
-    entries.sort_by(|a, b| b.start_time.cmp(&a.start_time));
+    entries.sort_by_key(|a| std::cmp::Reverse(a.start_time));
     entries
 }

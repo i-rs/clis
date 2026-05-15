@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_walkdogs))
         .route("/", post(add_walkdog))
         .route("/{id}", get(get_walkdog))
-        .route("/{id}", delete(delete_walkdog).put(update_walkdog))
+        .route("/{id}", delete(delete_walkdog).patch(update_walkdog))
 }
 
 #[derive(Debug, Deserialize)]

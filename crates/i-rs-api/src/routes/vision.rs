@@ -35,7 +35,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_visions))
         .route("/", post(add_vision))
         .route("/{id}", get(get_vision))
-        .route("/{id}", delete(delete_vision).put(update_vision))
+        .route("/{id}", delete(delete_vision).patch(update_vision))
 }
 
 #[derive(Debug, Deserialize)]

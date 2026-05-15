@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_toothbrushs))
         .route("/", post(add_toothbrush))
         .route("/{id}", get(get_toothbrush))
-        .route("/{id}", delete(delete_toothbrush).put(update_toothbrush))
+        .route("/{id}", delete(delete_toothbrush).patch(update_toothbrush))
 }
 
 #[derive(Debug, Deserialize)]

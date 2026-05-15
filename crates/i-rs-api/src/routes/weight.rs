@@ -35,7 +35,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_weights))
         .route("/", post(add_weight))
         .route("/stats", get(weight_stats))
-        .route("/{date}", get(get_weight).put(update_weight))
+        .route("/{date}", get(get_weight).patch(update_weight))
 }
 
 #[derive(Debug, Deserialize)]

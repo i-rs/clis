@@ -7,7 +7,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let investment = if let Some(inv) = store.investments.get(&name) { inv } else {
-        println!("{}", format!("Investment '{}' not found", name.red()));
+        println!("Investment '{}' not found", name.red());
         anyhow::bail!("Investment '{name}' not found");
     };
 

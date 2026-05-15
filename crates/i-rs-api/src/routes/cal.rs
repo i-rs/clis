@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_cals))
         .route("/", post(add_cal))
         .route("/{id}", get(get_cal))
-        .route("/{id}", delete(delete_cal).put(update_cal))
+        .route("/{id}", delete(delete_cal).patch(update_cal))
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,7 +64,7 @@ async fn add_cal(
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
     let date = serde_json::from_value(req.date)
-        .map_err(|_| ApiError::BadRequest(format!("Invalid date")))?;
+        .map_err(|_| ApiError::BadRequest("Invalid date".to_string()))?;
     let entry = i_rs_cal::models::CalEntry::new(food_name, calories, tags, remark, date);
     state.cal.write(|store| {
         store.add_entry(entry.clone());

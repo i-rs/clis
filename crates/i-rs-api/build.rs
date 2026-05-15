@@ -9,12 +9,11 @@ fn main() {
     if let Ok(entries) = fs::read_dir(routes_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("rs") {
-                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                    if name != "mod" {
-                        mods.push(name.to_string());
-                    }
-                }
+            if path.extension().and_then(|s| s.to_str()) == Some("rs")
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+                && name != "mod"
+            {
+                mods.push(name.to_string());
             }
         }
     }

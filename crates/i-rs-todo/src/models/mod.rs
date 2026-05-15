@@ -14,7 +14,7 @@ pub enum Priority {
 }
 
 impl Priority {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "high" | "h" | "3" => Some(Self::High),
             "medium" | "med" | "m" | "2" => Some(Self::Medium),

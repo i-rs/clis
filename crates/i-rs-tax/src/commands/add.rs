@@ -31,7 +31,7 @@ pub fn execute(args: &AddArgs, format: &OutputFormat) -> anyhow::Result<()> {
         anyhow::bail!("{}", e.message);
     }
 
-    let tax_type = TaxType::from_str(&args.tax_type).ok_or_else(|| {
+    let tax_type = TaxType::parse_str(&args.tax_type).ok_or_else(|| {
         let types = TaxType::variants().join(", ");
         anyhow::anyhow!("无效的税种类型 '{}'. 可用类型: {}", args.tax_type, types)
     })?;
@@ -42,7 +42,7 @@ pub fn execute(args: &AddArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let year = args.year.unwrap_or_else(|| date.year());
 
     let status = match &args.status {
-        Some(s) => TaxStatus::from_str(s).ok_or_else(|| {
+        Some(s) => TaxStatus::parse_str(s).ok_or_else(|| {
             let statuses = TaxStatus::variants().join(", ");
             anyhow::anyhow!("无效的报税状态 '{s}'. 可用状态: {statuses}")
         })?,

@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_sleeps))
         .route("/", post(add_sleep))
         .route("/{id}", get(get_sleep))
-        .route("/{id}", delete(delete_sleep).put(update_sleep))
+        .route("/{id}", delete(delete_sleep).patch(update_sleep))
 }
 
 #[derive(Debug, Deserialize)]

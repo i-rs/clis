@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_reminds))
         .route("/", post(add_remind))
         .route("/{id}", get(get_remind))
-        .route("/{id}", delete(delete_remind).put(update_remind))
+        .route("/{id}", delete(delete_remind).patch(update_remind))
 }
 
 #[derive(Debug, Deserialize)]

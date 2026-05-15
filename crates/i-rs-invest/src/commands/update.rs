@@ -4,6 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     name: String,
     symbol: Option<String>,
@@ -64,7 +65,7 @@ pub fn handle_update(
 
     storage::save_store(&store)?;
 
-    println!("{}", format!("✓ Investment '{}' updated successfully", name.green()));
+    println!("✓ Investment '{}' updated successfully", name.green());
 
     Ok(())
 }

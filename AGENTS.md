@@ -9,7 +9,7 @@ Rust monorepo with **70 cross-platform CLI tools** for personal data management,
 - **`i-rs-api`** - 🌱 Experimental REST API server
 - **`extensions/`** - Browser extensions via Native Messaging
 
-**Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core.
+**Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api.
 
 ## Project Structure
 
@@ -73,11 +73,17 @@ It does NOT have its own models/storage/commands - it only routes to other tools
 
 `i-rs-api` is an **experimental REST API** built with Axum:
 
-- Wraps CLI tools as HTTP endpoints
+- **`make_app_tools!` macro** — generates `AppState` struct, `load_state()`, and `build_base_router()` from a single list of 70 (field, store_type, filename) tuples
+- **`build.rs`** — auto-generates `routes.rs` module declarations from `src/routes/*.rs` files
+- **70 CRUD route modules** — one per CLI tool, each with `GET /` (list), `POST /` (create), `GET /{id}` (get), `DELETE /{id}` (delete), `PATCH /{id}` (update)
+- **Per-tool data endpoints** — `GET /data/export`, `POST /data/import`, `DELETE /data/clear`
+- **`update.rs`** — generic `merge_entry()` for partial JSON updates: shallow merge for primitives/arrays, deep merge for nested objects, null field removal, and auto-`updated_at` timestamp
+- **`response.rs`** — unified `ApiError` / `ApiResult` with consistent JSON error responses
+- **All update endpoints use `PATCH`** (not `PUT`) for semantic partial updates
+- **32 integration tests** — covering health, CRUD, PATCH, 404, bad request, data export/clear across all 3 store patterns (String-keyed BTreeMap, NaiveDate-keyed BTreeMap, Vec-based)
 - Uses `i-rs-core` but NOT the standard CLI crate pattern
 - Does NOT have: `storage/mod.rs`, `commands/`, `models/`, `presentation/`
-- May have different conventions than standard CLI crates
-- **API stability not guaranteed** - breaking changes may occur
+- **API stability not guaranteed** — breaking changes may occur
 
 ## Browser Extensions (Native Messaging)
 
@@ -244,6 +250,9 @@ cargo run -p i-rs-mood -- --help
 
 # Test core library
 cargo test -p i-rs-core
+
+# Test REST API server (32 integration tests)
+cargo test -p i-rs-api
 
 # Check for warnings (MUST be 0)
 cargo check
@@ -676,6 +685,7 @@ CI (cargo-dist) auto-builds and publishes to:
 - `docs/.vitepress/config.ts` - Documentation sidebar config
 - `.github/workflows/check.yml` - CI (cargo check + clippy + fmt)
 - `.github/workflows/release.yml` - Release automation
+- `crates/i-rs-api/src/update.rs` - Generic JSON merge/partial-update utility
 
 ## VitePress Documentation
 

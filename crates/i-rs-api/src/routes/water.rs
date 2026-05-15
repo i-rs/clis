@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_waters))
         .route("/", post(add_water))
         .route("/{id}", get(get_water))
-        .route("/{id}", delete(delete_water).put(update_water))
+        .route("/{id}", delete(delete_water).patch(update_water))
 }
 
 #[derive(Debug, Deserialize)]

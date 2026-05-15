@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{get, post, put, delete},
+    routing::{get, post, patch, delete},
     extract::{Path, Query, State},
     Json,
 };
@@ -40,7 +40,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_todos))
         .route("/", post(add_todo))
         .route("/{name}", get(get_todo))
-        .route("/{name}", put(update_todo))
+        .route("/{name}", patch(update_todo))
         .route("/{name}/done", post(done_todo))
         .route("/{name}", delete(delete_todo))
 }

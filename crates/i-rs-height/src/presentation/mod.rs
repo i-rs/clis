@@ -64,9 +64,9 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
                 } else {
                     (curr_y, prev_y)
                 };
-                for y in (lo + 1)..=hi {
-                    if chart[y][i].trim().is_empty() {
-                        chart[y][i] = "│".dimmed().to_string();
+                for row in chart[(lo + 1)..=hi].iter_mut() {
+                    if row[i].trim().is_empty() {
+                        row[i] = "│".dimmed().to_string();
                     }
                 }
             }

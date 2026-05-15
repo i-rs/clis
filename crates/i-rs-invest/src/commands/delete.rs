@@ -12,7 +12,7 @@ pub fn handle_delete(name: String) -> Result<()> {
     store.remove_entry(&name);
     storage::save_store(&store)?;
 
-    println!("{}", format!("✓ Investment '{}' deleted successfully", name.green()));
+    println!("✓ Investment '{}' deleted successfully", name.green());
 
     Ok(())
 }

@@ -21,7 +21,7 @@ pub fn handle_add(
     }
 
     let vocab_status = match status.as_deref() {
-        Some(s) => VocabStatus::from_str(s).unwrap_or(VocabStatus::New),
+        Some(s) => VocabStatus::parse_str(s).unwrap_or(VocabStatus::New),
         None => VocabStatus::New,
     };
 

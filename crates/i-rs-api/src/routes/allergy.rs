@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_allergys))
         .route("/", post(add_allergy))
         .route("/{id}", get(get_allergy))
-        .route("/{id}", delete(delete_allergy).put(update_allergy))
+        .route("/{id}", delete(delete_allergy).patch(update_allergy))
 }
 
 #[derive(Debug, Deserialize)]

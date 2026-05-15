@@ -32,7 +32,7 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_habits))
         .route("/", post(add_habit))
-        .route("/{name}", get(get_habit).put(update_habit))
+        .route("/{name}", get(get_habit).patch(update_habit))
         .route("/{name}/checkin", post(checkin_habit))
         .route("/{name}/stats", get(habit_stats))
 }

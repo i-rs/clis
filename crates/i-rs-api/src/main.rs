@@ -447,4 +447,257 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
     }
+
+    // ────────────────────────────────────────────────────────────
+    // PATCH endpoint tests (all 3 store patterns)
+    // ────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_patch_ac() {
+        let app = test_app();
+
+        // POST to create an AC entry
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/ac")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"location": "bedroom", "tags": ["initial"], "remark": ["first"]}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+        )
+        .unwrap();
+        let ac_id = body["data"]["id"].as_str().unwrap().to_string();
+
+        // PATCH — update location and add a tag
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/api/ac/{}", ac_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"location": "living_room", "tags": ["initial", "updated"]}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["data"]["location"], "living_room");
+        assert_eq!(body["data"]["tags"], serde_json::json!(["initial", "updated"]));
+        assert_eq!(body["data"]["remark"], serde_json::json!(["first"]));
+    }
+
+    #[tokio::test]
+    async fn test_patch_ac_not_found() {
+        let app = test_app();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri("/api/ac/nonexistent-id")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"location": "test"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_patch_ac_null_removal() {
+        let app = test_app();
+
+        // POST to create
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/ac")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"location": "kitchen", "tags": ["a", "b"], "remark": ["hello"]}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+        )
+        .unwrap();
+        let ac_id = body["data"]["id"].as_str().unwrap().to_string();
+
+        // PATCH with null remark → should remove remark
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/api/ac/{}", ac_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"remark": null}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["data"]["remark"], serde_json::json!([]));
+    }
+
+    #[tokio::test]
+    async fn test_patch_weight() {
+        let app = test_app();
+
+        // POST to create a weight entry with a specific date (avoid cross-test conflict)
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/weight")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"date": "2024-06-15", "weight": 70.0, "remark": ["old"]}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // PATCH — update weight value using the same date
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri("/api/weight/2024-06-15")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"weight": 71.5}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+        )
+        .unwrap();
+        assert!((body["data"]["weight"].as_f64().unwrap() - 71.5).abs() < f64::EPSILON);
+        assert_eq!(body["data"]["remark"], serde_json::json!(["old"]));
+    }
+
+    #[tokio::test]
+    async fn test_patch_weight_invalid_date() {
+        let app = test_app();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri("/api/weight/not-a-date")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"weight": 70.0}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_patch_plant() {
+        let app = test_app();
+
+        // POST to create a plant (Vec-based store)
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/plant")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "name": "aloe",
+                            "species": "Aloe vera",
+                            "location": "window",
+                            "watering_interval_days": 7
+                        }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // PATCH — update species
+        let res = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri("/api/plant/aloe")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({"location": "balcony"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["data"]["location"], "balcony");
+        assert_eq!(body["data"]["species"], "Aloe vera");
+
+        // PATCH — verify updated_at was set (Plant has updated_at field)
+        assert!(body["data"]["updated_at"].as_i64().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_patch_plant_not_found() {
+        let app = test_app();
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri("/api/plant/nonexistent")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"location": "test"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
 }

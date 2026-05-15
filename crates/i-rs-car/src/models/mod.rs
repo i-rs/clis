@@ -56,6 +56,7 @@ pub struct FuelRecord {
 }
 
 impl FuelRecord {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         car_name: String,
         date: NaiveDate,
@@ -110,6 +111,7 @@ pub struct MaintenanceRecord {
 }
 
 impl MaintenanceRecord {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         car_name: String,
         date: NaiveDate,

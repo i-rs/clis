@@ -11,7 +11,7 @@ pub fn handle_list(
     let store = storage::load_store()?;
 
     let words: Vec<&VocabWord> = if let Some(ref status_str) = status_filter {
-        if let Some(status) = VocabStatus::from_str(status_str) { store.filter_by_status(status) } else {
+        if let Some(status) = VocabStatus::parse_str(status_str) { store.filter_by_status(status) } else {
             print_warning(&format!("Invalid status '{status_str}'. Showing all words."));
             store.get_all_words()
         }

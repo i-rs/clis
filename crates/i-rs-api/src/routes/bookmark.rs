@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_bookmarks))
         .route("/", post(add_bookmark))
         .route("/{name}", get(get_bookmark))
-        .route("/{name}", delete(delete_bookmark).put(update_bookmark))
+        .route("/{name}", delete(delete_bookmark).patch(update_bookmark))
 }
 
 #[derive(Debug, Deserialize)]

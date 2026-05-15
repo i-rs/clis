@@ -17,6 +17,15 @@ i-rs-clis/
 │   │       └── utils/
 │   │           ├── date.rs     # parse_date(), parse_datetime()
 │   │           └── validation.rs # validate_*() + 21 个单元测试
+│   ├── i-rs-api/               # 🌱 实验性 REST API (Axum)
+│   │   └── src/
+│   │       ├── main.rs         # 服务入口 + 32 集成测试
+│   │       ├── build.rs        # 自动生成 routes.rs 模块声明
+│   │       ├── api.rs          # JSON 响应辅助函数
+│   │       ├── response.rs     # ApiError/ApiResult 统一响应
+│   │       ├── update.rs       # merge_entry() 通用 JSON 合并更新
+│   │       ├── store.rs        # SharedStore<T> (RwLock 封装)
+│   │       └── routes/         # 70 个路由模块 (CRUD + PATCH)
 │   ├── i-rs-{name}...          # 70个 CLI 工具
 ├── docs/                       # VitePress 文档站点
 │   └── .vitepress/
@@ -530,6 +539,7 @@ inherits = "release"
 - `release.yml` — tag 推送时 cargo-dist 发布
 - `deny.toml` — cargo-deny 许可证/安全审计
 - i-rs-core 有 21 个单元测试覆盖 validation 和 date 模块
+- i-rs-api 有 32 个集成测试覆盖 CRUD、PATCH、404、BadRequest、数据导出/清空
 
 ## 15. 重要文件
 

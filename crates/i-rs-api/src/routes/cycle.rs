@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_cycles))
         .route("/", post(add_cycle))
         .route("/{id}", get(get_cycle))
-        .route("/{id}", delete(delete_cycle).put(update_cycle))
+        .route("/{id}", delete(delete_cycle).patch(update_cycle))
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,7 +60,7 @@ async fn add_cycle(
     Json(req): Json<AddCycleRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let date = serde_json::from_value(req.date)
-        .map_err(|_| ApiError::BadRequest(format!("Invalid date")))?;
+        .map_err(|_| ApiError::BadRequest("Invalid date".to_string()))?;
     let event_type = req.event_type;
     let symptoms = req.symptoms.unwrap_or_default();
     let tags = req.tags.unwrap_or_default();

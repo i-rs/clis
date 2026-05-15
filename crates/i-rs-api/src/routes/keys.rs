@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_keys))
         .route("/{name}", post(add_key))
         .route("/{name}", get(get_key))
-        .route("/{name}", delete(delete_key).put(update_keys))
+        .route("/{name}", delete(delete_key).patch(update_keys))
 }
 
 #[derive(Debug, Deserialize)]

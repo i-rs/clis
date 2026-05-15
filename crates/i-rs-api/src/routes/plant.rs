@@ -33,7 +33,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_plants))
         .route("/", post(add_plant))
         .route("/{id}", get(get_plant))
-        .route("/{id}", delete(delete_plant).put(update_plant))
+        .route("/{id}", delete(delete_plant).patch(update_plant))
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,7 +48,7 @@ async fn list_plants(
     State(state): State<Arc<AppState>>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let records = state.plant.read(|store| {
-        let entries: Vec<_> = store.plants.iter().cloned().collect();
+        let entries: Vec<_> = store.plants.to_vec();
         Ok::<_, ApiError>(entries)
     })?;
     Ok(ok_json_list(records))
