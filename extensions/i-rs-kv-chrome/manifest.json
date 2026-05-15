@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "i-rs KV Manager",
-  "version": "0.1.0",
-  "description": "Manage key-value storage from Chrome using i-rs-kv CLI",
-  "permissions": ["nativeMessaging", "storage"],
+  "name": "i-rs KV",
+  "description": "Key-Value storage for i-rs ecosystem",
+  "version": "1.0.0",
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "index.html",
     "default_icon": {
       "16": "icons/icon16.svg",
       "48": "icons/icon48.svg",
@@ -17,7 +16,7 @@
     "48": "icons/icon48.svg",
     "128": "icons/icon128.svg"
   },
-  "background": {
-    "service_worker": "background.js"
-  }
+  "permissions": [
+    "storage"
+  ]
 }
