@@ -1,5 +1,10 @@
 # Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
+
 ## Commands
 
 ### add
@@ -92,3 +97,18 @@ i-rs-plant skill summary   # Show summary
 ## Global Options
 
 - `--json`: Output in JSON format
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-plant data export
+i-rs-plant data import [FILE]
+i-rs-plant data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data

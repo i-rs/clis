@@ -11,6 +11,9 @@ Investment returns tracking CLI tool for stocks, funds, and cryptocurrencies.
 
 - Config: `~/.config/i-rs/invest.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -85,6 +88,32 @@ i-rs-invest stats
 ```
 
 Shows total cost, value, profit/loss, and breakdown by asset type.
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-invest data export
+i-rs-invest data import [FILE]
+i-rs-invest data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-invest example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-invest skill [summary|content|raw]
+```
 
 ## Examples
 

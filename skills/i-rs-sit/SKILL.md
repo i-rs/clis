@@ -11,6 +11,9 @@ Sitting duration tracking CLI tool.
 
 - Config: `~/.config/i-rs/sit.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -50,6 +53,32 @@ Delete a record.
 
 ```bash
 i-rs-sit delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-sit data export
+i-rs-sit data import [FILE]
+i-rs-sit data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-sit example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-sit skill [summary|content|raw]
 ```
 
 ## Examples

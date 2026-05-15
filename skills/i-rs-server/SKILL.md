@@ -21,6 +21,9 @@ Passwords are stored securely in the OS keychain:
 - Config: `~/.config/i-rs/servers.json`
 - Passwords: OS Keychain (never in config file)
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -87,6 +90,32 @@ i-rs-server suggest <NAME>
 
 Options:
 - `-c, --command <CMD>` - Filter by keyword (e.g., docker, disk, port)
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-server data export
+i-rs-server data import [FILE]
+i-rs-server data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-server example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-server skill [summary|content|raw]
+```
 
 ## Examples
 

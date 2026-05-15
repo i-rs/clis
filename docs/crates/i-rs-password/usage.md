@@ -1,5 +1,9 @@
 # i-rs-password Usage Guide
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands Overview
 
 | Command | Description |
@@ -198,3 +202,32 @@ i-rs-password supports various types of URLs:
 - **Databases**: `mysql://host:port`, `postgresql://host:port`, `mongodb://host:port`
 - **API Endpoints**: `https://api.stripe.com`, `https://api.sendgrid.com`
 - **Custom**: Any valid URL or connection string
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-password data export
+i-rs-password data import [FILE]
+i-rs-password data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-password example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-password skill [summary|content|raw]
+```

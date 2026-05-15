@@ -11,6 +11,9 @@ Article read-later CLI tool for saving and organizing articles for future readin
 
 - Config: `~/.config/i-rs/articles.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -53,6 +56,32 @@ i-rs-article delete <NAME>
 Show reading statistics.
 ```bash
 i-rs-article stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-article data export
+i-rs-article data import [FILE]
+i-rs-article data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-article example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-article skill [summary|content|raw]
 ```
 
 ## Examples

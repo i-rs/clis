@@ -1,5 +1,9 @@
 # i-rs-toothbrush Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -52,6 +56,35 @@ i-rs-toothbrush delete <ID>
 | Manual | Regular toothbrush | Every 3 months |
 | Kids | Children's toothbrush | Every 3-4 months |
 | Interdental | Interdental brush | Every 2-4 weeks |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-toothbrush data export
+i-rs-toothbrush data import [FILE]
+i-rs-toothbrush data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-toothbrush example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-toothbrush skill [summary|content|raw]
+```
 
 ## Data Storage
 

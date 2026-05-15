@@ -105,6 +105,24 @@ i-rs-invoice example
 
 - `--json`: Output in JSON format
 
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-invoice data export
+i-rs-invoice data import [FILE]
+i-rs-invoice data clear
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-invoice skill [summary|content|raw]
+```
+
 ## Examples
 
 ```bash

@@ -139,3 +139,36 @@ walkdog, aqua, aquarium, i-rs, CLI, terminal, track
 ```
 
 If there's even a 1% chance the user might need an i-rs tool, load this skill first.
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-find-i-rs data export
+i-rs-find-i-rs data import [FILE]
+i-rs-find-i-rs data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-find-i-rs example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-find-i-rs skill [summary|content|raw]
+```
+
+## Examples
+
+```bash
+# JSON output
+i-rs-find-i-rs list --json
+```

@@ -11,6 +11,9 @@ Fasting tracking CLI tool.
 
 - Config: `~/.config/i-rs/fast.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -50,6 +53,32 @@ Delete a record.
 
 ```bash
 i-rs-fast delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-fast data export
+i-rs-fast data import [FILE]
+i-rs-fast data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-fast example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-fast skill [summary|content|raw]
 ```
 
 ## Examples

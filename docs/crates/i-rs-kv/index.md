@@ -10,13 +10,16 @@ i-rs-kv provides a simple key-value storage solution for storing configuration, 
 
 ```bash
 # Set a value
-i-rs-kv add "username" --value "john"
+i-rs-kv add username john
 
 # Get a value
 i-rs-kv get username
 
 # List all entries
 i-rs-kv list
+
+# JSON output
+i-rs-kv list --json
 ```
 
 ## Installation
@@ -41,6 +44,7 @@ brew install i-rs/homebrew-tap/i-rs-kv
 - **Tag Support**: Categorize entries with tags
 - **Time Metadata**: Track creation and updates
 - **Quick Access**: Fast get/set operations
+- **JSON Output**: Machine-readable output with `--json`
 
 ## Commands
 

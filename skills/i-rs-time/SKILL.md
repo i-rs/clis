@@ -11,6 +11,9 @@ Time tracking CLI for work hours (Pomodoro timer).
 
 - Config: `~/.config/i-rs/time.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### start
@@ -90,6 +93,16 @@ View AI skill documentation.
 ```bash
 i-rs-time skill
 i-rs-time skill summary
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-time data export
+i-rs-time data import [FILE]
+i-rs-time data clear
 ```
 
 ## Examples

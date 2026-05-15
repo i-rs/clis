@@ -11,6 +11,9 @@ Podcast and course tracking CLI tool for managing your audio/video learning cont
 
 - Config: `~/.config/i-rs/podcasts.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -59,6 +62,32 @@ i-rs-podcast stats
 - `not_started` (○): Not started
 - `in_progress` (◐): Currently listening
 - `completed` (●): Finished
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-podcast data export
+i-rs-podcast data import [FILE]
+i-rs-podcast data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-podcast example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-podcast skill [summary|content|raw]
+```
 
 ## Examples
 

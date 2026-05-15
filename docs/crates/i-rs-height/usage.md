@@ -1,5 +1,9 @@
 # i-rs-height Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -120,3 +124,18 @@ i-rs-height skill [SUB_COMMAND]
 - `--json` - Output in JSON format
 - `-h, --help` - Show help information
 - `-V, --version` - Show version information
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-height data export
+i-rs-height data import [FILE]
+i-rs-height data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data

@@ -1,5 +1,9 @@
 # i-rs-invest Usage Guide
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands Overview
 
 | Command | Description |
@@ -236,4 +240,33 @@ i-rs-invest skill
 
 # Show summary only
 i-rs-invest skill summary
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-invest data export
+i-rs-invest data import [FILE]
+i-rs-invest data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-invest example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-invest skill [summary|content|raw]
 ```

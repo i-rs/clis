@@ -1,5 +1,9 @@
 # i-rs-appliance Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -121,3 +125,18 @@ i-rs-appliance skill
 i-rs-appliance skill summary
 i-rs-appliance skill content
 ```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-appliance data export
+i-rs-appliance data import [FILE]
+i-rs-appliance data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data

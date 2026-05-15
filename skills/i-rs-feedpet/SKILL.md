@@ -11,6 +11,9 @@ Pet feeding tracking CLI tool.
 
 - Config: `~/.config/i-rs/feedpet.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -50,6 +53,32 @@ Delete a record.
 
 ```bash
 i-rs-feedpet delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-feedpet data export
+i-rs-feedpet data import [FILE]
+i-rs-feedpet data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-feedpet example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-feedpet skill [summary|content|raw]
 ```
 
 ## Examples

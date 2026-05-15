@@ -11,6 +11,9 @@ Pet bath tracking CLI tool.
 
 - Config: `~/.config/i-rs/petbath.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -50,6 +53,32 @@ Delete a record.
 
 ```bash
 i-rs-petbath delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-petbath data export
+i-rs-petbath data import [FILE]
+i-rs-petbath data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-petbath example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-petbath skill [summary|content|raw]
 ```
 
 ## Examples

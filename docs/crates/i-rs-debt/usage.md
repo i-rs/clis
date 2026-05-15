@@ -1,5 +1,9 @@
 # i-rs-debt 详细命令参考
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## 债务类型
 
 i-rs-debt 支持三种债务类型：
@@ -168,4 +172,33 @@ i-rs-debt stats --json
     "message": "Debt 'xxx' not found"
   }
 }
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-debt data export
+i-rs-debt data import [FILE]
+i-rs-debt data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-debt example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-debt skill [summary|content|raw]
 ```

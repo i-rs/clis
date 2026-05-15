@@ -1,5 +1,9 @@
 # i-rs-meal Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -46,6 +50,35 @@ Delete a meal record.
 
 ```bash
 i-rs-meal delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-meal data export
+i-rs-meal data import [FILE]
+i-rs-meal data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-meal example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-meal skill [summary|content|raw]
 ```
 
 ## Data Storage

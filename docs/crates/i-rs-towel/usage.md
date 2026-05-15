@@ -1,5 +1,9 @@
 # i-rs-towel Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -53,6 +57,35 @@ i-rs-towel delete <ID>
 | hand | Hand towel | 1-2 years |
 | beach | Beach towel | 3-5 years |
 | sports | Sports towel | 1-2 years |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-towel data export
+i-rs-towel data import [FILE]
+i-rs-towel data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-towel example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-towel skill [summary|content|raw]
+```
 
 ## Data Storage
 

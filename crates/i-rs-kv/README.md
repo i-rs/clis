@@ -8,6 +8,7 @@ Key-value storage CLI tool for storing and retrieving arbitrary data.
 - Tag support for categorization
 - Time-based metadata
 - Quick get/set operations
+- JSON output support
 
 ## Install
 
@@ -21,14 +22,17 @@ brew install i-rs/homebrew-tap/i-rs-kv
 
 ```bash
 # Set a value
-i-rs-kv add "username" --value "john"
-i-rs-kv add "api-url" --value "https://api.example.com"
+i-rs-kv add username john
+i-rs-kv add api-url "https://api.example.com" --tag config
 
 # Get a value
 i-rs-kv get username
 
 # List all entries
 i-rs-kv list
+
+# List with JSON output
+i-rs-kv list --json
 ```
 
 ## Data Storage
@@ -36,7 +40,7 @@ i-rs-kv list
 Configuration is stored locally at:
 - macOS: `~/.config/i-rs/kv.json`
 - Linux: `~/.config/i-rs/kv.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\kv.json`
 
 ## License
 

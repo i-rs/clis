@@ -11,6 +11,9 @@ Gift management CLI tool for tracking gifts given and received.
 
 - Config: `~/.config/i-rs/gifts.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -69,6 +72,24 @@ Show usage examples.
 
 ```bash
 i-rs-gift example
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-gift data export
+i-rs-gift data import [FILE]
+i-rs-gift data clear
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-gift skill [summary|content|raw]
 ```
 
 ## Examples

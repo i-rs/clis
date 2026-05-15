@@ -11,6 +11,10 @@ Item best-by date tracking CLI tool.
 
 - Config: `~/.config/i-rs/bestby.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -18,11 +22,14 @@ Item best-by date tracking CLI tool.
 Add an item with purchase date and replacement cycle.
 
 ```bash
-i-rs-bestby add <NAME> --purchase-date <DATE> [OPTIONS]
+i-rs-bestby add <NAME> <PURCHASE_DATE> [OPTIONS]
 ```
 
+Arguments:
+- `NAME` - Item name
+- `PURCHASE_DATE` - Purchase date (YYYY-MM-DD)
+
 Options:
-- `--purchase-date <DATE>` - Purchase date (YYYY-MM-DD)
 - `--cycle-days <DAYS>` - Replacement cycle in days
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
@@ -64,18 +71,47 @@ Options:
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
 
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-bestby data export
+i-rs-bestby data import [FILE]
+i-rs-bestby data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-bestby example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-bestby skill [summary|content|raw]
+```
+
 ## Examples
 
 ```bash
 # Add item with cycle
-i-rs-bestby add "Milk" --purchase-date 2024-01-01 --cycle-days 7
+i-rs-bestby add "Milk" 2024-01-01 --cycle-days 7
 
 # Add item without cycle
-i-rs-bestby add "Phone Battery" --purchase-date 2023-06-01
+i-rs-bestby add "Phone Battery" 2023-06-01
 
 # List items
 i-rs-bestby list
 
 # Get details
 i-rs-bestby get Milk
+
+# JSON output
+i-rs-bestby list --json
 ```

@@ -21,6 +21,9 @@ Passwords are stored securely in the OS keychain:
 - Config: `~/.config/i-rs/bookmarks.json`
 - Passwords: OS Keychain (never in config file)
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -80,6 +83,32 @@ Delete bookmark.
 
 ```bash
 i-rs-bookmark delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-bookmark data export
+i-rs-bookmark data import [FILE]
+i-rs-bookmark data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-bookmark example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-bookmark skill [summary|content|raw]
 ```
 
 ## Examples

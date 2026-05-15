@@ -11,6 +11,9 @@ Vision tracking CLI tool for recording and tracking eye prescription measurement
 
 - Config: `~/.config/i-rs/visions.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Vision Parameters
 
 - **Sphere**: Refractive error (negative = myopia, positive = hyperopia)
@@ -80,6 +83,32 @@ i-rs-vision stats
 | --tag | -t | Tags (repeatable) |
 | --remark | -m | Remarks (repeatable) |
 | --json | | JSON output format |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-vision data export
+i-rs-vision data import [FILE]
+i-rs-vision data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-vision example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-vision skill [summary|content|raw]
+```
 
 ## Examples
 

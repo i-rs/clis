@@ -11,6 +11,9 @@ Reminder management CLI tool for managing events and reminders.
 
 - Config: `~/.config/i-rs/reminds.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -73,6 +76,32 @@ Delete reminder.
 
 ```bash
 i-rs-remind delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-remind data export
+i-rs-remind data import [FILE]
+i-rs-remind data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-remind example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-remind skill [summary|content|raw]
 ```
 
 ## Examples

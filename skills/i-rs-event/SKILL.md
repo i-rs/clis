@@ -11,6 +11,9 @@ Social event management CLI tool for tracking meetings, gatherings, courses, and
 
 - Config: `~/.config/i-rs/event.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -79,6 +82,16 @@ Show AI skill documentation.
 
 ```bash
 i-rs-event skill [summary|content]
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-event data export
+i-rs-event data import [FILE]
+i-rs-event data clear
 ```
 
 ## Examples

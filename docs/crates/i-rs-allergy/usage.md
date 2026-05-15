@@ -1,5 +1,9 @@
 # i-rs-allergy Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -63,6 +67,35 @@ i-rs-allergy delete <ID>
 - watery-eyes
 - headache
 - nausea
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-allergy data export
+i-rs-allergy data import [FILE]
+i-rs-allergy data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-allergy example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-allergy skill [summary|content|raw]
+```
 
 ## Data Storage
 

@@ -1,5 +1,9 @@
 # i-rs-aqua Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -40,6 +44,35 @@ Delete a record.
 
 ```bash
 i-rs-aqua delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-aqua data export
+i-rs-aqua data import [FILE]
+i-rs-aqua data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-aqua example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-aqua skill [summary|content|raw]
 ```
 
 ## Data Storage

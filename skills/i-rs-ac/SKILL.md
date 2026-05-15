@@ -11,6 +11,9 @@ AC cleaning tracking CLI tool.
 
 - Config: `~/.config/i-rs/ac.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -50,6 +53,32 @@ Delete a record.
 
 ```bash
 i-rs-ac delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-ac data export
+i-rs-ac data import [FILE]
+i-rs-ac data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-ac example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-ac skill [summary|content|raw]
 ```
 
 ## Examples

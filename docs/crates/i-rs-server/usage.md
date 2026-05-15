@@ -1,5 +1,9 @@
 # i-rs-server Usage Guide
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands Overview
 
 | Command | Description |
@@ -356,3 +360,32 @@ The tool uses `anyhow::Result<()>` for error handling. Common errors include:
 Exit codes:
 - `0`: Success
 - `1`: Error (with error message printed to stderr)
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-server data export
+i-rs-server data import [FILE]
+i-rs-server data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-server example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-server skill [summary|content|raw]
+```

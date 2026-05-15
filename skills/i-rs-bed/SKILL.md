@@ -11,6 +11,9 @@ Bed item replacement tracking CLI tool.
 
 - Config: `~/.config/i-rs/beds.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -58,6 +61,32 @@ i-rs-bed delete <ID>
 - `pillow` - Pillow
 - `duvet` - Duvet/comforter
 - `mattress-protector` - Mattress protector
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-bed data export
+i-rs-bed data import [FILE]
+i-rs-bed data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-bed example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-bed skill [summary|content|raw]
+```
 
 ## Examples
 

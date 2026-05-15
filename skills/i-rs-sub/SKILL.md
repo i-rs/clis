@@ -11,6 +11,9 @@ Subscription tracking CLI tool.
 
 - Config: `~/.config/i-rs/sub.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -68,6 +71,32 @@ Options:
 - `--url <URL>` - Update URL
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-sub data export
+i-rs-sub data import [FILE]
+i-rs-sub data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-sub example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-sub skill [summary|content|raw]
+```
 
 ## Examples
 

@@ -11,6 +11,9 @@ Home appliance lifecycle management CLI tool for tracking appliances, maintenanc
 
 - Config: `~/.config/i-rs/appliances.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -59,6 +62,32 @@ Show statistics.
 
 ```bash
 i-rs-appliance stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-appliance data export
+i-rs-appliance data import [FILE]
+i-rs-appliance data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-appliance example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-appliance skill [summary|content|raw]
 ```
 
 ## Examples

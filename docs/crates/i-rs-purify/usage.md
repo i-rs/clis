@@ -1,5 +1,9 @@
 # i-rs-purify Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -52,6 +56,35 @@ i-rs-purify delete <ID>
 | Carbon Filter | Activated carbon filter | 6-12 months |
 | Sediment Filter | Pre-filter for sediment | 3-6 months |
 | Mineral Filter | Post-filter adding minerals | 6-12 months |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-purify data export
+i-rs-purify data import [FILE]
+i-rs-purify data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-purify example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-purify skill [summary|content|raw]
+```
 
 ## Data Storage
 

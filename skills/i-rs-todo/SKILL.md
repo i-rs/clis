@@ -11,6 +11,9 @@ Todo management CLI tool for tracking tasks and to-do items.
 
 - Config: `~/.config/i-rs/todos.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Priority Levels
 
 | Input | Emoji | Label |
@@ -84,6 +87,32 @@ Delete a todo.
 
 ```bash
 i-rs-todo delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-todo data export
+i-rs-todo data import [FILE]
+i-rs-todo data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-todo example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-todo skill [summary|content|raw]
 ```
 
 ## Examples

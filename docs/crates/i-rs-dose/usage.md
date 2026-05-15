@@ -1,5 +1,9 @@
 # i-rs-dose Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -7,15 +11,15 @@
 Record medicine intake.
 
 ```bash
-i-rs-dose add <MEDICINE_NAME> --dosage <AMOUNT> --unit <UNIT> [OPTIONS]
+i-rs-dose add <MEDICINE_NAME> <DOSAGE> <UNIT> [OPTIONS]
 ```
 
 Arguments:
 - `MEDICINE_NAME` - Name of the medicine
+- `DOSAGE` - Dosage amount
+- `UNIT` - Unit (tablet, ml, mg, IU, drop, capsule, etc.)
 
 Options:
-- `--dosage <AMOUNT>` - Dosage amount
-- `--unit <UNIT>` - Unit (tablet, ml, mg, IU, drop, capsule, etc.)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -44,6 +48,37 @@ Delete a record.
 
 ```bash
 i-rs-dose delete <ID>
+```
+
+### data
+
+Manage stored data.
+
+```bash
+i-rs-dose data export
+i-rs-dose data import [FILE]
+i-rs-dose data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-dose example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-dose skill [summary|content|raw]
 ```
 
 ## Data Storage

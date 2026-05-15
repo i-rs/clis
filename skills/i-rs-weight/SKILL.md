@@ -11,6 +11,9 @@ Weight tracking CLI tool for managing weight records with trend visualization.
 
 - Config: `~/.config/i-rs/weights.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -55,6 +58,32 @@ Delete a weight record.
 
 ```bash
 i-rs-weight delete <DATE>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-weight data export
+i-rs-weight data import [FILE]
+i-rs-weight data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-weight example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-weight skill [summary|content|raw]
 ```
 
 ## Examples

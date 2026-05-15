@@ -12,6 +12,9 @@ API keys and secrets management CLI tool.
 - Keys: OS Keychain (secure)
 - Metadata: `~/.config/i-rs/keys.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -71,6 +74,32 @@ Options:
 - `--type <TYPE>` - Update key type
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-keys data export
+i-rs-keys data import [FILE]
+i-rs-keys data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-keys example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-keys skill [summary|content|raw]
+```
 
 ## Examples
 

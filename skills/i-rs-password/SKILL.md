@@ -21,6 +21,9 @@ Passwords are stored securely in the OS keychain:
 - Config: `~/.config/i-rs/passwords.json`
 - Passwords: OS Keychain (never in config file)
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -80,6 +83,32 @@ Delete password entry.
 
 ```bash
 i-rs-password delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-password data export
+i-rs-password data import [FILE]
+i-rs-password data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-password example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-password skill [summary|content|raw]
 ```
 
 ## Examples

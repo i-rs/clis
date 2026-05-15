@@ -11,6 +11,9 @@ Personal accounting CLI tool.
 
 - Config: `~/.config/i-rs/ledger.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -56,6 +59,32 @@ Delete an entry.
 
 ```bash
 i-rs-ledger delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-ledger data export
+i-rs-ledger data import [FILE]
+i-rs-ledger data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-ledger example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-ledger skill [summary|content|raw]
 ```
 
 ## Examples

@@ -1,5 +1,9 @@
 # i-rs-bed Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -52,6 +56,35 @@ i-rs-bed delete <ID>
 | pillow | Pillow | 1-2 years |
 | duvet | Duvet/comforter | 5-10 years |
 | mattress-protector | Mattress protector | 2-3 years |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-bed data export
+i-rs-bed data import [FILE]
+i-rs-bed data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-bed example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-bed skill [summary|content|raw]
+```
 
 ## Data Storage
 

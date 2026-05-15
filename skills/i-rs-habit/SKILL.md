@@ -11,6 +11,9 @@ Habit tracking CLI tool for building good habits with checkins and streaks.
 
 - Config: `~/.config/i-rs/habits.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -68,6 +71,32 @@ Delete a habit.
 
 ```bash
 i-rs-habit delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-habit data export
+i-rs-habit data import [FILE]
+i-rs-habit data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-habit example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-habit skill [summary|content|raw]
 ```
 
 ## Examples

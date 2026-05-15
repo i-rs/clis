@@ -11,6 +11,9 @@ Water intake tracking CLI tool.
 
 - Config: `~/.config/i-rs/water.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -50,6 +53,32 @@ Delete a record.
 
 ```bash
 i-rs-water delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-water data export
+i-rs-water data import [FILE]
+i-rs-water data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-water example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-water skill [summary|content|raw]
 ```
 
 ## Examples

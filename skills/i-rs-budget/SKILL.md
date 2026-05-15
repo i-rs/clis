@@ -5,6 +5,11 @@ description: "个人预算管理工具。用于设置预算、记录支出、查
 
 # i-rs-budget
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
+
 个人预算管理 CLI 工具，帮助用户设置预算类别、记录支出、查看统计分析。
 
 ## 存储
@@ -219,15 +224,30 @@ i-rs-budget skill content  # 显示完整内容
 
 ```bash
 # 设置月度预算
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget add food 1000 --period monthly
 i-rs-budget add groceries 500 --period monthly
 i-rs-budget add entertainment 300 --period monthly
 
 # 日常记录
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget expense food 35.00 --description "午餐"
 i-rs-budget expense groceries 150.00 --description "超市"
 
 # 查看进度
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget stats --period monthly
 ```
 
@@ -235,13 +255,28 @@ i-rs-budget stats --period monthly
 
 ```bash
 # 设置周预算
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget add groceries 300 --period weekly
 
 # 周内记录
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget expense groceries 80.00 --description "周一采购"
 i-rs-budget expense groceries 120.00 --description "周三补货"
 
 # 查看剩余
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget stats --period weekly --category groceries
 ```
 
@@ -249,12 +284,37 @@ i-rs-budget stats --period weekly --category groceries
 
 ```bash
 # 查看所有支出
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget list expenses
 
 # 按类别分析
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget stats --category food
 i-rs-budget stats --category entertainment
 
 # 年度总览
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
 i-rs-budget stats --period yearly
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-budget data export
+i-rs-budget data import [FILE]
+i-rs-budget data clear
 ```

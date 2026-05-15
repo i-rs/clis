@@ -5,6 +5,11 @@ description: "税务记录管理 CLI 工具。用于记录个人所得税、增�
 
 # i-rs-tax 税务记录管理
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
+
 税务记录管理 CLI 工具，用于记录个人所得税、增值税等税务信息，支持年度统计和报税状态跟踪。
 
 ## 存储
@@ -107,3 +112,25 @@ i-rs-tax skill [summary]
 2. **季度增值税申报**: 记录季度增值税，便于年度汇总
 3. **年终奖税务**: 单独记录年终奖税务信息
 4. **年度汇总**: 使用 stats 命令统计年度税务情况
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-tax data export
+i-rs-tax data import [FILE]
+i-rs-tax data clear
+```
+
+## Examples
+
+```bash
+# JSON output
+
+## Global Flags
+
+- `--json` — Output in JSON format
+
+i-rs-tax list --json
+```

@@ -11,6 +11,9 @@ Savings goal tracking CLI tool for personal finance management.
 
 - Config: `~/.config/i-rs/goal.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -80,6 +83,24 @@ i-rs-goal stats [options]
 Show usage examples.
 ```bash
 i-rs-goal example
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-goal data export
+i-rs-goal data import [FILE]
+i-rs-goal data clear
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-goal skill [summary|content|raw]
 ```
 
 ## Examples

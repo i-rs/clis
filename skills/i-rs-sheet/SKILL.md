@@ -11,6 +11,9 @@ Sheet change tracking CLI tool.
 
 - Config: `~/.config/i-rs/sheets.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -58,6 +61,32 @@ i-rs-sheet delete <ID>
 - `pillowcase` - Pillow cover
 - `duvet-cover` - Comforter/duvet cover
 - `mattress-protector` - Mattress protector
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-sheet data export
+i-rs-sheet data import [FILE]
+i-rs-sheet data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-sheet example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-sheet skill [summary|content|raw]
+```
 
 ## Examples
 

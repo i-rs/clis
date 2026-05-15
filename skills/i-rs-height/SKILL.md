@@ -11,6 +11,9 @@ Height tracking CLI tool for monitoring body height and weight over time.
 
 - Config: `~/.config/i-rs/heights.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -59,6 +62,32 @@ Show current target.
 
 ```bash
 i-rs-height target
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-height data export
+i-rs-height data import [FILE]
+i-rs-height data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-height example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-height skill [summary|content|raw]
 ```
 
 ## Examples

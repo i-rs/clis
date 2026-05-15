@@ -1,5 +1,9 @@
 # i-rs-tax 使用文档
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## 命令概述
 
 | 命令 | 说明 |
@@ -183,4 +187,33 @@ i-rs-tax skill [summary|content]
 ```bash
 i-rs-tax skill
 i-rs-tax skill summary
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-tax data export
+i-rs-tax data import [FILE]
+i-rs-tax data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-tax example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-tax skill [summary|content|raw]
 ```

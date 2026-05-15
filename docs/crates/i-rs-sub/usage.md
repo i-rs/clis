@@ -1,5 +1,9 @@
 # i-rs-sub Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -60,6 +64,35 @@ Options:
 - `--url <URL>` - Update URL
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-sub data export
+i-rs-sub data import [FILE]
+i-rs-sub data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-sub example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-sub skill [summary|content|raw]
+```
 
 ## Data Storage
 

@@ -1,5 +1,9 @@
 # i-rs-habit Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -86,6 +90,35 @@ Arguments:
 | monthly | Once a month |
 | yearly | Once a year |
 | custom | Custom frequency |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-habit data export
+i-rs-habit data import [FILE]
+i-rs-habit data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-habit example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-habit skill [summary|content|raw]
+```
 
 ## Data Storage
 

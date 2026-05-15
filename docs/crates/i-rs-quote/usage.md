@@ -1,5 +1,9 @@
 # i-rs-quote 使用指南
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## 命令概述
 
 i-rs-quote 提供以下命令来管理你的语录收藏。
@@ -165,3 +169,32 @@ i-rs-quote get <ID> --json
 ## 环境变量
 
 - `CONFIG_DIR`: 自定义配置目录路径
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-quote data export
+i-rs-quote data import [FILE]
+i-rs-quote data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-quote example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-quote skill [summary|content|raw]
+```

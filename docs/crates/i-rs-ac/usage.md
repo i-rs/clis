@@ -1,5 +1,9 @@
 # i-rs-ac Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -42,6 +46,35 @@ Delete a record.
 
 ```bash
 i-rs-ac delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-ac data export
+i-rs-ac data import [FILE]
+i-rs-ac data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-ac example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-ac skill [summary|content|raw]
 ```
 
 ## Data Storage

@@ -11,6 +11,9 @@ Duration tracking CLI tool.
 
 - Config: `~/.config/i-rs/tick.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -64,6 +67,32 @@ i-rs-tick delete <ID>
 - 3600 seconds = 1 hour
 - 7200 seconds = 2 hours
 - 300 seconds = 5 minutes
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-tick data export
+i-rs-tick data import [FILE]
+i-rs-tick data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-tick example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-tick skill [summary|content|raw]
+```
 
 ## Examples
 

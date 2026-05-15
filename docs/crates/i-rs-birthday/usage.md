@@ -1,5 +1,9 @@
 # i-rs-birthday Usage Guide
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands Overview
 
 | Command | Description |
@@ -218,4 +222,33 @@ i-rs-birthday list --json
 i-rs-birthday get John --json
 i-rs-birthday stats --json
 i-rs-birthday upcoming --json
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-birthday data export
+i-rs-birthday data import [FILE]
+i-rs-birthday data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-birthday example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-birthday skill [summary|content|raw]
 ```

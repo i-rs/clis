@@ -11,6 +11,9 @@ Toothbrush replacement tracking CLI tool.
 
 - Config: `~/.config/i-rs/toothbrushes.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -58,6 +61,32 @@ i-rs-toothbrush delete <ID>
 - `Manual` - Regular manual toothbrush
 - `Kids` - Children's toothbrush
 - `Interdental` - Interdental brush
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-toothbrush data export
+i-rs-toothbrush data import [FILE]
+i-rs-toothbrush data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-toothbrush example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-toothbrush skill [summary|content|raw]
+```
 
 ## Examples
 

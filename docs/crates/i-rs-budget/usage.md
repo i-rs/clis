@@ -1,5 +1,9 @@
 # i-rs-budget 使用指南
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## add - 添加预算
 
 创建新的预算类别。
@@ -258,4 +262,33 @@ i-rs-budget example
 i-rs-budget skill          # 显示原始文档
 i-rs-budget skill summary  # 显示摘要
 i-rs-budget skill content  # 显示完整内容
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-budget data export
+i-rs-budget data import [FILE]
+i-rs-budget data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-budget example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-budget skill [summary|content|raw]
 ```

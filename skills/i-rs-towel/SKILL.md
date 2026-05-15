@@ -11,6 +11,9 @@ Towel replacement tracking CLI tool.
 
 - Config: `~/.config/i-rs/towels.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -59,6 +62,32 @@ i-rs-towel delete <ID>
 - `hand` - Hand towel
 - `beach` - Beach towel
 - `sports` - Sports towel
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-towel data export
+i-rs-towel data import [FILE]
+i-rs-towel data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-towel example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-towel skill [summary|content|raw]
+```
 
 ## Examples
 

@@ -11,6 +11,9 @@ Recurring expenses tracking CLI tool.
 
 - Config: `~/.config/i-rs/recur.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -66,6 +69,32 @@ Options:
 - `--frequency <FREQ>` - Update frequency
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-recur data export
+i-rs-recur data import [FILE]
+i-rs-recur data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-recur example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-recur skill [summary|content|raw]
+```
 
 ## Examples
 

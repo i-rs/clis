@@ -11,6 +11,9 @@ description: "Debt management CLI tool. Track credit card debts, loans, borrowed
 
 - Config: `~/.config/i-rs/debt.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -95,6 +98,16 @@ i-rs-debt example
 ```bash
 i-rs-debt skill
 i-rs-debt skill summary
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-debt data export
+i-rs-debt data import [FILE]
+i-rs-debt data clear
 ```
 
 ## Examples

@@ -11,6 +11,9 @@ Birthday reminder CLI tool for managing birthdays and never missing an important
 
 - Config: `~/.config/i-rs/birthdays.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -99,6 +102,32 @@ i-rs-birthday upcoming
 
 Options:
 - `-d, --days <DAYS>` - Number of days to look ahead (default: 30)
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-birthday data export
+i-rs-birthday data import [FILE]
+i-rs-birthday data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-birthday example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-birthday skill [summary|content|raw]
+```
 
 ## Examples
 

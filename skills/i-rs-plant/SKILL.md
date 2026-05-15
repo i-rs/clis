@@ -11,6 +11,9 @@ Plant care tracking CLI tool for managing indoor and outdoor plants.
 
 - Config: `~/.config/i-rs/plant.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -54,6 +57,32 @@ i-rs-plant delete Monstera
 View plant statistics:
 ```bash
 i-rs-plant stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-plant data export
+i-rs-plant data import [FILE]
+i-rs-plant data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-plant example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-plant skill [summary|content|raw]
 ```
 
 ## Examples

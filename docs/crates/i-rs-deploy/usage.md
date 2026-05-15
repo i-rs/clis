@@ -1,5 +1,9 @@
 # i-rs-deploy 使用指南
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## 命令总览
 
 | 命令 | 描述 |
@@ -147,3 +151,32 @@ i-rs-deploy skill content # 显示内容
 |------|------|
 | `--json, -j` | JSON 格式输出 |
 | `--help, -h` | 显示帮助 |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-deploy data export
+i-rs-deploy data import [FILE]
+i-rs-deploy data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-deploy example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-deploy skill [summary|content|raw]
+```

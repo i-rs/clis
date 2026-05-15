@@ -1,5 +1,9 @@
 # i-rs-note Usage Guide
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands Overview
 
 | Command | Description |
@@ -100,4 +104,33 @@ Delete a note.
 
 ```bash
 i-rs-note delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-note data export
+i-rs-note data import [FILE]
+i-rs-note data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-note example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-note skill [summary|content|raw]
 ```

@@ -11,6 +11,9 @@ Sleep tracking CLI tool for recording bedtime, wake time, and sleep quality.
 
 - Config: `~/.config/i-rs/sleep.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -71,6 +74,32 @@ Delete a sleep record.
 
 ```bash
 i-rs-sleep delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-sleep data export
+i-rs-sleep data import [FILE]
+i-rs-sleep data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-sleep example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-sleep skill [summary|content|raw]
 ```
 
 ## Examples

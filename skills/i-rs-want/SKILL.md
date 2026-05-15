@@ -11,6 +11,9 @@ Wish list CLI tool.
 
 - Config: `~/.config/i-rs/want.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -73,6 +76,32 @@ Options:
 - `--undone` - Mark as pending
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-want data export
+i-rs-want data import [FILE]
+i-rs-want data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-want example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-want skill [summary|content|raw]
+```
 
 ## Examples
 

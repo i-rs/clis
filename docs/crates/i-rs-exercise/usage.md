@@ -1,5 +1,9 @@
 # i-rs-exercise 使用指南
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## 命令概览
 
 | 命令 | 描述 |
@@ -310,4 +314,33 @@ i-rs-exercise stats --json
     "message": "Entry 'xxx' not found"
   }
 }
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-exercise data export
+i-rs-exercise data import [FILE]
+i-rs-exercise data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-exercise example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-exercise skill [summary|content|raw]
 ```

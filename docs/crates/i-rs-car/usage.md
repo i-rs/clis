@@ -1,5 +1,9 @@
 # i-rs-car Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -135,3 +139,18 @@ i-rs-car skill summary
 ## Global Options
 
 - `--json`: Output in JSON format
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-car data export
+i-rs-car data import [FILE]
+i-rs-car data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data

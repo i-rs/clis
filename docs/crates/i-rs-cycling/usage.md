@@ -1,5 +1,9 @@
 # i-rs-cycling Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -124,3 +128,32 @@ Displays:
 ### Global Options
 
 - `--json` - Output in JSON format
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-cycling data export
+i-rs-cycling data import [FILE]
+i-rs-cycling data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-cycling example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-cycling skill [summary|content|raw]
+```

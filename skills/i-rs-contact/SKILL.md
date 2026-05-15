@@ -11,6 +11,9 @@ Contact management CLI tool for managing contacts, tracking relationships and co
 
 - Config: `~/.config/i-rs/contacts.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -87,6 +90,32 @@ i-rs-contact remind [OPTIONS]
 
 Options:
 - `-d, --days <DAYS>` - Days threshold (default: 30)
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-contact data export
+i-rs-contact data import [FILE]
+i-rs-contact data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-contact example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-contact skill [summary|content|raw]
+```
 
 ## Examples
 

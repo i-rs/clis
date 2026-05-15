@@ -1,5 +1,9 @@
 # i-rs-todo Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## install
 
 ```bash
@@ -112,6 +116,35 @@ i-rs-todo list --done
 
 # Filter by tag
 i-rs-todo list --tag work
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-todo data export
+i-rs-todo data import [FILE]
+i-rs-todo data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-todo example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-todo skill [summary|content|raw]
 ```
 
 ## Data Storage

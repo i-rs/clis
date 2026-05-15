@@ -11,6 +11,9 @@ Deployment record CLI - track deployments, manage rollback, and view statistics.
 
 - Config: `~/.config/i-rs/deploy.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -47,6 +50,32 @@ i-rs-deploy rollback <PROJECT> <ENVIRONMENT> [--rollback-to ID]
 Show deployment statistics.
 ```bash
 i-rs-deploy stats [--project PROJECT] [--env ENVIRONMENT]
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-deploy data export
+i-rs-deploy data import [FILE]
+i-rs-deploy data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-deploy example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-deploy skill [summary|content|raw]
 ```
 
 ## Examples

@@ -11,6 +11,9 @@ Step counting CLI tool.
 
 - Config: `~/.config/i-rs/step.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -70,6 +73,32 @@ Options:
 - `--distance <KM>` - Update distance
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-step data export
+i-rs-step data import [FILE]
+i-rs-step data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-step example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-step skill [summary|content|raw]
+```
 
 ## Examples
 

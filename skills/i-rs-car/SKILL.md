@@ -11,6 +11,9 @@ Vehicle management CLI tool for tracking car information, fuel records, maintena
 
 - Config: `~/.config/i-rs/cars.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -113,6 +116,16 @@ Show skill documentation.
 ```bash
 i-rs-car skill
 i-rs-car skill summary
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-car data export
+i-rs-car data import [FILE]
+i-rs-car data clear
 ```
 
 ## Examples

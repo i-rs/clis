@@ -11,6 +11,9 @@ Menstrual cycle tracking CLI tool.
 
 - Config: `~/.config/i-rs/cycles.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -59,6 +62,32 @@ i-rs-cycle delete <ID>
 - `spotting` - Light bleeding
 - `ovulation` - Ovulation day
 - `fertile` - Fertile window
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-cycle data export
+i-rs-cycle data import [FILE]
+i-rs-cycle data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-cycle example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-cycle skill [summary|content|raw]
+```
 
 ## Examples
 

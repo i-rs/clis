@@ -11,6 +11,9 @@ Allergy tracking CLI tool.
 
 - Config: `~/.config/i-rs/allergies.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -58,6 +61,32 @@ i-rs-allergy delete <ID>
 - `mild` - Minor reaction
 - `moderate` - Noticeable reaction
 - `severe` - Serious reaction
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-allergy data export
+i-rs-allergy data import [FILE]
+i-rs-allergy data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-allergy example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-allergy skill [summary|content|raw]
+```
 
 ## Examples
 

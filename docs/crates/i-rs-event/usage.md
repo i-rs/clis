@@ -1,5 +1,9 @@
 # i-rs-event Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -81,3 +85,18 @@ Show AI skill documentation.
 ```bash
 i-rs-event skill [summary|content]
 ```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-event data export
+i-rs-event data import [FILE]
+i-rs-event data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data

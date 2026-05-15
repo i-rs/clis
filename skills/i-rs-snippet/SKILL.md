@@ -11,6 +11,9 @@ Code snippet management CLI tool for storing, organizing, and quickly retrieving
 
 - Config: `~/.config/i-rs/snippets.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -67,6 +70,32 @@ Delete a snippet.
 
 ```bash
 i-rs-snippet delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-snippet data export
+i-rs-snippet data import [FILE]
+i-rs-snippet data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-snippet example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-snippet skill [summary|content|raw]
 ```
 
 ## Examples

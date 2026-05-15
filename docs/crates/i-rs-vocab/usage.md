@@ -1,5 +1,9 @@
 # i-rs-vocab Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -111,6 +115,35 @@ i-rs-vocab stats
 | `--json` | Output in JSON format |
 | `-h, --help` | Show help |
 | `-V, --version` | Show version |
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-vocab data export
+i-rs-vocab data import [FILE]
+i-rs-vocab data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-vocab example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-vocab skill [summary|content|raw]
+```
 
 ## Data Storage
 

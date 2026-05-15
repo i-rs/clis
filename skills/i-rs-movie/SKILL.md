@@ -11,6 +11,9 @@ Movie tracking CLI tool for managing your personal film library.
 
 - Config: `~/.config/i-rs/movies.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -95,6 +98,32 @@ Show collection statistics.
 
 ```bash
 i-rs-movie stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-movie data export
+i-rs-movie data import [FILE]
+i-rs-movie data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-movie example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-movie skill [summary|content|raw]
 ```
 
 ## Examples

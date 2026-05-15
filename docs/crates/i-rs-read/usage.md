@@ -1,5 +1,9 @@
 # i-rs-read 使用指南
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## add - 添加书籍
 
 添加一本新书到阅读列表。
@@ -290,4 +294,33 @@ i-rs-read get "书名" --json
 
 # JSON 格式查看统计
 i-rs-read stats --json
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-read data export
+i-rs-read data import [FILE]
+i-rs-read data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-read example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-read skill [summary|content|raw]
 ```

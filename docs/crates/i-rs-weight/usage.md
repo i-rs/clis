@@ -1,5 +1,9 @@
 # i-rs-weight Usage Guide
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands Overview
 
 | Command | Description |
@@ -144,4 +148,33 @@ i-rs-weight delete <DATE>
 ```bash
 # Delete a specific record
 i-rs-weight delete 2025-01-15
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-weight data export
+i-rs-weight data import [FILE]
+i-rs-weight data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-weight example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-weight skill [summary|content|raw]
 ```

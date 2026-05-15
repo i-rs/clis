@@ -1,5 +1,9 @@
 # i-rs-tick Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -54,6 +58,35 @@ Durations are specified in seconds:
 - 60 seconds = 1 minute
 - 3600 seconds = 1 hour
 - 7200 seconds = 2 hours
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-tick data export
+i-rs-tick data import [FILE]
+i-rs-tick data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-tick example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-tick skill [summary|content|raw]
+```
 
 ## Data Storage
 

@@ -11,6 +11,9 @@ description: "Manages quotes (add/list/get/delete/random). Invoke when user need
 
 - Config: `~/.config/i-rs/quotes.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -73,6 +76,16 @@ View AI skill documentation.
 i-rs-quote skill          # Show raw skill document
 i-rs-quote skill summary  # Show summary
 i-rs-quote skill content  # Show content
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-quote data export
+i-rs-quote data import [FILE]
+i-rs-quote data clear
 ```
 
 ## Examples

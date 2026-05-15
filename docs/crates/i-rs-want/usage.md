@@ -1,5 +1,9 @@
 # i-rs-want Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -71,6 +75,35 @@ Options:
 - `low` - Low priority
 - `medium` - Medium priority
 - `high` - High priority
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-want data export
+i-rs-want data import [FILE]
+i-rs-want data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-want example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-want skill [summary|content|raw]
+```
 
 ## Data Storage
 

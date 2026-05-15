@@ -1,5 +1,9 @@
 # i-rs-goal Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## add
 
 Create a new savings goal.
@@ -147,4 +151,33 @@ i-rs-goal stats --tag emergency
 ```bash
 i-rs-goal list --json
 i-rs-goal get "Emergency Fund" --json
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-goal data export
+i-rs-goal data import [FILE]
+i-rs-goal data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-goal example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-goal skill [summary|content|raw]
 ```

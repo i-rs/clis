@@ -1,5 +1,9 @@
 # i-rs-step Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -59,6 +63,35 @@ Options:
 - `--distance <KM>` - Update distance
 - `-t, --tag <TAG>` - Add tags
 - `-r, --remark <REMARK>` - Add remarks
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-step data export
+i-rs-step data import [FILE]
+i-rs-step data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-step example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-step skill [summary|content|raw]
+```
 
 ## Data Storage
 

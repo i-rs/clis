@@ -11,6 +11,9 @@ Water purifier filter replacement tracking CLI tool.
 
 - Config: `~/.config/i-rs/purify.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -58,6 +61,32 @@ i-rs-purify delete <ID>
 - `Carbon Filter` - Activated carbon filter
 - `Sediment Filter` - Pre-filter for sediment
 - `Mineral Filter` - Post-filter adding minerals
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-purify data export
+i-rs-purify data import [FILE]
+i-rs-purify data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-purify example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-purify skill [summary|content|raw]
+```
 
 ## Examples
 

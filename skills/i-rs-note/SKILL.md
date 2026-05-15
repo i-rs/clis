@@ -11,6 +11,9 @@ Note management CLI tool for managing notes locally.
 
 - Config: `~/.config/i-rs/notes.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -64,6 +67,32 @@ Delete note.
 
 ```bash
 i-rs-note delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-note data export
+i-rs-note data import [FILE]
+i-rs-note data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-note example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-note skill [summary|content|raw]
 ```
 
 ## Examples

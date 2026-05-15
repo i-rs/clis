@@ -11,6 +11,9 @@ Aquarium water change tracking CLI tool.
 
 - Config: `~/.config/i-rs/aqua.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -51,6 +54,32 @@ Delete a record.
 
 ```bash
 i-rs-aqua delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-aqua data export
+i-rs-aqua data import [FILE]
+i-rs-aqua data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-aqua example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-aqua skill [summary|content|raw]
 ```
 
 ## Examples

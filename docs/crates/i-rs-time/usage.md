@@ -1,5 +1,9 @@
 # i-rs-time Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### start
@@ -100,3 +104,18 @@ i-rs-time skill raw
 ## Global Options
 
 - `--json, -j` - Output in JSON format
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-time data export
+i-rs-time data import [FILE]
+i-rs-time data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data

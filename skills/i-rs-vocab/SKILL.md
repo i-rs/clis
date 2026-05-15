@@ -11,6 +11,9 @@ Vocabulary learning CLI tool for managing and reviewing vocabulary words with sp
 
 - Config: `~/.config/i-rs/vocab.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -53,6 +56,32 @@ i-rs-vocab quiz [--count N]
 Show learning statistics.
 ```bash
 i-rs-vocab stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-vocab data export
+i-rs-vocab data import [FILE]
+i-rs-vocab data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-vocab example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-vocab skill [summary|content|raw]
 ```
 
 ## Examples

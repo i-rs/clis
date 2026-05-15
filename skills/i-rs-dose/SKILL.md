@@ -11,6 +11,10 @@ Medicine dosage tracking CLI tool.
 
 - Config: `~/.config/i-rs/dose.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -18,12 +22,15 @@ Medicine dosage tracking CLI tool.
 Record medicine intake.
 
 ```bash
-i-rs-dose add <MEDICINE_NAME> --dosage <AMOUNT> --unit <UNIT> [OPTIONS]
+i-rs-dose add <MEDICINE_NAME> <DOSAGE> <UNIT> [OPTIONS]
 ```
 
+Arguments:
+- `MEDICINE_NAME` - Name of the medicine
+- `DOSAGE` - Dosage amount
+- `UNIT` - Unit (tablet, ml, mg, IU, etc.)
+
 Options:
-- `--dosage <AMOUNT>` - Dosage amount
-- `--unit <UNIT>` - Unit (tablet, ml, mg, IU, etc.)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -54,16 +61,45 @@ Delete a record.
 i-rs-dose delete <ID>
 ```
 
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-dose data export
+i-rs-dose data import [FILE]
+i-rs-dose data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-dose example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-dose skill [summary|content|raw]
+```
+
 ## Examples
 
 ```bash
 # Record medicine
-i-rs-dose add "Vitamin D" --dosage 1000 --unit IU
-i-rs-dose add "Ibuprofen" --dosage 400 --unit mg
+i-rs-dose add "Vitamin D" 1000 IU
+i-rs-dose add "Ibuprofen" 400 mg
 
 # List records
 i-rs-dose list
 
 # Get details
 i-rs-dose get abc12345
+
+# JSON output
+i-rs-dose list --json
 ```

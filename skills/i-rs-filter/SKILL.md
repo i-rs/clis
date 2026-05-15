@@ -11,6 +11,9 @@ Appliance filter cleaning tracking CLI tool.
 
 - Config: `~/.config/i-rs/filters.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -58,6 +61,32 @@ i-rs-filter delete <ID>
 - `Carbon` - Activated carbon filter
 - `Foam` - Foam filter
 - `Dust` - Dust collection filter
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-filter data export
+i-rs-filter data import [FILE]
+i-rs-filter data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-filter example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-filter skill [summary|content|raw]
+```
 
 ## Examples
 

@@ -11,6 +11,9 @@ Mood tracking CLI tool for recording and visualizing daily mood.
 
 - Config: `~/.config/i-rs/moods.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Mood Levels
 
 | Input | Emoji | Label |
@@ -66,6 +69,32 @@ Delete a mood record.
 
 ```bash
 i-rs-mood delete <DATE>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-mood data export
+i-rs-mood data import [FILE]
+i-rs-mood data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-mood example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-mood skill [summary|content|raw]
 ```
 
 ## Examples

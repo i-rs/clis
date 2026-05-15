@@ -124,6 +124,21 @@ Subcommands:
 | client | Clients |
 | other | Other relationships |
 
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-contact data export
+i-rs-contact data import [FILE]
+i-rs-contact data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+
 ## Data Storage
 
 - macOS: `~/.config/i-rs/contacts.json`

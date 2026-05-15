@@ -1,5 +1,9 @@
 # i-rs-spark Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -43,6 +47,35 @@ Delete a spark.
 
 ```bash
 i-rs-spark delete <ID>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-spark data export
+i-rs-spark data import [FILE]
+i-rs-spark data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-spark example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-spark skill [summary|content|raw]
 ```
 
 ## Data Storage

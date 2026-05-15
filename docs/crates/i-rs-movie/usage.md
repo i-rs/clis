@@ -1,5 +1,9 @@
 # i-rs-movie Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## Installation
 
 ```bash
@@ -135,6 +139,35 @@ Common tags:
 - Mood: `feel-good`, `dark`, `fun`, `thought-provoking`
 - Source: `book-adaptation`, `based-on-true-story`, `original`
 - Language: `japanese`, `korean`, `chinese`, `foreign`
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-movie data export
+i-rs-movie data import [FILE]
+i-rs-movie data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-movie example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-movie skill [summary|content|raw]
+```
 
 ## Data Storage
 

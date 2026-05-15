@@ -11,6 +11,9 @@ Grocery list CLI tool for managing shopping lists with quantities and purchase t
 
 - Config: `~/.config/i-rs/grocery.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -76,6 +79,32 @@ Delete an item.
 
 ```bash
 i-rs-grocery delete <NAME>
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-grocery data export
+i-rs-grocery data import [FILE]
+i-rs-grocery data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-grocery example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-grocery skill [summary|content|raw]
 ```
 
 ## Examples

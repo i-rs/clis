@@ -11,6 +11,9 @@ Cycling record tracking CLI tool for recording and managing cycling activities.
 
 - Config: `~/.config/i-rs/cycling.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Commands
 
 ### add
@@ -47,6 +50,32 @@ i-rs-cycling delete <ID|DATE>
 View cumulative statistics.
 ```bash
 i-rs-cycling stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-cycling data export
+i-rs-cycling data import [FILE]
+i-rs-cycling data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-cycling example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-cycling skill [summary|content|raw]
 ```
 
 ## Examples

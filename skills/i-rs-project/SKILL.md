@@ -11,6 +11,9 @@ Project management CLI tool for organizing and tracking projects with milestones
 
 - Config: `~/.config/i-rs/project.json`
 
+## Global Flags
+
+- `--json` — Output in JSON format
 ## Project Status
 
 | Value | Description |
@@ -135,6 +138,32 @@ Show project statistics.
 
 ```bash
 i-rs-project stats
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-project data export
+i-rs-project data import [FILE]
+i-rs-project data clear
+```
+
+### example
+
+Show usage examples.
+
+```bash
+i-rs-project example
+```
+
+### skill
+
+Show skill information.
+
+```bash
+i-rs-project skill [summary|content|raw]
 ```
 
 ## Examples

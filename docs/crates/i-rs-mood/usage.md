@@ -1,5 +1,9 @@
 # i-rs-mood Usage
 
+## Global Flags
+
+- `--json` — Output in JSON format
+
 ## install
 
 ```bash
@@ -107,6 +111,35 @@ i-rs-mood add 2025-01-20 okay --content "Monday blues"
 
 # Multiple notes
 i-rs-mood add 2025-01-21 good --content "Project completed" --content "Feeling accomplished"
+```
+
+### data
+
+Manage data (export, import, clear).
+
+```bash
+i-rs-mood data export
+i-rs-mood data import [FILE]
+i-rs-mood data clear
+```
+
+Subcommands:
+- `export` - Export all data as JSON to stdout
+- `import [FILE]` - Import data from JSON file or stdin
+- `clear` - Clear all data
+### example
+
+Show usage examples.
+
+```bash
+i-rs-mood example
+```
+### skill
+
+Show skill information.
+
+```bash
+i-rs-mood skill [summary|content|raw]
 ```
 
 ## Data Storage
