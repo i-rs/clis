@@ -48,19 +48,19 @@ pub fn delete_password(name: &str) -> Result<()> {
 }
 
 
-pub fn add_bookmark(store: &mut BookmarkStore, bookmark: Bookmark) {
+pub fn add_entry(store: &mut BookmarkStore, bookmark: Bookmark) {
     store.bookmarks.insert(bookmark.name.clone(), bookmark);
 }
 
-pub fn remove_bookmark(store: &mut BookmarkStore, name: &str) -> Option<Bookmark> {
+pub fn remove_entry(store: &mut BookmarkStore, name: &str) -> Option<Bookmark> {
     store.bookmarks.remove(name)
 }
 
-pub fn get_bookmark<'a>(store: &'a BookmarkStore, name: &str) -> Option<&'a Bookmark> {
+pub fn get_entry<'a>(store: &'a BookmarkStore, name: &str) -> Option<&'a Bookmark> {
     store.bookmarks.get(name)
 }
 
-pub fn get_bookmark_mut<'a>(store: &'a mut BookmarkStore, name: &str) -> Option<&'a mut Bookmark> {
+pub fn get_entry_mut<'a>(store: &'a mut BookmarkStore, name: &str) -> Option<&'a mut Bookmark> {
     store.bookmarks.get_mut(name)
 }
 

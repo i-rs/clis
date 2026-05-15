@@ -28,7 +28,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_note(&mut store, note);
+    storage::add_entry(&mut store, note);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Note '{}' added successfully", name.green()));

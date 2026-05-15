@@ -35,7 +35,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_bookmark(&mut store, bookmark);
+    storage::add_entry(&mut store, bookmark);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Bookmark '{}' added successfully", name.green()));

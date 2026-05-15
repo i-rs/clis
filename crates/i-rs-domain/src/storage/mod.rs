@@ -48,19 +48,19 @@ pub fn delete_password(domain_name: &str) -> Result<()> {
 }
 
 
-pub fn add_domain(store: &mut DomainStore, domain: Domain) {
+pub fn add_entry(store: &mut DomainStore, domain: Domain) {
     store.domains.insert(domain.name.clone(), domain);
 }
 
-pub fn remove_domain(store: &mut DomainStore, name: &str) -> Option<Domain> {
+pub fn remove_entry(store: &mut DomainStore, name: &str) -> Option<Domain> {
     store.domains.remove(name)
 }
 
-pub fn get_domain<'a>(store: &'a DomainStore, name: &str) -> Option<&'a Domain> {
+pub fn get_entry<'a>(store: &'a DomainStore, name: &str) -> Option<&'a Domain> {
     store.domains.get(name)
 }
 
-pub fn get_domain_mut<'a>(store: &'a mut DomainStore, name: &str) -> Option<&'a mut Domain> {
+pub fn get_entry_mut<'a>(store: &'a mut DomainStore, name: &str) -> Option<&'a mut Domain> {
     store.domains.get_mut(name)
 }
 

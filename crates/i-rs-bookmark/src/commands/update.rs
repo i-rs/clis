@@ -14,7 +14,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let bookmark = match storage::get_bookmark_mut(&mut store, &name) {
+    let bookmark = match storage::get_entry_mut(&mut store, &name) {
         Some(b) => b,
         None => {
             anyhow::bail!("Bookmark '{name}' not found");

@@ -39,7 +39,7 @@ pub fn handle_add(
         updated_at: now,
     };
 
-    storage::add_server(&mut store, server);
+    storage::add_entry(&mut store, server);
     storage::save_store(&store)?;
 
     print_success(&format!("✓ Server '{}' added successfully", name.green()));

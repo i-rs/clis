@@ -4,19 +4,19 @@ use crate::models::{Note, NoteStore};
 i_rs_core::create_store!(NoteStore, "note");
 
 
-pub fn add_note(store: &mut NoteStore, note: Note) {
+pub fn add_entry(store: &mut NoteStore, note: Note) {
     store.notes.insert(note.name.clone(), note);
 }
 
-pub fn remove_note(store: &mut NoteStore, name: &str) -> Option<Note> {
+pub fn remove_entry(store: &mut NoteStore, name: &str) -> Option<Note> {
     store.notes.remove(name)
 }
 
-pub fn get_note<'a>(store: &'a NoteStore, name: &str) -> Option<&'a Note> {
+pub fn get_entry<'a>(store: &'a NoteStore, name: &str) -> Option<&'a Note> {
     store.notes.get(name)
 }
 
-pub fn get_note_mut<'a>(store: &'a mut NoteStore, name: &str) -> Option<&'a mut Note> {
+pub fn get_entry_mut<'a>(store: &'a mut NoteStore, name: &str) -> Option<&'a mut Note> {
     store.notes.get_mut(name)
 }
 

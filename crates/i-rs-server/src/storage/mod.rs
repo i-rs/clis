@@ -48,19 +48,19 @@ pub fn delete_password(server_name: &str) -> Result<()> {
 }
 
 
-pub fn add_server(store: &mut ServerStore, server: Server) {
+pub fn add_entry(store: &mut ServerStore, server: Server) {
     store.servers.insert(server.name.clone(), server);
 }
 
-pub fn remove_server(store: &mut ServerStore, name: &str) -> Option<Server> {
+pub fn remove_entry(store: &mut ServerStore, name: &str) -> Option<Server> {
     store.servers.remove(name)
 }
 
-pub fn get_server<'a>(store: &'a ServerStore, name: &str) -> Option<&'a Server> {
+pub fn get_entry<'a>(store: &'a ServerStore, name: &str) -> Option<&'a Server> {
     store.servers.get(name)
 }
 
-pub fn get_server_mut<'a>(store: &'a mut ServerStore, name: &str) -> Option<&'a mut Server> {
+pub fn get_entry_mut<'a>(store: &'a mut ServerStore, name: &str) -> Option<&'a mut Server> {
     store.servers.get_mut(name)
 }
 

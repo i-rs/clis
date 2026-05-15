@@ -99,7 +99,7 @@ Weight Trend (Last 30 days)
 Configuration is stored locally at:
 - macOS: `~/.config/i-rs/weights.json`
 - Linux: `~/.config/i-rs/weights.json`
-- Windows: `~\AppData\Roaming\i-rs\config.json`
+- Windows: `~\AppData\Roaming\i-rs\weights.json`
 
 ## Environment Variables
 

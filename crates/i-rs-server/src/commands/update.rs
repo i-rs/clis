@@ -15,7 +15,7 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let server = match storage::get_server_mut(&mut store, &name) {
+    let server = match storage::get_entry_mut(&mut store, &name) {
         Some(s) => s,
         None => {
             anyhow::bail!("Server '{name}' not found");

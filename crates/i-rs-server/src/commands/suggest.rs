@@ -7,7 +7,7 @@ use owo_colors::OwoColorize;
 pub fn handle_suggest(name: String, command: Option<String>) -> Result<()> {
     let store = storage::load_store()?;
 
-    let server = match storage::get_server(&store, &name) {
+    let server = match storage::get_entry(&store, &name) {
         Some(s) => s,
         None => {
             anyhow::bail!("Server '{name}' not found");
