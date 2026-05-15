@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_exercise(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.exercise.write(|store| -> Result<_, ApiError> {
+        let entry = store.records.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Exercise '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_exercises))
         .route("/", post(add_exercise))
         .route("/{id}", get(get_exercise))
-        .route("/{id}", delete(delete_exercise))
+        .route("/{id}", delete(delete_exercise).put(update_exercise))
 }
 
 #[derive(Debug, Deserialize)]

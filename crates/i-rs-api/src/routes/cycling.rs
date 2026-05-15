@@ -11,13 +11,31 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_cycling(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry_uuid = uuid::Uuid::parse_str(&id)
+        .map_err(|_| ApiError::BadRequest(format!("Invalid UUID '{id}'")))?;
+    let entry = state.cycling.write(|store| -> Result<_, ApiError> {
+        let entry = store.records.get_mut(&entry_uuid)
+            .ok_or_else(|| ApiError::NotFound(format!("Cycling '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok::<_, ApiError>(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_cyclings))
         .route("/", post(add_cycling))
         .route("/{id}", get(get_cycling))
-        .route("/{id}", delete(delete_cycling))
+        .route("/{id}", delete(delete_cycling).put(update_cycling))
 }
 
 #[derive(Debug, Deserialize)]

@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_snippet(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.snippet.write(|store| -> Result<_, ApiError> {
+        let entry = store.snippets.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Snippet '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_snippets))
         .route("/", post(add_snippet))
         .route("/{id}", get(get_snippet))
-        .route("/{id}", delete(delete_snippet))
+        .route("/{id}", delete(delete_snippet).put(update_snippet))
 }
 
 #[derive(Debug, Deserialize)]

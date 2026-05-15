@@ -11,13 +11,31 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_height(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry_date = chrono::NaiveDate::parse_from_str(&id, "%Y-%m-%d")
+        .map_err(|_| ApiError::BadRequest(format!("Invalid date '{id}', expected YYYY-MM-DD")))?;
+    let entry = state.height.write(|store| -> Result<_, ApiError> {
+        let entry = store.records.get_mut(&entry_date)
+            .ok_or_else(|| ApiError::NotFound(format!("Height '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok::<_, ApiError>(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_heights))
         .route("/", post(add_height))
         .route("/{id}", get(get_height))
-        .route("/{id}", delete(delete_height))
+        .route("/{id}", delete(delete_height).put(update_height))
 }
 
 #[derive(Debug, Deserialize)]

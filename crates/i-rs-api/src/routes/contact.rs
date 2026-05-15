@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_contact(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.contact.write(|store| -> Result<_, ApiError> {
+        let entry = store.entries.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Contact '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_contacts))
         .route("/", post(add_contact))
         .route("/{id}", get(get_contact))
-        .route("/{id}", delete(delete_contact))
+        .route("/{id}", delete(delete_contact).put(update_contact))
 }
 
 #[derive(Debug, Deserialize)]

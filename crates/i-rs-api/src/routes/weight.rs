@@ -11,13 +11,31 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_weight(
+    State(state): State<Arc<AppState>>,
+    Path(date): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+        .map_err(|_| ApiError::BadRequest(format!("Invalid date '{date}', expected YYYY-MM-DD")))?;
+    let entry = state.weight.write(|store| -> Result<_, ApiError> {
+        let entry = store.records.get_mut(&entry_date)
+            .ok_or_else(|| ApiError::NotFound(format!("Weight '{date}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_weights))
         .route("/", post(add_weight))
         .route("/stats", get(weight_stats))
-        .route("/{date}", get(get_weight))
+        .route("/{date}", get(get_weight).put(update_weight))
 }
 
 #[derive(Debug, Deserialize)]

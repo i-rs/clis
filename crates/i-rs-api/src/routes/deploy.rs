@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_deploy(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.deploy.write(|store| -> Result<_, ApiError> {
+        let entry = store.entries.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Deploy '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_deploys))
         .route("/", post(add_deploy))
         .route("/{id}", get(get_deploy))
-        .route("/{id}", delete(delete_deploy))
+        .route("/{id}", delete(delete_deploy).put(update_deploy))
 }
 
 #[derive(Debug, Deserialize)]

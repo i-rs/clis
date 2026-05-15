@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_bookmark(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.bookmark.write(|store| -> Result<_, ApiError> {
+        let entry = store.bookmarks.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Bookmark '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_bookmarks))
         .route("/", post(add_bookmark))
         .route("/{name}", get(get_bookmark))
-        .route("/{name}", delete(delete_bookmark))
+        .route("/{name}", delete(delete_bookmark).put(update_bookmark))
 }
 
 #[derive(Debug, Deserialize)]

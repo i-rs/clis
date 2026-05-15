@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_server(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.server.write(|store| -> Result<_, ApiError> {
+        let entry = store.servers.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Server '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_servers))
         .route("/", post(add_server))
         .route("/{id}", get(get_server))
-        .route("/{id}", delete(delete_server))
+        .route("/{id}", delete(delete_server).put(update_server))
 }
 
 #[derive(Debug, Deserialize)]

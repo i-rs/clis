@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_fast(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.fast.write(|store| -> Result<_, ApiError> {
+        let entry = store.entries.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Fast '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_fasts))
         .route("/", post(add_fast))
         .route("/{id}", get(get_fast))
-        .route("/{id}", delete(delete_fast))
+        .route("/{id}", delete(delete_fast).put(update_fast))
 }
 
 #[derive(Debug, Deserialize)]

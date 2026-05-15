@@ -11,13 +11,31 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_mood(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry_date = chrono::NaiveDate::parse_from_str(&id, "%Y-%m-%d")
+        .map_err(|_| ApiError::BadRequest(format!("Invalid date '{id}', expected YYYY-MM-DD")))?;
+    let entry = state.mood.write(|store| -> Result<_, ApiError> {
+        let entry = store.records.get_mut(&entry_date)
+            .ok_or_else(|| ApiError::NotFound(format!("Mood '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_moods))
         .route("/", post(add_mood))
         .route("/{date}", get(get_mood))
-        .route("/{date}", delete(delete_mood))
+        .route("/{date}", delete(delete_mood).put(update_mood))
         .route("/stats", get(mood_stats))
 }
 

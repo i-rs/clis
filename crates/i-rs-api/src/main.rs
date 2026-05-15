@@ -2,6 +2,7 @@ mod api;
 mod response;
 mod routes;
 mod store;
+mod update;
 
 use axum::{
     http::{Method, header},

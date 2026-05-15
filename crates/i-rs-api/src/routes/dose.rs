@@ -11,13 +11,29 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_dose(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry = state.dose.write(|store| -> Result<_, ApiError> {
+        let entry = store.entries.get_mut(&id)
+            .ok_or_else(|| ApiError::NotFound(format!("Dose '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_doses))
         .route("/", post(add_dose))
         .route("/{id}", get(get_dose))
-        .route("/{id}", delete(delete_dose))
+        .route("/{id}", delete(delete_dose).put(update_dose))
 }
 
 #[derive(Debug, Deserialize)]

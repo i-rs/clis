@@ -11,13 +11,31 @@ use serde::Deserialize;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 use crate::AppState;
+async fn update_vision(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let entry_date = chrono::NaiveDate::parse_from_str(&id, "%Y-%m-%d")
+        .map_err(|_| ApiError::BadRequest(format!("Invalid date '{id}', expected YYYY-MM-DD")))?;
+    let entry = state.vision.write(|store| -> Result<_, ApiError> {
+        let entry = store.records.get_mut(&entry_date)
+            .ok_or_else(|| ApiError::NotFound(format!("Vision '{id}' not found")))?;
+        crate::update::merge_entry(entry, &body)
+            .map_err(ApiError::BadRequest)?;
+        Ok::<_, ApiError>(entry.clone())
+    })?;
+    Ok(ok_json(entry))
+}
+
+
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_visions))
         .route("/", post(add_vision))
         .route("/{id}", get(get_vision))
-        .route("/{id}", delete(delete_vision))
+        .route("/{id}", delete(delete_vision).put(update_vision))
 }
 
 #[derive(Debug, Deserialize)]
