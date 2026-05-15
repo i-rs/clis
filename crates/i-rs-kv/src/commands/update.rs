@@ -1,4 +1,5 @@
-use crate::presentation::print_success;
+use crate::models::ListItem;
+use crate::presentation::{output_item, print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -9,6 +10,7 @@ pub fn handle_update(
     value: Option<String>,
     tag: Option<Vec<String>>,
     remark: Option<Vec<String>>,
+    format: OutputFormat,
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
@@ -34,6 +36,15 @@ pub fn handle_update(
     entry.updated_at = Utc::now();
 
     storage::save_store(&store)?;
+
+    if matches!(format, OutputFormat::Json) {
+        let updated = storage::get_entry(&store, &key);
+        if let Some(entry) = updated {
+            let output = ListItem::from(entry);
+            println!("{}", output_item(&output, format));
+        }
+        return Ok(());
+    }
 
     print_success(&format!("✓ Key '{}' updated successfully", key.green()));
 

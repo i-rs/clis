@@ -8,18 +8,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        accent: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
+        surface: {
+          0: '#18181b',
+          1: '#1c1c1f',
+          2: '#242427',
+          3: '#2a2a2e',
         },
+        accent: {
+          DEFAULT: '#3b82f6',
+          hover: '#60a5fa',
+          muted: '#3b82f620',
+        },
+        txt: {
+          primary: '#e4e4e7',
+          secondary: '#71717a',
+          muted: '#52525b',
+        },
+        bdr: {
+          DEFAULT: '#27272a',
+          hover: '#3f3f46',
+        },
+        ok: '#22c55e',
+        err: '#ef4444',
+        warn: '#f59e0b',
       },
     },
   },

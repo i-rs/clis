@@ -75,16 +75,16 @@ fn main() {
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
         Commands::Add { key, value, tag, remark } => {
-            handle_add(key, value, tag, remark)?;
+            handle_add(key, value, tag, remark, format)?;
         }
         Commands::Delete { key } => {
-            handle_delete(key)?;
+            handle_delete(key, format)?;
         }
         Commands::List { tag } => {
             handle_list(tag, format)?;
         }
         Commands::Update { key, value, tag, remark } => {
-            handle_update(key, value, tag, remark)?;
+            handle_update(key, value, tag, remark, format)?;
         }
         Commands::Get { key } => {
             handle_get(key, format)?;

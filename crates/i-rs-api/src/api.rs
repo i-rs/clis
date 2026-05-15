@@ -3,6 +3,7 @@ use axum::{
     Json,
     http::StatusCode,
 };
+use serde_json::json;
 
 pub async fn run_cli(
     binary: &str,
@@ -20,7 +21,17 @@ pub async fn run_cli(
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout)
+    let stdout = stdout.trim();
+
+    if stdout.is_empty() {
+        return Ok(Json(json!({
+            "success": true,
+            "data": null,
+            "message": "OK"
+        })));
+    }
+
+    let json: serde_json::Value = serde_json::from_str(stdout)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("JSON parse error: {}", e)))?;
 
     Ok(Json(json))
@@ -31,8 +42,10 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_run_cli() {
-        let result = run_cli("echo", vec!["test".to_string()]).await;
+    async fn test_run_cli_empty_output() {
+        let result = run_cli("true", vec![]).await;
         assert!(result.is_ok());
+        let json = result.unwrap();
+        assert_eq!(json.get("success").unwrap(), true);
     }
 }

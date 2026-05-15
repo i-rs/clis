@@ -12,8 +12,8 @@ use crate::api::run_cli;
 pub fn router() -> Router {
     Router::new()
         .route("/", get(list_kv))
-        .route("/", post(set_kv))
         .route("/:key", get(get_kv))
+        .route("/:key", post(set_kv))
         .route("/:key", delete(delete_kv))
 }
 

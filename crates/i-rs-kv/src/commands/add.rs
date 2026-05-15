@@ -1,5 +1,5 @@
-use crate::models::KvEntry;
-use crate::presentation::print_success;
+use crate::models::{KvEntry, ListItem};
+use crate::presentation::{output_item, print_success, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -11,6 +11,7 @@ pub fn handle_add(
     value: String,
     tag: Vec<String>,
     remark: Vec<String>,
+    format: OutputFormat,
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
@@ -34,6 +35,15 @@ pub fn handle_add(
 
     storage::add_entry(&mut store, entry);
     storage::save_store(&store)?;
+
+    if matches!(format, OutputFormat::Json) {
+        let saved = storage::get_entry(&store, &key);
+        if let Some(entry) = saved {
+            let output = ListItem::from(entry);
+            println!("{}", output_item(&output, format));
+        }
+        return Ok(());
+    }
 
     print_success(&format!("✓ Key '{}' added successfully", key.green()));
 

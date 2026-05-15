@@ -3,6 +3,7 @@ use serde_json::json;
 
 pub async fn health() -> Json<serde_json::Value> {
     Json(json!({
+        "success": true,
         "status": "ok",
         "service": "i-rs-api",
         "version": env!("CARGO_PKG_VERSION"),
@@ -13,7 +14,9 @@ pub async fn health() -> Json<serde_json::Value> {
             "/api/habit",
             "/api/note",
             "/api/bookmark",
-            "/api/mood"
+            "/api/mood",
+            "/api/kv",
+            "/api/keys"
         ]
     }))
 }
