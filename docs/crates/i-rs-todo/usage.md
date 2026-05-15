@@ -4,14 +4,6 @@
 
 - `--json` — Output in JSON format
 
-## install
-
-```bash
-npm install -g @i-rs/i-rs-todo
-# or
-brew install i-rs/homebrew-tap/i-rs-todo
-```
-
 ## Commands
 
 ### add
@@ -132,6 +124,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -139,6 +132,7 @@ Show usage examples.
 ```bash
 i-rs-todo example
 ```
+
 ### skill
 
 Show skill information.

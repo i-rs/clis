@@ -14,6 +14,7 @@ Subscription tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,15 +22,18 @@ Subscription tracking CLI tool.
 Add a subscription.
 
 ```bash
-i-rs-sub add <NAME> --amount <AMOUNT> --cycle <CYCLE> --next-date <DATE> [OPTIONS]
+i-rs-sub add <NAME> <AMOUNT> <CURRENCY> <CYCLE> <START_DATE> [OPTIONS]
 ```
 
+Arguments:
+- `NAME` - Subscription name
+- `AMOUNT` - Billing amount
+- `CURRENCY` - Currency (e.g., CNY, USD)
+- `CYCLE` - Billing cycle (monthly, yearly, etc.)
+- `START_DATE` - Start/next billing date (YYYY-MM-DD)
+
 Options:
-- `--amount <AMOUNT>` - Billing amount
-- `--currency <CURRENCY>` - Currency (default: CNY)
-- `--cycle <CYCLE>` - Billing cycle (monthly, yearly, etc.)
-- `--next-date <DATE>` - Next billing date (YYYY-MM-DD)
-- `--url <URL>` - Service URL
+- `-u, --url <URL>` - Service URL
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -41,20 +45,15 @@ List subscriptions.
 i-rs-sub list [OPTIONS]
 ```
 
+Options:
+- `-t, --tag <TAG>` - Filter by tag
+
 ### get
 
 Get subscription details.
 
 ```bash
 i-rs-sub get <NAME>
-```
-
-### delete
-
-Delete a subscription.
-
-```bash
-i-rs-sub delete <NAME>
 ```
 
 ### update
@@ -66,11 +65,20 @@ i-rs-sub update <NAME> [OPTIONS]
 ```
 
 Options:
-- `--amount <AMOUNT>` - Update amount
-- `--next-date <DATE>` - Update next billing date
-- `--url <URL>` - Update URL
-- `-t, --tag <TAG>` - Add tags
-- `-r, --remark <REMARK>` - Add remarks
+- `-a, --amount <AMOUNT>` - New amount
+- `--cycle <CYCLE>` - New billing cycle
+- `--next-date <DATE>` - Next billing date
+- `-u, --url <URL>` - New URL
+- `-t, --tag <TAG>` - New tags
+- `-r, --remark <REMARK>` - New remarks
+
+### delete
+
+Delete a subscription.
+
+```bash
+i-rs-sub delete <NAME>
+```
 
 ### data
 
@@ -101,13 +109,15 @@ i-rs-sub skill [summary|content|raw]
 ## Examples
 
 ```bash
-# Add subscription
-i-rs-sub add "Netflix" --amount 15.99 --cycle monthly --next-date 2024-02-15 [OPTIONS]
-i-rs-sub add "Spotify" --amount 9.99 --cycle monthly --next-date 2024-02-20 [OPTIONS]
+# Add a subscription
+i-rs-sub add Netflix 15.99 USD monthly 2024-01-01
+
+# With URL and tags
+i-rs-sub add Spotify 9.99 USD monthly 2024-01-15 --url "https://spotify.com" --tag music
 
 # List subscriptions
-i-rs-sub list [OPTIONS]
+i-rs-sub list
 
-# Get details
-i-rs-sub get Netflix
+# Update billing
+i-rs-sub update Netflix --amount 19.99
 ```

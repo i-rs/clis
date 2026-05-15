@@ -93,9 +93,9 @@ i-rs-toothbrush skill [summary|content|raw]
 
 ```bash
 # Record replacement
-i-rs-toothbrush add "Electric" [OPTIONS]
-i-rs-toothbrush add "Manual" --tag travel [OPTIONS]
+i-rs-toothbrush add "Electric"
+i-rs-toothbrush add "Manual" --tag travel
 
 # List records
-i-rs-toothbrush list [OPTIONS]
+i-rs-toothbrush list
 ```

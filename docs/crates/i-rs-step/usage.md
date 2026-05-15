@@ -11,15 +11,15 @@
 Record daily steps.
 
 ```bash
-i-rs-step add <STEPS> [OPTIONS]
+i-rs-step add <STEPS> <DATE> [OPTIONS]
 ```
 
 Arguments:
 - `STEPS` - Number of steps
+- `DATE` - Date (YYYY-MM-DD)
 
 Options:
-- `--distance <KM>` - Distance in kilometers
-- `--date <DATE>` - Date (YYYY-MM-DD, default: today)
+- `-d, --distance <KM>` - Distance in kilometers
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -30,9 +30,6 @@ List step records.
 ```bash
 i-rs-step list
 ```
-
-Options:
-- `--date <DATE>` - Filter by date
 
 ### get
 
@@ -59,10 +56,10 @@ i-rs-step update <DATE> [OPTIONS]
 ```
 
 Options:
-- `--steps <STEPS>` - Update steps
-- `--distance <KM>` - Update distance
-- `-t, --tag <TAG>` - Add tags
-- `-r, --remark <REMARK>` - Add remarks
+- `-s, --steps <STEPS>` - Update steps
+- `-d, --distance <KM>` - Update distance
+- `-t, --tag <TAG>` - Update tags
+- `-r, --remark <REMARK>` - Update remarks
 
 ### data
 
@@ -78,6 +75,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -85,6 +83,7 @@ Show usage examples.
 ```bash
 i-rs-step example
 ```
+
 ### skill
 
 Show skill information.

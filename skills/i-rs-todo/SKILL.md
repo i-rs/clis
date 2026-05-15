@@ -14,6 +14,7 @@ Todo management CLI tool for tracking tasks and to-do items.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Priority Levels
 
 | Input | Emoji | Label |
@@ -72,7 +73,7 @@ i-rs-todo done <NAME>
 Update a todo.
 
 ```bash
-i-rs-todo update <NAME>
+i-rs-todo update <NAME> [OPTIONS]
 ```
 
 Options:
@@ -119,10 +120,10 @@ i-rs-todo skill [summary|content|raw]
 
 ```bash
 # Add a todo
-i-rs-todo add task-1 --title "Complete report" --priority high --tag work [OPTIONS]
+i-rs-todo add task-1 --title "Complete report" --priority high --tag work
 
 # List all
-i-rs-todo list [OPTIONS]
+i-rs-todo list
 
 # List pending only
 i-rs-todo list --pending

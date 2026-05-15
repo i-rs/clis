@@ -14,6 +14,7 @@ Time tracking CLI for work hours (Pomodoro timer).
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### start
@@ -21,10 +22,12 @@ Time tracking CLI for work hours (Pomodoro timer).
 Start a new timer.
 
 ```bash
-i-rs-time start "Task name"
-i-rs-time start "Meeting" --tag work
-i-rs-time start "Coding" --tag development --remark "Feature implementation"
+i-rs-time start <NAME> [OPTIONS]
 ```
+
+Options:
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### stop
 
@@ -48,10 +51,11 @@ i-rs-time list --tag work
 Show statistics.
 
 ```bash
-i-rs-time stats today
-i-rs-time stats yesterday
-i-rs-time stats week
+i-rs-time stats <PERIOD>
 ```
+
+Arguments:
+- `PERIOD` - Period (today, yesterday, week, month)
 
 ### report
 
@@ -91,8 +95,7 @@ i-rs-time example
 View AI skill documentation.
 
 ```bash
-i-rs-time skill
-i-rs-time skill summary
+i-rs-time skill [summary|content|raw]
 ```
 
 ### data

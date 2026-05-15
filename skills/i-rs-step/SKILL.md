@@ -14,6 +14,7 @@ Step counting CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,15 +22,15 @@ Step counting CLI tool.
 Record daily steps.
 
 ```bash
-i-rs-step add <STEPS> [OPTIONS]
+i-rs-step add <STEPS> <DATE> [OPTIONS]
 ```
 
 Arguments:
 - `STEPS` - Number of steps
+- `DATE` - Date (YYYY-MM-DD)
 
 Options:
-- `--distance <KM>` - Distance in kilometers
-- `--date <DATE>` - Date (YYYY-MM-DD, default: today)
+- `-d, --distance <KM>` - Distance in kilometers
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -38,11 +39,8 @@ Options:
 List step records.
 
 ```bash
-i-rs-step list [OPTIONS]
+i-rs-step list
 ```
-
-Options:
-- `--date <DATE>` - Filter by date
 
 ### get
 
@@ -69,10 +67,10 @@ i-rs-step update <DATE> [OPTIONS]
 ```
 
 Options:
-- `--steps <STEPS>` - Update steps
-- `--distance <KM>` - Update distance
-- `-t, --tag <TAG>` - Add tags
-- `-r, --remark <REMARK>` - Add remarks
+- `-s, --steps <STEPS>` - Update steps
+- `-d, --distance <KM>` - Update distance
+- `-t, --tag <TAG>` - Update tags
+- `-r, --remark <REMARK>` - Update remarks
 
 ### data
 
@@ -104,11 +102,11 @@ i-rs-step skill [summary|content|raw]
 
 ```bash
 # Record steps
-i-rs-step add 10000 [OPTIONS]
-i-rs-step add 8000 --distance 6.4 [OPTIONS]
+i-rs-step add 10000 2024-01-15
+i-rs-step add 8000 2024-01-16 --distance 6.4
 
 # List records
-i-rs-step list [OPTIONS]
+i-rs-step list
 
 # Get details
 i-rs-step get 2024-01-15

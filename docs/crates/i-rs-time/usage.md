@@ -38,6 +38,17 @@ List time entries.
 i-rs-time list [OPTIONS]
 ```
 
+### stats
+
+Show statistics for a period.
+
+```bash
+i-rs-time stats <PERIOD>
+```
+
+Arguments:
+- `PERIOD` - Period (today, yesterday, week, month)
+
 ### get
 
 Get time entry details.

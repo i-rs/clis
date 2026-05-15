@@ -11,17 +11,16 @@
 Record task duration.
 
 ```bash
-i-rs-tick add <TASK_NAME> --duration <SECONDS> [OPTIONS]
+i-rs-tick add <TASK_NAME> <SECONDS> [OPTIONS]
 ```
 
 Arguments:
 - `TASK_NAME` - Name of the task
+- `SECONDS` - Duration in seconds
 
 Options:
-- `--duration <SECONDS>` - Duration in seconds
-- `--description <DESC>` - Description
-- `--started-at <DATETIME>` - Start time (YYYY-MM-DD HH:MM:SS)
-- `--ended-at <DATETIME>` - End time (YYYY-MM-DD HH:MM:SS)
+- `-s, --started-at <DATETIME>` - Start time (YYYY-MM-DD HH:MM:SS)
+- `-d, --description <DESC>` - Description
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -30,7 +29,7 @@ Options:
 List duration records.
 
 ```bash
-i-rs-tick list
+i-rs-tick list [OPTIONS]
 ```
 
 Options:
@@ -52,13 +51,6 @@ Delete a record.
 i-rs-tick delete <ID>
 ```
 
-## Duration Format
-
-Durations are specified in seconds:
-- 60 seconds = 1 minute
-- 3600 seconds = 1 hour
-- 7200 seconds = 2 hours
-
 ### data
 
 Manage data (export, import, clear).
@@ -73,6 +65,7 @@ Subcommands:
 - `export` - Export all data as JSON to stdout
 - `import [FILE]` - Import data from JSON file or stdin
 - `clear` - Clear all data
+
 ### example
 
 Show usage examples.
@@ -80,6 +73,7 @@ Show usage examples.
 ```bash
 i-rs-tick example
 ```
+
 ### skill
 
 Show skill information.

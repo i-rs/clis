@@ -112,20 +112,12 @@ i-rs-tax skill [summary]
 3. **年终奖税务**: 单独记录年终奖税务信息
 4. **年度汇总**: 使用 stats 命令统计年度税务情况
 
-### data
+### data - 数据管理
 
-Manage data (export, import, clear).
+管理数据（导出、导入、清除）。
 
 ```bash
 i-rs-tax data export
 i-rs-tax data import [FILE]
 i-rs-tax data clear
-```
-
-## Examples
-
-```bash
-# JSON output
-
-i-rs-tax list --json
 ```

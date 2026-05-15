@@ -14,6 +14,7 @@ Duration tracking CLI tool.
 ## Global Flags
 
 - `--json` — Output in JSON format
+
 ## Commands
 
 ### add
@@ -21,17 +22,16 @@ Duration tracking CLI tool.
 Record task duration.
 
 ```bash
-i-rs-tick add <TASK_NAME> --duration <SECONDS> [OPTIONS]
+i-rs-tick add <TASK_NAME> <SECONDS> [OPTIONS]
 ```
 
 Arguments:
 - `TASK_NAME` - Name of the task
+- `SECONDS` - Duration in seconds
 
 Options:
-- `--duration <SECONDS>` - Duration in seconds
-- `--description <DESC>` - Description
-- `--started-at <DATETIME>` - Start time (YYYY-MM-DD HH:MM:SS)
-- `--ended-at <DATETIME>` - End time (YYYY-MM-DD HH:MM:SS)
+- `-s, --started-at <DATETIME>` - Start time (YYYY-MM-DD HH:MM:SS)
+- `-d, --description <DESC>` - Description
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
@@ -61,12 +61,6 @@ Delete a record.
 ```bash
 i-rs-tick delete <ID>
 ```
-
-## Duration Examples
-
-- 3600 seconds = 1 hour
-- 7200 seconds = 2 hours
-- 300 seconds = 5 minutes
 
 ### data
 
@@ -98,12 +92,11 @@ i-rs-tick skill [summary|content|raw]
 
 ```bash
 # Record task duration
-i-rs-tick add "Meeting" --duration 3600 [OPTIONS]
-i-rs-tick add "Coding" --duration 7200 --remark "Feature implementation" [OPTIONS]
+i-rs-tick add coding 3600
+
+# With description and tags
+i-rs-tick add meeting 1800 --description "Sprint planning" --tag work
 
 # List records
-i-rs-tick list [OPTIONS]
-
-# Get details
-i-rs-tick get abc12345
+i-rs-tick list
 ```
