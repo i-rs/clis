@@ -3,7 +3,6 @@ mod models;
 mod presentation;
 mod storage;
 
-use anyhow::Result;
 use clap::{Parser, Subcommand};
 use i_rs_core::presentation::OutputFormat;
 
@@ -14,14 +13,15 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 
-    #[arg(short, long, global = true, default_value = "table")]
-    format: String,
+    #[arg(short, long, global = true)]
+    json: bool,
 }
 
-fn get_output_format(format_str: &str) -> OutputFormat {
-    match format_str.to_lowercase().as_str() {
-        "json" => OutputFormat::Json,
-        _ => OutputFormat::Table,
+fn get_output_format(cli: &Cli) -> OutputFormat {
+    if cli.json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Table
     }
 }
 
@@ -116,11 +116,14 @@ enum DeleteSubcommands {
     Name { name: String },
 }
 
-fn main() -> Result<()> {
+fn main() {
     let cli = Cli::parse();
-    let output_format = get_output_format(&cli.format);
+    let format = get_output_format(&cli);
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
+}
 
-    match cli.command {
+fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
+    match command {
         Commands::Add {
             name,
             species,
@@ -138,16 +141,14 @@ fn main() -> Result<()> {
             if let Some(GetSubcommands::Name { name }) = subcommand {
                 commands::get_plant(name, output_format)?;
             } else {
-                println!("Usage: i-rs-plant get <name>");
-                std::process::exit(1);
+                anyhow::bail!("Usage: i-rs-plant get <name>");
             }
         }
         Commands::Water { subcommand } => {
             if let Some(WaterSubcommands::Name { name }) = subcommand {
                 commands::water_plant(name, output_format)?;
             } else {
-                println!("Usage: i-rs-plant water <name>");
-                std::process::exit(1);
+                anyhow::bail!("Usage: i-rs-plant water <name>");
             }
         }
         Commands::Update { subcommand } => {
@@ -170,16 +171,14 @@ fn main() -> Result<()> {
                     output_format,
                 )?;
             } else {
-                println!("Usage: i-rs-plant update <name> [options]");
-                std::process::exit(1);
+                anyhow::bail!("Usage: i-rs-plant update <name> [options]");
             }
         }
         Commands::Delete { subcommand } => {
             if let Some(DeleteSubcommands::Name { name }) = subcommand {
                 commands::delete_plant(name, output_format)?;
             } else {
-                println!("Usage: i-rs-plant delete <name>");
-                std::process::exit(1);
+                anyhow::bail!("Usage: i-rs-plant delete <name>");
             }
         }
         Commands::Stats => {

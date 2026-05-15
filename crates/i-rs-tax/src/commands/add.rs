@@ -1,8 +1,9 @@
 use crate::models::{TaxRecord, TaxStatus, TaxType};
-use crate::presentation::print_success;
+use crate::presentation::{print_success, OutputFormat};
 use crate::storage;
 use chrono::Utc;
 use clap::Args;
+use i_rs_core::presentation::output::output_item;
 use i_rs_core::utils::validation::validate_name;
 
 #[derive(Args)]
@@ -23,11 +24,9 @@ pub struct AddArgs {
     pub tag: Vec<String>,
     #[arg(short, long, help = "备注 (可多次指定)")]
     pub remark: Vec<String>,
-    #[arg(long, default_value = "false")]
-    pub json: bool,
 }
 
-pub fn execute(args: &AddArgs) -> anyhow::Result<()> {
+pub fn execute(args: &AddArgs, format: &OutputFormat) -> anyhow::Result<()> {
     if let Err(e) = validate_name(&args.name) {
         anyhow::bail!("{}", e.message);
     }
@@ -73,20 +72,19 @@ pub fn execute(args: &AddArgs) -> anyhow::Result<()> {
     storage::add_entry(&mut store, entry);
     storage::save_store(&store)?;
 
-    if args.json {
-        println!("{}", serde_json::json!({
-            "success": true,
-            "data": {
-                "name": args.name,
-                "tax_type": tax_type,
-                "amount": args.amount,
-                "date": date.to_string(),
-                "year": year,
-                "status": status,
-                "tags": args.tag,
-                "remark": args.remark
-            }
-        }));
+    if matches!(*format, OutputFormat::Json) {
+        let data = serde_json::json!({
+            "name": args.name,
+            "tax_type": tax_type,
+            "amount": args.amount,
+            "date": date.to_string(),
+            "year": year,
+            "status": status,
+            "tags": args.tag,
+            "remark": args.remark
+        });
+        let output = output_item(&data, *format);
+        println!("{output}");
     } else {
         print_success(&format!("已添加税务记录 '{}'", args.name));
     }

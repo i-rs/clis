@@ -22,6 +22,16 @@ export default defineConfig({
         collapsed: false,
         items: [
           {
+            text: 'i-rs (Unified CLI)',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs/' },
+              { text: 'Usage', link: '/crates/i-rs/usage' },
+              { text: 'Examples', link: '/crates/i-rs/examples' },
+              { text: 'Test', link: '/crates/i-rs/test' }
+            ]
+          },
+          {
             text: 'i-rs-core',
             collapsed: true,
             items: [

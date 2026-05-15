@@ -1,12 +1,10 @@
-#![allow(clippy::all)]
-#![allow(dead_code)]
 mod commands;
 mod models;
 mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use i_rs_core::presentation::print_error;
+use i_rs_core::presentation::OutputFormat;
 
 #[derive(Parser)]
 #[command(name = "i-rs-tax")]
@@ -14,6 +12,9 @@ use i_rs_core::presentation::print_error;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+
+    #[arg(short, long, global = true)]
+    json: bool,
 }
 
 #[derive(Subcommand)]
@@ -43,29 +44,24 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
+    let format = if cli.json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Table
+    };
 
-    let result = match cli.command {
-        Commands::Add(args) => commands::add::execute(&args),
-        Commands::List(args) => commands::list::execute(&args),
-        Commands::Get(args) => {
-            commands::get::run(&args);
-            return;
-        }
-        Commands::Delete(args) => {
-            commands::delete::run(&args);
-            return;
-        }
-        Commands::Update(ref args) => {
-            commands::update::execute(args)
-        }
-        Commands::Stats(args) => {
-            commands::stats::run(&args);
-            return;
-        }
-        Commands::Example(args) => {
-            commands::example::run(&args);
-            return;
-        }
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
+}
+
+fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
+    match command {
+        Commands::Add(args) => commands::add::execute(&args, &format),
+        Commands::List(args) => commands::list::execute(&args, &format),
+        Commands::Get(args) => commands::get::execute(&args, &format),
+        Commands::Delete(args) => commands::delete::execute(&args, &format),
+        Commands::Update(args) => commands::update::execute(&args),
+        Commands::Stats(args) => commands::stats::execute(&args, &format),
+        Commands::Example(args) => commands::example::execute(&args, &format),
         Commands::Skill { sub } => {
             commands::skill::handle_skill(sub.map(|s| match s.as_str() {
                 "summary" => commands::skill::SkillCommand::Summary,
@@ -74,11 +70,6 @@ fn main() {
             }));
             Ok(())
         }
-        Commands::Data(ref commands) => commands::data::handle(commands),
-    };
-
-    if let Err(e) = result {
-        print_error(&e.to_string());
-        std::process::exit(1);
+        Commands::Data(commands) => commands::data::handle(&commands),
     }
 }

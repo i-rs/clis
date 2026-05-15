@@ -58,14 +58,16 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
-    
     let output_format = if cli.json {
         OutputFormat::Json
     } else {
         OutputFormat::Table
     };
-    
-    let result = match cli.command {
+    i_rs_core::exit_on_error!(run(cli.command, output_format), cli.json);
+}
+
+fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
+    match command {
         Commands::Add(args) => add(args, output_format),
         Commands::List(args) => list(args, output_format),
         Commands::Get(args) => get(args, output_format),
@@ -92,6 +94,5 @@ fn main() {
             Ok(())
         }
         Commands::Data(commands) => commands::data::handle(&commands),
-    };
-    i_rs_core::exit_on_error!(result, cli.json);
+    }
 }

@@ -4,6 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
+use i_rs_core::presentation::OutputFormat;
 
 #[derive(Parser)]
 #[command(name = "i-rs-invoice")]
@@ -11,6 +12,9 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+
+    #[arg(short, long, global = true)]
+    pub json: bool,
 }
 
 #[derive(Subcommand)]
@@ -47,8 +51,17 @@ pub enum Commands {
 
 fn main() {
     let cli = Cli::parse();
+    let format = if cli.json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Table
+    };
 
-    let result = match cli.command {
+    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
+}
+
+fn run(command: Commands, _format: OutputFormat) -> anyhow::Result<()> {
+    match command {
         Commands::Add(args) => commands::run_add(args),
         Commands::List(args) => commands::run_list(args),
         Commands::Get(args) => commands::run_get(args),
@@ -65,7 +78,5 @@ fn main() {
             Ok(())
         }
         Commands::Data(commands) => commands::data::handle(&commands),
-    };
-
-    i_rs_core::exit_on_error!(result, false);
+    }
 }

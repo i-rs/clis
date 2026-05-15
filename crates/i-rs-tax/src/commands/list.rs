@@ -1,6 +1,7 @@
-use crate::presentation::{format_table, print_entity_count, output_list, OutputFormat};
+use crate::presentation::{format_table, print_entity_count, output_list};
 use crate::storage;
 use clap::Args;
+use i_rs_core::presentation::OutputFormat;
 
 #[derive(Args)]
 pub struct ListArgs {
@@ -10,11 +11,9 @@ pub struct ListArgs {
     pub year: Option<i32>,
     #[arg(short, long, help = "税种过滤 (personal/vat)")]
     pub tax_type: Option<String>,
-    #[arg(long, default_value = "false")]
-    pub json: bool,
 }
 
-pub fn execute(args: &ListArgs) -> anyhow::Result<()> {
+pub fn execute(args: &ListArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
     let mut entities: Vec<_> = store.entries.values().collect();
 
@@ -37,7 +36,7 @@ pub fn execute(args: &ListArgs) -> anyhow::Result<()> {
 
     entities.sort_by(|a, b| b.date.cmp(&a.date));
 
-    if args.json {
+    if matches!(*format, OutputFormat::Json) {
         let data: Vec<_> = entities.iter().map(|e| {
             serde_json::json!({
                 "name": e.name,
@@ -52,8 +51,7 @@ pub fn execute(args: &ListArgs) -> anyhow::Result<()> {
         }).collect();
 
         let filter = args.tag.clone().or(args.year.map(|y| y.to_string())).unwrap_or_default();
-        let format = if args.json { OutputFormat::Json } else { OutputFormat::Default };
-        let output = output_list(&data, entities.len(), Some(&filter), format);
+        let output = output_list(&data, entities.len(), Some(&filter), *format);
         println!("{output}");
     } else {
         if !entities.is_empty() {

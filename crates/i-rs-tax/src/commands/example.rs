@@ -1,12 +1,10 @@
 use clap::Args;
+use i_rs_core::presentation::OutputFormat;
 
 #[derive(Args)]
-pub struct ExampleArgs {
-    #[arg(long, default_value = "false")]
-    pub json: bool,
-}
+pub struct ExampleArgs {}
 
-pub fn execute(_args: &ExampleArgs) -> anyhow::Result<()> {
+pub fn execute(_args: &ExampleArgs, _format: &OutputFormat) -> anyhow::Result<()> {
     println!(r"
 i-rs-tax 使用示例:
 
@@ -55,11 +53,4 @@ i-rs-tax 使用示例:
     i-rs-tax stats --year 2024 --json
 ");
     Ok(())
-}
-
-pub fn run(args: &ExampleArgs) {
-    if let Err(e) = execute(args) {
-        eprintln!("Error: {e}");
-        std::process::exit(1);
-    }
 }

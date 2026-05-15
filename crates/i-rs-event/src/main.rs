@@ -52,38 +52,19 @@ pub enum Commands {
 
 fn main() {
     let cli = Cli::parse();
+    i_rs_core::exit_on_error!(run(cli.command, cli.json), cli.json);
+}
 
-    let result = match &cli.command {
-        Commands::Add(args) => {
-            let json = cli.json;
-            commands::add::run(args, json)
-        }
-        Commands::List(args) => {
-            let json = cli.json;
-            commands::list::run(args, json)
-        }
-        Commands::Get(args) => {
-            let json = cli.json;
-            commands::get::run(args, json)
-        }
-        Commands::Delete(args) => {
-            let json = cli.json;
-            commands::delete::run(args, json)
-        }
-        Commands::Update(args) => {
-            let json = cli.json;
-            commands::update::run(args, json)
-        }
-        Commands::Stats(args) => {
-            let json = cli.json;
-            commands::stats::run(args, json)
-        }
-        Commands::Example(args) => {
-            let json = cli.json;
-            commands::example::run(args, json)
-        }
+fn run(command: Commands, json: bool) -> anyhow::Result<()> {
+    match command {
+        Commands::Add(args) => commands::add::run(&args, json),
+        Commands::List(args) => commands::list::run(&args, json),
+        Commands::Get(args) => commands::get::run(&args, json),
+        Commands::Delete(args) => commands::delete::run(&args, json),
+        Commands::Update(args) => commands::update::run(&args, json),
+        Commands::Stats(args) => commands::stats::run(&args, json),
+        Commands::Example(args) => commands::example::run(&args, json),
         Commands::Skill { sub } => {
-            let sub = sub.clone();
             commands::skill::handle_skill(sub.map(|s| match s.as_str() {
                 "summary" => commands::skill::SkillCommand::Summary,
                 "content" => commands::skill::SkillCommand::Content,
@@ -91,8 +72,6 @@ fn main() {
             }));
             Ok(())
         }
-        Commands::Data(commands) => commands::data::handle(commands),
-    };
-
-    i_rs_core::exit_on_error!(result, cli.json);
+        Commands::Data(commands) => commands::data::handle(&commands),
+    }
 }

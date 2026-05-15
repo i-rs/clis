@@ -1,24 +1,23 @@
-use crate::presentation::{output_item, OutputFormat};
+use crate::presentation::output_item;
 use crate::storage;
 use clap::Args;
+use i_rs_core::presentation::OutputFormat;
 use owo_colors::OwoColorize;
 
 #[derive(Args)]
 pub struct GetArgs {
     #[arg(help = "税务记录名称")]
     pub name: String,
-    #[arg(long, default_value = "false")]
-    pub json: bool,
 }
 
-pub fn execute(args: &GetArgs) -> anyhow::Result<()> {
+pub fn execute(args: &GetArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
     let entry = store.entries.get(&args.name).ok_or_else(|| {
         anyhow::anyhow!("税务记录 '{}' 不存在", args.name)
     })?;
 
-    if args.json {
+    if matches!(*format, OutputFormat::Json) {
         let data = serde_json::json!({
             "name": entry.name,
             "tax_type": entry.tax_type,
@@ -31,8 +30,7 @@ pub fn execute(args: &GetArgs) -> anyhow::Result<()> {
             "created_at": entry.created_at.to_rfc3339(),
             "updated_at": entry.updated_at.to_rfc3339()
         });
-        let format = if args.json { OutputFormat::Json } else { OutputFormat::Default };
-        let output = output_item(&data, format);
+        let output = output_item(&data, *format);
         println!("{output}");
     } else {
         println!("\n{} {}\n", "税务记录:".cyan().bold(), entry.name.green());
@@ -48,10 +46,4 @@ pub fn execute(args: &GetArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-pub fn run(args: &GetArgs) {
-    if let Err(_e) = execute(args) {
-        std::process::exit(1);
-    }
 }
