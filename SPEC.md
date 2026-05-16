@@ -714,7 +714,61 @@ inherits = "release"
 - i-rs-core 有 21 个单元测试覆盖 validation 和 date 模块
 - i-rs-api 有 32 个集成测试覆盖 CRUD、PATCH、404、BadRequest、数据导出/清空
 
-## 16. 重要文件
+## 16. 文章与推广规范
+
+开发过程中遇到以下场景时，应在 `docs/articles/` 下撰写推广文章，记录实践、思考与成果：
+
+### 16.1 触发场景
+
+| 场景 | 说明 | 举例 |
+|------|------|------|
+| **重大重构** | 架构级改动、宏系统升级、跨 crate 模式变更 | create_store! 重写、skill_command! 扩展 |
+| **新增重大功能** | 新子命令、新集成方式、新交互范式 | skill teach 实现、Native Messaging 支持 |
+| **新 crate 构思** | 设计一个新工具前的调研、决策过程 | 为什么选择 BTreeMap、存储格式对比 |
+| **已有 crate 优化** | 性能提升、代码精简、模式提炼 | 将 data 命令抽为宏、消除重复代码 |
+| **演进决策** | 技术选型、架构取舍、设计哲学 | 为什么用 JSON 不用 SQLite、为什么不引入 tokio |
+| **工程创新** | 独特的 Rust 实践、宏技巧、自动化方案 | build.rs 自动生成路由、三个宏管理 70 个 crate |
+
+### 16.2 文章存放位置
+
+- 所有文章存放在 `docs/articles/` 目录
+- 文件名使用英文小写 + 连字符，如 `shared-storage-layer.md`
+- 文章采用标准 Markdown 格式，无需 YAML frontmatter
+
+### 16.3 文章内容指南
+
+- **开头要有钩子** — 一个能引发读者兴趣的场景或问题
+- **有代码演示** — 真实可运行的命令或代码片段
+- **讲清楚 why** — 不只是"做了什么"，更要说明"为什么这么做"
+- **面向外部读者** — 假设读者不了解项目背景，文章本身应自成一体
+- **结尾留链接** — 附上 GitHub 仓库地址，方便读者进一步了解
+
+### 16.4 VitePress 集成
+
+每篇新文章需要：
+
+1. 在 `docs/articles/index.md` 的「精选文章」列表中添加条目
+2. 在 `docs/.vitepress/config.ts` 的 Articles 侧边栏中添加链接
+3. 运行 `npx vitepress build .` 验证构建无报错
+
+> 注意：文章中如果包含泛型语法（如 `Storage<T>`），需要用反引号包裹 `<T>`，否则 VitePress 的 Vue 编译器会将其解析为 HTML 标签导致构建失败。
+
+### 16.5 文章分类
+
+- **推广文章** — 可直接发布到外部平台的独立文章，放在 Articles 侧边栏的「推广文章」子分组
+- **技术文章** — 架构解析、实现细节、经验总结，放在 Articles 侧边栏的主列表
+- **文章目录** — `index.md` 作为入口，汇总所有文章并标注推荐发布平台
+
+### 16.6 分享渠道参考
+
+| 文章类型 | 推荐平台 |
+|---------|---------|
+| AI / CLI 设计 | 掘金、dev.to、Medium、Twitter/X |
+| Rust 工程实践 | Rust 中文社区、Reddit r/rust、Solidot |
+| 开源项目推介 | V2EX、Product Hunt、GitHub Trending |
+| 个人效率工具 | 小众软件、Appinn、即刻 |
+
+## 17. 重要文件
 
 - `SPEC.md` — 项目规范 (中文)
 - `AGENTS.md` — AI 开发工作流
@@ -723,3 +777,4 @@ inherits = "release"
 - `deny.toml` — 依赖审计配置
 - `docs/.vitepress/config.ts` — 文档侧边栏
 - `.github/workflows/` — CI/CD 配置
+- `docs/articles/` — 推广文章专区
