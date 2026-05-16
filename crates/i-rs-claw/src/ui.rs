@@ -61,137 +61,22 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
 fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     // Available text width (minus indentation)
     let text_width = (area.width as usize).saturating_sub(4).max(20);
+    // Subtract 1 line for the top border
+    let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Auto-scroll: show latest messages that fit in the chat area
-    let max_visible = (area.height as usize).max(1);
-    let start = app.messages.len().saturating_sub(max_visible);
+    // Build items from the end until the area is full
+    let mut items: Vec<ListItem> = Vec::new();
+    let mut lines_used = 0usize;
 
-    let items: Vec<ListItem> = app
-        .messages[start..]
-        .iter()
-        .map(|msg| match msg {
-            Message::User { text } => {
-                let mut lines = vec![
-                    Line::from(Span::styled(
-                        "  You:",
-                        Style::default()
-                            .fg(Color::Green)
-                            .add_modifier(Modifier::BOLD),
-                    )),
-                ];
-                for wrapped in wrap_text(text, text_width) {
-                    lines.push(Line::from(Span::styled(
-                        format!("   {}", wrapped),
-                        Style::default().fg(Color::White),
-                    )));
-                }
-                lines.push(Line::from(Span::raw("")));
-                ListItem::new(lines)
-            }
-            Message::Assistant { text } => {
-                let mut lines = vec![Line::from(Span::styled(
-                    "  Claw:",
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ))];
-                if text.is_empty() {
-                    lines.push(Line::from(Span::styled(
-                        "   ...",
-                        Style::default().fg(Color::DarkGray),
-                    )));
-                } else {
-                    for wrapped in wrap_text(text, text_width) {
-                        lines.push(Line::from(Span::styled(
-                            format!("   {}", wrapped),
-                            Style::default().fg(Color::White),
-                        )));
-                    }
-                }
-                lines.push(Line::from(Span::raw("")));
-                ListItem::new(lines)
-            }
-            Message::ToolCall { name, args, result } => {
-                let mut lines = Vec::new();
-
-                let (header, detail) =
-                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
-                        if name == "i_rs" {
-                            let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
-                            let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
-                            let explanation = val.get("explanation").and_then(|v| v.as_str());
-                            (
-                                format!(" ⚡ i-rs-{} {}", tool, cmd),
-                                explanation.map(|s| s.to_string()),
-                            )
-                        } else if name == "search_tools" {
-                            let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                            (format!(" 🔍 search: {}", q), None)
-                        } else {
-                            (format!(" ⚡ {}", name), None)
-                        }
-                    } else {
-                        (format!(" ⚡ {} {}", name, args), None)
-                    };
-
-                lines.push(Line::from(Span::styled(
-                    header,
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                )));
-
-                // Show explanation if available
-                if let Some(exp) = &detail {
-                    lines.push(Line::from(Span::styled(
-                        format!("   └─ {}", exp),
-                        Style::default().fg(Color::DarkGray),
-                    )));
-                }
-
-                // Show truncated result with JSON detection
-                if !result.is_empty() {
-                    let (json_lines, _) = format_json_result(result, text_width);
-                    if !json_lines.is_empty() {
-                        lines.extend(json_lines);
-                    } else {
-                        // Plain text fallback
-                        let result_display = if result.len() > 200 {
-                            format!("{}…", utils::truncate(result, 200))
-                        } else {
-                            result.to_string()
-                        };
-                        for wrapped in wrap_text(&result_display, text_width.saturating_sub(3)) {
-                            lines.push(Line::from(Span::styled(
-                                format!("   {}", wrapped),
-                                Style::default().fg(Color::DarkGray),
-                            )));
-                        }
-                    }
-                }
-
-                ListItem::new(lines)
-            }
-            Message::Error { text } => {
-                let mut lines = vec![
-                    Line::from(Span::styled(
-                        " ✗ Error:",
-                        Style::default()
-                            .fg(Color::Red)
-                            .add_modifier(Modifier::BOLD),
-                    )),
-                ];
-                for wrapped in wrap_text(text, text_width) {
-                    lines.push(Line::from(Span::styled(
-                        format!("   {}", wrapped),
-                        Style::default().fg(Color::Red),
-                    )));
-                }
-                lines.push(Line::from(Span::raw("")));
-                ListItem::new(lines)
-            }
-        })
-        .collect();
+    for msg in app.messages.iter().rev() {
+        let h = message_line_count(msg, text_width);
+        if lines_used + h > area_lines && !items.is_empty() {
+            break;
+        }
+        lines_used += h;
+        items.push(build_message_item(msg, text_width));
+    }
+    items.reverse();
 
     let chat_block = Block::default()
         .borders(Borders::TOP)
@@ -250,7 +135,8 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
     // Set cursor position (only when not processing)
     if !app.is_processing() {
         let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
-        let cursor_x = area.x + 1 + prefix_width as u16 + app.input_cursor as u16;
+        let visible_cursor = unicode_width::UnicodeWidthStr::width(&app.input[..app.input_cursor]);
+        let cursor_x = area.x + 1 + prefix_width as u16 + visible_cursor as u16;
         let cursor_y = area.y + 1;
         f.set_cursor_position((cursor_x, cursor_y));
     }
@@ -551,4 +437,191 @@ fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
         }
     }
     lines
+}
+
+/// Estimate the number of rendered lines a message occupies.
+fn message_line_count(msg: &Message, text_width: usize) -> usize {
+    match msg {
+        Message::User { text } => {
+            // header + wrapped lines + trailing blank
+            1 + wrapped_line_count(text, text_width) + 1
+        }
+        Message::Assistant { text } if text.is_empty() => {
+            // header + "..." + trailing blank
+            1 + 1 + 1
+        }
+        Message::Assistant { text } => {
+            // header + wrapped lines + trailing blank
+            1 + wrapped_line_count(text, text_width) + 1
+        }
+        Message::ToolCall {
+            name,
+            args,
+            result,
+        } => {
+            let mut lines = 1; // header
+            // optional explanation line
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
+                if name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
+                    lines += 1;
+                }
+            }
+            // result lines (at least 1 if non-empty)
+            if !result.is_empty() {
+                // Most results are JSON → each data item is roughly 1-3 lines
+                lines += wrapped_line_count(result, text_width.saturating_sub(3)).max(1);
+            }
+            lines
+        }
+        Message::Error { text } => {
+            // header + wrapped lines + trailing blank
+            1 + wrapped_line_count(text, text_width) + 1
+        }
+    }
+}
+
+/// Estimate how many lines a block of text wraps to.
+fn wrapped_line_count(text: &str, max_width: usize) -> usize {
+    if max_width == 0 {
+        return text.lines().count();
+    }
+    text.lines()
+        .map(|line| {
+            let w = unicode_width::UnicodeWidthStr::width(line);
+            if w == 0 {
+                1
+            } else {
+                (w + max_width - 1) / max_width
+            }
+        })
+        .sum()
+}
+
+/// Build a ListItem widget from a Message.
+fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
+    match msg {
+        Message::User { text } => {
+            let mut lines = vec![
+                Line::from(Span::styled(
+                    "  You:",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                )),
+            ];
+            for wrapped in wrap_text(text, text_width) {
+                lines.push(Line::from(Span::styled(
+                    format!("   {}", wrapped),
+                    Style::default().fg(Color::White),
+                )));
+            }
+            lines.push(Line::from(Span::raw("")));
+            ListItem::new(lines)
+        }
+        Message::Assistant { text } => {
+            let mut lines = vec![Line::from(Span::styled(
+                "  Claw:",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ))];
+            if text.is_empty() {
+                lines.push(Line::from(Span::styled(
+                    "   ...",
+                    Style::default().fg(Color::DarkGray),
+                )));
+            } else {
+                for wrapped in wrap_text(text, text_width) {
+                    lines.push(Line::from(Span::styled(
+                        format!("   {}", wrapped),
+                        Style::default().fg(Color::White),
+                    )));
+                }
+            }
+            lines.push(Line::from(Span::raw("")));
+            ListItem::new(lines)
+        }
+        Message::ToolCall {
+            name,
+            args,
+            result,
+        } => {
+            let mut lines = Vec::new();
+
+            let (header, detail) =
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
+                    if name == "i_rs" {
+                        let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
+                        let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
+                        let explanation = val.get("explanation").and_then(|v| v.as_str());
+                        (
+                            format!(" ⚡ i-rs-{} {}", tool, cmd),
+                            explanation.map(|s| s.to_string()),
+                        )
+                    } else if name == "search_tools" {
+                        let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                        (format!(" 🔍 search: {}", q), None)
+                    } else if name == "update_user_memory" {
+                        (" 💾 记住用户信息".to_string(), None)
+                    } else {
+                        (format!(" ⚡ {}", name), None)
+                    }
+                } else {
+                    (format!(" ⚡ {} {}", name, args), None)
+                };
+
+            lines.push(Line::from(Span::styled(
+                header,
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )));
+
+            if let Some(exp) = &detail {
+                lines.push(Line::from(Span::styled(
+                    format!("   └─ {}", exp),
+                    Style::default().fg(Color::DarkGray),
+                )));
+            }
+
+            if !result.is_empty() {
+                let (json_lines, _) = format_json_result(result, text_width);
+                if !json_lines.is_empty() {
+                    lines.extend(json_lines);
+                } else {
+                    let result_display = if result.len() > 200 {
+                        format!("{}…", utils::truncate(result, 200))
+                    } else {
+                        result.to_string()
+                    };
+                    for wrapped in wrap_text(&result_display, text_width.saturating_sub(3)) {
+                        lines.push(Line::from(Span::styled(
+                            format!("   {}", wrapped),
+                            Style::default().fg(Color::DarkGray),
+                        )));
+                    }
+                }
+            }
+
+            ListItem::new(lines)
+        }
+        Message::Error { text } => {
+            let mut lines = vec![
+                Line::from(Span::styled(
+                    " ✗ Error:",
+                    Style::default()
+                        .fg(Color::Red)
+                        .add_modifier(Modifier::BOLD),
+                )),
+            ];
+            for wrapped in wrap_text(text, text_width) {
+                lines.push(Line::from(Span::styled(
+                    format!("   {}", wrapped),
+                    Style::default().fg(Color::Red),
+                )));
+            }
+            lines.push(Line::from(Span::raw("")));
+            ListItem::new(lines)
+        }
+    }
 }
