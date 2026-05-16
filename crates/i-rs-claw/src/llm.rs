@@ -40,7 +40,7 @@ struct ToolCallAcc {
 }
 
 enum StreamResult {
-    Text(Option<TokenUsage>),
+    Text(Option<TokenUsage>, String), // usage + accumulated text content
     ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content
 }
 
@@ -85,6 +85,7 @@ async fn stream_chat(
     let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
     let mut finish_reason = String::new();
     let mut reasoning_buf = String::new();
+    let mut content_buf = String::new();
     let mut usage: Option<TokenUsage> = None;
 
     while let Some(chunk) = stream.next().await {
@@ -134,6 +135,7 @@ async fn stream_chat(
                                 // Text content
                                 if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
                                     if !text.is_empty() {
+                                        content_buf.push_str(text);
                                         let _ = tx.send(LlmEvent::Token(text.to_string()));
                                     }
                                 }
@@ -194,7 +196,7 @@ async fn stream_chat(
         return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
     }
 
-    Ok(StreamResult::Text(usage))
+    Ok(StreamResult::Text(usage, content_buf))
 }
 
 /// Load system prompt from external file and inject dynamic layers.
@@ -337,7 +339,14 @@ pub async fn chat_loop(
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
         match stream_chat(&client, &msgs, &config, &tool_schemas, &tx).await {
-            Ok(StreamResult::Text(usage)) => {
+            Ok(StreamResult::Text(usage, text)) => {
+                // Add the assistant's text response to message history
+                if !text.is_empty() {
+                    msgs.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": text,
+                    }));
+                }
                 let _ = tx.send(LlmEvent::Done(msgs.clone(), usage));
                 break;
             }
