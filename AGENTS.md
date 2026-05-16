@@ -6,7 +6,7 @@ Rust monorepo with **70 cross-platform CLI tools** for personal data management,
 
 - **`i-rs`** - Meta CLI (unified entry point)
 - **`i-rs-core`** - Shared core library
-- **`i-rs-api`** - 🌱 Experimental REST API server
+- **`i-rs-api`** - REST API server
 - **`extensions/`** - Browser extensions via Native Messaging
 
 **Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api.
@@ -18,7 +18,7 @@ i-rs-clis/
 ├── crates/
 │   ├── i-rs/               # Meta CLI (unified entry point for all tools)
 │   ├── i-rs-core/          # Shared core library (macros, Storage, presentation, utils)
-│   ├── i-rs-api/           # 🌱 Experimental REST API server (Axum)
+│   ├── i-rs-api/           # REST API server (Axum)
 │   ├── i-rs-{name}...      # 70 CLI tools
 ├── extensions/              # Browser extensions (Native Messaging)
 │   ├── i-rs-kv-chrome/     # Chrome extension for i-rs-kv
@@ -48,7 +48,7 @@ These crates are **not standard CLI tools** and have different development requi
 |-------|------|-------------|
 | `i-rs` | Meta CLI | Unified entry point that delegates to all 70 CLI tools |
 | `i-rs-core` | Shared Library | Core library providing `Storage<T>`, macros, presentation, and utilities |
-| `i-rs-api` | 🌱 Experimental | REST API server built with Axum, wrapping CLI tools as HTTP endpoints |
+| `i-rs-api` | REST API | REST API server built with Axum, wrapping CLI tools as HTTP endpoints |
 
 ### i-rs (Meta CLI)
 
@@ -69,9 +69,9 @@ It does NOT have its own models/storage/commands - it only routes to other tools
 - Provides: `Storage<T>`, `create_store!`, `skill_command!`, `exit_on_error!`, presentation helpers, validation utilities
 - 21 unit tests verify core functionality
 
-### i-rs-api (🌱 Experimental)
+### i-rs-api (REST API)
 
-`i-rs-api` is an **experimental REST API** built with Axum:
+`i-rs-api` is a **REST API** built with Axum:
 
 - **`make_app_tools!` macro** — generates `AppState` struct, `load_state()`, and `build_base_router()` from a single list of 70 (field, store_type, filename) tuples
 - **`build.rs`** — auto-generates `routes.rs` module declarations from `src/routes/*.rs` files
@@ -83,7 +83,6 @@ It does NOT have its own models/storage/commands - it only routes to other tools
 - **32 integration tests** — covering health, CRUD, PATCH, 404, bad request, data export/clear across all 3 store patterns (String-keyed BTreeMap, NaiveDate-keyed BTreeMap, Vec-based)
 - Uses `i-rs-core` but NOT the standard CLI crate pattern
 - Does NOT have: `storage/mod.rs`, `commands/`, `models/`, `presentation/`
-- **API stability not guaranteed** — breaking changes may occur
 
 ## Browser Extensions (Native Messaging)
 

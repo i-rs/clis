@@ -17,7 +17,7 @@ i-rs-clis/
 │   │       └── utils/
 │   │           ├── date.rs     # parse_date(), parse_datetime()
 │   │           └── validation.rs # validate_*() + 21 个单元测试
-│   ├── i-rs-api/               # 🌱 实验性 REST API (Axum)
+│   ├── i-rs-api/               # REST API (Axum)
 │   │   └── src/
 │   │       ├── main.rs         # 服务入口 + 32 集成测试
 │   │       ├── build.rs        # 自动生成 routes.rs 模块声明
