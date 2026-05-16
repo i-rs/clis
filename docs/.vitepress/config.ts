@@ -7,6 +7,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Articles', link: '/articles/' },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Tools', link: '/crates/i-rs-server/' }
     ],
@@ -15,6 +16,16 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Getting Started', link: '/guide/getting-started' }
+        ]
+      },
+      {
+        text: 'Articles',
+        items: [
+          { text: 'Overview', link: '/articles/' },
+          { text: 'AI 原生命令行 — AI Skill 系统', link: '/articles/ai-native-cli' },
+          { text: '70 工具 · 一柄利刃 — Rust 工程实践', link: '/articles/rust-mono-repo' },
+          { text: '从终端到云端 — 全栈覆盖', link: '/articles/full-stack-coverage' },
+          { text: '一个人的数据指挥中心 — 全领域覆盖', link: '/articles/data-command-center' }
         ]
       },
       {
