@@ -62,6 +62,10 @@ macro_rules! skill_command {
         use clap::Subcommand;
 
         #[derive(Subcommand, Debug, Clone)]
+        #[command(
+            name = "skill",
+            about = "AI skill system: run 'skill teach' for a complete AI guide, or 'skill info' for tool metadata"
+        )]
         pub enum SkillCommand {
             /// Show structured metadata (name, description, commands)
             Info,
