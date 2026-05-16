@@ -1,0 +1,247 @@
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
+    Frame,
+};
+
+use crate::app::{App, Message};
+
+pub fn render(f: &mut Frame, app: &App) {
+    let area = f.area();
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // Title bar
+            Constraint::Min(1),    // Chat area
+            Constraint::Length(1), // Processing indicator
+            Constraint::Length(3), // Input
+            Constraint::Length(1), // Status bar
+        ])
+        .split(area);
+
+    render_title(f, layout[0], app);
+    render_chat(f, layout[1], app);
+    render_processing(f, layout[2], app);
+    render_input(f, layout[3], app);
+    render_status(f, layout[4], app);
+}
+
+fn render_title(f: &mut Frame, area: Rect, app: &App) {
+    let title_text = if app.is_processing() {
+        format!(
+            " ✦ i-rs-claw  ⏳ {}  |  {}",
+            app.status_text, app.config.model
+        )
+    } else {
+        format!(
+            " ✦ i-rs-claw  个人数据智能助理  |  {}",
+            app.config.model
+        )
+    };
+
+    let title = Line::from(Span::styled(
+        title_text,
+        Style::default()
+            .fg(Color::White)
+            .bg(Color::Blue)
+            .add_modifier(Modifier::BOLD),
+    ));
+    f.render_widget(title, area);
+}
+
+fn render_chat(f: &mut Frame, area: Rect, app: &App) {
+    // Auto-scroll: show latest messages that fit in the chat area
+    // Estimate ~3 lines per message (header + content + blank)
+    let max_visible = (area.height as usize).max(1);
+    let start = app.messages.len().saturating_sub(max_visible);
+
+    let items: Vec<ListItem> = app
+        .messages[start..]
+        .iter()
+        .map(|msg| match msg {
+            Message::User { text } => {
+                let lines = vec![
+                    Line::from(Span::styled(
+                        " ◆ You:",
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    )),
+                    Line::from(Span::styled(
+                        format!("   {}", text),
+                        Style::default().fg(Color::White),
+                    )),
+                    Line::from(Span::raw("")),
+                ];
+                ListItem::new(lines)
+            }
+            Message::Assistant { text } => {
+                let mut lines = vec![Line::from(Span::styled(
+                    " ◇ Claw:",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ))];
+                if text.is_empty() {
+                    lines.push(Line::from(Span::styled(
+                        "   ...",
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                } else {
+                    lines.push(Line::from(Span::styled(
+                        format!("   {}", text),
+                        Style::default().fg(Color::White),
+                    )));
+                }
+                lines.push(Line::from(Span::raw("")));
+                ListItem::new(lines)
+            }
+            Message::ToolCall { name, args, result } => {
+                let call_str = format!("{} {}", name, args);
+                let line = if call_str.len() > 60 {
+                    // Safe truncation at char boundary to avoid UTF-8 panic
+                    let max_byte = 57.min(call_str.len());
+                    let bound = call_str.char_indices()
+                        .take_while(|(i, _)| *i <= max_byte)
+                        .last()
+                        .map(|(i, c)| i + c.len_utf8())
+                        .unwrap_or(0);
+                    format!("  {}...", &call_str[..bound])
+
+                } else {
+                    format!("  {}", call_str)
+                };
+                ListItem::new(vec![
+                    Line::from(Span::styled(
+                        format!(" ⚡ {}", line),
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::DIM),
+                    )),
+                    Line::from(Span::styled(
+                        format!("   ↳ {}", result),
+                        Style::default().fg(Color::DarkGray),
+                    )),
+                ])
+            }
+            Message::Error { text } => {
+                let lines = vec![
+                    Line::from(Span::styled(
+                        " ✗ Error:",
+                        Style::default()
+                            .fg(Color::Red)
+                            .add_modifier(Modifier::BOLD),
+                    )),
+                    Line::from(Span::styled(
+                        format!("   {}", text),
+                        Style::default().fg(Color::Red),
+                    )),
+                    Line::from(Span::raw("")),
+                ];
+                ListItem::new(lines)
+            }
+        })
+        .collect();
+
+    let chat_block = Block::default()
+        .borders(Borders::TOP)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let list = List::new(items).block(chat_block);
+    f.render_widget(list, area);
+}
+
+/// Show a processing/thinking indicator between chat and input
+fn render_processing(f: &mut Frame, area: Rect, app: &App) {
+    if app.is_processing() && !app.status_text.is_empty() {
+        // Render a subtle progress bar/indicator
+        let gauge = Gauge::default()
+            .block(
+                Block::default()
+                    .borders(Borders::NONE)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            )
+            .gauge_style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::SLOW_BLINK),
+            )
+            .label(app.status_text.clone())
+            .use_unicode(true)
+            .percent(50);
+        f.render_widget(gauge, area);
+    }
+}
+
+fn render_input(f: &mut Frame, area: Rect, app: &App) {
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(if app.is_processing() {
+            Style::default().fg(Color::DarkGray)
+        } else {
+            Style::default().fg(Color::Cyan)
+        });
+
+    let prefix = if app.is_processing() {
+        " ⏳ "
+    } else {
+        " ❯ "
+    };
+
+    let input_style = if app.is_processing() {
+        Style::default().fg(Color::DarkGray)
+    } else {
+        Style::default().fg(Color::White)
+    };
+
+    let input = Paragraph::new(Span::styled(
+        format!("{}{}", prefix, app.input),
+        input_style,
+    ))
+    .block(input_block);
+
+    f.render_widget(input, area);
+
+    // Set cursor position (only when not processing)
+    if !app.is_processing() {
+        let cursor_x = area.x + 2 + prefix.len() as u16 + app.input.len() as u16;
+        let cursor_y = area.y + 1;
+        f.set_cursor_position((cursor_x, cursor_y));
+    }
+}
+
+fn render_status(f: &mut Frame, area: Rect, app: &App) {
+    let status_info = if app.is_processing() {
+        format!(
+            " ⏳ {} | tools: {} | msgs: {} | Ctrl+Q quit",
+            app.status_text,
+            app.tool_call_count,
+            app.messages.len(),
+        )
+    } else {
+        format!(
+            " ● 就绪 | {} | tools: {} | msgs: {} | Ctrl+Q quit",
+            app.config.model,
+            app.tool_call_count,
+            app.messages.len(),
+        )
+    };
+
+    let bg = if app.is_processing() {
+        Color::Blue
+    } else {
+        Color::DarkGray
+    };
+
+    let status = Line::from(Span::styled(
+        status_info,
+        Style::default()
+            .fg(Color::White)
+            .bg(bg)
+            .add_modifier(Modifier::DIM),
+    ));
+    f.render_widget(status, area);
+}
