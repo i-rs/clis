@@ -198,9 +198,17 @@ pub use i_rs_core::utils::validation::{
 
 | 宏 | 作用 | 使用位置 |
 |----|------|----------|
-| `create_store!(Type, "name")` | 生成 load_store/save_store | `storage/mod.rs` |
+| `create_store!(Type, "name")` | 生成 load_store/save_store + export/import/clear | `storage/mod.rs` |
 | `skill_command!("crate")` | 生成 SkillCommand + handle_skill | `commands/skill.rs` |
 | `exit_on_error!(result, json)` | 统一错误处理 + JSON 输出 | `main.rs` |
+| `presentation!(RowType, "label")` | 生成标准 table/JSON/count 展示函数 | `presentation/mod.rs` |
+| `presentation!(RowType, "label", extra...)` | 同上，额外 re-export 其他函数 | `presentation/mod.rs` |
+| `handle_empty!(entries, format)` | JSON/Table 空列表处理 | `commands/list.rs` |
+| `handle_empty!(entries, format, filter)` | 同上 + 过滤上下文 | `commands/list.rs` |
+| `handle_empty!(entries, format, filter, msg)` | 同上 + 自定义消息 | `commands/list.rs` |
+| `update_field!(field, opt)` | 将 Option 值安全地 Update 到字段 | `commands/update.rs` |
+| `example_command!()` | 生成示例命令处理函数 | `commands/example.rs` |
+| `data_command!(DataCommand)` | 生成 Data 子命令枚举 + handler | `commands/data.rs` |
 
 ## 4. Crate 开发流程 (清单)
 
@@ -398,13 +406,37 @@ pub fn handle(command: &DataCommand) -> anyhow::Result<()> {
 }
 ```
 
-### 6.5 commands/skill.rs 模板
+### 6.5 presentation/mod.rs 模板
+
+```rust
+// 标准模式: 使用 presentation! 宏自动生成展示函数
+i_rs_core::presentation!(XxxRow, "entries");
+
+// 带额外 re-export 的模式:
+i_rs_core::presentation!(XxxRow, "entries", print_warning);
+
+// 手动实现 (展示逻辑复杂时):
+pub fn format_table(rows: &[XxxRow]) -> String {
+    i_rs_core::render_table(&rows)
+}
+
+pub fn print_entry_count(count: usize) {
+    // 自定义计数输出
+}
+```
+
+`presentation!` 宏会生成以下函数：
+- `format_table(rows)` — 渲染 table
+- `print_entry_count(count)` — 打印条目计数
+- `output_list(items, format, filter)` — JSON 列表输出
+
+### 6.6 commands/skill.rs 模板
 
 ```rust
 i_rs_core::skill_command!("i-rs-xxx");
 ```
 
-### 6.6 Data 命令（通用子命令）
+### 6.7 Data 命令（通用子命令）
 
 每个 crate 统一支持:
 
