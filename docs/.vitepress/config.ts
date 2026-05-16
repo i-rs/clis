@@ -356,6 +356,7 @@ export default defineConfig({
               { text: 'Overview', link: '/crates/i-rs-kv/' },
               { text: 'Usage', link: '/crates/i-rs-kv/usage' },
               { text: 'Examples', link: '/crates/i-rs-kv/examples' },
+              { text: 'API', link: '/crates/i-rs-kv/api' },
               { text: 'Test', link: '/crates/i-rs-kv/test' }
             ]
           },

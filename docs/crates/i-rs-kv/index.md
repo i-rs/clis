@@ -50,4 +50,5 @@ brew install i-rs/homebrew-tap/i-rs-kv
 
 - [Usage](./usage.md) - Detailed command reference
 - [Examples](./examples.md) - Extensive usage examples
+- [API](./api.md) - REST API reference
 - [Test](./test.md) - Test records
