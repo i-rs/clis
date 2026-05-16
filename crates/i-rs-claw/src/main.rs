@@ -185,7 +185,7 @@ fn run_tools() -> anyhow::Result<()> {
                     cfg.enabled_tools.len()
                 };
                 let title = Line::from(Span::styled(
-                    format!(" ✦ 工具管理  [{}✓ / {}总]  ↑↓选择  Space切换  Enter保存  Esc取消", checked_count, total),
+                    format!(" ✦ 工具管理  [{}✓ / {}总]  ↑↓选择  Space切换  a全选  n清空  Enter保存  Esc取消", checked_count, total),
                     Style::default().fg(Color::White).bg(Color::Blue).add_modifier(Modifier::BOLD),
                 ));
                 f.render_widget(title, chunks[0]);
@@ -231,6 +231,14 @@ fn run_tools() -> anyhow::Result<()> {
                         }
                     }
                     KeyCode::Enter => break Ok(()),
+                    KeyCode::Char('a') | KeyCode::Char('A') => {
+                        dirty = true;
+                        cfg.enabled_tools = all_tools.iter().map(|s| s.to_string()).collect();
+                    }
+                    KeyCode::Char('n') | KeyCode::Char('N') => {
+                        dirty = true;
+                        cfg.enabled_tools.clear();
+                    }
                     KeyCode::Esc | KeyCode::Char('q') => {
                         dirty = false;
                         break Ok(());
