@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use clap::{Parser, Subcommand};
 use commands::{add, delete, example, fuel, get, list, maintain, stats, update};
 use commands::skill::{handle_skill, parse_skill_arg};

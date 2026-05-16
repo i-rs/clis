@@ -44,6 +44,7 @@ pub fn delete_password(name: &str) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn filter_by_tag<'a>(store: &'a BookmarkStore, tag: Option<&str>) -> Vec<&'a Bookmark> {
     if let Some(tag) = tag {
         store

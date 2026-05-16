@@ -147,6 +147,7 @@ pub struct CarStore {
     pub maintenance_records: Vec<MaintenanceRecord>,
 }
 
+#[allow(dead_code)]
 impl CarStore {
     pub fn add_entry(&mut self, car: Car) {
         self.cars.insert(car.name.clone(), car);

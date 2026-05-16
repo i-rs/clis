@@ -9,9 +9,6 @@ pub fn format_table(movies: &[&Movie]) -> String {
         .collect();
     i_rs_core::render_table(&rows)
 }
-pub fn print_count(count: usize) {
-    println!("\n{} {} movies", "Total:".dimmed(), count.to_string().cyan());
-}
 pub fn print_stats(stats: &MovieStats) {
     println!("\n{}", "Statistics:".bold().cyan());
     println!("{}", "─".repeat(40).dimmed());

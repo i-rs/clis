@@ -9,6 +9,7 @@ pub struct Server {
     #[serde(default)]
     pub user: Option<String>,
     #[serde(skip)]
+#[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -29,6 +30,7 @@ pub struct ServerStore {
 
 
 
+#[allow(dead_code)]
 impl ServerStore {
     pub fn add_entry(&mut self, entry: Server) {
         self.servers.insert(entry.name.clone(), entry);

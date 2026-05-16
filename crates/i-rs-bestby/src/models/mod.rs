@@ -26,6 +26,7 @@ pub struct BestByStore {
 }
 
 
+#[allow(dead_code)]
 impl BestByStore {
     pub fn add_entry(&mut self, entry: Entity) {
         self.entries.insert(entry.name.clone(), entry);

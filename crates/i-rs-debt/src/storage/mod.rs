@@ -6,6 +6,7 @@ pub fn list_entries(store: &DebtStore) -> Vec<&Debt> {
     store.debts.values().collect()
 }
 
+#[allow(dead_code)]
 pub fn filter_by_tag<'a>(store: &'a DebtStore, tag: &str) -> Vec<&'a Debt> {
     store
         .debts

@@ -81,6 +81,7 @@ pub struct BudgetStore {
 }
 
 
+#[allow(dead_code)]
 impl BudgetStore {
     pub fn add_budget(&mut self, budget: Budget) {
         self.budgets.insert(budget.category.clone(), budget);

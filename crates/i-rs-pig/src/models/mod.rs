@@ -41,6 +41,7 @@ pub struct PigStore {
 }
 
 
+#[allow(dead_code)]
 impl PigStore {
     pub fn add_entry(&mut self, entry: PigEntry) {
         self.entries.insert(entry.id.clone(), entry);

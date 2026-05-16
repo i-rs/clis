@@ -13,6 +13,7 @@ pub fn format_table(appliances: &[&Appliance]) -> String {
     i_rs_core::render_table(&rows)
 }
 
+#[allow(dead_code)]
 pub fn format_maintenance_table(records: &[&MaintenanceRecord]) -> String {
     let rows: Vec<MaintenanceRow> = records
         .iter()
@@ -26,6 +27,7 @@ pub fn print_appliance_count(count: usize) {
     println!("\n{} {} appliances", "Total:".dimmed(), count.to_string().cyan());
 }
 
+#[allow(dead_code)]
 pub fn print_stats(store: &crate::models::ApplianceStore) {
     let total = store.appliances_count();
     let expired = store.expired_count();

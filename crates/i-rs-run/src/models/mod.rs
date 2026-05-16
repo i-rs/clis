@@ -45,6 +45,7 @@ pub struct RunStore {
 }
 
 
+#[allow(dead_code)]
 impl RunStore {
     pub fn add_entry(&mut self, record: RunRecord) {
         self.records.insert(record.id.clone(), record);

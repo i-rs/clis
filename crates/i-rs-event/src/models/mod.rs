@@ -105,6 +105,7 @@ pub struct EventStore {
     pub events: std::collections::BTreeMap<String, Event>,
 }
 
+#[allow(dead_code)]
 impl EventStore {
     pub fn add_entry(&mut self, entry: Event) {
         self.events.insert(entry.name.clone(), entry);

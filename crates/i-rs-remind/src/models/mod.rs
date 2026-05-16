@@ -38,7 +38,8 @@ impl Remind {
         (0..1).contains(&days)
     }
 
-    pub fn is_upcoming(&self, days: i64) -> bool {
+    #[allow(dead_code)]
+pub fn is_upcoming(&self, days: i64) -> bool {
         let days_left = self.days_until_event();
         days_left >= 0 && days_left <= days
     }
@@ -67,6 +68,7 @@ pub struct RemindRow {
     remark: String,
 }
 
+#[allow(dead_code)]
 impl RemindStore {
     pub fn add_entry(&mut self, entry: Remind) {
         self.reminds.insert(entry.name.clone(), entry);

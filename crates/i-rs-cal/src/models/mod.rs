@@ -32,6 +32,7 @@ pub struct CalStore {
 }
 
 
+#[allow(dead_code)]
 impl CalStore {
     pub fn add_entry(&mut self, entry: CalEntry) {
         self.entries.insert(entry.id.clone(), entry);

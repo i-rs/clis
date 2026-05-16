@@ -74,6 +74,7 @@ pub struct CyclingStore {
 }
 
 
+#[allow(dead_code)]
 impl CyclingStore {
     pub fn add_entry(&mut self, record: CyclingRecord) {
         self.records.insert(record.id, record);

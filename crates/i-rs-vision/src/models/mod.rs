@@ -31,6 +31,7 @@ pub struct VisionStore {
 }
 
 
+#[allow(dead_code)]
 impl VisionStore {
     pub fn add_entry(&mut self, record: VisionRecord) {
         self.records.insert(record.date, record);

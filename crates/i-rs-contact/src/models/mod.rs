@@ -40,6 +40,7 @@ pub struct ContactStore {
 }
 
 
+#[allow(dead_code)]
 impl ContactStore {
     pub fn add_entry(&mut self, entry: Contact) {
         self.entries.insert(entry.name.clone(), entry);

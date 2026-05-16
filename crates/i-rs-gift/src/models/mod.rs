@@ -63,6 +63,7 @@ pub struct GiftRow {
     remark: String,
 }
 
+#[allow(dead_code)]
 impl GiftStore {
     pub fn add_entry(&mut self, entry: Gift) {
         self.gifts.insert(entry.name.clone(), entry);

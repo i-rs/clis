@@ -9,6 +9,7 @@ pub struct Domain {
     #[serde(default)]
     pub registrar: Option<String>,
     #[serde(skip)]
+#[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -30,6 +31,7 @@ impl Domain {
         self.days_until_expiry() < 0
     }
 
+    #[allow(dead_code)]
     pub fn is_expiring_soon(&self, days: i64) -> bool {
         let days_left = self.days_until_expiry();
         days_left >= 0 && days_left <= days
@@ -45,6 +47,7 @@ pub struct DomainStore {
 
 
 
+#[allow(dead_code)]
 impl DomainStore {
     pub fn add_entry(&mut self, entry: Domain) {
         self.domains.insert(entry.name.clone(), entry);

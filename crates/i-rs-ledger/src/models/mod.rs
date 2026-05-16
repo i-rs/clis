@@ -38,6 +38,7 @@ impl Default for LedgerStore {
     }
 }
 
+#[allow(dead_code)]
 impl LedgerStore {
     pub fn add_entry(&mut self, entry: LedgerEntry) {
         self.entries.insert(entry.id.clone(), entry);

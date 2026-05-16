@@ -111,7 +111,8 @@ impl InvestmentStore {
         self.investments.remove(key)
     }
 
-    pub fn get_entry(&self, key: &str) -> Option<&Investment> {
+    #[allow(dead_code)]
+pub fn get_entry(&self, key: &str) -> Option<&Investment> {
         self.investments.get(key)
     }
 

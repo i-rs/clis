@@ -9,9 +9,6 @@ pub fn format_table(podcasts: &[&Podcast]) -> String {
         .collect();
     i_rs_core::render_table(&rows)
 }
-pub fn print_count(count: usize) {
-    println!("\n{} {} podcasts", "Total:".dimmed(), count.to_string().cyan());
-}
 pub fn print_stats(stats: &PodcastStats) {
     println!("\n{}", "Statistics:".bold().cyan());
     println!("{}", "─".repeat(40).dimmed());

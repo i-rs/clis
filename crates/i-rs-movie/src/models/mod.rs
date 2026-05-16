@@ -27,6 +27,7 @@ pub struct MovieStore {
 }
 
 
+#[allow(dead_code)]
 impl MovieStore {
     pub fn add_entry(&mut self, movie: Movie) {
         self.movies.insert(movie.name.clone(), movie);
@@ -124,6 +125,7 @@ impl MovieRow {
     }
 }
 
+#[allow(dead_code)]
 pub trait HasTags {
     fn get_tags(&self) -> &[String];
     fn has_tag(&self, tag: &str) -> bool {
@@ -131,6 +133,7 @@ pub trait HasTags {
     }
 }
 
+#[allow(dead_code)]
 impl HasTags for Movie {
     fn get_tags(&self) -> &[String] {
         &self.tags

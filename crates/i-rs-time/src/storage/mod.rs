@@ -55,6 +55,7 @@ pub fn delete_entry(store: &mut TimeStore, id: &str) -> Result<TimeEntry> {
         .ok_or_else(|| anyhow::anyhow!("Entry '{id}' not found"))
 }
 
+#[allow(dead_code)]
 pub fn get_entry(store: &TimeStore, id: &str) -> Result<TimeEntry> {
     store.get_entry(id)
         .cloned()

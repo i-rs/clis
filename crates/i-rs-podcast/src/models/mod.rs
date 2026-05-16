@@ -57,6 +57,7 @@ pub struct PodcastStore {
 }
 
 
+#[allow(dead_code)]
 impl PodcastStore {
     pub fn add_entry(&mut self, podcast: Podcast) {
         self.podcasts.insert(podcast.name.clone(), podcast);
@@ -209,6 +210,7 @@ fn format_status(status: &PodcastStatus) -> String {
     }
 }
 
+#[allow(dead_code)]
 pub trait HasTags {
     fn get_tags(&self) -> &[String];
     fn has_tag(&self, tag: &str) -> bool {
@@ -216,6 +218,7 @@ pub trait HasTags {
     }
 }
 
+#[allow(dead_code)]
 impl HasTags for Podcast {
     fn get_tags(&self) -> &[String] {
         &self.tags

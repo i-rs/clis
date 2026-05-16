@@ -8,6 +8,7 @@ pub struct Bookmark {
     #[serde(default)]
     pub account: Option<String>,
     #[serde(skip)]
+#[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -28,6 +29,7 @@ pub struct BookmarkStore {
 
 
 
+#[allow(dead_code)]
 impl BookmarkStore {
     pub fn add_entry(&mut self, entry: Bookmark) {
         self.bookmarks.insert(entry.name.clone(), entry);

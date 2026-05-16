@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use clap::{Parser, Subcommand};
 use commands::{handle_add, handle_delete, handle_done, handle_example, handle_get, handle_list, handle_skill, handle_update, parse_skill_arg};
 use presentation::OutputFormat;

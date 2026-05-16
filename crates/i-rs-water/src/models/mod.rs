@@ -39,6 +39,7 @@ pub struct WaterStore {
 }
 
 
+#[allow(dead_code)]
 impl WaterStore {
     pub fn add_entry(&mut self, entry: WaterEntry) {
         self.entries.insert(entry.id.clone(), entry);
@@ -103,6 +104,7 @@ impl From<&WaterEntry> for ListItem {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct Summary {
     pub today_total_ml: i32,
     pub today_count: usize,

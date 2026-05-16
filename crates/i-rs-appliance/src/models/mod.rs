@@ -59,6 +59,7 @@ pub struct ApplianceStore {
 }
 
 
+#[allow(dead_code)]
 impl ApplianceStore {
     pub fn add_entry(&mut self, appliance: Appliance) {
         self.appliances.insert(appliance.id.clone(), appliance);
@@ -152,6 +153,7 @@ impl ApplianceRow {
 }
 
 #[derive(Tabled)]
+#[allow(dead_code)]
 pub struct MaintenanceRow {
     #[tabled(rename = "DATE")]
     date: String,
@@ -160,7 +162,8 @@ pub struct MaintenanceRow {
 }
 
 impl MaintenanceRow {
-    pub fn from_record(record: &MaintenanceRecord) -> Self {
+    #[allow(dead_code)]
+pub fn from_record(record: &MaintenanceRecord) -> Self {
         Self {
             date: record.date.format("%Y-%m-%d").to_string(),
             description: record.description.clone(),
