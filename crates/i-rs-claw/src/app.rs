@@ -64,6 +64,8 @@ pub struct App {
     pub sidebar_selected: usize,
     /// If set, shows the full request body for this log entry
     pub sidebar_body_idx: Option<usize>,
+    /// Scroll offset within the body overlay
+    pub sidebar_body_scroll: usize,
 }
 
 impl App {
@@ -96,6 +98,7 @@ impl App {
             http_logs: Vec::new(),
             sidebar_selected: 0,
             sidebar_body_idx: None,
+            sidebar_body_scroll: 0,
         }
     }
 
@@ -326,5 +329,6 @@ impl App {
         self.http_logs.clear();
         self.sidebar_selected = 0;
         self.sidebar_body_idx = None;
+        self.sidebar_body_scroll = 0;
     }
 }

@@ -52,7 +52,14 @@ pub fn render(f: &mut Frame, app: &App) {
     // Request body overlay (rendered on top of everything)
     if let Some(idx) = app.sidebar_body_idx {
         if let Some(log) = app.http_logs.get(idx) {
-            render_request_body(f, area, &log.request_body, idx, app.http_logs.len());
+            render_request_body(
+                f,
+                area,
+                &log.request_body,
+                idx,
+                app.http_logs.len(),
+                app.sidebar_body_scroll,
+            );
         }
     }
 }
@@ -409,7 +416,14 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
 }
 
 /// Overlay showing the full request body JSON for a debug log entry.
-fn render_request_body(f: &mut Frame, area: Rect, body_json: &str, idx: usize, total: usize) {
+fn render_request_body(
+    f: &mut Frame,
+    area: Rect,
+    body_json: &str,
+    idx: usize,
+    total: usize,
+    scroll: usize,
+) {
     let popup_width = (area.width as f32 * 0.85) as u16;
     let popup_height = (area.height as f32 * 0.8) as u16;
     let popup_x = (area.width - popup_width) / 2;
@@ -424,12 +438,14 @@ fn render_request_body(f: &mut Frame, area: Rect, body_json: &str, idx: usize, t
     };
 
     let inner_w = (popup_width as usize).saturating_sub(4).max(20);
+    // Visible content lines (popup height minus borders minus header)
+    let visible_lines = (popup_height as usize).saturating_sub(4).max(1);
 
     let mut lines: Vec<Line> = Vec::new();
 
     // Header
     lines.push(Line::from(Span::styled(
-        format!("  🔍 Request Body ({}/{} - Esc to close)", idx + 1, total),
+        format!("  🔍 Request Body ({}/{})  [↑↓/scroll to browse | Esc to close]", idx + 1, total),
         Style::default()
             .fg(Color::Cyan)
             .add_modifier(Modifier::BOLD),
@@ -439,7 +455,8 @@ fn render_request_body(f: &mut Frame, area: Rect, body_json: &str, idx: usize, t
         Style::default().fg(Color::DarkGray),
     )));
 
-    // JSON body lines with basic syntax coloring
+    // Build all JSON content lines first
+    let mut content_lines: Vec<Line> = Vec::new();
     for line in formatted.lines() {
         let trimmed = line.trim_end();
         if trimmed.is_empty() {
@@ -464,11 +481,42 @@ fn render_request_body(f: &mut Frame, area: Rect, body_json: &str, idx: usize, t
                 // Numbers, booleans, null
                 Color::Cyan
             };
-            lines.push(Line::from(Span::styled(
+            content_lines.push(Line::from(Span::styled(
                 format!("  {}", w),
                 Style::default().fg(color),
             )));
         }
+    }
+
+    let total_content = content_lines.len();
+
+    // Apply scroll offset
+    let scroll = scroll.min(total_content.saturating_sub(visible_lines));
+    let end = (scroll + visible_lines).min(total_content);
+    if scroll > 0 {
+        lines.push(Line::from(Span::styled(
+            format!("  ↑ 还有 {} 行 ...", scroll),
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        )));
+        // Adjust visible lines to account for this indicator
+        let remaining = visible_lines.saturating_sub(1);
+        let end2 = (scroll + remaining).min(total_content);
+        for line in content_lines.iter().take(end2).skip(scroll) {
+            lines.push(line.clone());
+        }
+    } else {
+        for line in content_lines.iter().take(end).skip(scroll) {
+            lines.push(line.clone());
+        }
+    }
+
+    // Scroll indicator at bottom
+    let more_below = end < total_content;
+    if more_below {
+        lines.push(Line::from(Span::styled(
+            format!("  ↓ 还有 {} 行 ...", total_content - end),
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        )));
     }
 
     let list = List::new(lines).block(

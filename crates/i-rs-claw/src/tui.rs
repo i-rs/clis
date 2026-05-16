@@ -373,6 +373,18 @@ fn main_loop(
                             app.sidebar_body_idx = Some(app.sidebar_selected);
                         }
                     }
+                    // Body overlay Up/Down (scroll within the JSON)
+                    KeyCode::Up
+                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_some() =>
+                    {
+                        app.sidebar_body_scroll =
+                            app.sidebar_body_scroll.saturating_sub(1);
+                    }
+                    KeyCode::Down
+                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_some() =>
+                    {
+                        app.sidebar_body_scroll += 1;
+                    }
                     KeyCode::Up if app.show_session_list => {
                         app.session_list_index =
                             app.session_list_index.saturating_sub(1);
@@ -519,9 +531,19 @@ fn main_loop(
                     _ => {}
                 },
                 Event::Mouse(mouse) => {
-                    if !app.is_processing()
-                        && app.sidebar_body_idx.is_none()
-                    {
+                    if app.sidebar_body_idx.is_some() {
+                        match mouse.kind {
+                            MouseEventKind::ScrollDown => {
+                                app.sidebar_body_scroll += 1;
+                            }
+                            MouseEventKind::ScrollUp => {
+                                app.sidebar_body_scroll = app
+                                    .sidebar_body_scroll
+                                    .saturating_sub(1);
+                            }
+                            _ => {}
+                        }
+                    } else if !app.is_processing() {
                         match mouse.kind {
                             MouseEventKind::ScrollDown => app.scroll_down(),
                             MouseEventKind::ScrollUp => app.scroll_up(),
