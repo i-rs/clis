@@ -543,7 +543,7 @@ fn main_loop(
                             }
                             _ => {}
                         }
-                    } else if !app.is_processing() {
+                    } else if !app.is_processing() && !app.show_sidebar {
                         match mouse.kind {
                             MouseEventKind::ScrollDown => app.scroll_down(),
                             MouseEventKind::ScrollUp => app.scroll_up(),
