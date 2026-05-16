@@ -1,4 +1,3 @@
-#![allow(clippy::needless_range_loop)]
 use clap::{Parser, Subcommand};
 use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_set, handle_skill, handle_target, parse_skill_arg};
 use presentation::OutputFormat;

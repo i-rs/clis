@@ -250,6 +250,7 @@ macro_rules! update_field {
 /// i_rs_core::presentation!(XxxRow, "entries", print_warning);
 /// ```
 #[macro_export]
+#[allow(clippy::crate_in_macro_def)]
 macro_rules! presentation {
     ($row_type:ident, $label:expr $(,)?) => {
         use crate::models::$row_type;
