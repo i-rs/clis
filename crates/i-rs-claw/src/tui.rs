@@ -5,7 +5,7 @@ use crate::memory::CrossSessionMemory;
 use crate::session::SessionManager;
 use crate::skill_store::SkillStore;
 use crate::tool_cache::ToolDocCache;
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use std::io;
 use tokio::sync::mpsc;
@@ -20,7 +20,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // Setup terminal
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
+    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
     let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout))?;
 
     let rt = tokio::runtime::Runtime::new()?;
@@ -92,7 +92,11 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     // Restore terminal
     crossterm::terminal::disable_raw_mode()?;
-    crossterm::execute!(io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
+    crossterm::execute!(
+        io::stdout(),
+        crossterm::terminal::LeaveAlternateScreen,
+        crossterm::event::DisableMouseCapture
+    )?;
 
     // Print re-entry command so user can resume later
     if let Some(sid) = session_mgr.current_id() {
@@ -456,6 +460,15 @@ fn main_loop(
                     }
                     _ => {}
                 },
+                Event::Mouse(mouse) => {
+                    if !app.is_processing() {
+                        match mouse.kind {
+                            MouseEventKind::ScrollDown => app.scroll_down(3),
+                            MouseEventKind::ScrollUp => app.scroll_up(3),
+                            _ => {}
+                        }
+                    }
+                }
                 _ => {}
             }
         }
