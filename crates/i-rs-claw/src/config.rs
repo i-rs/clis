@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+pub const DEFAULT_TOOLS: &[&str] = &[
+    "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
+];
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     pub api_key: String,
@@ -22,6 +26,15 @@ fn default_model() -> String {
 }
 
 impl Config {
+    pub fn new() -> Self {
+        Self {
+            api_key: String::new(),
+            base_url: default_base_url(),
+            model: default_model(),
+            enabled_tools: DEFAULT_TOOLS.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
     fn config_path() -> anyhow::Result<std::path::PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;

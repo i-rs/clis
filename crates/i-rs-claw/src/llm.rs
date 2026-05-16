@@ -204,10 +204,12 @@ async fn stream_chat(
 /// 2. Tool index (from TOOL_INDEX static data)
 /// 3. Hot tool docs (skill teach outputs for frequently used tools)
 /// 4. User memory (cross-session preferences and history)
+/// 5. User profile (name, preferences for onboarding)
 fn build_system_prompt(
     tool_index: &str,
     hot_tools: &str,
     user_memory: &str,
+    user_profile: &str,
 ) -> String {
     let mut prompt = include_str!("../prompts/system.md").to_string();
     let now = chrono::Local::now();
@@ -220,6 +222,7 @@ fn build_system_prompt(
     prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
     prompt = prompt.replace("{{HOT_TOOLS}}", hot_tools);
     prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
+    prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
 
     prompt
 }
@@ -234,6 +237,7 @@ pub fn build_messages(
     tool_index: &str,
     hot_tools: &str,
     user_memory: &str,
+    user_profile: &str,
 ) -> Vec<Value> {
     if let Some(prev_msgs) = saved_api_messages {
         // Reuse saved API messages (has full context including tool calls)
@@ -261,7 +265,7 @@ pub fn build_messages(
     // First turn: build from scratch
     let mut msgs = vec![serde_json::json!({
         "role": "system",
-        "content": build_system_prompt(tool_index, hot_tools, user_memory)
+        "content": build_system_prompt(tool_index, hot_tools, user_memory, user_profile)
     })];
 
     // Keep last ~8 display messages for context

@@ -19,7 +19,6 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::Terminal;
-use std::collections::HashSet;
 use std::io::{self, Write};
 use tokio::sync::mpsc;
 
@@ -69,20 +68,10 @@ fn main() -> anyhow::Result<()> {
 fn run_config() -> anyhow::Result<()> {
     let config_path = claw_dir().join("config.toml");
     let mut cfg = if config_path.exists() {
-        Config::load().unwrap_or_else(|_| Config {
-            api_key: String::new(),
-            base_url: "https://api.openai.com/v1".to_string(),
-            model: "gpt-4o-mini".to_string(),
-            enabled_tools: HashSet::new(),
-        })
+        Config::load().unwrap_or_else(|_| Config::new())
     } else {
         println!("未发现配置文件，开始交互式设置...\n");
-        Config {
-            api_key: String::new(),
-            base_url: "https://api.openai.com/v1".to_string(),
-            model: "gpt-4o-mini".to_string(),
-            enabled_tools: HashSet::new(),
-        }
+        Config::new()
     };
 
     // ── API Key ──
@@ -338,14 +327,26 @@ fn run_tui(session_id: Option<&str>) -> anyhow::Result<()> {
     let loaded = session_mgr.load_app_messages(&session_id, 50);
     app.messages = loaded;
 
-    // If first-time user (no saved messages), show welcome
     if app.messages.is_empty() {
-        app.messages.push(app::Message::Assistant {
-            text: "你好！我是 i-rs-claw，你的个人数据智能助理。\
-                   \n我可以帮你管理健康、财务、任务、媒体等个人信息。\
-                   \n试试说：\"记录体重75kg\" 或 \"最近跑步情况如何？\""
-                .to_string(),
-        });
+        let onboarding = !cross_memory.has_user_profile();
+        if onboarding {
+            app.messages.push(app::Message::Assistant {
+                text: concat!(
+                    "你好！我是 i-rs-claw，你的个人数据智能助理 🎉\n\n",
+                    "初次见面，我想更好地了解你！\n",
+                    "请问我怎么称呼你呢？你平时有什么兴趣爱好？\n",
+                    "比如你喜欢跑步、健身、读书、看电影，还是有什么特别的日常生活习惯？\n\n",
+                    "告诉我这些，我可以更贴心地帮你管理数据 😊",
+                ).to_string(),
+            });
+        } else {
+            app.messages.push(app::Message::Assistant {
+                text: "你好！我是 i-rs-claw，你的个人数据智能助理。\
+                       \n我可以帮你管理健康、财务、任务、媒体等个人信息。\
+                       \n试试说：\"记录体重75kg\" 或 \"最近跑步情况如何？\""
+                    .to_string(),
+            });
+        }
     }
 
     let result = tui_main_loop(&mut terminal, &rt, &mut app, &mut session_mgr, &mut cross_memory, &tool_cache, &llm_tx, &mut llm_rx);
@@ -624,6 +625,7 @@ fn tui_main_loop(
                                 &app.tool_index_text,
                                 &cross_memory.format_hot_tools(tool_cache),
                                 &cross_memory.format_user_memory(),
+                                &cross_memory.format_user_profile(),
                             );
 
                             // Spawn LLM chat in background
