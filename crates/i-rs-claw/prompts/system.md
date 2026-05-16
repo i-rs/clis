@@ -47,14 +47,6 @@
 ❌ 多个值放一个参数: args=["weight 75"]
    ✓ 正确: args=["2025-01-15", "75"]
 
-{{TOOL_INDEX}}
-
-{{HOT_TOOLS}}
-
-{{USER_MEMORY}}
-
-{{USER_PROFILE}}
-
 ## 重要规则
 1. 每次 i_rs() 调用只执行一个命令，多个操作依次调用
 2. 对不熟悉的工具或命令，可调用 skill teach 获取教学文档
@@ -64,3 +56,11 @@
 4. list 命令不指定时间范围时默认显示最近数据
 5. 直接执行不需要确认，执行后告知结果
 6. 回复要简洁友好，用中文
+
+{{TOOL_INDEX}}
+
+{{HOT_TOOLS}}
+
+{{USER_MEMORY}}
+
+{{USER_PROFILE}}
