@@ -142,6 +142,13 @@ fn run_config() -> anyhow::Result<()> {
 
 fn run_tools() -> anyhow::Result<()> {
     let mut cfg = Config::load()?;
+
+    // If no explicit tool selection exists (empty = all enabled in runtime),
+    // seed the UI with DEFAULT_TOOLS so only those 10 show as checked initially
+    if cfg.enabled_tools.is_empty() {
+        cfg.enabled_tools = crate::config::DEFAULT_TOOLS.iter().map(|s| s.to_string()).collect();
+    }
+
     let all_tools: Vec<&str> = crate::tools::search::TOOL_INDEX.iter().map(|(n, _)| *n).collect();
     let total = all_tools.len();
 
