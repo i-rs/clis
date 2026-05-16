@@ -4,6 +4,7 @@ mod config;
 mod llm;
 mod memory;
 mod session;
+mod skill_store;
 mod tool_cache;
 mod tools;
 mod tui;

@@ -67,4 +67,6 @@
 
 {{USER_MEMORY}}
 
+{{SKILLS}}
+
 {{USER_PROFILE}}

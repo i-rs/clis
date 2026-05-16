@@ -210,6 +210,7 @@ async fn stream_chat(
 fn build_system_prompt(
     tool_index: &str,
     hot_tools: &str,
+    skills: &str,
     user_memory: &str,
     user_profile: &str,
 ) -> String {
@@ -223,6 +224,7 @@ fn build_system_prompt(
 
     prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
     prompt = prompt.replace("{{HOT_TOOLS}}", hot_tools);
+    prompt = prompt.replace("{{SKILLS}}", skills);
     prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
     prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
 
@@ -244,6 +246,7 @@ pub fn build_messages(
     saved_api_messages: &Option<Vec<Value>>,
     tool_index: &str,
     hot_tools: &str,
+    skills: &str,
     user_memory: &str,
     user_profile: &str,
 ) -> Vec<Value> {
@@ -273,7 +276,7 @@ pub fn build_messages(
     // First turn: build from scratch
     let mut msgs = vec![serde_json::json!({
         "role": "system",
-        "content": build_system_prompt(tool_index, hot_tools, user_memory, user_profile)
+        "content": build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile)
     })];
 
     // Keep last ~8 display messages for context

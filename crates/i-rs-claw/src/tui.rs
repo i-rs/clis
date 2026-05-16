@@ -3,6 +3,7 @@ use crate::config::Config;
 use crate::llm::LlmEvent;
 use crate::memory::CrossSessionMemory;
 use crate::session::SessionManager;
+use crate::skill_store::SkillStore;
 use crate::tool_cache::ToolDocCache;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
@@ -30,6 +31,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // Initialize tool doc cache, session manager, and cross-session memory
     let claw_dir = claw_dir().join("claw");
     let tool_cache = ToolDocCache::new(claw_dir.clone());
+    let skill_store = SkillStore::new(claw_dir.clone());
     let mut session_mgr = SessionManager::new(claw_dir.clone());
     let mut cross_memory = CrossSessionMemory::new(claw_dir);
 
@@ -83,6 +85,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         &mut session_mgr,
         &mut cross_memory,
         &tool_cache,
+        &skill_store,
         &llm_tx,
         &mut llm_rx,
     );
@@ -110,6 +113,7 @@ fn main_loop(
     session_mgr: &mut SessionManager,
     cross_memory: &mut CrossSessionMemory,
     tool_cache: &ToolDocCache,
+    skill_store: &SkillStore,
     llm_tx: &mpsc::UnboundedSender<LlmEvent>,
     llm_rx: &mut mpsc::UnboundedReceiver<LlmEvent>,
 ) -> anyhow::Result<()> {
@@ -411,6 +415,7 @@ fn main_loop(
                                 &app.api_messages,
                                 &app.tool_index_text,
                                 &cross_memory.format_hot_tools(tool_cache),
+                                &skill_store.format_skills(),
                                 &cross_memory.format_user_memory(),
                                 &cross_memory.format_user_profile(),
                             );
