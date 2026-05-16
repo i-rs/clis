@@ -83,7 +83,8 @@ pub const TOOL_INDEX: &[(&str, &str)] = &[
 /// Format a compact tool index for system prompt Layer 2.
 /// If `enabled` is Some, only include tools in that set (empty set = all).
 pub fn format_index(enabled: Option<&HashSet<String>>) -> String {
-    let active: Vec<&(&str, &str)> = TOOL_INDEX.iter()
+    let active: Vec<&(&str, &str)> = TOOL_INDEX
+        .iter()
         .filter(|(name, _)| is_tool_enabled(name, enabled))
         .collect();
     let mut result = String::from("## 工具索引（");

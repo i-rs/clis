@@ -78,7 +78,7 @@ impl Config {
 
     #[allow(dead_code)]
     pub fn all_tools() -> Vec<(&'static str, &'static str)> {
-        crate::tools::search::TOOL_INDEX.to_vec()
+        crate::tools::TOOL_INDEX.to_vec()
     }
 }
 

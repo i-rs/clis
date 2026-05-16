@@ -299,30 +299,10 @@ fn execute_tool_call(
     name: &str,
     args: &Value,
 ) -> String {
-    match name {
-        "search_tools" => {
-            let query = args.get("query").and_then(|q| q.as_str()).unwrap_or("");
-            crate::tools::search::search(query)
-        }
-        "i_rs" => {
-            let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
-            let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
-            let cmd_args: Vec<String> = args
-                .get("args")
-                .and_then(|a| a.as_array())
-                .map(|a| {
-                    a.iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            match crate::tools::i_rs_cmd::execute(tool, cmd, &cmd_args) {
-                Ok(r) => r,
-                Err(e) => format!("错误: {}", e),
-            }
-        }
-        _ => format!("未知工具: {}", name),
+    let registry = crate::tools::ToolRegistry::new();
+    match registry.execute(name, args) {
+        Ok(r) => r,
+        Err(e) => format!("错误: {}", e),
     }
 }
 
@@ -337,7 +317,7 @@ pub async fn chat_loop(
     } else {
         Some(&config.enabled_tools)
     };
-    let tool_schemas = crate::tools::get_tool_schemas(enabled);
+    let tool_schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
     let mut msgs = messages;
 
     // Reuse HTTP client across retries

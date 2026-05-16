@@ -50,7 +50,7 @@ impl App {
         } else {
             Some(&config.enabled_tools)
         };
-        let tool_index_text = crate::tools::search::format_index(enabled);
+        let tool_index_text = crate::tools::format_index(enabled);
 
         Self {
             messages: Vec::new(),
