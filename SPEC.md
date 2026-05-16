@@ -199,7 +199,7 @@ pub use i_rs_core::utils::validation::{
 | 宏 | 作用 | 使用位置 |
 |----|------|----------|
 | `create_store!(Type, "name")` | 生成 load_store/save_store + export/import/clear | `storage/mod.rs` |
-| `skill_command!("crate")` | 生成 SkillCommand + handle_skill | `commands/skill.rs` |
+| `skill_command!("crate")` | 生成 SkillCommand (Subcommand) + handle_skill (返回 Result)，子命令: info/search/teach/install/summary/content/raw | `commands/skill.rs` |
 | `exit_on_error!(result, json)` | 统一错误处理 + JSON 输出 | `main.rs` |
 | `presentation!(RowType, "label")` | 生成标准 table/JSON/count 展示函数 | `presentation/mod.rs` |
 | `presentation!(RowType, "label", extra...)` | 同上，额外 re-export 其他函数 | `presentation/mod.rs` |
@@ -446,6 +446,32 @@ pub fn print_entry_count(count: usize) {
 
 ```rust
 i_rs_core::skill_command!("i-rs-xxx");
+```
+
+生成的 `SkillCommand` 支持以下子命令：
+
+| 子命令 | 功能 | 示例 |
+|--------|------|------|
+| `info` | 结构化元数据（name、description、命令列表） | `i-rs-kv skill info` |
+| `search <query>` | 在 skill 内容中搜索关键词 | `i-rs-kv skill search "key-value"` |
+| `teach` | 生成 AI 深度教学文档（含存储/api/生态） | `i-rs-kv skill teach` |
+| `install [path]` | 安装 SKILL.md 到目录（默认 stdout） | `i-rs-kv skill install ./skills/` |
+| `install --agent <name> [path]` | 按 Agent 格式安装 | `i-rs-kv skill install --agent claude ~/agents/` |
+| `summary` | 显示工具描述 | `i-rs-kv skill summary` |
+| `content` | 显示 YAML 前件之后的内容 | `i-rs-kv skill content` |
+| `raw` | 显示原始 SKILL.md（默认） | `i-rs-kv skill raw` |
+
+注意：handle_skill 返回 `anyhow::Result<()>`，不再使用 `parse_skill_arg()`。
+新模式的 Commands 枚举集成方式：
+```rust
+// Commands 枚举
+#[clap(subcommand)]
+Skill(commands::skill::SkillCommand),
+
+// Handler
+Commands::Skill(cmd) => {
+    handle_skill(&cmd)?;
+}
 ```
 
 ### 6.7 Data 命令（通用子命令）

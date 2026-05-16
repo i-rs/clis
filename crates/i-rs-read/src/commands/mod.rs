@@ -12,7 +12,7 @@ pub use delete::delete;
 pub use example::example;
 pub use get::get;
 pub use list::list;
-pub use skill::{handle_skill, parse_skill_arg};
+pub use skill::{handle_skill};
 pub use stats::stats;
 pub use update::update;
 

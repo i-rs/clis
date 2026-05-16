@@ -59,28 +59,136 @@ macro_rules! create_store {
 #[macro_export]
 macro_rules! skill_command {
     ($crate_name:literal) => {
-        use clap::Parser;
+        use clap::Subcommand;
 
-        #[derive(Parser, Debug)]
+        #[derive(Subcommand, Debug, Clone)]
         pub enum SkillCommand {
+            /// Show structured metadata (name, description, commands)
+            Info,
+            /// Search within the skill content
+            Search {
+                /// Search query (case-insensitive)
+                query: String,
+            },
+            /// Generate a comprehensive teaching prompt for AI agents
+            Teach,
+            /// Install the skill file to a directory
+            Install {
+                /// Target directory path (prints to stdout if omitted)
+                path: Option<String>,
+                /// Target AI agent (for install path shortcuts)
+                #[arg(short, long)]
+                agent: Option<String>,
+            },
+            /// Show tool description from SKILL.md
             Summary,
+            /// Show content after YAML frontmatter
             Content,
+            /// Show raw SKILL.md (default action when no subcommand given)
             Raw,
         }
 
         const SKILL_RAW: &str =
             include_str!(concat!("../../../../skills/", $crate_name, "/SKILL.md"));
 
-        pub fn handle_skill(which: Option<SkillCommand>) {
-            match which {
-                Some(SkillCommand::Summary) => {
+        pub fn handle_skill(cmd: &SkillCommand) -> ::anyhow::Result<()> {
+            match cmd {
+                SkillCommand::Info => {
+                    let name = extract_frontmatter_field(SKILL_RAW, "name")
+                        .unwrap_or($crate_name);
+                    let desc = extract_frontmatter_field(SKILL_RAW, "description")
+                        .unwrap_or("");
+                    let commands = extract_commands(SKILL_RAW);
+
+                    println!("Tool: {}", name);
+                    println!("Description: {}", desc);
+                    println!();
+                    println!("Commands ({} total):", commands.len());
+                    for (cmd_name, cmd_desc) in &commands {
+                        println!("  {} - {}", cmd_name, cmd_desc);
+                    }
+                }
+                SkillCommand::Search { query } => {
+                    let q = query.to_lowercase();
+                    let mut found = false;
+                    for (i, line) in SKILL_RAW.lines().enumerate() {
+                        if line.to_lowercase().contains(&q) {
+                            println!("{}: {}", i + 1, line);
+                            found = true;
+                        }
+                    }
+                    if !found {
+                        println!("No matches found for '{}'.", query);
+                    }
+                }
+                SkillCommand::Teach => {
+                    let name = extract_frontmatter_field(SKILL_RAW, "name")
+                        .unwrap_or($crate_name);
+                    let desc = extract_frontmatter_field(SKILL_RAW, "description")
+                        .unwrap_or("");
+                    let commands = extract_commands(SKILL_RAW);
+                    let data_file = concat!($crate_name, ".json")
+                        .trim_start_matches("i-rs-");
+
+                    println!("# {} — AI Teaching Document", name);
+                    println!();
+                    println!("## Tool Identity");
+                    println!("{}", desc);
+                    println!();
+                    println!("## Data Storage");
+                    println!(
+                        "- Config file: ~/.config/i-rs/{}",
+                        data_file
+                    );
+                    println!("-	Format: JSON with BTreeMap structure");
+                    println!("-	Override with CONFIG_DIR environment variable");
+                    println!();
+                    println!("## REST API Integration");
+                    println!("-	REST API available via i-rs-api server");
+                    println!("-	Default endpoint: http://localhost:8080");
+                    println!("-	Path: /api/{}", $crate_name);
+                    println!();
+                    println!("## Command Reference");
+                    println!("Total commands: {}", commands.len());
+                    println!();
+                    println!("{}", SKILL_RAW);
+                    println!();
+                    println!("## Ecosystem");
+                    println!("- Part of the i-rs CLI toolset (~70 tools)");
+                    println!("- Shared library: i-rs-core (Storage<T>, macros, presentation)");
+                    println!("- AI skill format: AgentSkills (agentskills.io)");
+                    println!("- All commands support --json for structured output");
+                    println!("- Error handling uses anyhow::Result pattern");
+                }
+                SkillCommand::Install { path, agent } => {
+                    let content = match agent.as_deref() {
+                        Some(a) => format!(
+                            "<!-- Installed from {} for agent: {} -->\n{}",
+                            $crate_name, a, SKILL_RAW
+                        ),
+                        None => SKILL_RAW.to_string(),
+                    };
+                    if let Some(p) = path {
+                        let dir = ::std::path::Path::new(&p);
+                        ::std::fs::create_dir_all(dir)?;
+                        let file_path = dir.join("SKILL.md");
+                        ::std::fs::write(&file_path, &content)?;
+                        println!(
+                            "Skill installed to: {}",
+                            file_path.display()
+                        );
+                    } else {
+                        println!("{}", content);
+                    }
+                }
+                SkillCommand::Summary => {
                     for line in SKILL_RAW.lines() {
                         if let Some(desc) = line
                             .strip_prefix("description:")
                             .or_else(|| line.strip_prefix("description :"))
                         {
                             println!("{}", desc.trim().trim_matches('"'));
-                            return;
+                            return Ok(());
                         }
                     }
                     // Fallback: print first non-frontmatter line
@@ -92,11 +200,11 @@ macro_rules! skill_command {
                             && !trimmed.starts_with("description:")
                         {
                             println!("{}", trimmed);
-                            return;
+                            return Ok(());
                         }
                     }
                 }
-                Some(SkillCommand::Content) => {
+                SkillCommand::Content => {
                     let mut in_frontmatter = true;
                     for line in SKILL_RAW.lines() {
                         if in_frontmatter {
@@ -108,15 +216,63 @@ macro_rules! skill_command {
                         println!("{}", line);
                     }
                 }
-                Some(SkillCommand::Raw) | None => {
+                SkillCommand::Raw => {
                     println!("{}", SKILL_RAW);
                 }
             }
+            Ok(())
+        }
+
+        /// Extract a field value from YAML frontmatter.
+        fn extract_frontmatter_field<'a>(content: &'a str, field: &str) -> Option<&'a str> {
+            let mut in_frontmatter = false;
+            for line in content.lines() {
+                if line.trim() == "---" {
+                    if in_frontmatter {
+                        break; // End of frontmatter
+                    }
+                    in_frontmatter = true; // Start of frontmatter
+                    continue;
+                }
+                if !in_frontmatter {
+                    continue;
+                }
+                if let Some(val) = line
+                    .strip_prefix(&format!("{}:", field))
+                    .or_else(|| line.strip_prefix(&format!("{} :", field)))
+                {
+                    return Some(val.trim().trim_matches('"'));
+                }
+            }
+            None
+        }
+
+        /// Extract command names and descriptions from ### headings.
+        fn extract_commands(content: &str) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
+            let mut commands = ::std::vec::Vec::new();
+            let mut in_frontmatter = true;
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if in_frontmatter {
+                    if trimmed == "---" {
+                        in_frontmatter = false;
+                    }
+                    continue;
+                }
+                if let Some(name) = trimmed.strip_prefix("### ") {
+                    commands.push((name.to_string(), ::std::string::String::new()));
+                }
+            }
+            commands
         }
 
         /// Parse a skill subcommand argument. Returns `None` for empty input
         /// (show raw), `Some(cmd)` for valid subcommands, and exits with an
         /// error for invalid input.
+        ///
+        /// Note: This is deprecated. Use `#[clap(subcommand)] Skill(SkillCommand)`
+        /// in the Commands enum instead.
         pub fn parse_skill_arg(sub: Option<&str>) -> Option<SkillCommand> {
             match sub {
                 Some("summary") => Some(SkillCommand::Summary),

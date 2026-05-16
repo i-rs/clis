@@ -4,7 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use commands::{handle_skill, parse_skill_arg};
+use commands::{handle_skill};
 use i_rs_core::presentation::OutputFormat;
 
 #[derive(Parser, Debug)]
@@ -73,10 +73,8 @@ enum Commands {
     #[command(about = "Show usage examples")]
     Example,
     #[command(about = "Show skill documentation")]
-    Skill {
-        #[arg(value_name = "SUB_COMMAND")]
-        sub: Option<String>,
-    },
+    #[clap(subcommand)]
+    Skill(commands::skill::SkillCommand),
     #[clap(subcommand)]
     Data(commands::data::DataCommand),
 }
@@ -200,8 +198,8 @@ fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
         Commands::Example => {
             commands::example();
         }
-        Commands::Skill { sub } => {
-            handle_skill(parse_skill_arg(sub.as_deref()));
+        Commands::Skill(cmd) => {
+            handle_skill(&cmd)?;
         }
         Commands::Data(commands) => commands::data::handle(&commands)?,
     }

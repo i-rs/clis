@@ -7,6 +7,6 @@ pub mod skill;
 pub mod stats;
 pub mod update;
 
-pub use skill::{handle_skill, parse_skill_arg};
+pub use skill::{handle_skill};
 
 pub mod data;

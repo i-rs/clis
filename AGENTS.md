@@ -315,7 +315,7 @@ pub use i_rs_core::utils::validation::{
 | `Storage<T>` | Generic JSON file persistence |
 | `create_store!` | Generates `load_store()` + `save_store()` |
 | `render_table()` | Consistent table styling (cyan borders, green rows) |
-| `skill_command!` | Generates `SkillCommand` enum + `handle_skill()` |
+| `skill_command!` | Generates `SkillCommand` (clap Subcommand) + `handle_skill(&SkillCommand) -> Result<()>` with info/search/teach/install/summary/content/raw subcommands |
 | `exit_on_error!` | Unified error handling with JSON support |
 | `print_error/success/header/warning` | Colored output helpers |
 | `output_list/item/error` | JSON response formatting |
@@ -550,6 +550,15 @@ pub fn handle(command: &DataCommand) -> anyhow::Result<()> { ... }
 ```rust
 i_rs_core::skill_command!("i-rs-my-entity");
 ```
+
+Generated `SkillCommand` subcommands:
+- `info`: Structured metadata
+- `search <query>`: Search within skill content
+- `teach`: Generate AI teaching document
+- `install [--agent] [path]`: Install skill file
+- `summary`: Show description
+- `content`: Show body after frontmatter
+- `raw`: Show raw SKILL.md (default)
 
 ### main.rs Error Handling
 ```rust

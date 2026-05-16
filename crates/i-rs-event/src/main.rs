@@ -4,7 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::Parser;
-use commands::{handle_skill, parse_skill_arg};
+use commands::{handle_skill};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "i-rs-event")]
@@ -42,10 +42,8 @@ pub enum Commands {
     Example(commands::example::ExampleArgs),
 
     #[command(about = "Show AI skill documentation")]
-    Skill {
-        #[arg(value_name = "SUB_COMMAND")]
-        sub: Option<String>,
-    },
+    #[clap(subcommand)]
+    Skill(commands::skill::SkillCommand),
     #[clap(subcommand)]
     Data(commands::data::DataCommand),
 }
@@ -64,8 +62,8 @@ fn run(command: Commands, json: bool) -> anyhow::Result<()> {
         Commands::Update(args) => commands::update::run(&args, json),
         Commands::Stats(args) => commands::stats::run(&args, json),
         Commands::Example(args) => commands::example::run(&args, json),
-        Commands::Skill { sub } => {
-            handle_skill(parse_skill_arg(sub.as_deref()));
+        Commands::Skill(cmd) => {
+            handle_skill(&cmd)?;
             Ok(())
         }
         Commands::Data(commands) => commands::data::handle(&commands),

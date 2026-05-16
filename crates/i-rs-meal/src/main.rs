@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use commands::{
     handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
-    parse_skill_arg,
 };
 use presentation::OutputFormat;
 
@@ -52,10 +51,8 @@ enum Commands {
         date: Option<String>,
     },
     Example {},
-    Skill {
-        #[arg(value_name = "SUB_COMMAND")]
-        sub: Option<String>,
-    },
+    #[clap(subcommand)]
+    Skill(commands::skill::SkillCommand),
     #[clap(subcommand)]
     Data(commands::data::DataCommand),
 }
@@ -95,8 +92,8 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Example {} => {
             handle_example();
         }
-        Commands::Skill { sub } => {
-            handle_skill(parse_skill_arg(sub.as_deref()));
+        Commands::Skill(cmd) => {
+            handle_skill(&cmd)?;
         }
         Commands::Data(commands) => commands::data::handle(&commands)?,
     }
