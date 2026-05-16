@@ -4,6 +4,18 @@ use serde_json::Value;
 use std::collections::HashSet;
 use tokio::sync::mpsc;
 
+/// Safe UTF-8 truncation: cut string at a char boundary, max `max_bytes` bytes.
+fn truncate(s: &str, max_bytes: usize) -> &str {
+    let max = max_bytes.min(s.len());
+    let bound = s
+        .char_indices()
+        .take_while(|(i, _)| *i < max)
+        .last()
+        .map(|(i, c)| i + c.len_utf8())
+        .unwrap_or(0);
+    &s[..bound]
+}
+
 #[derive(Debug)]
 pub enum LlmEvent {
     /// A text token from the streaming response
@@ -33,7 +45,7 @@ struct ToolCallAcc {
 
 enum StreamResult {
     Text,
-    ToolCalls(Vec<(ToolCallAcc, Value)>),
+    ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content
 }
 
 /// Stream chat completion and parse SSE events
@@ -75,6 +87,7 @@ async fn stream_chat(
     let mut buf = String::new();
     let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
     let mut finish_reason = String::new();
+    let mut reasoning_buf = String::new(); // accumulate DeepSeek reasoning_content
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
@@ -104,6 +117,11 @@ async fn stream_chat(
                             }
 
                             if let Some(delta) = choice.get("delta") {
+                                // Accumulate reasoning_content (DeepSeek requires echoing it back)
+                                if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
+                                    reasoning_buf.push_str(rc);
+                                }
+
                                 // Text content
                                 if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
                                     if !text.is_empty() {
@@ -164,7 +182,7 @@ async fn stream_chat(
                 args,
             ));
         }
-        return Ok(StreamResult::ToolCalls(parsed));
+        return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
     }
 
     Ok(StreamResult::Text)
@@ -326,7 +344,7 @@ pub async fn chat_loop(
                 let _ = tx.send(LlmEvent::Done(msgs.clone()));
                 break;
             }
-            Ok(StreamResult::ToolCalls(calls)) => {
+            Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
                 // Add assistant message with tool_calls to history
                 let tool_calls_array: Vec<Value> = calls
                     .iter()
@@ -342,11 +360,16 @@ pub async fn chat_loop(
                     })
                     .collect();
 
-                msgs.push(serde_json::json!({
+                let mut assistant_msg = serde_json::json!({
                     "role": "assistant",
                     "content": null,
                     "tool_calls": tool_calls_array,
-                }));
+                });
+                // DeepSeek requires reasoning_content to be echoed back
+                if !reasoning_content.is_empty() {
+                    assistant_msg["reasoning_content"] = Value::String(reasoning_content);
+                }
+                msgs.push(assistant_msg);
 
                 // Execute each tool call with learned-tools constraint
                 for (tc, args) in &calls {
@@ -368,7 +391,7 @@ pub async fn chat_loop(
                         name: tc.name.clone(),
                         args: format!("{:?}", args),
                         result: if result.len() > 200 {
-                            format!("{}...(truncated)", &result[..200])
+                            format!("{}...(truncated)", truncate(&result, 200))
                         } else {
                             result.clone()
                         },
@@ -376,7 +399,7 @@ pub async fn chat_loop(
 
                     // Add tool result to conversation history
                     let trimmed = if result.len() > 500 {
-                        format!("{}...(truncated)", &result[..500])
+                        format!("{}...(truncated)", truncate(&result, 500))
                     } else {
                         result.clone()
                     };
