@@ -23,6 +23,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "NAME")]
         name: String,
@@ -43,14 +44,17 @@ enum Commands {
         #[arg(long)]
         remark: Vec<String>,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "NAME")]
         name: String,
     },
+    /// Get an entry by id
     Get {
         #[arg(value_name = "NAME")]
         name: String,
     },
+    /// List all entries
     List {
         #[arg(long)]
         watched: bool,
@@ -59,6 +63,7 @@ enum Commands {
         #[arg(short, long)]
         tag: Option<String>,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "NAME")]
         name: String,
@@ -77,6 +82,7 @@ enum Commands {
         #[arg(long)]
         remark: Option<Vec<String>>,
     },
+    /// Record a watching entry
     Watch {
         #[arg(value_name = "NAME")]
         name: String,
@@ -85,7 +91,9 @@ enum Commands {
         #[arg(long)]
         review: Option<Vec<String>>,
     },
+    /// Show statistics
     Stats {},
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

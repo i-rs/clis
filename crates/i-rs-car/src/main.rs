@@ -21,6 +21,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "NAME")]
         name: String,
@@ -37,10 +38,12 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// List all entries
     List {
         #[arg(short, long)]
         car: Option<String>,
     },
+    /// Get an entry by id
     Get {
         #[arg(value_name = "NAME")]
         name: String,
@@ -49,6 +52,7 @@ enum Commands {
         #[arg(short, long)]
         maintain: bool,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "NAME")]
         name: String,
@@ -69,12 +73,14 @@ enum Commands {
         #[arg(short, long)]
         add_remark: Vec<String>,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "NAME")]
         name: String,
         #[arg(short, long)]
         force: bool,
     },
+    /// Record a fuel fill
     Fuel {
         #[arg(help = "Car name")]
         #[arg(value_name = "CAR")]
@@ -94,6 +100,7 @@ enum Commands {
         #[arg(short = 'n', long)]
         note: Option<String>,
     },
+    /// Add a maintenance record
     Maintain {
         #[arg(help = "Car name")]
         #[arg(value_name = "CAR")]
@@ -113,10 +120,12 @@ enum Commands {
         #[arg(short = 'n', long)]
         note: Option<String>,
     },
+    /// Show statistics
     Stats {
         #[arg(short, long)]
         car: Option<String>,
     },
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

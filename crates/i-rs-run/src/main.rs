@@ -24,6 +24,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "DATE")]
         date: String,
@@ -40,15 +41,19 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// List all entries
     List {},
+    /// Get an entry by id
     Get {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "ID")]
         id: String,
@@ -67,7 +72,9 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
+    /// Show statistics
     Stats {},
+    /// Add a running plan
     PlanAdd {
         #[arg(value_name = "NAME")]
         name: String,
@@ -82,15 +89,19 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// List running plans
     PlanList {},
+    /// Get a running plan
     PlanGet {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Delete a running plan
     PlanDelete {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

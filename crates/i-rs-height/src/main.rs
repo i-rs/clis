@@ -23,6 +23,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "DATE")]
         date: String,
@@ -35,14 +36,17 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "DATE")]
         date: String,
     },
+    /// Get an entry by id
     Get {
         #[arg(value_name = "DATE")]
         date: String,
     },
+    /// List all entries
     List {
         #[arg(short = 'd', long)]
         days: Option<usize>,
@@ -51,11 +55,14 @@ enum Commands {
         #[arg(short = 's', long)]
         stats: bool,
     },
+    /// Set a configuration value
     Set {
         #[arg(value_name = "HEIGHT")]
         target: f64,
     },
+    /// Manage savings targets
     Target {},
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

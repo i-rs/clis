@@ -24,6 +24,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "NAME")]
         name: String,
@@ -38,20 +39,24 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "NAME")]
         name: String,
     },
+    /// Get an entry by id
     Get {
         #[arg(value_name = "NAME")]
         name: String,
     },
+    /// List all entries
     List {
         #[arg(short = 't', long)]
         tag: Option<String>,
         #[arg(short = 's', long)]
         status: Option<String>,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "NAME")]
         name: String,
@@ -66,15 +71,19 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
+    /// Show statistics
     Stats {},
+    /// Add a milestone
     Milestone {
         #[command(subcommand)]
         command: MilestoneCommand,
     },
+    /// Manage tasks
     Task {
         #[command(subcommand)]
         command: TaskCommand,
     },
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

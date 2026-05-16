@@ -24,6 +24,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "PROJECT")]
         project: String,
@@ -40,10 +41,12 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// List all entries
     List {
         #[arg(long)]
         project: Option<String>,
@@ -52,10 +55,12 @@ enum Commands {
         #[arg(short, long)]
         tag: Option<String>,
     },
+    /// Get an entry by id
     Get {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "ID")]
         id: String,
@@ -66,6 +71,7 @@ enum Commands {
         #[arg(short, long, help = "New remarks")]
         remark: Option<Vec<String>>,
     },
+    /// Rollback to a previous deployment
     Rollback {
         #[arg(value_name = "PROJECT")]
         project: String,
@@ -74,12 +80,14 @@ enum Commands {
         #[arg(long)]
         rollback_to: Option<String>,
     },
+    /// Show statistics
     Stats {
         #[arg(long)]
         project: Option<String>,
         #[arg(long)]
         env: Option<String>,
     },
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

@@ -23,6 +23,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Start tracking
     Start {
         #[arg(value_name = "NAME")]
         name: String,
@@ -31,15 +32,19 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// Stop tracking
     Stop {},
+    /// List all entries
     List {
         #[arg(short, long)]
         tag: Option<String>,
     },
+    /// Show statistics
     Stats {
         #[arg(value_name = "PERIOD")]
         period: String,
     },
+    /// Generate a report
     Report {
         #[arg(short, long)]
         start: Option<String>,
@@ -48,14 +53,17 @@ enum Commands {
         #[arg(short, long)]
         days: Option<i64>,
     },
+    /// Get an entry by id
     Get {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Delete an entry
     Delete {
         #[arg(value_name = "ID")]
         id: String,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "ID")]
         id: String,
@@ -66,6 +74,7 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),

@@ -23,6 +23,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new entry
     Add {
         #[arg(value_name = "CATEGORY")]
         category: String,
@@ -35,6 +36,7 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// Add an expense
     Expense {
         #[arg(value_name = "CATEGORY")]
         category: String,
@@ -47,24 +49,28 @@ enum Commands {
         #[arg(short, long)]
         tags: Vec<String>,
     },
+    /// List all entries
     List {
         #[arg(value_name = "TYPE")]
         list_type: Option<String>,
         #[arg(short = 'c', long)]
         category: Option<String>,
     },
+    /// Show statistics
     Stats {
         #[arg(short = 'c', long)]
         category: Option<String>,
         #[arg(short, long)]
         period: Option<String>,
     },
+    /// Get an entry by id
     Get {
         #[arg(short = 'c', long)]
         category: Option<String>,
         #[arg(short, long)]
         expense_id: Option<String>,
     },
+    /// Update an entry
     Update {
         #[arg(value_name = "CATEGORY")]
         category: String,
@@ -77,12 +83,14 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
+    /// Delete an entry
     Delete {
         #[arg(short = 'c', long)]
         category: Option<String>,
         #[arg(short, long)]
         expense_id: Option<String>,
     },
+    /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),
