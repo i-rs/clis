@@ -4,6 +4,10 @@
 
 ## 精选文章
 
+### [同一份数据，两个入口 — CLI 与 API 的共享存储层](./shared-storage-layer)
+
+深入 i-rs 最独特的架构设计：CLI 和 REST API 读写同一个 JSON 文件。拆解 `Storage<T>`、`SharedStore<T>`、`make_app_tools!` 三层架构，看 70 个工具如何在不依赖数据库的情况下实现数据统一。
+
 ### [i-rs 内置 Skill 系统 — CLI 工具的 AI 自我介绍](./built-in-skill-system)
 
 全面解读 i-rs 最具特色的能力：一个宏注入 70+ 工具，7 个 skill 子命令覆盖教学、检索、分发全流程，编译时嵌入、AgentSkills 标准兼容、从 `--help` 就开始的 AI 体验。
