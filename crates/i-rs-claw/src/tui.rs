@@ -464,7 +464,7 @@ fn main_loop(
                         }
                         app.show_session_list = false;
                     }
-                    KeyCode::Enter if !app.show_session_list => {
+                    KeyCode::Enter => {
                         if !app.input.is_empty() && !app.is_processing() {
                             let text = std::mem::take(&mut app.input);
                             app.input_cursor = 0;
