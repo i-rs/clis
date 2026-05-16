@@ -104,18 +104,25 @@ impl CrossSessionMemory {
     }
 
     /// Set user's name
-    #[allow(dead_code)]
     pub fn set_user_name(&mut self, name: &str) {
         self.user_name = Some(name.to_string());
         self.save();
     }
 
     /// Add a user info fact (deduplicated).
-    #[allow(dead_code)]
     pub fn add_user_info(&mut self, info: &str) {
         let p = info.to_string();
         if !self.user_info.contains(&p) {
             self.user_info.push(p);
+            self.save();
+        }
+    }
+
+    /// Add a user preference (deduplicated).
+    pub fn add_preference(&mut self, pref: &str) {
+        let p = pref.to_string();
+        if !self.preferences.contains(&p) {
+            self.preferences.push(p);
             self.save();
         }
     }

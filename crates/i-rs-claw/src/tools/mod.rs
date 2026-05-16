@@ -1,6 +1,7 @@
 pub mod i_rs;
 pub mod index;
 pub mod search_tools;
+pub mod user_memory;
 
 use serde_json::Value;
 use std::collections::HashSet;
@@ -39,6 +40,7 @@ impl ToolRegistry {
             tools: vec![
                 Box::new(i_rs::IrsTool),
                 Box::new(search_tools::SearchToolsTool),
+                Box::new(user_memory::UserMemoryTool),
             ],
         }
     }

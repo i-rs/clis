@@ -135,6 +135,44 @@ fn main_loop(
                 } => {
                     app.add_tool_call(&name, &args, &result);
 
+                    // Save user information from update_user_memory tool
+                    if name == "update_user_memory" {
+                        if let Ok(parsed) =
+                            serde_json::from_str::<serde_json::Value>(&args)
+                        {
+                            if let Some(user_name) = parsed
+                                .get("user_name")
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                            {
+                                cross_memory.set_user_name(user_name);
+                            }
+                            if let Some(info) =
+                                parsed.get("user_info").and_then(|v| v.as_array())
+                            {
+                                for item in info {
+                                    if let Some(s) =
+                                        item.as_str().filter(|s| !s.is_empty())
+                                    {
+                                        cross_memory.add_user_info(s);
+                                    }
+                                }
+                            }
+                            if let Some(prefs) = parsed
+                                .get("preferences")
+                                .and_then(|v| v.as_array())
+                            {
+                                for item in prefs {
+                                    if let Some(s) =
+                                        item.as_str().filter(|s| !s.is_empty())
+                                    {
+                                        cross_memory.add_preference(s);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Record tool usage for cross-session memory
                     if name == "i_rs" {
                         if let Ok(parsed) =
