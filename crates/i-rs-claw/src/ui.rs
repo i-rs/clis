@@ -48,6 +48,13 @@ pub fn render(f: &mut Frame, app: &App) {
     if app.show_session_list {
         render_session_list(f, area, app);
     }
+
+    // Request body overlay (rendered on top of everything)
+    if let Some(idx) = app.sidebar_body_idx {
+        if let Some(log) = app.http_logs.get(idx) {
+            render_request_body(f, area, &log.request_body, idx, app.http_logs.len());
+        }
+    }
 }
 
 fn render_title(f: &mut Frame, area: Rect, app: &App) {
@@ -401,6 +408,77 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(list, popup_area);
 }
 
+/// Overlay showing the full request body JSON for a debug log entry.
+fn render_request_body(f: &mut Frame, area: Rect, body_json: &str, idx: usize, total: usize) {
+    let popup_width = (area.width as f32 * 0.85) as u16;
+    let popup_height = (area.height as f32 * 0.8) as u16;
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    // Pretty-print the body JSON if possible
+    let formatted = if let Ok(val) = serde_json::from_str::<serde_json::Value>(body_json) {
+        serde_json::to_string_pretty(&val).unwrap_or_else(|_| body_json.to_string())
+    } else {
+        body_json.to_string()
+    };
+
+    let inner_w = (popup_width as usize).saturating_sub(4).max(20);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Header
+    lines.push(Line::from(Span::styled(
+        format!("  🔍 Request Body ({}/{} - Esc to close)", idx + 1, total),
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(Span::styled(
+        "  ────────────────────────────────────────",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    // JSON body lines with basic syntax coloring
+    for line in formatted.lines() {
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let wrapped = if unicode_width::UnicodeWidthStr::width(trimmed) > inner_w {
+            wrap_text(trimmed, inner_w)
+        } else {
+            vec![trimmed.to_string()]
+        };
+        for w in wrapped {
+            let color = if w.contains('"') && w.trim_start().starts_with('"') {
+                // Key names
+                Color::Green
+            } else if w.contains('"') {
+                // String values
+                Color::Yellow
+            } else if w.contains('{') || w.contains('}') {
+                // Brackets
+                Color::DarkGray
+            } else {
+                // Numbers, booleans, null
+                Color::Cyan
+            };
+            lines.push(Line::from(Span::styled(
+                format!("  {}", w),
+                Style::default().fg(color),
+            )));
+        }
+    }
+
+    let list = List::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
 fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
     // Sidebar block with border
     let block = Block::default()
@@ -425,10 +503,18 @@ fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
     let max_lines = inner.height as usize;
     let side_width = inner.width as usize;
 
-    for log in &app.http_logs {
+    for (i, log) in app.http_logs.iter().enumerate() {
         if items.len() >= max_lines {
             break;
         }
+
+        let is_selected = i == app.sidebar_selected;
+        let select_prefix = if is_selected { " ▶" } else { "  " };
+        let select_fg = if is_selected {
+            Color::Cyan
+        } else {
+            Color::White
+        };
 
         let (status_icon, status_color) = if log.error.is_some() {
             ("✗", Color::Red)
@@ -444,9 +530,22 @@ fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
             format!("{}ms", log.duration_ms)
         };
 
-        // Line 1: timestamp + status
+        // Count messages in request body
+        let msg_count = if let Ok(v) =
+            serde_json::from_str::<serde_json::Value>(&log.request_body)
+        {
+            v["messages"]
+                .as_array()
+                .map(|a| a.len())
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
+        // Line 1: selection indicator + timestamp + status
         items.push(ListItem::new(vec![
             Line::from(vec![
+                Span::styled(select_prefix, Style::default().fg(select_fg).add_modifier(Modifier::BOLD)),
                 Span::styled(
                     format!(" {} ", log.timestamp),
                     Style::default().fg(Color::DarkGray),
@@ -456,20 +555,20 @@ fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
                     Style::default().fg(status_color).add_modifier(Modifier::BOLD),
                 ),
             ]),
-            // Line 2: duration + model + tokens
+            // Line 2: duration + model
             Line::from(vec![
                 Span::styled(
                     format!(" {} ", duration_fmt),
                     Style::default().fg(Color::Yellow),
                 ),
                 Span::styled(
-                    truncate_str(&log.model, side_width.saturating_sub(12)),
+                    truncate_str(&log.model, side_width.saturating_sub(10)),
                     Style::default().fg(Color::Cyan),
                 ),
             ]),
         ]));
 
-        // Token stats line (if available)
+        // Token stats line
         if log.prompt_tokens > 0 || log.completion_tokens > 0 {
             items.push(ListItem::new(vec![Line::from(Span::styled(
                 format!(
@@ -479,6 +578,22 @@ fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(Color::Rgb(140, 140, 160)),
             ))]));
         }
+
+        // Messages count & Enter hint
+        items.push(ListItem::new(vec![Line::from(vec![
+            Span::styled(
+                format!("   📝 {} msgs", msg_count),
+                Style::default().fg(Color::Rgb(140, 140, 160)),
+            ),
+            if is_selected {
+                Span::styled(
+                    "  <Enter>",
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::raw("")
+            },
+        ])]));
 
         // Error detail line
         if let Some(err) = &log.error {

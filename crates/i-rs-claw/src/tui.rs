@@ -210,6 +210,7 @@ fn main_loop(
                     prompt_tokens,
                     completion_tokens,
                     error,
+                    request_body,
                 } => {
                     app.add_http_log(app::HttpLog {
                         timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
@@ -219,6 +220,7 @@ fn main_loop(
                         prompt_tokens,
                         completion_tokens,
                         error,
+                        request_body,
                     });
                 }
                 LlmEvent::Done(msgs, usage) => {
@@ -344,8 +346,32 @@ fn main_loop(
                     KeyCode::Esc if app.show_session_list => {
                         app.show_session_list = false;
                     }
+                    KeyCode::Esc if app.show_sidebar && app.sidebar_body_idx.is_some() => {
+                        // Close body overlay, keep sidebar open
+                        app.sidebar_body_idx = None;
+                    }
                     KeyCode::Esc if app.show_sidebar => {
                         app.show_sidebar = false;
+                    }
+                    KeyCode::Up
+                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_none() =>
+                    {
+                        app.sidebar_selected = app.sidebar_selected.saturating_sub(1);
+                    }
+                    KeyCode::Down
+                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_none() =>
+                    {
+                        let max = app.http_logs.len().saturating_sub(1);
+                        if app.sidebar_selected < max {
+                            app.sidebar_selected += 1;
+                        }
+                    }
+                    KeyCode::Enter
+                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_none() =>
+                    {
+                        if !app.http_logs.is_empty() {
+                            app.sidebar_body_idx = Some(app.sidebar_selected);
+                        }
                     }
                     KeyCode::Up if app.show_session_list => {
                         app.session_list_index =
@@ -358,7 +384,7 @@ fn main_loop(
                         }
                     }
                     KeyCode::Up
-                        if !app.show_session_list && !app.is_processing() =>
+                        if !app.show_session_list && !app.show_sidebar && !app.is_processing() =>
                     {
                         if app.input.is_empty() {
                             app.scroll_up();
@@ -368,7 +394,7 @@ fn main_loop(
                         }
                     }
                     KeyCode::Down
-                        if !app.show_session_list && !app.is_processing() =>
+                        if !app.show_session_list && !app.show_sidebar && !app.is_processing() =>
                     {
                         if app.input.is_empty() {
                             app.scroll_down();

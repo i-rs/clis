@@ -39,6 +39,7 @@ pub enum LlmEvent {
         prompt_tokens: u32,
         completion_tokens: u32,
         error: Option<String>,
+        request_body: String,
     },
 }
 
@@ -74,6 +75,8 @@ async fn stream_chat(
         body["tools"] = Value::Array(tool_schemas.to_vec());
         body["parallel_tool_calls"] = serde_json::Value::Bool(false);
     }
+
+    let body_json = serde_json::to_string(&body).unwrap_or_default();
 
     let url = format!("{}/chat/completions", config.base_url);
     let response = client
@@ -196,6 +199,7 @@ async fn stream_chat(
             prompt_tokens,
             completion_tokens,
             error: None,
+            request_body: body_json.clone(),
         });
 
         if finish_reason == "tool_calls" && !tool_calls.is_empty()
@@ -228,6 +232,7 @@ async fn stream_chat(
             prompt_tokens: 0,
             completion_tokens: 0,
             error: Some(format!("HTTP {}: {}", status, text)),
+            request_body: body_json.clone(),
         });
         return Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text));
     }

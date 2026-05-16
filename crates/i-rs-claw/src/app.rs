@@ -11,6 +11,7 @@ pub struct HttpLog {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     pub error: Option<String>,   // non-empty on failure
+    pub request_body: String,    // assembled JSON body sent to LLM
 }
 
 #[derive(Clone)]
@@ -59,6 +60,10 @@ pub struct App {
     pub show_sidebar: bool,
     /// HTTP request logs (newest first)
     pub http_logs: Vec<HttpLog>,
+    /// Selected index in the sidebar
+    pub sidebar_selected: usize,
+    /// If set, shows the full request body for this log entry
+    pub sidebar_body_idx: Option<usize>,
 }
 
 impl App {
@@ -89,6 +94,8 @@ impl App {
             scroll_offset: 0,
             show_sidebar: false,
             http_logs: Vec::new(),
+            sidebar_selected: 0,
+            sidebar_body_idx: None,
         }
     }
 
@@ -317,5 +324,7 @@ impl App {
         self.input_history_index = None;
         self.show_sidebar = false;
         self.http_logs.clear();
+        self.sidebar_selected = 0;
+        self.sidebar_body_idx = None;
     }
 }
