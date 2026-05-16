@@ -157,44 +157,91 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_status(f: &mut Frame, area: Rect, app: &App) {
-    // Format token usage display
-    let token_str = match &app.token_usage {
-        Some(usage) => format!("tok: {}p+{}c", usage.prompt_tokens, usage.completion_tokens),
-        None => String::new(),
-    };
-
-    let status_info = if app.is_processing() {
-        format!(
-            " ⏳ {} | tools: {} | msgs: {} | {} | Ctrl+Q quit | Ctrl+N new | Ctrl+L sessions",
-            app.status_text,
-            app.tool_call_count,
-            app.messages.len(),
-            token_str,
-        )
-    } else {
-        format!(
-            " ● 就绪 | {} | tools: {} | msgs: {} | {} | Ctrl+Q quit | Ctrl+N new | Ctrl+L sessions",
-            app.config.model,
-            app.tool_call_count,
-            app.messages.len(),
-            token_str,
-        )
-    };
-
     let bg = if app.is_processing() {
         Color::Blue
     } else {
-        Color::DarkGray
+        Color::Rgb(30, 30, 46)
     };
 
-    let status = Line::from(Span::styled(
-        status_info,
-        Style::default()
-            .fg(Color::White)
-            .bg(bg)
-            .add_modifier(Modifier::DIM),
+    // Fill full-width background
+    f.render_widget(
+        ratatui::widgets::Block::default()
+            .style(Style::default().bg(bg)),
+        area,
+    );
+
+    let mut spans: Vec<Span> = Vec::new();
+
+    if app.is_processing() {
+        // Processing state
+        spans.push(Span::styled(
+            format!(" ⏳ {} ", app.status_text),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ));
+    } else {
+        // Idle state — green dot + bold
+        spans.push(Span::styled(
+            " ● ",
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled(
+            "就绪 ",
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled(
+            format!("{} ", app.config.model),
+            Style::default().fg(Color::Cyan),
+        ));
+    }
+
+    // Separator
+    spans.push(Span::styled(
+        "│ ",
+        Style::default().fg(Color::Rgb(80, 80, 100)),
     ));
-    f.render_widget(status, area);
+
+    // Tool & message stats
+    spans.push(Span::styled(
+        format!("⚙ {} ", app.tool_call_count),
+        Style::default().fg(Color::Cyan),
+    ));
+    spans.push(Span::styled(
+        format!("💬 {} ", app.messages.len()),
+        Style::default().fg(Color::Cyan),
+    ));
+
+    // Token usage
+    if let Some(usage) = &app.token_usage {
+        spans.push(Span::styled(
+            "│ ",
+            Style::default().fg(Color::Rgb(80, 80, 100)),
+        ));
+        spans.push(Span::styled(
+            format!("tok: {}p+{}c ", usage.prompt_tokens, usage.completion_tokens),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+
+    // Keybindings (right side)
+    spans.push(Span::styled(
+        "│ ",
+        Style::default().fg(Color::Rgb(80, 80, 100)),
+    ));
+    spans.push(Span::styled(
+        "Ctrl+Q ",
+        Style::default().fg(Color::Rgb(140, 140, 160)),
+    ));
+    spans.push(Span::styled(
+        "Ctrl+N  ",
+        Style::default().fg(Color::Rgb(140, 140, 160)),
+    ));
+    spans.push(Span::styled(
+        "Ctrl+L",
+        Style::default().fg(Color::Rgb(140, 140, 160)),
+    ));
+
+    let line = Line::from(spans);
+    f.render_widget(line, area);
 }
 
 /// Centered overlay showing the session list for switching conversations.
