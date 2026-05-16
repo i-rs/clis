@@ -7,7 +7,6 @@ use ratatui::{
 };
 
 use crate::app::{App, Message};
-use crate::utils;
 
 pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
@@ -820,6 +819,244 @@ fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     lines
 }
 
+/// Check if a string contains ANSI escape codes.
+fn has_ansi(text: &str) -> bool {
+    text.contains("\x1b[")
+}
+
+/// Parse ANSI-colored text into ratatui Lines with proper styling.
+/// Strips ANSI codes and wraps text to fit max_width.
+fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
+    let plain = strip_ansi(text);
+    let wrapped = wrap_text(&plain, max_width.saturating_sub(3));
+
+    // For each wrapped line, create a Line with colored Spans
+    let mut lines = Vec::new();
+    for w in &wrapped {
+        let spans = parse_ansi_line(text, &plain, w, &wrapped);
+        lines.push(Line::from(if spans.is_empty() {
+            vec![Span::styled(
+                format!("   {}", w),
+                Style::default().fg(Color::White),
+            )]
+        } else {
+            let mut result = vec![Span::raw("   ")];
+            result.extend(spans);
+            result
+        }));
+    }
+    lines
+}
+
+/// Strip ANSI escape codes from a string.
+fn strip_ansi(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' && chars.next() == Some('[') {
+            // Skip until we find a letter (end of escape sequence)
+            for esc_c in &mut chars {
+                if esc_c.is_ascii_alphabetic() || esc_c == '~' {
+                    break;
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+/// Parse ANSI codes from `raw` and produce Spans for the given `line` text.
+/// `line` is a wrapped segment of the plain-text version.
+fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String]) -> Vec<Span<'static>> {
+    // Locate this line in the plain text
+    let line_start = match plain.find(line) {
+        Some(i) => i,
+        None => return vec![],
+    };
+
+    // Build the segment: find the range in `raw` that corresponds to `line` in `plain`.
+    // Map byte positions in `plain` to byte positions in `raw` (accounting for ANSI codes).
+    let raw_bytes = raw.as_bytes();
+    let plain_bytes = plain.as_bytes();
+
+    // Find the byte in raw that corresponds to line_start in plain
+    let mut raw_pos = 0usize;
+    let mut plain_pos = 0usize;
+    let mut raw_start = None;
+    let mut raw_end = 0;
+
+    while raw_pos < raw_bytes.len() && plain_pos < plain_bytes.len() {
+        if raw_bytes[raw_pos] == b'\x1b' && raw_pos + 1 < raw_bytes.len() && raw_bytes[raw_pos + 1] == b'[' {
+            // Skip ANSI sequence
+            let mut esc_end = raw_pos + 2;
+            while esc_end < raw_bytes.len() && !raw_bytes[esc_end].is_ascii_alphabetic() {
+                esc_end += 1;
+            }
+            if esc_end < raw_bytes.len() {
+                esc_end += 1; // skip the letter
+            }
+            raw_pos = esc_end;
+            continue;
+        }
+
+        if raw_start.is_none() && plain_pos >= line_start {
+            raw_start = Some(raw_pos);
+        }
+
+        if let Some(_start) = raw_start {
+            let remaining = line.len() - (plain_pos - line_start);
+            if plain_pos - line_start + remaining >= line.len() {
+                raw_end = raw_pos + (plain_bytes[plain_pos..].len() - (plain_pos - line_start));
+                // Approximate end: scan raw to find end of this line segment
+                let target = plain_pos - line_start + line.len();
+                if plain_pos >= target {
+                    break;
+                }
+            }
+        }
+
+        raw_pos += 1;
+        plain_pos += 1;
+    }
+
+    let raw_start = raw_start.unwrap_or(0);
+    if raw_end <= raw_start {
+        raw_end = raw.len();
+    }
+
+    // Now parse the ANSI slice and produce Spans
+    let segment = &raw[raw_start..raw_end.min(raw.len())];
+    let text_segment = &plain[line_start..line_start + line.len().min(plain.len() - line_start)];
+
+    // If no ANSI in this segment, return plain white
+    if !segment.contains("\x1b[") {
+        return vec![Span::styled(
+            text_segment.to_string(),
+            Style::default().fg(Color::White),
+        )];
+    }
+
+    // Parse ANSI SGR codes and build Spans
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    let mut bold = false;
+    let mut italic = false;
+    let mut fg_color: Option<Color> = None;
+    let mut current_text = String::new();
+    let mut i = 0;
+    let seg_bytes = segment.as_bytes();
+
+    while i < seg_bytes.len() {
+        if seg_bytes[i] == b'\x1b' && i + 1 < seg_bytes.len() && seg_bytes[i + 1] == b'[' {
+            // Flush current text as a span
+            if !current_text.is_empty() {
+                let mut style = Style::default();
+                if bold {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                if italic {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                if let Some(c) = fg_color {
+                    style = style.fg(c);
+                }
+                spans.push(Span::styled(std::mem::take(&mut current_text), style));
+            }
+
+            // Parse the SGR code
+            i += 2; // skip \x1b[
+            let mut params = Vec::new();
+            let mut num = 0i32;
+            let mut has_num = false;
+
+            while i < seg_bytes.len() {
+                let c = seg_bytes[i] as char;
+                if c == ';' {
+                    params.push(num);
+                    num = 0;
+                    has_num = false;
+                    i += 1;
+                } else if c == 'm' {
+                    if has_num || !params.is_empty() {
+                        params.push(num);
+                    }
+                    if params.is_empty() {
+                        params.push(0); // reset
+                    }
+                    // Apply SGR parameters
+                    for p in &params {
+                        match p {
+                            0 => {
+                                bold = false;
+                                italic = false;
+                                fg_color = None;
+                            }
+                            1 => bold = true,
+                            3 => italic = true,
+                            22 => bold = false,
+                            23 => italic = false,
+                            30 => fg_color = Some(Color::Black),
+                            31 => fg_color = Some(Color::Red),
+                            32 => fg_color = Some(Color::Green),
+                            33 => fg_color = Some(Color::Yellow),
+                            34 => fg_color = Some(Color::Blue),
+                            35 => fg_color = Some(Color::Magenta),
+                            36 => fg_color = Some(Color::Cyan),
+                            37 => fg_color = Some(Color::White),
+                            39 => fg_color = None,
+                            90 => fg_color = Some(Color::Rgb(128, 128, 128)),
+                            91 => fg_color = Some(Color::Rgb(255, 128, 128)),
+                            92 => fg_color = Some(Color::Rgb(128, 255, 128)),
+                            93 => fg_color = Some(Color::Rgb(255, 255, 128)),
+                            94 => fg_color = Some(Color::Rgb(128, 128, 255)),
+                            95 => fg_color = Some(Color::Rgb(255, 128, 255)),
+                            96 => fg_color = Some(Color::Rgb(128, 255, 255)),
+                            97 => fg_color = Some(Color::White),
+                            _ => {}
+                        }
+                    }
+                    i += 1;
+                    break;
+                } else if c.is_ascii_digit() {
+                    num = num * 10 + (c as i32 - '0' as i32);
+                    has_num = true;
+                    i += 1;
+                } else {
+                    // Unknown code, skip to end
+                    while i < seg_bytes.len() && seg_bytes[i] as char != 'm' {
+                        i += 1;
+                    }
+                    if i < seg_bytes.len() {
+                        i += 1;
+                    }
+                    break;
+                }
+            }
+        } else {
+            current_text.push(seg_bytes[i] as char);
+            i += 1;
+        }
+    }
+
+    // Flush remaining text
+    if !current_text.is_empty() {
+        let mut style = Style::default();
+        if bold {
+            style = style.add_modifier(Modifier::BOLD);
+        }
+        if italic {
+            style = style.add_modifier(Modifier::ITALIC);
+        }
+        if let Some(c) = fg_color {
+            style = style.fg(c);
+        }
+        spans.push(Span::styled(current_text, style));
+    }
+
+    spans
+}
+
 /// Estimate the number of rendered lines a message occupies.
 fn message_line_count(msg: &Message, text_width: usize) -> usize {
     match msg {
@@ -969,16 +1206,15 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 let (json_lines, _) = format_json_result(result, text_width);
                 if !json_lines.is_empty() {
                     lines.extend(json_lines);
+                } else if has_ansi(result) {
+                    for line in ansi_to_lines(result, text_width) {
+                        lines.push(line);
+                    }
                 } else {
-                    let result_display = if result.len() > 200 {
-                        format!("{}…", utils::truncate(result, 200))
-                    } else {
-                        result.to_string()
-                    };
-                    for wrapped in wrap_text(&result_display, text_width.saturating_sub(3)) {
+                    for wrapped in wrap_text(result, text_width.saturating_sub(3)) {
                         lines.push(Line::from(Span::styled(
                             format!("   {}", wrapped),
-                            Style::default().fg(Color::DarkGray),
+                            Style::default().fg(Color::White),
                         )));
                     }
                 }
