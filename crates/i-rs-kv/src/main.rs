@@ -24,6 +24,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Add a new key-value entry
     Add {
         #[arg(value_name = "KEY")]
         key: String,
@@ -34,16 +35,19 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
+    /// Delete a key-value entry
     Delete {
         #[arg(value_name = "KEY")]
         key: String,
     },
+    /// List all entries (with optional tag/pattern filtering)
     List {
         #[arg(short, long)]
         tag: Option<String>,
         #[arg(short, long)]
         pattern: Option<String>,
     },
+    /// Update a key-value entry (value, tags, or remarks)
     Update {
         #[arg(value_name = "KEY")]
         key: String,
@@ -54,30 +58,38 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
+    /// Get a value by key
     Get {
         #[arg(value_name = "KEY")]
         key: String,
     },
+    /// Search entries by value or key pattern
     Search {
         #[arg(value_name = "QUERY")]
         query: String,
     },
+    /// Show storage statistics (total entries, tags, etc.)
     Stats {},
+    /// Copy an entry to a new key
     Copy {
         #[arg(value_name = "SRC_KEY")]
         src: String,
         #[arg(value_name = "DST_KEY")]
         dst: String,
     },
+    /// Rename an entry key
     Rename {
         #[arg(value_name = "OLD_KEY")]
         old: String,
         #[arg(value_name = "NEW_KEY")]
         new: String,
     },
+    /// Show usage examples
     Example {},
+    /// AI skill system commands (info, teach, search, install, etc.)
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),
+    /// Data management commands (export, import, clear)
     #[clap(subcommand)]
     Data(commands::data::DataCommand),
 }
