@@ -252,7 +252,7 @@ macro_rules! update_field {
 #[macro_export]
 macro_rules! presentation {
     ($row_type:ident, $label:expr $(,)?) => {
-        use $crate::models::$row_type;
+        use crate::models::$row_type;
         use owo_colors::OwoColorize;
         pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
         pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
@@ -264,7 +264,7 @@ macro_rules! presentation {
         }
     };
     ($row_type:ident, $label:expr, $($extra:ident),+ $(,)?) => {
-        use $crate::models::$row_type;
+        use crate::models::$row_type;
         use owo_colors::OwoColorize;
         pub use i_rs_core::presentation::{print_header, print_success, OutputFormat $(, $extra)*};
         pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
