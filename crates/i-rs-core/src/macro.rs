@@ -233,6 +233,50 @@ macro_rules! update_field {
     };
 }
 
+/// Generate a standard `presentation/mod.rs` for a crate.
+///
+/// Generates:
+/// - Re-exports for `print_header`, `print_success`, `OutputFormat`
+/// - Re-exports for `output_list`, `output_item`, `output_error`
+/// - `format_table()` — wraps `render_table` with typed rows
+/// - `print_entry_count()` — prints "Total: N {label}"
+///
+/// Extra re-exports can be specified as additional identifiers
+/// (e.g., `print_warning`, `print_error`).
+///
+/// Usage in `crates/i-rs-xxx/src/presentation/mod.rs`:
+/// ```ignore
+/// i_rs_core::presentation!(XxxRow, "records");
+/// i_rs_core::presentation!(XxxRow, "entries", print_warning);
+/// ```
+#[macro_export]
+macro_rules! presentation {
+    ($row_type:ident, $label:expr $(,)?) => {
+        use $crate::models::$row_type;
+        use owo_colors::OwoColorize;
+        pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
+        pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
+        pub fn format_table(rows: &[$row_type]) -> String {
+            i_rs_core::render_table(rows)
+        }
+        pub fn print_entry_count(count: usize) {
+            println!("\n{} {} {}", "Total:".dimmed(), count.to_string().cyan(), $label);
+        }
+    };
+    ($row_type:ident, $label:expr, $($extra:ident),+ $(,)?) => {
+        use $crate::models::$row_type;
+        use owo_colors::OwoColorize;
+        pub use i_rs_core::presentation::{print_header, print_success, OutputFormat $(, $extra)*};
+        pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
+        pub fn format_table(rows: &[$row_type]) -> String {
+            i_rs_core::render_table(rows)
+        }
+        pub fn print_entry_count(count: usize) {
+            println!("\n{} {} {}", "Total:".dimmed(), count.to_string().cyan(), $label);
+        }
+    };
+}
+
 /// Handle a CLI `Result` by printing the error and exiting.
 ///
 /// If `json` is true, the error is printed as JSON. Otherwise, it's printed as
