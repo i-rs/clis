@@ -184,9 +184,9 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
         });
 
     let prefix = if app.is_processing() {
-        " ⏳ "
+        "⏳ "
     } else {
-        " ❯ "
+        "❯ "
     };
 
     let input_style = if app.is_processing() {
@@ -205,26 +205,35 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
 
     // Set cursor position (only when not processing)
     if !app.is_processing() {
-        let cursor_x = area.x + 2 + prefix.len() as u16 + app.input.len() as u16;
+        let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
+        let cursor_x = area.x + 1 + prefix_width as u16 + app.input_cursor as u16;
         let cursor_y = area.y + 1;
         f.set_cursor_position((cursor_x, cursor_y));
     }
 }
 
 fn render_status(f: &mut Frame, area: Rect, app: &App) {
+    // Format token usage display
+    let token_str = match &app.token_usage {
+        Some(usage) => format!("tok: {}p+{}c", usage.prompt_tokens, usage.completion_tokens),
+        None => String::new(),
+    };
+
     let status_info = if app.is_processing() {
         format!(
-            " ⏳ {} | tools: {} | msgs: {} | Ctrl+Q quit | Ctrl+L sessions",
+            " ⏳ {} | tools: {} | msgs: {} | {} | Ctrl+Q quit | Ctrl+N new | Ctrl+L sessions",
             app.status_text,
             app.tool_call_count,
             app.messages.len(),
+            token_str,
         )
     } else {
         format!(
-            " ● 就绪 | {} | tools: {} | msgs: {} | Ctrl+Q quit | Ctrl+L sessions",
+            " ● 就绪 | {} | tools: {} | msgs: {} | {} | Ctrl+Q quit | Ctrl+N new | Ctrl+L sessions",
             app.config.model,
             app.tool_call_count,
             app.messages.len(),
+            token_str,
         )
     };
 
@@ -303,10 +312,16 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                 ),
             ])]));
 
+            // Session info: messages, time, and ID
+            let id_short = if session.id.len() > 8 {
+                format!("{}…", &session.id[..8])
+            } else {
+                session.id.clone()
+            };
             items.push(ListItem::new(vec![Line::from(vec![
                 Span::raw("      "),
                 Span::styled(
-                    format!("{} msgs | {}", session.message_count, time),
+                    format!("{} msgs | {} | id: {}", session.message_count, time, id_short),
                     Style::default().fg(Color::DarkGray),
                 ),
             ])]));
@@ -320,9 +335,9 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
         if empty {
-            " Ctrl+L 关闭"
+            " Ctrl+N 新建会话  Ctrl+L 关闭"
         } else {
-            " ↑↓ 选择  Enter 切换会话  Ctrl+L 关闭"
+            " ↑↓ 选择  Enter 切换  Ctrl+N 新建  Ctrl+L 关闭"
         },
         Style::default().fg(Color::DarkGray),
     ))]));

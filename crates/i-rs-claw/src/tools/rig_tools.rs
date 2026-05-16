@@ -1,12 +1,36 @@
 use serde_json::Value;
+use std::collections::HashSet;
+
+use crate::tools::search::is_tool_enabled;
+
+const ALL_TOOLS: &[&str] = &[
+    "weight", "height", "run", "sleep", "mood", "water", "step", "dose",
+    "meal", "exercise", "fast", "cycle", "sit", "allergy", "cal",
+    "ledger", "budget", "invest", "debt", "goal", "invoice", "tax", "recur", "sub",
+    "todo", "habit", "project", "time", "remind",
+    "movie", "podcast", "read", "article", "quote", "snippet", "vocab",
+    "bookmark", "note",
+    "grocery", "pig", "want", "gift", "birthday", "event", "contact",
+    "sheet", "toothbrush", "towel", "bed", "ac", "filter", "purify", "appliance",
+    "feedpet", "petbath", "walkdog", "aqua",
+    "car", "cycling",
+    "kv", "keys", "password", "domain", "deploy", "vision", "server",
+    "spark", "bestby",
+];
 
 /// Get the JSON schema definitions for all tools.
 ///
 /// These are manually defined to avoid Rig's #[tool] derive complexity.
 /// The schemas are OpenAI-compatible function calling format.
-pub fn tool_schemas() -> Vec<Value> {
+/// If `enabled` is Some, only include tools in that set.
+pub fn tool_schemas(enabled: Option<&HashSet<String>>) -> Vec<Value> {
+    let enabled_tools: Vec<&str> = ALL_TOOLS.iter()
+        .filter(|t| is_tool_enabled(t, enabled))
+        .copied()
+        .collect();
+
     vec![
-        // i_rs tool
+        // i_rs tool — the enum variants filtered by enabled_tools
         serde_json::json!({
             "type": "function",
             "function": {
@@ -17,7 +41,8 @@ pub fn tool_schemas() -> Vec<Value> {
                     "properties": {
                         "tool": {
                             "type": "string",
-                            "description": "i-rs 工具名称（i-rs 后的第一个参数，如 weight/run/sleep/ledger/mood/todo/water 等）"
+                            "enum": enabled_tools,
+                            "description": "i-rs 工具名称（i-rs 后的第一个参数）"
                         },
                         "command": {
                             "type": "string",
@@ -37,7 +62,7 @@ pub fn tool_schemas() -> Vec<Value> {
                 }
             }
         }),
-        // search_tools tool
+        // search_tools tool (always enabled)
         serde_json::json!({
             "type": "function",
             "function": {

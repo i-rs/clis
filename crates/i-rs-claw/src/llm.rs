@@ -4,6 +4,14 @@ use futures_util::StreamExt;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TokenUsage {
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    #[allow(dead_code)]
+    pub total_tokens: u32,
+}
+
 #[derive(Debug)]
 pub enum LlmEvent {
     /// A text token from the streaming response
@@ -20,8 +28,8 @@ pub enum LlmEvent {
     Status(String),
     /// An error occurred
     Error(String),
-    /// All responses complete, carries final API message list for context preservation
-    Done(Vec<Value>),
+    /// All responses complete, carries final API message list and optional token usage
+    Done(Vec<Value>, Option<TokenUsage>),
 }
 
 #[derive(Default, Clone)]
@@ -32,7 +40,7 @@ struct ToolCallAcc {
 }
 
 enum StreamResult {
-    Text,
+    Text(Option<TokenUsage>),
     ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content
 }
 
@@ -48,6 +56,7 @@ async fn stream_chat(
         "model": config.model,
         "messages": messages,
         "stream": true,
+        "stream_options": { "include_usage": true },
     });
 
     if !tool_schemas.is_empty() {
@@ -75,7 +84,8 @@ async fn stream_chat(
     let mut buf = String::new();
     let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
     let mut finish_reason = String::new();
-    let mut reasoning_buf = String::new(); // accumulate DeepSeek reasoning_content
+    let mut reasoning_buf = String::new();
+    let mut usage: Option<TokenUsage> = None;
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
@@ -96,6 +106,17 @@ async fn stream_chat(
                 }
 
                 if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
+                    // Check for usage data (final chunk with stream_options.include_usage)
+                    if let Some(usage_data) = parsed.get("usage") {
+                        if !usage_data.is_null() {
+                            usage = Some(TokenUsage {
+                                prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
+                                completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
+                                total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
+                            });
+                        }
+                    }
+
                     if let Some(choices) = parsed["choices"].as_array() {
                         if let Some(choice) = choices.first() {
                             if let Some(reason) = choice["finish_reason"].as_str() {
@@ -173,7 +194,7 @@ async fn stream_chat(
         return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
     }
 
-    Ok(StreamResult::Text)
+    Ok(StreamResult::Text(usage))
 }
 
 /// Load system prompt from external file and inject dynamic layers.
@@ -216,8 +237,6 @@ pub fn build_messages(
 ) -> Vec<Value> {
     if let Some(prev_msgs) = saved_api_messages {
         // Reuse saved API messages (has full context including tool calls)
-        // Remove the last user message (it was the previous turn's input)
-        // and append the new user message
         let mut msgs = prev_msgs.clone();
         // Remove trailing user message if exists (from previous turn)
         if msgs.len() > 1
@@ -303,22 +322,33 @@ pub async fn chat_loop(
     messages: Vec<Value>,
     tx: mpsc::UnboundedSender<LlmEvent>,
 ) {
-    let tool_schemas = crate::tools::get_tool_schemas();
+    let enabled = if config.enabled_tools.is_empty() {
+        None
+    } else {
+        Some(&config.enabled_tools)
+    };
+    let tool_schemas = crate::tools::get_tool_schemas(enabled);
     let mut msgs = messages;
 
     // Reuse HTTP client across retries
-    let client = reqwest::Client::builder()
+    let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
-        .expect("创建 HTTP 客户端失败");
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = tx.send(LlmEvent::Error(format!("创建 HTTP 客户端失败: {}", e)));
+            return;
+        }
+    };
 
     loop {
         let _ = tx.send(LlmEvent::NewRound);
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
         match stream_chat(&client, &msgs, &config, &tool_schemas, &tx).await {
-            Ok(StreamResult::Text) => {
-                let _ = tx.send(LlmEvent::Done(msgs.clone()));
+            Ok(StreamResult::Text(usage)) => {
+                let _ = tx.send(LlmEvent::Done(msgs.clone(), usage));
                 break;
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
@@ -391,4 +421,3 @@ pub async fn chat_loop(
         }
     }
 }
-

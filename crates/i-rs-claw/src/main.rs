@@ -15,7 +15,8 @@ use clap::{Parser, Subcommand};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use std::io;
+use std::collections::HashSet;
+use std::io::{self, Write};
 use tokio::sync::mpsc;
 
 #[derive(Parser)]
@@ -28,8 +29,12 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Launch the TUI assistant (default)
-    Tui,
-    /// Show configuration
+    Tui {
+        /// Resume a specific session by ID
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Interactive configuration wizard
     Config,
     /// List and manage sessions
     Session {
@@ -42,8 +47,8 @@ enum Command {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command.unwrap_or(Command::Tui) {
-        Command::Tui => run_tui(),
+    match cli.command.unwrap_or(Command::Tui { session: None }) {
+        Command::Tui { session } => run_tui(session.as_deref()),
         Command::Config => run_config(),
         Command::Session { list: true } => run_session_list(),
         Command::Session { list: false } => run_session_list(),
@@ -51,25 +56,117 @@ fn main() -> anyhow::Result<()> {
 }
 
 // =============================================
-// Config subcommand
+// Interactive Config Wizard
 // =============================================
 
 fn run_config() -> anyhow::Result<()> {
-    let claw_dir = claw_dir();
-    let config_path = claw_dir.join("config.toml");
-
-    if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path)?;
-        println!("配置文件: {}", config_path.display());
-        println!("{}", content);
+    let config_path = claw_dir().join("config.toml");
+    let mut cfg = if config_path.exists() {
+        Config::load().unwrap_or_else(|_| Config {
+            api_key: String::new(),
+            base_url: "https://api.openai.com/v1".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            enabled_tools: HashSet::new(),
+        })
     } else {
-        eprintln!("配置文件不存在: {}", config_path.display());
-        eprintln!("\n请创建该文件，示例：");
-        eprintln!("[config]");
-        eprintln!("api_key = \"sk-...\"");
-        eprintln!("# base_url = \"https://api.openai.com/v1\"");
-        eprintln!("# model = \"gpt-4o-mini\"");
+        println!("未发现配置文件，开始交互式设置...\n");
+        Config {
+            api_key: String::new(),
+            base_url: "https://api.openai.com/v1".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            enabled_tools: HashSet::new(),
+        }
+    };
+
+    // ── API Key ──
+    let current = if cfg.api_key.is_empty() {
+        String::new()
+    } else {
+        format!(" [{}...{}]", &cfg.api_key[..4.min(cfg.api_key.len())], &cfg.api_key[cfg.api_key.len().saturating_sub(4)..])
+    };
+    print!("API Key{}: ", current);
+    io::stdout().flush()?;
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.api_key = trimmed;
     }
+
+    // ── Base URL ──
+    print!("Base URL [{}]: ", cfg.base_url);
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.base_url = trimmed;
+    }
+
+    // ── Model ──
+    print!("Model [{}]: ", cfg.model);
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.model = trimmed;
+    }
+
+    // ── Tool Toggle ──
+    println!("\n工具管理（留空=全部启用，输入工具名可开关）：");
+    let all_tools: Vec<&str> = crate::tools::search::TOOL_INDEX.iter().map(|(n, _)| *n).collect();
+
+    // Show current state
+    let all_enabled = cfg.enabled_tools.is_empty();
+    if all_enabled {
+        println!("当前状态：全部工具已启用");
+    } else {
+        println!("当前已启用的工具 ({} 个)：", cfg.enabled_tools.len());
+        for tool in &all_tools {
+            let mark = if cfg.enabled_tools.contains(*tool) { "✓" } else { " " };
+            println!("  [{}] {}", mark, tool);
+        }
+    }
+
+    print!("\n输入工具名切换（多个用逗号分隔，Enter 跳过）: ");
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        // If currently all enabled, start with empty set and add
+        if all_enabled {
+            cfg.enabled_tools.clear();
+        }
+        for name in trimmed.split(',') {
+            let name = name.trim();
+            if all_tools.contains(&name) {
+                if cfg.enabled_tools.contains(name) {
+                    cfg.enabled_tools.remove(name);
+                } else {
+                    cfg.enabled_tools.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    // ── Save ──
+    if cfg.api_key.is_empty() {
+        anyhow::bail!("API Key 不能为空，配置未保存");
+    }
+
+    cfg.save()?;
+    println!("\n配置摘要：");
+    println!("  API Key: {}...{}", &cfg.api_key[..4.min(cfg.api_key.len())], &cfg.api_key[cfg.api_key.len().saturating_sub(4)..]);
+    println!("  Base URL: {}", cfg.base_url);
+    println!("  Model: {}", cfg.model);
+    if cfg.enabled_tools.is_empty() {
+        println!("  工具: 全部启用 ({} 个)", all_tools.len());
+    } else {
+        println!("  工具: 已启用 {} 个 / 总共 {} 个", cfg.enabled_tools.len(), all_tools.len());
+    }
+
     Ok(())
 }
 
@@ -98,10 +195,10 @@ fn run_session_list() -> anyhow::Result<()> {
 }
 
 // =============================================
-// TUI subcommand (original behavior)
+// TUI subcommand
 // =============================================
 
-fn run_tui() -> anyhow::Result<()> {
+fn run_tui(session_id: Option<&str>) -> anyhow::Result<()> {
     let config = Config::load()?;
 
     // Setup terminal
@@ -120,6 +217,13 @@ fn run_tui() -> anyhow::Result<()> {
     let tool_cache = tool_cache::ToolDocCache::new(claw_dir.clone());
     let mut session_mgr = session::SessionManager::new(claw_dir.clone());
     let mut cross_memory = memory::CrossSessionMemory::new(claw_dir);
+
+    // If a specific session ID was requested, try to switch to it
+    if let Some(sid) = session_id {
+        if !session_mgr.switch_to(sid) {
+            eprintln!("⚠ 未找到会话: {}", sid);
+        }
+    }
 
     // Ensure at least one session exists
     if session_mgr.current_id().is_none() {
@@ -150,9 +254,16 @@ fn run_tui() -> anyhow::Result<()> {
     crossterm::terminal::disable_raw_mode()?;
     crossterm::execute!(io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
 
-    result?;
+    // Print re-entry command so user can resume later
+    if let Some(sid) = session_mgr.current_id() {
+        println!("重新进入会话: i-rs-claw tui --session {}", sid);
+    }
 
-    Ok(())
+    if let Err(e) = &result {
+        eprintln!("错误: {}", e);
+    }
+
+    result
 }
 
 fn tui_main_loop(
@@ -203,8 +314,9 @@ fn tui_main_loop(
                 LlmEvent::Error(text) => {
                     app.add_error(&text);
                 }
-                LlmEvent::Done(msgs) => {
+                LlmEvent::Done(msgs, usage) => {
                     app.finish_processing(Some(msgs.clone()));
+                    app.token_usage = usage;
 
                     // Persist conversation to session
                     let session_id = session_mgr
@@ -275,6 +387,41 @@ fn tui_main_loop(
                             app.session_list = session_mgr.sessions().to_vec();
                         }
                     }
+                    KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                        // Save current session, create new one
+                        if let Some(old_id) = session_mgr.current_id().map(|id| id.to_string()) {
+                            let records: Vec<serde_json::Value> = app
+                                .messages
+                                .iter()
+                                .map(|m| match m {
+                                    crate::app::Message::User { text } => {
+                                        serde_json::json!({"type": "user", "text": text})
+                                    }
+                                    crate::app::Message::Assistant { text } => {
+                                        serde_json::json!({"type": "assistant", "text": text})
+                                    }
+                                    crate::app::Message::ToolCall {
+                                        name, args, result,
+                                    } => serde_json::json!({
+                                        "type": "tool_call",
+                                        "name": name,
+                                        "args": args,
+                                        "result": result
+                                    }),
+                                    crate::app::Message::Error { text } => {
+                                        serde_json::json!({"type": "error", "text": text})
+                                    }
+                                })
+                                .collect();
+                            session_mgr.save_all_messages(&old_id, &records);
+                            if let Some(ref msgs) = app.api_messages {
+                                session_mgr.save_api_messages(&old_id, msgs);
+                            }
+                        }
+                        session_mgr.create_session();
+                        app.reset_for_new_session();
+                        app.show_session_list = false;
+                    }
                     KeyCode::Esc if app.show_session_list => {
                         app.show_session_list = false;
                     }
@@ -287,6 +434,21 @@ fn tui_main_loop(
                         let max = app.session_list.len().saturating_sub(1);
                         if app.session_list_index < max {
                             app.session_list_index += 1;
+                        }
+                    }
+                    KeyCode::Up if !app.show_session_list && !app.is_processing() => {
+                        if let Some(text) = app.navigate_history_up() {
+                            app.input = text;
+                            app.move_cursor_end();
+                        }
+                    }
+                    KeyCode::Down if !app.show_session_list && !app.is_processing() => {
+                        if let Some(text) = app.navigate_history_down() {
+                            app.input = text;
+                            app.move_cursor_end();
+                        } else {
+                            app.input.clear();
+                            app.input_cursor = 0;
                         }
                     }
                     KeyCode::Enter if app.show_session_list => {
@@ -339,6 +501,7 @@ fn tui_main_loop(
                                 app.api_messages = session_mgr.load_api_messages(&new_id);
                                 app.tool_call_count = 0;
                                 app.status_text.clear();
+                                app.token_usage = None;
                             }
                         }
                         app.show_session_list = false;
@@ -346,6 +509,8 @@ fn tui_main_loop(
                     KeyCode::Enter if !app.show_session_list => {
                         if !app.input.is_empty() && !app.is_processing() {
                             let text = std::mem::take(&mut app.input);
+                            app.input_cursor = 0;
+                            app.commit_input_to_history(&text);
                             app.add_user_message(&text);
 
                             // Persist user message to session
@@ -356,7 +521,7 @@ fn tui_main_loop(
                                 &app.messages,
                                 &text,
                                 &app.api_messages,
-                                &tool_cache.index_text,
+                                &app.tool_index_text,
                                 &cross_memory.format_hot_tools(tool_cache),
                                 &cross_memory.format_user_memory(),
                             );
@@ -371,12 +536,24 @@ fn tui_main_loop(
                     }
                     KeyCode::Backspace => {
                         if !app.input.is_empty() {
-                            app.input.pop();
+                            app.delete_before_cursor();
                         }
+                    }
+                    KeyCode::Left => {
+                        app.move_cursor_left();
+                    }
+                    KeyCode::Right => {
+                        app.move_cursor_right();
+                    }
+                    KeyCode::Home => {
+                        app.move_cursor_home();
+                    }
+                    KeyCode::End => {
+                        app.move_cursor_end();
                     }
                     KeyCode::Char(c) => {
                         if !app.is_processing() {
-                            app.input.push(c);
+                            app.insert_char(c);
                         }
                     }
                     _ => {}

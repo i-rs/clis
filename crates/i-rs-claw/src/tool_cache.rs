@@ -7,9 +7,7 @@ use std::path::PathBuf;
 /// Layer 3 is fetched at session start via `i-rs <tool> skill teach` for
 /// frequently used tools, then cached to disk for reuse.
 pub struct ToolDocCache {
-    /// Layer 2: compact tool index text
-    pub index_text: String,
-    /// Layer 3: cached `skill teach` output keyed by tool name
+    /// Cached `skill teach` output keyed by tool name
     pub hot_docs: HashMap<String, String>,
     /// Cache directory (~/.config/i-rs/claw/)
     #[allow(dead_code)]
@@ -19,11 +17,9 @@ pub struct ToolDocCache {
 #[allow(dead_code)]
 impl ToolDocCache {
     pub fn new(cache_dir: PathBuf) -> Self {
-        let index_text = crate::tools::search::format_index();
         let hot_docs = Self::load_hot_docs(&cache_dir);
 
         Self {
-            index_text,
             hot_docs,
             cache_dir,
         }

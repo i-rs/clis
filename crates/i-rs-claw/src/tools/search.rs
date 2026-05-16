@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 pub const TOOL_INDEX: &[(&str, &str)] = &[
     // 健康管理
     ("weight", "体重管理：记录、查看、统计体重数据"),
@@ -79,12 +81,27 @@ pub const TOOL_INDEX: &[(&str, &str)] = &[
 ];
 
 /// Format a compact tool index for system prompt Layer 2.
-pub fn format_index() -> String {
-    let mut result = String::from("## 工具索引（70个工具）\n\n");
-    for (name, desc) in TOOL_INDEX {
-        result.push_str(&format!("- {}: {}\n", name, desc));
+/// If `enabled` is Some, only include tools in that set (empty set = all).
+pub fn format_index(enabled: Option<&HashSet<String>>) -> String {
+    let mut result = String::from("## 工具索引（");
+    let count = match enabled {
+        Some(set) if !set.is_empty() => set.len(),
+        _ => TOOL_INDEX.len(),
+    };
+    result.push_str(&format!("{}个工具)\n\n", count));
+    for (name, desc) in TOOL_INDEX.iter() {
+        if is_tool_enabled(name, enabled) {
+            result.push_str(&format!("- {}: {}\n", name, desc));
+        }
     }
     result
+}
+
+pub fn is_tool_enabled(tool: &str, enabled: Option<&HashSet<String>>) -> bool {
+    match enabled {
+        Some(set) if !set.is_empty() => set.contains(tool),
+        _ => true,
+    }
 }
 
 pub fn search(query: &str) -> String {
