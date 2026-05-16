@@ -154,10 +154,15 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
 
     let mut block = Block::default()
         .borders(Borders::TOP)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(if at_bottom {
+            Color::DarkGray
+        } else {
+            Color::Rgb(100, 120, 200)
+        }));
 
     if !at_bottom && !items.is_empty() {
-        block = block.title(" ↑ 滚动浏览历史 ↑ ");
+        let hidden = app.scroll_offset;
+        block = block.title(format!(" ▲ {} 条历史消息 ", hidden));
         block = block.title_alignment(ratatui::layout::Alignment::Center);
     }
 
@@ -186,37 +191,38 @@ fn render_processing(f: &mut Frame, area: Rect, app: &App) {
 fn render_input(f: &mut Frame, area: Rect, app: &App) {
     let input_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(if app.is_processing() {
-            Style::default().fg(Color::DarkGray)
+        .border_style(Style::default().fg(if app.is_processing() {
+            Color::DarkGray
+        } else if app.input.is_empty() {
+            Color::Rgb(80, 80, 100)
         } else {
-            Style::default().fg(Color::Cyan)
-        });
+            Color::Cyan
+        }));
 
-    let prefix = if app.is_processing() {
-        "⏳ "
+    let prefix = if app.is_processing() { "⏳ " } else { "❯ " };
+
+    let (display_text, display_style) = if app.is_processing() {
+        (format!("{}{}", prefix, app.input), Style::default().fg(Color::DarkGray))
+    } else if app.input.is_empty() {
+        (format!("{}输入消息...", prefix), Style::default().fg(Color::Rgb(80, 80, 100)))
     } else {
-        "❯ "
+        (format!("{}{}", prefix, app.input), Style::default().fg(Color::White))
     };
 
-    let input_style = if app.is_processing() {
-        Style::default().fg(Color::DarkGray)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    let input = Paragraph::new(Span::styled(
-        format!("{}{}", prefix, app.input),
-        input_style,
-    ))
-    .block(input_block);
+    let input = Paragraph::new(Span::styled(display_text, display_style))
+        .block(input_block);
 
     f.render_widget(input, area);
 
     // Set cursor position (only when not processing)
     if !app.is_processing() {
         let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
-        let visible_cursor = unicode_width::UnicodeWidthStr::width(&app.input[..app.input_cursor]);
-        let cursor_x = area.x + 1 + prefix_width as u16 + visible_cursor as u16;
+        let cursor_offset = if app.input.is_empty() {
+            0
+        } else {
+            unicode_width::UnicodeWidthStr::width(&app.input[..app.input_cursor])
+        };
+        let cursor_x = area.x + 1 + prefix_width as u16 + cursor_offset as u16;
         let cursor_y = area.y + 1;
         f.set_cursor_position((cursor_x, cursor_y));
     }
@@ -362,11 +368,6 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(Color::White)
             };
 
-            // Format date from timestamp
-            let time = chrono::DateTime::from_timestamp(session.created_at, 0)
-                .map(|dt| dt.format("%m-%d %H:%M").to_string())
-                .unwrap_or_default();
-
             items.push(ListItem::new(vec![Line::from(vec![
                 Span::styled(prefix, style),
                 Span::styled(
@@ -374,17 +375,12 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                     style,
                 ),
             ])]));
-
-            // Session info: messages, time, and ID
-            let id_short = if session.id.len() > 8 {
-                format!("{}…", &session.id[..8])
-            } else {
-                session.id.clone()
-            };
+            
+            // Session info: messages count and relative time
             items.push(ListItem::new(vec![Line::from(vec![
                 Span::raw("      "),
                 Span::styled(
-                    format!("{} msgs | {} | id: {}", session.message_count, time, id_short),
+                    format!("💬 {} · {}", session.message_count, relative_time(session.updated_at)),
                     Style::default().fg(Color::DarkGray),
                 ),
             ])]));
@@ -666,6 +662,26 @@ fn truncate_str(s: &str, max_len: usize) -> String {
         s.to_string()
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
+}
+
+/// Convert a Unix timestamp to a localized relative time string.
+fn relative_time(ts: i64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let diff = now.saturating_sub(ts);
+    if diff < 60 {
+        "刚刚".to_string()
+    } else if diff < 3600 {
+        format!("{}分钟前", diff / 60)
+    } else if diff < 86400 {
+        format!("{}小时前", diff / 3600)
+    } else if diff < 2592000 {
+        format!("{}天前", diff / 86400)
+    } else {
+        format!("{}月前", diff / 2592000)
     }
 }
 
@@ -1136,7 +1152,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines)
+            ListItem::new(lines).style(Style::default().bg(Color::Rgb(35, 50, 45)))
         }
         Message::Assistant { text } => {
             let mut lines = vec![Line::from(Span::styled(
@@ -1222,7 +1238,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 }
             }
 
-            ListItem::new(lines)
+            ListItem::new(lines).style(Style::default().bg(Color::Rgb(28, 28, 35)))
         }
         Message::Error { text } => {
             let mut lines = vec![
@@ -1240,7 +1256,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines)
+            ListItem::new(lines).style(Style::default().bg(Color::Rgb(55, 30, 30)))
         }
     }
 }

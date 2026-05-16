@@ -99,12 +99,18 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crossterm::event::DisableMouseCapture
     )?;
 
-    // Print styled re-entry command so user can resume later
+    // Print styled re-entry command and session summary
+    let msg_count = app.messages.len();
+    let tool_count = app.tool_call_count;
+    let token_display = app.token_usage
+        .as_ref()
+        .map(|u| format!(" · {} tokens", u.prompt_tokens + u.completion_tokens))
+        .unwrap_or_default();
+
+    println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
+    println!("{}", format!("  📊 {} 条消息 · {} 次工具调用{}", msg_count, tool_count, token_display).dimmed());
     if let Some(sid) = session_mgr.current_id() {
-        println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
         println!("{} {}", "↻ 重新进入:".yellow(), format!("i-rs-claw tui --session {}", sid).cyan().bold());
-    } else {
-        println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
     }
 
     if let Err(e) = &result {
