@@ -36,6 +36,8 @@ enum Command {
     },
     /// Interactive configuration wizard
     Config,
+    /// Interactive tool enable/disable
+    Tools,
     /// List and manage sessions
     Session {
         /// List all sessions
@@ -50,6 +52,7 @@ fn main() -> anyhow::Result<()> {
     match cli.command.unwrap_or(Command::Tui { session: None }) {
         Command::Tui { session } => run_tui(session.as_deref()),
         Command::Config => run_config(),
+        Command::Tools => run_tools(),
         Command::Session { list: true } => run_session_list(),
         Command::Session { list: false } => run_session_list(),
     }
@@ -113,61 +116,90 @@ fn run_config() -> anyhow::Result<()> {
         cfg.model = trimmed;
     }
 
-    // ── Tool Toggle ──
-    println!("\n工具管理（留空=全部启用，输入工具名可开关）：");
-    let all_tools: Vec<&str> = crate::tools::rig_tools::ALL_TOOLS.to_vec();
-    let all_tool_count = crate::tools::search::TOOL_INDEX.len();
-
-    // Show current state
-    let all_enabled = cfg.enabled_tools.is_empty();
-    if all_enabled {
-        println!("当前状态：全部工具已启用");
-    } else {
-        println!("当前已启用的工具 ({} 个)：", cfg.enabled_tools.len());
-        for tool in &all_tools {
-            let mark = if cfg.enabled_tools.contains(*tool) { "✓" } else { " " };
-            println!("  [{}] {}", mark, tool);
-        }
-    }
-
-    print!("\n输入工具名切换（多个用逗号分隔，Enter 跳过）: ");
-    io::stdout().flush()?;
-    input.clear();
-    io::stdin().read_line(&mut input)?;
-    let trimmed = input.trim().to_string();
-    if !trimmed.is_empty() {
-        // If currently all enabled, start with empty set and add
-        if all_enabled {
-            cfg.enabled_tools.clear();
-        }
-        for name in trimmed.split(',') {
-            let name = name.trim();
-            if all_tools.contains(&name) {
-                if cfg.enabled_tools.contains(name) {
-                    cfg.enabled_tools.remove(name);
-                } else {
-                    cfg.enabled_tools.insert(name.to_string());
-                }
-            }
-        }
-    }
-
     // ── Save ──
     if cfg.api_key.is_empty() {
         anyhow::bail!("API Key 不能为空，配置未保存");
     }
 
     cfg.save()?;
+    let total_tools = crate::tools::search::TOOL_INDEX.len();
+    let enabled_count = if cfg.enabled_tools.is_empty() {
+        total_tools
+    } else {
+        cfg.enabled_tools.len()
+    };
+
     println!("\n配置摘要：");
     println!("  API Key: {}...{}", &cfg.api_key[..4.min(cfg.api_key.len())], &cfg.api_key[cfg.api_key.len().saturating_sub(4)..]);
     println!("  Base URL: {}", cfg.base_url);
     println!("  Model: {}", cfg.model);
-    if cfg.enabled_tools.is_empty() {
-        println!("  工具: 全部启用 ({} 个 / 总 {} 个)", all_tools.len(), all_tool_count);
-    } else {
-        println!("  工具: 已启用 {} 个 / 可配 {} 个 / 总数 {} 个", cfg.enabled_tools.len(), all_tools.len(), all_tool_count);
+    println!("  工具: {} ({} 个 / 总 {} 个)",
+        if cfg.enabled_tools.is_empty() { "全部启用" } else { "部分启用" },
+        enabled_count,
+        total_tools,
+    );
+    println!("  运行 `i-rs-claw tools` 管理工具开关");
+
+    Ok(())
+}
+
+// =============================================
+// Tools subcommand
+// =============================================
+
+fn run_tools() -> anyhow::Result<()> {
+    let mut cfg = Config::load()?;
+    let all_tools: Vec<&str> = crate::tools::search::TOOL_INDEX.iter().map(|(n, _)| *n).collect();
+
+    println!("工具管理 — 输入工具名切换启用/停用（多个用逗号分隔，Enter 退出）\n");
+
+    loop {
+        // Show current state grouped by category
+        let all_enabled = cfg.enabled_tools.is_empty();
+        if all_enabled {
+            println!("当前状态：全部工具已启用 ({} 个)\n", all_tools.len());
+        } else {
+            println!("当前已启用的工具 ({} 个 / 总 {} 个)：", cfg.enabled_tools.len(), all_tools.len());
+            // Show enabled tools
+            for tool in &all_tools {
+                let mark = if cfg.enabled_tools.contains(*tool) { "✓" } else { "·" };
+                println!("  [{}] {}", mark, tool);
+            }
+        }
+
+        print!("> ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let trimmed = input.trim().to_string();
+
+        if trimmed.is_empty() {
+            break;
+        }
+
+        // Toggle tools
+        if all_enabled {
+            // Switching from "all enabled" to selective mode:
+            // start with all tools enabled, then toggle off the named ones
+            cfg.enabled_tools = all_tools.iter().map(|s| s.to_string()).collect();
+        }
+
+        for name in trimmed.split(',') {
+            let name = name.trim();
+            if cfg.enabled_tools.contains(name) {
+                cfg.enabled_tools.remove(name);
+                println!("  🚫 {} 已停用", name);
+            } else {
+                cfg.enabled_tools.insert(name.to_string());
+                println!("  ✅ {} 已启用", name);
+            }
+        }
+
+        println!();
     }
 
+    cfg.save()?;
+    println!("✓ 配置已保存");
     Ok(())
 }
 

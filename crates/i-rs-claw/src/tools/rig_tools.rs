@@ -1,12 +1,7 @@
 use serde_json::Value;
 use std::collections::HashSet;
 
-use crate::tools::search::is_tool_enabled;
-
-pub const ALL_TOOLS: &[&str] = &[
-    // Temporarily only enable aligned crates; others disabled until re-aligned
-    "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
-];
+use crate::tools::search::{is_tool_enabled, TOOL_INDEX};
 
 /// Get the JSON schema definitions for all tools.
 ///
@@ -14,9 +9,9 @@ pub const ALL_TOOLS: &[&str] = &[
 /// The schemas are OpenAI-compatible function calling format.
 /// If `enabled` is Some, only include tools in that set.
 pub fn tool_schemas(enabled: Option<&HashSet<String>>) -> Vec<Value> {
-    let enabled_tools: Vec<&str> = ALL_TOOLS.iter()
+    let enabled_tools: Vec<&str> = TOOL_INDEX.iter()
+        .map(|(name, _)| *name)
         .filter(|t| is_tool_enabled(t, enabled))
-        .copied()
         .collect();
 
     vec![
