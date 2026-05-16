@@ -1,5 +1,7 @@
-use crate::presentation::print_success;
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item, print_success};
 use crate::storage;
+use crate::service;
 use chrono::{DateTime, Utc};
 
 pub fn handle_update(
@@ -9,6 +11,7 @@ pub fn handle_update(
     quality: Option<i32>,
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
+    format: OutputFormat,
 ) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
@@ -21,7 +24,7 @@ pub fn handle_update(
     let bedtime_dt = bedtime.as_ref().map(|b| parse_time(b)).transpose()?;
     let wake_time_dt = wake_time.as_ref().map(|w| parse_time(w)).transpose()?;
 
-    storage::update_sleep(
+    let record = service::update_sleep(
         &mut store,
         &id,
         bedtime_dt,
@@ -31,6 +34,12 @@ pub fn handle_update(
         remark,
     )?;
     storage::save_store(&store)?;
+
+    if format.is_json() {
+        let output = ListItem::from(&record);
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_success(&format!("Sleep record '{id}' updated successfully"));
 

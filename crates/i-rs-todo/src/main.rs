@@ -42,11 +42,6 @@ enum Commands {
         #[arg(value_name = "NAME")]
         name: String,
     },
-    /// Mark an entry as done
-    Done {
-        #[arg(value_name = "NAME")]
-        name: String,
-    },
     /// List all entries
     List {
         #[arg(short, long)]
@@ -80,6 +75,11 @@ enum Commands {
     Skill(commands::skill::SkillCommand),
     #[clap(subcommand)]
     Data(commands::data::DataCommand),
+    /// Mark an entry as done
+    Done {
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -102,10 +102,10 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             content,
         } => {
-            handle_add(name, title, priority, tag, content)?;
+            handle_add(name, title, priority, tag, content, format)?;
         }
         Commands::Delete { name } => {
-            handle_delete(name)?;
+            handle_delete(name, format)?;
         }
         Commands::Done { name } => {
             handle_done(name)?;
@@ -120,7 +120,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             content,
         } => {
-            handle_update(name, title, priority, tag, content)?;
+            handle_update(name, title, priority, tag, content, format)?;
         }
         Commands::Get { name } => {
             handle_get(name, format)?;

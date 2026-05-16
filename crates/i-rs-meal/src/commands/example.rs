@@ -20,6 +20,11 @@ pub fn handle_example() {
     println!("  i-rs-meal get abc12345");
     println!();
 
+    println!("{}", "Update meal:".bold().green());
+    println!("  i-rs-meal update abc12345 --food-items \"New food\"");
+    println!("  i-rs-meal update abc12345 --calories 500");
+    println!();
+
     println!("{}", "Delete meal:".bold().green());
     println!("  i-rs-meal delete abc12345");
     println!();

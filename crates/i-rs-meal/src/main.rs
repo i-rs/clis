@@ -1,12 +1,14 @@
 use clap::{Parser, Subcommand};
 use commands::{
     handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
+    handle_update,
 };
 use presentation::OutputFormat;
 
 mod commands;
 mod models;
 mod presentation;
+mod service;
 mod storage;
 
 #[derive(Parser, Debug)]
@@ -47,6 +49,23 @@ enum Commands {
         #[arg(short, long)]
         date: Option<String>,
     },
+    /// Update an entry
+    Update {
+        #[arg(value_name = "ID")]
+        id: String,
+        #[arg(short = 't', long)]
+        meal_type: Option<String>,
+        #[arg(short = 'f', long)]
+        food_items: Option<String>,
+        #[arg(short = 'c', long)]
+        calories: Option<Option<i32>>,
+        #[arg(short, long)]
+        tag: Option<Vec<String>>,
+        #[arg(short, long)]
+        remark: Option<Vec<String>>,
+        #[arg(short, long)]
+        date: Option<String>,
+    },
     /// Get an entry by id
     Get {
         #[arg(value_name = "ID")]
@@ -83,13 +102,24 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_add(meal_type, food_items, date, calories, tag, remark)?;
+            handle_add(meal_type, food_items, date, calories, tag, remark, format)?;
         }
         Commands::Delete { id } => {
-            handle_delete(id)?;
+            handle_delete(id, format)?;
         }
         Commands::List { date } => {
             handle_list(date, format)?;
+        }
+        Commands::Update {
+            id,
+            meal_type,
+            food_items,
+            calories,
+            tag,
+            remark,
+            date,
+        } => {
+            handle_update(id, meal_type, food_items, calories, tag, remark, date, format)?;
         }
         Commands::Get { id, date } => {
             handle_get(id, date, format)?;

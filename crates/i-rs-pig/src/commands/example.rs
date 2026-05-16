@@ -19,6 +19,11 @@ pub fn handle_example() {
     println!("  i-rs-pig get abc12345");
     println!();
 
+    println!("{}", "Update record:".bold().green());
+    println!("  i-rs-pig update abc12345 --food-name \"New food\"");
+    println!("  i-rs-pig update abc12345 --description \"New description\"");
+    println!();
+
     println!("{}", "Delete record:".bold().green());
     println!("  i-rs-pig delete abc12345");
     println!();

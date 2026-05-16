@@ -1,4 +1,5 @@
-use crate::presentation::{OutputFormat, output_error, output_item, print_header};
+use crate::presentation::{OutputFormat, output_item, print_header};
+use crate::service;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,20 +8,10 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let short_id = if id.len() >= 8 { &id[..8] } else { &id };
-
-    let entry = if let Some(e) = store.get_entry(short_id) {
-        e
-    } else {
-        let msg = format!("Record '{id}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
-        }
-        anyhow::bail!("{msg}");
-    };
+    let entry = service::get_water(&store, &id)?;
 
     if format.is_json() {
-        let output = crate::models::ListItem::from(entry);
+        let output = crate::models::ListItem::from(&entry);
         println!("{}", output_item(&output, format));
         return Ok(());
     }

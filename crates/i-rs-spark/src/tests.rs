@@ -18,10 +18,10 @@ mod tests {
     }
 
     #[test]
-    fn test_add_and_list() {
+    fn test_crud() {
         setup();
         let cmd = Commands::Add {
-            content: "test-i-rs-spark-1".to_string(),
+            content: "test-spark".to_string(),
             source: None,
             tag: vec![],
             remark: vec![],
@@ -29,13 +29,36 @@ mod tests {
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
         let cmd = Cli::try_parse_from(["i-rs-spark", "list"]).unwrap().command;
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
+        let cmd = Commands::Add {
+            content: "test-spark-2".to_string(),
+            source: None,
+            tag: vec![],
+            remark: vec![],
+        };
+        run(cmd, crate::presentation::OutputFormat::Table).unwrap();
+        let get_cmd = Commands::Get {
+            id: "00000000-0000-0000-0000-000000000000".to_string(),
+        };
+        assert!(run(get_cmd, crate::presentation::OutputFormat::Table).is_err());
+        let update_cmd = Commands::Update {
+            id: "00000000-0000-0000-0000-000000000000".to_string(),
+            content: None,
+            source: None,
+            tag: None,
+            remark: None,
+        };
+        assert!(run(update_cmd, crate::presentation::OutputFormat::Table).is_err());
+        let del_cmd = Commands::Delete {
+            id: "00000000-0000-0000-0000-000000000000".to_string(),
+        };
+        assert!(run(del_cmd, crate::presentation::OutputFormat::Table).is_err());
     }
 
     #[test]
     fn test_get_not_found() {
         setup();
         let get_cmd = Commands::Get {
-            id: "00000000-0000-0000-0000-000000000000".to_string(),
+            id: "nonexistent".to_string(),
         };
         assert!(run(get_cmd, crate::presentation::OutputFormat::Table).is_err());
     }

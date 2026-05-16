@@ -79,6 +79,7 @@ It does NOT have its own models/storage/commands - it only routes to other tools
 - **`make_app_tools!` macro** — generates `AppState` struct, `load_state()`, and `build_base_router()` from a single list of 70 (field, store_type, filename) tuples
 - **`build.rs`** — auto-generates `routes.rs` module declarations from `src/routes/*.rs` files
 - **70 CRUD route modules** — one per CLI tool, each with `GET /` (list), `POST /` (create), `GET /{id}` (get), `DELETE /{id}` (delete), `PATCH /{id}` (update)
+- **Service layer reuse** — API endpoints call `i_rs_{name}::service::*` directly, NOT CLI `commands::handle_*` functions
 - **Per-tool data endpoints** — `GET /data/export`, `POST /data/import`, `DELETE /data/clear`
 - **`update.rs`** — generic `merge_entry()` for partial JSON updates: shallow merge for primitives/arrays, deep merge for nested objects, null field removal, and auto-`updated_at` timestamp
 - **`response.rs`** — unified `ApiError` / `ApiResult` with consistent JSON error responses
@@ -496,6 +497,7 @@ cargo check
 - **CLI framework**: clap with derive macro, snake_case params auto-convert to kebab-case
 - **Output**: `render_table()` for tables, `output_list/output_item` for JSON
 - **JSON output**: All commands support `--json` global flag
+- **JSON output scope**: All handlers use `format` param. `handle_add`/`handle_update`/`handle_get`/`handle_list` return entity data via `output_item`/`output_list`; `handle_delete` returns `{"success": true, "message": "..."}` via `serde_json::json!`. (API uses service layer directly, not CLI handlers.)
 - **Storage**: `BTreeMap<String, Entity>` (NOT HashMap)
 - **CRUD naming**: `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
 - **No unwrap()**: Use `expect("message")` or proper error handling

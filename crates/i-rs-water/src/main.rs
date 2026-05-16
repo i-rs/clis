@@ -1,12 +1,14 @@
 use clap::{Parser, Subcommand};
 use commands::{
     handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
+    handle_update,
 };
 use presentation::OutputFormat;
 
 mod commands;
 mod models;
 mod presentation;
+mod service;
 mod storage;
 
 #[derive(Parser, Debug)]
@@ -41,6 +43,17 @@ enum Commands {
         #[arg(short, long)]
         tag: Option<String>,
     },
+    /// Update an entry
+    Update {
+        #[arg(value_name = "ID")]
+        id: String,
+        #[arg(short = 'm', long)]
+        amount_ml: Option<i32>,
+        #[arg(short, long)]
+        tag: Option<Vec<String>>,
+        #[arg(short, long)]
+        remark: Option<Vec<String>>,
+    },
     /// Get an entry by id
     Get {
         #[arg(value_name = "ID")]
@@ -72,13 +85,21 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_add(amount_ml, tag, remark)?;
+            handle_add(amount_ml, tag, remark, format)?;
         }
         Commands::Delete { id } => {
-            handle_delete(id)?;
+            handle_delete(id, format)?;
         }
         Commands::List { tag } => {
             handle_list(tag, format)?;
+        }
+        Commands::Update {
+            id,
+            amount_ml,
+            tag,
+            remark,
+        } => {
+            handle_update(id, amount_ml, tag, remark, format)?;
         }
         Commands::Get { id } => {
             handle_get(id, format)?;

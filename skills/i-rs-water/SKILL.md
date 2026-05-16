@@ -56,6 +56,19 @@ Delete a record.
 i-rs-water delete <ID>
 ```
 
+### update
+
+Update a water record.
+
+```bash
+i-rs-water update <ID> [OPTIONS]
+```
+
+Options:
+- `--amount-ml <ML>` - Water amount in milliliters
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
 ### data
 
 Manage data (export, import, clear).

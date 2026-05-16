@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 
@@ -59,8 +59,10 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_chat(f: &mut Frame, area: Rect, app: &App) {
+    // Available text width (minus indentation)
+    let text_width = (area.width as usize).saturating_sub(4).max(20);
+
     // Auto-scroll: show latest messages that fit in the chat area
-    // Estimate ~3 lines per message (header + content + blank)
     let max_visible = (area.height as usize).max(1);
     let start = app.messages.len().saturating_sub(max_visible);
 
@@ -69,24 +71,26 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
         .iter()
         .map(|msg| match msg {
             Message::User { text } => {
-                let lines = vec![
+                let mut lines = vec![
                     Line::from(Span::styled(
-                        " ◆ You:",
+                        "  You:",
                         Style::default()
                             .fg(Color::Green)
                             .add_modifier(Modifier::BOLD),
                     )),
-                    Line::from(Span::styled(
-                        format!("   {}", text),
-                        Style::default().fg(Color::White),
-                    )),
-                    Line::from(Span::raw("")),
                 ];
+                for wrapped in wrap_text(text, text_width) {
+                    lines.push(Line::from(Span::styled(
+                        format!("   {}", wrapped),
+                        Style::default().fg(Color::White),
+                    )));
+                }
+                lines.push(Line::from(Span::raw("")));
                 ListItem::new(lines)
             }
             Message::Assistant { text } => {
                 let mut lines = vec![Line::from(Span::styled(
-                    " ◇ Claw:",
+                    "  Claw:",
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
@@ -97,48 +101,93 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
                         Style::default().fg(Color::DarkGray),
                     )));
                 } else {
-                    lines.push(Line::from(Span::styled(
-                        format!("   {}", text),
-                        Style::default().fg(Color::White),
-                    )));
+                    for wrapped in wrap_text(text, text_width) {
+                        lines.push(Line::from(Span::styled(
+                            format!("   {}", wrapped),
+                            Style::default().fg(Color::White),
+                        )));
+                    }
                 }
                 lines.push(Line::from(Span::raw("")));
                 ListItem::new(lines)
             }
             Message::ToolCall { name, args, result } => {
-                let call_str = format!("{} {}", name, args);
-                let line = if call_str.len() > 60 {
-                    format!("  {}...", utils::truncate(&call_str, 57))
-                } else {
-                    format!("  {}", call_str)
-                };
-                ListItem::new(vec![
-                    Line::from(Span::styled(
-                        format!(" ⚡ {}", line),
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::DIM),
-                    )),
-                    Line::from(Span::styled(
-                        format!("   ↳ {}", result),
+                let mut lines = Vec::new();
+
+                let (header, detail) =
+                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
+                        if name == "i_rs" {
+                            let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
+                            let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
+                            let explanation = val.get("explanation").and_then(|v| v.as_str());
+                            (
+                                format!(" ⚡ i-rs-{} {}", tool, cmd),
+                                explanation.map(|s| s.to_string()),
+                            )
+                        } else if name == "search_tools" {
+                            let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                            (format!(" 🔍 search: {}", q), None)
+                        } else {
+                            (format!(" ⚡ {}", name), None)
+                        }
+                    } else {
+                        (format!(" ⚡ {} {}", name, args), None)
+                    };
+
+                lines.push(Line::from(Span::styled(
+                    header,
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )));
+
+                // Show explanation if available
+                if let Some(exp) = &detail {
+                    lines.push(Line::from(Span::styled(
+                        format!("   └─ {}", exp),
                         Style::default().fg(Color::DarkGray),
-                    )),
-                ])
+                    )));
+                }
+
+                // Show truncated result with JSON detection
+                if !result.is_empty() {
+                    let (json_lines, _) = format_json_result(result, text_width);
+                    if !json_lines.is_empty() {
+                        lines.extend(json_lines);
+                    } else {
+                        // Plain text fallback
+                        let result_display = if result.len() > 200 {
+                            format!("{}…", utils::truncate(result, 200))
+                        } else {
+                            result.to_string()
+                        };
+                        for wrapped in wrap_text(&result_display, text_width.saturating_sub(3)) {
+                            lines.push(Line::from(Span::styled(
+                                format!("   {}", wrapped),
+                                Style::default().fg(Color::DarkGray),
+                            )));
+                        }
+                    }
+                }
+
+                ListItem::new(lines)
             }
             Message::Error { text } => {
-                let lines = vec![
+                let mut lines = vec![
                     Line::from(Span::styled(
                         " ✗ Error:",
                         Style::default()
                             .fg(Color::Red)
                             .add_modifier(Modifier::BOLD),
                     )),
-                    Line::from(Span::styled(
-                        format!("   {}", text),
-                        Style::default().fg(Color::Red),
-                    )),
-                    Line::from(Span::raw("")),
                 ];
+                for wrapped in wrap_text(text, text_width) {
+                    lines.push(Line::from(Span::styled(
+                        format!("   {}", wrapped),
+                        Style::default().fg(Color::Red),
+                    )));
+                }
+                lines.push(Line::from(Span::raw("")));
                 ListItem::new(lines)
             }
         })
@@ -153,25 +202,20 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
 
 /// Show a processing/thinking indicator between chat and input
 fn render_processing(f: &mut Frame, area: Rect, app: &App) {
-    if app.is_processing() && !app.status_text.is_empty() {
-        // Render a subtle progress bar/indicator
-        let gauge = Gauge::default()
-            .block(
-                Block::default()
-                    .borders(Borders::NONE)
-                    .border_style(Style::default().fg(Color::DarkGray)),
-            )
-            .gauge_style(
-                Style::default()
-                    .fg(Color::Cyan)
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::SLOW_BLINK),
-            )
-            .label(app.status_text.clone())
-            .use_unicode(true)
-            .percent(50);
-        f.render_widget(gauge, area);
+    if !app.is_processing() || app.status_text.is_empty() {
+        return;
     }
+    let dots = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+    let frame = (app.messages.len() + app.tool_call_count) % dots.len();
+    let spinner = dots[frame];
+
+    let label = Line::from(Span::styled(
+        format!(" {}  {}", spinner, app.status_text),
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+    ));
+    f.render_widget(label, area);
 }
 
 fn render_input(f: &mut Frame, area: Rect, app: &App) {
@@ -357,4 +401,154 @@ fn truncate_str(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     }
+}
+
+/// Format a JSON CLI result into display lines.
+/// Returns (lines, was_json) — empty lines + false means it wasn't JSON.
+fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'static>>, bool) {
+    let val = match serde_json::from_str::<serde_json::Value>(result) {
+        Ok(v) => v,
+        Err(_) => return (vec![], false),
+    };
+
+    let mut lines: Vec<Line<'static>> = Vec::new();
+
+    // List response: { data: [...], meta: { count: N } }
+    if let Some(data) = val.get("data").and_then(|d| d.as_array()) {
+        // Show count from meta
+        if let Some(count) = val
+            .get("meta")
+            .and_then(|m| m.get("count"))
+            .and_then(|c| c.as_u64())
+        {
+            lines.push(Line::from(Span::styled(
+                format!("   ─── {} records ───", count),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+
+        if data.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "   (empty)",
+                Style::default().fg(Color::DarkGray),
+            )));
+        } else {
+            for item in data {
+                if let Some(obj) = item.as_object() {
+                    // Build compact key: value line from object fields
+                    let parts: Vec<String> = obj
+                        .iter()
+                        .filter(|(k, _)| {
+                            !k.contains("created_at")
+                                && !k.contains("updated_at")
+                                && *k != "unit"
+                        })
+                        .map(|(k, v)| {
+                            let v_str = match v {
+                                serde_json::Value::String(s) => s.clone(),
+                                serde_json::Value::Number(n) => n.to_string(),
+                                _ => format!("{}", v),
+                            };
+                            format!("{}: {}", k, v_str)
+                        })
+                        .collect();
+                    let text = parts.join("  ·  ");
+                    for wrapped in wrap_text(&text, max_width.saturating_sub(4)) {
+                        lines.push(Line::from(Span::styled(
+                            format!("   {}", wrapped),
+                            Style::default().fg(Color::White),
+                        )));
+                    }
+                } else {
+                    let text = format!("{}", item);
+                    for wrapped in wrap_text(&text, max_width.saturating_sub(4)) {
+                        lines.push(Line::from(Span::styled(
+                            format!("   {}", wrapped),
+                            Style::default().fg(Color::White),
+                        )));
+                    }
+                }
+            }
+        }
+        return (lines, true);
+    }
+
+    // Single item response: { success: true, data: { ... } }
+    if val.get("data").and_then(|d| d.as_object()).is_some() {
+        if let Some(obj) = val.get("data").and_then(|d| d.as_object()) {
+            let parts: Vec<String> = obj
+                .iter()
+                .filter(|(k, _)| {
+                    !k.contains("created_at") && !k.contains("updated_at") && *k != "unit"
+                })
+                .map(|(k, v)| {
+                    let v_str = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        serde_json::Value::Number(n) => n.to_string(),
+                        _ => format!("{}", v),
+                    };
+                    format!("{}: {}", k, v_str)
+                })
+                .collect();
+            let text = parts.join("  ·  ");
+            for wrapped in wrap_text(&text, max_width.saturating_sub(4)) {
+                lines.push(Line::from(Span::styled(
+                    format!("   {}", wrapped),
+                    Style::default().fg(Color::White),
+                )));
+            }
+        }
+        return (lines, true);
+    }
+
+    // Simple success response: { success: true } (no data field)
+    if val.get("success").and_then(|s| s.as_bool()) == Some(true) {
+        lines.push(Line::from(Span::styled(
+            "   ✓ success",
+            Style::default().fg(Color::Green),
+        )));
+        return (lines, true);
+    }
+
+    // Fallback: show compact JSON
+    let text = format!("{}", val);
+    for wrapped in wrap_text(&text, max_width.saturating_sub(3)) {
+        lines.push(Line::from(Span::styled(
+            format!("   {}", wrapped),
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+    (lines, true)
+}
+
+/// Wrap text to fit within max_width columns (using Unicode-aware width).
+fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    for line in text.lines() {
+        if unicode_width::UnicodeWidthStr::width(line) <= max_width {
+            lines.push(line.to_string());
+            continue;
+        }
+        let mut current = String::new();
+        let mut current_w = 0;
+        for word in line.split(' ') {
+            let word_w = unicode_width::UnicodeWidthStr::width(word);
+            let separator = if current.is_empty() { 0 } else { 1 };
+            if current_w + separator + word_w > max_width && !current.is_empty() {
+                lines.push(current);
+                current = String::new();
+                current_w = 0;
+            }
+            if !current.is_empty() {
+                current.push(' ');
+                current_w += 1;
+            }
+            current.push_str(word);
+            current_w += word_w;
+        }
+        if !current.is_empty() {
+            lines.push(current);
+        }
+    }
+    lines
 }

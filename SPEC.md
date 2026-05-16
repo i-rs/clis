@@ -355,8 +355,8 @@ enum Commands {
     Add { name: String, #[arg(short, long)] tags: Vec<String> },
     Delete { name: String },
     List { #[arg(short, long)] tag: Option<String> },
-    Get { name: String },
     Update { name: String, #[arg(short, long)] tags: Vec<String> },
+    Get { name: String },
     Example {},
     Skill { sub: Option<String> },
     // 可选扩展命令（按需添加）:
@@ -489,6 +489,72 @@ i-rs-xxx data import /path/to/file.json
 # 清空所有数据
 i-rs-xxx data clear
 ```
+
+### 6.8 Handler 参数规范
+
+`format: OutputFormat` 参数用于控制 CLI 输出的 JSON 化。所有 CLI 命令都应遵循 `--json` 通用契约，区别在于返回的数据类型：
+
+| Handler | 需要 format | 返回内容 |
+|---------|------------|---------|
+| `handle_add` | ✅ | 返回新创建的实体，脚本可用 `--json \| jq .id` 获取 ID |
+| `handle_delete` | ✅ | 返回 `{"success": true, "message": "..."}` 状态消息 |
+| `handle_update` | ✅ | 返回更新后的实体 |
+| `handle_list` | ✅ | 返回条目列表 |
+| `handle_get` | ✅ | 返回单个实体 |
+| `handle_example` | ❌ | 纯文本输出 |
+
+```rust
+// commands/add.rs — 返回实体数据
+pub fn handle_add(amount_ml: i32, tag: Vec<String>, remark: Vec<String>, format: OutputFormat) -> Result<()> {
+    let mut store = storage::load_store()?;
+    let entry = service::add_entry(&mut store, amount_ml, tag, remark)?;
+    storage::save_store(&store)?;
+    if format.is_json() {
+        let output = ListItem::from(&entry);
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
+    print_success(&format!("✓ Recorded..."));
+    Ok(())
+}
+
+// commands/delete.rs — 返回状态消息
+pub fn handle_delete(id: String, format: OutputFormat) -> Result<()> {
+    let mut store = storage::load_store()?;
+    service::delete_entry(&mut store, &id)?;
+    storage::save_store(&store)?;
+    if format.is_json() {
+        println!(
+            "{}",
+            serde_json::json!({"success": true, "message": format!("Record '{}' deleted", id)})
+        );
+        return Ok(());
+    }
+    print_success(&format!("✓ Record '{}' deleted", id.green()));
+    Ok(())
+}
+```
+
+> 注意：i-rs-claw 等消费方始终追加 `--json` 参数，因此所有 handler 必须支持 JSON 输出。
+
+### 6.9 API 与 CLI 的关系
+
+i-rs-api **不调用 CLI 的 command handlers**（如 `handle_add`、`handle_delete`），而是直接复用 CLI crate 的 `service` 层：
+
+```rust
+// API 端点示例（routes/kv.rs）
+async fn delete_kv(
+    State(state): State<Arc<AppState>>,
+    Path(key): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    state.kv.write(|store| 
+        i_rs_kv::service::delete_kv(store, &key).map_err(ApiError::from)
+    )?;
+    Ok(ok_json_message())  // API 自行返回 JSON 响应
+}
+```
+
+因此 CLI `handle_delete` 也需要 `format` 参数（返回 `{"success": true, "message": "..."}`），以满足 i-rs-claw 等消费方始终追加 `--json` 的通用契约。API 则自行处理 JSON 响应，不依赖 CLI handler。
 
 ## 7. REST API 开发规范（i-rs-api）
 

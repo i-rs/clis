@@ -19,6 +19,10 @@ pub fn handle_example() {
     println!("  i-rs-sit get abc12345");
     println!();
 
+    println!("{}", "Update record:".bold().green());
+    println!("  i-rs-sit update abc12345 --duration-minutes 90");
+    println!();
+
     println!("{}", "Delete record:".bold().green());
     println!("  i-rs-sit delete abc12345");
     println!();

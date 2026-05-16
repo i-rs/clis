@@ -3,12 +3,12 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::{Path, State},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
 use crate::AppState;
-use crate::api::{ok_json, ok_json_list};
+use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
 async fn update_weight(
     State(state): State<Arc<AppState>>,
@@ -34,6 +34,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", post(add_weight))
         .route("/stats", get(weight_stats))
         .route("/{date}", get(get_weight).patch(update_weight))
+        .route("/{date}", delete(delete_weight))
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,4 +79,18 @@ async fn get_weight(
 async fn weight_stats(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let count = state.weight.read(|store| store.records.len());
     Ok(ok_json(serde_json::json!({ "count": count })))
+}
+
+async fn delete_weight(
+    State(state): State<Arc<AppState>>,
+    Path(date): Path<String>,
+) -> ApiResult<Json<serde_json::Value>> {
+    state.weight.write(|store| {
+        let entry_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+            .map_err(|_| ApiError::BadRequest(format!("Invalid date '{date}', expected YYYY-MM-DD")))?;
+        store.records.remove(&entry_date)
+            .ok_or_else(|| ApiError::NotFound(format!("Weight '{date}' not found")))?;
+        Ok::<(), ApiError>(())
+    })?;
+    Ok(ok_json_message())
 }

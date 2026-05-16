@@ -48,6 +48,19 @@ Delete a record.
 i-rs-sit delete <ID>
 ```
 
+### update
+
+Update a sitting record.
+
+```bash
+i-rs-sit update <ID> [OPTIONS]
+```
+
+Options:
+- `--duration-minutes <MIN>` - Duration in minutes
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
 ### data
 
 Manage data (export, import, clear).

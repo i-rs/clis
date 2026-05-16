@@ -1,5 +1,6 @@
-use crate::models::MealEntry;
-use crate::presentation::print_success;
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item, print_success};
+use crate::service;
 use crate::storage;
 use anyhow::Result;
 use i_rs_core::parse_date;
@@ -12,22 +13,28 @@ pub fn handle_add(
     calories: Option<i32>,
     tag: Vec<String>,
     remark: Vec<String>,
+    format: OutputFormat,
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
     let parsed_date = parse_date(&date)?;
 
-    let entry = MealEntry::new(
+    let entry = service::add_meal(
+        &mut store,
         meal_type.clone(),
         food_items.clone(),
         calories,
         tag,
         remark,
         parsed_date,
-    );
-
-    store.add_entry(entry);
+    )?;
     storage::save_store(&store)?;
+
+    if format.is_json() {
+        let output = ListItem::from(&entry);
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_success(&format!(
         "✓ Added {}: {} on {}",

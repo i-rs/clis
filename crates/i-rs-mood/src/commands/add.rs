@@ -1,4 +1,4 @@
-use crate::presentation::print_success;
+use crate::presentation::{OutputFormat, output_item, print_success};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
@@ -7,10 +7,32 @@ pub fn handle_add(
     mood: String,
     tag: Vec<String>,
     content: Vec<String>,
+    format: OutputFormat,
 ) -> Result<()> {
     let mut store = crate::storage::load_store()?;
     let record = crate::service::add_mood(&mut store, date, mood.clone(), tag, content)?;
     crate::storage::save_store(&store)?;
+
+    if format.is_json() {
+        #[derive(serde::Serialize)]
+        struct AddOutput {
+            date: String,
+            mood: String,
+            mood_label: String,
+            tags: Vec<String>,
+            content: Vec<String>,
+        }
+        let output = AddOutput {
+            date: record.date.format("%Y-%m-%d").to_string(),
+            mood: record.mood.to_string(),
+            mood_label: record.mood.label().to_string(),
+            tags: record.tags.clone(),
+            content: record.content.clone(),
+        };
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
+
     print_success(&format!(
         "✓ Mood record added: {} {}",
         record.mood,

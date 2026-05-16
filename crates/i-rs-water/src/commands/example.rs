@@ -19,6 +19,11 @@ pub fn handle_example() {
     println!("  i-rs-water get abc12345");
     println!();
 
+    println!("{}", "Update record:".bold().green());
+    println!("  i-rs-water update abc12345 --amount-ml 300");
+    println!("  i-rs-water update abc12345 --tag morning");
+    println!();
+
     println!("{}", "Delete record:".bold().green());
     println!("  i-rs-water delete abc12345");
     println!();

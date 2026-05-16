@@ -82,6 +82,16 @@ impl MoodStore {
         self.records.remove(date)
     }
 
+    #[allow(dead_code)]
+    pub fn get_entry(&self, date: &NaiveDate) -> Option<&MoodRecord> {
+        self.records.get(date)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_entry_mut(&mut self, date: &NaiveDate) -> Option<&mut MoodRecord> {
+        self.records.get_mut(date)
+    }
+
     pub fn mood_stats(&self) -> Option<(Mood, Mood, f64)> {
         if self.records.is_empty() {
             return None;

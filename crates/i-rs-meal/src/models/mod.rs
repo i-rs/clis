@@ -19,6 +19,7 @@ pub struct MealEntry {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 impl MealEntry {
     pub fn new(
         meal_type: String,
@@ -48,6 +49,7 @@ pub struct MealStore {
     pub entries: BTreeMap<String, MealEntry>,
 }
 
+#[allow(dead_code)]
 impl MealStore {
     pub fn add_entry(&mut self, entry: MealEntry) {
         self.entries.insert(entry.id.clone(), entry);
@@ -59,6 +61,10 @@ impl MealStore {
 
     pub fn get_entry(&self, id: &str) -> Option<&MealEntry> {
         self.entries.get(id)
+    }
+
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut MealEntry> {
+        self.entries.get_mut(id)
     }
 
     pub fn get_entries_by_date(&self, date: NaiveDate) -> Vec<&MealEntry> {

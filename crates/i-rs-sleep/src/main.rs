@@ -8,6 +8,7 @@ use presentation::OutputFormat;
 mod commands;
 mod models;
 mod presentation;
+mod service;
 mod storage;
 
 #[derive(Parser, Debug)]
@@ -46,13 +47,6 @@ enum Commands {
         #[arg(short, long)]
         tag: Option<String>,
     },
-    /// Get an entry by id
-    Get {
-        #[arg(value_name = "ID")]
-        id: String,
-    },
-    /// Show statistics
-    Stats {},
     /// Update an entry
     Update {
         #[arg(value_name = "ID")]
@@ -68,12 +62,19 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
+    /// Get an entry by id
+    Get {
+        #[arg(value_name = "ID")]
+        id: String,
+    },
     /// Show usage examples
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),
     #[clap(subcommand)]
     Data(commands::data::DataCommand),
+    /// Show statistics
+    Stats {},
 }
 
 fn main() {
@@ -96,19 +97,13 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_add(bedtime, wake_time, quality, tag, remark)?;
+            handle_add(bedtime, wake_time, quality, tag, remark, format)?;
         }
         Commands::Delete { id } => {
-            handle_delete(id)?;
+            handle_delete(id, format)?;
         }
         Commands::List { tag } => {
             handle_list(tag, format)?;
-        }
-        Commands::Get { id } => {
-            handle_get(id, format)?;
-        }
-        Commands::Stats {} => {
-            handle_stats(format)?;
         }
         Commands::Update {
             id,
@@ -118,7 +113,10 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_update(id, bedtime, wake_time, quality, tag, remark)?;
+            handle_update(id, bedtime, wake_time, quality, tag, remark, format)?;
+        }
+        Commands::Get { id } => {
+            handle_get(id, format)?;
         }
         Commands::Example {} => {
             handle_example();
@@ -127,6 +125,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             handle_skill(&cmd)?;
         }
         Commands::Data(commands) => commands::data::handle(&commands)?,
+        Commands::Stats {} => {
+            handle_stats(format)?;
+        }
     }
     Ok(())
 }

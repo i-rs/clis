@@ -1,18 +1,22 @@
-use crate::presentation::print_success;
+use crate::presentation::{OutputFormat, print_success};
+use crate::service;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-pub fn handle_delete(id: String) -> Result<()> {
+pub fn handle_delete(id: String, format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let short_id = if id.len() >= 8 { &id[..8] } else { &id };
-
-    if store.remove_entry(short_id).is_none() {
-        anyhow::bail!("Spark '{id}' not found");
-    }
-
+    service::delete_spark(&mut store, &id)?;
     storage::save_store(&store)?;
+
+    if format.is_json() {
+        println!(
+            "{}",
+            serde_json::json!({"success": true, "message": format!("Spark '{}' deleted", id)})
+        );
+        return Ok(());
+    }
 
     print_success(&format!("✓ Spark '{}' deleted", id.green()));
 

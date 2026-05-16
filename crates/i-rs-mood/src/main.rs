@@ -40,11 +40,6 @@ enum Commands {
         #[arg(value_name = "DATE")]
         date: String,
     },
-    /// Get an entry by id
-    Get {
-        #[arg(value_name = "DATE")]
-        date: String,
-    },
     /// List all entries
     List {
         #[arg(short = 'd', long)]
@@ -62,6 +57,11 @@ enum Commands {
         tag: Option<Vec<String>>,
         #[arg(short, long)]
         content: Option<Vec<String>>,
+    },
+    /// Get an entry by id
+    Get {
+        #[arg(value_name = "DATE")]
+        date: String,
     },
     /// Show usage examples
     Example {},
@@ -90,13 +90,10 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             content,
         } => {
-            handle_add(date, mood, tag, content)?;
+            handle_add(date, mood, tag, content, format)?;
         }
         Commands::Delete { date } => {
-            handle_delete(date)?;
-        }
-        Commands::Get { date } => {
-            handle_get(date, format)?;
+            handle_delete(date, format)?;
         }
         Commands::List { days, calendar } => {
             handle_list(days, calendar, format)?;
@@ -107,7 +104,10 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             content,
         } => {
-            handle_update(date, mood, tag, content)?;
+            handle_update(date, mood, tag, content, format)?;
+        }
+        Commands::Get { date } => {
+            handle_get(date, format)?;
         }
         Commands::Example {} => {
             handle_example();

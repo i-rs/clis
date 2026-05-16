@@ -1,21 +1,21 @@
-use crate::models::SitEntry;
-use crate::presentation::print_success;
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item, print_success};
+use crate::service;
 use crate::storage;
 use anyhow::Result;
-use chrono::Utc;
 use owo_colors::OwoColorize;
 
-pub fn handle_add(duration_minutes: i32, tag: Vec<String>, remark: Vec<String>) -> Result<()> {
+pub fn handle_add(duration_minutes: i32, tag: Vec<String>, remark: Vec<String>, format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let now = Utc::now();
-    let started_at = now - chrono::Duration::minutes(i64::from(duration_minutes));
-    let ended_at = now;
-
-    let entry = SitEntry::new(duration_minutes, started_at, ended_at, tag, remark);
-
-    store.add_entry(entry);
+    let entry = service::add_sit(&mut store, duration_minutes, tag, remark)?;
     storage::save_store(&store)?;
+
+    if format.is_json() {
+        let output = ListItem::from(&entry);
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
 
     print_success(&format!(
         "✓ Recorded {} minutes of sitting",

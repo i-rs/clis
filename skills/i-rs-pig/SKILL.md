@@ -56,6 +56,20 @@ Delete a record.
 i-rs-pig delete <ID>
 ```
 
+### update
+
+Update a craving record.
+
+```bash
+i-rs-pig update <ID> [OPTIONS]
+```
+
+Options:
+- `--food-name <NAME>` - Food name
+- `--description <DESC>` - Description
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
 ### data
 
 Manage data (export, import, clear).

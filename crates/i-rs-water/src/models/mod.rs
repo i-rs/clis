@@ -17,6 +17,7 @@ pub struct WaterEntry {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 impl WaterEntry {
     pub fn new(amount_ml: i32, tags: Vec<String>, remark: Vec<String>) -> Self {
         let now = Utc::now();
@@ -47,6 +48,9 @@ impl WaterStore {
     }
     pub fn get_entry(&self, id: &str) -> Option<&WaterEntry> {
         self.entries.get(id)
+    }
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut WaterEntry> {
+        self.entries.get_mut(id)
     }
     pub fn get_total_today(&self) -> i32 {
         let today = Utc::now().date_naive();

@@ -392,7 +392,7 @@ pub async fn chat_loop(
 
                     let _ = tx.send(LlmEvent::ToolExecuted {
                         name: tc.name.clone(),
-                        args: format!("{:?}", args),
+                        args: args.to_string(),
                         result: if result.len() > 200 {
                             format!("{}...(truncated)", utils::truncate(&result, 200))
                         } else {

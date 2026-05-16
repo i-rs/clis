@@ -21,6 +21,11 @@ pub fn handle_example() {
     println!("  i-rs-spark get abc12345");
     println!();
 
+    println!("{}", "Update spark:".bold().green());
+    println!("  i-rs-spark update abc12345 --content \"New content\"");
+    println!("  i-rs-spark update abc12345 --source \"New source\"");
+    println!();
+
     println!("{}", "Delete spark:".bold().green());
     println!("  i-rs-spark delete abc12345");
     println!();

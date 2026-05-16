@@ -1,7 +1,8 @@
-use crate::presentation::{print_header, print_success};
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item, print_success};
 use crate::storage;
+use crate::service;
 use chrono::{DateTime, Utc};
-use owo_colors::OwoColorize;
 
 pub fn handle_add(
     bedtime_str: String,
@@ -9,6 +10,7 @@ pub fn handle_add(
     quality: i32,
     tags: Vec<String>,
     remark: Vec<String>,
+    format: OutputFormat,
 ) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
@@ -19,25 +21,15 @@ pub fn handle_add(
         anyhow::bail!("Quality must be between 1 and 5");
     }
 
-    let record = storage::add_sleep(&mut store, bedtime, wake_time, quality, tags, remark)?;
+    let record = service::add_sleep(&mut store, bedtime, wake_time, quality, tags, remark)?;
     storage::save_store(&store)?;
 
-    print_header("Sleep Record Created");
-    println!(
-        "{} {}",
-        "ID:".style(owo_colors::Style::new().bold()),
-        record.id
-    );
-    println!(
-        "{} {:.1}h",
-        "Duration:".style(owo_colors::Style::new().bold()),
-        record.duration_hours()
-    );
-    println!(
-        "{} {}",
-        "Quality:".style(owo_colors::Style::new().bold()),
-        record.quality_label()
-    );
+    if format.is_json() {
+        let output = ListItem::from(&record);
+        println!("{}", output_item(&output, format));
+        return Ok(());
+    }
+
     print_success("Sleep record created successfully");
 
     Ok(())

@@ -1,5 +1,5 @@
 use crate::models::SparkRow;
-pub use i_rs_core::presentation::output::{output_error, output_item, output_list};
+pub use i_rs_core::presentation::output::{output_item, output_list};
 pub use i_rs_core::presentation::{OutputFormat, print_header, print_success};
 use owo_colors::OwoColorize;
 pub fn format_table(rows: &[SparkRow]) -> String {

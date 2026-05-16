@@ -57,6 +57,20 @@ Delete a spark.
 i-rs-spark delete <ID>
 ```
 
+### update
+
+Update a spark record.
+
+```bash
+i-rs-spark update <ID> [OPTIONS]
+```
+
+Options:
+- `--content <CONTENT>` - The inspiration or idea
+- `-s, --source <SOURCE>` - Source of inspiration
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
 ### data
 
 Manage data (export, import, clear).

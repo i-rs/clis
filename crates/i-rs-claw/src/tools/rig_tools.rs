@@ -4,18 +4,8 @@ use std::collections::HashSet;
 use crate::tools::search::is_tool_enabled;
 
 const ALL_TOOLS: &[&str] = &[
-    "weight", "height", "run", "sleep", "mood", "water", "step", "dose",
-    "meal", "exercise", "fast", "cycle", "sit", "allergy", "cal",
-    "ledger", "budget", "invest", "debt", "goal", "invoice", "tax", "recur", "sub",
-    "todo", "habit", "project", "time", "remind",
-    "movie", "podcast", "read", "article", "quote", "snippet", "vocab",
-    "bookmark", "note",
-    "grocery", "pig", "want", "gift", "birthday", "event", "contact",
-    "sheet", "toothbrush", "towel", "bed", "ac", "filter", "purify", "appliance",
-    "feedpet", "petbath", "walkdog", "aqua",
-    "car", "cycling",
-    "kv", "keys", "password", "domain", "deploy", "vision", "server",
-    "spark", "bestby",
+    // Temporarily only enable aligned crates; others disabled until re-aligned
+    "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
 ];
 
 /// Get the JSON schema definitions for all tools.

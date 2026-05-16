@@ -17,6 +17,7 @@ pub struct SitEntry {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 impl SitEntry {
     pub fn new(
         duration_minutes: i32,
@@ -44,6 +45,7 @@ pub struct SitStore {
     pub entries: BTreeMap<String, SitEntry>,
 }
 
+#[allow(dead_code)]
 impl SitStore {
     pub fn add_entry(&mut self, entry: SitEntry) {
         self.entries.insert(entry.id.clone(), entry);
@@ -53,6 +55,9 @@ impl SitStore {
     }
     pub fn get_entry(&self, id: &str) -> Option<&SitEntry> {
         self.entries.get(id)
+    }
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut SitEntry> {
+        self.entries.get_mut(id)
     }
 }
 

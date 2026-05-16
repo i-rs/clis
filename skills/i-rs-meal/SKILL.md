@@ -62,6 +62,22 @@ Delete a meal record.
 i-rs-meal delete <ID>
 ```
 
+### update
+
+Update a meal record.
+
+```bash
+i-rs-meal update <ID> [OPTIONS]
+```
+
+Options:
+- `--meal-type <TYPE>` - Meal type (breakfast, lunch, dinner, snack)
+- `--food <FOOD_ITEMS>` - Food items
+- `--calories <CALORIES>` - Calorie count
+- `--date <DATE>` - Date (YYYY-MM-DD)
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
+
 ### data
 
 Manage data (export, import, clear).

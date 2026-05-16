@@ -18,6 +18,7 @@ pub struct PigEntry {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 impl PigEntry {
     pub fn new(
         food_name: String,
@@ -56,6 +57,10 @@ impl PigStore {
 
     pub fn get_entry(&self, id: &str) -> Option<&PigEntry> {
         self.entries.get(id)
+    }
+
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut PigEntry> {
+        self.entries.get_mut(id)
     }
 
     pub fn get_entries_by_date(&self, date: chrono::NaiveDate) -> Vec<&PigEntry> {

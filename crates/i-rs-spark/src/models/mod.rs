@@ -16,6 +16,7 @@ pub struct SparkEntry {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 impl SparkEntry {
     pub fn new(
         content: String,
@@ -41,6 +42,7 @@ pub struct SparkStore {
     pub entries: BTreeMap<String, SparkEntry>,
 }
 
+#[allow(dead_code)]
 impl SparkStore {
     pub fn add_entry(&mut self, entry: SparkEntry) {
         self.entries.insert(entry.id.clone(), entry);
@@ -52,6 +54,10 @@ impl SparkStore {
 
     pub fn get_entry(&self, id: &str) -> Option<&SparkEntry> {
         self.entries.get(id)
+    }
+
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut SparkEntry> {
+        self.entries.get_mut(id)
     }
 }
 

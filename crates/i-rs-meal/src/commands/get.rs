@@ -1,4 +1,5 @@
-use crate::presentation::{OutputFormat, output_error, output_item, print_header};
+use crate::presentation::{OutputFormat, output_item, output_list, print_header};
+use crate::service;
 use crate::storage;
 use anyhow::Result;
 use i_rs_core::parse_date;
@@ -10,13 +11,13 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
 
     if let Some(date_str) = date {
         let parsed_date = parse_date(&date_str)?;
-        let entries = storage::get_entries_by_date(&store, parsed_date);
+        let entries = service::list_meals(&store, Some(parsed_date))?;
 
         if entries.is_empty() {
             if format.is_json() {
                 println!(
                     "{}",
-                    output_error(&format!("No meals on {date_str}"), "NOT_FOUND", format)
+                    output_list::<serde_json::Value>(&[], 0, Some(&date_str), format)
                 );
             }
             anyhow::bail!("No meals on {date_str}");
@@ -25,9 +26,9 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
         if format.is_json() {
             let items: Vec<crate::models::ListItem> = entries
                 .iter()
-                .map(|e| crate::models::ListItem::from(*e))
+                .map(|e| crate::models::ListItem::from(e))
                 .collect();
-            println!("{}", output_item(&items, format));
+            println!("{}", output_list(&items, items.len(), Some(&date_str), format));
             return Ok(());
         }
 
@@ -35,7 +36,7 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
             "Meals on {}",
             parsed_date.format("%Y-%m-%d").green()
         ));
-        for entry in entries {
+        for entry in &entries {
             println!();
             let style = OwoStyle::new().bold();
             println!("{:16} {}", "Type:".style(style), entry.meal_type.cyan());
@@ -59,20 +60,10 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
         return Ok(());
     }
 
-    let short_id = if id.len() >= 8 { &id[..8] } else { &id };
-
-    let entry = if let Some(e) = store.get_entry(short_id) {
-        e
-    } else {
-        let msg = format!("Meal '{id}' not found");
-        if format.is_json() {
-            println!("{}", output_error(&msg, "NOT_FOUND", format));
-        }
-        anyhow::bail!("{msg}");
-    };
+    let entry = service::get_meal(&store, &id)?;
 
     if format.is_json() {
-        let output = crate::models::ListItem::from(entry);
+        let output = crate::models::ListItem::from(&entry);
         println!("{}", output_item(&output, format));
         return Ok(());
     }

@@ -27,6 +27,11 @@ impl WeightStore {
         self.records.remove(date)
     }
 
+    #[allow(dead_code)]
+    pub fn get_entry(&self, date: &NaiveDate) -> Option<&WeightRecord> {
+        self.records.get(date)
+    }
+
     pub fn get_entry_mut(&mut self, date: &NaiveDate) -> Option<&mut WeightRecord> {
         self.records.get_mut(date)
     }
