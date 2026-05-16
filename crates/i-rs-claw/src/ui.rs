@@ -64,12 +64,19 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     // Subtract 1 line for the top border
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Build items from the end until the area is full
+    // Build items from the end, respecting scroll_offset from bottom
     let mut items: Vec<ListItem> = Vec::new();
+    let mut remaining_skip = app.scroll_offset;
     let mut lines_used = 0usize;
 
     for msg in app.messages.iter().rev() {
         let h = message_line_count(msg, text_width);
+        if remaining_skip >= h {
+            // This entire message is scrolled past
+            remaining_skip -= h;
+            continue;
+        }
+        // Partial or full visibility
         if lines_used + h > area_lines && !items.is_empty() {
             break;
         }
@@ -78,10 +85,19 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     }
     items.reverse();
 
-    let chat_block = Block::default()
+    // Show an indicator when scrolled up
+    let at_bottom = app.scroll_offset == 0;
+
+    let mut block = Block::default()
         .borders(Borders::TOP)
         .border_style(Style::default().fg(Color::DarkGray));
-    let list = List::new(items).block(chat_block);
+
+    if !at_bottom && !items.is_empty() {
+        block = block.title(" ↑ 滚动浏览历史 ↑ ");
+        block = block.title_alignment(ratatui::layout::Alignment::Center);
+    }
+
+    let list = List::new(items).block(block);
     f.render_widget(list, area);
 }
 

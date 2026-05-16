@@ -324,7 +324,9 @@ fn main_loop(
                     KeyCode::Up
                         if !app.show_session_list && !app.is_processing() =>
                     {
-                        if let Some(text) = app.navigate_history_up() {
+                        if app.input.is_empty() {
+                            app.scroll_up(3);
+                        } else if let Some(text) = app.navigate_history_up() {
                             app.input = text;
                             app.move_cursor_end();
                         }
@@ -332,7 +334,9 @@ fn main_loop(
                     KeyCode::Down
                         if !app.show_session_list && !app.is_processing() =>
                     {
-                        if let Some(text) = app.navigate_history_down() {
+                        if app.input.is_empty() {
+                            app.scroll_down(3);
+                        } else if let Some(text) = app.navigate_history_down() {
                             app.input = text;
                             app.move_cursor_end();
                         } else {

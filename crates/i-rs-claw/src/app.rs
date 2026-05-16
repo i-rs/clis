@@ -41,6 +41,8 @@ pub struct App {
     pub input_history_index: Option<usize>,
     /// Cursor position within input (byte index)
     pub input_cursor: usize,
+    /// How many lines the user has scrolled up from the bottom (0 = bottom)
+    pub scroll_offset: usize,
 }
 
 impl App {
@@ -68,6 +70,7 @@ impl App {
             tool_index_text,
             input_history: Vec::new(),
             input_history_index: None,
+            scroll_offset: 0,
         }
     }
 
@@ -79,6 +82,7 @@ impl App {
         self.messages
             .push(Message::User { text: text.to_string() });
         self.state = AppState::Processing;
+        self.scroll_offset = 0;
     }
 
     // ── Input cursor manipulation ──
@@ -158,6 +162,7 @@ impl App {
             }
         }
         self.input_history_index = None;
+        self.scroll_offset = 0;
     }
 
     /// Navigate up in input history: restore previous input.
@@ -190,6 +195,20 @@ impl App {
             }
             None => None,
         }
+    }
+
+    // =============================================
+    // Message scroll
+    // =============================================
+
+    /// Scroll messages up (toward older messages).
+    pub fn scroll_up(&mut self, lines: usize) {
+        self.scroll_offset = self.scroll_offset.saturating_add(lines);
+    }
+
+    /// Scroll messages down (toward newer messages).
+    pub fn scroll_down(&mut self, lines: usize) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(lines);
     }
 
     /// Update the real-time status text (shown in status bar)
