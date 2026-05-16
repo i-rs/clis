@@ -23,3 +23,4 @@ rig-core = "0.37"
 uuid.workspace = true
 clap.workspace = true
 unicode-width = "0.2"
+owo-colors.workspace = true

@@ -9,6 +9,7 @@ use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use std::io;
 use tokio::sync::mpsc;
+use owo_colors::OwoColorize;
 
 // =============================================
 // TUI subcommand
@@ -98,13 +99,16 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crossterm::event::DisableMouseCapture
     )?;
 
-    // Print re-entry command so user can resume later
+    // Print styled re-entry command so user can resume later
     if let Some(sid) = session_mgr.current_id() {
-        println!("重新进入会话: i-rs-claw tui --session {}", sid);
+        println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
+        println!("{} {}", "↻ 重新进入:".yellow(), format!("i-rs-claw tui --session {}", sid).cyan().bold());
+    } else {
+        println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
     }
 
     if let Err(e) = &result {
-        eprintln!("错误: {}", e);
+        eprintln!("{} {}", "✗ 错误:".red().bold(), e.to_string().red());
     }
 
     result
