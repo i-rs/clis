@@ -1,4 +1,4 @@
-const TOOL_INDEX: &[(&str, &str)] = &[
+pub const TOOL_INDEX: &[(&str, &str)] = &[
     // 健康管理
     ("weight", "体重管理：记录、查看、统计体重数据"),
     ("height", "身高管理：记录、查看身高数据"),
@@ -76,12 +76,16 @@ const TOOL_INDEX: &[(&str, &str)] = &[
     ("server", "服务器管理：管理服务器信息"),
     ("spark", "灵感收集：随时记录灵感"),
     ("bestby", "保质期：跟踪物品保质期"),
-    ("event", "事件管理：记录和管理事件"),
-    ("weight", "体重管理：记录体重的变化"),
-    ("todo", "待办事项：管理日常任务"),
-    ("project", "项目管理：管理个人项目"),
-    ("grocery", "购物清单：记录购物"),
 ];
+
+/// Format a compact tool index for system prompt Layer 2.
+pub fn format_index() -> String {
+    let mut result = String::from("## 工具索引（70个工具）\n\n");
+    for (name, desc) in TOOL_INDEX {
+        result.push_str(&format!("- {}: {}\n", name, desc));
+    }
+    result
+}
 
 pub fn search(query: &str) -> String {
     let query_lower = query.to_lowercase();

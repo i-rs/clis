@@ -1,20 +1,8 @@
 use crate::config::Config;
+use crate::utils;
 use futures_util::StreamExt;
 use serde_json::Value;
-use std::collections::HashSet;
 use tokio::sync::mpsc;
-
-/// Safe UTF-8 truncation: cut string at a char boundary, max `max_bytes` bytes.
-fn truncate(s: &str, max_bytes: usize) -> &str {
-    let max = max_bytes.min(s.len());
-    let bound = s
-        .char_indices()
-        .take_while(|(i, _)| *i < max)
-        .last()
-        .map(|(i, c)| i + c.len_utf8())
-        .unwrap_or(0);
-    &s[..bound]
-}
 
 #[derive(Debug)]
 pub enum LlmEvent {
@@ -188,16 +176,31 @@ async fn stream_chat(
     Ok(StreamResult::Text)
 }
 
-/// Load system prompt from external file and inject current date info.
-/// This gives the AI knowledge of today's date for date conversion.
-fn build_system_prompt() -> String {
-    let prompt = include_str!("../prompts/system.md").to_string();
+/// Load system prompt from external file and inject dynamic layers.
+///
+/// Layers:
+/// 1. Static behavior prompt (system.md)
+/// 2. Tool index (from TOOL_INDEX static data)
+/// 3. Hot tool docs (skill teach outputs for frequently used tools)
+/// 4. User memory (cross-session preferences and history)
+fn build_system_prompt(
+    tool_index: &str,
+    hot_tools: &str,
+    user_memory: &str,
+) -> String {
+    let mut prompt = include_str!("../prompts/system.md").to_string();
     let now = chrono::Local::now();
     let today = now.format("%Y-%m-%d").to_string();
     let weekday = now.format("%A").to_string();
-    prompt
+    prompt = prompt
         .replace("{current_date}", &today)
-        .replace("{current_weekday}", &weekday)
+        .replace("{current_weekday}", &weekday);
+
+    prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
+    prompt = prompt.replace("{{HOT_TOOLS}}", hot_tools);
+    prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
+
+    prompt
 }
 
 /// Convert app messages to API-compatible message list.
@@ -207,6 +210,9 @@ pub fn build_messages(
     app_messages: &[crate::app::Message],
     user_text: &str,
     saved_api_messages: &Option<Vec<Value>>,
+    tool_index: &str,
+    hot_tools: &str,
+    user_memory: &str,
 ) -> Vec<Value> {
     if let Some(prev_msgs) = saved_api_messages {
         // Reuse saved API messages (has full context including tool calls)
@@ -236,7 +242,7 @@ pub fn build_messages(
     // First turn: build from scratch
     let mut msgs = vec![serde_json::json!({
         "role": "system",
-        "content": build_system_prompt()
+        "content": build_system_prompt(tool_index, hot_tools, user_memory)
     })];
 
     // Keep last ~8 display messages for context
@@ -259,14 +265,10 @@ pub fn build_messages(
     msgs
 }
 
-/// Execute a parsed tool call with learned-tools constraint.
-///
-/// 核心约束：数据操作前必须先通过 skill/example 学习该工具。
-/// 学习型命令(skill/example)执行并标记已学；数据型命令检查约束。
+/// Execute a parsed tool call and return the result.
 fn execute_tool_call(
     name: &str,
     args: &Value,
-    learned_tools: &mut HashSet<String>,
 ) -> String {
     match name {
         "search_tools" => {
@@ -286,29 +288,6 @@ fn execute_tool_call(
                 })
                 .unwrap_or_default();
 
-            // --- 学习型命令：skill / example → 执行并标记已学习 ---
-            let is_learning = cmd == "skill" || cmd == "example";
-            if is_learning {
-                let result = match crate::tools::i_rs_cmd::execute(tool, cmd, &cmd_args) {
-                    Ok(r) => r,
-                    Err(e) => format!("错误: {}", e),
-                };
-                learned_tools.insert(tool.to_string());
-                return result;
-            }
-
-            // --- 数据型命令：强制约束检查 ---
-            if !learned_tools.contains(tool) {
-                return format!(
-                    "⚠️ 约束: 执行 {} {} 前必须先学习该工具用法。\n\
-                     请先调用 skill teach 学习：\n\
-                     i_rs(tool=\"{}\", command=\"skill\", args=[\"teach\"])\n\
-                     或查看示例：\n\
-                     i_rs(tool=\"{}\", command=\"example\", args=[])",
-                    tool, cmd, tool, tool
-                );
-            }
-
             match crate::tools::i_rs_cmd::execute(tool, cmd, &cmd_args) {
                 Ok(r) => r,
                 Err(e) => format!("错误: {}", e),
@@ -324,10 +303,8 @@ pub async fn chat_loop(
     messages: Vec<Value>,
     tx: mpsc::UnboundedSender<LlmEvent>,
 ) {
-    let tool_schemas = crate::tools::get_tool_schemas(&crate::tools::get_tools());
+    let tool_schemas = crate::tools::get_tool_schemas();
     let mut msgs = messages;
-    // Track which tools have been learned via skill/example
-    let mut learned_tools: HashSet<String> = HashSet::new();
 
     // Reuse HTTP client across retries
     let client = reqwest::Client::builder()
@@ -371,27 +348,23 @@ pub async fn chat_loop(
                 }
                 msgs.push(assistant_msg);
 
-                // Execute each tool call with learned-tools constraint
+                // Execute each tool call
                 for (tc, args) in &calls {
                     let status_msg = if tc.name == "i_rs" {
                         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
                         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
-                        if cmd == "skill" || cmd == "example" {
-                            format!("📚 学习工具: {}", tool)
-                        } else {
-                            format!("⚡ 调用工具: {} {}", tool, cmd)
-                        }
+                        format!("⚡ 调用工具: {} {}", tool, cmd)
                     } else {
                         format!("⚡ 调用工具: {}", tc.name)
                     };
                     let _ = tx.send(LlmEvent::Status(status_msg));
-                    let result = execute_tool_call(&tc.name, args, &mut learned_tools);
+                    let result = execute_tool_call(&tc.name, args);
 
                     let _ = tx.send(LlmEvent::ToolExecuted {
                         name: tc.name.clone(),
                         args: format!("{:?}", args),
                         result: if result.len() > 200 {
-                            format!("{}...(truncated)", truncate(&result, 200))
+                            format!("{}...(truncated)", utils::truncate(&result, 200))
                         } else {
                             result.clone()
                         },
@@ -399,7 +372,7 @@ pub async fn chat_loop(
 
                     // Add tool result to conversation history
                     let trimmed = if result.len() > 500 {
-                        format!("{}...(truncated)", truncate(&result, 500))
+                        format!("{}...(truncated)", utils::truncate(&result, 500))
                     } else {
                         result.clone()
                     };

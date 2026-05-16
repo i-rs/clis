@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{App, Message};
+use crate::utils;
 
 pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
@@ -27,6 +28,11 @@ pub fn render(f: &mut Frame, app: &App) {
     render_processing(f, layout[2], app);
     render_input(f, layout[3], app);
     render_status(f, layout[4], app);
+
+    // Session list overlay (rendered on top of everything)
+    if app.show_session_list {
+        render_session_list(f, area, app);
+    }
 }
 
 fn render_title(f: &mut Frame, area: Rect, app: &App) {
@@ -102,15 +108,7 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             Message::ToolCall { name, args, result } => {
                 let call_str = format!("{} {}", name, args);
                 let line = if call_str.len() > 60 {
-                    // Safe truncation at char boundary to avoid UTF-8 panic
-                    let max_byte = 57.min(call_str.len());
-                    let bound = call_str.char_indices()
-                        .take_while(|(i, _)| *i <= max_byte)
-                        .last()
-                        .map(|(i, c)| i + c.len_utf8())
-                        .unwrap_or(0);
-                    format!("  {}...", &call_str[..bound])
-
+                    format!("  {}...", utils::truncate(&call_str, 57))
                 } else {
                     format!("  {}", call_str)
                 };
@@ -216,14 +214,14 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
 fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let status_info = if app.is_processing() {
         format!(
-            " ⏳ {} | tools: {} | msgs: {} | Ctrl+Q quit",
+            " ⏳ {} | tools: {} | msgs: {} | Ctrl+Q quit | Ctrl+L sessions",
             app.status_text,
             app.tool_call_count,
             app.messages.len(),
         )
     } else {
         format!(
-            " ● 就绪 | {} | tools: {} | msgs: {} | Ctrl+Q quit",
+            " ● 就绪 | {} | tools: {} | msgs: {} | Ctrl+Q quit | Ctrl+L sessions",
             app.config.model,
             app.tool_call_count,
             app.messages.len(),
@@ -244,4 +242,104 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
             .add_modifier(Modifier::DIM),
     ));
     f.render_widget(status, area);
+}
+
+/// Centered overlay showing the session list for switching conversations.
+fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
+    // Calculate popup dimensions
+    let popup_width = (area.width as f32 * 0.7) as u16;
+    let popup_height = (area.height as f32 * 0.6) as u16;
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    // Items: title + each session
+    let empty = app.session_list.is_empty();
+
+    let mut items: Vec<ListItem> = Vec::new();
+
+    // Header
+    items.push(ListItem::new(vec![
+        Line::from(Span::styled(
+            " 会话列表",
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            " ────────────────────────────────────────",
+            Style::default().fg(Color::DarkGray),
+        )),
+    ]));
+
+    if empty {
+        items.push(ListItem::new(vec![Line::from(Span::styled(
+            " 暂无会话",
+            Style::default().fg(Color::DarkGray),
+        ))]));
+    } else {
+        for (i, session) in app.session_list.iter().enumerate() {
+            let selected = i == app.session_list_index;
+            let prefix = if selected { " ▶ " } else { "    " };
+            let style = if selected {
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+
+            // Format date from timestamp
+            let time = chrono::DateTime::from_timestamp(session.created_at, 0)
+                .map(|dt| dt.format("%m-%d %H:%M").to_string())
+                .unwrap_or_default();
+
+            items.push(ListItem::new(vec![Line::from(vec![
+                Span::styled(prefix, style),
+                Span::styled(
+                    truncate_str(&session.title, (popup_width as usize).saturating_sub(8)),
+                    style,
+                ),
+            ])]));
+
+            items.push(ListItem::new(vec![Line::from(vec![
+                Span::raw("      "),
+                Span::styled(
+                    format!("{} msgs | {}", session.message_count, time),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ])]));
+        }
+    }
+
+    // Footer
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        " ────────────────────────────────────────",
+        Style::default().fg(Color::DarkGray),
+    ))]));
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        if empty {
+            " Ctrl+L 关闭"
+        } else {
+            " ↑↓ 选择  Enter 切换会话  Ctrl+L 关闭"
+        },
+        Style::default().fg(Color::DarkGray),
+    ))]));
+
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+
+    f.render_widget(list, popup_area);
+}
+
+fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
 }

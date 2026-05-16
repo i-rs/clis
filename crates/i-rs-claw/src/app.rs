@@ -25,6 +25,12 @@ pub struct App {
     pub status_text: String,
     /// Full API message list preserved across turns (includes tool call context)
     pub api_messages: Option<Vec<Value>>,
+    /// Whether the session list overlay is shown
+    pub show_session_list: bool,
+    /// Currently selected index in session list
+    pub session_list_index: usize,
+    /// Cached session list for display
+    pub session_list: Vec<crate::session::SessionMeta>,
 }
 
 impl App {
@@ -37,6 +43,9 @@ impl App {
             tool_call_count: 0,
             status_text: String::new(),
             api_messages: None,
+            show_session_list: false,
+            session_list_index: 0,
+            session_list: Vec::new(),
         }
     }
 
