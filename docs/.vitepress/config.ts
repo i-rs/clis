@@ -32,6 +32,7 @@ export default defineConfig({
             ]
           },
           { text: '同一份数据，两个入口 — 共享存储层', link: '/articles/shared-storage-layer' },
+          { text: '项目状态报告', link: '/articles/project-status' },
           { text: 'i-rs 内置 Skill 系统', link: '/articles/built-in-skill-system' },
           { text: 'AI 原生命令行 — AI Skill 系统', link: '/articles/ai-native-cli' },
           { text: '70 工具 · 一柄利刃 — Rust 工程实践', link: '/articles/rust-mono-repo' },
