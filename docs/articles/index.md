@@ -4,6 +4,10 @@
 
 ## 精选文章
 
+### [i-rs 内置 Skill 系统 — CLI 工具的 AI 自我介绍](./built-in-skill-system)
+
+全面解读 i-rs 最具特色的能力：一个宏注入 70+ 工具，7 个 skill 子命令覆盖教学、检索、分发全流程，编译时嵌入、AgentSkills 标准兼容、从 `--help` 就开始的 AI 体验。
+
 ### [AI 原生命令行 — i-rs 的 AI Skill 系统](./ai-native-cli)
 
 当 CLI 工具学会"自我介绍"，AI 与终端之间的鸿沟被彻底打通。每一把 i-rs 工具都内置了完整的 AI 技能系统，无需外部配置，无需额外文档，AI Agent 读取 `--help` 的那一刻，就知道如何驾驭它。

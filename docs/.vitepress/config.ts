@@ -22,6 +22,7 @@ export default defineConfig({
         text: 'Articles',
         items: [
           { text: 'Overview', link: '/articles/' },
+          { text: 'i-rs 内置 Skill 系统', link: '/articles/built-in-skill-system' },
           { text: 'AI 原生命令行 — AI Skill 系统', link: '/articles/ai-native-cli' },
           { text: '70 工具 · 一柄利刃 — Rust 工程实践', link: '/articles/rust-mono-repo' },
           { text: '从终端到云端 — 全栈覆盖', link: '/articles/full-stack-coverage' },
