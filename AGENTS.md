@@ -2,11 +2,12 @@
 
 ## Project Overview
 
-Rust monorepo with **70 cross-platform CLI tools** for personal data management, plus special crates and browser extensions:
+Rust monorepo with **70 cross-platform CLI tools** for personal data management, plus special crates, MCP server, and browser extensions:
 
 - **`i-rs`** - Meta CLI (unified entry point)
 - **`i-rs-core`** - Shared core library
 - **`i-rs-api`** - REST API server
+- **`i-rs-mcp`** - MCP (Model Context Protocol) server
 - **`extensions/`** - Browser extensions via Native Messaging
 
 **Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api.
@@ -19,6 +20,7 @@ i-rs-clis/
 │   ├── i-rs/               # Meta CLI (unified entry point for all tools)
 │   ├── i-rs-core/          # Shared core library (macros, Storage, presentation, utils)
 │   ├── i-rs-api/           # REST API server (Axum)
+│   ├── i-rs-mcp/           # MCP server (JSON-RPC 2.0 over stdio)
 │   ├── i-rs-{name}...      # 70 CLI tools
 ├── extensions/              # Browser extensions (Native Messaging)
 │   ├── i-rs-kv-chrome/     # Chrome extension for i-rs-kv
@@ -49,6 +51,7 @@ These crates are **not standard CLI tools** and have different development requi
 | `i-rs` | Meta CLI | Unified entry point that delegates to all 70 CLI tools |
 | `i-rs-core` | Shared Library | Core library providing `Storage<T>`, macros, presentation, and utilities |
 | `i-rs-api` | REST API | REST API server built with Axum, wrapping CLI tools as HTTP endpoints |
+| `i-rs-mcp` | MCP Server | MCP (Model Context Protocol) server exposing CLI tools as JSON-RPC 2.0 tools over stdio |
 
 ### i-rs (Meta CLI)
 
@@ -83,6 +86,28 @@ It does NOT have its own models/storage/commands - it only routes to other tools
 - **32 integration tests** — covering health, CRUD, PATCH, 404, bad request, data export/clear across all 3 store patterns (String-keyed BTreeMap, NaiveDate-keyed BTreeMap, Vec-based)
 - Uses `i-rs-core` but NOT the standard CLI crate pattern
 - Does NOT have: `storage/mod.rs`, `commands/`, `models/`, `presentation/`
+
+### i-rs-mcp (MCP Server)
+
+`i-rs-mcp` is an **MCP (Model Context Protocol) server** that exposes all 70 i-rs CLI tools as MCP tools:
+
+- **JSON-RPC 2.0 over stdio** — communicates via stdin/stdout using the MCP wire protocol
+- **`make_mcp_tools!` macro** — generates `AppState`, `load_state()`, `get_tool_definitions()`, and `handle_tool_call()` from a single list of 65 (field, store_type, entity_type, map_field, key_type) tuples
+- **Each tool = 4 operations** — list, get, add, delete (with JSON-RPC `tools/call` dispatch)
+- **`SharedStore<T>`** — thread-safe `Arc<RwLock<T>>` wrapper with auto-flush on write
+- **Runtime JSON reflection** — `store_values()` and `store_get()` use serde_json runtime serialization to handle different BTreeMap field names and key types
+- **`remove_by_key!` macro** — three arms for key-type-specific remove logic (s=String, d=NaiveDate, u=Uuid)
+- **`fill_defaults()`** — injects `id`/`created_at`/`updated_at` before entity deserialization
+- **65 BTreeMap-based tools registered** (Phase 1); 5 non-standard stores (car/plant/project/budget/goal) deferred to Phase 2
+- **Does NOT follow standard CLI crate pattern** — no `main.rs` clap CLI, no `commands/`, `models/`, `storage/`, `presentation/` directories
+
+```
+crates/i-rs-mcp/
+├── Cargo.toml              # Dependencies on all 68 i-rs-* crates + serde/serde_json/uuid/chrono/paste
+└── src/
+    ├── main.rs             # MCP server entry: macros + session loop
+    └── transport.rs        # JSON-RPC 2.0 stdio transport layer
+```
 
 ## Browser Extensions (Native Messaging)
 
@@ -694,6 +719,8 @@ CI (cargo-dist) auto-builds and publishes to:
 - `.github/workflows/check.yml` - CI (cargo check + clippy + fmt)
 - `.github/workflows/release.yml` - Release automation
 - `crates/i-rs-api/src/update.rs` - Generic JSON merge/partial-update utility
+- `crates/i-rs-mcp/src/main.rs` - MCP server with `make_mcp_tools!` macro and session loop
+- `crates/i-rs-mcp/src/transport.rs` - JSON-RPC 2.0 stdio transport layer
 
 ## VitePress Documentation
 
