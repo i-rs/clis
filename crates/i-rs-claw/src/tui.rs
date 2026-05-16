@@ -519,7 +519,9 @@ fn main_loop(
                     _ => {}
                 },
                 Event::Mouse(mouse) => {
-                    if !app.is_processing() {
+                    if !app.is_processing()
+                        && app.sidebar_body_idx.is_none()
+                    {
                         match mouse.kind {
                             MouseEventKind::ScrollDown => app.scroll_down(),
                             MouseEventKind::ScrollUp => app.scroll_up(),
