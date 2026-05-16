@@ -58,6 +58,21 @@ pub fn format_date(date: NaiveDate) -> String {
     date.format("%Y-%m-%d").to_string()
 }
 
+/// Returns the current UTC time.
+pub fn now_utc() -> DateTime<Utc> {
+    Utc::now()
+}
+
+/// Format a `DateTime<Utc>` with the given format string.
+pub fn format_datetime(dt: &DateTime<Utc>, fmt: &str) -> String {
+    dt.format(fmt).to_string()
+}
+
+/// Format a `NaiveDate` with the given format string.
+pub fn format_date_custom(date: NaiveDate, fmt: &str) -> String {
+    date.format(fmt).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

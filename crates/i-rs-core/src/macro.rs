@@ -131,6 +131,98 @@ macro_rules! skill_command {
     };
 }
 
+/// Generate a `setup()` function for test setup.
+///
+/// Creates a temp directory and sets `CONFIG_DIR` for test isolation.
+///
+/// Usage in `crates/i-rs-xxx/src/tests.rs`:
+/// ```ignore
+/// #[cfg(test)]
+/// mod tests {
+///     use crate::{Cli, Commands, commands, run};
+///     use clap::Parser;
+///
+///     i_rs_core::test_setup!("i-rs-xxx");
+///
+///     #[test]
+///     fn test_example() {
+///         setup();
+///         let cmd = Commands::Example {};
+///         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! test_setup {
+    ($prefix:literal) => {
+        fn setup() {
+            use ::std::sync::OnceLock;
+            static INIT: OnceLock<()> = OnceLock::new();
+            INIT.get_or_init(|| {
+                let tmp = ::std::env::temp_dir()
+                    .join(::std::format!("{}-test-{}", $prefix, ::std::process::id()));
+                let _ = ::std::fs::create_dir_all(&tmp);
+                // Safety: test-only, single-threaded access to CONFIG_DIR
+                unsafe { ::std::env::set_var("CONFIG_DIR", tmp.to_str().unwrap()); }
+            });
+        }
+    };
+}
+
+/// Handle empty list results with JSON/table output.
+///
+/// Replaces the common pattern in `list.rs`:
+/// ```ignore
+/// if entries.is_empty() {
+///     if format.is_json() {
+///         println!("{}", output_list::<serde_json::Value>(&[], 0, ...));
+///     } else {
+///         print_warning("No records found.");
+///     }
+///     return Ok(());
+/// }
+/// ```
+#[macro_export]
+macro_rules! handle_empty {
+    ($entries:expr, $format:expr) => {
+        if $entries.is_empty() {
+            if $format.is_json() {
+                ::println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, None::<&str>, $format));
+            } else {
+                $crate::presentation::print_warning("No records found.");
+            }
+            return Ok(());
+        }
+    };
+    ($entries:expr, $format:expr, $filter:expr) => {
+        if $entries.is_empty() {
+            if $format.is_json() {
+                ::println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, $filter, $format));
+            } else {
+                $crate::presentation::print_warning("No records found.");
+            }
+            return Ok(());
+        }
+    };
+}
+
+/// Update a field if the new value is `Some`.
+///
+/// Replaces the common pattern:
+/// ```ignore
+/// if let Some(v) = new_value {
+///     entity.field = v;
+/// }
+/// ```
+#[macro_export]
+macro_rules! update_field {
+    ($target:expr, $value:expr) => {
+        if let Some(v) = $value {
+            $target = v;
+        }
+    };
+}
+
 /// Handle a CLI `Result` by printing the error and exiting.
 ///
 /// If `json` is true, the error is printed as JSON. Otherwise, it's printed as
