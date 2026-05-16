@@ -7,7 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
     let habits = crate::service::list_habits(&store, tag.clone())?;
 
     if format == OutputFormat::Json {
-        let items: Vec<ListItem> = habits.iter().map(|h| h.into()).collect();
+        let items: Vec<ListItem> = habits.iter().map(std::convert::Into::into).collect();
         println!(
             "{}",
             output_list(&items, items.len(), tag.as_deref(), format)
