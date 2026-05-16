@@ -14,7 +14,7 @@ pub fn handle_list(
 
     let projects: Vec<&crate::models::Project> = store
         .projects
-        .iter()
+        .values()
         .filter(|p| {
             let tag_match = tag
                 .as_ref()

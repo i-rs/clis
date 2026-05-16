@@ -14,48 +14,48 @@ pub fn handle_stats() -> Result<()> {
     let total_projects = store.projects.len();
     let active_projects = store
         .projects
-        .iter()
+        .values()
         .filter(|p| p.status == crate::models::ProjectStatus::Active)
         .count();
     let completed_projects = store
         .projects
-        .iter()
+        .values()
         .filter(|p| p.status == crate::models::ProjectStatus::Completed)
         .count();
     let onhold_projects = store
         .projects
-        .iter()
+        .values()
         .filter(|p| p.status == crate::models::ProjectStatus::OnHold)
         .count();
 
-    let total_milestones: usize = store.projects.iter().map(|p| p.milestones.len()).sum();
+    let total_milestones: usize = store.projects.values().map(|p| p.milestones.len()).sum();
     let completed_milestones: usize = store
         .projects
-        .iter()
+        .values()
         .map(|p| p.milestones.iter().filter(|m| m.completed).count())
         .sum();
 
-    let total_tasks: usize = store.projects.iter().map(|p| p.tasks.len()).sum();
+    let total_tasks: usize = store.projects.values().map(|p| p.tasks.len()).sum();
     let completed_tasks: usize = store
         .projects
-        .iter()
+        .values()
         .map(|p| p.tasks.iter().filter(|t| t.completed).count())
         .sum();
 
     let urgent_projects = store
         .projects
-        .iter()
+        .values()
         .filter(|p| p.priority == crate::models::Priority::Urgent)
         .count();
     let high_priority_projects = store
         .projects
-        .iter()
+        .values()
         .filter(|p| p.priority == crate::models::Priority::High)
         .count();
 
     let overdue_milestones = store
         .projects
-        .iter()
+        .values()
         .flat_map(|p| &p.milestones)
         .filter(|m| !m.completed && m.due_date.is_some_and(|d| d < Utc::now()))
         .count();

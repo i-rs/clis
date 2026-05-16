@@ -34,7 +34,7 @@ pub struct UpdateArgs {
 pub fn update(args: UpdateArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;
 
-    let goal = store.goals.get_mut(&args.name);
+    let goal = store.get_entry_mut(&args.name);
 
     match goal {
         Some(goal) => {

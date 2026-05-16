@@ -55,7 +55,7 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
 
     let mut store = storage::load_store()?;
 
-    if store.goals.contains_key(&args.name) {
+    if store.get_entry(&args.name).is_some() {
         anyhow::bail!("Goal '{}' already exists", args.name);
     }
 

@@ -167,8 +167,8 @@ impl CarStore {
         self.cars.get_mut(name)
     }
 
-    pub fn remove_entry(&mut self, name: &str) -> bool {
-        self.cars.remove(name).is_some()
+    pub fn remove_entry(&mut self, name: &str) -> Option<Car> {
+        self.cars.remove(name)
     }
 
     pub fn list_entries(&self) -> Vec<&Car> {

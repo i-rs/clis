@@ -40,7 +40,7 @@ pub fn add_entry(
         updated_at: now,
     };
 
-    store.goals.insert(goal.name.clone(), goal.clone());
+    store.add_entry(goal.clone());
     save_store(store)?;
 
     Ok(goal)
@@ -48,8 +48,7 @@ pub fn add_entry(
 
 pub fn deposit_to_goal(store: &mut GoalStore, name: &str, amount: f64) -> Result<SavingsGoal> {
     let goal = store
-        .goals
-        .get_mut(name)
+        .get_entry_mut(name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{name}' not found"))?;
 
     goal.current_amount += amount;
@@ -69,8 +68,7 @@ pub fn add_milestone(
     amount: f64,
 ) -> Result<SavingsGoal> {
     let goal = store
-        .goals
-        .get_mut(goal_name)
+        .get_entry_mut(goal_name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{goal_name}' not found"))?;
 
     let milestone = Milestone {
@@ -100,8 +98,7 @@ pub fn remove_milestone(
     milestone_id: &str,
 ) -> Result<SavingsGoal> {
     let goal = store
-        .goals
-        .get_mut(goal_name)
+        .get_entry_mut(goal_name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{goal_name}' not found"))?;
 
     let initial_len = goal.milestones.len();

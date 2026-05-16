@@ -64,13 +64,20 @@ pub struct GoalStore {
 }
 
 impl GoalStore {
-    pub fn remove_entry(&mut self, name: &str) -> ::anyhow::Result<bool> {
-        if self.goals.remove(name).is_some() {
-            crate::storage::save_store(self)?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+    pub fn add_entry(&mut self, entry: SavingsGoal) {
+        self.goals.insert(entry.name.clone(), entry);
+    }
+
+    pub fn get_entry(&self, name: &str) -> Option<&SavingsGoal> {
+        self.goals.get(name)
+    }
+
+    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut SavingsGoal> {
+        self.goals.get_mut(name)
+    }
+
+    pub fn remove_entry(&mut self, name: &str) -> Option<SavingsGoal> {
+        self.goals.remove(name)
     }
 }
 

@@ -11,7 +11,7 @@ pub struct GetArgs {
 pub fn get(args: GetArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
-    let goal = store.goals.get(&args.name);
+    let goal = store.get_entry(&args.name);
 
     match goal {
         Some(goal) => match output_format {

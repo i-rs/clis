@@ -73,6 +73,7 @@ members = [
     "crates/i-rs-vision",
     "crates/i-rs-appliance",
     "crates/i-rs-event",
+    "crates/i-rs-mcp",
     "crates/i-rs-api",
 ]
 

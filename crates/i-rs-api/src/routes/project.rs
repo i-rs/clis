@@ -47,7 +47,7 @@ pub struct AddProjectRequest {
 
 async fn list_projects(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.project.read(|store| {
-        let entries: Vec<_> = store.projects.to_vec();
+        let entries: Vec<_> = store.projects.values().cloned().collect();
         Ok::<_, ApiError>(entries)
     })?;
     Ok(ok_json_list(records))
@@ -109,8 +109,7 @@ async fn get_project(
     let entry = state.project.read(|store| {
         store
             .projects
-            .iter()
-            .find(|e| e.name == id)
+            .get(&id)
             .cloned()
             .ok_or_else(|| ApiError::NotFound(format!("Project '{id}' not found")))
     })?;
@@ -122,9 +121,7 @@ async fn delete_project(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     state.project.write(|store| {
-        let len = store.projects.len();
-        store.projects.retain(|e| e.name != id);
-        if store.projects.len() == len {
+        if store.projects.remove(&id).is_none() {
             return Err(ApiError::NotFound(format!("Project '{id}' not found")));
         }
         Ok(())

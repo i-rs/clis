@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tabled::Tabled;
 
 pub mod opt_ts_seconds {
@@ -95,32 +96,24 @@ pub enum Priority {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectStore {
     #[serde(default)]
-    pub projects: Vec<Project>,
+    pub projects: BTreeMap<String, Project>,
 }
 
 impl ProjectStore {
     pub fn add_entry(&mut self, entry: Project) {
-        self.projects.push(entry);
+        self.projects.insert(entry.name.clone(), entry);
     }
 
     pub fn remove_entry(&mut self, name: &str) -> Option<Project> {
-        let idx = self
-            .projects
-            .iter()
-            .position(|p| p.name.eq_ignore_ascii_case(name))?;
-        Some(self.projects.remove(idx))
+        self.projects.remove(name)
     }
 
     pub fn get_entry(&self, name: &str) -> Option<&Project> {
-        self.projects
-            .iter()
-            .find(|p| p.name.eq_ignore_ascii_case(name))
+        self.projects.get(name)
     }
 
     pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Project> {
-        self.projects
-            .iter_mut()
-            .find(|p| p.name.eq_ignore_ascii_case(name))
+        self.projects.get_mut(name)
     }
 }
 
