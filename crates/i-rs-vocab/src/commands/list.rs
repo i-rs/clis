@@ -1,5 +1,7 @@
 use crate::models::{VocabStatus, VocabWord};
-use crate::presentation::{format_table, output_list, print_stats, print_word_count, print_warning, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_stats, print_warning, print_word_count,
+};
 use crate::storage;
 use anyhow::Result;
 
@@ -11,8 +13,12 @@ pub fn handle_list(
     let store = storage::load_store()?;
 
     let words: Vec<&VocabWord> = if let Some(ref status_str) = status_filter {
-        if let Some(status) = VocabStatus::parse_str(status_str) { store.filter_by_status(status) } else {
-            print_warning(&format!("Invalid status '{status_str}'. Showing all words."));
+        if let Some(status) = VocabStatus::parse_str(status_str) {
+            store.filter_by_status(status)
+        } else {
+            print_warning(&format!(
+                "Invalid status '{status_str}'. Showing all words."
+            ));
             store.get_all_words()
         }
     } else if let Some(ref tag) = tag_filter {
@@ -24,7 +30,10 @@ pub fn handle_list(
     if words.is_empty() {
         if format.is_json() {
             let filter = status_filter.or(tag_filter);
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No vocabulary words found.");
         }
@@ -42,17 +51,23 @@ pub fn handle_list(
             tags: Vec<String>,
         }
 
-        let items: Vec<ListItem> = words.iter().map(|w| ListItem {
-            word: w.word.clone(),
-            definition: w.definition.clone(),
-            status: w.status.to_string(),
-            status_label: w.status.label().to_string(),
-            review_count: w.review_count,
-            tags: w.tags.clone(),
-        }).collect();
+        let items: Vec<ListItem> = words
+            .iter()
+            .map(|w| ListItem {
+                word: w.word.clone(),
+                definition: w.definition.clone(),
+                status: w.status.to_string(),
+                status_label: w.status.label().to_string(),
+                review_count: w.review_count,
+                tags: w.tags.clone(),
+            })
+            .collect();
 
         let filter = status_filter.or(tag_filter);
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 

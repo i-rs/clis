@@ -1,16 +1,15 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_vision(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -19,16 +18,15 @@ async fn update_vision(
     let entry_date = chrono::NaiveDate::parse_from_str(&id, "%Y-%m-%d")
         .map_err(|_| ApiError::BadRequest(format!("Invalid date '{id}', expected YYYY-MM-DD")))?;
     let entry = state.vision.write(|store| -> Result<_, ApiError> {
-        let entry = store.records.get_mut(&entry_date)
+        let entry = store
+            .records
+            .get_mut(&entry_date)
             .ok_or_else(|| ApiError::NotFound(format!("Vision '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok::<_, ApiError>(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -51,9 +49,7 @@ pub struct AddVisionRecordRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_visions(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_visions(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.vision.read(|store| {
         let entries: Vec<_> = store.records.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -65,8 +61,9 @@ async fn add_vision(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AddVisionRecordRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let date = chrono::NaiveDate::parse_from_str(&req.date, "%Y-%m-%d")
-        .map_err(|_| ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string()))?;
+    let date = chrono::NaiveDate::parse_from_str(&req.date, "%Y-%m-%d").map_err(|_| {
+        ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string())
+    })?;
     let left_sphere = req.left_sphere;
     let right_sphere = req.right_sphere;
     let left_cylinder = req.left_cylinder;
@@ -99,7 +96,11 @@ async fn get_vision(
     Path(id): Path<chrono::NaiveDate>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.vision.read(|store| {
-        store.records.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Vision '{id}' not found")))
+        store
+            .records
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Vision '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

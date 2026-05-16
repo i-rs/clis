@@ -39,4 +39,3 @@ pub fn handle_update(
 
     Ok(())
 }
-

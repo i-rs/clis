@@ -46,7 +46,9 @@ pub fn handle_add(
 fn validate_birth_date(date: &str) -> Result<(), String> {
     let parts: Vec<&str> = date.split('-').collect();
     if parts.len() != 2 {
-        return Err(format!("Invalid birth date format: {date}. Use MM-DD (e.g., 06-15)"));
+        return Err(format!(
+            "Invalid birth date format: {date}. Use MM-DD (e.g., 06-15)"
+        ));
     }
 
     let month: u32 = parts[0]
@@ -62,7 +64,9 @@ fn validate_birth_date(date: &str) -> Result<(), String> {
 
     let max_day = days_in_month(month);
     if day < 1 || day > max_day {
-        return Err(format!("Invalid day: {day} for month {month}. Must be 01-{max_day}"));
+        return Err(format!(
+            "Invalid day: {day} for month {month}. Must be 01-{max_day}"
+        ));
     }
 
     Ok(())

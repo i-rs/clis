@@ -1,5 +1,5 @@
 use crate::models::{ContactFrequency, Stats};
-use crate::presentation::{print_header, OutputFormat, output_item};
+use crate::presentation::{OutputFormat, output_item, print_header};
 use crate::storage;
 use owo_colors::OwoColorize;
 use std::collections::BTreeMap;
@@ -15,7 +15,9 @@ pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
 
     for contact in store.entries.values() {
         if !contact.relationship.is_empty() {
-            *by_relationship.entry(contact.relationship.clone()).or_insert(0) += 1;
+            *by_relationship
+                .entry(contact.relationship.clone())
+                .or_insert(0) += 1;
         }
 
         for tag in &contact.tags {
@@ -23,7 +25,7 @@ pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
         }
 
         let days_since = contact.days_since_last_contact().unwrap_or(i64::MAX);
-        
+
         recent_contacts.push(ContactFrequency {
             name: contact.name.clone(),
             days_since_contact: days_since,
@@ -49,7 +51,7 @@ pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
         output_item(&stats, format);
     } else {
         print_header("Contact Statistics");
-        
+
         println!("\n{} {}", "Total Contacts:".bold().cyan(), total_contacts);
 
         if !stats.by_relationship.is_empty() {
@@ -71,7 +73,11 @@ pub fn handle_stats(format: OutputFormat) -> anyhow::Result<()> {
         }
 
         if !stats.needs_reminder.is_empty() {
-            println!("\n{} {}", "Needs Reminder (30+ days):".bold().yellow(), stats.needs_reminder.len());
+            println!(
+                "\n{} {}",
+                "Needs Reminder (30+ days):".bold().yellow(),
+                stats.needs_reminder.len()
+            );
             for name in &stats.needs_reminder {
                 println!("  - {name}");
             }

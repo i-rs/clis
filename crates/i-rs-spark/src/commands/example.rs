@@ -7,7 +7,9 @@ pub fn handle_example() {
 
     println!("{}", "Record a spark:".bold().green());
     println!("  i-rs-spark add \"New app idea: AI-powered meal planner\" --source \"Dream\"");
-    println!("  i-rs-spark add \"Write a Rust CLI tool for tracking habits\" --source \"Reddit\" --tag coding");
+    println!(
+        "  i-rs-spark add \"Write a Rust CLI tool for tracking habits\" --source \"Reddit\" --tag coding"
+    );
     println!();
 
     println!("{}", "List sparks:".bold().green());

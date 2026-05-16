@@ -1,4 +1,4 @@
-use crate::presentation::{print_header, OutputFormat};
+use crate::presentation::{OutputFormat, print_header};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -23,7 +23,10 @@ pub fn run_get(args: GetArgs) -> Result<()> {
     match invoice {
         Some(inv) => {
             if format == OutputFormat::Json {
-                println!("{}", crate::presentation::output_item(inv, OutputFormat::Json));
+                println!(
+                    "{}",
+                    crate::presentation::output_item(inv, OutputFormat::Json)
+                );
             } else {
                 print_header("Invoice Details");
                 println!("{}: {}", "ID".cyan(), inv.id);
@@ -31,13 +34,25 @@ pub fn run_get(args: GetArgs) -> Result<()> {
                 println!("{}: {:.2}", "Amount".cyan(), inv.amount);
                 println!("{}: {}", "Date".cyan(), inv.date.format("%Y-%m-%d"));
                 println!("{}: {}", "Type".cyan(), inv.invoice_type);
-                println!("{}: {}", "Reimbursed".cyan(), if inv.reimbursed { "Yes" } else { "No" });
+                println!(
+                    "{}: {}",
+                    "Reimbursed".cyan(),
+                    if inv.reimbursed { "Yes" } else { "No" }
+                );
                 println!("{}: {}", "Tags".cyan(), inv.tags.join(", "));
                 if !inv.remark.is_empty() {
                     println!("{}: {}", "Remark".cyan(), inv.remark.join(", "));
                 }
-                println!("{}: {}", "Created".cyan(), inv.created_at.format("%Y-%m-%d %H:%M:%S"));
-                println!("{}: {}", "Updated".cyan(), inv.updated_at.format("%Y-%m-%d %H:%M:%S"));
+                println!(
+                    "{}: {}",
+                    "Created".cyan(),
+                    inv.created_at.format("%Y-%m-%d %H:%M:%S")
+                );
+                println!(
+                    "{}: {}",
+                    "Updated".cyan(),
+                    inv.updated_at.format("%Y-%m-%d %H:%M:%S")
+                );
             }
         }
         None => {

@@ -54,7 +54,10 @@ pub fn handle_update(
 
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Article '{}' updated successfully", name.green()));
+    print_success(&format!(
+        "✓ Article '{}' updated successfully",
+        name.green()
+    ));
 
     Ok(())
 }

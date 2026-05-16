@@ -1,6 +1,6 @@
 use axum::{
-    response::{Json, IntoResponse},
     http::StatusCode,
+    response::{IntoResponse, Json},
 };
 use serde::Serialize;
 use std::fmt;
@@ -22,14 +22,17 @@ impl ApiError {
             ApiError::Conflict(_) => ("CONFLICT", StatusCode::CONFLICT),
             ApiError::Internal(_) => ("SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR),
         };
-        (status, Json(serde_json::json!({
-            "success": false,
-            "error": {
-                "code": code_str,
-                "message": self.to_string()
-            },
-            "meta": ApiMeta::new()
-        })))
+        (
+            status,
+            Json(serde_json::json!({
+                "success": false,
+                "error": {
+                    "code": code_str,
+                    "message": self.to_string()
+                },
+                "meta": ApiMeta::new()
+            })),
+        )
     }
 }
 
@@ -41,7 +44,10 @@ impl From<anyhow::Error> for ApiError {
             ApiError::NotFound(msg)
         } else if lower.contains("already exists") {
             ApiError::Conflict(msg)
-        } else if lower.contains("invalid") || lower.contains("parse") || lower.contains("validation") {
+        } else if lower.contains("invalid")
+            || lower.contains("parse")
+            || lower.contains("validation")
+        {
             ApiError::BadRequest(msg)
         } else {
             ApiError::Internal(msg)

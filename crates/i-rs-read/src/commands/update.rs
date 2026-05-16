@@ -1,5 +1,5 @@
 use crate::models::BookStatus;
-use crate::presentation::{output_item, print_header, print_success, OutputFormat};
+use crate::presentation::{OutputFormat, output_item, print_header, print_success};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -12,7 +12,11 @@ pub struct UpdateArgs {
     #[arg(short, long, help = "Current page")]
     pub current_page: Option<u32>,
 
-    #[arg(short, long, help = "Status (reading, completed, paused, dropped, to_read)")]
+    #[arg(
+        short,
+        long,
+        help = "Status (reading, completed, paused, dropped, to_read)"
+    )]
     pub status: Option<String>,
 
     #[arg(short, long, help = "Rating (0-5)")]
@@ -34,7 +38,9 @@ pub struct UpdateArgs {
 pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let book = if let Some(b) = store.get_entry_mut(&args.name) { b } else {
+    let book = if let Some(b) = store.get_entry_mut(&args.name) {
+        b
+    } else {
         let msg = format!("Book '{}' not found", args.name);
         anyhow::bail!(msg);
     };
@@ -121,7 +127,10 @@ pub fn update(args: UpdateArgs, output_format: OutputFormat) -> Result<()> {
             print_success(&format!("Book '{book_name}' has been updated"));
             println!("Current page: {current_page}/{total_pages}");
             println!("Status: {status:?}");
-            println!("Progress: {:.1}%", (current_page as f32 / total_pages as f32) * 100.0);
+            println!(
+                "Progress: {:.1}%",
+                (current_page as f32 / total_pages as f32) * 100.0
+            );
         }
     }
 

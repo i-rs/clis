@@ -11,6 +11,10 @@ pub fn filter_by_tag<'a>(store: &'a DebtStore, tag: &str) -> Vec<&'a Debt> {
     store
         .debts
         .values()
-        .filter(|d| d.tags.iter().any(|t| t.to_lowercase() == tag.to_lowercase()))
+        .filter(|d| {
+            d.tags
+                .iter()
+                .any(|t| t.to_lowercase() == tag.to_lowercase())
+        })
         .collect()
 }

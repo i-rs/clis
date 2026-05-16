@@ -4,7 +4,8 @@ use clap::Parser;
 pub struct ExampleArgs {}
 
 pub fn example(_args: ExampleArgs) -> anyhow::Result<()> {
-    println!(r#"
+    println!(
+        r#"
 i-rs-goal Examples:
 
 1. Create a savings goal:
@@ -43,7 +44,8 @@ i-rs-goal Examples:
 12. JSON output (for scripting):
     i-rs-goal list --json
     i-rs-goal get "Emergency Fund" --json
-"#);
-    
+"#
+    );
+
     Ok(())
 }

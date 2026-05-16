@@ -1,4 +1,4 @@
-use crate::presentation::{print_header, OutputFormat};
+use crate::presentation::{OutputFormat, print_header};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -43,7 +43,10 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
     let avg_rating: f32 = if rated_books.is_empty() {
         0.0
     } else {
-        rated_books.iter().map(|b| b.rating.expect("filtered by rating.is_some() above")).sum::<f32>()
+        rated_books
+            .iter()
+            .map(|b| b.rating.expect("filtered by rating.is_some() above"))
+            .sum::<f32>()
             / rated_books.len() as f32
     };
 
@@ -69,10 +72,15 @@ pub fn stats(_args: StatsArgs, output_format: OutputFormat) -> Result<()> {
             println!("\n📚 Overall:");
             println!("  Total books: {total_books}");
             println!("  Total pages: {total_pages}");
-            println!("  Pages read: {}/{} ({:.1}%)",
+            println!(
+                "  Pages read: {}/{} ({:.1}%)",
                 total_read_pages,
                 total_pages,
-                if total_pages > 0 { (total_read_pages as f32 / total_pages as f32) * 100.0 } else { 0.0 }
+                if total_pages > 0 {
+                    (total_read_pages as f32 / total_pages as f32) * 100.0
+                } else {
+                    0.0
+                }
             );
 
             println!("\n📖 Status:");

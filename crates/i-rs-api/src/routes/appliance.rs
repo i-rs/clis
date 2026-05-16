@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_appliance(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.appliance.write(|store| -> Result<_, ApiError> {
-        let entry = store.appliances.get_mut(&id)
+        let entry = store
+            .appliances
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Appliance '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +46,7 @@ pub struct AddApplianceRequest {
     pub maintenance_records: Option<serde_json::Value>,
 }
 
-async fn list_appliances(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_appliances(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.appliance.read(|store| {
         let entries: Vec<_> = store.appliances.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -71,9 +67,12 @@ async fn add_appliance(
     let lifespan_years = req.lifespan_years;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
-    let maintenance_records: Vec<i_rs_appliance::models::MaintenanceRecord> = req.maintenance_records
-        .map(|v| serde_json::from_value(v)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid maintenance_records: {e}"))))
+    let maintenance_records: Vec<i_rs_appliance::models::MaintenanceRecord> = req
+        .maintenance_records
+        .map(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| ApiError::BadRequest(format!("Invalid maintenance_records: {e}")))
+        })
         .transpose()?
         .unwrap_or_default();
     let now = chrono::Utc::now();
@@ -102,7 +101,11 @@ async fn get_appliance(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.appliance.read(|store| {
-        store.appliances.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Appliance '{id}' not found")))
+        store
+            .appliances
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Appliance '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

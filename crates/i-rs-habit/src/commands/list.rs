@@ -1,5 +1,5 @@
 use crate::models::{HabitRow, ListItem};
-use crate::presentation::{format_table, print_habit_count, OutputFormat, output_list};
+use crate::presentation::{OutputFormat, format_table, output_list, print_habit_count};
 use owo_colors::OwoColorize;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<()> {
@@ -8,17 +8,17 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
 
     if format == OutputFormat::Json {
         let items: Vec<ListItem> = habits.iter().map(|h| h.into()).collect();
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
     } else {
         if habits.is_empty() {
             println!("{}", "No habits found.".cyan());
             return Ok(());
         }
 
-        let rows: Vec<HabitRow> = habits
-            .iter()
-            .map(HabitRow::from_habit)
-            .collect();
+        let rows: Vec<HabitRow> = habits.iter().map(HabitRow::from_habit).collect();
 
         println!("{}", format_table(&rows));
         print_habit_count(rows.len());

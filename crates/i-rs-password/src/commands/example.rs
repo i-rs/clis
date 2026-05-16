@@ -7,7 +7,9 @@ pub fn handle_example() {
 
     println!("{}", "Add Password Entry:".bold().green());
     println!("  i-rs-password add github https://github.com --account user@example.com --tag work");
-    println!("  i-rs-password add gmail https://gmail.com --account my@gmail.com --password --tag personal");
+    println!(
+        "  i-rs-password add gmail https://gmail.com --account my@gmail.com --password --tag personal"
+    );
     println!();
 
     println!("{}", "List Password Entries:".bold().green());

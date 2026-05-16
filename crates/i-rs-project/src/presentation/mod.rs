@@ -1,7 +1,7 @@
 use crate::models::{Project, ProjectRow};
+pub use i_rs_core::presentation::output::{output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_header, print_success, print_warning};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_header, print_success, print_warning, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_project_table(projects: &[&Project]) -> String {
     let rows: Vec<ProjectRow> = projects
         .iter()
@@ -10,5 +10,9 @@ pub fn format_project_table(projects: &[&Project]) -> String {
     i_rs_core::render_table(&rows)
 }
 pub fn print_project_count(count: usize) {
-    println!("\n{} {} projects", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} projects",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }

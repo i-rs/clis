@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_run(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.run.write(|store| -> Result<_, ApiError> {
-        let entry = store.records.get_mut(&id)
+        let entry = store
+            .records
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Run '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +46,7 @@ pub struct AddRunRecordRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_runs(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_runs(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.run.read(|store| {
         let entries: Vec<_> = store.records.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -62,8 +58,9 @@ async fn add_run(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AddRunRecordRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let date = chrono::NaiveDate::parse_from_str(&req.date, "%Y-%m-%d")
-        .map_err(|_| ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string()))?;
+    let date = chrono::NaiveDate::parse_from_str(&req.date, "%Y-%m-%d").map_err(|_| {
+        ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string())
+    })?;
     let distance_km = req.distance_km;
     let duration_minutes = req.duration_minutes;
     let pace = req.pace;
@@ -97,7 +94,11 @@ async fn get_run(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.run.read(|store| {
-        store.records.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Run '{id}' not found")))
+        store
+            .records
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Run '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

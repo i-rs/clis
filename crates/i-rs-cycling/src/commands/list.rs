@@ -1,12 +1,11 @@
 use crate::models::CyclingRecord;
-use crate::presentation::{format_table, print_record_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_record_count, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 
-pub fn handle_list(
-    tag: Option<String>,
-    format: OutputFormat,
-) -> Result<()> {
+pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let records: Vec<CyclingRecord> = if let Some(ref t) = tag {
@@ -23,11 +22,14 @@ pub fn handle_list(
     if records.is_empty() {
         if format.is_json() {
             let filter = tag.as_deref();
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter, format)
+            );
         } else if tag.is_some() {
-                if let Some(ref t) = tag {
-                    print_warning(&format!("No cycling records found with tag '{}'", t));
-                }
+            if let Some(ref t) = tag {
+                print_warning(&format!("No cycling records found with tag '{}'", t));
+            }
         } else {
             print_warning("No cycling records found.");
         }
@@ -50,17 +52,20 @@ pub fn handle_list(
             remark: Vec<String>,
         }
 
-        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
-            id: r.id.to_string(),
-            date: r.date.format("%Y-%m-%d").to_string(),
-            distance_km: r.distance_km,
-            duration_minutes: r.duration_minutes,
-            avg_speed: r.avg_speed,
-            elevation_gain: r.elevation_gain,
-            route: r.route.clone(),
-            tags: r.tags.clone(),
-            remark: r.remark.clone(),
-        }).collect();
+        let items: Vec<ListItem> = records
+            .iter()
+            .map(|r| ListItem {
+                id: r.id.to_string(),
+                date: r.date.format("%Y-%m-%d").to_string(),
+                distance_km: r.distance_km,
+                duration_minutes: r.duration_minutes,
+                avg_speed: r.avg_speed,
+                elevation_gain: r.elevation_gain,
+                route: r.route.clone(),
+                tags: r.tags.clone(),
+                remark: r.remark.clone(),
+            })
+            .collect();
 
         let filter = tag.as_deref();
         println!("{}", output_list(&items, items.len(), filter, format));

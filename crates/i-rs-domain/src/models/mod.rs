@@ -9,7 +9,7 @@ pub struct Domain {
     #[serde(default)]
     pub registrar: Option<String>,
     #[serde(skip)]
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -38,14 +38,10 @@ impl Domain {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DomainStore {
     pub domains: std::collections::BTreeMap<String, Domain>,
 }
-
-
-
 
 #[allow(dead_code)]
 impl DomainStore {

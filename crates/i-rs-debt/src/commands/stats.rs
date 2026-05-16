@@ -1,5 +1,5 @@
 use crate::models::{Debt, Stats, TypeStats};
-use crate::presentation::{format_stats, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, format_stats, output_item};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -17,14 +17,20 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if debts.is_empty() {
         if output_format == OutputFormat::Json {
-            println!("{}", output_item(&serde_json::json!({
-                "total_debts": 0,
-                "total_amount": 0.0,
-                "total_paid": 0.0,
-                "total_remaining": 0.0,
-                "overdue_count": 0,
-                "by_type": {}
-            }), output_format));
+            println!(
+                "{}",
+                output_item(
+                    &serde_json::json!({
+                        "total_debts": 0,
+                        "total_amount": 0.0,
+                        "total_paid": 0.0,
+                        "total_remaining": 0.0,
+                        "overdue_count": 0,
+                        "by_type": {}
+                    }),
+                    output_format
+                )
+            );
         } else {
             println!("No debts found.");
         }
@@ -64,26 +70,36 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     };
 
     if output_format == OutputFormat::Json {
-        let by_type_json: BTreeMap<String, serde_json::Value> = stats.by_type
+        let by_type_json: BTreeMap<String, serde_json::Value> = stats
+            .by_type
             .iter()
             .map(|(k, v)| {
-                (k.clone(), serde_json::json!({
-                    "count": v.count,
-                    "total": v.total,
-                    "paid": v.paid,
-                    "remaining": v.remaining
-                }))
+                (
+                    k.clone(),
+                    serde_json::json!({
+                        "count": v.count,
+                        "total": v.total,
+                        "paid": v.paid,
+                        "remaining": v.remaining
+                    }),
+                )
             })
             .collect();
 
-        println!("{}", output_item(&serde_json::json!({
-            "total_debts": stats.total_debts,
-            "total_amount": stats.total_amount,
-            "total_paid": stats.total_paid,
-            "total_remaining": stats.total_remaining,
-            "overdue_count": stats.overdue_count,
-            "by_type": by_type_json
-        }), output_format));
+        println!(
+            "{}",
+            output_item(
+                &serde_json::json!({
+                    "total_debts": stats.total_debts,
+                    "total_amount": stats.total_amount,
+                    "total_paid": stats.total_paid,
+                    "total_remaining": stats.total_remaining,
+                    "overdue_count": stats.overdue_count,
+                    "by_type": by_type_json
+                }),
+                output_format
+            )
+        );
     } else {
         println!("{}", format_stats(&stats));
     }

@@ -1,11 +1,6 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 
-const DATE_FORMATS: &[&str] = &[
-    "%Y-%m-%d",
-    "%Y/%m/%d",
-    "%d-%m-%Y",
-    "%d/%m/%Y",
-];
+const DATE_FORMATS: &[&str] = &["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
 
 const DATETIME_FORMATS: &[&str] = &[
     "%Y-%m-%d %H:%M:%S",
@@ -42,9 +37,8 @@ pub fn parse_datetime(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
     // Fallback: date-only formats with midnight default
     for format in DATE_FORMATS {
         if let Ok(naive) = NaiveDate::parse_from_str(date_str, format) {
-            return Ok(Utc.from_utc_datetime(
-                &naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"),
-            ));
+            return Ok(Utc
+                .from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid")));
         }
     }
 
@@ -53,7 +47,7 @@ pub fn parse_datetime(date_str: &str) -> anyhow::Result<DateTime<Utc>> {
     ))
 }
 
-#[must_use] 
+#[must_use]
 pub fn format_date(date: NaiveDate) -> String {
     date.format("%Y-%m-%d").to_string()
 }

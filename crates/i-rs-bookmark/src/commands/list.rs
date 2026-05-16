@@ -1,5 +1,5 @@
 use crate::models::Bookmark;
-use crate::presentation::{format_table, print_bookmark_count, output_list, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_bookmark_count};
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
@@ -21,17 +21,23 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             updated_at: String,
         }
 
-        let items: Vec<ListItem> = bookmarks_ref.iter().map(|b| ListItem {
-            name: b.name.clone(),
-            url: b.url.clone(),
-            account: b.account.clone(),
-            tags: b.tags.clone(),
-            remark: b.remark.clone(),
-            created_at: b.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            updated_at: b.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-        }).collect();
+        let items: Vec<ListItem> = bookmarks_ref
+            .iter()
+            .map(|b| ListItem {
+                name: b.name.clone(),
+                url: b.url.clone(),
+                account: b.account.clone(),
+                tags: b.tags.clone(),
+                remark: b.remark.clone(),
+                created_at: b.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                updated_at: b.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            })
+            .collect();
 
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
         return Ok(());
     }
 

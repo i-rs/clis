@@ -1,10 +1,18 @@
 use crate::models::HeightRecord;
-use crate::presentation::{format_table, print_height_chart, print_record_count, print_stats, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_height_chart, print_record_count, print_stats,
+    print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
 
-pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: OutputFormat) -> Result<()> {
+pub fn handle_list(
+    days: Option<usize>,
+    chart: bool,
+    stats: bool,
+    format: OutputFormat,
+) -> Result<()> {
     let store = storage::load_store()?;
 
     let records: Vec<HeightRecord> = if let Some(d) = days {
@@ -22,7 +30,10 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
     if records.is_empty() {
         if format.is_json() {
             let filter = days.map(|d| format!("last {d} days"));
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No height records found.");
         }
@@ -41,16 +52,22 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
             remark: Vec<String>,
         }
 
-        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
-            date: r.date.format("%Y-%m-%d").to_string(),
-            height_cm: r.height_cm,
-            weight_kg: r.weight_kg,
-            tags: r.tags.clone(),
-            remark: r.remark.clone(),
-        }).collect();
+        let items: Vec<ListItem> = records
+            .iter()
+            .map(|r| ListItem {
+                date: r.date.format("%Y-%m-%d").to_string(),
+                height_cm: r.height_cm,
+                weight_kg: r.weight_kg,
+                tags: r.tags.clone(),
+                remark: r.remark.clone(),
+            })
+            .collect();
 
         let filter = days.map(|d| format!("last {d} days"));
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 

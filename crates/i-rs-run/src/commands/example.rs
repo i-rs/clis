@@ -6,9 +6,7 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Run Record:".bold().green());
-    println!(
-        "  i-rs-run add 2025-06-14 5.0 30 --heart-rate 145 --weather sunny"
-    );
+    println!("  i-rs-run add 2025-06-14 5.0 30 --heart-rate 145 --weather sunny");
     println!("  i-rs-run add 2025-06-15 10.0 60 --tags marathon --remark \"Long run\"");
     println!();
 
@@ -31,9 +29,7 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Run Plan:".bold().green());
-    println!(
-        "  i-rs-run plan-add \"5K Training\" 5.0 6:00 --schedule 1 3 5 --tags beginner"
-    );
+    println!("  i-rs-run plan-add \"5K Training\" 5.0 6:00 --schedule 1 3 5 --tags beginner");
     println!();
 
     println!("{}", "List Plans:".bold().green());

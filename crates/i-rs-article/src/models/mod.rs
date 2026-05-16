@@ -38,7 +38,6 @@ pub enum ReadStatus {
     Read,
 }
 
-
 impl std::fmt::Display for ReadStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -81,12 +80,10 @@ pub struct Article {
     pub read_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ArticleStore {
     pub articles: std::collections::BTreeMap<String, Article>,
 }
-
 
 #[derive(Tabled)]
 pub struct ArticleRow {
@@ -171,7 +168,9 @@ impl From<&Article> for ArticleDetail {
             remark: article.remark.clone(),
             created_at: article.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             updated_at: article.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            read_at: article.read_at.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+            read_at: article
+                .read_at
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
         }
     }
 }

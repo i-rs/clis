@@ -67,12 +67,10 @@ impl CyclingRecord {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CyclingStore {
     pub records: BTreeMap<Uuid, CyclingRecord>,
 }
-
 
 #[allow(dead_code)]
 impl CyclingStore {
@@ -101,14 +99,14 @@ impl CyclingStore {
     }
 
     pub fn total_duration(&self) -> u64 {
-        self.records.values().map(|r| u64::from(r.duration_minutes)).sum()
+        self.records
+            .values()
+            .map(|r| u64::from(r.duration_minutes))
+            .sum()
     }
 
     pub fn total_elevation(&self) -> f64 {
-        self.records
-            .values()
-            .filter_map(|r| r.elevation_gain)
-            .sum()
+        self.records.values().filter_map(|r| r.elevation_gain).sum()
     }
 
     pub fn avg_speed_all(&self) -> Option<f64> {

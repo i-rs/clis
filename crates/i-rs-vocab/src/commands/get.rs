@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,11 +7,13 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let word = if let Some(w) = store.get_entry(&word_key) { w } else {
+    let word = if let Some(w) = store.get_entry(&word_key) {
+        w
+    } else {
         let msg = format!("Word '{word_key}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -53,7 +55,11 @@ pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
 
     let style = OwoStyle::new().bold();
 
-    println!("{:16} {}", "Definition:".style(style), word.definition.cyan());
+    println!(
+        "{:16} {}",
+        "Definition:".style(style),
+        word.definition.cyan()
+    );
 
     if !word.example.is_empty() {
         println!("\n{}:", "Examples".bold());
@@ -62,11 +68,28 @@ pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
         }
     }
 
-    println!("\n{:16} {} {}", "Status:".style(style), word.status.emoji(), word.status.label().cyan());
-    println!("{:16} {}", "Reviews:".style(style), word.review_count.to_string().magenta());
+    println!(
+        "\n{:16} {} {}",
+        "Status:".style(style),
+        word.status.emoji(),
+        word.status.label().cyan()
+    );
+    println!(
+        "{:16} {}",
+        "Reviews:".style(style),
+        word.review_count.to_string().magenta()
+    );
 
     if !word.tags.is_empty() {
-        println!("\n{:16} {}", "Tags:".style(style), word.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "\n{:16} {}",
+            "Tags:".style(style),
+            word.tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !word.remark.is_empty() {
@@ -76,8 +99,22 @@ pub fn handle_get(word_key: String, format: OutputFormat) -> Result<()> {
         }
     }
 
-    println!("\n{:16} {}", "Created:".style(style), word.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
-    println!("{:16} {}", "Updated:".style(style), word.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "\n{:16} {}",
+        "Created:".style(style),
+        word.created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        word.updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

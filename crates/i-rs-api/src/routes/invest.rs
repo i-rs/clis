@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_invest(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.invest.write(|store| -> Result<_, ApiError> {
-        let entry = store.investments.get_mut(&id)
+        let entry = store
+            .investments
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Invest '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -49,9 +47,7 @@ pub struct AddInvestmentRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_invests(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_invests(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.invest.read(|store| {
         let entries: Vec<_> = store.investments.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -65,7 +61,9 @@ async fn add_invest(
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
     let symbol = req.symbol;
-    let asset_type: i_rs_invest::models::AssetType = req.asset_type.parse()
+    let asset_type: i_rs_invest::models::AssetType = req
+        .asset_type
+        .parse()
         .map_err(|e| ApiError::BadRequest(format!("Invalid asset_type: {e}")))?;
     let quantity = req.quantity;
     let buy_price = req.buy_price;
@@ -100,7 +98,11 @@ async fn get_invest(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.invest.read(|store| {
-        store.investments.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Invest '{id}' not found")))
+        store
+            .investments
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Invest '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

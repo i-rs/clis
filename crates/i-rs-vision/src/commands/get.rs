@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_item};
 use crate::storage;
 use anyhow::Result;
 use i_rs_core::parse_date;
@@ -39,17 +39,19 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
         println!("{}", output_item(&item, format));
     } else {
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": false,
-                "error": {
-                    "code": "NOT_FOUND",
-                    "message": format!("No record found for {}", date)
-                }
-            }));
-        } 
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": false,
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": format!("No record found for {}", date)
+                    }
+                })
+            );
+        }
         anyhow::bail!("No record found for {date}");
     }
 
     Ok(())
 }
-

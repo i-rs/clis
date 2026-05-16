@@ -1,5 +1,5 @@
 use crate::models::{HabitRow, ListItem};
-use crate::presentation::{format_table, print_header, OutputFormat, output_item};
+use crate::presentation::{OutputFormat, format_table, output_item, print_header};
 use owo_colors::OwoColorize;
 
 pub fn handle_get(name: String, format: OutputFormat) -> anyhow::Result<()> {

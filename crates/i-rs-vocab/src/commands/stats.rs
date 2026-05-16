@@ -12,14 +12,34 @@ pub fn handle_stats() -> Result<()> {
     println!();
 
     println!("{}", "Overall:".bold().cyan());
-    println!("  {:12} {}", "Total words:".dimmed(), stats.total.to_string().green());
-    println!("  {:12} {}", "Total reviews:".dimmed(), stats.total_reviews.to_string().magenta());
+    println!(
+        "  {:12} {}",
+        "Total words:".dimmed(),
+        stats.total.to_string().green()
+    );
+    println!(
+        "  {:12} {}",
+        "Total reviews:".dimmed(),
+        stats.total_reviews.to_string().magenta()
+    );
 
     println!();
     println!("{}", "By Status:".bold().cyan());
-    println!("  {} {} (🆕)", "New:".dimmed(), stats.new_count.to_string().yellow());
-    println!("  {} {} (📖)", "Learning:".dimmed(), stats.learning_count.to_string().blue());
-    println!("  {} {} (✅)", "Mastered:".dimmed(), stats.mastered_count.to_string().green());
+    println!(
+        "  {} {} (🆕)",
+        "New:".dimmed(),
+        stats.new_count.to_string().yellow()
+    );
+    println!(
+        "  {} {} (📖)",
+        "Learning:".dimmed(),
+        stats.learning_count.to_string().blue()
+    );
+    println!(
+        "  {} {} (✅)",
+        "Mastered:".dimmed(),
+        stats.mastered_count.to_string().green()
+    );
 
     if stats.total > 0 {
         println!();

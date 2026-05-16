@@ -1,5 +1,5 @@
 use crate::models::Plant;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use i_rs_core::validate_name;
@@ -32,10 +32,13 @@ pub fn add_plant(
 
     match output_format {
         OutputFormat::Json => {
-            println!("{}", crate::presentation::output_item(
-                &serde_json::json!({"message": format!("Plant '{}' added", name)}),
-                output_format
-            ));
+            println!(
+                "{}",
+                crate::presentation::output_item(
+                    &serde_json::json!({"message": format!("Plant '{}' added", name)}),
+                    output_format
+                )
+            );
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_success(&format!("Plant '{name}' added successfully"));

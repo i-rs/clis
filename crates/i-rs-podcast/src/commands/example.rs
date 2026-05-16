@@ -7,7 +7,9 @@ pub fn handle_example() {
 
     println!("{}", "Add Podcast:".bold().green());
     println!("  i-rs-podcast add \"The Daily\" --author \"New York Times\" --duration 3600");
-    println!("  i-rs-podcast add \"Rust Course\" --author \"Ferris\" --duration 7200 --tag rust --tag programming");
+    println!(
+        "  i-rs-podcast add \"Rust Course\" --author \"Ferris\" --duration 7200 --tag rust --tag programming"
+    );
     println!();
 
     println!("{}", "List Podcasts:".bold().green());
@@ -24,7 +26,9 @@ pub fn handle_example() {
 
     println!("{}", "Update Progress (listen):".bold().green());
     println!("  i-rs-podcast listen \"The Daily\" --position 1800");
-    println!("  i-rs-podcast listen \"Rust Course\" --position 3600 --notes \"Key concept: ownership\"");
+    println!(
+        "  i-rs-podcast listen \"Rust Course\" --position 3600 --notes \"Key concept: ownership\""
+    );
     println!();
 
     println!("{}", "Update Podcast:".bold().green());

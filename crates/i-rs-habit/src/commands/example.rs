@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Create a habit:".bold().green());
-    println!("  i-rs-habit add daily_walk --description \"Walk 30 minutes\" --frequency daily --tag health");
+    println!(
+        "  i-rs-habit add daily_walk --description \"Walk 30 minutes\" --frequency daily --tag health"
+    );
     println!("  i-rs-habit add meditation --description \"Morning meditation\" --frequency daily");
     println!();
 

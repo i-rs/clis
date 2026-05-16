@@ -5,7 +5,9 @@ pub fn example() {
     println!();
 
     println!("{}", "Add a new plant:".green());
-    println!("  i-rs-plant add --name \"Monstera\" --species \"Monstera deliciosa\" --location \"Living room\" --interval 7");
+    println!(
+        "  i-rs-plant add --name \"Monstera\" --species \"Monstera deliciosa\" --location \"Living room\" --interval 7"
+    );
     println!();
 
     println!("{}", "List all plants:".green());

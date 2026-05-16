@@ -19,19 +19,30 @@ pub struct WalkdogEntry {
 }
 
 impl WalkdogEntry {
-    pub fn new(dog_name: String, duration_minutes: i32, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        dog_name: String,
+        duration_minutes: i32,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, dog_name, duration_minutes, walked_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            dog_name,
+            duration_minutes,
+            walked_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WalkdogStore {
     pub entries: BTreeMap<String, WalkdogEntry>,
 }
-
 
 impl WalkdogStore {
     pub fn add_entry(&mut self, entry: WalkdogEntry) {

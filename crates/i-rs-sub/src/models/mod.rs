@@ -36,12 +36,10 @@ impl SubEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SubStore {
     pub entries: BTreeMap<String, SubEntry>,
 }
-
 
 impl SubStore {
     pub fn add_entry(&mut self, entry: SubEntry) {

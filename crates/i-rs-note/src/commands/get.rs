@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
@@ -49,7 +49,15 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     }
 
     if !note.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), note.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            note.tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !note.content.is_empty() {
@@ -59,8 +67,22 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         }
     }
 
-    println!("\n{:16} {}", "Created:".style(style), note.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
-    println!("{:16} {}", "Updated:".style(style), note.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "\n{:16} {}",
+        "Created:".style(style),
+        note.created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        note.updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

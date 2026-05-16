@@ -5,8 +5,8 @@ mod storage;
 
 use anyhow::Result;
 use clap::Parser;
-use presentation::OutputFormat;
 use commands::{handle_skill, parse_skill_arg};
+use presentation::OutputFormat;
 
 #[derive(Parser, Debug)]
 #[command(

@@ -17,14 +17,10 @@ pub struct Quote {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct QuoteStore {
     pub quotes: std::collections::BTreeMap<String, Quote>,
 }
-
-
-
 
 impl QuoteStore {
     pub fn add_entry(&mut self, entry: Quote) {

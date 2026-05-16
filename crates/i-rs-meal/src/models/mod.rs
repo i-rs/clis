@@ -20,7 +20,14 @@ pub struct MealEntry {
 }
 
 impl MealEntry {
-    pub fn new(meal_type: String, food_items: String, calories: Option<i32>, tags: Vec<String>, remark: Vec<String>, date: NaiveDate) -> Self {
+    pub fn new(
+        meal_type: String,
+        food_items: String,
+        calories: Option<i32>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+        date: NaiveDate,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         Self {
@@ -36,12 +43,10 @@ impl MealEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MealStore {
     pub entries: BTreeMap<String, MealEntry>,
 }
-
 
 impl MealStore {
     pub fn add_entry(&mut self, entry: MealEntry) {
@@ -83,7 +88,9 @@ impl MealRow {
             id: entry.id[..8].to_string(),
             meal_type: entry.meal_type.clone(),
             food_items: entry.food_items.clone(),
-            calories: entry.calories.map_or_else(|| "-".to_string(), |c| c.to_string()),
+            calories: entry
+                .calories
+                .map_or_else(|| "-".to_string(), |c| c.to_string()),
             tags: if entry.tags.is_empty() {
                 "-".to_string()
             } else {

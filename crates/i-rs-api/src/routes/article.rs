@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_article(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.article.write(|store| -> Result<_, ApiError> {
-        let entry = store.articles.get_mut(&id)
+        let entry = store
+            .articles
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Article '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -49,9 +47,7 @@ pub struct AddArticleRequest {
     pub read_at: Option<String>,
 }
 
-async fn list_articles(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_articles(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.article.read(|store| {
         let entries: Vec<_> = store.articles.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -67,16 +63,20 @@ async fn add_article(
     let title = req.title;
     let url = req.url;
     let source = req.source;
-    let status: i_rs_article::models::ReadStatus = serde_json::from_value(serde_json::json!(req.status))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
+    let status: i_rs_article::models::ReadStatus =
+        serde_json::from_value(serde_json::json!(req.status))
+            .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
     let notes = req.notes.unwrap_or_default();
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
-    let read_at = req.read_at
-        .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-            .map_err(|_| ApiError::BadRequest("Invalid datetime, expected RFC3339".to_string()))
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-        ).transpose()?;
+    let read_at = req
+        .read_at
+        .map(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .map_err(|_| ApiError::BadRequest("Invalid datetime, expected RFC3339".to_string()))
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        })
+        .transpose()?;
     let now = chrono::Utc::now();
     let entry = i_rs_article::models::Article {
         name,
@@ -102,7 +102,11 @@ async fn get_article(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.article.read(|store| {
-        store.articles.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Article '{id}' not found")))
+        store
+            .articles
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Article '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

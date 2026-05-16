@@ -21,16 +21,21 @@ impl AcEntry {
     pub fn new(location: String, tags: Vec<String>, remark: Vec<String>) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, location, cleaned_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            location,
+            cleaned_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AcStore {
     pub entries: BTreeMap<String, AcEntry>,
 }
-
 
 impl AcStore {
     pub fn add_entry(&mut self, entry: AcEntry) {
@@ -62,7 +67,11 @@ impl AcRow {
             id: entry.id[..8].to_string(),
             location: entry.location.clone(),
             cleaned_at: entry.cleaned_at.format("%Y-%m-%d %H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::models::Car;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -53,7 +53,10 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {
-        println!("{{\"success\": true, \"data\": {{\"name\": \"{}\"}}}}", args.name);
+        println!(
+            "{{\"success\": true, \"data\": {{\"name\": \"{}\"}}}}",
+            args.name
+        );
     } else {
         print_success(&format!("Car '{}' created successfully", args.name));
     }

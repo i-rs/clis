@@ -1,4 +1,4 @@
-use crate::presentation::{print_header, print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, print_header, print_warning};
 use crate::storage;
 use anyhow::Result;
 use chrono::Datelike;
@@ -52,7 +52,9 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
             }
         }
 
-        *by_relationship.entry(birthday.relationship.clone()).or_insert(0) += 1;
+        *by_relationship
+            .entry(birthday.relationship.clone())
+            .or_insert(0) += 1;
 
         if birthday.year.is_some() {
             with_year_count += 1;
@@ -92,23 +94,50 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
             by_relationship,
         };
 
-        println!("{}", serde_json::to_string_pretty(&output).expect("stats output serialization must succeed"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).expect("stats output serialization must succeed")
+        );
         return Ok(());
     }
 
     print_header("Birthday Statistics");
     println!();
 
-    println!("{} {} birthdays", "Total:".bold(), birthdays.len().to_string().cyan());
-    println!("{} {} birthdays this month", "This Month:".bold(), this_month_count.to_string().cyan());
-    println!("{} {} birthdays", "Today:".bold().red(), today_count.to_string().red().bold());
-    println!("{} {} birthdays", "This Week:".bold().yellow(), this_week_count.to_string().yellow());
-    println!("{} {} birthdays", "Next 30 Days:".bold().cyan(), upcoming_30_days.to_string().cyan());
+    println!(
+        "{} {} birthdays",
+        "Total:".bold(),
+        birthdays.len().to_string().cyan()
+    );
+    println!(
+        "{} {} birthdays this month",
+        "This Month:".bold(),
+        this_month_count.to_string().cyan()
+    );
+    println!(
+        "{} {} birthdays",
+        "Today:".bold().red(),
+        today_count.to_string().red().bold()
+    );
+    println!(
+        "{} {} birthdays",
+        "This Week:".bold().yellow(),
+        this_week_count.to_string().yellow()
+    );
+    println!(
+        "{} {} birthdays",
+        "Next 30 Days:".bold().cyan(),
+        upcoming_30_days.to_string().cyan()
+    );
     println!();
 
     if with_year_count > 0 {
         let avg_age = total_age as f64 / with_year_count as f64;
-        println!("{} {}", "Known Age:".bold(), with_year_count.to_string().cyan());
+        println!(
+            "{} {}",
+            "Known Age:".bold(),
+            with_year_count.to_string().cyan()
+        );
         println!("{} {:.1} years", "Average Age:".bold(), avg_age);
         println!();
     }

@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_allergy(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.allergy.write(|store| -> Result<_, ApiError> {
-        let entry = store.entries.get_mut(&id)
+        let entry = store
+            .entries
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Allergy '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -45,9 +43,7 @@ pub struct AddAllergyRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_allergys(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_allergys(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.allergy.read(|store| {
         let entries: Vec<_> = store.entries.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -76,7 +72,11 @@ async fn get_allergy(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.allergy.read(|store| {
-        store.entries.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Allergy '{id}' not found")))
+        store
+            .entries
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Allergy '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

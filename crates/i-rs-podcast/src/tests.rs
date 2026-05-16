@@ -29,7 +29,9 @@ mod tests {
             notes: vec![],
         };
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
-        let cmd = Cli::try_parse_from(["i-rs-podcast", "list"]).unwrap().command;
+        let cmd = Cli::try_parse_from(["i-rs-podcast", "list"])
+            .unwrap()
+            .command;
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
         let cmd = Commands::Add {
             name: "test-i-rs-podcast-1b".to_string(),
@@ -74,5 +76,4 @@ mod tests {
         let cmd = Commands::Data(commands::data::DataCommand::Export);
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
     }
-
 }

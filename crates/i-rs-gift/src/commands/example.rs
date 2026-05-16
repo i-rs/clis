@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Gift (Sent):".bold().green());
-    println!("  i-rs-gift add \"Birthday Watch\" sent \"Mom\" birthday 500 2024-12-25 --tag family --remark \"Swiss brand\"");
+    println!(
+        "  i-rs-gift add \"Birthday Watch\" sent \"Mom\" birthday 500 2024-12-25 --tag family --remark \"Swiss brand\""
+    );
     println!();
 
     println!("{}", "Add Gift (Received):".bold().green());

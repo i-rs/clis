@@ -63,7 +63,11 @@ pub fn handle_update(
     storage::save_store(&store)?;
 
     if review {
-        print_success(&format!("✓ Review recorded for '{}' (count: {})", updated_word_name.green(), updated_review_count));
+        print_success(&format!(
+            "✓ Review recorded for '{}' (count: {})",
+            updated_word_name.green(),
+            updated_review_count
+        ));
     } else {
         print_success(&format!("✓ Word '{}' updated", word_name.green()));
     }

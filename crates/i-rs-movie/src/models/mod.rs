@@ -20,12 +20,10 @@ pub struct Movie {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MovieStore {
     pub movies: BTreeMap<String, Movie>,
 }
-
 
 #[allow(dead_code)]
 impl MovieStore {
@@ -112,10 +110,14 @@ impl MovieRow {
     pub fn from_movie(movie: &Movie) -> Self {
         Self {
             name: movie.name.clone(),
-            year: movie.year.map_or_else(|| "-".to_string(), |y| y.to_string()),
+            year: movie
+                .year
+                .map_or_else(|| "-".to_string(), |y| y.to_string()),
             director: movie.director.clone().unwrap_or_else(|| "-".to_string()),
             watched: if movie.watched { "✓" } else { "-" }.to_string(),
-            rating: movie.rating.map_or_else(|| "-".to_string(), |r| format!("{r:.1}")),
+            rating: movie
+                .rating
+                .map_or_else(|| "-".to_string(), |r| format!("{r:.1}")),
             tags: if movie.tags.is_empty() {
                 "-".to_string()
             } else {

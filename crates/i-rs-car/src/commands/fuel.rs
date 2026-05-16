@@ -1,5 +1,5 @@
 use crate::models::FuelRecord;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -39,9 +39,10 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     };
 
     if let Some(car) = store.get_entry(&args.car)
-        && args.mileage < car.mileage {
-            anyhow::bail!("Fuel record mileage cannot be less than car's current mileage");
-        }
+        && args.mileage < car.mileage
+    {
+        anyhow::bail!("Fuel record mileage cannot be less than car's current mileage");
+    }
 
     let record = FuelRecord::new(
         args.car.clone(),
@@ -58,10 +59,17 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {
-        println!("{{\"success\": true, \"data\": {{\"car\": \"{}\", \"cost\": {:.2}}}}}",
-            args.car, args.fuel_amount * args.price);
+        println!(
+            "{{\"success\": true, \"data\": {{\"car\": \"{}\", \"cost\": {:.2}}}}}",
+            args.car,
+            args.fuel_amount * args.price
+        );
     } else {
-        print_success(&format!("Fuel record added for car '{}' (cost: {:.2})", args.car, args.fuel_amount * args.price));
+        print_success(&format!(
+            "Fuel record added for car '{}' (cost: {:.2})",
+            args.car,
+            args.fuel_amount * args.price
+        ));
     }
 
     Ok(())

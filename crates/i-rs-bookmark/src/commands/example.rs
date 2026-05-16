@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Bookmark:".bold().green());
-    println!("  i-rs-bookmark add github https://github.com --account user@example.com --tag code --tag work");
+    println!(
+        "  i-rs-bookmark add github https://github.com --account user@example.com --tag code --tag work"
+    );
     println!("  i-rs-bookmark add twitter https://twitter.com --tag social");
     println!();
 

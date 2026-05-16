@@ -6,9 +6,15 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Snippet:".bold().green());
-    println!("  i-rs-snippet add hello --language rust --code 'fn main() {{ println!(\"Hello!\"); }}' --tag rust --tag hello");
-    println!("  i-rs-snippet add py-hello --language python --code 'print(\"Hello\")' --tag python");
-    println!("  i-rs-snippet add func --language js --code 'function test() {{}}' --description 'Test function' --tag js");
+    println!(
+        "  i-rs-snippet add hello --language rust --code 'fn main() {{ println!(\"Hello!\"); }}' --tag rust --tag hello"
+    );
+    println!(
+        "  i-rs-snippet add py-hello --language python --code 'print(\"Hello\")' --tag python"
+    );
+    println!(
+        "  i-rs-snippet add func --language js --code 'function test() {{}}' --description 'Test function' --tag js"
+    );
     println!();
 
     println!("{}", "List Snippets:".bold().green());

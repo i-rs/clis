@@ -18,7 +18,13 @@ pub struct StepEntry {
 }
 
 impl StepEntry {
-    pub fn new(steps: i32, distance: Option<f64>, date: NaiveDate, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        steps: i32,
+        distance: Option<f64>,
+        date: NaiveDate,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         Self {
@@ -33,12 +39,10 @@ impl StepEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StepStore {
     pub entries: BTreeMap<NaiveDate, StepEntry>,
 }
-
 
 impl StepStore {
     pub fn add_entry(&mut self, entry: StepEntry) {
@@ -84,7 +88,9 @@ impl StepRow {
         Self {
             date: entry.date.format("%Y-%m-%d").to_string(),
             steps: format!("{}", entry.steps),
-            distance: entry.distance.map_or_else(|| "-".to_string(), |d| format!("{d:.1}km")),
+            distance: entry
+                .distance
+                .map_or_else(|| "-".to_string(), |d| format!("{d:.1}km")),
             tags: if entry.tags.is_empty() {
                 "-".to_string()
             } else {

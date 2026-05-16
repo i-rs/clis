@@ -12,7 +12,15 @@ pub fn handle_add(
 ) -> Result<()> {
     let has_password = password.is_some();
     let mut store = crate::storage::load_store()?;
-    crate::service::add_bookmark(&mut store, name.clone(), url, account, password, tag, remark)?;
+    crate::service::add_bookmark(
+        &mut store,
+        name.clone(),
+        url,
+        account,
+        password,
+        tag,
+        remark,
+    )?;
     crate::storage::save_store(&store)?;
     print_success(&format!("✓ Bookmark '{}' added successfully", name.green()));
     if has_password {

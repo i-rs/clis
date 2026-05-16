@@ -1,9 +1,13 @@
 use crate::models::ListItem;
-use crate::presentation::{format_table, output_list, print_count, print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_count, print_warning};
 use crate::storage;
 use anyhow::Result;
 
-pub fn handle_list(tag: Option<String>, exercise_type: Option<String>, format: OutputFormat) -> Result<()> {
+pub fn handle_list(
+    tag: Option<String>,
+    exercise_type: Option<String>,
+    format: OutputFormat,
+) -> Result<()> {
     let store = storage::load_store()?;
 
     let records: Vec<&crate::models::ExerciseRecord> = if let Some(ref t) = tag {
@@ -16,8 +20,14 @@ pub fn handle_list(tag: Option<String>, exercise_type: Option<String>, format: O
 
     if records.is_empty() {
         if format.is_json() {
-            let filter = tag.as_ref().or(exercise_type.as_ref()).map(std::string::String::as_str);
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
+            let filter = tag
+                .as_ref()
+                .or(exercise_type.as_ref())
+                .map(std::string::String::as_str);
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter, format)
+            );
         } else if let Some(ref t) = tag {
             print_warning(&format!("No exercises found with tag '{t}'"));
         } else if let Some(ref et) = exercise_type {
@@ -32,7 +42,10 @@ pub fn handle_list(tag: Option<String>, exercise_type: Option<String>, format: O
 
     if format.is_json() {
         let items: Vec<ListItem> = records.iter().map(|r| ListItem::from(*r)).collect();
-        let filter = tag.as_ref().or(exercise_type.as_ref()).map(std::string::String::as_str);
+        let filter = tag
+            .as_ref()
+            .or(exercise_type.as_ref())
+            .map(std::string::String::as_str);
         println!("{}", output_list(&items, items.len(), filter, format));
         return Ok(());
     }

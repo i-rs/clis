@@ -1,7 +1,7 @@
 use crate::models::{Investment, InvestmentRow};
+pub use i_rs_core::presentation::output::{output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_header};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_header, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_table(investments: &[&Investment]) -> String {
     let rows: Vec<InvestmentRow> = investments
         .iter()
@@ -10,5 +10,9 @@ pub fn format_table(investments: &[&Investment]) -> String {
     i_rs_core::render_table(&rows)
 }
 pub fn print_investment_count(count: usize) {
-    println!("\n{} {} investments", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} investments",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }

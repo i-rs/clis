@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_error, print_success};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -20,7 +20,14 @@ pub fn run_delete(args: DeleteArgs) -> Result<()> {
     if store.get_entry(&args.id).is_none() {
         match format {
             OutputFormat::Json => {
-                println!("{}", crate::presentation::output_error(&format!("Invoice '{}' not found", args.id), "NOT_FOUND", OutputFormat::Json));
+                println!(
+                    "{}",
+                    crate::presentation::output_error(
+                        &format!("Invoice '{}' not found", args.id),
+                        "NOT_FOUND",
+                        OutputFormat::Json
+                    )
+                );
             }
             _ => {
                 print_error(&format!("Invoice '{}' not found", args.id));

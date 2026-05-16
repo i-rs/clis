@@ -5,8 +5,8 @@ pub mod get;
 pub mod list;
 pub mod skill;
 pub mod stats;
-pub mod update;
 pub mod upcoming;
+pub mod update;
 
 pub use add::handle_add;
 pub use delete::handle_delete;
@@ -15,7 +15,7 @@ pub use get::handle_get;
 pub use list::handle_list;
 pub use skill::{handle_skill, parse_skill_arg};
 pub use stats::handle_stats;
-pub use update::handle_update;
 pub use upcoming::handle_upcoming;
+pub use update::handle_update;
 
 pub mod data;

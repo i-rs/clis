@@ -8,7 +8,7 @@ pub struct Bookmark {
     #[serde(default)]
     pub account: Option<String>,
     #[serde(skip)]
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -20,14 +20,10 @@ pub struct Bookmark {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BookmarkStore {
     pub bookmarks: std::collections::BTreeMap<String, Bookmark>,
 }
-
-
-
 
 #[allow(dead_code)]
 impl BookmarkStore {

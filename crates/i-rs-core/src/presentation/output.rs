@@ -59,7 +59,12 @@ pub struct ErrorDetail {
     pub message: String,
 }
 
-pub fn output_list<T: Serialize + Clone>(items: &[T], count: usize, filter: Option<&str>, _format: OutputFormat) -> String {
+pub fn output_list<T: Serialize + Clone>(
+    items: &[T],
+    count: usize,
+    filter: Option<&str>,
+    _format: OutputFormat,
+) -> String {
     let response = ListResponse {
         success: true,
         data: items.to_vec(),
@@ -81,7 +86,7 @@ pub fn output_item<T: Serialize>(item: &T, _format: OutputFormat) -> String {
         .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"SERIALIZE_ERROR","message":"Failed to serialize"}}"#.to_string())
 }
 
-#[must_use] 
+#[must_use]
 pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
     match format {
         OutputFormat::Json => {
@@ -92,8 +97,10 @@ pub fn output_error(message: &str, code: &str, format: OutputFormat) -> String {
                     message: message.to_string(),
                 },
             };
-            serde_json::to_string_pretty(&response)
-                .unwrap_or_else(|_| r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#.to_string())
+            serde_json::to_string_pretty(&response).unwrap_or_else(|_| {
+                r#"{"success":false,"error":{"code":"UNKNOWN","message":"Unknown error"}}"#
+                    .to_string()
+            })
         }
         OutputFormat::Table | OutputFormat::Default => {
             format!("Error: {message}")

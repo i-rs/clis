@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add a contact:".bold().green());
-    println!("  i-rs-contact add John --phone 13800138000 --email john@example.com --relationship friend");
+    println!(
+        "  i-rs-contact add John --phone 13800138000 --email john@example.com --relationship friend"
+    );
     println!("  i-rs-contact add Alice --phone 13900139000 --tag family --tag important");
     println!();
 

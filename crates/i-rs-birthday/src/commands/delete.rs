@@ -12,7 +12,10 @@ pub fn handle_delete(name: String) -> Result<()> {
 
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Birthday '{}' deleted successfully", name.green()));
+    print_success(&format!(
+        "✓ Birthday '{}' deleted successfully",
+        name.green()
+    ));
 
     Ok(())
 }

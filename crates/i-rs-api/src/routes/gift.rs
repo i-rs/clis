@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_gift(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.gift.write(|store| -> Result<_, ApiError> {
-        let entry = store.gifts.get_mut(&id)
+        let entry = store
+            .gifts
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Gift '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +46,7 @@ pub struct AddGiftRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_gifts(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_gifts(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.gift.read(|store| {
         let entries: Vec<_> = store.gifts.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -63,12 +59,15 @@ async fn add_gift(
     Json(req): Json<AddGiftRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
-    let gift_type: i_rs_gift::models::GiftType = serde_json::from_value(serde_json::json!(req.gift_type))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid gift_type: {e}")))?;
+    let gift_type: i_rs_gift::models::GiftType =
+        serde_json::from_value(serde_json::json!(req.gift_type))
+            .map_err(|e| ApiError::BadRequest(format!("Invalid gift_type: {e}")))?;
     let recipient = req.recipient;
     let occasion = req.occasion;
     let value = req.value;
-    let date: chrono::DateTime<chrono::Utc> = req.date.parse()
+    let date: chrono::DateTime<chrono::Utc> = req
+        .date
+        .parse()
         .map_err(|e| ApiError::BadRequest(format!("Invalid date: {e}")))?;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
@@ -96,7 +95,11 @@ async fn get_gift(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.gift.read(|store| {
-        store.gifts.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Gift '{id}' not found")))
+        store
+            .gifts
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Gift '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

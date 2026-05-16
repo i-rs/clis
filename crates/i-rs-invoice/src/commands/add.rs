@@ -19,7 +19,12 @@ pub struct AddArgs {
     #[arg(short, long, help = "Invoice date (YYYY-MM-DD), defaults to today")]
     pub date: Option<String>,
 
-    #[arg(short, long, default_value = "electronic", help = "Invoice type: electronic or paper")]
+    #[arg(
+        short,
+        long,
+        default_value = "electronic",
+        help = "Invoice type: electronic or paper"
+    )]
     pub invoice_type: String,
 
     #[arg(short, long, action, help = "Mark as reimbursed")]

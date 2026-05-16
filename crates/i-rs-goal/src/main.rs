@@ -4,7 +4,10 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use commands::{add, list, get, delete, update, deposit, list_milestones, remove_milestone, add_milestone, stats, example, handle_skill, parse_skill_arg};
+use commands::{
+    add, add_milestone, delete, deposit, example, get, handle_skill, list, list_milestones,
+    parse_skill_arg, remove_milestone, stats, update,
+};
 use presentation::OutputFormat;
 
 #[derive(Parser, Debug)]
@@ -13,7 +16,7 @@ use presentation::OutputFormat;
 struct Cli {
     #[arg(short, long, help = "Output in JSON format")]
     json: bool,
-    
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -22,31 +25,31 @@ struct Cli {
 enum Commands {
     #[command(about = "Add a new savings goal")]
     Add(commands::add::AddArgs),
-    
+
     #[command(about = "List all savings goals")]
     List(commands::list::ListArgs),
-    
+
     #[command(about = "Get goal details")]
     Get(commands::get::GetArgs),
-    
+
     #[command(about = "Delete a goal")]
     Delete(commands::delete::DeleteArgs),
-    
+
     #[command(about = "Update goal properties")]
     Update(commands::update::UpdateArgs),
-    
+
     #[command(about = "Deposit to a goal")]
     Deposit(commands::deposit::DepositArgs),
-    
+
     #[command(about = "Manage milestones")]
     Milestone(commands::milestone::MilestoneArgs),
-    
+
     #[command(about = "View statistics")]
     Stats(commands::stats::StatsArgs),
-    
+
     #[command(about = "Show usage examples")]
     Example(commands::example::ExampleArgs),
-    
+
     #[command(about = "Show skill documentation")]
     Skill {
         #[arg(value_name = "SUB_COMMAND")]

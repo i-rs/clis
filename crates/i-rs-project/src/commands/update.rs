@@ -70,7 +70,10 @@ pub fn handle_update(
     if updated {
         project.updated_at = Utc::now();
         storage::save_store(&store)?;
-        print_success(&format!("✓ Project '{}' updated successfully", name.green()));
+        print_success(&format!(
+            "✓ Project '{}' updated successfully",
+            name.green()
+        ));
     } else {
         print_success("No changes made");
     }

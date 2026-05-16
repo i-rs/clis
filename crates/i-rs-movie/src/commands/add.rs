@@ -1,9 +1,9 @@
 use crate::models::Movie;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
-use i_rs_core::parse_date;
 use chrono::Utc;
+use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
 #[allow(clippy::too_many_arguments)]
@@ -26,9 +26,10 @@ pub fn handle_add(
     };
 
     if let Some(r) = rating
-        && !(0.0..=10.0).contains(&r) {
-            anyhow::bail!("Rating must be between 0 and 10");
-        }
+        && !(0.0..=10.0).contains(&r)
+    {
+        anyhow::bail!("Rating must be between 0 and 10");
+    }
 
     let mut store = storage::load_store()?;
 
@@ -55,14 +56,16 @@ pub fn handle_add(
     storage::save_store(&store)?;
 
     if matches!(output_format, OutputFormat::Json) {
-        println!("{}", serde_json::json!({
-            "success": true,
-            "message": format!("Movie '{}' added successfully", name)
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "message": format!("Movie '{}' added successfully", name)
+            })
+        );
     } else {
         print_success(&format!("✓ Movie added: {}", name.green()));
     }
 
     Ok(())
 }
-

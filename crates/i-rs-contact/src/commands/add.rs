@@ -1,4 +1,4 @@
-use crate::presentation::{print_success, print_header};
+use crate::presentation::{print_header, print_success};
 use crate::storage;
 use i_rs_core::validate_name;
 use owo_colors::OwoColorize;
@@ -33,15 +33,31 @@ pub fn handle_add(
     storage::save_store(&store)?;
 
     print_header("Contact Created");
-    println!("{} {}", "Name:".style(owo_colors::Style::new().bold()), name);
+    println!(
+        "{} {}",
+        "Name:".style(owo_colors::Style::new().bold()),
+        name
+    );
     if !contact.phone.is_empty() {
-        println!("{} {}", "Phone:".style(owo_colors::Style::new().bold()), contact.phone);
+        println!(
+            "{} {}",
+            "Phone:".style(owo_colors::Style::new().bold()),
+            contact.phone
+        );
     }
     if !contact.email.is_empty() {
-        println!("{} {}", "Email:".style(owo_colors::Style::new().bold()), contact.email);
+        println!(
+            "{} {}",
+            "Email:".style(owo_colors::Style::new().bold()),
+            contact.email
+        );
     }
     if !contact.relationship.is_empty() {
-        println!("{} {}", "Relationship:".style(owo_colors::Style::new().bold()), contact.relationship);
+        println!(
+            "{} {}",
+            "Relationship:".style(owo_colors::Style::new().bold()),
+            contact.relationship
+        );
     }
     print_success(&format!("Contact '{name}' created successfully"));
 

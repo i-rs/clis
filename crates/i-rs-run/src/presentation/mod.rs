@@ -1,23 +1,17 @@
 use crate::models::{PlanRow, RunRecord, RunRow};
 use owo_colors::OwoColorize;
 
-pub use i_rs_core::presentation::{print_success, print_warning, OutputFormat};
 pub use i_rs_core::presentation::output::output_list;
+pub use i_rs_core::presentation::{OutputFormat, print_success, print_warning};
 
 pub fn format_run_table(records: &[&RunRecord]) -> String {
-    let rows: Vec<RunRow> = records
-        .iter()
-        .map(|r| RunRow::from_record(r))
-        .collect();
+    let rows: Vec<RunRow> = records.iter().map(|r| RunRow::from_record(r)).collect();
 
     i_rs_core::render_table(&rows)
 }
 
 pub fn format_plan_table(plans: &[&crate::models::RunPlan]) -> String {
-    let rows: Vec<PlanRow> = plans
-        .iter()
-        .map(|p| PlanRow::from_plan(p))
-        .collect();
+    let rows: Vec<PlanRow> = plans.iter().map(|p| PlanRow::from_plan(p)).collect();
 
     i_rs_core::render_table(&rows)
 }
@@ -32,8 +26,16 @@ pub fn print_plan_count(count: usize) {
 
 pub fn print_stats(store: &crate::models::RunStore) {
     println!("\n{}", "Statistics:".bold().cyan());
-    println!("  {:12} {:.2} km", "Total:".dimmed(), store.total_distance());
-    println!("  {:12} {}", "Duration:".dimmed(), crate::models::format_duration(store.total_duration()));
+    println!(
+        "  {:12} {:.2} km",
+        "Total:".dimmed(),
+        store.total_distance()
+    );
+    println!(
+        "  {:12} {}",
+        "Duration:".dimmed(),
+        crate::models::format_duration(store.total_duration())
+    );
     if let Some(pace) = store.avg_pace() {
         println!("  {:12} {}/km", "Avg Pace:".dimmed(), pace);
     }

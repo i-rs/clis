@@ -47,12 +47,10 @@ pub struct DeployRecord {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DeployStore {
     pub entries: BTreeMap<String, DeployRecord>,
 }
-
 
 impl DeployStore {
     pub fn add_entry(&mut self, entry: DeployRecord) {

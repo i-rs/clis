@@ -20,19 +20,32 @@ pub struct FeedpetEntry {
 }
 
 impl FeedpetEntry {
-    pub fn new(pet_name: String, food_type: String, amount: String, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        pet_name: String,
+        food_type: String,
+        amount: String,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, pet_name, food_type, amount, fed_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            pet_name,
+            food_type,
+            amount,
+            fed_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FeedpetStore {
     pub entries: BTreeMap<String, FeedpetEntry>,
 }
-
 
 impl FeedpetStore {
     pub fn add_entry(&mut self, entry: FeedpetEntry) {

@@ -1,7 +1,6 @@
 use crate::models::RunPlan;
 use crate::presentation::{
-    format_plan_table, output_list, print_plan_count, print_success, print_warning,
-    OutputFormat,
+    OutputFormat, format_plan_table, output_list, print_plan_count, print_success, print_warning,
 };
 use crate::storage;
 use anyhow::Result;
@@ -140,7 +139,7 @@ pub fn handle_plan_get(id: String, format: OutputFormat) -> Result<()> {
                 "{}",
                 output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format)
             );
-        } 
+        }
         anyhow::bail!("No plan found with ID: {id}");
     }
 

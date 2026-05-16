@@ -1,7 +1,15 @@
-use crate::presentation::{format_table, print_todo_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_todo_count, print_warning,
+};
 use anyhow::Result;
 
-pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, format: OutputFormat) -> Result<()> {
+pub fn handle_list(
+    _all: bool,
+    pending: bool,
+    done: bool,
+    tag: Option<String>,
+    format: OutputFormat,
+) -> Result<()> {
     let store = crate::storage::load_store()?;
     let todos = crate::service::list_todos(&store, pending, done, tag.clone())?;
 
@@ -16,7 +24,10 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
                     None
                 }
             });
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No todos found.");
         }
@@ -34,14 +45,17 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
             content: Vec<String>,
         }
 
-        let items: Vec<ListItem> = todos.iter().map(|t| ListItem {
-            name: t.name.clone(),
-            title: t.title.clone(),
-            priority: t.priority.label().to_string(),
-            is_done: t.is_done,
-            tags: t.tags.clone(),
-            content: t.content.clone(),
-        }).collect();
+        let items: Vec<ListItem> = todos
+            .iter()
+            .map(|t| ListItem {
+                name: t.name.clone(),
+                title: t.title.clone(),
+                priority: t.priority.label().to_string(),
+                is_done: t.is_done,
+                tags: t.tags.clone(),
+                content: t.content.clone(),
+            })
+            .collect();
 
         let filter = tag.or_else(|| {
             if pending {
@@ -53,7 +67,10 @@ pub fn handle_list(_all: bool, pending: bool, done: bool, tag: Option<String>, f
             }
         });
 
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 

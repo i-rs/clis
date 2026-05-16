@@ -20,7 +20,10 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
 
     println!();
     print_header("Vocabulary Quiz");
-    println!("\n{}", format!("Total words to review: {}", word_keys.len()).cyan());
+    println!(
+        "\n{}",
+        format!("Total words to review: {}", word_keys.len()).cyan()
+    );
     println!("Type 'q' to quit quiz\n");
 
     let mut correct = 0;
@@ -57,7 +60,11 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
             correct += 1;
         } else {
             println!("  {}", "✗ Incorrect".red());
-            println!("  {}: {}", "Correct answer".dimmed(), word.definition.cyan());
+            println!(
+                "  {}: {}",
+                "Correct answer".dimmed(),
+                word.definition.cyan()
+            );
         }
 
         if !word.example.is_empty() {
@@ -70,10 +77,14 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
         if let Some(updated_word) = store.get_entry_mut(&word_key) {
             updated_word.review_count += 1;
             updated_word.updated_at = Utc::now();
-            if updated_word.review_count >= 5 && updated_word.status == crate::models::VocabStatus::Learning {
+            if updated_word.review_count >= 5
+                && updated_word.status == crate::models::VocabStatus::Learning
+            {
                 updated_word.status = crate::models::VocabStatus::Mastered;
                 println!("  {}", "🎉 Status changed to Mastered!".yellow());
-            } else if updated_word.review_count >= 2 && updated_word.status == crate::models::VocabStatus::New {
+            } else if updated_word.review_count >= 2
+                && updated_word.status == crate::models::VocabStatus::New
+            {
                 updated_word.status = crate::models::VocabStatus::Learning;
                 println!("  {}", "📖 Status changed to Learning!".yellow());
             }
@@ -85,7 +96,11 @@ pub fn handle_quiz(count: Option<usize>) -> Result<()> {
     println!();
     println!("{}", "═".repeat(50).dimmed());
     print_header("Quiz Complete!");
-    println!("  {} {}", "Correct:".dimmed(), format!("{correct}/{total}").green());
+    println!(
+        "  {} {}",
+        "Correct:".dimmed(),
+        format!("{correct}/{total}").green()
+    );
     if total > 0 {
         let percentage = (f64::from(correct) / f64::from(total)) * 100.0;
         println!("  {} {:.1}%", "Score:".dimmed(), percentage);

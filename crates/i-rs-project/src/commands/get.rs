@@ -1,5 +1,5 @@
 use crate::models::ProjectDetail;
-use crate::presentation::{output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_item};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -23,10 +23,26 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
 
     println!("\nProject: {}", project.name.green().bold());
     println!("{}", "=".repeat(50));
-    println!("  {:12} {}", "Status:".dimmed(), format!("{:?}", project.status).to_lowercase());
-    println!("  {:12} {}", "Priority:".dimmed(), format!("{:?}", project.priority).to_lowercase());
-    println!("  {:12} {}", "Created:".dimmed(), project.created_at.format("%Y-%m-%d %H:%M"));
-    println!("  {:12} {}", "Updated:".dimmed(), project.updated_at.format("%Y-%m-%d %H:%M"));
+    println!(
+        "  {:12} {}",
+        "Status:".dimmed(),
+        format!("{:?}", project.status).to_lowercase()
+    );
+    println!(
+        "  {:12} {}",
+        "Priority:".dimmed(),
+        format!("{:?}", project.priority).to_lowercase()
+    );
+    println!(
+        "  {:12} {}",
+        "Created:".dimmed(),
+        project.created_at.format("%Y-%m-%d %H:%M")
+    );
+    println!(
+        "  {:12} {}",
+        "Updated:".dimmed(),
+        project.updated_at.format("%Y-%m-%d %H:%M")
+    );
 
     if !project.description.is_empty() {
         println!("\n{}", "Description:".dimmed());
@@ -51,11 +67,17 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     } else {
         println!("\n{}", "Milestones:".bold().cyan());
         let completed = project.milestones.iter().filter(|m| m.completed).count();
-        println!("  {:12} {}/{} completed", "Progress:".dimmed(), completed, project.milestones.len());
-        
+        println!(
+            "  {:12} {}/{} completed",
+            "Progress:".dimmed(),
+            completed,
+            project.milestones.len()
+        );
+
         for (i, milestone) in project.milestones.iter().enumerate() {
             let status = if milestone.completed { "✓" } else { "○" };
-            let due = milestone.due_date
+            let due = milestone
+                .due_date
                 .map(|d| {
                     let days = (d.date_naive() - Utc::now().date_naive()).num_days();
                     if days < 0 {
@@ -67,7 +89,7 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
                     }
                 })
                 .unwrap_or_default();
-            
+
             println!("  {}. {} {}{}", i + 1, status, milestone.name, due);
             if !milestone.description.is_empty() {
                 println!("     {}", milestone.description.dimmed());
@@ -81,8 +103,13 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     } else {
         println!("\n{}", "Tasks:".bold().cyan());
         let completed = project.tasks.iter().filter(|t| t.completed).count();
-        println!("  {:12} {}/{} completed", "Progress:".dimmed(), completed, project.tasks.len());
-        
+        println!(
+            "  {:12} {}/{} completed",
+            "Progress:".dimmed(),
+            completed,
+            project.tasks.len()
+        );
+
         for (i, task) in project.tasks.iter().enumerate() {
             let status = if task.completed { "✓" } else { "○" };
             println!("  {}. {} {}", i + 1, status, task.name);

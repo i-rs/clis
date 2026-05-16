@@ -1,4 +1,4 @@
-use crate::presentation::{format_debt_detail, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, format_debt_detail, output_item};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -39,13 +39,17 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         });
 
         if args.payments {
-            let payments: Vec<_> = debt.payments.iter().map(|p| {
-                serde_json::json!({
-                    "amount": p.amount,
-                    "paid_at": p.paid_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-                    "note": p.note
+            let payments: Vec<_> = debt
+                .payments
+                .iter()
+                .map(|p| {
+                    serde_json::json!({
+                        "amount": p.amount,
+                        "paid_at": p.paid_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                        "note": p.note
+                    })
                 })
-            }).collect();
+                .collect();
             data["payments"] = serde_json::json!(payments);
         }
 

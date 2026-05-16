@@ -37,27 +37,37 @@ pub fn handle_remind(days: Option<i64>) -> anyhow::Result<()> {
         } else {
             format!("{days_since} days")
         };
-        
-        let contact = store.get_entry(name).expect("entry comes from store keys, must exist");
-        
-        println!("{} {}", name.bold().cyan(), format!("({days_str})").dimmed());
-        
+
+        let contact = store
+            .get_entry(name)
+            .expect("entry comes from store keys, must exist");
+
+        println!(
+            "{} {}",
+            name.bold().cyan(),
+            format!("({days_str})").dimmed()
+        );
+
         if !contact.phone.is_empty() {
             println!("  Phone: {}", contact.phone);
         }
         if !contact.email.is_empty() {
             println!("  Email: {}", contact.email);
         }
-        
+
         if !contact.relationship.is_empty() {
             println!("  Relationship: {}", contact.relationship);
         }
-        
+
         println!();
     }
 
     let total = needs_contact.len();
-    println!("{} {} contacts need attention", "Total:".dimmed(), total.to_string().yellow());
+    println!(
+        "{} {} contacts need attention",
+        "Total:".dimmed(),
+        total.to_string().yellow()
+    );
 
     Ok(())
 }

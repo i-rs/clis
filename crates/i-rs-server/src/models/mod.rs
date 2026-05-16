@@ -9,7 +9,7 @@ pub struct Server {
     #[serde(default)]
     pub user: Option<String>,
     #[serde(skip)]
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -21,14 +21,10 @@ pub struct Server {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServerStore {
     pub servers: std::collections::BTreeMap<String, Server>,
 }
-
-
-
 
 #[allow(dead_code)]
 impl ServerStore {

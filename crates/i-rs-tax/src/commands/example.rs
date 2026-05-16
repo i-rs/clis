@@ -5,7 +5,8 @@ use i_rs_core::presentation::OutputFormat;
 pub struct ExampleArgs {}
 
 pub fn execute(_args: &ExampleArgs, _format: &OutputFormat) -> anyhow::Result<()> {
-    println!(r"
+    println!(
+        r"
 i-rs-tax 使用示例:
 
 1. 添加个人所得税记录:
@@ -51,6 +52,7 @@ i-rs-tax 使用示例:
     i-rs-tax list --json
     i-rs-tax get 个人所得税2024 --json
     i-rs-tax stats --year 2024 --json
-");
+"
+    );
     Ok(())
 }

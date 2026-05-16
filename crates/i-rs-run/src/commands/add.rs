@@ -1,11 +1,11 @@
-use crate::models::{format_pace, RunRecord};
+use crate::models::{RunRecord, format_pace};
 use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
+use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 use uuid::Uuid;
-use i_rs_core::parse_date;
 
 pub fn handle_add(
     date: String,
@@ -46,8 +46,6 @@ pub fn handle_add(
 
     Ok(())
 }
-
-
 
 fn format_duration(minutes: f64) -> String {
     let hours = (minutes / 60.0) as u32;

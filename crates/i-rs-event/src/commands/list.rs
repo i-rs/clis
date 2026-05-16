@@ -1,5 +1,5 @@
 use crate::models::Event;
-use crate::presentation::{format_events_table, print_event_count, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, format_events_table, print_event_count, print_header};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -32,10 +32,17 @@ pub fn run(args: &ListArgs, json: bool) -> Result<()> {
     let event_refs: Vec<&Event> = events;
     let count = event_refs.len();
     let filter = args.tag.clone();
-    let format = if json { OutputFormat::Json } else { OutputFormat::Table };
+    let format = if json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Table
+    };
 
     if json {
-        println!("{}", output_list(&event_refs, count, filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&event_refs, count, filter.as_deref(), format)
+        );
     } else {
         print_header("Events");
         if !event_refs.is_empty() {

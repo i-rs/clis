@@ -11,8 +11,19 @@ pub fn handle_update(
     remark: Option<Vec<String>>,
 ) -> Result<()> {
     let mut store = crate::storage::load_store()?;
-    crate::service::update_bookmark(&mut store, name.clone(), url, account, password, tag, remark)?;
+    crate::service::update_bookmark(
+        &mut store,
+        name.clone(),
+        url,
+        account,
+        password,
+        tag,
+        remark,
+    )?;
     crate::storage::save_store(&store)?;
-    print_success(&format!("✓ Bookmark '{}' updated successfully", name.green()));
+    print_success(&format!(
+        "✓ Bookmark '{}' updated successfully",
+        name.green()
+    ));
     Ok(())
 }

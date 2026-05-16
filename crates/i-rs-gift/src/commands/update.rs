@@ -36,7 +36,10 @@ pub fn handle_update(
     i_rs_core::update_field!(gift.value, value);
     if let Some(d) = date {
         let parsed = parse_date(&d)?;
-        gift.date = parsed.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid").and_utc();
+        gift.date = parsed
+            .and_hms_opt(0, 0, 0)
+            .expect("0:00:00 is always valid")
+            .and_utc();
     }
     i_rs_core::update_field!(gift.tags, tag);
     i_rs_core::update_field!(gift.remark, remark);

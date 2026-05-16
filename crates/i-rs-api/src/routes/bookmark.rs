@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, Query, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_bookmark(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.bookmark.write(|store| -> Result<_, ApiError> {
-        let entry = store.bookmarks.get_mut(&id)
+        let entry = store
+            .bookmarks
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Bookmark '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -66,7 +64,8 @@ async fn add_bookmark(
     let url = req.url;
     let tags = req.tag.unwrap_or_default();
     let bookmark = state.bookmark.write(|store| {
-        i_rs_bookmark::service::add_bookmark(store, name, url, None, None, tags, Vec::new()).map_err(ApiError::from)
+        i_rs_bookmark::service::add_bookmark(store, name, url, None, None, tags, Vec::new())
+            .map_err(ApiError::from)
     })?;
     Ok(ok_json(bookmark))
 }
@@ -75,9 +74,9 @@ async fn get_bookmark(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let bookmark = state.bookmark.read(|store| {
-        i_rs_bookmark::service::get_bookmark(store, &name).map_err(ApiError::from)
-    })?;
+    let bookmark = state
+        .bookmark
+        .read(|store| i_rs_bookmark::service::get_bookmark(store, &name).map_err(ApiError::from))?;
     Ok(ok_json(bookmark))
 }
 

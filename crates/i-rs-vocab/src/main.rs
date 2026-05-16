@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_quiz, handle_skill, handle_stats, handle_update, parse_skill_arg};
+use commands::{
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_quiz, handle_skill,
+    handle_stats, handle_update, parse_skill_arg,
+};
 use presentation::OutputFormat;
 
 mod commands;
@@ -74,8 +77,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -91,7 +94,14 @@ fn main() {
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
-        Commands::Add { word, definition, example, status, tag, remark } => {
+        Commands::Add {
+            word,
+            definition,
+            example,
+            status,
+            tag,
+            remark,
+        } => {
             handle_add(word, definition, example, status, tag, remark)?;
         }
         Commands::Get { word } => {
@@ -100,7 +110,15 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::List { status, tag } => {
             handle_list(status, tag, format)?;
         }
-        Commands::Update { word, definition, example, status, tag, remark, review } => {
+        Commands::Update {
+            word,
+            definition,
+            example,
+            status,
+            tag,
+            remark,
+            review,
+        } => {
             handle_update(word, definition, example, status, tag, remark, review)?;
         }
         Commands::Delete { word } => {
@@ -118,7 +136,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

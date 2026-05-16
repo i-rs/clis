@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Note:".bold().green());
-    println!("  i-rs-note add meeting --title \"Team Meeting Notes\" --tag work --content \"Agenda items\" --content \"Discussion points\"");
+    println!(
+        "  i-rs-note add meeting --title \"Team Meeting Notes\" --tag work --content \"Agenda items\" --content \"Discussion points\""
+    );
     println!("  i-rs-note add idea --tag personal --content \"New app concept\"");
     println!();
 

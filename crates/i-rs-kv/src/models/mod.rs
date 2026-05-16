@@ -17,12 +17,10 @@ pub struct KvEntry {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct KvStore {
     pub entries: BTreeMap<String, KvEntry>,
 }
-
 
 impl KvStore {
     pub fn add_entry(&mut self, entry: KvEntry) {

@@ -23,14 +23,16 @@ pub fn handle_update(
     let needs_recalc = distance.is_some() || duration.is_some();
 
     if let Some(d) = distance
-        && d <= 0.0 {
-            anyhow::bail!("Distance must be greater than 0");
-        }
+        && d <= 0.0
+    {
+        anyhow::bail!("Distance must be greater than 0");
+    }
 
     if let Some(d) = duration
-        && d == 0 {
-            anyhow::bail!("Duration must be greater than 0");
-        }
+        && d == 0
+    {
+        anyhow::bail!("Duration must be greater than 0");
+    }
 
     let (distance_km, duration_minutes, avg_speed) = {
         let record = match store.get_entry_mut(&record_id) {
@@ -59,9 +61,10 @@ pub fn handle_update(
         }
 
         if let Some(tag) = add_tag
-            && !record.tags.contains(&tag) {
-                record.tags.push(tag);
-            }
+            && !record.tags.contains(&tag)
+        {
+            record.tags.push(tag);
+        }
 
         if let Some(tag) = remove_tag {
             record.tags.retain(|t| t != &tag);
@@ -73,7 +76,11 @@ pub fn handle_update(
 
         record.updated_at = Utc::now();
 
-        (record.distance_km, record.duration_minutes, record.avg_speed)
+        (
+            record.distance_km,
+            record.duration_minutes,
+            record.avg_speed,
+        )
     };
 
     storage::save_store(&store)?;
@@ -88,11 +95,15 @@ pub fn handle_update(
     Ok(())
 }
 
-fn find_record_id(store: &crate::models::CyclingStore, id_or_date: &str) -> Result<Uuid, anyhow::Error> {
+fn find_record_id(
+    store: &crate::models::CyclingStore,
+    id_or_date: &str,
+) -> Result<Uuid, anyhow::Error> {
     if let Ok(uuid) = Uuid::parse_str(id_or_date)
-        && store.get_entry(&uuid).is_some() {
-            return Ok(uuid);
-        }
+        && store.get_entry(&uuid).is_some()
+    {
+        return Ok(uuid);
+    }
 
     let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
     for format in &formats {

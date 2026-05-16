@@ -1,5 +1,5 @@
 use crate::models::{ContactRow, ListItem};
-use crate::presentation::{format_table, print_contact_count, OutputFormat, output_list};
+use crate::presentation::{OutputFormat, format_table, output_list, print_contact_count};
 use crate::storage;
 use owo_colors::OwoColorize;
 
@@ -7,7 +7,11 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
     let store = storage::load_store()?;
 
     let contacts: Vec<&crate::models::Contact> = if let Some(tag_filter) = &tag {
-        store.entries.values().filter(|c| c.tags.contains(tag_filter)).collect()
+        store
+            .entries
+            .values()
+            .filter(|c| c.tags.contains(tag_filter))
+            .collect()
     } else {
         store.entries.values().collect()
     };

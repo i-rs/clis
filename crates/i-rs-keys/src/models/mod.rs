@@ -17,12 +17,10 @@ pub struct KeyEntry {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct KeyStore {
     pub entries: BTreeMap<String, KeyEntry>,
 }
-
 
 impl KeyStore {
     pub fn add_entry(&mut self, entry: KeyEntry) {

@@ -45,7 +45,9 @@ impl std::str::FromStr for InvoiceType {
         match s.to_lowercase().as_str() {
             "electronic" | "e" => Ok(Self::Electronic),
             "paper" | "p" => Ok(Self::Paper),
-            _ => Err(format!("Invalid invoice type: {s}. Use 'electronic' or 'paper'")),
+            _ => Err(format!(
+                "Invalid invoice type: {s}. Use 'electronic' or 'paper'"
+            )),
         }
     }
 }
@@ -83,8 +85,6 @@ impl InvoiceRow {
 pub struct InvoiceStore {
     pub entries: std::collections::BTreeMap<String, Invoice>,
 }
-
-
 
 impl InvoiceStore {
     pub fn add_entry(&mut self, entry: Invoice) {

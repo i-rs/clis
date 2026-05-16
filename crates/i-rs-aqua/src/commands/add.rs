@@ -13,7 +13,10 @@ pub fn handle_add(tank_size: Option<i32>, tag: Vec<String>, remark: Vec<String>)
     storage::save_store(&store)?;
 
     let size_str = tank_size.map_or_else(|| "unknown".to_string(), |s| format!("{s}L"));
-    print_success(&format!("✓ Recorded aquarium water change ({})", size_str.cyan()));
+    print_success(&format!(
+        "✓ Recorded aquarium water change ({})",
+        size_str.cyan()
+    ));
 
     Ok(())
 }

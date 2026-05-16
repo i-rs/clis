@@ -22,27 +22,38 @@ pub fn handle_add(
         end - chrono::Duration::seconds(duration_seconds)
     };
 
-    let entry = TickEntry::new(task_name.clone(), duration_seconds, description, tag, remark, start, end);
+    let entry = TickEntry::new(
+        task_name.clone(),
+        duration_seconds,
+        description,
+        tag,
+        remark,
+        start,
+        end,
+    );
 
     store.add_entry(entry);
     storage::save_store(&store)?;
 
     let duration_str = format_duration(duration_seconds);
-    let total_str = format!("{}h {}m {}s",
+    let total_str = format!(
+        "{}h {}m {}s",
         duration_seconds / 3600,
         (duration_seconds % 3600) / 60,
-        duration_seconds % 60);
-    print_success(&format!("✓ Recorded {} for '{}' ({} total)", task_name.green(), duration_str.cyan(), total_str));
+        duration_seconds % 60
+    );
+    print_success(&format!(
+        "✓ Recorded {} for '{}' ({} total)",
+        task_name.green(),
+        duration_str.cyan(),
+        total_str
+    ));
 
     Ok(())
 }
 
 fn parse_datetime(datetime_str: &str) -> Result<DateTime<Utc>> {
-    let formats = [
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
-    ];
+    let formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"];
 
     for format in &formats {
         if let Ok(dt) = chrono::DateTime::parse_from_str(datetime_str, format) {
@@ -51,7 +62,9 @@ fn parse_datetime(datetime_str: &str) -> Result<DateTime<Utc>> {
     }
 
     if let Ok(naive) = chrono::NaiveDate::parse_from_str(datetime_str, "%Y-%m-%d") {
-        return Ok(Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid")));
+        return Ok(
+            Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"))
+        );
     }
 
     Err(anyhow::anyhow!("Invalid datetime format: {datetime_str}"))

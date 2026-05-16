@@ -3,9 +3,7 @@ use anyhow::Result;
 use chrono::Utc;
 use uuid::Uuid;
 
-
 i_rs_core::create_store!(GoalStore, "goal");
-
 
 pub fn add_entry(
     store: &mut GoalStore,
@@ -49,7 +47,9 @@ pub fn add_entry(
 }
 
 pub fn deposit_to_goal(store: &mut GoalStore, name: &str, amount: f64) -> Result<SavingsGoal> {
-    let goal = store.goals.get_mut(name)
+    let goal = store
+        .goals
+        .get_mut(name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{name}' not found"))?;
 
     goal.current_amount += amount;
@@ -62,8 +62,15 @@ pub fn deposit_to_goal(store: &mut GoalStore, name: &str, amount: f64) -> Result
     Ok(updated_goal)
 }
 
-pub fn add_milestone(store: &mut GoalStore, goal_name: &str, name: String, amount: f64) -> Result<SavingsGoal> {
-    let goal = store.goals.get_mut(goal_name)
+pub fn add_milestone(
+    store: &mut GoalStore,
+    goal_name: &str,
+    name: String,
+    amount: f64,
+) -> Result<SavingsGoal> {
+    let goal = store
+        .goals
+        .get_mut(goal_name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{goal_name}' not found"))?;
 
     let milestone = Milestone {
@@ -71,7 +78,11 @@ pub fn add_milestone(store: &mut GoalStore, goal_name: &str, name: String, amoun
         name,
         amount,
         reached: goal.current_amount >= amount,
-        reached_at: if goal.current_amount >= amount { Some(Utc::now().format("%Y-%m-%d %H:%M").to_string()) } else { None },
+        reached_at: if goal.current_amount >= amount {
+            Some(Utc::now().format("%Y-%m-%d %H:%M").to_string())
+        } else {
+            None
+        },
     };
 
     goal.milestones.push(milestone);
@@ -83,8 +94,14 @@ pub fn add_milestone(store: &mut GoalStore, goal_name: &str, name: String, amoun
     Ok(updated_goal)
 }
 
-pub fn remove_milestone(store: &mut GoalStore, goal_name: &str, milestone_id: &str) -> Result<SavingsGoal> {
-    let goal = store.goals.get_mut(goal_name)
+pub fn remove_milestone(
+    store: &mut GoalStore,
+    goal_name: &str,
+    milestone_id: &str,
+) -> Result<SavingsGoal> {
+    let goal = store
+        .goals
+        .get_mut(goal_name)
         .ok_or_else(|| anyhow::anyhow!("Goal '{goal_name}' not found"))?;
 
     let initial_len = goal.milestones.len();

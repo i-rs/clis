@@ -1,4 +1,4 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -13,10 +13,13 @@ pub fn handle_delete(name: String, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if matches!(output_format, OutputFormat::Json) {
-        println!("{}", serde_json::json!({
-            "success": true,
-            "message": format!("Podcast '{}' deleted successfully", name)
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "message": format!("Podcast '{}' deleted successfully", name)
+            })
+        );
     } else {
         print_success(&format!("✓ Podcast '{}' deleted", name.green()));
     }

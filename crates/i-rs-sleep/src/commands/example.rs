@@ -5,7 +5,12 @@ pub fn handle_example() {
     println!("{}", "i-rs-sleep Examples".bold().cyan());
     println!();
 
-    println!("{}", "Record sleep (bedtime, wake time, quality 1-5):".bold().green());
+    println!(
+        "{}",
+        "Record sleep (bedtime, wake time, quality 1-5):"
+            .bold()
+            .green()
+    );
     println!("  i-rs-sleep add 22:30 06:45 4 --tag workday");
     println!("  i-rs-sleep add 23:00 07:00 5 --tag weekend --remark \"Great sleep!\"");
     println!();

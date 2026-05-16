@@ -17,14 +17,12 @@ pub struct HeightRecord {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HeightStore {
     pub records: BTreeMap<NaiveDate, HeightRecord>,
     #[serde(default)]
     pub target_height: Option<f64>,
 }
-
 
 impl HeightStore {
     pub fn add_entry(&mut self, record: HeightRecord) {

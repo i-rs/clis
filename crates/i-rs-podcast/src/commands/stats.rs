@@ -1,4 +1,4 @@
-use crate::presentation::{print_stats, OutputFormat};
+use crate::presentation::{OutputFormat, print_stats};
 use crate::storage;
 use anyhow::Result;
 
@@ -28,10 +28,13 @@ pub fn handle_stats(output_format: OutputFormat) -> Result<()> {
             total_progress_percent: stats.total_progress_percent(),
         };
 
-        println!("{}", serde_json::json!({
-            "success": true,
-            "data": output
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "data": output
+            })
+        );
     } else {
         print_stats(&stats);
     }

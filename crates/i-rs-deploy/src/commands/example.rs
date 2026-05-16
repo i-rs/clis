@@ -1,5 +1,6 @@
 pub fn handle_example() {
-    println!(r#"
+    println!(
+        r#"
 Deploy Record Examples:
 
 # Add a successful deployment
@@ -44,5 +45,6 @@ i-rs-deploy stats --environment production
 # JSON output
 i-rs-deploy list --json
 i-rs-deploy get abc12345 --json
-"#);
+"#
+    );
 }

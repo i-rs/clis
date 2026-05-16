@@ -1,15 +1,19 @@
-use crate::models::{TimeEntryRow, StatsData, ReportData};
+use crate::models::{ReportData, StatsData, TimeEntryRow};
 use owo_colors::OwoColorize;
 
-pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item};
+pub use i_rs_core::presentation::output::{output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_header, print_success};
 
 pub fn format_table(rows: &[TimeEntryRow]) -> String {
     i_rs_core::render_table(rows)
 }
 
 pub fn print_entry_count(count: usize) {
-    println!("\n{} {} entries", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} entries",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }
 
 pub fn format_minutes(minutes: i64) -> String {
@@ -29,21 +33,48 @@ pub fn format_minutes(minutes: i64) -> String {
 pub fn print_stats(stats: &StatsData) {
     println!();
     print_header(&format!("Stats for {}", stats.date));
-    println!("  {} {}", "Total time:".cyan(), format_minutes(stats.total_minutes).green());
-    println!("  {} {}", "Entries:".cyan(), stats.entries_count.to_string().green());
+    println!(
+        "  {} {}",
+        "Total time:".cyan(),
+        format_minutes(stats.total_minutes).green()
+    );
+    println!(
+        "  {} {}",
+        "Entries:".cyan(),
+        stats.entries_count.to_string().green()
+    );
     println!();
 }
 
 pub fn print_report(report: &ReportData) {
     println!();
-    print_header(&format!("Report: {} to {}", report.start_date, report.end_date));
-    println!("  {} {}", "Total time:".cyan(), format_minutes(report.total_minutes).green());
-    println!("  {} {:.1} hours", "Hours:".cyan(), report.total_hours.green());
-    println!("  {} {}", "Entries:".cyan(), report.entries_count.to_string().green());
+    print_header(&format!(
+        "Report: {} to {}",
+        report.start_date, report.end_date
+    ));
+    println!(
+        "  {} {}",
+        "Total time:".cyan(),
+        format_minutes(report.total_minutes).green()
+    );
+    println!(
+        "  {} {:.1} hours",
+        "Hours:".cyan(),
+        report.total_hours.green()
+    );
+    println!(
+        "  {} {}",
+        "Entries:".cyan(),
+        report.entries_count.to_string().green()
+    );
     println!();
     print_header("Daily Breakdown");
     for daily in &report.daily_breakdown {
-        println!("  {} - {}", daily.date.cyan(), format_minutes(daily.total_minutes).green());
+        println!(
+            "  {} - {}",
+            daily.date.cyan(),
+            format_minutes(daily.total_minutes).green()
+        );
     }
     println!();
 }
@@ -51,7 +82,10 @@ pub fn print_report(report: &ReportData) {
 pub fn output_stats_json(stats: &StatsData, format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(stats).expect("stats serialization must succeed"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(stats).expect("stats serialization must succeed")
+            );
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_stats(stats);
@@ -62,7 +96,10 @@ pub fn output_stats_json(stats: &StatsData, format: OutputFormat) {
 pub fn output_report_json(report: &ReportData, format: OutputFormat) {
     match format {
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(report).expect("report serialization must succeed"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(report).expect("report serialization must succeed")
+            );
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_report(report);

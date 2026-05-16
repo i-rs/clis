@@ -2,8 +2,8 @@ use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
-use owo_colors::OwoColorize;
 use i_rs_core::parse_datetime;
+use owo_colors::OwoColorize;
 
 pub fn handle_update(
     name: String,
@@ -30,7 +30,10 @@ pub fn handle_update(
     }
     if let Some(password) = password {
         storage::store_password(&name, &password)?;
-        println!("{}", "Password updated and stored securely in keychain".green());
+        println!(
+            "{}",
+            "Password updated and stored securely in keychain".green()
+        );
     }
     i_rs_core::update_field!(domain.tags, tag);
     i_rs_core::update_field!(domain.remark, remark);
@@ -43,5 +46,3 @@ pub fn handle_update(
 
     Ok(())
 }
-
-

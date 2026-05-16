@@ -17,7 +17,12 @@ pub struct SparkEntry {
 }
 
 impl SparkEntry {
-    pub fn new(content: String, source: Option<String>, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        content: String,
+        source: Option<String>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         Self {
@@ -31,12 +36,10 @@ impl SparkEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SparkStore {
     pub entries: BTreeMap<String, SparkEntry>,
 }
-
 
 impl SparkStore {
     pub fn add_entry(&mut self, entry: SparkEntry) {

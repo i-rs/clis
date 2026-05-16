@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update, parse_skill_arg};
+use commands::{
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
+    handle_update, parse_skill_arg,
+};
 use presentation::OutputFormat;
 
 mod commands;
@@ -71,8 +74,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -88,7 +91,15 @@ fn main() {
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
-        Commands::Add { name, url, price, currency, priority, tag, remark } => {
+        Commands::Add {
+            name,
+            url,
+            price,
+            currency,
+            priority,
+            tag,
+            remark,
+        } => {
             handle_add(name, url, price, currency, priority, tag, remark)?;
         }
         Commands::Delete { name } => {
@@ -100,7 +111,16 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Get { name } => {
             handle_get(name, format)?;
         }
-        Commands::Update { name, price, currency, priority, url, tag, remark, done } => {
+        Commands::Update {
+            name,
+            price,
+            currency,
+            priority,
+            url,
+            tag,
+            remark,
+            done,
+        } => {
             handle_update(name, price, currency, priority, url, tag, remark, done)?;
         }
         Commands::Example {} => {
@@ -109,7 +129,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
     Ok(())
 }

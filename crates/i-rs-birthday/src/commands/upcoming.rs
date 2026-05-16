@@ -1,4 +1,6 @@
-use crate::presentation::{format_table, print_birthday_count, print_header, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_birthday_count, print_header, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 
@@ -33,19 +35,22 @@ pub fn handle_upcoming(days: Option<i64>, format: OutputFormat) -> Result<()> {
             updated_at: String,
         }
 
-        let items: Vec<ListItem> = birthdays.iter().map(|b| ListItem {
-            name: b.name.clone(),
-            birth_date: b.birth_date.clone(),
-            year: b.year,
-            age: b.age(),
-            days_until_birthday: b.days_until_birthday(),
-            is_today: b.is_today(),
-            relationship: b.relationship.clone(),
-            tags: b.tags.clone(),
-            remark: b.remark.clone(),
-            created_at: b.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            updated_at: b.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-        }).collect();
+        let items: Vec<ListItem> = birthdays
+            .iter()
+            .map(|b| ListItem {
+                name: b.name.clone(),
+                birth_date: b.birth_date.clone(),
+                year: b.year,
+                age: b.age(),
+                days_until_birthday: b.days_until_birthday(),
+                is_today: b.is_today(),
+                relationship: b.relationship.clone(),
+                tags: b.tags.clone(),
+                remark: b.remark.clone(),
+                created_at: b.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                updated_at: b.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            })
+            .collect();
 
         println!("{}", output_list(&items, items.len(), None, format));
         return Ok(());

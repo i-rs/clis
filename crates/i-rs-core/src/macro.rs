@@ -68,11 +68,8 @@ macro_rules! skill_command {
             Raw,
         }
 
-        const SKILL_RAW: &str = include_str!(concat!(
-            "../../../../skills/",
-            $crate_name,
-            "/SKILL.md"
-        ));
+        const SKILL_RAW: &str =
+            include_str!(concat!("../../../../skills/", $crate_name, "/SKILL.md"));
 
         pub fn handle_skill(which: Option<SkillCommand>) {
             match which {
@@ -89,7 +86,11 @@ macro_rules! skill_command {
                     // Fallback: print first non-frontmatter line
                     for line in SKILL_RAW.lines() {
                         let trimmed = line.trim();
-                        if !trimmed.is_empty() && !trimmed.starts_with("---") && !trimmed.starts_with("name:") && !trimmed.starts_with("description:") {
+                        if !trimmed.is_empty()
+                            && !trimmed.starts_with("---")
+                            && !trimmed.starts_with("name:")
+                            && !trimmed.starts_with("description:")
+                        {
                             println!("{}", trimmed);
                             return;
                         }
@@ -159,11 +160,16 @@ macro_rules! test_setup {
             use ::std::sync::OnceLock;
             static INIT: OnceLock<()> = OnceLock::new();
             INIT.get_or_init(|| {
-                let tmp = ::std::env::temp_dir()
-                    .join(::std::format!("{}-test-{}", $prefix, ::std::process::id()));
+                let tmp = ::std::env::temp_dir().join(::std::format!(
+                    "{}-test-{}",
+                    $prefix,
+                    ::std::process::id()
+                ));
                 let _ = ::std::fs::create_dir_all(&tmp);
                 // Safety: test-only, single-threaded access to CONFIG_DIR
-                unsafe { ::std::env::set_var("CONFIG_DIR", tmp.to_str().unwrap()); }
+                unsafe {
+                    ::std::env::set_var("CONFIG_DIR", tmp.to_str().unwrap());
+                }
             });
         }
     };
@@ -187,7 +193,15 @@ macro_rules! handle_empty {
     ($entries:expr, $format:expr) => {
         if $entries.is_empty() {
             if $format.is_json() {
-                println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, None::<&str>, $format));
+                println!(
+                    "{}",
+                    $crate::presentation::output_list::<::serde_json::Value>(
+                        &[],
+                        0,
+                        None::<&str>,
+                        $format
+                    )
+                );
             } else {
                 $crate::presentation::print_warning("No records found.");
             }
@@ -197,7 +211,15 @@ macro_rules! handle_empty {
     ($entries:expr, $format:expr, $filter:expr) => {
         if $entries.is_empty() {
             if $format.is_json() {
-                println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, $filter, $format));
+                println!(
+                    "{}",
+                    $crate::presentation::output_list::<::serde_json::Value>(
+                        &[],
+                        0,
+                        $filter,
+                        $format
+                    )
+                );
             } else {
                 $crate::presentation::print_warning("No records found.");
             }
@@ -207,7 +229,15 @@ macro_rules! handle_empty {
     ($entries:expr, $format:expr, $filter:expr, $msg:expr) => {
         if $entries.is_empty() {
             if $format.is_json() {
-                println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, $filter, $format));
+                println!(
+                    "{}",
+                    $crate::presentation::output_list::<::serde_json::Value>(
+                        &[],
+                        0,
+                        $filter,
+                        $format
+                    )
+                );
             } else {
                 $crate::presentation::print_warning($msg);
             }

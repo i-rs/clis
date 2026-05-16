@@ -1,4 +1,4 @@
-use crate::presentation::{print_error, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, print_error, print_header};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -13,7 +13,11 @@ pub struct GetArgs {
 
 pub fn run(args: &GetArgs, json: bool) -> Result<()> {
     let store = storage::load_store()?;
-    let format = if json { OutputFormat::Json } else { OutputFormat::Table };
+    let format = if json {
+        OutputFormat::Json
+    } else {
+        OutputFormat::Table
+    };
 
     if let Some(event) = store.events.get(&args.name) {
         if json {
@@ -27,7 +31,14 @@ pub fn run(args: &GetArgs, json: bool) -> Result<()> {
             println!("{}", "Type:".cyan().bold());
             println!("  {}", event.event_type);
             println!("{}", "Location:".cyan().bold());
-            println!("  {}", if event.location.is_empty() { "N/A" } else { &event.location });
+            println!(
+                "  {}",
+                if event.location.is_empty() {
+                    "N/A"
+                } else {
+                    &event.location
+                }
+            );
             println!("{}", "Participants:".cyan().bold());
             if event.participants.is_empty() {
                 println!("  N/A");

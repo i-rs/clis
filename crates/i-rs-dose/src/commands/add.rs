@@ -13,12 +13,24 @@ pub fn handle_add(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let entry = DoseEntry::new(medicine_name.clone(), dosage.clone(), unit.clone(), tag, remark);
+    let entry = DoseEntry::new(
+        medicine_name.clone(),
+        dosage.clone(),
+        unit.clone(),
+        tag,
+        remark,
+    );
 
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Recorded {} {} {} at {}", medicine_name.green(), dosage.cyan(), unit.yellow(), chrono::Utc::now().format("%H:%M")));
+    print_success(&format!(
+        "✓ Recorded {} {} {} at {}",
+        medicine_name.green(),
+        dosage.cyan(),
+        unit.yellow(),
+        chrono::Utc::now().format("%H:%M")
+    ));
 
     Ok(())
 }

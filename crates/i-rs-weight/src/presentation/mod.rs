@@ -1,16 +1,17 @@
 use crate::models::{WeightRecord, WeightRow};
-use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_success, print_warning, OutputFormat};
 pub use i_rs_core::presentation::output::{output_error, output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_success, print_warning};
+use owo_colors::OwoColorize;
 pub fn format_table(records: &[&WeightRecord]) -> String {
-    let rows: Vec<WeightRow> = records
-        .iter()
-        .map(|r| WeightRow::from_record(r))
-        .collect();
+    let rows: Vec<WeightRow> = records.iter().map(|r| WeightRow::from_record(r)).collect();
     i_rs_core::render_table(&rows)
 }
 pub fn print_record_count(count: usize) {
-    println!("\n{} {} records", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} records",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }
 pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
     if records.is_empty() {
@@ -46,7 +47,12 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
         }
     };
     let mut chart: Vec<Vec<String>> = (0..=chart_height)
-        .map(|_| vec![' '; records.len()].into_iter().map(|c| c.to_string()).collect())
+        .map(|_| {
+            vec![' '; records.len()]
+                .into_iter()
+                .map(|c| c.to_string())
+                .collect()
+        })
         .collect();
     for (i, &w) in weights.iter().enumerate() {
         let y = chart_height - 1 - scale(w);
@@ -85,9 +91,21 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
         println!("{} {}", label.dimmed(), line);
     }
     if !records.is_empty() {
-        let first_date = records.first().expect("!records.is_empty() checked above").date.format("%m-%d").to_string();
-        let last_date = records.last().expect("!records.is_empty() checked above").date.format("%m-%d").to_string();
-        let padding = records.len().saturating_sub(first_date.len() + last_date.len() + 2);
+        let first_date = records
+            .first()
+            .expect("!records.is_empty() checked above")
+            .date
+            .format("%m-%d")
+            .to_string();
+        let last_date = records
+            .last()
+            .expect("!records.is_empty() checked above")
+            .date
+            .format("%m-%d")
+            .to_string();
+        let padding = records
+            .len()
+            .saturating_sub(first_date.len() + last_date.len() + 2);
         println!(
             "{}{}{}",
             first_date.dimmed(),
@@ -97,23 +115,20 @@ pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
     }
     println!("\n  {} → {}", "Start".dimmed(), "End".dimmed());
     if let Some(first) = records.first()
-        && let Some(last) = records.last() {
-            let change = last.weight - first.weight;
-            let sign = if change >= 0.0 { "+" } else { "" };
-            let direction = if change > 0.0 {
-                "↑".red().to_string()
-            } else if change < 0.0 {
-                "↓".green().to_string()
-            } else {
-                "→".dimmed().to_string()
-            };
-            println!(
-                "  {:.1} → {:.1} ({}{:.1} kg {})",
-                first.weight,
-                last.weight,
-                sign,
-                change,
-                direction
-            );
-        }
+        && let Some(last) = records.last()
+    {
+        let change = last.weight - first.weight;
+        let sign = if change >= 0.0 { "+" } else { "" };
+        let direction = if change > 0.0 {
+            "↑".red().to_string()
+        } else if change < 0.0 {
+            "↓".green().to_string()
+        } else {
+            "→".dimmed().to_string()
+        };
+        println!(
+            "  {:.1} → {:.1} ({}{:.1} kg {})",
+            first.weight, last.weight, sign, change, direction
+        );
+    }
 }

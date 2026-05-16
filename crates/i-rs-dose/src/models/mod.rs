@@ -20,7 +20,13 @@ pub struct DoseEntry {
 }
 
 impl DoseEntry {
-    pub fn new(medicine_name: String, dosage: String, unit: String, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        medicine_name: String,
+        dosage: String,
+        unit: String,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         Self {
@@ -36,12 +42,10 @@ impl DoseEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DoseStore {
     pub entries: BTreeMap<String, DoseEntry>,
 }
-
 
 impl DoseStore {
     pub fn add_entry(&mut self, entry: DoseEntry) {

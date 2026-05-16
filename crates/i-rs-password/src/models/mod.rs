@@ -8,7 +8,7 @@ pub struct PasswordEntry {
     #[serde(default)]
     pub account: Option<String>,
     #[serde(skip)]
-#[allow(dead_code)]
+    #[allow(dead_code)]
     pub password: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -20,14 +20,10 @@ pub struct PasswordEntry {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PasswordStore {
     pub entries: std::collections::BTreeMap<String, PasswordEntry>,
 }
-
-
-
 
 impl PasswordStore {
     pub fn add_entry(&mut self, entry: PasswordEntry) {

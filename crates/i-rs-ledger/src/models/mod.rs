@@ -57,7 +57,10 @@ impl LedgerStore {
     }
 
     pub fn get_entries_by_category(&self, category: &str) -> Vec<&LedgerEntry> {
-        self.entries.values().filter(|e| e.category == category).collect()
+        self.entries
+            .values()
+            .filter(|e| e.category == category)
+            .collect()
     }
 
     pub fn total_by_type(&self, entry_type: &str) -> f64 {

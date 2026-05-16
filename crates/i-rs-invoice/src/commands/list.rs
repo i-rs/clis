@@ -1,4 +1,4 @@
-use crate::presentation::{format_table, print_invoice_count, print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, print_invoice_count, print_warning};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -42,7 +42,15 @@ pub fn run_list(args: ListArgs) -> Result<()> {
     sorted.sort_by_key(|e| std::cmp::Reverse(e.date));
 
     if format == OutputFormat::Json {
-        println!("{}", crate::presentation::output_list(&sorted, sorted.len(), args.tag.as_deref(), OutputFormat::Json));
+        println!(
+            "{}",
+            crate::presentation::output_list(
+                &sorted,
+                sorted.len(),
+                args.tag.as_deref(),
+                OutputFormat::Json
+            )
+        );
     } else {
         println!("{}", format_table(&sorted));
         print_invoice_count(sorted.len());

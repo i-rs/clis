@@ -4,7 +4,12 @@ use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-pub fn handle_add(dog_name: String, duration_minutes: i32, tag: Vec<String>, remark: Vec<String>) -> Result<()> {
+pub fn handle_add(
+    dog_name: String,
+    duration_minutes: i32,
+    tag: Vec<String>,
+    remark: Vec<String>,
+) -> Result<()> {
     let mut store = storage::load_store()?;
 
     let entry = WalkdogEntry::new(dog_name.clone(), duration_minutes, tag, remark);
@@ -12,7 +17,11 @@ pub fn handle_add(dog_name: String, duration_minutes: i32, tag: Vec<String>, rem
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Walked {} for {} minutes", dog_name.green(), duration_minutes.to_string().cyan()));
+    print_success(&format!(
+        "✓ Walked {} for {} minutes",
+        dog_name.green(),
+        duration_minutes.to_string().cyan()
+    ));
 
     Ok(())
 }

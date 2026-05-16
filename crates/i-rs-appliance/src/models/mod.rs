@@ -52,12 +52,10 @@ impl Appliance {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ApplianceStore {
     pub appliances: BTreeMap<String, Appliance>,
 }
-
 
 #[allow(dead_code)]
 impl ApplianceStore {
@@ -70,7 +68,11 @@ impl ApplianceStore {
     }
 
     pub fn remove_appliance_by_name(&mut self, name: &str) -> Option<Appliance> {
-        let key = self.appliances.iter().find(|(_, a)| a.name.eq_ignore_ascii_case(name)).map(|(k, _)| k.clone());
+        let key = self
+            .appliances
+            .iter()
+            .find(|(_, a)| a.name.eq_ignore_ascii_case(name))
+            .map(|(k, _)| k.clone());
         key.and_then(|k| self.appliances.remove(&k))
     }
 
@@ -87,11 +89,15 @@ impl ApplianceStore {
     }
 
     pub fn get_by_name(&self, name: &str) -> Option<&Appliance> {
-        self.appliances.values().find(|a| a.name.eq_ignore_ascii_case(name))
+        self.appliances
+            .values()
+            .find(|a| a.name.eq_ignore_ascii_case(name))
     }
 
     pub fn get_by_name_mut(&mut self, name: &str) -> Option<&mut Appliance> {
-        self.appliances.values_mut().find(|a| a.name.eq_ignore_ascii_case(name))
+        self.appliances
+            .values_mut()
+            .find(|a| a.name.eq_ignore_ascii_case(name))
     }
 
     pub fn filter_by_tag(&self, tag: &str) -> Vec<&Appliance> {
@@ -110,7 +116,10 @@ impl ApplianceStore {
     }
 
     pub fn needs_replacement_count(&self) -> usize {
-        self.appliances.values().filter(|a| a.needs_replacement_soon()).count()
+        self.appliances
+            .values()
+            .filter(|a| a.needs_replacement_soon())
+            .count()
     }
 }
 
@@ -163,7 +172,7 @@ pub struct MaintenanceRow {
 
 impl MaintenanceRow {
     #[allow(dead_code)]
-pub fn from_record(record: &MaintenanceRecord) -> Self {
+    pub fn from_record(record: &MaintenanceRecord) -> Self {
         Self {
             date: record.date.format("%Y-%m-%d").to_string(),
             description: record.description.clone(),

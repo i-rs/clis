@@ -19,10 +19,7 @@ pub fn handle_stats() -> Result<()> {
     let total_cost: f64 = investments.iter().map(|i| i.total_cost()).sum();
     println!("  {}: ${:.2}", "Total Cost".dimmed(), total_cost);
 
-    let total_value: f64 = investments
-        .iter()
-        .filter_map(|i| i.current_value())
-        .sum();
+    let total_value: f64 = investments.iter().filter_map(|i| i.current_value()).sum();
 
     if total_value > 0.0 {
         let total_profit_loss = total_value - total_cost;
@@ -44,9 +41,18 @@ pub fn handle_stats() -> Result<()> {
     print_header("By Asset Type");
     println!();
 
-    let stocks: Vec<_> = investments.iter().filter(|i| i.asset_type == AssetType::Stock).collect();
-    let funds: Vec<_> = investments.iter().filter(|i| i.asset_type == AssetType::Fund).collect();
-    let cryptos: Vec<_> = investments.iter().filter(|i| i.asset_type == AssetType::Crypto).collect();
+    let stocks: Vec<_> = investments
+        .iter()
+        .filter(|i| i.asset_type == AssetType::Stock)
+        .collect();
+    let funds: Vec<_> = investments
+        .iter()
+        .filter(|i| i.asset_type == AssetType::Fund)
+        .collect();
+    let cryptos: Vec<_> = investments
+        .iter()
+        .filter(|i| i.asset_type == AssetType::Crypto)
+        .collect();
 
     if !stocks.is_empty() {
         let stock_cost: f64 = stocks.iter().map(|i| i.total_cost()).sum();
@@ -56,7 +62,12 @@ pub fn handle_stats() -> Result<()> {
         if stock_value > 0.0 {
             let stock_pl = stock_value - stock_cost;
             let stock_pl_pct = (stock_pl / stock_cost) * 100.0;
-            println!("    {}: ${:.2} ({:+.2}%)", "Value".dimmed(), stock_value, stock_pl_pct);
+            println!(
+                "    {}: ${:.2} ({:+.2}%)",
+                "Value".dimmed(),
+                stock_value,
+                stock_pl_pct
+            );
         } else {
             println!("    {}: {}", "Value".dimmed(), "N/A".dimmed());
         }
@@ -70,7 +81,12 @@ pub fn handle_stats() -> Result<()> {
         if fund_value > 0.0 {
             let fund_pl = fund_value - fund_cost;
             let fund_pl_pct = (fund_pl / fund_cost) * 100.0;
-            println!("    {}: ${:.2} ({:+.2}%)", "Value".dimmed(), fund_value, fund_pl_pct);
+            println!(
+                "    {}: ${:.2} ({:+.2}%)",
+                "Value".dimmed(),
+                fund_value,
+                fund_pl_pct
+            );
         } else {
             println!("    {}: {}", "Value".dimmed(), "N/A".dimmed());
         }
@@ -84,7 +100,12 @@ pub fn handle_stats() -> Result<()> {
         if crypto_value > 0.0 {
             let crypto_pl = crypto_value - crypto_cost;
             let crypto_pl_pct = (crypto_pl / crypto_cost) * 100.0;
-            println!("    {}: ${:.2} ({:+.2}%)", "Value".dimmed(), crypto_value, crypto_pl_pct);
+            println!(
+                "    {}: ${:.2} ({:+.2}%)",
+                "Value".dimmed(),
+                crypto_value,
+                crypto_pl_pct
+            );
         } else {
             println!("    {}: {}", "Value".dimmed(), "N/A".dimmed());
         }
@@ -102,11 +123,14 @@ pub fn handle_stats() -> Result<()> {
     with_prices.sort_by(|a, b| {
         let pl_a = a.profit_loss_percentage().unwrap_or(0.0);
         let pl_b = b.profit_loss_percentage().unwrap_or(0.0);
-        pl_b.partial_cmp(&pl_a).expect("profit_loss_percentage returns finite f64")
+        pl_b.partial_cmp(&pl_a)
+            .expect("profit_loss_percentage returns finite f64")
     });
 
     for (i, inv) in with_prices.iter().enumerate().take(10) {
-        let pl = inv.profit_loss_percentage().expect("filtered to investments with current_price");
+        let pl = inv
+            .profit_loss_percentage()
+            .expect("filtered to investments with current_price");
 
         print!("  {}. {} [{}]: ", i + 1, inv.name, inv.symbol);
         if pl >= 0.0 {
@@ -117,7 +141,11 @@ pub fn handle_stats() -> Result<()> {
     }
 
     println!();
-    println!("  {} {} investments tracked", "Total:".dimmed(), investments.len());
+    println!(
+        "  {} {} investments tracked",
+        "Total:".dimmed(),
+        investments.len()
+    );
 
     Ok(())
 }

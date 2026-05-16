@@ -124,8 +124,7 @@ impl TaxRecordRow {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TaxStore {
     pub entries: std::collections::BTreeMap<String, TaxRecord>,
 }
@@ -147,4 +146,3 @@ impl TaxStore {
         self.entries.get_mut(key)
     }
 }
-

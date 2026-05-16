@@ -26,12 +26,10 @@ impl HasTags for GroceryItem {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GroceryStore {
     pub entries: BTreeMap<String, GroceryItem>,
 }
-
 
 impl GroceryStore {
     pub fn add_entry(&mut self, entry: GroceryItem) {
@@ -73,8 +71,16 @@ impl GroceryRow {
             name: item.name.clone(),
             quantity: item.quantity.to_string(),
             unit: item.unit.clone(),
-            status: if item.purchased { "✅ Purchased".to_string() } else { "🔄 Needed".to_string() },
-            tags: if item.tags.is_empty() { "-".to_string() } else { item.tags.join(", ") },
+            status: if item.purchased {
+                "✅ Purchased".to_string()
+            } else {
+                "🔄 Needed".to_string()
+            },
+            tags: if item.tags.is_empty() {
+                "-".to_string()
+            } else {
+                item.tags.join(", ")
+            },
             updated_at: item.updated_at.format("%Y-%m-%d %H:%M").to_string(),
         }
     }

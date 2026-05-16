@@ -27,7 +27,10 @@ pub fn handle_update(
     }
     if let Some(password) = password {
         storage::store_password(&name, &password)?;
-        println!("{}", "Password updated and stored securely in keychain".green());
+        println!(
+            "{}",
+            "Password updated and stored securely in keychain".green()
+        );
     }
     i_rs_core::update_field!(entry.tags, tag);
     i_rs_core::update_field!(entry.remark, remark);

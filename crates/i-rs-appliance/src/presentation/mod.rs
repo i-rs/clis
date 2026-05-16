@@ -1,8 +1,8 @@
-use crate::models::{Appliance, ApplianceRow, MaintenanceRow, MaintenanceRecord};
+use crate::models::{Appliance, ApplianceRow, MaintenanceRecord, MaintenanceRow};
 use owo_colors::OwoColorize;
 
-pub use i_rs_core::presentation::{print_success, print_warning, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item};
+pub use i_rs_core::presentation::output::{output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_success, print_warning};
 
 pub fn format_table(appliances: &[&Appliance]) -> String {
     let rows: Vec<ApplianceRow> = appliances
@@ -24,7 +24,11 @@ pub fn format_maintenance_table(records: &[&MaintenanceRecord]) -> String {
 }
 
 pub fn print_appliance_count(count: usize) {
-    println!("\n{} {} appliances", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} appliances",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }
 
 #[allow(dead_code)]
@@ -35,6 +39,14 @@ pub fn print_stats(store: &crate::models::ApplianceStore) {
 
     println!("\n{}", "Statistics:".bold().cyan());
     println!("  {:12} {}", "Total:".dimmed(), total.to_string().cyan());
-    println!("  {:12} {} (expired)", "Expired:".dimmed(), expired.to_string().red());
-    println!("  {:12} {} (within 90 days)", "Replace Soon:".dimmed(), soon.to_string().yellow());
+    println!(
+        "  {:12} {} (expired)",
+        "Expired:".dimmed(),
+        expired.to_string().red()
+    );
+    println!(
+        "  {:12} {} (within 90 days)",
+        "Replace Soon:".dimmed(),
+        soon.to_string().yellow()
+    );
 }

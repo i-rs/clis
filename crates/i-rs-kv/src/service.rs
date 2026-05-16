@@ -25,8 +25,13 @@ pub fn get_kv(store: &KvStore, key: &str) -> Result<KvEntry> {
 }
 
 /// Add a new KV entry.
-pub fn add_kv(store: &mut KvStore, key: String, value: String, tags: Vec<String>, remark: Vec<String>) -> Result<KvEntry> {
-
+pub fn add_kv(
+    store: &mut KvStore,
+    key: String,
+    value: String,
+    tags: Vec<String>,
+    remark: Vec<String>,
+) -> Result<KvEntry> {
     if store.entries.contains_key(&key) {
         anyhow::bail!("Key '{key}' already exists");
     }
@@ -53,7 +58,6 @@ pub fn update_kv(
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<KvEntry> {
-
     let entry = store
         .get_entry_mut(&key)
         .with_context(|| format!("Key '{key}' not found"))?;

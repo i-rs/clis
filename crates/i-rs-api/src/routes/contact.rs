@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_contact(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.contact.write(|store| -> Result<_, ApiError> {
-        let entry = store.entries.get_mut(&id)
+        let entry = store
+            .entries
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Contact '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +46,7 @@ pub struct AddContactRequest {
     pub contact_count: u32,
 }
 
-async fn list_contacts(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_contacts(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.contact.read(|store| {
         let entries: Vec<_> = store.entries.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -68,11 +64,14 @@ async fn add_contact(
     let relationship = req.relationship;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
-    let last_contact = req.last_contact
-        .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-            .map_err(|_| ApiError::BadRequest("Invalid datetime, expected RFC3339".to_string()))
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-        ).transpose()?;
+    let last_contact = req
+        .last_contact
+        .map(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .map_err(|_| ApiError::BadRequest("Invalid datetime, expected RFC3339".to_string()))
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        })
+        .transpose()?;
     let contact_count = req.contact_count;
     let now = chrono::Utc::now();
     let entry = i_rs_contact::models::Contact {
@@ -98,7 +97,11 @@ async fn get_contact(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.contact.read(|store| {
-        store.entries.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Contact '{id}' not found")))
+        store
+            .entries
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Contact '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

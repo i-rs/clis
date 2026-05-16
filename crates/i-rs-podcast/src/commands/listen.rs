@@ -1,5 +1,5 @@
 use crate::models::PodcastStatus;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -25,9 +25,10 @@ pub fn handle_listen(
     }
 
     if let Some(total) = podcast.duration_secs
-        && position > total {
-            anyhow::bail!("Position exceeds total duration");
-        }
+        && position > total
+    {
+        anyhow::bail!("Position exceeds total duration");
+    }
 
     podcast.current_position_secs = Some(position);
     podcast.updated_at = Utc::now();
@@ -36,10 +37,13 @@ pub fn handle_listen(
         if position >= total {
             podcast.status = PodcastStatus::Completed;
             if matches!(output_format, OutputFormat::Json) {
-                println!("{}", serde_json::json!({
-                    "success": true,
-                    "message": format!("Podcast '{}' completed!", name)
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "success": true,
+                        "message": format!("Podcast '{}' completed!", name)
+                    })
+                );
             } else {
                 print_success(&format!("✓ Podcast '{}' completed! 🎉", name.green()));
             }
@@ -50,10 +54,13 @@ pub fn handle_listen(
                 0
             };
             if matches!(output_format, OutputFormat::Json) {
-                println!("{}", serde_json::json!({
-                    "success": true,
-                    "message": format!("Position updated to {} ({}%)", format_duration(position), percent)
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "success": true,
+                        "message": format!("Position updated to {} ({}%)", format_duration(position), percent)
+                    })
+                );
             } else {
                 print_success(&format!(
                     "✓ Position: {} ({}/{} - {}%)",
@@ -70,10 +77,13 @@ pub fn handle_listen(
     } else {
         podcast.status = PodcastStatus::InProgress;
         if matches!(output_format, OutputFormat::Json) {
-            println!("{}", serde_json::json!({
-                "success": true,
-                "message": format!("Position updated to {}", format_duration(position))
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": true,
+                    "message": format!("Position updated to {}", format_duration(position))
+                })
+            );
         } else {
             print_success(&format!("✓ Position: {}", format_duration(position).cyan()));
         }

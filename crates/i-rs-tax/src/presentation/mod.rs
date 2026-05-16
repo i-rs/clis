@@ -1,7 +1,7 @@
 use crate::models::{TaxRecord, TaxRecordRow};
+pub use i_rs_core::presentation::output::{output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_success};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_success, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_table(entities: &[&TaxRecord]) -> String {
     let rows: Vec<TaxRecordRow> = entities
         .iter()
@@ -10,14 +10,36 @@ pub fn format_table(entities: &[&TaxRecord]) -> String {
     i_rs_core::render_table(&rows)
 }
 pub fn print_entity_count(count: usize) {
-    println!("\n{} {} tax records", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} tax records",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }
 pub fn format_stats(stats: &TaxStats) -> String {
     let mut output = String::new();
-    output.push_str(&format!("\n{} {}\n", "年度统计:".cyan().bold(), stats.year.to_string().cyan()));
-    output.push_str(&format!("{} {} {}\n", "  个人所得税:".dimmed(), "总计".dimmed(), format!("{:.2}", stats.personal_total).green()));
-    output.push_str(&format!("{} {} {}\n", "  增值税:".dimmed(), "总计".dimmed(), format!("{:.2}", stats.vat_total).green()));
-    output.push_str(&format!("{} {}\n", "  合计:".dimmed(), format!("{:.2}", stats.total).green().bold()));
+    output.push_str(&format!(
+        "\n{} {}\n",
+        "年度统计:".cyan().bold(),
+        stats.year.to_string().cyan()
+    ));
+    output.push_str(&format!(
+        "{} {} {}\n",
+        "  个人所得税:".dimmed(),
+        "总计".dimmed(),
+        format!("{:.2}", stats.personal_total).green()
+    ));
+    output.push_str(&format!(
+        "{} {} {}\n",
+        "  增值税:".dimmed(),
+        "总计".dimmed(),
+        format!("{:.2}", stats.vat_total).green()
+    ));
+    output.push_str(&format!(
+        "{} {}\n",
+        "  合计:".dimmed(),
+        format!("{:.2}", stats.total).green().bold()
+    ));
     output
 }
 #[derive(Debug)]

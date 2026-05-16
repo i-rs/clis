@@ -1,5 +1,5 @@
 use crate::models::PodcastStatus;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -45,10 +45,13 @@ pub fn handle_update(
     storage::save_store(&store)?;
 
     if matches!(output_format, OutputFormat::Json) {
-        println!("{}", serde_json::json!({
-            "success": true,
-            "message": format!("Podcast '{}' updated successfully", name)
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "message": format!("Podcast '{}' updated successfully", name)
+            })
+        );
     } else {
         print_success(&format!("✓ Podcast '{name}' updated"));
     }

@@ -1,5 +1,5 @@
 use crate::models::Note;
-use crate::presentation::{format_table, print_note_count, output_list, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_note_count};
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
@@ -20,16 +20,22 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             updated_at: String,
         }
 
-        let items: Vec<ListItem> = notes_ref.iter().map(|n| ListItem {
-            name: n.name.clone(),
-            title: n.title.clone(),
-            tags: n.tags.clone(),
-            content: n.content.clone(),
-            created_at: n.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            updated_at: n.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-        }).collect();
+        let items: Vec<ListItem> = notes_ref
+            .iter()
+            .map(|n| ListItem {
+                name: n.name.clone(),
+                title: n.title.clone(),
+                tags: n.tags.clone(),
+                content: n.content.clone(),
+                created_at: n.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                updated_at: n.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            })
+            .collect();
 
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
         return Ok(());
     }
 

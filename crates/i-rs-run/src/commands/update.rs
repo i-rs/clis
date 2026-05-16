@@ -39,6 +39,9 @@ pub fn handle_update(
     record.updated_at = Utc::now();
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Run record '{}' updated successfully", id.green()));
+    print_success(&format!(
+        "✓ Run record '{}' updated successfully",
+        id.green()
+    ));
     Ok(())
 }

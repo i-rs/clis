@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Exercise:".bold().green());
-    println!("  i-rs-exercise add \"Morning Run\" running 30 200 --tags cardio --notes \"Park trail\"");
+    println!(
+        "  i-rs-exercise add \"Morning Run\" running 30 200 --tags cardio --notes \"Park trail\""
+    );
     println!("  i-rs-exercise add \"Gym Workout\" strength 60 300 --tags gym --tags strength");
     println!("  i-rs-exercise add \"Swimming\" swimming 45 400");
     println!();

@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_podcast(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.podcast.write(|store| -> Result<_, ApiError> {
-        let entry = store.podcasts.get_mut(&id)
+        let entry = store
+            .podcasts
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Podcast '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +46,7 @@ pub struct AddPodcastRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_podcasts(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_podcasts(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.podcast.read(|store| {
         let entries: Vec<_> = store.podcasts.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -66,8 +62,9 @@ async fn add_podcast(
     let author = req.author;
     let duration_secs = req.duration_secs;
     let current_position_secs = req.current_position_secs;
-    let status: i_rs_podcast::models::PodcastStatus = serde_json::from_value(serde_json::json!(req.status))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
+    let status: i_rs_podcast::models::PodcastStatus =
+        serde_json::from_value(serde_json::json!(req.status))
+            .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
     let notes = req.notes.unwrap_or_default();
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
@@ -95,7 +92,11 @@ async fn get_podcast(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.podcast.read(|store| {
-        store.podcasts.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Podcast '{id}' not found")))
+        store
+            .podcasts
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Podcast '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

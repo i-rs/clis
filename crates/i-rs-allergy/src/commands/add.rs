@@ -18,7 +18,11 @@ pub fn handle_add(
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Recorded {} reaction ({} severity)", allergen.green(), severity.yellow()));
+    print_success(&format!(
+        "✓ Recorded {} reaction ({} severity)",
+        allergen.green(),
+        severity.yellow()
+    ));
 
     Ok(())
 }

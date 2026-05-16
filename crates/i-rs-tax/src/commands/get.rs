@@ -13,9 +13,9 @@ pub struct GetArgs {
 pub fn execute(args: &GetArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
-    let entry = store.get_entry(&args.name).ok_or_else(|| {
-        anyhow::anyhow!("税务记录 '{}' 不存在", args.name)
-    })?;
+    let entry = store
+        .get_entry(&args.name)
+        .ok_or_else(|| anyhow::anyhow!("税务记录 '{}' 不存在", args.name))?;
 
     if matches!(*format, OutputFormat::Json) {
         let data = serde_json::json!({
@@ -35,14 +35,42 @@ pub fn execute(args: &GetArgs, format: &OutputFormat) -> anyhow::Result<()> {
     } else {
         println!("\n{} {}\n", "税务记录:".cyan().bold(), entry.name.green());
         println!("{} {}", "  税种:".dimmed(), entry.tax_type);
-        println!("{} {}", "  金额:".dimmed(), format!("{:.2}", entry.amount).green());
+        println!(
+            "{} {}",
+            "  金额:".dimmed(),
+            format!("{:.2}", entry.amount).green()
+        );
         println!("{} {}", "  日期:".dimmed(), entry.date);
         println!("{} {}", "  年度:".dimmed(), entry.year);
         println!("{} {}", "  状态:".dimmed(), entry.status);
-        println!("{} {}", "  标签:".dimmed(), if entry.tags.is_empty() { "无".dimmed().to_string() } else { entry.tags.join(", ") });
-        println!("{} {}", "  备注:".dimmed(), if entry.remark.is_empty() { "无".dimmed().to_string() } else { entry.remark.join(", ") });
-        println!("{} {}", "  创建:".dimmed(), entry.created_at.format("%Y-%m-%d %H:%M:%S"));
-        println!("{} {}", "  更新:".dimmed(), entry.updated_at.format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "{} {}",
+            "  标签:".dimmed(),
+            if entry.tags.is_empty() {
+                "无".dimmed().to_string()
+            } else {
+                entry.tags.join(", ")
+            }
+        );
+        println!(
+            "{} {}",
+            "  备注:".dimmed(),
+            if entry.remark.is_empty() {
+                "无".dimmed().to_string()
+            } else {
+                entry.remark.join(", ")
+            }
+        );
+        println!(
+            "{} {}",
+            "  创建:".dimmed(),
+            entry.created_at.format("%Y-%m-%d %H:%M:%S")
+        );
+        println!(
+            "{} {}",
+            "  更新:".dimmed(),
+            entry.updated_at.format("%Y-%m-%d %H:%M:%S")
+        );
     }
 
     Ok(())

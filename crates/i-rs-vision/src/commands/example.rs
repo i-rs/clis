@@ -8,7 +8,9 @@ pub fn handle_example() {
     println!("{}", "Add Vision Record:".bold().green());
     println!("  i-rs-vision add 2025-06-14 --left-sphere -3.50 --right-sphere -4.00");
     println!("  i-rs-vision add 2025-06-14 -ls -3.50 -rs -4.00 -lc -0.50 -rc -0.75 -la 180 -ra 5");
-    println!("  i-rs-vision add 2025-06-14 -ls -3.50 -rs -4.00 --tag myopia --remark \"Annual checkup\"");
+    println!(
+        "  i-rs-vision add 2025-06-14 -ls -3.50 -rs -4.00 --tag myopia --remark \"Annual checkup\""
+    );
     println!();
 
     println!("{}", "List Records:".bold().green());
@@ -46,7 +48,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Notes:".bold().yellow());
-    println!("  - Sphere values: negative = myopia (nearsighted), positive = hyperopia (farsighted)");
+    println!(
+        "  - Sphere values: negative = myopia (nearsighted), positive = hyperopia (farsighted)"
+    );
     println!("  - Cylinder values: astigmatism correction, typically 0 to -2.00");
     println!("  - Axis values: 0-180 degrees for astigmatism orientation");
 }

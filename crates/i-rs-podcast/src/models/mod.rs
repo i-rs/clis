@@ -13,7 +13,6 @@ pub enum PodcastStatus {
     Completed,
 }
 
-
 impl std::fmt::Display for PodcastStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -50,12 +49,10 @@ pub struct Podcast {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PodcastStore {
     pub podcasts: BTreeMap<String, Podcast>,
 }
-
 
 #[allow(dead_code)]
 impl PodcastStore {
@@ -111,11 +108,7 @@ impl PodcastStore {
             .filter(|p| p.status == PodcastStatus::Completed)
             .count();
 
-        let total_duration: i64 = self
-            .podcasts
-            .values()
-            .filter_map(|p| p.duration_secs)
-            .sum();
+        let total_duration: i64 = self.podcasts.values().filter_map(|p| p.duration_secs).sum();
         let total_listened: i64 = self
             .podcasts
             .values()

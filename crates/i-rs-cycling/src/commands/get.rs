@@ -1,5 +1,5 @@
 use crate::models::CyclingRecord;
-use crate::presentation::{format_detail_table, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, format_detail_table, output_item};
 use crate::storage;
 use anyhow::Result;
 use uuid::Uuid;
@@ -49,11 +49,15 @@ pub fn handle_get(id_or_date: String, format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-fn find_record<'a>(store: &'a crate::models::CyclingStore, id_or_date: &str) -> Result<&'a CyclingRecord> {
+fn find_record<'a>(
+    store: &'a crate::models::CyclingStore,
+    id_or_date: &str,
+) -> Result<&'a CyclingRecord> {
     if let Ok(uuid) = Uuid::parse_str(id_or_date)
-        && let Some(record) = store.get_entry(&uuid) {
-            return Ok(record);
-        }
+        && let Some(record) = store.get_entry(&uuid)
+    {
+        return Ok(record);
+    }
 
     let formats = ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"];
     for format in &formats {

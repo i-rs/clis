@@ -5,7 +5,8 @@ use clap::Args;
 pub struct ExampleArgs {}
 
 pub fn run_example(_args: ExampleArgs) -> Result<()> {
-    println!(r#"
+    println!(
+        r#"
 === i-rs-invoice Examples ===
 
 # Add an electronic invoice
@@ -41,7 +42,8 @@ i-rs-invoice delete <invoice-id>
 # JSON output
 i-rs-invoice list --json
 i-rs-invoice get <invoice-id> --json
-"#);
+"#
+    );
 
     Ok(())
 }

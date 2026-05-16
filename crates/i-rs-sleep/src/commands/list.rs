@@ -1,5 +1,5 @@
-use crate::models::{SleepRow, ListItem};
-use crate::presentation::{format_table, print_record_count, OutputFormat, output_list};
+use crate::models::{ListItem, SleepRow};
+use crate::presentation::{OutputFormat, format_table, output_list, print_record_count};
 use crate::storage;
 use owo_colors::OwoColorize;
 
@@ -7,7 +7,11 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
     let store = storage::load_store()?;
 
     let records: Vec<&crate::models::SleepRecord> = if let Some(tag_filter) = &tag {
-        store.entries.values().filter(|r| r.tags.contains(tag_filter)).collect()
+        store
+            .entries
+            .values()
+            .filter(|r| r.tags.contains(tag_filter))
+            .collect()
     } else {
         store.entries.values().collect()
     };
@@ -21,10 +25,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
             return Ok(());
         }
 
-        let rows: Vec<SleepRow> = records
-            .iter()
-            .map(|r| SleepRow::from_record(r))
-            .collect();
+        let rows: Vec<SleepRow> = records.iter().map(|r| SleepRow::from_record(r)).collect();
 
         println!("{}", format_table(&rows));
         print_record_count(rows.len());

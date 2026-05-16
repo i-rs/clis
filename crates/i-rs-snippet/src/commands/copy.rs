@@ -22,7 +22,7 @@ pub fn handle_copy(name: String) -> Result<()> {
         let mut cmd = Command::new("pbcopy");
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::null());
-        
+
         let mut child = cmd.spawn()?;
         if let Some(ref mut stdin) = child.stdin {
             stdin.write_all(code.as_bytes())?;
@@ -36,7 +36,7 @@ pub fn handle_copy(name: String) -> Result<()> {
         cmd.arg("-selection").arg("clipboard");
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::null());
-        
+
         let mut child = cmd.spawn()?;
         if let Some(ref mut stdin) = child.stdin {
             stdin.write_all(code.as_bytes())?;

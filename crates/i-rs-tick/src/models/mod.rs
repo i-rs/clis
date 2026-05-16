@@ -22,7 +22,15 @@ pub struct TickEntry {
 }
 
 impl TickEntry {
-    pub fn new(task_name: String, duration_seconds: i64, description: Option<String>, tags: Vec<String>, remark: Vec<String>, started_at: DateTime<Utc>, ended_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        task_name: String,
+        duration_seconds: i64,
+        description: Option<String>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+        started_at: DateTime<Utc>,
+        ended_at: DateTime<Utc>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         Self {
@@ -53,12 +61,10 @@ impl TickEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TickStore {
     pub entries: BTreeMap<String, TickEntry>,
 }
-
 
 impl TickStore {
     pub fn add_entry(&mut self, entry: TickEntry) {

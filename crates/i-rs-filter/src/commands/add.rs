@@ -17,7 +17,11 @@ pub fn handle_add(
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Cleaned {} filter ({})", appliance_name.green(), filter_type.cyan()));
+    print_success(&format!(
+        "✓ Cleaned {} filter ({})",
+        appliance_name.green(),
+        filter_type.cyan()
+    ));
 
     Ok(())
 }

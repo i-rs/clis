@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_movie(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.movie.write(|store| -> Result<_, ApiError> {
-        let entry = store.movies.get_mut(&id)
+        let entry = store
+            .movies
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Movie '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -49,9 +47,7 @@ pub struct AddMovieRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_movies(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_movies(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.movie.read(|store| {
         let entries: Vec<_> = store.movies.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -67,15 +63,22 @@ async fn add_movie(
     let year = req.year;
     let director = req.director;
     let watched = req.watched;
-    let rating: Option<f32> = req.rating
-        .map(|v| serde_json::from_value(v)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid rating: {e}"))))
+    let rating: Option<f32> = req
+        .rating
+        .map(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| ApiError::BadRequest(format!("Invalid rating: {e}")))
+        })
         .transpose()?;
     let review = req.review.unwrap_or_default();
-    let release_date = req.release_date
-        .map(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
-            .map_err(|_| ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string()))
-        ).transpose()?;
+    let release_date = req
+        .release_date
+        .map(|s| {
+            chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").map_err(|_| {
+                ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string())
+            })
+        })
+        .transpose()?;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
     let now = chrono::Utc::now();
@@ -103,7 +106,11 @@ async fn get_movie(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.movie.read(|store| {
-        store.movies.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Movie '{id}' not found")))
+        store
+            .movies
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Movie '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

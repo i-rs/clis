@@ -33,12 +33,10 @@ impl HasTags for Contact {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ContactStore {
     pub entries: BTreeMap<String, Contact>,
 }
-
 
 #[allow(dead_code)]
 impl ContactStore {
@@ -79,11 +77,29 @@ impl ContactRow {
     pub fn from_contact(contact: &Contact) -> Self {
         Self {
             name: contact.name.clone(),
-            phone: if contact.phone.is_empty() { "-".to_string() } else { contact.phone.clone() },
-            email: if contact.email.is_empty() { "-".to_string() } else { contact.email.clone() },
-            relationship: if contact.relationship.is_empty() { "-".to_string() } else { contact.relationship.clone() },
-            last_contact: contact.last_contact.map_or_else(|| "-".to_string(), |dt| dt.format("%Y-%m-%d").to_string()),
-            tags: if contact.tags.is_empty() { "-".to_string() } else { contact.tags.join(", ") },
+            phone: if contact.phone.is_empty() {
+                "-".to_string()
+            } else {
+                contact.phone.clone()
+            },
+            email: if contact.email.is_empty() {
+                "-".to_string()
+            } else {
+                contact.email.clone()
+            },
+            relationship: if contact.relationship.is_empty() {
+                "-".to_string()
+            } else {
+                contact.relationship.clone()
+            },
+            last_contact: contact
+                .last_contact
+                .map_or_else(|| "-".to_string(), |dt| dt.format("%Y-%m-%d").to_string()),
+            tags: if contact.tags.is_empty() {
+                "-".to_string()
+            } else {
+                contact.tags.join(", ")
+            },
         }
     }
 }
@@ -111,7 +127,9 @@ impl From<&Contact> for ListItem {
             relationship: contact.relationship.clone(),
             tags: contact.tags.clone(),
             remark: contact.remark.clone(),
-            last_contact: contact.last_contact.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
+            last_contact: contact
+                .last_contact
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string()),
             contact_count: contact.contact_count,
             created_at: contact.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             updated_at: contact.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
@@ -137,8 +155,6 @@ pub struct ContactFrequency {
 
 impl Contact {
     pub fn days_since_last_contact(&self) -> Option<i64> {
-        self.last_contact.map(|last| {
-            (Utc::now() - last).num_days()
-        })
+        self.last_contact.map(|last| (Utc::now() - last).num_days())
     }
 }

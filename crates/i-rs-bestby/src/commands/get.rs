@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,11 +7,13 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let entity = if let Some(e) = store.get_entry(&name) { e } else {
+    let entity = if let Some(e) = store.get_entry(&name) {
+        e
+    } else {
         let msg = format!("Item '{name}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -63,7 +65,11 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let style = OwoStyle::new().bold();
 
     println!("{:16} {}", "Name:".style(style), entity.name.cyan());
-    println!("{:16} {}", "Purchase Date:".style(style), entity.purchase_date.format("%Y-%m-%d").to_string().cyan());
+    println!(
+        "{:16} {}",
+        "Purchase Date:".style(style),
+        entity.purchase_date.format("%Y-%m-%d").to_string().cyan()
+    );
 
     if let Some(cycle) = entity.cycle_days {
         let days = entity.days_until_replace().unwrap_or(0);
@@ -74,22 +80,59 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         } else {
             format!("{days} days left")
         };
-        println!("{:16} {} ({})", "Cycle:".style(style), format!("{cycle} days").cyan(), status);
+        println!(
+            "{:16} {} ({})",
+            "Cycle:".style(style),
+            format!("{cycle} days").cyan(),
+            status
+        );
     } else {
         println!("{:16} {}", "Cycle:".style(style), "(not set)".dimmed());
-        println!("  {}", "Use 'update' command to set replacement cycle".dimmed());
+        println!(
+            "  {}",
+            "Use 'update' command to set replacement cycle".dimmed()
+        );
     }
 
     if !entity.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), entity.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            entity
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !entity.remark.is_empty() {
-        println!("{:16} {}", "Remark:".style(style), entity.remark.join("; ").dimmed());
+        println!(
+            "{:16} {}",
+            "Remark:".style(style),
+            entity.remark.join("; ").dimmed()
+        );
     }
 
-    println!("{:16} {}", "Created:".style(style), entity.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
-    println!("{:16} {}", "Updated:".style(style), entity.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "{:16} {}",
+        "Created:".style(style),
+        entity
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        entity
+            .updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

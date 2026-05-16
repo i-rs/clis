@@ -1,5 +1,5 @@
 use crate::models::Priority;
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
@@ -89,12 +89,18 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     println!(
         "\n{:16} {}",
         "Created:".style(style),
-        todo.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+        todo.created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
     );
     println!(
         "{:16} {}",
         "Updated:".style(style),
-        todo.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+        todo.updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
     );
 
     Ok(())

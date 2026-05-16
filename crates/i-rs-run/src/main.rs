@@ -2,7 +2,8 @@ use clap::{Parser, Subcommand};
 use commands::{
     handle_add, handle_delete, handle_example, handle_get, handle_list, handle_plan_add,
     handle_plan_delete, handle_plan_get, handle_plan_list, handle_skill, handle_stats,
-    handle_update, parse_skill_arg, };
+    handle_update, parse_skill_arg,
+};
 use presentation::OutputFormat;
 
 mod commands;
@@ -95,8 +96,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -132,8 +133,19 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Delete { id } => {
             handle_delete(id)?;
         }
-        Commands::Update { id, date, distance, duration, heart_rate, weather, tags, remark } => {
-            handle_update(id, date, distance, duration, heart_rate, weather, tags, remark)?;
+        Commands::Update {
+            id,
+            date,
+            distance,
+            duration,
+            heart_rate,
+            weather,
+            tags,
+            remark,
+        } => {
+            handle_update(
+                id, date, distance, duration, heart_rate, weather, tags, remark,
+            )?;
         }
         Commands::Stats {} => {
             handle_stats()?;
@@ -163,7 +175,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -6,10 +6,19 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let movie = if let Some(m) = store.movies.get(&name) { m } else {
+    let movie = if let Some(m) = store.movies.get(&name) {
+        m
+    } else {
         if matches!(output_format, OutputFormat::Json) {
-            println!("{}", output_error(&format!("Movie '{name}' not found"), "NOT_FOUND", output_format));
-        } 
+            println!(
+                "{}",
+                output_error(
+                    &format!("Movie '{name}' not found"),
+                    "NOT_FOUND",
+                    output_format
+                )
+            );
+        }
         anyhow::bail!("Movie '{name}' not found");
     };
 
@@ -35,10 +44,18 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
             director: movie.director.as_deref(),
             watched: movie.watched,
             rating: movie.rating,
-            review: movie.review.iter().map(std::string::String::as_str).collect(),
+            review: movie
+                .review
+                .iter()
+                .map(std::string::String::as_str)
+                .collect(),
             release_date: movie.release_date.map(|d| d.format("%Y-%m-%d").to_string()),
             tags: movie.tags.iter().map(std::string::String::as_str).collect(),
-            remark: movie.remark.iter().map(std::string::String::as_str).collect(),
+            remark: movie
+                .remark
+                .iter()
+                .map(std::string::String::as_str)
+                .collect(),
             created_at: movie.created_at.timestamp(),
             updated_at: movie.updated_at.timestamp(),
         };
@@ -48,9 +65,15 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
     }
 
     println!();
-    println!("{}", "┌──────────────────────────────────────────────".dimmed());
+    println!(
+        "{}",
+        "┌──────────────────────────────────────────────".dimmed()
+    );
     println!("{} {}", "│".dimmed(), movie.name.bold().cyan());
-    println!("{}", "├──────────────────────────────────────────────".dimmed());
+    println!(
+        "{}",
+        "├──────────────────────────────────────────────".dimmed()
+    );
 
     if let Some(year) = movie.year {
         println!("{} {:12} {}", "│".dimmed(), "Year:".dimmed(), year);
@@ -115,7 +138,10 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
         movie.created_at.format("%Y-%m-%d %H:%M")
     );
 
-    println!("{}", "└──────────────────────────────────────────────".dimmed());
+    println!(
+        "{}",
+        "└──────────────────────────────────────────────".dimmed()
+    );
 
     Ok(())
 }

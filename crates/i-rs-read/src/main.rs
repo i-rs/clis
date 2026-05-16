@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use i_rs_core::presentation::OutputFormat;
 use commands::{handle_skill, parse_skill_arg};
+use i_rs_core::presentation::OutputFormat;
 
 mod commands;
 mod models;
@@ -47,8 +47,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -73,8 +73,8 @@ fn run(command: Commands, output_format: OutputFormat) -> Result<()> {
         Commands::Example(args) => commands::example(args)?,
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
-        },
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

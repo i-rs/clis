@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_remind(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.remind.write(|store| -> Result<_, ApiError> {
-        let entry = store.reminds.get_mut(&id)
+        let entry = store
+            .reminds
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Remind '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -47,9 +45,7 @@ pub struct AddRemindRequest {
     pub is_done: bool,
 }
 
-async fn list_reminds(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_reminds(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.remind.read(|store| {
         let entries: Vec<_> = store.reminds.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -93,7 +89,11 @@ async fn get_remind(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.remind.read(|store| {
-        store.reminds.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Remind '{id}' not found")))
+        store
+            .reminds
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Remind '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

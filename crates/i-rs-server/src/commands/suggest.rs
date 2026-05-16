@@ -1,6 +1,6 @@
+use crate::models::Server;
 use crate::presentation::print_header;
 use crate::storage;
-use crate::models::Server;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
@@ -139,7 +139,11 @@ fn print_suggestions(server: &Server, filter: Option<&str>) {
             "Systemd Journal",
             format!("{ssh} 'journalctl -xe --no-pager -n 50'"),
         ),
-        ("docker_ps", "Docker Containers", format!("{ssh} 'docker ps'")),
+        (
+            "docker_ps",
+            "Docker Containers",
+            format!("{ssh} 'docker ps'"),
+        ),
         (
             "docker_psa",
             "All Docker Containers",
@@ -175,7 +179,11 @@ fn print_suggestions(server: &Server, filter: Option<&str>) {
             "Nginx Error Log",
             format!("{ssh} 'tail -100 /var/log/nginx/error.log'"),
         ),
-        ("syslog", "System Logs", format!("{ssh} 'tail -100 /var/log/syslog'")),
+        (
+            "syslog",
+            "System Logs",
+            format!("{ssh} 'tail -100 /var/log/syslog'"),
+        ),
         (
             "auth_log",
             "Auth Logs (Failed Login)",
@@ -194,15 +202,19 @@ fn print_suggestions(server: &Server, filter: Option<&str>) {
             "iptables Rules",
             format!("{ssh} 'iptables -L -n'"),
         ),
-        ("mount", "Mount Points", format!("{ssh} 'mount | column -t'")),
-        ("fstab", "Fstab Config", format!("{ssh} 'cat /etc/fstab'")),
-        ("dns", "DNS Configuration", format!("{ssh} 'cat /etc/resolv.conf'")),
-        ("hosts", "Hosts File", format!("{ssh} 'cat /etc/hosts'")),
         (
-            "process_tree",
-            "Process Tree",
-            format!("{ssh} 'pstree -p'"),
+            "mount",
+            "Mount Points",
+            format!("{ssh} 'mount | column -t'"),
         ),
+        ("fstab", "Fstab Config", format!("{ssh} 'cat /etc/fstab'")),
+        (
+            "dns",
+            "DNS Configuration",
+            format!("{ssh} 'cat /etc/resolv.conf'"),
+        ),
+        ("hosts", "Hosts File", format!("{ssh} 'cat /etc/hosts'")),
+        ("process_tree", "Process Tree", format!("{ssh} 'pstree -p'")),
         (
             "killed_procs",
             "OOM Killed Processes",

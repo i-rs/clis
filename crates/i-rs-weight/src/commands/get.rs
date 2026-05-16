@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
@@ -48,7 +48,12 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
         println!(
             "{:16} {}",
             "Tags:".style(style),
-            record.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", ")
+            record
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         );
     }
     if !record.remark.is_empty() {

@@ -1,5 +1,5 @@
 use crate::models::PlantStats;
-use crate::presentation::{print_stats, OutputFormat};
+use crate::presentation::{OutputFormat, print_stats};
 use crate::storage;
 use anyhow::Result;
 
@@ -19,7 +19,10 @@ pub fn stats(output_format: OutputFormat) -> Result<()> {
 
     match output_format {
         OutputFormat::Json => {
-            println!("{}", crate::presentation::output_item(&stats, output_format));
+            println!(
+                "{}",
+                crate::presentation::output_item(&stats, output_format)
+            );
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_stats(&stats);

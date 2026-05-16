@@ -6,8 +6,12 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Article:".bold().green());
-    println!("  i-rs-article add rust-blog https://blog.rust-lang.org \"Rust Blog\" --source rust --tag programming --tag tutorial");
-    println!("  i-rs-article add python-article https://python.org \"Python Guide\" --source python.org --tag python");
+    println!(
+        "  i-rs-article add rust-blog https://blog.rust-lang.org \"Rust Blog\" --source rust --tag programming --tag tutorial"
+    );
+    println!(
+        "  i-rs-article add python-article https://python.org \"Python Guide\" --source python.org --tag python"
+    );
     println!();
 
     println!("{}", "List Articles:".bold().green());

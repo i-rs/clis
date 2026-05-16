@@ -14,7 +14,6 @@ pub enum BudgetPeriod {
     Yearly,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Budget {
     pub category: String,
@@ -73,13 +72,11 @@ impl Expense {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BudgetStore {
     pub budgets: BTreeMap<String, Budget>,
     pub expenses: BTreeMap<String, Expense>,
 }
-
 
 #[allow(dead_code)]
 impl BudgetStore {

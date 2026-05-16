@@ -19,7 +19,10 @@ pub fn run(args: &Args) -> Result<()> {
     }
 
     if !args.force {
-        print!("Are you sure you want to delete car '{}'? (y/N) ", args.name);
+        print!(
+            "Are you sure you want to delete car '{}'? (y/N) ",
+            args.name
+        );
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         if !input.trim().eq_ignore_ascii_case("y") {
@@ -30,7 +33,9 @@ pub fn run(args: &Args) -> Result<()> {
 
     store.remove_entry(&args.name);
     store.fuel_records.retain(|r| r.car_name != args.name);
-    store.maintenance_records.retain(|r| r.car_name != args.name);
+    store
+        .maintenance_records
+        .retain(|r| r.car_name != args.name);
     storage::save_store(&store)?;
 
     print_success(&format!("Car '{}' deleted successfully", args.name));

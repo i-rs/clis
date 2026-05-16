@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,11 +7,13 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let quote = if let Some(q) = store.get_entry(&id) { q } else {
+    let quote = if let Some(q) = store.get_entry(&id) {
+        q
+    } else {
         let msg = format!("Quote '{id}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -58,7 +60,16 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     }
 
     if !quote.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), quote.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            quote
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !quote.remark.is_empty() {
@@ -68,7 +79,15 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         }
     }
 
-    println!("\n{:16} {}", "Created:".style(style), quote.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "\n{:16} {}",
+        "Created:".style(style),
+        quote
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

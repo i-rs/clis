@@ -34,7 +34,6 @@ pub fn add_habit(
     tags: Vec<String>,
     remark: Vec<String>,
 ) -> Result<Habit> {
-
     if store.get_entry(&name).is_some() {
         anyhow::bail!("Habit '{name}' already exists");
     }
@@ -57,7 +56,6 @@ pub fn add_habit(
 
 /// Check in to a habit (add timestamp).
 pub fn checkin_habit(store: &mut HabitStore, name: &str) -> Result<Habit> {
-
     let habit = store
         .get_entry_mut(name)
         .with_context(|| format!("Habit '{name}' not found"))?;
@@ -79,7 +77,6 @@ pub fn update_habit(
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<Habit> {
-
     let habit = store
         .get_entry_mut(&name)
         .with_context(|| format!("Habit '{name}' not found"))?;

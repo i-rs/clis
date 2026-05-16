@@ -36,9 +36,10 @@ pub fn handle_add(
     }
 
     if let Some(cp) = current_price
-        && cp < 0.0 {
-            anyhow::bail!("Current price cannot be negative");
-        }
+        && cp < 0.0
+    {
+        anyhow::bail!("Current price cannot be negative");
+    }
 
     let parsed_buy_date = if let Some(date_str) = buy_date {
         let date = i_rs_core::parse_date(&date_str)?;

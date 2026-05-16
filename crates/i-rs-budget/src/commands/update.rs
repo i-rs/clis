@@ -1,5 +1,5 @@
 use crate::models::BudgetPeriod;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -14,13 +14,18 @@ pub fn handle_update(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let budget = if let Some(b) = store.budgets.get_mut(&category) { b } else {
+    let budget = if let Some(b) = store.budgets.get_mut(&category) {
+        b
+    } else {
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": false,
-                "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", category) }
-            }));
-        } 
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": false,
+                    "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", category) }
+                })
+            );
+        }
         anyhow::bail!("Budget not found");
     };
 
@@ -34,11 +39,14 @@ pub fn handle_update(
             "monthly" | "m" => BudgetPeriod::Monthly,
             _ => {
                 if format.is_json() {
-                    println!("{}", serde_json::json!({
-                        "success": false,
-                        "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
-                    }));
-                } 
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "success": false,
+                            "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
+                        })
+                    );
+                }
                 anyhow::bail!("Invalid period");
             }
         };
@@ -69,16 +77,19 @@ pub fn handle_update(
             tags: Vec<String>,
             updated_at: String,
         }
-        println!("{}", serde_json::json!({
-            "success": true,
-            "data": BudgetData {
-                category: updated_data.0,
-                amount: updated_data.1,
-                period: updated_data.2,
-                tags: updated_data.3,
-                updated_at: updated_data.4,
-            }
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "data": BudgetData {
+                    category: updated_data.0,
+                    amount: updated_data.1,
+                    period: updated_data.2,
+                    tags: updated_data.3,
+                    updated_at: updated_data.4,
+                }
+            })
+        );
     } else {
         print_success(&format!("Updated budget for '{category}'"));
     }

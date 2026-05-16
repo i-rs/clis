@@ -36,23 +36,19 @@ pub fn handle_stats(project: Option<String>, environment: Option<String>) -> Res
         println!("  - {status}: {count}");
     }
 
-    let projects: HashMap<String, usize> = entries
-        .iter()
-        .fold(HashMap::new(), |mut acc, e| {
-            *acc.entry(e.project.clone()).or_insert(0) += 1;
-            acc
-        });
+    let projects: HashMap<String, usize> = entries.iter().fold(HashMap::new(), |mut acc, e| {
+        *acc.entry(e.project.clone()).or_insert(0) += 1;
+        acc
+    });
     println!("\n{} {}", "By Project:".cyan(), "".bold());
     for (proj, count) in &projects {
         println!("  - {proj}: {count}");
     }
 
-    let envs: HashMap<String, usize> = entries
-        .iter()
-        .fold(HashMap::new(), |mut acc, e| {
-            *acc.entry(e.environment.clone()).or_insert(0) += 1;
-            acc
-        });
+    let envs: HashMap<String, usize> = entries.iter().fold(HashMap::new(), |mut acc, e| {
+        *acc.entry(e.environment.clone()).or_insert(0) += 1;
+        acc
+    });
     println!("\n{} {}", "By Environment:".cyan(), "".bold());
     for (env, count) in &envs {
         println!("  - {env}: {count}");
@@ -70,16 +66,17 @@ pub fn handle_stats(project: Option<String>, environment: Option<String>) -> Res
         println!("\n{} {}", "Latest Success:".cyan(), latest.project);
         println!("  {} {}", "Version:".dimmed(), latest.version);
         println!("  {} {}", "Environment:".dimmed(), latest.environment);
-        println!("  {} {}", "Deployed At:".dimmed(), latest.deployed_at.format("%Y-%m-%d %H:%M"));
+        println!(
+            "  {} {}",
+            "Deployed At:".dimmed(),
+            latest.deployed_at.format("%Y-%m-%d %H:%M")
+        );
 
         let days_since = (Utc::now() - latest.deployed_at).num_days();
         println!("  {} {} days ago", "Ago:".dimmed(), days_since);
     }
 
-    let rollback_count = entries
-        .iter()
-        .filter(|e| e.rollback_from.is_some())
-        .count();
+    let rollback_count = entries.iter().filter(|e| e.rollback_from.is_some()).count();
     println!("\n{} {}", "Rollback Count:".cyan(), rollback_count);
 
     Ok(())

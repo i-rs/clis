@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,11 +7,13 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let birthday = if let Some(b) = store.get_entry(&name) { b } else {
+    let birthday = if let Some(b) = store.get_entry(&name) {
+        b
+    } else {
         let msg = format!("Birthday '{name}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -55,7 +57,11 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let style = OwoStyle::new().bold();
     let days = birthday.days_until_birthday();
 
-    println!("{:16} {}", "Birthday:".style(style), birthday.birth_date.cyan());
+    println!(
+        "{:16} {}",
+        "Birthday:".style(style),
+        birthday.birth_date.cyan()
+    );
 
     if let Some(year) = birthday.year {
         println!("{:16} {}", "Year:".style(style), year.to_string().cyan());
@@ -76,10 +82,23 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     };
     println!("{:16} {}", "Next Birthday:".style(style), days_status);
 
-    println!("{:16} {}", "Relationship:".style(style), birthday.relationship.cyan());
+    println!(
+        "{:16} {}",
+        "Relationship:".style(style),
+        birthday.relationship.cyan()
+    );
 
     if !birthday.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), birthday.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            birthday
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !birthday.remark.is_empty() {
@@ -89,8 +108,24 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         }
     }
 
-    println!("\n{:16} {}", "Created:".style(style), birthday.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
-    println!("{:16} {}", "Updated:".style(style), birthday.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "\n{:16} {}",
+        "Created:".style(style),
+        birthday
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        birthday
+            .updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

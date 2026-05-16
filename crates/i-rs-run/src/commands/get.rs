@@ -1,4 +1,4 @@
-use crate::presentation::{output_list, OutputFormat};
+use crate::presentation::{OutputFormat, output_list};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -41,7 +41,11 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
             println!("  {:12} {}", "ID:".dimmed(), record.id);
             println!("  {:12} {}", "Date:".dimmed(), record.date);
             println!("  {:12} {} km", "Distance:".dimmed(), record.distance_km);
-            println!("  {:12} {} min", "Duration:".dimmed(), record.duration_minutes);
+            println!(
+                "  {:12} {} min",
+                "Duration:".dimmed(),
+                record.duration_minutes
+            );
             println!("  {:12} {}/km", "Pace:".dimmed(), record.pace);
             if let Some(hr) = record.heart_rate {
                 println!("  {:12} {} bpm", "Heart Rate:".dimmed(), hr);
@@ -58,8 +62,11 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         }
     } else {
         if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format));
-        } 
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, Some(&format!("ID: {id}")), format)
+            );
+        }
         anyhow::bail!("No record found with ID: {id}");
     }
 

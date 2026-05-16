@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_server(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.server.write(|store| -> Result<_, ApiError> {
-        let entry = store.servers.get_mut(&id)
+        let entry = store
+            .servers
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Server '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -47,9 +45,7 @@ pub struct AddServerRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_servers(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_servers(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.server.read(|store| {
         let entries: Vec<_> = store.servers.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -63,7 +59,9 @@ async fn add_server(
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
     let host = req.host;
-    let port: u16 = req.port.parse()
+    let port: u16 = req
+        .port
+        .parse()
         .map_err(|e| ApiError::BadRequest(format!("Invalid port: {e}")))?;
     let user = req.user;
     let password = req.password;
@@ -92,7 +90,11 @@ async fn get_server(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.server.read(|store| {
-        store.servers.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Server '{id}' not found")))
+        store
+            .servers
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Server '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

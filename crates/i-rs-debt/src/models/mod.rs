@@ -120,20 +120,19 @@ impl Debt {
 
     pub fn days_overdue(&self) -> Option<i64> {
         if self.is_overdue()
-            && let Some(due) = self.due_date {
-                return Some((Utc::now() - due).num_days());
-            }
+            && let Some(due) = self.due_date
+        {
+            return Some((Utc::now() - due).num_days());
+        }
         None
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DebtStore {
     #[serde(default)]
     pub debts: std::collections::BTreeMap<String, Debt>,
 }
-
 
 impl DebtStore {
     pub fn add_entry(&mut self, entry: Debt) {
@@ -152,7 +151,6 @@ impl DebtStore {
         self.debts.get_mut(key)
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Tabled)]
 pub struct DebtRow {
@@ -237,7 +235,9 @@ impl From<&Debt> for DebtDetail {
             paid_amount: debt.paid_amount(),
             remaining: debt.remaining,
             interest_rate: debt.interest_rate,
-            due_date: debt.due_date.map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string()),
+            due_date: debt
+                .due_date
+                .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string()),
             progress: debt.progress_percentage(),
             is_overdue: debt.is_overdue(),
             days_overdue: debt.days_overdue(),

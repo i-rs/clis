@@ -21,7 +21,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Update Domain:".bold().green());
-    println!("  i-rs-domain update example.com --expiry-date 2026-12-31 --remark \"Renewed for 2 years\"");
+    println!(
+        "  i-rs-domain update example.com --expiry-date 2026-12-31 --remark \"Renewed for 2 years\""
+    );
     println!();
 
     println!("{}", "Delete Domain:".bold().green());

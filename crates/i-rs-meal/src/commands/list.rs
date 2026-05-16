@@ -1,5 +1,7 @@
 use crate::models::{ListItem, MealRow};
-use crate::presentation::{format_table, print_entry_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_entry_count, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -14,11 +16,15 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
             .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%d/%m/%Y"))
             .map_err(|_| anyhow::anyhow!("Invalid date format: {date_str}. Use YYYY-MM-DD"))?;
 
-        let entries: Vec<&crate::models::MealEntry> = storage::get_entries_by_date(&store, parsed_date);
+        let entries: Vec<&crate::models::MealEntry> =
+            storage::get_entries_by_date(&store, parsed_date);
 
         if entries.is_empty() {
             if format.is_json() {
-                println!("{}", output_list::<serde_json::Value>(&[], 0, Some(&date_str), format));
+                println!(
+                    "{}",
+                    output_list::<serde_json::Value>(&[], 0, Some(&date_str), format)
+                );
             } else {
                 print_warning(&format!("No meals on {date_str}"));
             }
@@ -27,7 +33,10 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
 
         if format.is_json() {
             let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(*e)).collect();
-            println!("{}", output_list(&items, items.len(), Some(&date_str), format));
+            println!(
+                "{}",
+                output_list(&items, items.len(), Some(&date_str), format)
+            );
             return Ok(());
         }
 

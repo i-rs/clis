@@ -19,11 +19,23 @@ pub fn handle_stats() -> Result<()> {
     println!("{}", "Appliance Statistics".bold().cyan());
     println!("{}", "─".repeat(40).dimmed());
     println!("  {:12} {}", "Total:".dimmed(), total.to_string().cyan());
-    println!("  {:12} {} (past lifespan)", "Expired:".dimmed(), expired.to_string().red());
-    println!("  {:12} {} (within 90 days)", "Replace Soon:".dimmed(), soon.to_string().yellow());
+    println!(
+        "  {:12} {} (past lifespan)",
+        "Expired:".dimmed(),
+        expired.to_string().red()
+    );
+    println!(
+        "  {:12} {} (within 90 days)",
+        "Replace Soon:".dimmed(),
+        soon.to_string().yellow()
+    );
 
     let healthy = total - expired - soon;
-    println!("  {:12} {} (good condition)", "Healthy:".dimmed(), healthy.to_string().green());
+    println!(
+        "  {:12} {} (good condition)",
+        "Healthy:".dimmed(),
+        healthy.to_string().green()
+    );
 
     if total > 0 {
         let healthy_pct = (healthy as f64 / total as f64) * 100.0;

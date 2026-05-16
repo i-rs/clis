@@ -1,5 +1,5 @@
-use crate::models::{TimeEntryRow, ListItem};
-use crate::presentation::{format_table, print_entry_count, OutputFormat, output_list};
+use crate::models::{ListItem, TimeEntryRow};
+use crate::presentation::{OutputFormat, format_table, output_list, print_entry_count};
 use crate::storage;
 use owo_colors::OwoColorize;
 
@@ -14,7 +14,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
 
     if entries.is_empty() {
         if format == OutputFormat::Json {
-            println!("{}", output_list::<ListItem>(&[], 0, tag.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<ListItem>(&[], 0, tag.as_deref(), format)
+            );
         } else {
             println!("{}", "No time entries found.".cyan());
         }
@@ -23,7 +26,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
 
     if format == OutputFormat::Json {
         let items: Vec<ListItem> = entries.iter().map(|e| (*e).into()).collect();
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
     } else {
         let rows: Vec<TimeEntryRow> = entries
             .iter()

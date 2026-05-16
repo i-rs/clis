@@ -19,12 +19,10 @@ pub struct Entity {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BestByStore {
     pub entries: BTreeMap<String, Entity>,
 }
-
 
 #[allow(dead_code)]
 impl BestByStore {
@@ -62,7 +60,8 @@ impl Entity {
     }
 
     pub fn is_soon(&self) -> Option<bool> {
-        self.days_until_replace().map(|days| (0..=7).contains(&days))
+        self.days_until_replace()
+            .map(|days| (0..=7).contains(&days))
     }
 }
 
@@ -96,17 +95,20 @@ impl EntityRow {
             "NO_CYCLE"
         };
 
-        let replace_in = entity
-            .days_until_replace().map_or_else(|| "-".to_string(), |d| {
+        let replace_in = entity.days_until_replace().map_or_else(
+            || "-".to_string(),
+            |d| {
                 if d < 0 {
                     format!("{}d ago", d.abs())
                 } else {
                     format!("{d}d")
                 }
-            });
+            },
+        );
 
         let cycle_str = entity
-            .cycle_days.map_or_else(|| "-".to_string(), |d| format!("{d}d"));
+            .cycle_days
+            .map_or_else(|| "-".to_string(), |d| format!("{d}d"));
 
         Self {
             name: entity.name.clone(),

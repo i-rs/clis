@@ -34,8 +34,8 @@ impl TimeEntry {
         self.end_time.is_none()
     }
 
-        #[allow(dead_code)]
-pub fn calculate_duration(&self) -> i64 {
+    #[allow(dead_code)]
+    pub fn calculate_duration(&self) -> i64 {
         if let Some(end) = self.end_time {
             (end - self.start_time).num_minutes()
         } else {
@@ -43,8 +43,8 @@ pub fn calculate_duration(&self) -> i64 {
         }
     }
 
-        #[allow(dead_code)]
-pub fn get_date(&self) -> NaiveDate {
+    #[allow(dead_code)]
+    pub fn get_date(&self) -> NaiveDate {
         self.start_time.date_naive()
     }
 
@@ -56,13 +56,11 @@ pub fn get_date(&self) -> NaiveDate {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TimeStore {
     pub entries: BTreeMap<String, TimeEntry>,
     pub active_entry_id: Option<String>,
 }
-
 
 impl TimeStore {
     pub fn add_entry(&mut self, entry: TimeEntry) {
@@ -82,11 +80,13 @@ impl TimeStore {
     }
 
     pub fn get_active_entry(&self) -> Option<&TimeEntry> {
-        self.active_entry_id.as_ref().and_then(|id| self.entries.get(id))
+        self.active_entry_id
+            .as_ref()
+            .and_then(|id| self.entries.get(id))
     }
 
-        #[allow(dead_code)]
-pub fn get_active_entry_mut(&mut self) -> Option<&mut TimeEntry> {
+    #[allow(dead_code)]
+    pub fn get_active_entry_mut(&mut self) -> Option<&mut TimeEntry> {
         if let Some(ref id) = self.active_entry_id {
             self.entries.get_mut(id)
         } else {
@@ -115,16 +115,16 @@ pub fn get_active_entry_mut(&mut self) -> Option<&mut TimeEntry> {
         self.entries.values().collect()
     }
 
-        #[allow(dead_code)]
-pub fn get_completed_entries(&self) -> Vec<&TimeEntry> {
+    #[allow(dead_code)]
+    pub fn get_completed_entries(&self) -> Vec<&TimeEntry> {
         self.entries
             .values()
             .filter(|e| e.end_time.is_some())
             .collect()
     }
 
-        #[allow(dead_code)]
-pub fn total_minutes(&self, entries: &[&TimeEntry]) -> i64 {
+    #[allow(dead_code)]
+    pub fn total_minutes(&self, entries: &[&TimeEntry]) -> i64 {
         entries.iter().map(|e| e.duration_minutes).sum()
     }
 }
@@ -148,7 +148,11 @@ pub struct TimeEntryRow {
 impl TimeEntryRow {
     pub fn from_entry(entry: &TimeEntry) -> Self {
         let duration = if entry.duration_minutes >= 60 {
-            format!("{}h {}m", entry.duration_minutes / 60, entry.duration_minutes % 60)
+            format!(
+                "{}h {}m",
+                entry.duration_minutes / 60,
+                entry.duration_minutes % 60
+            )
         } else {
             format!("{}m", entry.duration_minutes)
         };
@@ -157,8 +161,10 @@ impl TimeEntryRow {
             id: entry.id[..8].to_string(),
             name: entry.name.clone(),
             start_time: entry.start_time.format("%Y-%m-%d %H:%M").to_string(),
-            end_time: entry
-                .end_time.map_or_else(|| "Running...".to_string(), |t| t.format("%Y-%m-%d %H:%M").to_string()),
+            end_time: entry.end_time.map_or_else(
+                || "Running...".to_string(),
+                |t| t.format("%Y-%m-%d %H:%M").to_string(),
+            ),
             duration,
             tags: if entry.tags.is_empty() {
                 "-".to_string()
@@ -189,7 +195,9 @@ impl From<&TimeEntry> for ListItem {
             id: entry.id.clone(),
             name: entry.name.clone(),
             start_time: entry.start_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-            end_time: entry.end_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            end_time: entry
+                .end_time
+                .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
             duration_minutes: entry.duration_minutes,
             tags: entry.tags.clone(),
             remark: entry.remark.clone(),

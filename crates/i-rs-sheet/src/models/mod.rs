@@ -21,16 +21,21 @@ impl SheetEntry {
     pub fn new(sheet_type: String, tags: Vec<String>, remark: Vec<String>) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, sheet_type, changed_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            sheet_type,
+            changed_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SheetStore {
     pub entries: BTreeMap<String, SheetEntry>,
 }
-
 
 impl SheetStore {
     pub fn add_entry(&mut self, entry: SheetEntry) {
@@ -62,7 +67,11 @@ impl SheetRow {
             id: entry.id[..8].to_string(),
             sheet_type: entry.sheet_type.clone(),
             changed_at: entry.changed_at.format("%Y-%m-%d %H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }

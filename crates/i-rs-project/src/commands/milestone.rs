@@ -30,12 +30,13 @@ pub enum MilestoneCommand {
 
 pub fn handle_milestone(command: MilestoneCommand, _format: OutputFormat) -> Result<()> {
     match command {
-        MilestoneCommand::Add { project, name, description, due_date } => {
-            handle_add_milestone(project, name, description, due_date)
-        }
-        MilestoneCommand::Complete { project, name } => {
-            handle_complete_milestone(project, name)
-        }
+        MilestoneCommand::Add {
+            project,
+            name,
+            description,
+            due_date,
+        } => handle_add_milestone(project, name, description, due_date),
+        MilestoneCommand::Complete { project, name } => handle_complete_milestone(project, name),
     }
 }
 
@@ -54,14 +55,21 @@ fn handle_add_milestone(
         }
     };
 
-    if project.milestones.iter().any(|m| m.name.eq_ignore_ascii_case(&name)) {
+    if project
+        .milestones
+        .iter()
+        .any(|m| m.name.eq_ignore_ascii_case(&name))
+    {
         anyhow::bail!("Milestone '{name}' already exists");
     }
 
     let due = due_date.and_then(|d| {
         chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
             .ok()
-            .map(|date| date.and_hms_opt(23, 59, 59).expect("23:59:59 is always valid"))
+            .map(|date| {
+                date.and_hms_opt(23, 59, 59)
+                    .expect("23:59:59 is always valid")
+            })
             .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
     });
 
@@ -76,7 +84,11 @@ fn handle_add_milestone(
     project.updated_at = Utc::now();
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Milestone '{}' added to project '{}'", name.green(), project_name.green()));
+    print_success(&format!(
+        "✓ Milestone '{}' added to project '{}'",
+        name.green(),
+        project_name.green()
+    ));
 
     Ok(())
 }
@@ -91,7 +103,11 @@ fn handle_complete_milestone(project_name: String, name: String) -> Result<()> {
         }
     };
 
-    let milestone = match project.milestones.iter_mut().find(|m| m.name.eq_ignore_ascii_case(&name)) {
+    let milestone = match project
+        .milestones
+        .iter_mut()
+        .find(|m| m.name.eq_ignore_ascii_case(&name))
+    {
         Some(m) => m,
         None => {
             anyhow::bail!("Milestone '{name}' not found");

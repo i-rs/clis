@@ -1,4 +1,6 @@
-use crate::presentation::{format_table, print_appliance_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_appliance_count, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 
@@ -14,7 +16,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     if appliances.is_empty() {
         if format.is_json() {
             let filter = tag.map(|t| format!("tag: {t}"));
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No appliances found.");
         }
@@ -53,7 +58,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             .collect();
 
         let filter = tag.map(|t| format!("tag: {t}"));
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 

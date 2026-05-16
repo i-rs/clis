@@ -2,8 +2,8 @@ use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
-use owo_colors::OwoColorize;
 use i_rs_core::parse_datetime;
+use owo_colors::OwoColorize;
 
 pub fn handle_update(
     name: String,
@@ -38,5 +38,3 @@ pub fn handle_update(
 
     Ok(())
 }
-
-

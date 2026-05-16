@@ -21,16 +21,21 @@ impl PetbathEntry {
     pub fn new(pet_name: String, tags: Vec<String>, remark: Vec<String>) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, pet_name, bathed_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            pet_name,
+            bathed_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PetbathStore {
     pub entries: BTreeMap<String, PetbathEntry>,
 }
-
 
 impl PetbathStore {
     pub fn add_entry(&mut self, entry: PetbathEntry) {
@@ -62,7 +67,11 @@ impl PetbathRow {
             id: entry.id[..8].to_string(),
             pet_name: entry.pet_name.clone(),
             bathed_at: entry.bathed_at.format("%Y-%m-%d %H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }

@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_tax(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.tax.write(|store| -> Result<_, ApiError> {
-        let entry = store.entries.get_mut(&id)
+        let entry = store
+            .entries
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Tax '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +46,7 @@ pub struct AddTaxRecordRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_taxs(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_taxs(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.tax.read(|store| {
         let entries: Vec<_> = store.entries.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -63,11 +59,13 @@ async fn add_tax(
     Json(req): Json<AddTaxRecordRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
-    let tax_type: i_rs_tax::models::TaxType = serde_json::from_value(serde_json::json!(req.tax_type))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid tax_type: {e}")))?;
+    let tax_type: i_rs_tax::models::TaxType =
+        serde_json::from_value(serde_json::json!(req.tax_type))
+            .map_err(|e| ApiError::BadRequest(format!("Invalid tax_type: {e}")))?;
     let amount = req.amount;
-    let date = chrono::NaiveDate::parse_from_str(&req.date, "%Y-%m-%d")
-        .map_err(|_| ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string()))?;
+    let date = chrono::NaiveDate::parse_from_str(&req.date, "%Y-%m-%d").map_err(|_| {
+        ApiError::BadRequest("Invalid date format, expected YYYY-MM-DD".to_string())
+    })?;
     let year = req.year;
     let status: i_rs_tax::models::TaxStatus = serde_json::from_value(serde_json::json!(req.status))
         .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
@@ -97,7 +95,11 @@ async fn get_tax(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.tax.read(|store| {
-        store.entries.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Tax '{id}' not found")))
+        store
+            .entries
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Tax '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

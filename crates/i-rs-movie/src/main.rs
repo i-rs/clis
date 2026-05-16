@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use commands::{
-    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_stats, handle_update, handle_watch, parse_skill_arg, };
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_stats,
+    handle_update, handle_watch, parse_skill_arg,
+};
 use presentation::OutputFormat;
 
 mod commands;
@@ -89,8 +91,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -117,7 +119,18 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_add(name, year, director, watched, rating, review, release_date, tag, remark, format)?;
+            handle_add(
+                name,
+                year,
+                director,
+                watched,
+                rating,
+                review,
+                release_date,
+                tag,
+                remark,
+                format,
+            )?;
         }
         Commands::Delete { name } => {
             handle_delete(name, format)?;
@@ -149,9 +162,23 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_update(name, year, director, rating, review, release_date, tag, remark, format)?;
+            handle_update(
+                name,
+                year,
+                director,
+                rating,
+                review,
+                release_date,
+                tag,
+                remark,
+                format,
+            )?;
         }
-        Commands::Watch { name, rating, review } => {
+        Commands::Watch {
+            name,
+            rating,
+            review,
+        } => {
             handle_watch(name, rating, review, format)?;
         }
         Commands::Stats {} => {
@@ -163,7 +190,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

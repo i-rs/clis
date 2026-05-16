@@ -19,19 +19,30 @@ pub struct FilterEntry {
 }
 
 impl FilterEntry {
-    pub fn new(appliance_name: String, filter_type: String, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        appliance_name: String,
+        filter_type: String,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, appliance_name, filter_type, cleaned_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            appliance_name,
+            filter_type,
+            cleaned_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FilterStore {
     pub entries: BTreeMap<String, FilterEntry>,
 }
-
 
 impl FilterStore {
     pub fn add_entry(&mut self, entry: FilterEntry) {

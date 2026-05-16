@@ -21,16 +21,21 @@ impl AquaEntry {
     pub fn new(tank_size_liters: Option<i32>, tags: Vec<String>, remark: Vec<String>) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, tank_size_liters, changed_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            tank_size_liters,
+            changed_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AquaStore {
     pub entries: BTreeMap<String, AquaEntry>,
 }
-
 
 impl AquaStore {
     pub fn add_entry(&mut self, entry: AquaEntry) {
@@ -60,9 +65,15 @@ impl AquaRow {
     pub fn from_entry(entry: &AquaEntry) -> Self {
         Self {
             id: entry.id[..8].to_string(),
-            tank_size: entry.tank_size_liters.map_or_else(|| "-".to_string(), |s| format!("{s}L")),
+            tank_size: entry
+                .tank_size_liters
+                .map_or_else(|| "-".to_string(), |s| format!("{s}L")),
             changed_at: entry.changed_at.format("%Y-%m-%d %H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }

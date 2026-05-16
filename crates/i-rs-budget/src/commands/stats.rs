@@ -1,5 +1,7 @@
 use crate::models::Budget;
-use crate::presentation::{format_budget_stats_table, output_list, print_total_spent, print_warning, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_budget_stats_table, output_list, print_total_spent, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 use chrono::{Datelike, NaiveDate, Utc};
@@ -24,7 +26,10 @@ pub fn handle_stats(
     if budgets.is_empty() {
         if format.is_json() {
             let filter = category.as_deref().or(period.as_deref());
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter, format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter, format)
+            );
         } else {
             print_warning("No budgets to show stats for.");
         }
@@ -33,7 +38,8 @@ pub fn handle_stats(
 
     let mut spent_map = std::collections::HashMap::new();
     for budget in &budgets {
-        let spent = store.get_expenses_in_period(start, end)
+        let spent = store
+            .get_expenses_in_period(start, end)
             .into_iter()
             .filter(|e| e.category == budget.category)
             .map(|e| e.amount)
@@ -54,22 +60,25 @@ pub fn handle_stats(
             percentage: f64,
         }
 
-        let items: Vec<StatsItem> = budgets.iter().map(|b| {
-            let spent = spent_map.get(&b.category).copied().unwrap_or(0.0);
-            let remaining = b.amount - spent;
-            let percentage = if b.amount > 0.0 {
-                (spent / b.amount * 100.0).min(100.0)
-            } else {
-                0.0
-            };
-            StatsItem {
-                category: b.category.clone(),
-                budget: b.amount,
-                spent,
-                remaining,
-                percentage,
-            }
-        }).collect();
+        let items: Vec<StatsItem> = budgets
+            .iter()
+            .map(|b| {
+                let spent = spent_map.get(&b.category).copied().unwrap_or(0.0);
+                let remaining = b.amount - spent;
+                let percentage = if b.amount > 0.0 {
+                    (spent / b.amount * 100.0).min(100.0)
+                } else {
+                    0.0
+                };
+                StatsItem {
+                    category: b.category.clone(),
+                    budget: b.amount,
+                    spent,
+                    remaining,
+                    percentage,
+                }
+            })
+            .collect();
 
         let filter = category.as_deref().or(period.as_deref());
         let meta = serde_json::json!({
@@ -78,9 +87,21 @@ pub fn handle_stats(
             "total_spent": total_spent,
             "total_remaining": total_budget - total_spent,
         });
-        println!("{}", output_list_with_meta(&items, items.len(), filter, format, meta));
+        println!(
+            "{}",
+            output_list_with_meta(&items, items.len(), filter, format, meta)
+        );
     } else {
-        println!("\n{}", format!("Budget Stats ({} to {})", start.format("%Y-%m-%d"), end.format("%Y-%m-%d")).cyan().bold());
+        println!(
+            "\n{}",
+            format!(
+                "Budget Stats ({} to {})",
+                start.format("%Y-%m-%d"),
+                end.format("%Y-%m-%d")
+            )
+            .cyan()
+            .bold()
+        );
         println!("{}\n", "─".repeat(50).dimmed());
 
         let table = format_budget_stats_table(&budgets, &spent_map);
@@ -89,7 +110,11 @@ pub fn handle_stats(
         println!("\n{}", "Summary:".bold().cyan());
         println!("  {} {:.2}", "Total Budget:".dimmed(), total_budget);
         print_total_spent(total_spent);
-        println!("  {} {:.2}", "Remaining:".dimmed(), total_budget - total_spent);
+        println!(
+            "  {} {:.2}",
+            "Remaining:".dimmed(),
+            total_budget - total_spent
+        );
 
         if total_budget > 0.0 {
             let overall_percentage = (total_spent / total_budget * 100.0).min(100.0);
@@ -102,9 +127,7 @@ pub fn handle_stats(
 
 fn get_period_dates(now: &NaiveDate, period: Option<&str>) -> Result<(NaiveDate, NaiveDate)> {
     match period.unwrap_or("monthly") {
-        "daily" | "d" => {
-            Ok((*now, *now))
-        }
+        "daily" | "d" => Ok((*now, *now)),
         "weekly" | "w" => {
             let days_from_monday = now.weekday().num_days_from_monday();
             let start = *now - chrono::Duration::days(i64::from(days_from_monday));
@@ -117,8 +140,10 @@ fn get_period_dates(now: &NaiveDate, period: Option<&str>) -> Result<(NaiveDate,
             Ok((start, end))
         }
         "monthly" | "m" => {
-            let start = NaiveDate::from_ymd_opt(now.year(), now.month(), 1).expect("1st of any month is always valid");
-            let end = NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).expect("Jan 1 is always valid") - chrono::Duration::days(1);
+            let start = NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
+                .expect("1st of any month is always valid");
+            let end = NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).expect("Jan 1 is always valid")
+                - chrono::Duration::days(1);
             Ok((start, end))
         }
         p => {
@@ -142,5 +167,6 @@ fn output_list_with_meta<T: serde::Serialize>(
             "filter": filter,
             "extra": meta,
         }
-    }).to_string()
+    })
+    .to_string()
 }

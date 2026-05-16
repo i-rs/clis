@@ -3,9 +3,9 @@ use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
+use i_rs_core::parse_datetime;
 use i_rs_core::validate_name;
 use owo_colors::OwoColorize;
-use i_rs_core::parse_datetime;
 
 pub fn handle_add(
     name: String,
@@ -48,5 +48,3 @@ pub fn handle_add(
 
     Ok(())
 }
-
-

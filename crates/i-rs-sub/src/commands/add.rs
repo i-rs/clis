@@ -3,9 +3,9 @@ use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use i_rs_core::parse_datetime;
 use i_rs_core::validate_name;
 use owo_colors::OwoColorize;
-use i_rs_core::parse_datetime;
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_add(
@@ -52,8 +52,6 @@ pub fn handle_add(
 
     Ok(())
 }
-
-
 
 fn calculate_next_billing(start: &DateTime<Utc>, cycle: &str) -> DateTime<Utc> {
     let now = Utc::now();

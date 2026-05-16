@@ -18,19 +18,31 @@ pub struct SitEntry {
 }
 
 impl SitEntry {
-    pub fn new(duration_minutes: i32, started_at: DateTime<Utc>, ended_at: DateTime<Utc>, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        duration_minutes: i32,
+        started_at: DateTime<Utc>,
+        ended_at: DateTime<Utc>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, duration_minutes, started_at, ended_at, tags, remark, created_at: now }
+        Self {
+            id,
+            duration_minutes,
+            started_at,
+            ended_at,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SitStore {
     pub entries: BTreeMap<String, SitEntry>,
 }
-
 
 impl SitStore {
     pub fn add_entry(&mut self, entry: SitEntry) {
@@ -62,7 +74,11 @@ impl SitRow {
             id: entry.id[..8].to_string(),
             duration: format!("{} min", entry.duration_minutes),
             date: entry.started_at.format("%Y-%m-%d %H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }

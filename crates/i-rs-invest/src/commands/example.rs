@@ -8,13 +8,19 @@ pub fn handle_example() {
     println!("  i-rs-invest add Apple --symbol AAPL --type stock --quantity 10 --price 150.00");
     println!();
     println!("{}", "Add a fund investment:".cyan());
-    println!("  i-rs-invest add Index Fund --symbol VTI --type fund --quantity 50 --price 200.00 --date 2024-01-15");
+    println!(
+        "  i-rs-invest add Index Fund --symbol VTI --type fund --quantity 50 --price 200.00 --date 2024-01-15"
+    );
     println!();
     println!("{}", "Add a crypto investment:".cyan());
-    println!("  i-rs-invest add Bitcoin --symbol BTC --type crypto --quantity 0.5 --price 40000.00");
+    println!(
+        "  i-rs-invest add Bitcoin --symbol BTC --type crypto --quantity 0.5 --price 40000.00"
+    );
     println!();
     println!("{}", "Add with tags and remarks:".cyan());
-    println!("  i-rs-invest add Tesla --symbol TSLA --type stock --qty 15 --price 250.00 --tag tech --tag growth --remark Long term hold");
+    println!(
+        "  i-rs-invest add Tesla --symbol TSLA --type stock --qty 15 --price 250.00 --tag tech --tag growth --remark Long term hold"
+    );
     println!();
     println!("{}", "Update current price:".cyan());
     println!("  i-rs-invest update Apple --current-price 175.50");

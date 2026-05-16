@@ -22,9 +22,15 @@ pub fn search_snippets<'a>(store: &'a SnippetStore, query: &str) -> Vec<&'a Snip
         .filter(|s| {
             s.name.to_lowercase().contains(&query_lower)
                 || s.language.to_lowercase().contains(&query_lower)
-                || s.description.iter().any(|d| d.to_lowercase().contains(&query_lower))
-                || s.code.iter().any(|c| c.to_lowercase().contains(&query_lower))
-                || s.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+                || s.description
+                    .iter()
+                    .any(|d| d.to_lowercase().contains(&query_lower))
+                || s.code
+                    .iter()
+                    .any(|c| c.to_lowercase().contains(&query_lower))
+                || s.tags
+                    .iter()
+                    .any(|t| t.to_lowercase().contains(&query_lower))
         })
         .collect()
 }

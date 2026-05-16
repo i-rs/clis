@@ -1,5 +1,5 @@
 use crate::models::{DeployRow, ListItem};
-use crate::presentation::{format_table, print_deploy_count, output_list, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_deploy_count};
 use crate::storage;
 use anyhow::Result;
 

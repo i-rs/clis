@@ -1,5 +1,5 @@
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 /// Merge a JSON body into an existing entity (partial update).
 ///
@@ -11,8 +11,7 @@ pub fn merge_entry<T: Serialize + DeserializeOwned>(
     entry: &mut T,
     body: &serde_json::Value,
 ) -> Result<(), String> {
-    let mut current =
-        serde_json::to_value(&*entry).map_err(|e| format!("Serialize error: {e}"))?;
+    let mut current = serde_json::to_value(&*entry).map_err(|e| format!("Serialize error: {e}"))?;
     if let (Some(obj), Some(body_obj)) = (current.as_object_mut(), body.as_object()) {
         for (k, v) in body_obj {
             // Skip readonly key fields

@@ -28,12 +28,13 @@ pub enum TaskCommand {
 
 pub fn handle_task(command: TaskCommand) -> Result<()> {
     match command {
-        TaskCommand::Add { project, name, description, tag } => {
-            handle_add_task(project, name, description, tag)
-        }
-        TaskCommand::Complete { project, name } => {
-            handle_complete_task(project, name)
-        }
+        TaskCommand::Add {
+            project,
+            name,
+            description,
+            tag,
+        } => handle_add_task(project, name, description, tag),
+        TaskCommand::Complete { project, name } => handle_complete_task(project, name),
     }
 }
 
@@ -52,7 +53,11 @@ fn handle_add_task(
         }
     };
 
-    if project.tasks.iter().any(|t| t.name.eq_ignore_ascii_case(&name)) {
+    if project
+        .tasks
+        .iter()
+        .any(|t| t.name.eq_ignore_ascii_case(&name))
+    {
         anyhow::bail!("Task '{name}' already exists");
     }
 
@@ -67,7 +72,11 @@ fn handle_add_task(
     project.updated_at = Utc::now();
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Task '{}' added to project '{}'", name.green(), project_name.green()));
+    print_success(&format!(
+        "✓ Task '{}' added to project '{}'",
+        name.green(),
+        project_name.green()
+    ));
 
     Ok(())
 }
@@ -82,7 +91,11 @@ fn handle_complete_task(project_name: String, name: String) -> Result<()> {
         }
     };
 
-    let task = match project.tasks.iter_mut().find(|t| t.name.eq_ignore_ascii_case(&name)) {
+    let task = match project
+        .tasks
+        .iter_mut()
+        .find(|t| t.name.eq_ignore_ascii_case(&name))
+    {
         Some(t) => t,
         None => {
             anyhow::bail!("Task '{name}' not found");

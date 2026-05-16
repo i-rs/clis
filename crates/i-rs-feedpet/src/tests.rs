@@ -28,7 +28,9 @@ mod tests {
             remark: vec![],
         };
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
-        let cmd = Cli::try_parse_from(["i-rs-feedpet", "list"]).unwrap().command;
+        let cmd = Cli::try_parse_from(["i-rs-feedpet", "list"])
+            .unwrap()
+            .command;
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
     }
 
@@ -47,5 +49,4 @@ mod tests {
         let cmd = Commands::Data(commands::data::DataCommand::Export);
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
     }
-
 }

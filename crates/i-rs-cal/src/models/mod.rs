@@ -18,19 +18,31 @@ pub struct CalEntry {
 }
 
 impl CalEntry {
-    pub fn new(food_name: String, calories: i32, tags: Vec<String>, remark: Vec<String>, date: chrono::NaiveDate) -> Self {
+    pub fn new(
+        food_name: String,
+        calories: i32,
+        tags: Vec<String>,
+        remark: Vec<String>,
+        date: chrono::NaiveDate,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, food_name, calories, tags, remark, date, created_at: now }
+        Self {
+            id,
+            food_name,
+            calories,
+            tags,
+            remark,
+            date,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CalStore {
     pub entries: BTreeMap<String, CalEntry>,
 }
-
 
 #[allow(dead_code)]
 impl CalStore {
@@ -44,7 +56,11 @@ impl CalStore {
         self.entries.get(id)
     }
     pub fn get_total_by_date(&self, date: chrono::NaiveDate) -> i32 {
-        self.entries.values().filter(|e| e.date == date).map(|e| e.calories).sum()
+        self.entries
+            .values()
+            .filter(|e| e.date == date)
+            .map(|e| e.calories)
+            .sum()
     }
 }
 

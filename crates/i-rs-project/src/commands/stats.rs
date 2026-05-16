@@ -12,54 +12,134 @@ pub fn handle_stats() -> Result<()> {
     }
 
     let total_projects = store.projects.len();
-    let active_projects = store.projects.iter().filter(|p| p.status == crate::models::ProjectStatus::Active).count();
-    let completed_projects = store.projects.iter().filter(|p| p.status == crate::models::ProjectStatus::Completed).count();
-    let onhold_projects = store.projects.iter().filter(|p| p.status == crate::models::ProjectStatus::OnHold).count();
-    
+    let active_projects = store
+        .projects
+        .iter()
+        .filter(|p| p.status == crate::models::ProjectStatus::Active)
+        .count();
+    let completed_projects = store
+        .projects
+        .iter()
+        .filter(|p| p.status == crate::models::ProjectStatus::Completed)
+        .count();
+    let onhold_projects = store
+        .projects
+        .iter()
+        .filter(|p| p.status == crate::models::ProjectStatus::OnHold)
+        .count();
+
     let total_milestones: usize = store.projects.iter().map(|p| p.milestones.len()).sum();
-    let completed_milestones: usize = store.projects.iter().map(|p| p.milestones.iter().filter(|m| m.completed).count()).sum();
-    
+    let completed_milestones: usize = store
+        .projects
+        .iter()
+        .map(|p| p.milestones.iter().filter(|m| m.completed).count())
+        .sum();
+
     let total_tasks: usize = store.projects.iter().map(|p| p.tasks.len()).sum();
-    let completed_tasks: usize = store.projects.iter().map(|p| p.tasks.iter().filter(|t| t.completed).count()).sum();
+    let completed_tasks: usize = store
+        .projects
+        .iter()
+        .map(|p| p.tasks.iter().filter(|t| t.completed).count())
+        .sum();
 
-    let urgent_projects = store.projects.iter().filter(|p| p.priority == crate::models::Priority::Urgent).count();
-    let high_priority_projects = store.projects.iter().filter(|p| p.priority == crate::models::Priority::High).count();
+    let urgent_projects = store
+        .projects
+        .iter()
+        .filter(|p| p.priority == crate::models::Priority::Urgent)
+        .count();
+    let high_priority_projects = store
+        .projects
+        .iter()
+        .filter(|p| p.priority == crate::models::Priority::High)
+        .count();
 
-    let overdue_milestones = store.projects.iter().flat_map(|p| &p.milestones)
+    let overdue_milestones = store
+        .projects
+        .iter()
+        .flat_map(|p| &p.milestones)
         .filter(|m| !m.completed && m.due_date.is_some_and(|d| d < Utc::now()))
         .count();
 
     println!();
     print_header("Project Statistics");
     println!();
-    
+
     println!("{}", "Projects:".bold().cyan());
-    println!("  {:20} {}", "Total:".dimmed(), total_projects.to_string().green());
-    println!("  {:20} {}", "Active:".dimmed(), active_projects.to_string().green());
-    println!("  {:20} {}", "Completed:".dimmed(), completed_projects.to_string().green());
-    println!("  {:20} {}", "On Hold:".dimmed(), onhold_projects.to_string().green());
-    
+    println!(
+        "  {:20} {}",
+        "Total:".dimmed(),
+        total_projects.to_string().green()
+    );
+    println!(
+        "  {:20} {}",
+        "Active:".dimmed(),
+        active_projects.to_string().green()
+    );
+    println!(
+        "  {:20} {}",
+        "Completed:".dimmed(),
+        completed_projects.to_string().green()
+    );
+    println!(
+        "  {:20} {}",
+        "On Hold:".dimmed(),
+        onhold_projects.to_string().green()
+    );
+
     println!();
     println!("{}", "Priority:".bold().cyan());
-    println!("  {:20} {}", "Urgent:".dimmed(), urgent_projects.to_string().red());
-    println!("  {:20} {}", "High:".dimmed(), high_priority_projects.to_string().yellow());
-    
+    println!(
+        "  {:20} {}",
+        "Urgent:".dimmed(),
+        urgent_projects.to_string().red()
+    );
+    println!(
+        "  {:20} {}",
+        "High:".dimmed(),
+        high_priority_projects.to_string().yellow()
+    );
+
     println!();
     println!("{}", "Milestones:".bold().cyan());
-    println!("  {:20} {}", "Total:".dimmed(), total_milestones.to_string().green());
-    println!("  {:20} {}", "Completed:".dimmed(), completed_milestones.to_string().green());
-    println!("  {:20} {}", "Overdue:".dimmed(), overdue_milestones.to_string().red());
-    
+    println!(
+        "  {:20} {}",
+        "Total:".dimmed(),
+        total_milestones.to_string().green()
+    );
+    println!(
+        "  {:20} {}",
+        "Completed:".dimmed(),
+        completed_milestones.to_string().green()
+    );
+    println!(
+        "  {:20} {}",
+        "Overdue:".dimmed(),
+        overdue_milestones.to_string().red()
+    );
+
     println!();
     println!("{}", "Tasks:".bold().cyan());
-    println!("  {:20} {}", "Total:".dimmed(), total_tasks.to_string().green());
-    println!("  {:20} {}", "Completed:".dimmed(), completed_tasks.to_string().green());
+    println!(
+        "  {:20} {}",
+        "Total:".dimmed(),
+        total_tasks.to_string().green()
+    );
+    println!(
+        "  {:20} {}",
+        "Completed:".dimmed(),
+        completed_tasks.to_string().green()
+    );
 
     if total_milestones > 0 {
-        let milestone_progress = (completed_milestones as f64 / total_milestones as f64 * 100.0) as usize;
+        let milestone_progress =
+            (completed_milestones as f64 / total_milestones as f64 * 100.0) as usize;
         println!();
         println!("{}", "Progress:".bold().cyan());
-        println!("  {:20} {}% (milestones)", "Completion:".dimmed(), milestone_progress);
+        println!(
+            "  {:20} {}% (milestones)",
+            "Completion:".dimmed(),
+            milestone_progress
+        );
     }
 
     if total_tasks > 0 {

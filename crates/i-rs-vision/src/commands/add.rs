@@ -2,8 +2,8 @@ use crate::models::VisionRecord;
 use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use i_rs_core::parse_date;
 use chrono::Utc;
+use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
 #[allow(clippy::too_many_arguments)]
@@ -50,4 +50,3 @@ pub fn handle_add(
 
     Ok(())
 }
-

@@ -11,7 +11,11 @@ pub struct UpdateArgs {
     pub name: String,
     #[arg(short, long, help = "New event date (YYYY-MM-DD or YYYY-MM-DD HH:MM)")]
     pub date: Option<String>,
-    #[arg(short = 'y', long, help = "New event type (meeting/gathering/course/other)")]
+    #[arg(
+        short = 'y',
+        long,
+        help = "New event type (meeting/gathering/course/other)"
+    )]
     pub event_type: Option<String>,
     #[arg(short = 'l', long, help = "New location")]
     pub location: Option<String>,
@@ -32,7 +36,10 @@ pub fn run(args: &UpdateArgs, json: bool) -> Result<()> {
 
     let event_name = args.name.clone();
     {
-        let event = store.events.get_mut(&event_name).expect("existence checked above");
+        let event = store
+            .events
+            .get_mut(&event_name)
+            .expect("existence checked above");
 
         if let Some(ref date) = args.date {
             event.date = parse_datetime(date)?;
@@ -50,7 +57,11 @@ pub fn run(args: &UpdateArgs, json: bool) -> Result<()> {
             event.location = loc.clone();
         }
         if let Some(ref parts) = args.participants {
-            event.participants = parts.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            event.participants = parts
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
         }
         if let Some(ref t) = args.tag {
             event.tags = t.clone();

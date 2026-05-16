@@ -1,5 +1,5 @@
 use crate::models::{CarStats, Stats};
-use crate::presentation::{format_stats, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, format_stats, output_item};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -34,23 +34,35 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         };
 
         if output_format == OutputFormat::Json {
-            println!("{}", output_item(&serde_json::json!({
-                "car": car_name,
-                "fuel_count": car_stats.fuel_count,
-                "maintenance_count": car_stats.maintenance_count,
-                "total_fuel_cost": car_stats.total_fuel_cost,
-                "total_maintenance_cost": car_stats.total_maintenance_cost,
-                "total_cost": car_stats.total_fuel_cost + car_stats.total_maintenance_cost,
-                "latest_mileage": car_stats.latest_mileage
-            }), output_format));
+            println!(
+                "{}",
+                output_item(
+                    &serde_json::json!({
+                        "car": car_name,
+                        "fuel_count": car_stats.fuel_count,
+                        "maintenance_count": car_stats.maintenance_count,
+                        "total_fuel_cost": car_stats.total_fuel_cost,
+                        "total_maintenance_cost": car_stats.total_maintenance_cost,
+                        "total_cost": car_stats.total_fuel_cost + car_stats.total_maintenance_cost,
+                        "latest_mileage": car_stats.latest_mileage
+                    }),
+                    output_format
+                )
+            );
         } else {
             println!("=== {car_name} Statistics ===");
             println!("Mileage: {:.0} km", car_stats.latest_mileage);
             println!("Fuel Records: {}", car_stats.fuel_count);
             println!("Total Fuel Cost: {:.2}", car_stats.total_fuel_cost);
             println!("Maintenance Records: {}", car_stats.maintenance_count);
-            println!("Total Maintenance Cost: {:.2}", car_stats.total_maintenance_cost);
-            println!("Total Cost: {:.2}", car_stats.total_fuel_cost + car_stats.total_maintenance_cost);
+            println!(
+                "Total Maintenance Cost: {:.2}",
+                car_stats.total_maintenance_cost
+            );
+            println!(
+                "Total Cost: {:.2}",
+                car_stats.total_fuel_cost + car_stats.total_maintenance_cost
+            );
         }
 
         return Ok(());
@@ -66,13 +78,16 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         let fuel_records = store.get_fuel_records(Some(car_name));
         let maintenance_records = store.get_maintenance_records(Some(car_name));
 
-        by_car.insert(car_name.clone(), CarStats {
-            fuel_count: fuel_records.len(),
-            maintenance_count: maintenance_records.len(),
-            total_fuel_cost: store.total_fuel_cost(Some(car_name)),
-            total_maintenance_cost: store.total_maintenance_cost(Some(car_name)),
-            latest_mileage: car.mileage,
-        });
+        by_car.insert(
+            car_name.clone(),
+            CarStats {
+                fuel_count: fuel_records.len(),
+                maintenance_count: maintenance_records.len(),
+                total_fuel_cost: store.total_fuel_cost(Some(car_name)),
+                total_maintenance_cost: store.total_maintenance_cost(Some(car_name)),
+                latest_mileage: car.mileage,
+            },
+        );
     }
 
     let stats = Stats {
@@ -85,29 +100,39 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     };
 
     if output_format == OutputFormat::Json {
-        let by_car_json: BTreeMap<String, serde_json::Value> = stats.by_car
+        let by_car_json: BTreeMap<String, serde_json::Value> = stats
+            .by_car
             .iter()
             .map(|(k, v)| {
-                (k.clone(), serde_json::json!({
-                    "fuel_count": v.fuel_count,
-                    "maintenance_count": v.maintenance_count,
-                    "total_fuel_cost": v.total_fuel_cost,
-                    "total_maintenance_cost": v.total_maintenance_cost,
-                    "total_cost": v.total_fuel_cost + v.total_maintenance_cost,
-                    "latest_mileage": v.latest_mileage
-                }))
+                (
+                    k.clone(),
+                    serde_json::json!({
+                        "fuel_count": v.fuel_count,
+                        "maintenance_count": v.maintenance_count,
+                        "total_fuel_cost": v.total_fuel_cost,
+                        "total_maintenance_cost": v.total_maintenance_cost,
+                        "total_cost": v.total_fuel_cost + v.total_maintenance_cost,
+                        "latest_mileage": v.latest_mileage
+                    }),
+                )
             })
             .collect();
 
-        println!("{}", output_item(&serde_json::json!({
-            "total_cars": stats.total_cars,
-            "total_fuel_records": stats.total_fuel_records,
-            "total_maintenance_records": stats.total_maintenance_records,
-            "total_fuel_cost": stats.total_fuel_cost,
-            "total_maintenance_cost": stats.total_maintenance_cost,
-            "total_cost": stats.total_fuel_cost + stats.total_maintenance_cost,
-            "by_car": by_car_json
-        }), output_format));
+        println!(
+            "{}",
+            output_item(
+                &serde_json::json!({
+                    "total_cars": stats.total_cars,
+                    "total_fuel_records": stats.total_fuel_records,
+                    "total_maintenance_records": stats.total_maintenance_records,
+                    "total_fuel_cost": stats.total_fuel_cost,
+                    "total_maintenance_cost": stats.total_maintenance_cost,
+                    "total_cost": stats.total_fuel_cost + stats.total_maintenance_cost,
+                    "by_car": by_car_json
+                }),
+                output_format
+            )
+        );
     } else {
         println!("{}", format_stats(&stats));
     }

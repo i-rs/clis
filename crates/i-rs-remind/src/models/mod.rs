@@ -39,18 +39,16 @@ impl Remind {
     }
 
     #[allow(dead_code)]
-pub fn is_upcoming(&self, days: i64) -> bool {
+    pub fn is_upcoming(&self, days: i64) -> bool {
         let days_left = self.days_until_event();
         days_left >= 0 && days_left <= days
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RemindStore {
     pub reminds: std::collections::BTreeMap<String, Remind>,
 }
-
 
 #[derive(Tabled)]
 pub struct RemindRow {
@@ -93,9 +91,15 @@ impl RemindRow {
         let (days_str, status) = if remind.is_done {
             ("-".to_string(), "DONE".green().to_string())
         } else if remind.is_past() {
-            (format!("{} days ago", days.abs()), "PAST".dimmed().to_string())
+            (
+                format!("{} days ago", days.abs()),
+                "PAST".dimmed().to_string(),
+            )
         } else if remind.is_today() {
-            ("TODAY!".red().bold().to_string(), "TODAY".red().bold().to_string())
+            (
+                "TODAY!".red().bold().to_string(),
+                "TODAY".red().bold().to_string(),
+            )
         } else if days <= 7 {
             (format!("{days} days"), format!("{}", "SOON".yellow()))
         } else {

@@ -2,9 +2,7 @@ use crate::models::{Contact, ContactStore};
 use anyhow::Result;
 use chrono::Utc;
 
-
 i_rs_core::create_store!(ContactStore, "contact");
-
 
 pub fn add_contact(
     store: &mut ContactStore,
@@ -28,13 +26,14 @@ pub fn add_contact(
         created_at: now,
         updated_at: now,
     };
-    
+
     store.add_entry(contact.clone());
     Ok(contact)
 }
 
 pub fn delete_contact(store: &mut ContactStore, name: &str) -> Result<Contact> {
-    store.remove_entry(name)
+    store
+        .remove_entry(name)
         .ok_or_else(|| anyhow::anyhow!("Contact '{name}' not found"))
 }
 
@@ -47,9 +46,10 @@ pub fn update_contact(
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<Contact> {
-    let contact = store.get_entry_mut(name)
+    let contact = store
+        .get_entry_mut(name)
         .ok_or_else(|| anyhow::anyhow!("Contact '{name}' not found"))?;
-    
+
     if let Some(p) = phone {
         contact.phone = p;
     }
@@ -66,19 +66,20 @@ pub fn update_contact(
         contact.remark = rm;
     }
     contact.updated_at = Utc::now();
-    
+
     Ok(contact.clone())
 }
 
 #[allow(dead_code)]
 pub fn record_contact(store: &mut ContactStore, name: &str) -> Result<Contact> {
-    let contact = store.get_entry_mut(name)
+    let contact = store
+        .get_entry_mut(name)
         .ok_or_else(|| anyhow::anyhow!("Contact '{name}' not found"))?;
-    
+
     let now = Utc::now();
     contact.last_contact = Some(now);
     contact.contact_count += 1;
     contact.updated_at = now;
-    
+
     Ok(contact.clone())
 }

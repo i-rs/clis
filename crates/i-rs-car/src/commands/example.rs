@@ -5,7 +5,8 @@ use clap::Parser;
 pub struct Args {}
 
 pub fn run(_args: &Args) -> Result<()> {
-    println!(r#"
+    println!(
+        r#"
 === i-rs-car Examples ===
 
 # Add a new car
@@ -48,7 +49,8 @@ i-rs-car delete "My Car" --force
 i-rs-car list --json
 i-rs-car get "My Car" --json
 i-rs-car stats --json
-"#);
+"#
+    );
 
     Ok(())
 }

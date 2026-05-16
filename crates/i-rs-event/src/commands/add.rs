@@ -14,7 +14,12 @@ pub struct AddArgs {
     #[arg(short, long, help = "Event date (YYYY-MM-DD or YYYY-MM-DD HH:MM)")]
     pub date: String,
 
-    #[arg(short, long, default_value = "other", help = "Event type (meeting, gathering, course, other)")]
+    #[arg(
+        short,
+        long,
+        default_value = "other",
+        help = "Event type (meeting, gathering, course, other)"
+    )]
     pub event_type: String,
 
     #[arg(short, long, help = "Event location")]
@@ -91,12 +96,7 @@ pub fn run(args: &AddArgs, json: bool) -> Result<()> {
 }
 
 fn parse_date(date_str: &str) -> Result<DateTime<Utc>> {
-    let formats = [
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
-        "%Y/%m/%d %H:%M",
-        "%Y/%m/%d",
-    ];
+    let formats = ["%Y-%m-%d %H:%M", "%Y-%m-%d", "%Y/%m/%d %H:%M", "%Y/%m/%d"];
 
     for fmt in &formats {
         if let Ok(dt) = DateTime::parse_from_str(date_str, fmt) {

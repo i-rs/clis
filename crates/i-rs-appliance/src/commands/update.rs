@@ -2,8 +2,8 @@ use crate::models::MaintenanceRecord;
 use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use i_rs_core::parse_date;
 use chrono::Utc;
+use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 
 #[allow(clippy::too_many_arguments)]
@@ -45,7 +45,10 @@ pub fn handle_update(
             created_at: Utc::now(),
         };
         appliance.maintenance_records.push(record);
-        print_success(&format!("✓ Maintenance record added for '{}'", name.green()));
+        print_success(&format!(
+            "✓ Maintenance record added for '{}'",
+            name.green()
+        ));
     }
 
     appliance.updated_at = Utc::now();
@@ -55,4 +58,3 @@ pub fn handle_update(
 
     Ok(())
 }
-

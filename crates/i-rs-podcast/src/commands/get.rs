@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -6,10 +6,19 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let podcast = if let Some(p) = store.podcasts.get(&name) { p } else {
+    let podcast = if let Some(p) = store.podcasts.get(&name) {
+        p
+    } else {
         if matches!(output_format, OutputFormat::Json) {
-            println!("{}", output_error(&format!("Podcast '{name}' not found"), "NOT_FOUND", output_format));
-        } 
+            println!(
+                "{}",
+                output_error(
+                    &format!("Podcast '{name}' not found"),
+                    "NOT_FOUND",
+                    output_format
+                )
+            );
+        }
         anyhow::bail!("Podcast '{name}' not found");
     };
 
@@ -34,9 +43,21 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
             duration_secs: podcast.duration_secs,
             current_position_secs: podcast.current_position_secs,
             status: podcast.status.to_string(),
-            notes: podcast.notes.iter().map(std::string::String::as_str).collect(),
-            tags: podcast.tags.iter().map(std::string::String::as_str).collect(),
-            remark: podcast.remark.iter().map(std::string::String::as_str).collect(),
+            notes: podcast
+                .notes
+                .iter()
+                .map(std::string::String::as_str)
+                .collect(),
+            tags: podcast
+                .tags
+                .iter()
+                .map(std::string::String::as_str)
+                .collect(),
+            remark: podcast
+                .remark
+                .iter()
+                .map(std::string::String::as_str)
+                .collect(),
             created_at: podcast.created_at.timestamp(),
             updated_at: podcast.updated_at.timestamp(),
         };
@@ -45,7 +66,9 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    let progress = if let (Some(current), Some(total)) = (podcast.current_position_secs, podcast.duration_secs) {
+    let progress = if let (Some(current), Some(total)) =
+        (podcast.current_position_secs, podcast.duration_secs)
+    {
         let percent = if total > 0 {
             (current as f64 / total as f64 * 100.0) as i32
         } else {
@@ -67,15 +90,27 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
     };
 
     println!();
-    println!("{}", "┌──────────────────────────────────────────────".dimmed());
+    println!(
+        "{}",
+        "┌──────────────────────────────────────────────".dimmed()
+    );
     println!("{} {}", "│".dimmed(), podcast.name.bold().cyan());
-    println!("{}", "├──────────────────────────────────────────────".dimmed());
+    println!(
+        "{}",
+        "├──────────────────────────────────────────────".dimmed()
+    );
 
     if let Some(ref author) = podcast.author {
         println!("{} {:12} {}", "│".dimmed(), "Author:".dimmed(), author);
     }
 
-    println!("{} {:12} {} {}", "│".dimmed(), "Status:".dimmed(), status_icon, podcast.status);
+    println!(
+        "{} {:12} {} {}",
+        "│".dimmed(),
+        "Status:".dimmed(),
+        status_icon,
+        podcast.status
+    );
     println!("{} {:12} {}", "│".dimmed(), "Progress:".dimmed(), progress);
 
     if !podcast.tags.is_empty() {
@@ -108,7 +143,10 @@ pub fn handle_get(name: String, output_format: OutputFormat) -> Result<()> {
         podcast.created_at.format("%Y-%m-%d %H:%M")
     );
 
-    println!("{}", "└──────────────────────────────────────────────".dimmed());
+    println!(
+        "{}",
+        "└──────────────────────────────────────────────".dimmed()
+    );
 
     Ok(())
 }

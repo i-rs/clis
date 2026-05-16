@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -9,11 +9,13 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = if let Some(e) = store.get_entry(short_id) { e } else {
+    let entry = if let Some(e) = store.get_entry(short_id) {
+        e
+    } else {
         let msg = format!("Record '{id}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -32,15 +34,45 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     println!("{:16} {}", "Allergen:".style(style), entry.allergen.cyan());
     println!("{:16} {}", "Severity:".style(style), entry.severity.red());
     if !entry.symptoms.is_empty() {
-        println!("{:16} {}", "Symptoms:".style(style), entry.symptoms.iter().map(|t| t.yellow().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Symptoms:".style(style),
+            entry
+                .symptoms
+                .iter()
+                .map(|t| t.yellow().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     if !entry.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), entry.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            entry
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     if !entry.remark.is_empty() {
-        println!("{:16} {}", "Remark:".style(style), entry.remark.join("; ").dimmed());
+        println!(
+            "{:16} {}",
+            "Remark:".style(style),
+            entry.remark.join("; ").dimmed()
+        );
     }
-    println!("{:16} {}", "Time:".style(style), entry.happened_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "{:16} {}",
+        "Time:".style(style),
+        entry
+            .happened_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

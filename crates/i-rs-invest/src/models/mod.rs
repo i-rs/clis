@@ -29,7 +29,9 @@ impl std::str::FromStr for AssetType {
             "stock" => Ok(Self::Stock),
             "fund" => Ok(Self::Fund),
             "crypto" => Ok(Self::Crypto),
-            _ => Err(format!("Invalid asset type: {s}. Use stock, fund, or crypto")),
+            _ => Err(format!(
+                "Invalid asset type: {s}. Use stock, fund, or crypto"
+            )),
         }
     }
 }
@@ -65,20 +67,20 @@ impl Investment {
     }
 
     pub fn profit_loss(&self) -> Option<f64> {
-        self.current_price.map(|price| (price - self.buy_price) * self.quantity)
+        self.current_price
+            .map(|price| (price - self.buy_price) * self.quantity)
     }
 
     pub fn profit_loss_percentage(&self) -> Option<f64> {
-        self.current_price.map(|price| ((price - self.buy_price) / self.buy_price) * 100.0)
+        self.current_price
+            .map(|price| ((price - self.buy_price) / self.buy_price) * 100.0)
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InvestmentStore {
     pub investments: BTreeMap<String, Investment>,
 }
-
 
 #[derive(Tabled)]
 pub struct InvestmentRow {
@@ -112,7 +114,7 @@ impl InvestmentStore {
     }
 
     #[allow(dead_code)]
-pub fn get_entry(&self, key: &str) -> Option<&Investment> {
+    pub fn get_entry(&self, key: &str) -> Option<&Investment> {
         self.investments.get(key)
     }
 
@@ -124,13 +126,16 @@ pub fn get_entry(&self, key: &str) -> Option<&Investment> {
 impl InvestmentRow {
     pub fn from_investment(investment: &Investment) -> Self {
         let profit_loss_pct = investment
-            .profit_loss_percentage().map_or_else(|| "N/A".to_string(), |p| format!("{p:+.2}%"));
+            .profit_loss_percentage()
+            .map_or_else(|| "N/A".to_string(), |p| format!("{p:+.2}%"));
 
         let current_price_str = investment
-            .current_price.map_or_else(|| "N/A".to_string(), |p| format!("{p:.2}"));
+            .current_price
+            .map_or_else(|| "N/A".to_string(), |p| format!("{p:.2}"));
 
         let value_str = investment
-            .current_value().map_or_else(|| "N/A".to_string(), |v| format!("{v:.2}"));
+            .current_value()
+            .map_or_else(|| "N/A".to_string(), |v| format!("{v:.2}"));
 
         Self {
             name: investment.name.clone(),

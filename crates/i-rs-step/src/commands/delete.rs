@@ -1,8 +1,8 @@
 use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use owo_colors::OwoColorize;
 use i_rs_core::parse_date;
+use owo_colors::OwoColorize;
 
 pub fn handle_delete(date: String) -> Result<()> {
     let mut store = storage::load_store()?;
@@ -19,5 +19,3 @@ pub fn handle_delete(date: String) -> Result<()> {
 
     Ok(())
 }
-
-

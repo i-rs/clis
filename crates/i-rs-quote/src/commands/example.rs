@@ -6,9 +6,15 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Quote:".bold().green());
-    println!("  i-rs-quote add --content \"The only way to do great work is to love what you do.\" --author \"Steve Jobs\"");
-    println!("  i-rs-quote add --content \"Quote text\" --author \"Author\" --source \"Book Name\" --tag inspiration --tag life");
-    println!("  i-rs-quote add --content \"Be the change\" --author \"Gandhi\" --source \"Speech\" --tag wisdom --remark \"Great reminder!\")");
+    println!(
+        "  i-rs-quote add --content \"The only way to do great work is to love what you do.\" --author \"Steve Jobs\""
+    );
+    println!(
+        "  i-rs-quote add --content \"Quote text\" --author \"Author\" --source \"Book Name\" --tag inspiration --tag life"
+    );
+    println!(
+        "  i-rs-quote add --content \"Be the change\" --author \"Gandhi\" --source \"Speech\" --tag wisdom --remark \"Great reminder!\")"
+    );
     println!();
 
     println!("{}", "List Quotes:".bold().green());

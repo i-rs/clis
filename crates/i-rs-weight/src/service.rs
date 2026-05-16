@@ -31,7 +31,12 @@ pub fn get_weight(store: &WeightStore, date_str: &str) -> Result<WeightRecord> {
 }
 
 /// Add a weight record.
-pub fn add_weight(store: &mut WeightStore, date_str: String, weight: f64, remark: Vec<String>) -> Result<WeightRecord> {
+pub fn add_weight(
+    store: &mut WeightStore,
+    date_str: String,
+    weight: f64,
+    remark: Vec<String>,
+) -> Result<WeightRecord> {
     let date = parse_date(&date_str)?;
 
     if store.records.contains_key(&date) {
@@ -50,7 +55,12 @@ pub fn add_weight(store: &mut WeightStore, date_str: String, weight: f64, remark
 }
 
 /// Update a weight record.
-pub fn update_weight(store: &mut WeightStore, date_str: String, weight: Option<f64>, remark: Option<Vec<String>>) -> Result<WeightRecord> {
+pub fn update_weight(
+    store: &mut WeightStore,
+    date_str: String,
+    weight: Option<f64>,
+    remark: Option<Vec<String>>,
+) -> Result<WeightRecord> {
     let date = parse_date(&date_str)?;
 
     let record = store

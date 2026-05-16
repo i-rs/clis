@@ -29,7 +29,11 @@ pub fn run_stats(args: StatsArgs) -> Result<()> {
     };
 
     let total: f64 = invoices.iter().map(|inv| inv.amount).sum();
-    let reimbursed: f64 = invoices.iter().filter(|inv| inv.reimbursed).map(|inv| inv.amount).sum();
+    let reimbursed: f64 = invoices
+        .iter()
+        .filter(|inv| inv.reimbursed)
+        .map(|inv| inv.amount)
+        .sum();
     let unreimbursed = total - reimbursed;
     let count = invoices.len();
     let reimbursed_count = invoices.iter().filter(|inv| inv.reimbursed).count();

@@ -5,7 +5,8 @@ use clap::Parser;
 pub struct Args {}
 
 pub fn run(_args: &Args) -> Result<()> {
-    println!(r#"
+    println!(
+        r#"
 === i-rs-debt Examples ===
 
 # Add a credit card debt
@@ -57,7 +58,8 @@ i-rs-debt delete "Old Debt" --force
 i-rs-debt list --json
 i-rs-debt get "Credit Card A" --json
 i-rs-debt stats --json
-"#);
+"#
+    );
 
     Ok(())
 }

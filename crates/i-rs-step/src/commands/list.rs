@@ -1,5 +1,7 @@
 use crate::models::{ListItem, StepRow, Summary};
-use crate::presentation::{format_table, print_entry_count, print_header, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_entry_count, print_header, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -23,7 +25,11 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
     println!();
     print_header("Summary");
     println!();
-    println!("  {:12} {} steps", "Total:".cyan(), summary.total_steps.to_string().green());
+    println!(
+        "  {:12} {} steps",
+        "Total:".cyan(),
+        summary.total_steps.to_string().green()
+    );
     if let Some(dist) = summary.total_distance {
         println!("  {:12} {:.1} km", "Distance:".cyan(), dist);
     }

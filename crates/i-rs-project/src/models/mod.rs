@@ -5,7 +5,7 @@ use tabled::Tabled;
 pub mod opt_ts_seconds {
     use chrono::{DateTime, Utc};
     use serde::{Deserialize, Deserializer, Serializer};
-    
+
     pub fn serialize<S>(dt: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -15,7 +15,7 @@ pub mod opt_ts_seconds {
             None => serializer.serialize_none(),
         }
     }
-    
+
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
     where
         D: Deserializer<'de>,
@@ -81,7 +81,6 @@ pub enum ProjectStatus {
     Cancelled,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
@@ -93,14 +92,11 @@ pub enum Priority {
     Urgent,
 }
 
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectStore {
     #[serde(default)]
     pub projects: Vec<Project>,
 }
-
 
 impl ProjectStore {
     pub fn add_entry(&mut self, entry: Project) {
@@ -108,19 +104,25 @@ impl ProjectStore {
     }
 
     pub fn remove_entry(&mut self, name: &str) -> Option<Project> {
-        let idx = self.projects.iter().position(|p| p.name.eq_ignore_ascii_case(name))?;
+        let idx = self
+            .projects
+            .iter()
+            .position(|p| p.name.eq_ignore_ascii_case(name))?;
         Some(self.projects.remove(idx))
     }
 
     pub fn get_entry(&self, name: &str) -> Option<&Project> {
-        self.projects.iter().find(|p| p.name.eq_ignore_ascii_case(name))
+        self.projects
+            .iter()
+            .find(|p| p.name.eq_ignore_ascii_case(name))
     }
 
     pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut Project> {
-        self.projects.iter_mut().find(|p| p.name.eq_ignore_ascii_case(name))
+        self.projects
+            .iter_mut()
+            .find(|p| p.name.eq_ignore_ascii_case(name))
     }
 }
-
 
 #[derive(Debug, Clone, Tabled)]
 pub struct ProjectRow {
@@ -144,7 +146,7 @@ impl ProjectRow {
         let total_milestones = project.milestones.len();
         let completed_tasks = project.tasks.iter().filter(|t| t.completed).count();
         let total_tasks = project.tasks.len();
-        
+
         let progress = if total_tasks > 0 {
             format!("{completed_tasks}/{total_tasks}")
         } else if total_milestones > 0 {

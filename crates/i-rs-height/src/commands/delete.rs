@@ -19,4 +19,3 @@ pub fn handle_delete(date: String) -> Result<()> {
 
     Ok(())
 }
-

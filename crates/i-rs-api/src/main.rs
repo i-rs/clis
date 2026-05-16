@@ -4,10 +4,8 @@ mod routes;
 mod store;
 mod update;
 
-use axum::{
-    http::{Method, header},
-};
-use tower_http::cors::{CorsLayer, Any};
+use axum::http::{Method, header};
+use tower_http::cors::{Any, CorsLayer};
 
 use store::SharedStore;
 
@@ -213,10 +211,9 @@ async fn shutdown_signal() {
 
     #[cfg(unix)]
     {
-        let mut terminate = tokio::signal::unix::signal(
-            tokio::signal::unix::SignalKind::terminate(),
-        )
-        .expect("failed to install SIGTERM handler");
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to install SIGTERM handler");
 
         tokio::select! {
             _ = ctrl_c => {},
@@ -234,16 +231,18 @@ async fn shutdown_signal() {
 mod tests {
     use super::*;
     use axum::{
+        Router,
         body::Body,
         http::{Request, StatusCode},
-        Router,
     };
     use tower::ServiceExt;
 
     fn test_state() -> std::sync::Arc<AppState> {
         let tmp = std::env::temp_dir().join(format!("i-rs-api-test-{}", std::process::id()));
         // SAFETY: test-only, single-threaded at startup
-        unsafe { std::env::set_var("CONFIG_DIR", tmp.to_str().unwrap()); }
+        unsafe {
+            std::env::set_var("CONFIG_DIR", tmp.to_str().unwrap());
+        }
         load_state()
     }
 
@@ -265,7 +264,9 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["success"], true);
@@ -280,7 +281,12 @@ mod tests {
         // GET /api/ac — empty list
         let res = app
             .clone()
-            .oneshot(Request::builder().uri("/api/ac").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/ac")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
@@ -302,7 +308,9 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["success"], true);
@@ -323,7 +331,8 @@ mod tests {
                             "category": "food",
                             "amount": 500.0,
                             "period": "monthly"
-                        }).to_string(),
+                        })
+                        .to_string(),
                     ))
                     .unwrap(),
             )
@@ -331,7 +340,9 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["success"], true);
@@ -347,16 +358,16 @@ mod tests {
                     .method("POST")
                     .uri("/api/weight")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::json!({"weight": 75.5}).to_string(),
-                    ))
+                    .body(Body::from(serde_json::json!({"weight": 75.5}).to_string()))
                     .unwrap(),
             )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["success"], true);
@@ -420,12 +431,19 @@ mod tests {
     async fn test_data_export() {
         let app = test_app();
         let res = app
-            .oneshot(Request::builder().uri("/api/ac/data/export").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/ac/data/export")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["success"], true);
@@ -473,7 +491,9 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         let ac_id = body["data"]["id"].as_str().unwrap().to_string();
@@ -495,11 +515,16 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["data"]["location"], "living_room");
-        assert_eq!(body["data"]["tags"], serde_json::json!(["initial", "updated"]));
+        assert_eq!(
+            body["data"]["tags"],
+            serde_json::json!(["initial", "updated"])
+        );
         assert_eq!(body["data"]["remark"], serde_json::json!(["first"]));
     }
 
@@ -541,7 +566,9 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         let ac_id = body["data"]["id"].as_str().unwrap().to_string();
@@ -554,16 +581,16 @@ mod tests {
                     .method("PATCH")
                     .uri(format!("/api/ac/{}", ac_id))
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::json!({"remark": null}).to_string(),
-                    ))
+                    .body(Body::from(serde_json::json!({"remark": null}).to_string()))
                     .unwrap(),
             )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["data"]["remark"], serde_json::json!([]));
@@ -598,16 +625,16 @@ mod tests {
                     .method("PATCH")
                     .uri("/api/weight/2024-06-15")
                     .header("content-type", "application/json")
-                    .body(Body::from(
-                        serde_json::json!({"weight": 71.5}).to_string(),
-                    ))
+                    .body(Body::from(serde_json::json!({"weight": 71.5}).to_string()))
                     .unwrap(),
             )
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert!((body["data"]["weight"].as_f64().unwrap() - 71.5).abs() < f64::EPSILON);
@@ -649,7 +676,8 @@ mod tests {
                             "species": "Aloe vera",
                             "location": "window",
                             "watering_interval_days": 7
-                        }).to_string(),
+                        })
+                        .to_string(),
                     ))
                     .unwrap(),
             )
@@ -674,7 +702,9 @@ mod tests {
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = serde_json::from_slice(
-            &axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap(),
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(body["data"]["location"], "balcony");

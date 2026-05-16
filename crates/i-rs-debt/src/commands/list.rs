@@ -1,5 +1,5 @@
 use crate::models::Debt;
-use crate::presentation::{format_debt_table, output_list, print_debt_count, OutputFormat};
+use crate::presentation::{OutputFormat, format_debt_table, output_list, print_debt_count};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -20,7 +20,11 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut debts: Vec<&Debt> = storage::list_entries(&store);
 
     if let Some(tag) = &args.tag {
-        debts.retain(|d| d.tags.iter().any(|t| t.to_lowercase() == tag.to_lowercase()));
+        debts.retain(|d| {
+            d.tags
+                .iter()
+                .any(|t| t.to_lowercase() == tag.to_lowercase())
+        });
     }
 
     if args.overdue {
@@ -35,7 +39,10 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if debts.is_empty() {
         if output_format == OutputFormat::Json {
-            println!("{}", output_list::<Value>(&[], 0, args.tag.as_deref(), output_format));
+            println!(
+                "{}",
+                output_list::<Value>(&[], 0, args.tag.as_deref(), output_format)
+            );
         } else {
             println!("No debts found.");
         }
@@ -43,19 +50,25 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     }
 
     if output_format == OutputFormat::Json {
-        let data: Vec<_> = debts.iter().map(|d| {
-            serde_json::json!({
-                "name": d.name,
-                "debt_type": format!("{:?}", d.debt_type),
-                "total_amount": d.total_amount,
-                "paid_amount": d.paid_amount(),
-                "remaining": d.remaining,
-                "progress": format!("{:.1}%", d.progress_percentage()),
-                "is_overdue": d.is_overdue(),
-                "tags": d.tags
+        let data: Vec<_> = debts
+            .iter()
+            .map(|d| {
+                serde_json::json!({
+                    "name": d.name,
+                    "debt_type": format!("{:?}", d.debt_type),
+                    "total_amount": d.total_amount,
+                    "paid_amount": d.paid_amount(),
+                    "remaining": d.remaining,
+                    "progress": format!("{:.1}%", d.progress_percentage()),
+                    "is_overdue": d.is_overdue(),
+                    "tags": d.tags
+                })
             })
-        }).collect();
-        println!("{}", output_list(&data, debts.len(), args.tag.as_deref(), output_format));
+            .collect();
+        println!(
+            "{}",
+            output_list(&data, debts.len(), args.tag.as_deref(), output_format)
+        );
     } else {
         let table = format_debt_table(&debts);
         if !table.is_empty() {

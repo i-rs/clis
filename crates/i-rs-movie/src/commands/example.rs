@@ -11,7 +11,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Watched Movie with Rating:".bold().green());
-    println!("  i-rs-movie add \"Interstellar\" --year 2014 --director \"Nolan\" --watched --rating 9.5");
+    println!(
+        "  i-rs-movie add \"Interstellar\" --year 2014 --director \"Nolan\" --watched --rating 9.5"
+    );
     println!();
 
     println!("{}", "List Movies:".bold().green());

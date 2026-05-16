@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Word:".bold().green());
-    println!("  i-rs-vocab add hello \"greeting; hello world\" --tag basic --example \"Hello, how are you?\"");
+    println!(
+        "  i-rs-vocab add hello \"greeting; hello world\" --tag basic --example \"Hello, how are you?\""
+    );
     println!("  i-rs-vocab add \"ephemeral\" \"lasting for a very short time\" --tag advanced");
     println!();
 

@@ -1,16 +1,17 @@
 use crate::models::{HeightRecord, HeightRow};
+pub use i_rs_core::presentation::output::{output_item, output_list};
+pub use i_rs_core::presentation::{OutputFormat, print_error, print_success, print_warning};
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_error, print_success, print_warning, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item};
 pub fn format_table(records: &[&HeightRecord]) -> String {
-    let rows: Vec<HeightRow> = records
-        .iter()
-        .map(|r| HeightRow::from_record(r))
-        .collect();
+    let rows: Vec<HeightRow> = records.iter().map(|r| HeightRow::from_record(r)).collect();
     i_rs_core::render_table(&rows)
 }
 pub fn print_record_count(count: usize) {
-    println!("\n{} {} records", "Total:".dimmed(), count.to_string().cyan());
+    println!(
+        "\n{} {} records",
+        "Total:".dimmed(),
+        count.to_string().cyan()
+    );
 }
 pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
     if records.is_empty() {
@@ -46,7 +47,12 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
         }
     };
     let mut chart: Vec<Vec<String>> = (0..=chart_height)
-        .map(|_| vec![' '; records.len()].into_iter().map(|c| c.to_string()).collect())
+        .map(|_| {
+            vec![' '; records.len()]
+                .into_iter()
+                .map(|c| c.to_string())
+                .collect()
+        })
         .collect();
     for (i, &h) in heights.iter().enumerate() {
         let y = chart_height - 1 - scale(h);
@@ -85,9 +91,21 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
         println!("{} {}", label.dimmed(), line);
     }
     if !records.is_empty() {
-        let first_date = records.first().expect("records.is_empty() checked above").date.format("%m-%d").to_string();
-        let last_date = records.last().expect("records.is_empty() checked above").date.format("%m-%d").to_string();
-        let padding = records.len().saturating_sub(first_date.len() + last_date.len() + 2);
+        let first_date = records
+            .first()
+            .expect("records.is_empty() checked above")
+            .date
+            .format("%m-%d")
+            .to_string();
+        let last_date = records
+            .last()
+            .expect("records.is_empty() checked above")
+            .date
+            .format("%m-%d")
+            .to_string();
+        let padding = records
+            .len()
+            .saturating_sub(first_date.len() + last_date.len() + 2);
         println!(
             "{}{}{}",
             first_date.dimmed(),
@@ -97,25 +115,22 @@ pub fn print_height_chart(records: &[&HeightRecord], days: Option<usize>) {
     }
     println!("\n  {} → {}", "Start".dimmed(), "End".dimmed());
     if let Some(first) = records.first()
-        && let Some(last) = records.last() {
-            let change = last.height_cm - first.height_cm;
-            let sign = if change >= 0.0 { "+" } else { "" };
-            let direction = if change > 0.0 {
-                "↑".green().to_string()
-            } else if change < 0.0 {
-                "↓".red().to_string()
-            } else {
-                "→".dimmed().to_string()
-            };
-            println!(
-                "  {:.1} → {:.1} ({}{:.1} cm {})",
-                first.height_cm,
-                last.height_cm,
-                sign,
-                change,
-                direction
-            );
-        }
+        && let Some(last) = records.last()
+    {
+        let change = last.height_cm - first.height_cm;
+        let sign = if change >= 0.0 { "+" } else { "" };
+        let direction = if change > 0.0 {
+            "↑".green().to_string()
+        } else if change < 0.0 {
+            "↓".red().to_string()
+        } else {
+            "→".dimmed().to_string()
+        };
+        println!(
+            "  {:.1} → {:.1} ({}{:.1} cm {})",
+            first.height_cm, last.height_cm, sign, change, direction
+        );
+    }
 }
 pub fn print_stats(records: &[&HeightRecord], store: &crate::models::HeightStore) {
     if records.is_empty() {
@@ -126,7 +141,16 @@ pub fn print_stats(records: &[&HeightRecord], store: &crate::models::HeightStore
     let max = heights.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let avg = heights.iter().sum::<f64>() / heights.len() as f64;
     let change = if records.len() >= 2 {
-        Some(records.last().expect("records.len() >= 2 checked above").height_cm - records.first().expect("records.len() >= 2 checked above").height_cm)
+        Some(
+            records
+                .last()
+                .expect("records.len() >= 2 checked above")
+                .height_cm
+                - records
+                    .first()
+                    .expect("records.len() >= 2 checked above")
+                    .height_cm,
+        )
     } else {
         None
     };
@@ -139,10 +163,11 @@ pub fn print_stats(records: &[&HeightRecord], store: &crate::models::HeightStore
         println!("  {:12} {}{:.1} cm", "Change:".dimmed(), sign, change);
     }
     if let Some(target) = store.get_target()
-        && let Some(last) = records.last() {
-            let diff = target - last.height_cm;
-            let sign = if diff >= 0.0 { "+" } else { "" };
-            println!("  {:12} {:.1} cm", "Target:".dimmed(), target);
-            println!("  {:12} {}{:.1} cm to target", "Gap:".dimmed(), sign, diff);
-        }
+        && let Some(last) = records.last()
+    {
+        let diff = target - last.height_cm;
+        let sign = if diff >= 0.0 { "+" } else { "" };
+        println!("  {:12} {:.1} cm", "Target:".dimmed(), target);
+        println!("  {:12} {}{:.1} cm to target", "Gap:".dimmed(), sign, diff);
+    }
 }

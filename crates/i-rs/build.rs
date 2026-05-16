@@ -8,10 +8,10 @@ fn main() {
         .join("../../Cargo.toml")
         .canonicalize()
         .expect("Failed to canonicalize workspace Cargo.toml path");
-    let workspace_content = fs::read_to_string(&workspace_toml_path)
-        .expect("Failed to read workspace Cargo.toml");
-    let workspace_toml: toml::Value = toml::from_str(&workspace_content)
-        .expect("Failed to parse workspace Cargo.toml");
+    let workspace_content =
+        fs::read_to_string(&workspace_toml_path).expect("Failed to read workspace Cargo.toml");
+    let workspace_toml: toml::Value =
+        toml::from_str(&workspace_content).expect("Failed to parse workspace Cargo.toml");
 
     let members = workspace_toml["workspace"]["members"]
         .as_array()
@@ -33,9 +33,7 @@ fn main() {
             let crate_toml_path = workspace_root.join(member_str).join("Cargo.toml");
             let description = fs::read_to_string(&crate_toml_path)
                 .ok()
-                .and_then(|content| {
-                    toml::from_str::<toml::Value>(&content).ok()
-                })
+                .and_then(|content| toml::from_str::<toml::Value>(&content).ok())
                 .and_then(|toml| {
                     toml.get("package")?
                         .get("description")?

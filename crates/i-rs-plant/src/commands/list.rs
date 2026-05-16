@@ -1,16 +1,15 @@
 use crate::models::Plant;
-use crate::presentation::{format_table, print_plant_count, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, print_plant_count};
 use crate::storage;
 use anyhow::Result;
 
-pub fn list_plants(
-    tag_filter: Option<String>,
-    output_format: OutputFormat,
-) -> Result<()> {
+pub fn list_plants(tag_filter: Option<String>, output_format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
     let plants: Vec<&Plant> = if let Some(ref tag) = tag_filter {
-        store.plants.iter()
+        store
+            .plants
+            .iter()
             .filter(|p| p.tags.iter().any(|t| t == tag))
             .collect()
     } else {
@@ -21,7 +20,8 @@ pub fn list_plants(
 
     match output_format {
         OutputFormat::Json => {
-            let json_data: Vec<serde_json::Value> = plants.iter()
+            let json_data: Vec<serde_json::Value> = plants
+                .iter()
                 .map(|p| {
                     serde_json::json!({
                         "name": p.name,
@@ -36,7 +36,15 @@ pub fn list_plants(
                     })
                 })
                 .collect();
-            println!("{}", crate::presentation::output_list(&json_data, store.plants.len(), tag_filter.as_deref(), output_format));
+            println!(
+                "{}",
+                crate::presentation::output_list(
+                    &json_data,
+                    store.plants.len(),
+                    tag_filter.as_deref(),
+                    output_format
+                )
+            );
         }
         OutputFormat::Table | OutputFormat::Default => {
             if plant_refs.is_empty() {

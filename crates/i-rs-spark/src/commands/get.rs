@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -9,11 +9,13 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
 
     let short_id = if id.len() >= 8 { &id[..8] } else { &id };
 
-    let entry = if let Some(e) = store.get_entry(short_id) { e } else {
+    let entry = if let Some(e) = store.get_entry(short_id) {
+        e
+    } else {
         let msg = format!("Spark '{id}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -34,12 +36,33 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         println!("{:16} {}", "Source:".style(style), source.yellow());
     }
     if !entry.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), entry.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            entry
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     if !entry.remark.is_empty() {
-        println!("{:16} {}", "Remark:".style(style), entry.remark.join("; ").dimmed());
+        println!(
+            "{:16} {}",
+            "Remark:".style(style),
+            entry.remark.join("; ").dimmed()
+        );
     }
-    println!("{:16} {}", "Created:".style(style), entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "{:16} {}",
+        "Created:".style(style),
+        entry
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

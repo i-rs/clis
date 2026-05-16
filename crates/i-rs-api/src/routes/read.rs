@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_read(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.read.write(|store| -> Result<_, ApiError> {
-        let entry = store.books.get_mut(&id)
+        let entry = store
+            .books
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Read '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -43,9 +41,7 @@ pub struct AddReadRequest {
     pub total_pages: u32,
 }
 
-async fn list_reads(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_reads(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.read.read(|store| {
         let entries: Vec<_> = store.books.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -72,7 +68,11 @@ async fn get_read(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.read.read(|store| {
-        store.books.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Read '{id}' not found")))
+        store
+            .books
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Read '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

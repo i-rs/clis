@@ -1,4 +1,4 @@
-use crate::presentation::{print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, print_warning};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -20,12 +20,20 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
     let mut type_count: HashMap<String, usize> = HashMap::new();
 
     for record in store.get_all_records() {
-        *type_duration.entry(record.exercise_type.clone()).or_insert(0) += u64::from(record.duration_minutes);
+        *type_duration
+            .entry(record.exercise_type.clone())
+            .or_insert(0) += u64::from(record.duration_minutes);
         *type_count.entry(record.exercise_type.clone()).or_insert(0) += 1;
     }
 
-    let most_common_type = type_count.iter().max_by_key(|&(_, count)| *count).map(|(t, _)| t.clone());
-    let longest_type = type_duration.iter().max_by_key(|&(_, dur)| *dur).map(|(t, _)| t.clone());
+    let most_common_type = type_count
+        .iter()
+        .max_by_key(|&(_, count)| *count)
+        .map(|(t, _)| t.clone());
+    let longest_type = type_duration
+        .iter()
+        .max_by_key(|&(_, dur)| *dur)
+        .map(|(t, _)| t.clone());
 
     if format.is_json() {
         let stats_json = serde_json::json!({
@@ -54,10 +62,26 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
     println!("{}", "Exercise Statistics".bold().cyan());
     println!("{}", "─".repeat(40).dimmed());
     println!();
-    println!("  {:20} {}", "Total Records:".dimmed(), records_count.cyan());
-    println!("  {:20} {} min", "Total Duration:".dimmed(), total_duration.to_string().cyan());
-    println!("  {:20} {} kcal", "Total Calories:".dimmed(), total_calories.to_string().cyan());
-    println!("  {:20} {}", "Exercise Types:".dimmed(), type_count.len().to_string().cyan());
+    println!(
+        "  {:20} {}",
+        "Total Records:".dimmed(),
+        records_count.cyan()
+    );
+    println!(
+        "  {:20} {} min",
+        "Total Duration:".dimmed(),
+        total_duration.to_string().cyan()
+    );
+    println!(
+        "  {:20} {} kcal",
+        "Total Calories:".dimmed(),
+        total_calories.to_string().cyan()
+    );
+    println!(
+        "  {:20} {}",
+        "Exercise Types:".dimmed(),
+        type_count.len().to_string().cyan()
+    );
     if let Some(ref t) = most_common_type {
         println!("  {:20} {}", "Most Common:".dimmed(), t.cyan());
     }
@@ -74,12 +98,18 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
 
         for (exercise_type, &duration) in sorted_types {
             let count = type_count.get(exercise_type).unwrap_or(&0);
-            let avg = if *count > 0 { duration as f64 / *count as f64 } else { 0.0 };
-            println!("  {:15} {} records  {:>6} min  (avg {:.1} min)", 
-                     exercise_type.dimmed(), 
-                     count.to_string().yellow(), 
-                     duration.to_string().cyan(),
-                     format!("{avg:.1}").dimmed());
+            let avg = if *count > 0 {
+                duration as f64 / *count as f64
+            } else {
+                0.0
+            };
+            println!(
+                "  {:15} {} records  {:>6} min  (avg {:.1} min)",
+                exercise_type.dimmed(),
+                count.to_string().yellow(),
+                duration.to_string().cyan(),
+                format!("{avg:.1}").dimmed()
+            );
         }
     }
 

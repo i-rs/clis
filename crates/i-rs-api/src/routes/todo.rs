@@ -1,15 +1,14 @@
 use axum::{
-    Router,
-    routing::{get, post, patch, delete},
+    Json, Router,
     extract::{Path, Query, State},
-    Json,
+    routing::{delete, get, patch, post},
 };
 use serde::Deserialize;
 use std::sync::Arc;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct AddTodoRequest {
@@ -52,7 +51,8 @@ async fn list_todos(
     let pending = params.pending.unwrap_or(false);
     let done = params.done.unwrap_or(false);
     let records = state.todo.read(|store| {
-        i_rs_todo::service::list_todos(store, pending, done, params.tag.clone()).map_err(ApiError::from)
+        i_rs_todo::service::list_todos(store, pending, done, params.tag.clone())
+            .map_err(ApiError::from)
     })?;
     Ok(ok_json_list(records))
 }
@@ -67,7 +67,8 @@ async fn add_todo(
     let tag = req.tag.unwrap_or_default();
     let content = req.content.unwrap_or_default();
     let record = state.todo.write(|store| {
-        i_rs_todo::service::add_todo(store, name, title, priority, tag, content).map_err(ApiError::from)
+        i_rs_todo::service::add_todo(store, name, title, priority, tag, content)
+            .map_err(ApiError::from)
     })?;
     Ok(ok_json(record))
 }
@@ -76,9 +77,9 @@ async fn get_todo(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let todo = state.todo.read(|store| {
-        i_rs_todo::service::get_todo(store, &name).map_err(ApiError::from)
-    })?;
+    let todo = state
+        .todo
+        .read(|store| i_rs_todo::service::get_todo(store, &name).map_err(ApiError::from))?;
     Ok(ok_json(todo))
 }
 
@@ -88,7 +89,8 @@ async fn update_todo(
     Json(req): Json<UpdateTodoRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let todo = state.todo.write(|store| {
-        i_rs_todo::service::update_todo(store, name, req.title, req.priority, req.tag, req.content).map_err(ApiError::from)
+        i_rs_todo::service::update_todo(store, name, req.title, req.priority, req.tag, req.content)
+            .map_err(ApiError::from)
     })?;
     Ok(ok_json(todo))
 }
@@ -107,8 +109,8 @@ async fn delete_todo(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    state.todo.write(|store| {
-        i_rs_todo::service::delete_todo(store, &name).map_err(ApiError::from)
-    })?;
+    state
+        .todo
+        .write(|store| i_rs_todo::service::delete_todo(store, &name).map_err(ApiError::from))?;
     Ok(ok_json_message())
 }

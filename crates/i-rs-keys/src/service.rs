@@ -26,8 +26,14 @@ pub fn get_key(store: &KeyStore, name: &str) -> Result<KeyEntry> {
 }
 
 /// Add a new key entry. Stores the actual key value in OS keychain.
-pub fn add_key(store: &mut KeyStore, name: String, key_type: String, key_value: String, tags: Vec<String>, remark: Vec<String>) -> Result<KeyEntry> {
-
+pub fn add_key(
+    store: &mut KeyStore,
+    name: String,
+    key_type: String,
+    key_value: String,
+    tags: Vec<String>,
+    remark: Vec<String>,
+) -> Result<KeyEntry> {
     if store.entries.contains_key(&name) {
         anyhow::bail!("Key '{name}' already exists");
     }
@@ -58,7 +64,6 @@ pub fn update_key(
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<KeyEntry> {
-
     let entry = store
         .get_entry_mut(&name)
         .with_context(|| format!("Key '{name}' not found"))?;

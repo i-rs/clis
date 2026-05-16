@@ -1,5 +1,9 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_milestone, handle_skill, handle_stats, handle_task, handle_update, parse_skill_arg, milestone::MilestoneCommand, task::TaskCommand};
+use commands::{
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_milestone,
+    handle_skill, handle_stats, handle_task, handle_update, milestone::MilestoneCommand,
+    parse_skill_arg, task::TaskCommand,
+};
 use presentation::OutputFormat;
 
 mod commands;
@@ -76,8 +80,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -93,7 +97,14 @@ fn main() {
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
-        Commands::Add { name, description, status, priority, tag, remark } => {
+        Commands::Add {
+            name,
+            description,
+            status,
+            priority,
+            tag,
+            remark,
+        } => {
             handle_add(name, description, status, priority, tag, remark)?;
         }
         Commands::Delete { name } => {
@@ -105,7 +116,14 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::List { tag, status } => {
             handle_list(tag, status, format)?;
         }
-        Commands::Update { name, description, status, priority, tag, remark } => {
+        Commands::Update {
+            name,
+            description,
+            status,
+            priority,
+            tag,
+            remark,
+        } => {
             handle_update(name, description, status, priority, tag, remark)?;
         }
         Commands::Stats {} => {
@@ -123,7 +141,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

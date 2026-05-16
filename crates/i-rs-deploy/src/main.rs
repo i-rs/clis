@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_rollback, handle_skill, handle_stats, handle_update, parse_skill_arg};
+use commands::{
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_rollback,
+    handle_skill, handle_stats, handle_update, parse_skill_arg,
+};
 use models::DeployStatus;
 use presentation::OutputFormat;
 
@@ -82,8 +85,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -99,8 +102,24 @@ fn main() {
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
-        Commands::Add { project, environment, version, status, rollback_from, tag, remark } => {
-            handle_add(project, environment, version, status, rollback_from, tag, remark)?;
+        Commands::Add {
+            project,
+            environment,
+            version,
+            status,
+            rollback_from,
+            tag,
+            remark,
+        } => {
+            handle_add(
+                project,
+                environment,
+                version,
+                status,
+                rollback_from,
+                tag,
+                remark,
+            )?;
         }
         Commands::Delete { id } => {
             handle_delete(id)?;
@@ -111,10 +130,19 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Get { id } => {
             handle_get(id, format)?;
         }
-        Commands::Update { id, status, tag, remark } => {
+        Commands::Update {
+            id,
+            status,
+            tag,
+            remark,
+        } => {
             handle_update(id, status, tag, remark)?;
         }
-        Commands::Rollback { project, environment, rollback_to } => {
+        Commands::Rollback {
+            project,
+            environment,
+            rollback_to,
+        } => {
             handle_rollback(project, environment, rollback_to)?;
         }
         Commands::Stats { project, env } => {
@@ -126,7 +154,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

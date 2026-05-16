@@ -19,20 +19,33 @@ pub struct FastEntry {
 }
 
 impl FastEntry {
-    pub fn new(start_time: DateTime<Utc>, end_time: Option<DateTime<Utc>>, target_hours: i32, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        start_time: DateTime<Utc>,
+        end_time: Option<DateTime<Utc>>,
+        target_hours: i32,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         let actual_hours = end_time.map(|end| (end - start_time).num_hours() as i32);
-        Self { id, start_time, end_time, target_hours, actual_hours, tags, remark, created_at: now }
+        Self {
+            id,
+            start_time,
+            end_time,
+            target_hours,
+            actual_hours,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FastStore {
     pub entries: BTreeMap<String, FastEntry>,
 }
-
 
 impl FastStore {
     pub fn add_entry(&mut self, entry: FastEntry) {
@@ -62,8 +75,14 @@ pub struct FastRow {
 
 impl FastRow {
     pub fn from_entry(entry: &FastEntry) -> Self {
-        let actual_str = entry.actual_hours.map_or_else(|| "-".to_string(), |h| format!("{h}h"));
-        let status = if entry.end_time.is_some() { "DONE" } else { "ACTIVE" };
+        let actual_str = entry
+            .actual_hours
+            .map_or_else(|| "-".to_string(), |h| format!("{h}h"));
+        let status = if entry.end_time.is_some() {
+            "DONE"
+        } else {
+            "ACTIVE"
+        };
         Self {
             id: entry.id[..8].to_string(),
             start_time: entry.start_time.format("%Y-%m-%d %H:%M").to_string(),
@@ -90,7 +109,9 @@ impl From<&FastEntry> for ListItem {
         Self {
             id: entry.id.clone(),
             start_time: entry.start_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-            end_time: entry.end_time.map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
+            end_time: entry
+                .end_time
+                .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
             target_hours: entry.target_hours,
             actual_hours: entry.actual_hours,
             tags: entry.tags.clone(),

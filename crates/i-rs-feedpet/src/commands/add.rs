@@ -13,12 +13,23 @@ pub fn handle_add(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let entry = FeedpetEntry::new(pet_name.clone(), food_type.clone(), amount.clone(), tag, remark);
+    let entry = FeedpetEntry::new(
+        pet_name.clone(),
+        food_type.clone(),
+        amount.clone(),
+        tag,
+        remark,
+    );
 
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Fed {} with {} ({})", pet_name.green(), food_type.cyan(), amount.yellow()));
+    print_success(&format!(
+        "✓ Fed {} with {} ({})",
+        pet_name.green(),
+        food_type.cyan(),
+        amount.yellow()
+    ));
 
     Ok(())
 }

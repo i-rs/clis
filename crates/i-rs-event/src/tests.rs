@@ -16,5 +16,4 @@ mod tests {
         let cmd = Commands::Data(commands::data::DataCommand::Export);
         assert!(run(cmd, false).is_ok());
     }
-
 }

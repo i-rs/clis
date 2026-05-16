@@ -5,7 +5,8 @@ use clap::Args;
 pub struct ExampleArgs {}
 
 pub fn example(_args: ExampleArgs) -> Result<()> {
-    println!(r#"
+    println!(
+        r#"
 📚 i-rs-read Examples
 
 1. Add a new book:
@@ -51,7 +52,8 @@ pub fn example(_args: ExampleArgs) -> Result<()> {
     i-rs-read list --json
     i-rs-read get "Book Title" --json
 
-"#);
+"#
+    );
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 

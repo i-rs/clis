@@ -2,8 +2,8 @@ use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
-use owo_colors::OwoColorize;
 use i_rs_core::parse_datetime;
+use owo_colors::OwoColorize;
 
 pub fn handle_update(
     name: String,
@@ -29,11 +29,20 @@ pub fn handle_update(
         let replace_date = entity.purchase_date + chrono::Duration::days(cycle);
         let days_until = (replace_date - Utc::now()).num_days();
         if days_until < 0 {
-            println!("  {}", format!("(expired {} days ago)", days_until.abs()).red());
+            println!(
+                "  {}",
+                format!("(expired {} days ago)", days_until.abs()).red()
+            );
         } else if days_until <= 7 {
-            println!("  {}", format!("({days_until} days until replacement)").yellow());
+            println!(
+                "  {}",
+                format!("({days_until} days until replacement)").yellow()
+            );
         } else {
-            println!("  {}", format!("({days_until} days until replacement)").green());
+            println!(
+                "  {}",
+                format!("({days_until} days until replacement)").green()
+            );
         }
     }
 
@@ -42,7 +51,15 @@ pub fn handle_update(
         if let Some(cycle) = entity.cycle_days {
             let replace_date = entity.purchase_date + chrono::Duration::days(cycle);
             let days_until = (replace_date - Utc::now()).num_days();
-            println!("  {}", format!("New replace date: {}, {} days", replace_date.format("%Y-%m-%d"), days_until).cyan());
+            println!(
+                "  {}",
+                format!(
+                    "New replace date: {}, {} days",
+                    replace_date.format("%Y-%m-%d"),
+                    days_until
+                )
+                .cyan()
+            );
         }
     }
 
@@ -57,5 +74,3 @@ pub fn handle_update(
 
     Ok(())
 }
-
-

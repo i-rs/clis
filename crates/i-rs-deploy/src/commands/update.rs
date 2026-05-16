@@ -25,6 +25,9 @@ pub fn handle_update(
     entry.updated_at = Utc::now();
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Deploy entry '{}' updated successfully", id.green()));
+    print_success(&format!(
+        "✓ Deploy entry '{}' updated successfully",
+        id.green()
+    ));
     Ok(())
 }

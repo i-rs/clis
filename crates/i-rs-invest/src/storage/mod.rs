@@ -2,7 +2,10 @@ use crate::models::{AssetType, Investment, InvestmentStore};
 
 i_rs_core::create_store!(InvestmentStore, "invest");
 
-pub fn filter_by_type<'a>(store: &'a InvestmentStore, asset_type: Option<&AssetType>) -> Vec<&'a Investment> {
+pub fn filter_by_type<'a>(
+    store: &'a InvestmentStore,
+    asset_type: Option<&AssetType>,
+) -> Vec<&'a Investment> {
     if let Some(asset_type) = asset_type {
         store
             .investments

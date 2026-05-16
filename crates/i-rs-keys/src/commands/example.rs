@@ -5,10 +5,19 @@ pub fn handle_example() {
     println!("{}", "i-rs-keys Examples".bold().cyan());
     println!();
 
-    println!("{}", "Add Key (value stored in OS keychain):".bold().green());
-    println!("  i-rs-keys add \"github_token\" \"ghp_xxx\" api_key --tag coding --remark \"GitHub PAT\"");
-    println!("  i-rs-keys add \"openai_api\" \"sk-xxx\" api_key --tag ai --remark \"OpenAI API key\"");
-    println!("  i-rs-keys add \"aws_access\" \"AKIAXXX\" aws_key --tag cloud --remark \"AWS credentials\"");
+    println!(
+        "{}",
+        "Add Key (value stored in OS keychain):".bold().green()
+    );
+    println!(
+        "  i-rs-keys add \"github_token\" \"ghp_xxx\" api_key --tag coding --remark \"GitHub PAT\""
+    );
+    println!(
+        "  i-rs-keys add \"openai_api\" \"sk-xxx\" api_key --tag ai --remark \"OpenAI API key\""
+    );
+    println!(
+        "  i-rs-keys add \"aws_access\" \"AKIAXXX\" aws_key --tag cloud --remark \"AWS credentials\""
+    );
     println!("  i-rs-keys add \"ssh_work\" \"~/.ssh/id_rsa\" ssh_key --tag work");
     println!();
 

@@ -1,4 +1,4 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -19,7 +19,10 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     }
 
     if !args.force {
-        println!("Are you sure you want to delete debt '{}'? (y/N)", args.name);
+        println!(
+            "Are you sure you want to delete debt '{}'? (y/N)",
+            args.name
+        );
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         if !input.trim().to_lowercase().starts_with('y') {
@@ -32,7 +35,10 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {
-        println!("{{\"success\": true, \"message\": \"Debt '{}' deleted\"}}", args.name);
+        println!(
+            "{{\"success\": true, \"message\": \"Debt '{}' deleted\"}}",
+            args.name
+        );
     } else {
         print_success(&format!("Debt '{}' deleted successfully", args.name));
     }

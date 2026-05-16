@@ -1,4 +1,4 @@
-use crate::presentation::{print_warning, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_item, print_warning};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -72,9 +72,21 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     println!("  {:12} {}", "Name:".dimmed(), appliance.name.green());
     println!("  {:12} {}", "Brand:".dimmed(), appliance.brand);
     println!("  {:12} {}", "Model:".dimmed(), appliance.model);
-    println!("  {:12} {}", "Purchase:".dimmed(), appliance.purchase_date.format("%Y-%m-%d"));
-    println!("  {:12} {} years", "Lifespan:".dimmed(), appliance.lifespan_years);
-    println!("  {:12} {}", "Expires:".dimmed(), appliance.expiry_date().format("%Y-%m-%d"));
+    println!(
+        "  {:12} {}",
+        "Purchase:".dimmed(),
+        appliance.purchase_date.format("%Y-%m-%d")
+    );
+    println!(
+        "  {:12} {} years",
+        "Lifespan:".dimmed(),
+        appliance.lifespan_years
+    );
+    println!(
+        "  {:12} {}",
+        "Expires:".dimmed(),
+        appliance.expiry_date().format("%Y-%m-%d")
+    );
 
     let days = appliance.days_until_expiry();
     let status = if appliance.is_expired() {
@@ -91,7 +103,11 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     }
 
     if !appliance.remark.is_empty() {
-        println!("  {:12} {}", "Remark:".dimmed(), appliance.remark.join(", "));
+        println!(
+            "  {:12} {}",
+            "Remark:".dimmed(),
+            appliance.remark.join(", ")
+        );
     }
 
     if appliance.maintenance_records.is_empty() {
@@ -101,7 +117,11 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         println!();
         println!("{}", "Maintenance Records:".bold().cyan());
         for record in &appliance.maintenance_records {
-            println!("  {} - {}", record.date.format("%Y-%m-%d").dimmed(), record.description);
+            println!(
+                "  {} - {}",
+                record.date.format("%Y-%m-%d").dimmed(),
+                record.description
+            );
         }
     }
 

@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Appliance:".bold().green());
-    println!("  i-rs-appliance add \"Refrigerator\" Samsung \"RF28R7551\" 2020-01-15 10 --tag kitchen");
+    println!(
+        "  i-rs-appliance add \"Refrigerator\" Samsung \"RF28R7551\" 2020-01-15 10 --tag kitchen"
+    );
     println!("  i-rs-appliance add \"Washing Machine\" LG \"WM4000\" 2021-06-20 8 --tag laundry");
     println!();
 
@@ -25,7 +27,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Maintenance Record:".bold().green());
-    println!("  i-rs-appliance update \"Refrigerator\" --add-maintenance \"Replaced water filter\" --maintenance-date 2024-03-01");
+    println!(
+        "  i-rs-appliance update \"Refrigerator\" --add-maintenance \"Replaced water filter\" --maintenance-date 2024-03-01"
+    );
     println!();
 
     println!("{}", "Delete Appliance:".bold().green());

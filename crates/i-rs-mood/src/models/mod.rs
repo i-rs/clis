@@ -68,12 +68,10 @@ pub struct MoodRecord {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MoodStore {
     pub records: BTreeMap<NaiveDate, MoodRecord>,
 }
-
 
 impl MoodStore {
     pub fn add_entry(&mut self, record: MoodRecord) {
@@ -89,15 +87,17 @@ impl MoodStore {
             return None;
         }
 
-        let moods: Vec<u8> = self.records.values().map(|r| {
-            match r.mood {
+        let moods: Vec<u8> = self
+            .records
+            .values()
+            .map(|r| match r.mood {
                 Mood::Great => 5,
                 Mood::Good => 4,
                 Mood::Okay => 3,
                 Mood::Bad => 2,
                 Mood::Terrible => 1,
-            }
-        }).collect();
+            })
+            .collect();
 
         let min_level = *moods.iter().min().expect("non-empty records checked above");
         let max_level = *moods.iter().max().expect("non-empty records checked above");

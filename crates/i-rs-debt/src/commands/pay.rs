@@ -1,4 +1,4 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -54,7 +54,12 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         ));
 
         if is_paid_off_before {
-            println!("{}", "Congratulations! This debt is fully paid off!".green().bold());
+            println!(
+                "{}",
+                "Congratulations! This debt is fully paid off!"
+                    .green()
+                    .bold()
+            );
         }
     }
 

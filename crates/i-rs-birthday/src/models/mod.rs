@@ -23,15 +23,14 @@ impl Birthday {
     pub fn days_until_birthday(&self) -> i64 {
         let today = Local::now().date_naive();
         let (month, day) = self.parse_birth_date();
-        
-        let this_year_birthday = NaiveDate::from_ymd_opt(today.year(), month, day)
-            .unwrap_or(today);
-        
+
+        let this_year_birthday = NaiveDate::from_ymd_opt(today.year(), month, day).unwrap_or(today);
+
         if this_year_birthday >= today {
             (this_year_birthday - today).num_days()
         } else {
-            let next_year_birthday = NaiveDate::from_ymd_opt(today.year() + 1, month, day)
-                .unwrap_or(this_year_birthday);
+            let next_year_birthday =
+                NaiveDate::from_ymd_opt(today.year() + 1, month, day).unwrap_or(this_year_birthday);
             (next_year_birthday - today).num_days()
         }
     }
@@ -50,8 +49,8 @@ impl Birthday {
             let today = Local::now().date_naive();
             let mut age = today.year() - birth_year;
             let (month, day) = self.parse_birth_date();
-            let birth_date_this_year = NaiveDate::from_ymd_opt(today.year(), month, day)
-                .unwrap_or(today);
+            let birth_date_this_year =
+                NaiveDate::from_ymd_opt(today.year(), month, day).unwrap_or(today);
             if today < birth_date_this_year {
                 age -= 1;
             }
@@ -71,12 +70,10 @@ impl Birthday {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BirthdayStore {
     pub birthdays: std::collections::BTreeMap<String, Birthday>,
 }
-
 
 #[derive(Tabled)]
 pub struct BirthdayRow {
@@ -125,7 +122,9 @@ impl BirthdayRow {
             format!("{days} days")
         };
 
-        let age_str = birthday.age().map_or_else(|| "-".to_string(), |a| a.to_string());
+        let age_str = birthday
+            .age()
+            .map_or_else(|| "-".to_string(), |a| a.to_string());
 
         Self {
             name: birthday.name.clone(),

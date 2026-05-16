@@ -4,8 +4,8 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use i_rs_core::presentation::OutputFormat;
 use commands::{handle_skill, parse_skill_arg};
+use i_rs_core::presentation::OutputFormat;
 
 #[derive(Parser, Debug)]
 #[command(name = "i-rs-plant")]
@@ -77,8 +77,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 #[derive(Subcommand, Debug)]
@@ -133,7 +133,15 @@ fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            commands::add_plant(name, species, location, interval, tag, remark, output_format)?;
+            commands::add_plant(
+                name,
+                species,
+                location,
+                interval,
+                tag,
+                remark,
+                output_format,
+            )?;
         }
         Commands::List { tag } => {
             commands::list_plants(tag, output_format)?;
@@ -168,7 +176,11 @@ fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
                     location,
                     interval,
                     if tag.is_empty() { None } else { Some(tag) },
-                    if remark.is_empty() { None } else { Some(remark) },
+                    if remark.is_empty() {
+                        None
+                    } else {
+                        Some(remark)
+                    },
                     output_format,
                 )?;
             } else {
@@ -190,8 +202,8 @@ fn run(command: Commands, output_format: OutputFormat) -> anyhow::Result<()> {
         }
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
-        },
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
 
     Ok(())

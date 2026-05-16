@@ -1,5 +1,5 @@
 use crate::models::{KvRow, ListItem};
-use crate::presentation::{format_table, print_entry_count, output_list, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_entry_count};
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
@@ -11,7 +11,10 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     if format.is_json() {
         let items: Vec<ListItem> = entries_ref.iter().map(|e| ListItem::from(*e)).collect();
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
         return Ok(());
     }
 

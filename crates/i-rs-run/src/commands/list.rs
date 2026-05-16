@@ -1,5 +1,5 @@
 use crate::models::RunRecord;
-use crate::presentation::{format_run_table, output_list, print_run_count, OutputFormat};
+use crate::presentation::{OutputFormat, format_run_table, output_list, print_run_count};
 use crate::storage;
 use anyhow::Result;
 

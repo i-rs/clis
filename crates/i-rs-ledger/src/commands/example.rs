@@ -10,7 +10,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Expense:".bold().green());
-    println!("  i-rs-ledger add 2024-01-15 150.50 CNY expense food --tag dining --remark \"Lunch with client\"");
+    println!(
+        "  i-rs-ledger add 2024-01-15 150.50 CNY expense food --tag dining --remark \"Lunch with client\""
+    );
     println!();
 
     println!("{}", "Add Transfer:".bold().green());

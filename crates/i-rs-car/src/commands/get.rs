@@ -1,5 +1,8 @@
 use crate::models::{CarDetail, FuelRecord};
-use crate::presentation::{format_car_detail, format_fuel_table, format_maintenance_table, output_item, print_fuel_count, print_maintenance_count, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_car_detail, format_fuel_table, format_maintenance_table, output_item,
+    print_fuel_count, print_maintenance_count,
+};
 use crate::storage;
 use anyhow::Result;
 use clap::Parser;
@@ -26,32 +29,43 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
 
     if args.fuel {
         let fuel_records: Vec<&FuelRecord> = store.get_fuel_records(Some(&args.name));
-        
-        let records_with_prev: Vec<(&FuelRecord, Option<f64>)> = fuel_records.iter().map(|r| {
-            let prev_mileage = store.get_last_fuel_record(&args.name)
-                .and_then(|prev| if prev.date < r.date { Some(prev.mileage) } else { None });
-            (*r, prev_mileage)
-        }).collect();
+
+        let records_with_prev: Vec<(&FuelRecord, Option<f64>)> = fuel_records
+            .iter()
+            .map(|r| {
+                let prev_mileage = store.get_last_fuel_record(&args.name).and_then(|prev| {
+                    if prev.date < r.date {
+                        Some(prev.mileage)
+                    } else {
+                        None
+                    }
+                });
+                (*r, prev_mileage)
+            })
+            .collect();
 
         if output_format == OutputFormat::Json {
-            let data: Vec<_> = records_with_prev.iter().map(|(r, prev)| {
-                let efficiency = if let Some(p) = prev {
-                    r.fuel_efficiency(*p).map(|e| format!("{e:.1}"))
-                } else {
-                    None
-                };
-                serde_json::json!({
-                    "id": r.id,
-                    "date": r.date.format("%Y-%m-%d").to_string(),
-                    "mileage": r.mileage,
-                    "fuel_amount": r.fuel_amount,
-                    "price_per_liter": r.price_per_liter,
-                    "total_cost": r.total_cost,
-                    "efficiency": efficiency,
-                    "station": r.station,
-                    "note": r.note
+            let data: Vec<_> = records_with_prev
+                .iter()
+                .map(|(r, prev)| {
+                    let efficiency = if let Some(p) = prev {
+                        r.fuel_efficiency(*p).map(|e| format!("{e:.1}"))
+                    } else {
+                        None
+                    };
+                    serde_json::json!({
+                        "id": r.id,
+                        "date": r.date.format("%Y-%m-%d").to_string(),
+                        "mileage": r.mileage,
+                        "fuel_amount": r.fuel_amount,
+                        "price_per_liter": r.price_per_liter,
+                        "total_cost": r.total_cost,
+                        "efficiency": efficiency,
+                        "station": r.station,
+                        "note": r.note
+                    })
                 })
-            }).collect();
+                .collect();
             println!("{}", output_item(&data, output_format));
         } else {
             let table = format_fuel_table(&records_with_prev);
@@ -61,21 +75,27 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
             print_fuel_count(fuel_records.len());
         }
     } else if args.maintain {
-        let maintenance_records: Vec<_> = store.get_maintenance_records(Some(&args.name)).into_iter().collect();
+        let maintenance_records: Vec<_> = store
+            .get_maintenance_records(Some(&args.name))
+            .into_iter()
+            .collect();
 
         if output_format == OutputFormat::Json {
-            let data: Vec<_> = maintenance_records.iter().map(|r| {
-                serde_json::json!({
-                    "id": r.id,
-                    "date": r.date.format("%Y-%m-%d").to_string(),
-                    "mileage": r.mileage,
-                    "maintenance_type": r.maintenance_type,
-                    "cost": r.cost,
-                    "description": r.description,
-                    "shop": r.shop,
-                    "note": r.note
+            let data: Vec<_> = maintenance_records
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.id,
+                        "date": r.date.format("%Y-%m-%d").to_string(),
+                        "mileage": r.mileage,
+                        "maintenance_type": r.maintenance_type,
+                        "cost": r.cost,
+                        "description": r.description,
+                        "shop": r.shop,
+                        "note": r.note
+                    })
                 })
-            }).collect();
+                .collect();
             println!("{}", output_item(&data, output_format));
         } else {
             let table = format_maintenance_table(&maintenance_records);

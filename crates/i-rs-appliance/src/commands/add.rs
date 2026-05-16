@@ -2,8 +2,8 @@ use crate::models::Appliance;
 use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
-use i_rs_core::parse_date;
 use chrono::Utc;
+use i_rs_core::parse_date;
 use owo_colors::OwoColorize;
 use uuid::Uuid;
 
@@ -31,7 +31,10 @@ pub fn handle_add(
         name,
         brand,
         model,
-        purchase_date: purchase_date.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid").and_utc(),
+        purchase_date: purchase_date
+            .and_hms_opt(0, 0, 0)
+            .expect("0:00:00 is always valid")
+            .and_utc(),
         lifespan_years,
         tags,
         remark,
@@ -47,4 +50,3 @@ pub fn handle_add(
 
     Ok(())
 }
-

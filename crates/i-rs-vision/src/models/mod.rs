@@ -24,12 +24,10 @@ pub struct VisionRecord {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct VisionStore {
     pub records: BTreeMap<NaiveDate, VisionRecord>,
 }
-
 
 #[allow(dead_code)]
 impl VisionStore {
@@ -51,10 +49,7 @@ impl VisionStore {
 
     pub fn get_recent_records(&self, days: usize) -> Vec<&VisionRecord> {
         let cutoff = Utc::now().date_naive() - chrono::Duration::days(days as i64);
-        self.records
-            .values()
-            .filter(|r| r.date >= cutoff)
-            .collect()
+        self.records.values().filter(|r| r.date >= cutoff).collect()
     }
 
     pub fn get_all_records(&self) -> Vec<&VisionRecord> {
@@ -100,12 +95,24 @@ impl VisionRow {
     pub fn from_record(record: &VisionRecord) -> Self {
         Self {
             date: record.date.format("%Y-%m-%d").to_string(),
-            left_sphere: record.left_sphere.map_or_else(|| "-".to_string(), format_sphere),
-            right_sphere: record.right_sphere.map_or_else(|| "-".to_string(), format_sphere),
-            left_cylinder: record.left_cylinder.map_or_else(|| "-".to_string(), format_sphere),
-            right_cylinder: record.right_cylinder.map_or_else(|| "-".to_string(), format_sphere),
-            left_axis: record.left_axis.map_or_else(|| "-".to_string(), |a| a.to_string()),
-            right_axis: record.right_axis.map_or_else(|| "-".to_string(), |a| a.to_string()),
+            left_sphere: record
+                .left_sphere
+                .map_or_else(|| "-".to_string(), format_sphere),
+            right_sphere: record
+                .right_sphere
+                .map_or_else(|| "-".to_string(), format_sphere),
+            left_cylinder: record
+                .left_cylinder
+                .map_or_else(|| "-".to_string(), format_sphere),
+            right_cylinder: record
+                .right_cylinder
+                .map_or_else(|| "-".to_string(), format_sphere),
+            left_axis: record
+                .left_axis
+                .map_or_else(|| "-".to_string(), |a| a.to_string()),
+            right_axis: record
+                .right_axis
+                .map_or_else(|| "-".to_string(), |a| a.to_string()),
             tags: if record.tags.is_empty() {
                 "-".to_string()
             } else {

@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_item};
 use crate::storage;
 use anyhow::Result;
 use i_rs_core::parse_date;
@@ -33,7 +33,10 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
             weight_kg: record.weight_kg,
             tags: record.tags.clone(),
             remark: record.remark.clone(),
-            created_at: record.created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+            created_at: record
+                .created_at
+                .format("%Y-%m-%d %H:%M:%S UTC")
+                .to_string(),
         };
 
         println!("{}", output_item(&item, format));
@@ -67,8 +70,10 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     }
     println!();
     println!("{}", "Created:".dimmed());
-    println!("  {}", record.created_at.format("%Y-%m-%d %H:%M:%S UTC").dimmed());
+    println!(
+        "  {}",
+        record.created_at.format("%Y-%m-%d %H:%M:%S UTC").dimmed()
+    );
 
     Ok(())
 }
-

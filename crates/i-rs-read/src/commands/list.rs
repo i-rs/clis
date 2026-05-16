@@ -1,4 +1,6 @@
-use crate::presentation::{format_table, output_list, print_book_count, print_header, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_book_count, print_header,
+};
 use crate::storage;
 use anyhow::Result;
 use clap::Args;
@@ -34,7 +36,10 @@ pub fn list(args: ListArgs, output_format: OutputFormat) -> Result<()> {
     match output_format {
         OutputFormat::Json => {
             let data: Vec<&crate::models::Book> = filtered_books.clone();
-            println!("{}", output_list(&data, data.len(), args.tag.as_deref(), output_format));
+            println!(
+                "{}",
+                output_list(&data, data.len(), args.tag.as_deref(), output_format)
+            );
         }
         OutputFormat::Table | OutputFormat::Default => {
             if filtered_books.is_empty() {

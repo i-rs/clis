@@ -6,8 +6,12 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add items:".bold().green());
-    println!("  i-rs-want add \"iPhone 15\" --price 799 --currency USD --priority high --url https://apple.com");
-    println!("  i-rs-want add \"Mechanical Keyboard\" --price 200 --currency CNY --priority medium");
+    println!(
+        "  i-rs-want add \"iPhone 15\" --price 799 --currency USD --priority high --url https://apple.com"
+    );
+    println!(
+        "  i-rs-want add \"Mechanical Keyboard\" --price 200 --currency CNY --priority medium"
+    );
     println!();
 
     println!("{}", "List items:".bold().green());

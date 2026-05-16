@@ -1,4 +1,4 @@
-use crate::presentation::{format_stats, output_item, TaxStats};
+use crate::presentation::{TaxStats, format_stats, output_item};
 use crate::storage;
 use clap::Args;
 use i_rs_core::presentation::OutputFormat;
@@ -13,7 +13,9 @@ pub struct StatsArgs {
 
 pub fn execute(args: &StatsArgs, format: &OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
-    let year = args.year.unwrap_or_else(|| chrono::Utc::now().format("%Y").to_string().parse().unwrap());
+    let year = args
+        .year
+        .unwrap_or_else(|| chrono::Utc::now().format("%Y").to_string().parse().unwrap());
 
     let mut stats = TaxStats::new(year);
 
@@ -25,7 +27,9 @@ pub fn execute(args: &StatsArgs, format: &OutputFormat) -> anyhow::Result<()> {
         if let Some(ref tax_type) = args.tax_type {
             let tax_type_lower = tax_type.to_lowercase();
             let matches = match tax_type_lower.as_str() {
-                "personal" | "个人所得税" => matches!(entry.tax_type, crate::models::TaxType::Personal),
+                "personal" | "个人所得税" => {
+                    matches!(entry.tax_type, crate::models::TaxType::Personal)
+                }
                 "vat" | "增值税" => matches!(entry.tax_type, crate::models::TaxType::Vat),
                 _ => true,
             };

@@ -1,16 +1,26 @@
 use crate::models::WeightRecord;
-use crate::presentation::{format_table, print_chart, print_record_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_chart, print_record_count, print_warning,
+};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: OutputFormat) -> Result<()> {
+pub fn handle_list(
+    days: Option<usize>,
+    chart: bool,
+    stats: bool,
+    format: OutputFormat,
+) -> Result<()> {
     let store = crate::storage::load_store()?;
     let records = crate::service::list_weights(&store, days)?;
 
     if records.is_empty() {
         if format.is_json() {
             let filter = days.map(|d| format!("last {d} days"));
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No weight records found.");
         }
@@ -27,14 +37,20 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
             remark: Vec<String>,
         }
 
-        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
-            date: r.date.format("%Y-%m-%d").to_string(),
-            weight: r.weight,
-            remark: r.remark.clone(),
-        }).collect();
+        let items: Vec<ListItem> = records
+            .iter()
+            .map(|r| ListItem {
+                date: r.date.format("%Y-%m-%d").to_string(),
+                weight: r.weight,
+                remark: r.remark.clone(),
+            })
+            .collect();
 
         let filter = days.map(|d| format!("last {d} days"));
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 
@@ -69,7 +85,9 @@ pub fn handle_list(days: Option<usize>, chart: bool, stats: bool, format: Output
     Ok(())
 }
 
-fn calculate_stats(records: &[&WeightRecord]) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+fn calculate_stats(
+    records: &[&WeightRecord],
+) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     if records.is_empty() {
         return (None, None, None, None);
     }
@@ -80,7 +98,16 @@ fn calculate_stats(records: &[&WeightRecord]) -> (Option<f64>, Option<f64>, Opti
     let avg = weights.iter().sum::<f64>() / weights.len() as f64;
 
     let change = if records.len() >= 2 {
-        Some(records.last().expect("records.len() >= 2 checked above").weight - records.first().expect("records.len() >= 2 checked above").weight)
+        Some(
+            records
+                .last()
+                .expect("records.len() >= 2 checked above")
+                .weight
+                - records
+                    .first()
+                    .expect("records.len() >= 2 checked above")
+                    .weight,
+        )
     } else {
         None
     };

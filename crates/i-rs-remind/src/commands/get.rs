@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,11 +7,13 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let remind = if let Some(r) = store.get_entry(&name) { r } else {
+    let remind = if let Some(r) = store.get_entry(&name) {
+        r
+    } else {
         let msg = format!("Remind '{name}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -57,7 +59,15 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         println!("{:16} {}", "Title:".style(style), title.cyan());
     }
 
-    println!("{:16} {}", "Date:".style(style), remind.event_date.format("%Y-%m-%d %H:%M").to_string().cyan());
+    println!(
+        "{:16} {}",
+        "Date:".style(style),
+        remind
+            .event_date
+            .format("%Y-%m-%d %H:%M")
+            .to_string()
+            .cyan()
+    );
 
     let status = if remind.is_done {
         format!("{}", "DONE".green().bold())
@@ -73,7 +83,16 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     println!("{:16} {}", "Status:".style(style), status);
 
     if !remind.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), remind.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            remind
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !remind.content.is_empty() {
@@ -83,8 +102,24 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
         }
     }
 
-    println!("\n{:16} {}", "Created:".style(style), remind.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
-    println!("{:16} {}", "Updated:".style(style), remind.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "\n{:16} {}",
+        "Created:".style(style),
+        remind
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        remind
+            .updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

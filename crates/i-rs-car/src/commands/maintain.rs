@@ -1,5 +1,5 @@
 use crate::models::MaintenanceRecord;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -13,7 +13,11 @@ pub struct Args {
     pub date: Option<String>,
     #[arg(short, long, help = "Current mileage (km)")]
     pub mileage: f64,
-    #[arg(short, long, help = "Maintenance type (e.g., oil_change, tire, brake, inspection)")]
+    #[arg(
+        short,
+        long,
+        help = "Maintenance type (e.g., oil_change, tire, brake, inspection)"
+    )]
     pub maintenance_type: String,
     #[arg(short, long, help = "Maintenance cost")]
     pub cost: f64,
@@ -39,9 +43,10 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     };
 
     if let Some(car) = store.get_entry(&args.car)
-        && args.mileage < car.mileage {
-            anyhow::bail!("Maintenance record mileage cannot be less than car's current mileage");
-        }
+        && args.mileage < car.mileage
+    {
+        anyhow::bail!("Maintenance record mileage cannot be less than car's current mileage");
+    }
 
     let record = MaintenanceRecord::new(
         args.car.clone(),
@@ -58,11 +63,15 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     storage::save_store(&store)?;
 
     if output_format == OutputFormat::Json {
-        println!("{{\"success\": true, \"data\": {{\"car\": \"{}\", \"type\": \"{}\", \"cost\": {:.2}}}}}",
-            args.car, args.maintenance_type, args.cost);
+        println!(
+            "{{\"success\": true, \"data\": {{\"car\": \"{}\", \"type\": \"{}\", \"cost\": {:.2}}}}}",
+            args.car, args.maintenance_type, args.cost
+        );
     } else {
-        print_success(&format!("Maintenance record added for car '{}' ({}: {:.2})",
-            args.car, args.maintenance_type, args.cost));
+        print_success(&format!(
+            "Maintenance record added for car '{}' ({}: {:.2})",
+            args.car, args.maintenance_type, args.cost
+        ));
     }
 
     Ok(())

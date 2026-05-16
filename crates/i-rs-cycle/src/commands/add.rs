@@ -21,7 +21,11 @@ pub fn handle_add(
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Recorded {} for {}", event_type.green(), date.cyan()));
+    print_success(&format!(
+        "✓ Recorded {} for {}",
+        event_type.green(),
+        date.cyan()
+    ));
 
     Ok(())
 }

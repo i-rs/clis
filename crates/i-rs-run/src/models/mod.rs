@@ -37,13 +37,11 @@ pub struct RunPlan {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RunStore {
     pub records: BTreeMap<String, RunRecord>,
     pub plans: BTreeMap<String, RunPlan>,
 }
-
 
 #[allow(dead_code)]
 impl RunStore {
@@ -142,11 +140,9 @@ impl RunRow {
             duration: format_duration(record.duration_minutes),
             pace: record.pace.clone(),
             heart_rate: record
-                .heart_rate.map_or_else(|| "-".to_string(), |hr| hr.to_string()),
-            weather: record
-                .weather
-                .clone()
-                .unwrap_or_else(|| "-".to_string()),
+                .heart_rate
+                .map_or_else(|| "-".to_string(), |hr| hr.to_string()),
+            weather: record.weather.clone().unwrap_or_else(|| "-".to_string()),
         }
     }
 }
@@ -210,12 +206,15 @@ fn format_schedule(days: &[u8]) -> String {
         return "-".to_string();
     }
     let day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let names: Vec<String> = days.iter().filter_map(|&d| {
-        if d < 7 {
-            Some(day_names[d as usize].to_string())
-        } else {
-            None
-        }
-    }).collect();
+    let names: Vec<String> = days
+        .iter()
+        .filter_map(|&d| {
+            if d < 7 {
+                Some(day_names[d as usize].to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
     names.join(", ")
 }

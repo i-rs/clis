@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_want(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.want.write(|store| -> Result<_, ApiError> {
-        let entry = store.entries.get_mut(&id)
+        let entry = store
+            .entries
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Want '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -47,9 +45,7 @@ pub struct AddWantRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_wants(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_wants(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.want.read(|store| {
         let entries: Vec<_> = store.entries.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -68,7 +64,8 @@ async fn add_want(
     let priority = req.priority;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
-    let entry = i_rs_want::models::WantEntry::new(name, url, price, currency, priority, tags, remark);
+    let entry =
+        i_rs_want::models::WantEntry::new(name, url, price, currency, priority, tags, remark);
     state.want.write(|store| {
         store.add_entry(entry.clone());
     });
@@ -80,7 +77,11 @@ async fn get_want(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.want.read(|store| {
-        store.entries.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Want '{id}' not found")))
+        store
+            .entries
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Want '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

@@ -32,7 +32,6 @@ impl Priority {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
     pub name: String,
@@ -59,12 +58,10 @@ impl Todo {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TodoStore {
     pub todos: BTreeMap<String, Todo>,
 }
-
 
 impl TodoStore {
     pub fn add_entry(&mut self, todo: Todo) {

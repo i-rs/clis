@@ -46,12 +46,10 @@ impl SleepRecord {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SleepStore {
     pub entries: BTreeMap<String, SleepRecord>,
 }
-
 
 impl SleepStore {
     pub fn add_entry(&mut self, entry: SleepRecord) {
@@ -95,7 +93,11 @@ impl SleepRow {
             wake_time: record.wake_time.format("%H:%M").to_string(),
             duration: format!("{:.1}h", record.duration_hours()),
             quality: record.quality_label(),
-            tags: if record.tags.is_empty() { "-".to_string() } else { record.tags.join(", ") },
+            tags: if record.tags.is_empty() {
+                "-".to_string()
+            } else {
+                record.tags.join(", ")
+            },
         }
     }
 }
@@ -160,8 +162,14 @@ impl SleepStats {
             total_records: records.len(),
             avg_duration: total_duration / records.len() as f64,
             avg_quality: f64::from(total_quality) / records.len() as f64,
-            min_duration: *durations.iter().min_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN")).expect("non-empty records checked above"),
-            max_duration: *durations.iter().max_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN")).expect("non-empty records checked above"),
+            min_duration: *durations
+                .iter()
+                .min_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN"))
+                .expect("non-empty records checked above"),
+            max_duration: *durations
+                .iter()
+                .max_by(|a, b| a.partial_cmp(b).expect("f64 partial_cmp only fails on NaN"))
+                .expect("non-empty records checked above"),
         }
     }
 }

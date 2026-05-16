@@ -22,18 +22,37 @@ pub fn get_plant(name: String, output_format: OutputFormat) -> Result<()> {
                     "created_at": plant.created_at.to_rfc3339(),
                     "updated_at": plant.updated_at.to_rfc3339()
                 });
-                println!("{}", crate::presentation::output_item(&json_data, output_format));
+                println!(
+                    "{}",
+                    crate::presentation::output_item(&json_data, output_format)
+                );
             }
             OutputFormat::Table | OutputFormat::Default => {
                 println!("{}", "Plant Details".cyan().bold());
                 println!("  {}: {}", "Name".dimmed(), plant.name.green());
                 println!("  {}: {}", "Species".dimmed(), plant.species.green());
                 println!("  {}: {}", "Location".dimmed(), plant.location.green());
-                println!("  {}: {} days", "Watering Interval".dimmed(), plant.watering_interval_days);
-                println!("  {}: {}", "Last Watered".dimmed(), plant.last_watered.format("%Y-%m-%d"));
-                println!("  {}: {} days", "Days Until Next Watering".dimmed(), plant.days_until_next_watering());
+                println!(
+                    "  {}: {} days",
+                    "Watering Interval".dimmed(),
+                    plant.watering_interval_days
+                );
+                println!(
+                    "  {}: {}",
+                    "Last Watered".dimmed(),
+                    plant.last_watered.format("%Y-%m-%d")
+                );
+                println!(
+                    "  {}: {} days",
+                    "Days Until Next Watering".dimmed(),
+                    plant.days_until_next_watering()
+                );
                 if plant.needs_water() {
-                    println!("  {}: {}", "Status".dimmed(), "Needs water!".yellow().bold());
+                    println!(
+                        "  {}: {}",
+                        "Status".dimmed(),
+                        "Needs water!".yellow().bold()
+                    );
                 } else {
                     println!("  {}: {}", "Status".dimmed(), "Healthy".green());
                 }
@@ -51,8 +70,11 @@ pub fn get_plant(name: String, output_format: OutputFormat) -> Result<()> {
     } else {
         let error_msg = format!("Plant '{name}' not found");
         if matches!(output_format, OutputFormat::Json) {
-            println!("{}", crate::presentation::output_error(&error_msg, "NOT_FOUND", output_format));
-        } 
+            println!(
+                "{}",
+                crate::presentation::output_error(&error_msg, "NOT_FOUND", output_format)
+            );
+        }
         anyhow::bail!("{error_msg}");
     }
 

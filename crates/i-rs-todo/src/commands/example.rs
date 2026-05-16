@@ -7,7 +7,9 @@ pub fn handle_example() {
 
     println!("{}", "Add Todo:".bold().green());
     println!("  i-rs-todo add buy-milk --title \"Buy milk\" --priority high --tag shopping");
-    println!("  i-rs-todo add read-book --title \"Read Rust book\" --priority medium --tag learning --content \"Chapter 5\"");
+    println!(
+        "  i-rs-todo add read-book --title \"Read Rust book\" --priority medium --tag learning --content \"Chapter 5\""
+    );
     println!();
 
     println!("{}", "List Todos:".bold().green());

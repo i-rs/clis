@@ -1,56 +1,75 @@
-use crate::presentation::{print_error, print_success, print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, print_error, print_success, print_warning};
 use crate::storage;
 use anyhow::Result;
 
-pub fn handle_delete(category: Option<String>, expense_id: Option<String>, format: OutputFormat) -> Result<()> {
+pub fn handle_delete(
+    category: Option<String>,
+    expense_id: Option<String>,
+    format: OutputFormat,
+) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if let Some(cat) = category {
         if store.budgets.remove(&cat).is_none() {
             if format.is_json() {
-                println!("{}", serde_json::json!({
-                    "success": false,
-                    "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
-                }));
-            } 
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "success": false,
+                        "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found", cat) }
+                    })
+                );
+            }
             anyhow::bail!("Budget not found");
         }
         storage::save_store(&store)?;
 
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": true,
-                "data": { "message": format!("Budget for '{}' deleted", cat) }
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": true,
+                    "data": { "message": format!("Budget for '{}' deleted", cat) }
+                })
+            );
         } else {
             print_success(&format!("Deleted budget for '{cat}'"));
         }
     } else if let Some(id) = expense_id {
         if store.expenses.remove(&id).is_none() {
             if format.is_json() {
-                println!("{}", serde_json::json!({
-                    "success": false,
-                    "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
-                }));
-            } 
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "success": false,
+                        "error": { "code": "NOT_FOUND", "message": format!("Expense '{}' not found", id) }
+                    })
+                );
+            }
             anyhow::bail!("Expense not found");
         }
         storage::save_store(&store)?;
 
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": true,
-                "data": { "message": format!("Expense '{}' deleted", id) }
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": true,
+                    "data": { "message": format!("Expense '{}' deleted", id) }
+                })
+            );
         } else {
             print_success(&format!("Deleted expense '{id}'"));
         }
     } else {
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": false,
-                "error": { "code": "MISSING_ARGUMENT", "message": "Provide either --category or --expense-id" }
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": false,
+                    "error": { "code": "MISSING_ARGUMENT", "message": "Provide either --category or --expense-id" }
+                })
+            );
         } else {
             print_error("Provide either --category or --expense-id");
             print_warning("Usage: i-rs-budget delete --category <category>");

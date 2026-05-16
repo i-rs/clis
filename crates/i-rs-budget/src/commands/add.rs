@@ -1,5 +1,5 @@
 use crate::models::{Budget, BudgetPeriod};
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -16,11 +16,14 @@ pub fn handle_add(
 
     if store.budgets.contains_key(&category) {
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": false,
-                "error": { "code": "ALREADY_EXISTS", "message": format!("Budget for category '{}' already exists", category) }
-            }));
-        } 
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": false,
+                    "error": { "code": "ALREADY_EXISTS", "message": format!("Budget for category '{}' already exists", category) }
+                })
+            );
+        }
         anyhow::bail!("Budget for category '{category}' already exists");
     }
 
@@ -31,11 +34,14 @@ pub fn handle_add(
         Some("monthly" | "m") | None => BudgetPeriod::Monthly,
         _ => {
             if format.is_json() {
-                println!("{}", serde_json::json!({
-                    "success": false,
-                    "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
-                }));
-            } 
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "success": false,
+                        "error": { "code": "INVALID_PERIOD", "message": "Invalid period. Use: daily, weekly, monthly, yearly" }
+                    })
+                );
+            }
             anyhow::bail!("Invalid period");
         }
     };
@@ -59,15 +65,18 @@ pub fn handle_add(
             period: String,
             tags: Vec<String>,
         }
-        println!("{}", serde_json::json!({
-            "success": true,
-            "data": BudgetData {
-                category,
-                amount,
-                period: period_str,
-                tags: tags_to_use,
-            }
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "data": BudgetData {
+                    category,
+                    amount,
+                    period: period_str,
+                    tags: tags_to_use,
+                }
+            })
+        );
     } else {
         print_success(&format!("Added budget for '{category}': {amount:.2}"));
     }

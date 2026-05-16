@@ -21,16 +21,21 @@ impl PurifyEntry {
     pub fn new(filter_type: String, tags: Vec<String>, remark: Vec<String>) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, filter_type, replaced_at: now, tags, remark, created_at: now }
+        Self {
+            id,
+            filter_type,
+            replaced_at: now,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PurifyStore {
     pub entries: BTreeMap<String, PurifyEntry>,
 }
-
 
 impl PurifyStore {
     pub fn add_entry(&mut self, entry: PurifyEntry) {
@@ -62,7 +67,11 @@ impl PurifyRow {
             id: entry.id[..8].to_string(),
             filter_type: entry.filter_type.clone(),
             replaced_at: entry.replaced_at.format("%Y-%m-%d %H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }

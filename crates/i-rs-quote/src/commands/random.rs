@@ -18,8 +18,7 @@ pub fn handle_random() -> Result<()> {
 
     let random_index = {
         let rs = RandomState::new();
-        
-        
+
         (rs.hash_one(std::time::SystemTime::now()) as usize) % quotes.len()
     };
 
@@ -43,7 +42,15 @@ pub fn handle_random() -> Result<()> {
 
     if !quote.tags.is_empty() {
         println!("  ");
-        println!("  {}", quote.tags.iter().map(|t| format!("[{}]", t.magenta())).collect::<Vec<_>>().join(" "));
+        println!(
+            "  {}",
+            quote
+                .tags
+                .iter()
+                .map(|t| format!("[{}]", t.magenta()))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
     }
 
     println!();

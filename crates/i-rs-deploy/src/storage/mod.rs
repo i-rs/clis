@@ -2,18 +2,20 @@ use crate::models::{DeployRecord, DeployStore};
 
 i_rs_core::create_store!(DeployStore, "deploy");
 
-pub fn filter_by_project<'a>(store: &'a DeployStore, project: Option<&'a str>) -> Vec<&'a DeployRecord> {
+pub fn filter_by_project<'a>(
+    store: &'a DeployStore,
+    project: Option<&'a str>,
+) -> Vec<&'a DeployRecord> {
     match project {
-        Some(p) => store
-            .entries
-            .values()
-            .filter(|e| e.project == p)
-            .collect(),
+        Some(p) => store.entries.values().filter(|e| e.project == p).collect(),
         None => store.entries.values().collect(),
     }
 }
 
-pub fn filter_by_environment<'a>(store: &'a DeployStore, env: Option<&'a str>) -> Vec<&'a DeployRecord> {
+pub fn filter_by_environment<'a>(
+    store: &'a DeployStore,
+    env: Option<&'a str>,
+) -> Vec<&'a DeployRecord> {
     match env {
         Some(e) => store
             .entries

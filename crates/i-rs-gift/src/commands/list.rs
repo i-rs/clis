@@ -1,8 +1,14 @@
-use crate::presentation::{format_table, print_gift_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_gift_count, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 
-pub fn handle_list(tag: Option<String>, gift_type: Option<String>, format: OutputFormat) -> Result<()> {
+pub fn handle_list(
+    tag: Option<String>,
+    gift_type: Option<String>,
+    format: OutputFormat,
+) -> Result<()> {
     let store = storage::load_store()?;
 
     let gifts: Vec<&crate::models::Gift> = if let Some(ref t) = gift_type {
@@ -16,7 +22,10 @@ pub fn handle_list(tag: Option<String>, gift_type: Option<String>, format: Outpu
     if gifts.is_empty() {
         if format.is_json() {
             let filter = tag.or(gift_type);
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No gifts found.");
         }
@@ -36,19 +45,25 @@ pub fn handle_list(tag: Option<String>, gift_type: Option<String>, format: Outpu
             remark: Vec<String>,
         }
 
-        let items: Vec<ListItem> = gifts.iter().map(|g| ListItem {
-            name: g.name.clone(),
-            gift_type: g.gift_type.to_string(),
-            recipient: g.recipient.clone(),
-            occasion: g.occasion.clone(),
-            value: g.value,
-            date: g.date.format("%Y-%m-%d").to_string(),
-            tags: g.tags.clone(),
-            remark: g.remark.clone(),
-        }).collect();
+        let items: Vec<ListItem> = gifts
+            .iter()
+            .map(|g| ListItem {
+                name: g.name.clone(),
+                gift_type: g.gift_type.to_string(),
+                recipient: g.recipient.clone(),
+                occasion: g.occasion.clone(),
+                value: g.value,
+                date: g.date.format("%Y-%m-%d").to_string(),
+                tags: g.tags.clone(),
+                remark: g.remark.clone(),
+            })
+            .collect();
 
         let filter = tag.or(gift_type);
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 

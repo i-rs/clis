@@ -4,8 +4,8 @@ mod presentation;
 mod storage;
 
 use clap::{Parser, Subcommand};
-use i_rs_core::presentation::OutputFormat;
 use commands::{handle_skill, parse_skill_arg};
+use i_rs_core::presentation::OutputFormat;
 
 #[derive(Parser)]
 #[command(name = "i-rs-tax")]

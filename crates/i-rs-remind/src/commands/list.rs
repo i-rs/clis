@@ -1,4 +1,4 @@
-use crate::presentation::{format_table, print_remind_count, output_list, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_remind_count};
 use crate::storage;
 use anyhow::Result;
 
@@ -24,20 +24,26 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
             updated_at: String,
         }
 
-        let items: Vec<ListItem> = reminds.iter().map(|r| ListItem {
-            name: r.name.clone(),
-            title: r.title.clone(),
-            event_date: r.event_date.format("%Y-%m-%d %H:%M").to_string(),
-            days_until_event: r.days_until_event(),
-            is_done: r.is_done,
-            is_past: r.is_past(),
-            tags: r.tags.clone(),
-            content: r.content.clone(),
-            created_at: r.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            updated_at: r.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-        }).collect();
+        let items: Vec<ListItem> = reminds
+            .iter()
+            .map(|r| ListItem {
+                name: r.name.clone(),
+                title: r.title.clone(),
+                event_date: r.event_date.format("%Y-%m-%d %H:%M").to_string(),
+                days_until_event: r.days_until_event(),
+                is_done: r.is_done,
+                is_past: r.is_past(),
+                tags: r.tags.clone(),
+                content: r.content.clone(),
+                created_at: r.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                updated_at: r.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            })
+            .collect();
 
-        println!("{}", output_list(&items, items.len(), tag.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
         return Ok(());
     }
 

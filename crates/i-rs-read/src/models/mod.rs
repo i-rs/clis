@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tabled::Tabled;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,7 +38,6 @@ pub enum BookStatus {
     #[default]
     ToRead,
 }
-
 
 impl Book {
     pub fn new(name: String, author: String, total_pages: u32) -> Self {
@@ -90,7 +89,6 @@ impl ReadStore {
     }
 }
 
-
 #[derive(Debug, Clone, Tabled)]
 pub struct BookRow {
     pub name: String,
@@ -111,7 +109,8 @@ impl BookRow {
             status: format!("{:?}", book.status),
             progress: format!("{:.1}%", book.progress_percentage()),
             rating: book
-                .rating.map_or_else(|| "-".to_string(), |r| format!("{r:.1}")),
+                .rating
+                .map_or_else(|| "-".to_string(), |r| format!("{r:.1}")),
         }
     }
 }

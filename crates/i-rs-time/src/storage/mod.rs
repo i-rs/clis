@@ -3,18 +3,25 @@ use anyhow::Result;
 use chrono::Utc;
 use uuid::Uuid;
 
-
 i_rs_core::create_store!(TimeStore, "time");
 
-
-pub fn start_timer(store: &mut TimeStore, name: String, tags: Vec<String>, remark: Vec<String>) -> Result<TimeEntry> {
+pub fn start_timer(
+    store: &mut TimeStore,
+    name: String,
+    tags: Vec<String>,
+    remark: Vec<String>,
+) -> Result<TimeEntry> {
     if let Some(active) = store.get_active_entry() {
-        anyhow::bail!("Timer already running: {} (started at {})", active.name, active.start_time.format("%H:%M"));
+        anyhow::bail!(
+            "Timer already running: {} (started at {})",
+            active.name,
+            active.start_time.format("%H:%M")
+        );
     }
 
     let now = Utc::now();
     let id = Uuid::new_v4().to_string();
-    
+
     let entry = TimeEntry {
         id: id.clone(),
         name,
@@ -30,14 +37,20 @@ pub fn start_timer(store: &mut TimeStore, name: String, tags: Vec<String>, remar
     store.add_entry(entry.clone());
     store.active_entry_id = Some(id);
 
-    Ok(store.get_entry(&entry.id).expect("entry id was just inserted").clone())
+    Ok(store
+        .get_entry(&entry.id)
+        .expect("entry id was just inserted")
+        .clone())
 }
 
 pub fn stop_timer(store: &mut TimeStore) -> Result<TimeEntry> {
-    let active_id = store.active_entry_id.take()
+    let active_id = store
+        .active_entry_id
+        .take()
         .ok_or_else(|| anyhow::anyhow!("No timer is currently running"))?;
 
-    let entry = store.get_entry_mut(&active_id)
+    let entry = store
+        .get_entry_mut(&active_id)
         .ok_or_else(|| anyhow::anyhow!("Timer entry not found"))?;
 
     entry.stop();
@@ -47,17 +60,20 @@ pub fn stop_timer(store: &mut TimeStore) -> Result<TimeEntry> {
 
 pub fn delete_entry(store: &mut TimeStore, id: &str) -> Result<TimeEntry> {
     if let Some(active_id) = &store.active_entry_id
-        && active_id == id {
-            store.active_entry_id = None;
-        }
+        && active_id == id
+    {
+        store.active_entry_id = None;
+    }
 
-    store.remove_entry(id)
+    store
+        .remove_entry(id)
         .ok_or_else(|| anyhow::anyhow!("Entry '{id}' not found"))
 }
 
 #[allow(dead_code)]
 pub fn get_entry(store: &TimeStore, id: &str) -> Result<TimeEntry> {
-    store.get_entry(id)
+    store
+        .get_entry(id)
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("Entry '{id}' not found"))
 }

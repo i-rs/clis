@@ -35,12 +35,10 @@ pub struct Checkin {
     pub date: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HabitStore {
     pub entries: BTreeMap<String, Habit>,
 }
-
 
 impl HabitStore {
     pub fn add_entry(&mut self, entry: Habit) {
@@ -80,10 +78,18 @@ impl HabitRow {
     pub fn from_habit(habit: &Habit) -> Self {
         Self {
             name: habit.name.clone(),
-            description: if habit.description.is_empty() { "-".to_string() } else { habit.description.clone() },
+            description: if habit.description.is_empty() {
+                "-".to_string()
+            } else {
+                habit.description.clone()
+            },
             frequency: habit.frequency.clone(),
             streak: Self::calculate_streak(habit),
-            tags: if habit.tags.is_empty() { "-".to_string() } else { habit.tags.join(", ") },
+            tags: if habit.tags.is_empty() {
+                "-".to_string()
+            } else {
+                habit.tags.join(", ")
+            },
             updated_at: habit.updated_at.format("%Y-%m-%d %H:%M").to_string(),
         }
     }
@@ -92,16 +98,34 @@ impl HabitRow {
         if habit.checkins.is_empty() {
             return 0;
         }
-        
-        let mut checkin_dates: Vec<DateTime<Utc>> = habit.checkins.iter()
-            .map(|c| c.date.date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc))
+
+        let mut checkin_dates: Vec<DateTime<Utc>> = habit
+            .checkins
+            .iter()
+            .map(|c| {
+                c.date
+                    .date_naive()
+                    .and_hms_opt(12, 0, 0)
+                    .expect("12:00:00 is always valid")
+                    .and_local_timezone(chrono::Local)
+                    .single()
+                    .expect("12:00 is DST-safe")
+                    .with_timezone(&Utc)
+            })
             .collect();
         checkin_dates.sort_by(|a, b| b.cmp(a));
-        
-        let today = Utc::now().date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc);
+
+        let today = Utc::now()
+            .date_naive()
+            .and_hms_opt(12, 0, 0)
+            .expect("12:00:00 is always valid")
+            .and_local_timezone(chrono::Local)
+            .single()
+            .expect("12:00 is DST-safe")
+            .with_timezone(&Utc);
         let mut streak = 0;
         let mut current_day = today;
-        
+
         for checkin in checkin_dates {
             let diff_days = (current_day - checkin).num_days().abs();
             if diff_days <= 1 {
@@ -111,7 +135,7 @@ impl HabitRow {
                 break;
             }
         }
-        
+
         streak
     }
 }
@@ -131,15 +155,33 @@ pub struct ListItem {
 
 impl From<&Habit> for ListItem {
     fn from(habit: &Habit) -> Self {
-        let mut checkin_dates: Vec<DateTime<Utc>> = habit.checkins.iter()
-            .map(|c| c.date.date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc))
+        let mut checkin_dates: Vec<DateTime<Utc>> = habit
+            .checkins
+            .iter()
+            .map(|c| {
+                c.date
+                    .date_naive()
+                    .and_hms_opt(12, 0, 0)
+                    .expect("12:00:00 is always valid")
+                    .and_local_timezone(chrono::Local)
+                    .single()
+                    .expect("12:00 is DST-safe")
+                    .with_timezone(&Utc)
+            })
             .collect();
         checkin_dates.sort_by(|a, b| b.cmp(a));
-        
-        let today = Utc::now().date_naive().and_hms_opt(12, 0, 0).expect("12:00:00 is always valid").and_local_timezone(chrono::Local).single().expect("12:00 is DST-safe").with_timezone(&Utc);
+
+        let today = Utc::now()
+            .date_naive()
+            .and_hms_opt(12, 0, 0)
+            .expect("12:00:00 is always valid")
+            .and_local_timezone(chrono::Local)
+            .single()
+            .expect("12:00 is DST-safe")
+            .with_timezone(&Utc);
         let mut streak = 0;
         let mut current_day = today;
-        
+
         for checkin in checkin_dates {
             let diff_days = (current_day - checkin).num_days().abs();
             if diff_days <= 1 {

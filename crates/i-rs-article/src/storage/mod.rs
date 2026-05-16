@@ -18,7 +18,10 @@ pub fn filter_by_tag_and_status<'a>(
     };
 
     if let Some(status) = status {
-        articles.into_iter().filter(|a| a.status == status).collect()
+        articles
+            .into_iter()
+            .filter(|a| a.status == status)
+            .collect()
     } else {
         articles
     }
@@ -26,9 +29,21 @@ pub fn filter_by_tag_and_status<'a>(
 
 pub fn get_stats(store: &ArticleStore) -> ArticleStats {
     let total = store.articles.len();
-    let unread = store.articles.values().filter(|a| a.status == ReadStatus::Unread).count();
-    let reading = store.articles.values().filter(|a| a.status == ReadStatus::Reading).count();
-    let read = store.articles.values().filter(|a| a.status == ReadStatus::Read).count();
+    let unread = store
+        .articles
+        .values()
+        .filter(|a| a.status == ReadStatus::Unread)
+        .count();
+    let reading = store
+        .articles
+        .values()
+        .filter(|a| a.status == ReadStatus::Reading)
+        .count();
+    let read = store
+        .articles
+        .values()
+        .filter(|a| a.status == ReadStatus::Read)
+        .count();
 
     ArticleStats {
         total,

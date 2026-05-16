@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tabled::Tabled;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,14 +58,10 @@ impl SavingsGoal {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoalStore {
     pub goals: BTreeMap<String, SavingsGoal>,
 }
-
-
-
 
 impl GoalStore {
     pub fn remove_entry(&mut self, name: &str) -> ::anyhow::Result<bool> {
@@ -98,7 +94,7 @@ impl SavingsGoalRow {
     pub fn from_goal(goal: &SavingsGoal) -> Self {
         let progress = goal.progress_percentage();
         let days_left = goal.days_until_deadline();
-        
+
         Self {
             name: goal.name.clone(),
             target: format!("{:.2}", goal.target_amount),
@@ -135,8 +131,15 @@ impl MilestoneRow {
         Self {
             name: milestone.name.clone(),
             amount: format!("{:.2}", milestone.amount),
-            status: if milestone.reached { "✓ Reached".to_string() } else { "○ Pending".to_string() },
-            reached_at: milestone.reached_at.clone().unwrap_or_else(|| "-".to_string()),
+            status: if milestone.reached {
+                "✓ Reached".to_string()
+            } else {
+                "○ Pending".to_string()
+            },
+            reached_at: milestone
+                .reached_at
+                .clone()
+                .unwrap_or_else(|| "-".to_string()),
         }
     }
 }

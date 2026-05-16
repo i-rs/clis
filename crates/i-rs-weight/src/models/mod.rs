@@ -13,12 +13,10 @@ pub struct WeightRecord {
     pub remark: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WeightStore {
     pub records: BTreeMap<NaiveDate, WeightRecord>,
 }
-
 
 impl WeightStore {
     pub fn add_entry(&mut self, record: WeightRecord) {

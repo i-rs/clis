@@ -18,19 +18,31 @@ pub struct CycleEntry {
 }
 
 impl CycleEntry {
-    pub fn new(date: chrono::NaiveDate, event_type: String, symptoms: Vec<String>, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        date: chrono::NaiveDate,
+        event_type: String,
+        symptoms: Vec<String>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, date, event_type, symptoms, tags, remark, created_at: now }
+        Self {
+            id,
+            date,
+            event_type,
+            symptoms,
+            tags,
+            remark,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CycleStore {
     pub entries: BTreeMap<String, CycleEntry>,
 }
-
 
 impl CycleStore {
     pub fn add_entry(&mut self, entry: CycleEntry) {
@@ -62,7 +74,11 @@ impl CycleRow {
             id: entry.id[..8].to_string(),
             date: entry.date.format("%Y-%m-%d").to_string(),
             event_type: entry.event_type.clone(),
-            symptoms: if entry.symptoms.is_empty() { "-".to_string() } else { entry.symptoms.join(", ") },
+            symptoms: if entry.symptoms.is_empty() {
+                "-".to_string()
+            } else {
+                entry.symptoms.join(", ")
+            },
         }
     }
 }

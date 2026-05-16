@@ -62,7 +62,7 @@ pub fn handle_rollback(
     } else {
         if rollback_to_id.is_some() {
             print_error("Target deployment not found");
-        } 
+        }
         anyhow::bail!("Rollback failed");
     }
 

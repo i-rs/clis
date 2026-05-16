@@ -1,4 +1,4 @@
-use crate::presentation::{output_error, output_item, print_header, OutputFormat};
+use crate::presentation::{OutputFormat, output_error, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -7,11 +7,13 @@ use owo_colors::Style as OwoStyle;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let snippet = if let Some(s) = store.get_entry(&name) { s } else {
+    let snippet = if let Some(s) = store.get_entry(&name) {
+        s
+    } else {
         let msg = format!("Snippet '{name}' not found");
         if format.is_json() {
             println!("{}", output_error(&msg, "NOT_FOUND", format));
-        } 
+        }
         anyhow::bail!("{msg}");
     };
 
@@ -50,10 +52,23 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
 
     let style = OwoStyle::new().bold();
 
-    println!("{:16} {}", "Language:".style(style), snippet.language.cyan());
+    println!(
+        "{:16} {}",
+        "Language:".style(style),
+        snippet.language.cyan()
+    );
 
     if !snippet.tags.is_empty() {
-        println!("{:16} {}", "Tags:".style(style), snippet.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", "));
+        println!(
+            "{:16} {}",
+            "Tags:".style(style),
+            snippet
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     if !snippet.description.is_empty() {
@@ -78,8 +93,24 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     }
 
     println!("\n{:16} {}", "ID:".style(style), snippet.id.dimmed());
-    println!("{:16} {}", "Created:".style(style), snippet.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
-    println!("{:16} {}", "Updated:".style(style), snippet.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed());
+    println!(
+        "{:16} {}",
+        "Created:".style(style),
+        snippet
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        snippet
+            .updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
+    );
 
     Ok(())
 }

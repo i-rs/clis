@@ -1,16 +1,15 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, Query, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_mood(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -19,16 +18,15 @@ async fn update_mood(
     let entry_date = chrono::NaiveDate::parse_from_str(&id, "%Y-%m-%d")
         .map_err(|_| ApiError::BadRequest(format!("Invalid date '{id}', expected YYYY-MM-DD")))?;
     let entry = state.mood.write(|store| -> Result<_, ApiError> {
-        let entry = store.records.get_mut(&entry_date)
+        let entry = store
+            .records
+            .get_mut(&entry_date)
             .ok_or_else(|| ApiError::NotFound(format!("Mood '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -56,9 +54,9 @@ async fn list_moods(
     Query(params): Query<ListQuery>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let days = params.days.map(|d| d as usize);
-    let records = state.mood.read(|store| {
-        i_rs_mood::service::list_moods(store, days).map_err(ApiError::from)
-    })?;
+    let records = state
+        .mood
+        .read(|store| i_rs_mood::service::list_moods(store, days).map_err(ApiError::from))?;
     Ok(ok_json_list(records))
 }
 
@@ -80,9 +78,9 @@ async fn get_mood(
     State(state): State<Arc<AppState>>,
     Path(date): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let record = state.mood.read(|store| {
-        i_rs_mood::service::get_mood(store, &date).map_err(ApiError::from)
-    })?;
+    let record = state
+        .mood
+        .read(|store| i_rs_mood::service::get_mood(store, &date).map_err(ApiError::from))?;
     Ok(ok_json(record))
 }
 
@@ -90,16 +88,16 @@ async fn delete_mood(
     State(state): State<Arc<AppState>>,
     Path(date): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    state.mood.write(|store| {
-        i_rs_mood::service::delete_mood(store, date).map_err(ApiError::from)
-    })?;
+    state
+        .mood
+        .write(|store| i_rs_mood::service::delete_mood(store, date).map_err(ApiError::from))?;
     Ok(ok_json_message())
 }
 
-async fn mood_stats(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
-    let stats = state.mood.read(|store| i_rs_mood::service::mood_stats(store).map_err(ApiError::from))?;
+async fn mood_stats(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
+    let stats = state
+        .mood
+        .read(|store| i_rs_mood::service::mood_stats(store).map_err(ApiError::from))?;
     match stats {
         Some((min, max, avg)) => Ok(ok_json(serde_json::json!({
             "best": min.label(),

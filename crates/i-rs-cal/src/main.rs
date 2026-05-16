@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use commands::{handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, parse_skill_arg};
+use commands::{
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
+    parse_skill_arg,
+};
 use presentation::OutputFormat;
 
 mod commands;
@@ -49,8 +52,8 @@ enum Commands {
         #[arg(value_name = "SUB_COMMAND")]
         sub: Option<String>,
     },
-#[clap(subcommand)]
-Data(commands::data::DataCommand),
+    #[clap(subcommand)]
+    Data(commands::data::DataCommand),
 }
 
 fn main() {
@@ -66,7 +69,13 @@ fn main() {
 
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
-        Commands::Add { food_name, calories, date, tag, remark } => {
+        Commands::Add {
+            food_name,
+            calories,
+            date,
+            tag,
+            remark,
+        } => {
             handle_add(food_name, calories, date, tag, remark)?;
         }
         Commands::Delete { id } => {
@@ -84,7 +93,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
         Commands::Skill { sub } => {
             handle_skill(parse_skill_arg(sub.as_deref()));
         }
-        Commands::Data(commands) => { commands::data::handle(&commands)? }
+        Commands::Data(commands) => commands::data::handle(&commands)?,
     }
     Ok(())
 }

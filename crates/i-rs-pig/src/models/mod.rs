@@ -19,7 +19,12 @@ pub struct PigEntry {
 }
 
 impl PigEntry {
-    pub fn new(food_name: String, description: Option<String>, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        food_name: String,
+        description: Option<String>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
         Self {
@@ -34,12 +39,10 @@ impl PigEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PigStore {
     pub entries: BTreeMap<String, PigEntry>,
 }
-
 
 #[allow(dead_code)]
 impl PigStore {
@@ -56,7 +59,10 @@ impl PigStore {
     }
 
     pub fn get_entries_by_date(&self, date: chrono::NaiveDate) -> Vec<&PigEntry> {
-        self.entries.values().filter(|e| e.happened_at.date_naive() == date).collect()
+        self.entries
+            .values()
+            .filter(|e| e.happened_at.date_naive() == date)
+            .collect()
     }
 }
 

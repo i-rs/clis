@@ -1,5 +1,5 @@
 use crate::models::Expense;
-use crate::presentation::{output_item, print_error, print_success, print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, output_item, print_error, print_success, print_warning};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -17,10 +17,13 @@ pub fn handle_expense(
 
     if !store.budgets.contains_key(&category) {
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": false,
-                "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found. Create it first with 'add' command.", category) }
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": false,
+                    "error": { "code": "NOT_FOUND", "message": format!("Budget for category '{}' not found. Create it first with 'add' command.", category) }
+                })
+            );
         } else {
             print_error(&format!("Budget for category '{category}' not found"));
             print_warning("Create it first with: i-rs-budget add <category> <amount>");
@@ -29,9 +32,10 @@ pub fn handle_expense(
     }
 
     let expense_date = if let Some(d) = date {
-        chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
-            .unwrap_or_else(|_| chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
-                .unwrap_or_else(|_| chrono::Utc::now().date_naive()))
+        chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d").unwrap_or_else(|_| {
+            chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
+                .unwrap_or_else(|_| chrono::Utc::now().date_naive())
+        })
     } else {
         Utc::now().date_naive()
     };
@@ -52,14 +56,20 @@ pub fn handle_expense(
             date: String,
             tags: Vec<String>,
         }
-        println!("{}", output_item(&ExpenseData {
-            id: expense.id,
-            category: expense.category,
-            amount: expense.amount,
-            description: expense.description,
-            date: expense.date.format("%Y-%m-%d").to_string(),
-            tags: expense.tags,
-        }, format));
+        println!(
+            "{}",
+            output_item(
+                &ExpenseData {
+                    id: expense.id,
+                    category: expense.category,
+                    amount: expense.amount,
+                    description: expense.description,
+                    date: expense.date.format("%Y-%m-%d").to_string(),
+                    tags: expense.tags,
+                },
+                format
+            )
+        );
     } else {
         print_success(&format!("Added expense {amount:.2} to '{category}'"));
         println!("  ID: {}", expense.id[..8].to_string().cyan());

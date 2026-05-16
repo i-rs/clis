@@ -21,7 +21,13 @@ pub struct Car {
 }
 
 impl Car {
-    pub fn new(name: String, license_plate: String, brand: String, model: String, mileage: f64) -> Self {
+    pub fn new(
+        name: String,
+        license_plate: String,
+        brand: String,
+        model: String,
+        mileage: f64,
+    ) -> Self {
         let now = Utc::now();
         Self {
             name,
@@ -174,15 +180,20 @@ impl CarStore {
         let car_name = record.car_name.clone();
         self.fuel_records.push(record);
         if let Some(car) = self.cars.get_mut(&car_name)
-            && mileage > car.mileage {
-                car.mileage = mileage;
-                car.updated_at = Utc::now();
-            }
+            && mileage > car.mileage
+        {
+            car.mileage = mileage;
+            car.updated_at = Utc::now();
+        }
     }
 
     pub fn get_fuel_records(&self, car_name: Option<&str>) -> Vec<&FuelRecord> {
         match car_name {
-            Some(name) => self.fuel_records.iter().filter(|r| r.car_name == name).collect(),
+            Some(name) => self
+                .fuel_records
+                .iter()
+                .filter(|r| r.car_name == name)
+                .collect(),
             None => self.fuel_records.iter().collect(),
         }
     }
@@ -198,15 +209,20 @@ impl CarStore {
         let car_name = record.car_name.clone();
         self.maintenance_records.push(record);
         if let Some(car) = self.cars.get_mut(&car_name)
-            && mileage > car.mileage {
-                car.mileage = mileage;
-                car.updated_at = Utc::now();
-            }
+            && mileage > car.mileage
+        {
+            car.mileage = mileage;
+            car.updated_at = Utc::now();
+        }
     }
 
     pub fn get_maintenance_records(&self, car_name: Option<&str>) -> Vec<&MaintenanceRecord> {
         match car_name {
-            Some(name) => self.maintenance_records.iter().filter(|r| r.car_name == name).collect(),
+            Some(name) => self
+                .maintenance_records
+                .iter()
+                .filter(|r| r.car_name == name)
+                .collect(),
             None => self.maintenance_records.iter().collect(),
         }
     }

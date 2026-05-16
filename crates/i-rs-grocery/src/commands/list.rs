@@ -1,13 +1,21 @@
 use crate::models::{GroceryRow, ListItem};
-use crate::presentation::{format_table, output_list, print_entry_count, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_entry_count};
 use crate::storage;
 use owo_colors::OwoColorize;
 
-pub fn handle_list(tag: Option<String>, purchased: Option<bool>, format: OutputFormat) -> anyhow::Result<()> {
+pub fn handle_list(
+    tag: Option<String>,
+    purchased: Option<bool>,
+    format: OutputFormat,
+) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
     let mut items: Vec<&crate::models::GroceryItem> = if let Some(tag_filter) = &tag {
-        store.entries.values().filter(|i| i.tags.contains(tag_filter)).collect()
+        store
+            .entries
+            .values()
+            .filter(|i| i.tags.contains(tag_filter))
+            .collect()
     } else {
         store.entries.values().collect()
     };
@@ -25,10 +33,7 @@ pub fn handle_list(tag: Option<String>, purchased: Option<bool>, format: OutputF
             return Ok(());
         }
 
-        let rows: Vec<GroceryRow> = items
-            .iter()
-            .map(|i| GroceryRow::from_item(i))
-            .collect();
+        let rows: Vec<GroceryRow> = items.iter().map(|i| GroceryRow::from_item(i)).collect();
 
         println!("{}", format_table(&rows));
         print_entry_count(rows.len());

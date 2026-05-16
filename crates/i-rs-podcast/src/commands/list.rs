@@ -1,5 +1,5 @@
 use crate::models::PodcastStatus;
-use crate::presentation::{format_table, print_warning, output_list, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_warning};
 use crate::storage;
 use anyhow::Result;
 
@@ -21,10 +21,11 @@ pub fn handle_list(
 
     if podcasts.is_empty() {
         if matches!(output_format, OutputFormat::Json) {
-            let filter = status_filter
-                
-                .or_else(|| tag.map(|t| format!("tag:{t}")));
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), output_format));
+            let filter = status_filter.or_else(|| tag.map(|t| format!("tag:{t}")));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), output_format)
+            );
         } else {
             print_warning("No podcasts found.");
         }
@@ -54,11 +55,12 @@ pub fn handle_list(
             })
             .collect();
 
-        let filter = status_filter
-            
-            .or_else(|| tag.map(|t| format!("tag:{t}")));
+        let filter = status_filter.or_else(|| tag.map(|t| format!("tag:{t}")));
 
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), output_format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), output_format)
+        );
         return Ok(());
     }
 
@@ -79,9 +81,7 @@ pub fn handle_list(
         .filter(|p| p.status == PodcastStatus::Completed)
         .count();
 
-    println!(
-        "\nTotal: {total} podcasts (○ {not_started} ◐ {in_progress} ● {completed})"
-    );
+    println!("\nTotal: {total} podcasts (○ {not_started} ◐ {in_progress} ● {completed})");
 
     Ok(())
 }

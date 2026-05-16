@@ -1,5 +1,5 @@
 use crate::models::PigEntry;
-use crate::presentation::{print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -17,7 +17,11 @@ pub fn handle_add(
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Recorded '{}' at {}", food_name.green(), chrono::Utc::now().format("%H:%M").to_string().cyan()));
+    print_success(&format!(
+        "✓ Recorded '{}' at {}",
+        food_name.green(),
+        chrono::Utc::now().format("%H:%M").to_string().cyan()
+    ));
 
     Ok(())
 }

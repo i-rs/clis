@@ -32,12 +32,10 @@ impl WaterEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WaterStore {
     pub entries: BTreeMap<String, WaterEntry>,
 }
-
 
 #[allow(dead_code)]
 impl WaterStore {
@@ -52,7 +50,8 @@ impl WaterStore {
     }
     pub fn get_total_today(&self) -> i32 {
         let today = Utc::now().date_naive();
-        self.entries.values()
+        self.entries
+            .values()
             .filter(|e| e.drank_at.date_naive() == today)
             .map(|e| e.amount_ml)
             .sum()
@@ -77,7 +76,11 @@ impl WaterRow {
             id: entry.id[..8].to_string(),
             amount: format!("{} ml", entry.amount_ml),
             drank_at: entry.drank_at.format("%H:%M").to_string(),
-            tags: if entry.tags.is_empty() { "-".to_string() } else { entry.tags.join(", ") },
+            tags: if entry.tags.is_empty() {
+                "-".to_string()
+            } else {
+                entry.tags.join(", ")
+            },
         }
     }
 }
@@ -113,7 +116,11 @@ pub struct Summary {
 impl From<&WaterStore> for Summary {
     fn from(store: &WaterStore) -> Self {
         let today = Utc::now().date_naive();
-        let entries: Vec<_> = store.entries.values().filter(|e| e.drank_at.date_naive() == today).collect();
+        let entries: Vec<_> = store
+            .entries
+            .values()
+            .filter(|e| e.drank_at.date_naive() == today)
+            .collect();
         Self {
             today_total_ml: entries.iter().map(|e| e.amount_ml).sum(),
             today_count: entries.len(),

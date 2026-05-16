@@ -19,14 +19,10 @@ pub struct Snippet {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SnippetStore {
     pub snippets: std::collections::BTreeMap<String, Snippet>,
 }
-
-
-
 
 impl SnippetStore {
     pub fn add_entry(&mut self, entry: Snippet) {

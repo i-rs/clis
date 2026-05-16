@@ -6,7 +6,10 @@ use owo_colors::OwoColorize;
 pub fn handle_delete(id: String) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let record = store.entries.values().find(|r| r.id == id || r.id.starts_with(&id));
+    let record = store
+        .entries
+        .values()
+        .find(|r| r.id == id || r.id.starts_with(&id));
 
     match record {
         Some(r) => {

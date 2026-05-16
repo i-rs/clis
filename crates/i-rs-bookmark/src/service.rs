@@ -36,7 +36,6 @@ pub fn add_bookmark(
     tags: Vec<String>,
     remark: Vec<String>,
 ) -> Result<Bookmark> {
-
     if store.bookmarks.contains_key(&name) {
         anyhow::bail!("Bookmark '{name}' already exists");
     }
@@ -72,7 +71,6 @@ pub fn update_bookmark(
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<Bookmark> {
-
     let bookmark = store
         .get_entry_mut(&name)
         .with_context(|| format!("Bookmark '{name}' not found"))?;

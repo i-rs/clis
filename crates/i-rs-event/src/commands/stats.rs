@@ -4,8 +4,8 @@ use crate::storage;
 use anyhow::Result;
 use chrono::{Datelike, Utc};
 use clap::Parser;
-use std::collections::BTreeMap;
 use owo_colors::OwoColorize;
+use std::collections::BTreeMap;
 
 #[derive(Parser, Debug, Clone)]
 pub struct StatsArgs {
@@ -66,7 +66,11 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
             );
         } else {
             print_header(&format!("Event Statistics - {target_year}"));
-            println!("\n{} {} events", "Total:".cyan().bold(), total.to_string().green());
+            println!(
+                "\n{} {} events",
+                "Total:".cyan().bold(),
+                total.to_string().green()
+            );
 
             println!("\n{}", "By Type:".cyan().bold());
             for (etype, count) in &by_type {
@@ -80,10 +84,16 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
             }
 
             println!("\n{}", "By Month:".cyan().bold());
-            let month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            let month_names = [
+                "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+            ];
             for month in 1..=12 {
                 if let Some(count) = by_month.get(&month) {
-                    println!("  {}: {}", month_names[month as usize - 1], count.to_string().green());
+                    println!(
+                        "  {}: {}",
+                        month_names[month as usize - 1],
+                        count.to_string().green()
+                    );
                 }
             }
 
@@ -97,9 +107,7 @@ pub fn run(args: &StatsArgs, json: bool) -> Result<()> {
             }
         }
     } else if json {
-        println!(
-            r#"{{"success": true, "data": {{"year": {target_year}, "total": 0}}}}"#
-        );
+        println!(r#"{{"success": true, "data": {{"year": {target_year}, "total": 0}}}}"#);
     } else {
         print_warning(&format!("No events found for year {target_year}"));
     }

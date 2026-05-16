@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Item:".bold().green());
-    println!("  i-rs-bestby add \"Toothbrush\" 2024-01-15 --tag bathroom --remark \"Electric toothbrush\"");
+    println!(
+        "  i-rs-bestby add \"Toothbrush\" 2024-01-15 --tag bathroom --remark \"Electric toothbrush\""
+    );
     println!("  i-rs-bestby add \"Pillow\" 2023-06-01 --tag bedroom");
     println!();
 

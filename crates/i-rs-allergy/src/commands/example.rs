@@ -7,7 +7,9 @@ pub fn handle_example() {
 
     println!("{}", "Record allergy reaction:".bold().green());
     println!("  i-rs-allergy add \"Peanuts\" mild --symptom \"hives\" --symptom \"itching\"");
-    println!("  i-rs-allergy add \"Pollen\" severe --symptom \"sneezing\" --symptom \"watery eyes\"");
+    println!(
+        "  i-rs-allergy add \"Pollen\" severe --symptom \"sneezing\" --symptom \"watery eyes\""
+    );
     println!();
 
     println!("{}", "List records:".bold().green());

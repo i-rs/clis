@@ -12,7 +12,11 @@ pub fn handle_add(amount_ml: i32, tag: Vec<String>, remark: Vec<String>) -> Resu
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Recorded {}ml at {}", amount_ml.green(), chrono::Utc::now().format("%H:%M").to_string().cyan()));
+    print_success(&format!(
+        "✓ Recorded {}ml at {}",
+        amount_ml.green(),
+        chrono::Utc::now().format("%H:%M").to_string().cyan()
+    ));
 
     Ok(())
 }

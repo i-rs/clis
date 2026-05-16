@@ -36,12 +36,10 @@ impl std::fmt::Display for GiftType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GiftStore {
     pub gifts: std::collections::BTreeMap<String, Gift>,
 }
-
 
 #[derive(Tabled)]
 pub struct GiftRow {

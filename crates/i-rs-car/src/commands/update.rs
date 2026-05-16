@@ -1,4 +1,4 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -56,7 +56,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         args.name.clone()
     };
 
-        let car = match store.get_entry_mut(&args.name) {
+    let car = match store.get_entry_mut(&args.name) {
         Some(c) => c,
         None => {
             anyhow::bail!("Car '{}' not found", args.name);
@@ -96,10 +96,7 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     }
 
     if let Some(ref tags_str) = args.remove_tags {
-        let remove_tags: Vec<String> = tags_str
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .collect();
+        let remove_tags: Vec<String> = tags_str.split(',').map(|s| s.trim().to_string()).collect();
         car.tags.retain(|t| !remove_tags.contains(t));
     }
 

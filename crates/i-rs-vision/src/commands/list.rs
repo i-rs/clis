@@ -1,5 +1,7 @@
 use crate::models::VisionRecord;
-use crate::presentation::{format_table, print_record_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_record_count, print_warning,
+};
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -22,7 +24,10 @@ pub fn handle_list(days: Option<usize>, format: OutputFormat) -> Result<()> {
     if records.is_empty() {
         if format.is_json() {
             let filter = days.map(|d| format!("last {d} days"));
-            println!("{}", output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format));
+            println!(
+                "{}",
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
+            );
         } else {
             print_warning("No vision records found.");
         }
@@ -45,20 +50,26 @@ pub fn handle_list(days: Option<usize>, format: OutputFormat) -> Result<()> {
             remark: Vec<String>,
         }
 
-        let items: Vec<ListItem> = records.iter().map(|r| ListItem {
-            date: r.date.format("%Y-%m-%d").to_string(),
-            left_sphere: r.left_sphere,
-            right_sphere: r.right_sphere,
-            left_cylinder: r.left_cylinder,
-            right_cylinder: r.right_cylinder,
-            left_axis: r.left_axis,
-            right_axis: r.right_axis,
-            tags: r.tags.clone(),
-            remark: r.remark.clone(),
-        }).collect();
+        let items: Vec<ListItem> = records
+            .iter()
+            .map(|r| ListItem {
+                date: r.date.format("%Y-%m-%d").to_string(),
+                left_sphere: r.left_sphere,
+                right_sphere: r.right_sphere,
+                left_cylinder: r.left_cylinder,
+                right_cylinder: r.right_cylinder,
+                left_axis: r.left_axis,
+                right_axis: r.right_axis,
+                tags: r.tags.clone(),
+                remark: r.remark.clone(),
+            })
+            .collect();
 
         let filter = days.map(|d| format!("last {d} days"));
-        println!("{}", output_list(&items, items.len(), filter.as_deref(), format));
+        println!(
+            "{}",
+            output_list(&items, items.len(), filter.as_deref(), format)
+        );
         return Ok(());
     }
 

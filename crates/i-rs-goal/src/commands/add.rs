@@ -1,4 +1,4 @@
-use crate::presentation::{output_item, print_header, print_success, OutputFormat};
+use crate::presentation::{OutputFormat, output_item, print_header, print_success};
 use crate::storage;
 use chrono::{TimeZone, Utc};
 use clap::Parser;
@@ -7,20 +7,25 @@ use clap::Parser;
 pub struct AddArgs {
     #[arg(help = "Goal name")]
     pub name: String,
-    
+
     #[arg(short, long, help = "Target amount to save")]
     pub target: f64,
-    
+
     #[arg(short, long, help = "Deadline (YYYY-MM-DD)")]
     pub deadline: String,
-    
+
     #[arg(short, long, value_delimiter = ',', help = "Tags (comma-separated)")]
     pub tags: Vec<String>,
-    
+
     #[arg(short, long, value_delimiter = ',', help = "Remarks (comma-separated)")]
     pub remark: Vec<String>,
-    
-    #[arg(short = 'm', long, value_delimiter = ',', help = "Milestones as name:amount pairs (comma-separated)")]
+
+    #[arg(
+        short = 'm',
+        long,
+        value_delimiter = ',',
+        help = "Milestones as name:amount pairs (comma-separated)"
+    )]
     pub milestones: Vec<String>,
 }
 
@@ -28,11 +33,13 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
     if args.target <= 0.0 {
         anyhow::bail!("Target amount must be greater than 0");
     }
-    
+
     let naive = i_rs_core::parse_date(&args.deadline)?;
-    let deadline = Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"));
-    
-    let milestone_pairs: Vec<(String, f64)> = args.milestones
+    let deadline =
+        Utc.from_utc_datetime(&naive.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid"));
+
+    let milestone_pairs: Vec<(String, f64)> = args
+        .milestones
         .iter()
         .filter_map(|s| {
             let parts: Vec<&str> = s.split(':').collect();
@@ -45,13 +52,13 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
             }
         })
         .collect();
-    
+
     let mut store = storage::load_store()?;
-    
+
     if store.goals.contains_key(&args.name) {
         anyhow::bail!("Goal '{}' already exists", args.name);
     }
-    
+
     let goal = storage::add_entry(
         &mut store,
         args.name,
@@ -61,18 +68,25 @@ pub fn add(args: AddArgs, output_format: OutputFormat) -> anyhow::Result<()> {
         args.remark,
         milestone_pairs,
     )?;
-    
+
     match output_format {
         OutputFormat::Json => {
             println!("{}", output_item(&goal, output_format));
         }
         OutputFormat::Table | OutputFormat::Default => {
             print_header("Goal Added");
-            print_success(&format!("'{}' created with target of {:.2}", goal.name, goal.target_amount));
+            print_success(&format!(
+                "'{}' created with target of {:.2}",
+                goal.name, goal.target_amount
+            ));
             println!("\nDeadline: {}", goal.deadline.format("%Y-%m-%d"));
-            println!("Progress: {:.1}% (0.00 / {:.2})", goal.progress_percentage(), goal.target_amount);
+            println!(
+                "Progress: {:.1}% (0.00 / {:.2})",
+                goal.progress_percentage(),
+                goal.target_amount
+            );
         }
     }
-    
+
     Ok(())
 }

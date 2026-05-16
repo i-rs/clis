@@ -1,5 +1,5 @@
 use crate::models::Quote;
-use crate::presentation::{print_success};
+use crate::presentation::print_success;
 use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
@@ -31,7 +31,10 @@ pub fn handle_add(
     store.add_entry(quote);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Quote '{}' added successfully", id.green().bold()));
+    print_success(&format!(
+        "✓ Quote '{}' added successfully",
+        id.green().bold()
+    ));
 
     Ok(())
 }

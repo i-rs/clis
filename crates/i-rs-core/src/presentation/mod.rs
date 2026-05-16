@@ -1,12 +1,17 @@
 pub mod output;
 pub mod theme;
 
-pub use output::{OutputFormat, output_list, output_item, output_error};
-pub use theme::{apply, get_theme, print_error, print_success, print_header, print_warning, println_dimmed, table_border_color, table_header_style, table_row_style, Theme};
+pub use output::{OutputFormat, output_error, output_item, output_list};
+pub use theme::{
+    Theme, apply, get_theme, print_error, print_header, print_success, print_warning,
+    println_dimmed, table_border_color, table_header_style, table_row_style,
+};
 
 use tabled::{
-    settings::{object::Rows, object::Segment, style::BorderColor, style::Style, themes::Colorization},
     Table, Tabled,
+    settings::{
+        object::Rows, object::Segment, style::BorderColor, style::Style, themes::Colorization,
+    },
 };
 
 /// Render a table of items with consistent i-rs styling (cyan borders, bold header, green rows).

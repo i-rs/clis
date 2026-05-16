@@ -1,12 +1,13 @@
-use crate::models::{SleepRow, ListItem};
-use crate::presentation::{format_table, print_header, OutputFormat, output_item};
+use crate::models::{ListItem, SleepRow};
+use crate::presentation::{OutputFormat, format_table, output_item, print_header};
 use crate::storage;
 use owo_colors::OwoColorize;
 
 pub fn handle_get(id: String, format: OutputFormat) -> anyhow::Result<()> {
     let store = storage::load_store()?;
 
-    let record = store.get_entry(&id)
+    let record = store
+        .get_entry(&id)
         .ok_or_else(|| anyhow::anyhow!("Sleep record '{id}' not found"))?;
 
     if format == OutputFormat::Json {
@@ -15,10 +16,10 @@ pub fn handle_get(id: String, format: OutputFormat) -> anyhow::Result<()> {
     } else {
         print_header("Sleep Record Details");
         let style = owo_colors::Style::new().bold();
-        
+
         let row = SleepRow::from_record(record);
         println!("{}", format_table(&[row]));
-        
+
         if !record.remark.is_empty() {
             println!("\n{}", "Remarks:".style(style));
             for (i, remark) in record.remark.iter().enumerate() {

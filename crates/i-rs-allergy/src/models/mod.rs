@@ -20,19 +20,32 @@ pub struct AllergyEntry {
 }
 
 impl AllergyEntry {
-    pub fn new(allergen: String, severity: String, symptoms: Vec<String>, tags: Vec<String>, remark: Vec<String>) -> Self {
+    pub fn new(
+        allergen: String,
+        severity: String,
+        symptoms: Vec<String>,
+        tags: Vec<String>,
+        remark: Vec<String>,
+    ) -> Self {
         let now = Utc::now();
         let id = uuid::Uuid::new_v4().to_string();
-        Self { id, allergen, severity, symptoms, tags, remark, happened_at: now, created_at: now }
+        Self {
+            id,
+            allergen,
+            severity,
+            symptoms,
+            tags,
+            remark,
+            happened_at: now,
+            created_at: now,
+        }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AllergyStore {
     pub entries: BTreeMap<String, AllergyEntry>,
 }
-
 
 impl AllergyStore {
     pub fn add_entry(&mut self, entry: AllergyEntry) {

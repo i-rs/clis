@@ -33,7 +33,6 @@ pub fn add_note(
     tags: Vec<String>,
     content: Vec<String>,
 ) -> Result<Note> {
-
     if store.notes.contains_key(&name) {
         anyhow::bail!("Note '{name}' already exists");
     }
@@ -61,7 +60,6 @@ pub fn update_note(
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<Note> {
-
     let note = store
         .get_entry_mut(&name)
         .with_context(|| format!("Note '{name}' not found"))?;

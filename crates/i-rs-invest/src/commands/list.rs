@@ -1,5 +1,5 @@
 use crate::models::{AssetType, Investment};
-use crate::presentation::{format_table, output_list, print_investment_count, OutputFormat};
+use crate::presentation::{OutputFormat, format_table, output_list, print_investment_count};
 use crate::storage;
 use anyhow::Result;
 

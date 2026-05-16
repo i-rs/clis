@@ -39,12 +39,10 @@ impl RecurEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RecurStore {
     pub entries: BTreeMap<String, RecurEntry>,
 }
-
 
 impl RecurStore {
     pub fn add_entry(&mut self, entry: RecurEntry) {

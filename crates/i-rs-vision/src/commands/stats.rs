@@ -1,4 +1,4 @@
-use crate::presentation::{print_warning, OutputFormat};
+use crate::presentation::{OutputFormat, print_warning};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -8,13 +8,16 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
 
     if store.records.is_empty() {
         if format.is_json() {
-            println!("{}", serde_json::json!({
-                "success": true,
-                "data": {
-                    "total_records": 0,
-                    "message": "No vision records found"
-                }
-            }));
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": true,
+                    "data": {
+                        "total_records": 0,
+                        "message": "No vision records found"
+                    }
+                })
+            );
         } else {
             print_warning("No vision records found.");
         }
@@ -102,24 +105,39 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
             right_cylinder_latest: latest.and_then(|r| r.right_cylinder),
         };
 
-        println!("{}", serde_json::json!({
-            "success": true,
-            "data": stats
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "data": stats
+            })
+        );
         return Ok(());
     }
 
     println!("\n{}", "Vision Statistics:".bold().cyan());
     println!("{}", "─".repeat(40).dimmed());
 
-    println!("  {:16} {}", "Total Records:".dimmed(), records.len().to_string().green());
+    println!(
+        "  {:16} {}",
+        "Total Records:".dimmed(),
+        records.len().to_string().green()
+    );
 
     if let Some(earliest) = records.first() {
-        println!("  {:16} {}", "Earliest Record:".dimmed(), earliest.date.format("%Y-%m-%d").green());
+        println!(
+            "  {:16} {}",
+            "Earliest Record:".dimmed(),
+            earliest.date.format("%Y-%m-%d").green()
+        );
     }
 
     if let Some(latest) = records.last() {
-        println!("  {:16} {}", "Latest Record:".dimmed(), latest.date.format("%Y-%m-%d").green());
+        println!(
+            "  {:16} {}",
+            "Latest Record:".dimmed(),
+            latest.date.format("%Y-%m-%d").green()
+        );
     }
 
     println!();
@@ -178,36 +196,54 @@ pub fn handle_stats(format: OutputFormat) -> Result<()> {
         }
 
         if let (Some(first), Some(last)) = (earliest_with_left, latest_with_left)
-            && let (Some(f), Some(l)) = (first.left_sphere, last.left_sphere) {
-                let change = l - f;
-                let sign = if change >= 0.0 { "+" } else { "" };
-                let direction = if change.abs() < 0.25 {
-                    "→".dimmed().to_string()
-                } else if change > 0.0 {
-                    "↓".red().to_string()
-                } else {
-                    "↑".green().to_string()
-                };
-                println!();
-                println!("{}", "Left Eye Change:".bold().cyan());
-                println!("  {:16} {}{:.2} ({}{:.2} {})", "".dimmed(), sign, change, sign, change.abs(), direction);
-            }
+            && let (Some(f), Some(l)) = (first.left_sphere, last.left_sphere)
+        {
+            let change = l - f;
+            let sign = if change >= 0.0 { "+" } else { "" };
+            let direction = if change.abs() < 0.25 {
+                "→".dimmed().to_string()
+            } else if change > 0.0 {
+                "↓".red().to_string()
+            } else {
+                "↑".green().to_string()
+            };
+            println!();
+            println!("{}", "Left Eye Change:".bold().cyan());
+            println!(
+                "  {:16} {}{:.2} ({}{:.2} {})",
+                "".dimmed(),
+                sign,
+                change,
+                sign,
+                change.abs(),
+                direction
+            );
+        }
 
         if let (Some(first), Some(last)) = (earliest_with_right, latest_with_right)
-            && let (Some(f), Some(l)) = (first.right_sphere, last.right_sphere) {
-                let change = l - f;
-                let sign = if change >= 0.0 { "+" } else { "" };
-                let direction = if change.abs() < 0.25 {
-                    "→".dimmed().to_string()
-                } else if change > 0.0 {
-                    "↓".red().to_string()
-                } else {
-                    "↑".green().to_string()
-                };
-                println!();
-                println!("{}", "Right Eye Change:".bold().cyan());
-                println!("  {:16} {}{:.2} ({}{:.2} {})", "".dimmed(), sign, change, sign, change.abs(), direction);
-            }
+            && let (Some(f), Some(l)) = (first.right_sphere, last.right_sphere)
+        {
+            let change = l - f;
+            let sign = if change >= 0.0 { "+" } else { "" };
+            let direction = if change.abs() < 0.25 {
+                "→".dimmed().to_string()
+            } else if change > 0.0 {
+                "↓".red().to_string()
+            } else {
+                "↑".green().to_string()
+            };
+            println!();
+            println!("{}", "Right Eye Change:".bold().cyan());
+            println!(
+                "  {:16} {}{:.2} ({}{:.2} {})",
+                "".dimmed(),
+                sign,
+                change,
+                sign,
+                change.abs(),
+                direction
+            );
+        }
     }
 
     println!();

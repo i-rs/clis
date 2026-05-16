@@ -1,9 +1,14 @@
-use crate::models::{ReportData, StatsData, ListItem};
-use crate::presentation::{output_report_json, OutputFormat};
+use crate::models::{ListItem, ReportData, StatsData};
+use crate::presentation::{OutputFormat, output_report_json};
 use crate::storage;
 use chrono::{Duration, NaiveDate, Utc};
 
-pub fn handle_report(start_date: Option<String>, end_date: Option<String>, days: Option<i64>, format: OutputFormat) -> anyhow::Result<()> {
+pub fn handle_report(
+    start_date: Option<String>,
+    end_date: Option<String>,
+    days: Option<i64>,
+    format: OutputFormat,
+) -> anyhow::Result<()> {
     let store = storage::load_store()?;
     let today = Utc::now().date_naive();
 
@@ -23,12 +28,14 @@ pub fn handle_report(start_date: Option<String>, end_date: Option<String>, days:
         (start, end)
     };
 
-    let entries: Vec<_> = store.get_entries_in_range(start, end)
+    let entries: Vec<_> = store
+        .get_entries_in_range(start, end)
         .into_iter()
         .filter(|e| e.end_time.is_some())
         .collect();
 
-    let mut daily_map: std::collections::BTreeMap<NaiveDate, Vec<_>> = std::collections::BTreeMap::new();
+    let mut daily_map: std::collections::BTreeMap<NaiveDate, Vec<_>> =
+        std::collections::BTreeMap::new();
     for entry in &entries {
         let date = entry.start_time.date_naive();
         daily_map.entry(date).or_default().push(*entry);

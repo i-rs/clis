@@ -1,32 +1,29 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_project(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.project.write(|store| -> Result<_, ApiError> {
-        let entry = store.get_entry_mut(&id)
+        let entry = store
+            .get_entry_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Project '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -48,9 +45,7 @@ pub struct AddProjectRequest {
     pub tasks: Option<serde_json::Value>,
 }
 
-async fn list_projects(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_projects(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.project.read(|store| {
         let entries: Vec<_> = store.projects.to_vec();
         Ok::<_, ApiError>(entries)
@@ -64,20 +59,28 @@ async fn add_project(
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
     let description = req.description;
-    let status: i_rs_project::models::ProjectStatus = serde_json::from_value(serde_json::json!(req.status))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
-    let priority: i_rs_project::models::Priority = serde_json::from_value(serde_json::json!(req.priority))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid priority: {e}")))?;
+    let status: i_rs_project::models::ProjectStatus =
+        serde_json::from_value(serde_json::json!(req.status))
+            .map_err(|e| ApiError::BadRequest(format!("Invalid status: {e}")))?;
+    let priority: i_rs_project::models::Priority =
+        serde_json::from_value(serde_json::json!(req.priority))
+            .map_err(|e| ApiError::BadRequest(format!("Invalid priority: {e}")))?;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
-    let milestones: Vec<i_rs_project::models::Milestone> = req.milestones
-        .map(|v| serde_json::from_value(v)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid milestones: {e}"))))
+    let milestones: Vec<i_rs_project::models::Milestone> = req
+        .milestones
+        .map(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| ApiError::BadRequest(format!("Invalid milestones: {e}")))
+        })
         .transpose()?
         .unwrap_or_default();
-    let tasks: Vec<i_rs_project::models::Task> = req.tasks
-        .map(|v| serde_json::from_value(v)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid tasks: {e}"))))
+    let tasks: Vec<i_rs_project::models::Task> = req
+        .tasks
+        .map(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| ApiError::BadRequest(format!("Invalid tasks: {e}")))
+        })
         .transpose()?
         .unwrap_or_default();
     let now = chrono::Utc::now();
@@ -104,7 +107,12 @@ async fn get_project(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.project.read(|store| {
-        store.projects.iter().find(|e| e.name == id).cloned().ok_or_else(|| ApiError::NotFound(format!("Project '{id}' not found")))
+        store
+            .projects
+            .iter()
+            .find(|e| e.name == id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Project '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

@@ -1,32 +1,30 @@
 use std::sync::Arc;
 
 use axum::{
-    Router,
-    routing::{get, post, delete},
+    Json, Router,
     extract::{Path, State},
-    Json,
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 
+use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
-use crate::AppState;
 async fn update_debt(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.debt.write(|store| -> Result<_, ApiError> {
-        let entry = store.debts.get_mut(&id)
+        let entry = store
+            .debts
+            .get_mut(&id)
             .ok_or_else(|| ApiError::NotFound(format!("Debt '{id}' not found")))?;
-        crate::update::merge_entry(entry, &body)
-            .map_err(ApiError::BadRequest)?;
+        crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
     Ok(ok_json(entry))
 }
-
-
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -47,9 +45,7 @@ pub struct AddDebtRequest {
     pub remark: Option<Vec<String>>,
 }
 
-async fn list_debts(
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<serde_json::Value>> {
+async fn list_debts(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state.debt.read(|store| {
         let entries: Vec<_> = store.debts.values().cloned().collect();
         Ok::<_, ApiError>(entries)
@@ -62,16 +58,22 @@ async fn add_debt(
     Json(req): Json<AddDebtRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let name = req.name;
-    let debt_type: i_rs_debt::models::DebtType = req.debt_type
+    let debt_type: i_rs_debt::models::DebtType = req
+        .debt_type
         .parse()
         .map_err(|e| ApiError::BadRequest(format!("Invalid debt type: {e}")))?;
     let total_amount = req.total_amount;
     let interest_rate = req.interest_rate;
-    let due_date = req.due_date
-        .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
-            .map_err(|_| ApiError::BadRequest("Invalid datetime format, expected RFC3339".to_string()))
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-        ).transpose()?;
+    let due_date = req
+        .due_date
+        .map(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .map_err(|_| {
+                    ApiError::BadRequest("Invalid datetime format, expected RFC3339".to_string())
+                })
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        })
+        .transpose()?;
     let tags = req.tags.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
     let mut entry = i_rs_debt::models::Debt::new(name, debt_type, total_amount);
@@ -90,7 +92,11 @@ async fn get_debt(
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.debt.read(|store| {
-        store.debts.get(&id).cloned().ok_or_else(|| ApiError::NotFound(format!("Debt '{id}' not found")))
+        store
+            .debts
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| ApiError::NotFound(format!("Debt '{id}' not found")))
     })?;
     Ok(ok_json(entry))
 }

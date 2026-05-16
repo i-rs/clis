@@ -6,7 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Remind:".bold().green());
-    println!("  i-rs-remind add meeting 2025-06-15 --title \"Team Meeting\" --tag work --content \"Discuss project进展\"");
+    println!(
+        "  i-rs-remind add meeting 2025-06-15 --title \"Team Meeting\" --tag work --content \"Discuss project进展\""
+    );
     println!("  i-rs-remind add birthday 2025-07-20 --title \"Friend Birthday\" --tag personal");
     println!();
 

@@ -3,7 +3,12 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 
 /// List todos with optional filters. Returns owned Todos.
-pub fn list_todos(store: &TodoStore, pending: bool, done: bool, tag: Option<String>) -> Result<Vec<Todo>> {
+pub fn list_todos(
+    store: &TodoStore,
+    pending: bool,
+    done: bool,
+    tag: Option<String>,
+) -> Result<Vec<Todo>> {
     let todos: Vec<&Todo> = match (pending, done, &tag) {
         (_, _, Some(t)) => store.filter_by_tag(t),
         (true, false, None) => store.get_pending_todos(),
@@ -31,7 +36,6 @@ pub fn add_todo(
     tags: Vec<String>,
     content: Vec<String>,
 ) -> Result<Todo> {
-
     if store.todos.contains_key(&name) {
         anyhow::bail!("Todo '{name}' already exists");
     }
@@ -66,7 +70,6 @@ pub fn update_todo(
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
 ) -> Result<Todo> {
-
     let todo = store
         .get_entry_mut(&name)
         .with_context(|| format!("Todo '{name}' not found"))?;
@@ -100,7 +103,6 @@ pub fn delete_todo(store: &mut TodoStore, name: &str) -> Result<()> {
 
 /// Toggle a todo's done/pending status. Returns the toggled Todo.
 pub fn toggle_todo_done(store: &mut TodoStore, name: &str) -> Result<Todo> {
-
     let todo = store
         .get_entry_mut(name)
         .with_context(|| format!("Todo '{name}' not found"))?;

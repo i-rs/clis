@@ -1,5 +1,5 @@
 use fs2::FileExt;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::fs;
 use std::path::PathBuf;
 
@@ -22,7 +22,7 @@ impl<T: Default> Default for Storage<T> {
 }
 
 impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
-    #[must_use] 
+    #[must_use]
     pub fn new(filename: &str) -> Self {
         let config_dir = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
@@ -103,7 +103,10 @@ pub trait HasTags {
 
 pub fn filter_by_tag<'a, T: HasTags>(items: &'a [T], tag: Option<&str>) -> Vec<&'a T> {
     match tag {
-        Some(t) => items.iter().filter(|item| item.tags().contains(&t.to_string())).collect(),
+        Some(t) => items
+            .iter()
+            .filter(|item| item.tags().contains(&t.to_string()))
+            .collect(),
         None => items.iter().collect(),
     }
 }

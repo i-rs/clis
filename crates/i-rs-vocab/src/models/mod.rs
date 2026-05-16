@@ -65,12 +65,10 @@ pub struct VocabWord {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct VocabStore {
     pub words: BTreeMap<String, VocabWord>,
 }
-
 
 impl VocabStore {
     pub fn add_entry(&mut self, word: VocabWord) {
@@ -94,24 +92,37 @@ impl VocabStore {
     }
 
     pub fn filter_by_status(&self, status: VocabStatus) -> Vec<&VocabWord> {
-        self.words
-            .values()
-            .filter(|w| w.status == status)
-            .collect()
+        self.words.values().filter(|w| w.status == status).collect()
     }
 
     pub fn filter_by_tag(&self, tag: &str) -> Vec<&VocabWord> {
         self.words
             .values()
-            .filter(|w| w.tags.iter().any(|t| t.to_lowercase() == tag.to_lowercase()))
+            .filter(|w| {
+                w.tags
+                    .iter()
+                    .any(|t| t.to_lowercase() == tag.to_lowercase())
+            })
             .collect()
     }
 
     pub fn get_stats(&self) -> VocabStats {
         let total = self.words.len();
-        let new_count = self.words.values().filter(|w| w.status == VocabStatus::New).count();
-        let learning_count = self.words.values().filter(|w| w.status == VocabStatus::Learning).count();
-        let mastered_count = self.words.values().filter(|w| w.status == VocabStatus::Mastered).count();
+        let new_count = self
+            .words
+            .values()
+            .filter(|w| w.status == VocabStatus::New)
+            .count();
+        let learning_count = self
+            .words
+            .values()
+            .filter(|w| w.status == VocabStatus::Learning)
+            .count();
+        let mastered_count = self
+            .words
+            .values()
+            .filter(|w| w.status == VocabStatus::Mastered)
+            .count();
         let total_reviews: u32 = self.words.values().map(|w| w.review_count).sum();
 
         VocabStats {
@@ -124,7 +135,8 @@ impl VocabStore {
     }
 
     pub fn get_words_for_quiz(&self, limit: usize) -> Vec<&VocabWord> {
-        let mut learning_words: Vec<&VocabWord> = self.words
+        let mut learning_words: Vec<&VocabWord> = self
+            .words
             .values()
             .filter(|w| w.status != VocabStatus::Mastered)
             .collect();

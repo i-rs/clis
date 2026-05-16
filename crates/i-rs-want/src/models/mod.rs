@@ -48,12 +48,10 @@ impl WantEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WantStore {
     pub entries: BTreeMap<String, WantEntry>,
 }
-
 
 impl WantStore {
     pub fn add_entry(&mut self, entry: WantEntry) {

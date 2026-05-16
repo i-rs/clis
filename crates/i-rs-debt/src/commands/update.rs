@@ -1,5 +1,5 @@
 use crate::models::DebtType;
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::{OutputFormat, print_success};
 use crate::storage;
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -31,9 +31,11 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
     let mut store = storage::load_store()?;
 
     if let Some(new_name) = &args.rename
-        && new_name != &args.name && store.debts.contains_key(new_name) {
-            anyhow::bail!("Debt '{new_name}' already exists");
-        }
+        && new_name != &args.name
+        && store.debts.contains_key(new_name)
+    {
+        anyhow::bail!("Debt '{new_name}' already exists");
+    }
 
     {
         if !store.debts.contains_key(&args.name) {
@@ -41,11 +43,15 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         }
 
         if let Some(new_name) = &args.rename
-            && new_name != &args.name {
-                let mut old_debt = store.debts.remove(&args.name).expect("contains_key check above guarantees existence");
-                old_debt.name = new_name.clone();
-                store.debts.insert(new_name.clone(), old_debt);
-            }
+            && new_name != &args.name
+        {
+            let mut old_debt = store
+                .debts
+                .remove(&args.name)
+                .expect("contains_key check above guarantees existence");
+            old_debt.name = new_name.clone();
+            store.debts.insert(new_name.clone(), old_debt);
+        }
     }
 
     let final_name = args.rename.clone().unwrap_or_else(|| args.name.clone());
@@ -81,7 +87,8 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         if let Some(date_str) = &args.due_date {
             let naive = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
                 .map_err(|_| anyhow::anyhow!("Invalid date format, use YYYY-MM-DD"))?;
-            let datetime: DateTime<Utc> = naive.and_hms_opt(0, 0, 0)
+            let datetime: DateTime<Utc> = naive
+                .and_hms_opt(0, 0, 0)
                 .ok_or_else(|| anyhow::anyhow!("Invalid date"))?
                 .and_utc();
             debt.due_date = Some(datetime);
@@ -101,10 +108,8 @@ pub fn run(args: &Args, output_format: OutputFormat) -> Result<()> {
         }
 
         if let Some(tags_str) = &args.remove_tags {
-            let remove_tags: Vec<String> = tags_str
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .collect();
+            let remove_tags: Vec<String> =
+                tags_str.split(',').map(|s| s.trim().to_string()).collect();
             debt.tags.retain(|t| !remove_tags.contains(t));
         }
 

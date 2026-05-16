@@ -12,7 +12,10 @@ pub fn handle_add(item_type: String, tag: Vec<String>, remark: Vec<String>) -> R
     store.add_entry(entry);
     storage::save_store(&store)?;
 
-    print_success(&format!("✓ Replaced {} (mattress/pillow)", item_type.green()));
+    print_success(&format!(
+        "✓ Replaced {} (mattress/pillow)",
+        item_type.green()
+    ));
 
     Ok(())
 }

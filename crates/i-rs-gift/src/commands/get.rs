@@ -1,4 +1,4 @@
-use crate::presentation::{print_header, output_item, OutputFormat};
+use crate::presentation::{OutputFormat, output_item, print_header};
 use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -6,13 +6,21 @@ use owo_colors::OwoColorize;
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
 
-    let gift = if let Some(g) = store.get_entry(&name) { g } else {
+    let gift = if let Some(g) = store.get_entry(&name) {
+        g
+    } else {
         if format.is_json() {
-            println!("{}", output_item(&serde_json::json!({
-                "error": "not_found",
-                "message": format!("Gift '{}' not found", name)
-            }), format));
-        } 
+            println!(
+                "{}",
+                output_item(
+                    &serde_json::json!({
+                        "error": "not_found",
+                        "message": format!("Gift '{}' not found", name)
+                    }),
+                    format
+                )
+            );
+        }
         anyhow::bail!("Gift '{name}' not found");
     };
 
@@ -55,10 +63,34 @@ pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     println!("  {:12} {}", "Occasion:".cyan(), gift.occasion);
     println!("  {:12} {:.2}", "Value:".cyan(), gift.value);
     println!("  {:12} {}", "Date:".cyan(), gift.date.format("%Y-%m-%d"));
-    println!("  {:12} {}", "Tags:".cyan(), if gift.tags.is_empty() { "-".to_string() } else { gift.tags.join(", ") });
-    println!("  {:12} {}", "Remark:".cyan(), if gift.remark.is_empty() { "-".to_string() } else { gift.remark.join(", ") });
-    println!("  {:12} {}", "Created:".cyan(), gift.created_at.format("%Y-%m-%d %H:%M"));
-    println!("  {:12} {}", "Updated:".cyan(), gift.updated_at.format("%Y-%m-%d %H:%M"));
+    println!(
+        "  {:12} {}",
+        "Tags:".cyan(),
+        if gift.tags.is_empty() {
+            "-".to_string()
+        } else {
+            gift.tags.join(", ")
+        }
+    );
+    println!(
+        "  {:12} {}",
+        "Remark:".cyan(),
+        if gift.remark.is_empty() {
+            "-".to_string()
+        } else {
+            gift.remark.join(", ")
+        }
+    );
+    println!(
+        "  {:12} {}",
+        "Created:".cyan(),
+        gift.created_at.format("%Y-%m-%d %H:%M")
+    );
+    println!(
+        "  {:12} {}",
+        "Updated:".cyan(),
+        gift.updated_at.format("%Y-%m-%d %H:%M")
+    );
 
     Ok(())
 }
