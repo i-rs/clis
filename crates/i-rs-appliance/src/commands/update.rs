@@ -26,21 +26,11 @@ pub fn handle_update(
         }
     };
 
-    if let Some(b) = brand {
-        appliance.brand = b;
-    }
-    if let Some(m) = model {
-        appliance.model = m;
-    }
-    if let Some(l) = lifespan_years {
-        appliance.lifespan_years = l;
-    }
-    if let Some(t) = tags {
-        appliance.tags = t;
-    }
-    if let Some(r) = remark {
-        appliance.remark = r;
-    }
+    i_rs_core::update_field!(appliance.brand, brand);
+    i_rs_core::update_field!(appliance.model, model);
+    i_rs_core::update_field!(appliance.lifespan_years, lifespan_years);
+    i_rs_core::update_field!(appliance.tags, tags);
+    i_rs_core::update_field!(appliance.remark, remark);
 
     if let Some(desc) = add_maintenance {
         let date = if let Some(date_str) = maintenance_date {

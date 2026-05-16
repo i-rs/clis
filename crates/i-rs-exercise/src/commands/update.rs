@@ -27,24 +27,12 @@ pub fn handle_update(
         }
     };
 
-    if let Some(et) = exercise_type {
-        record.exercise_type = et;
-    }
-    if let Some(dm) = duration_minutes {
-        record.duration_minutes = dm;
-    }
-    if let Some(c) = calories {
-        record.calories = c;
-    }
-    if let Some(n) = notes {
-        record.notes = n;
-    }
-    if let Some(t) = tags {
-        record.tags = t;
-    }
-    if let Some(r) = remark {
-        record.remark = r;
-    }
+    i_rs_core::update_field!(record.exercise_type, exercise_type);
+    i_rs_core::update_field!(record.duration_minutes, duration_minutes);
+    i_rs_core::update_field!(record.calories, calories);
+    i_rs_core::update_field!(record.notes, notes);
+    i_rs_core::update_field!(record.tags, tags);
+    i_rs_core::update_field!(record.remark, remark);
 
     record.updated_at = Utc::now();
 

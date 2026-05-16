@@ -32,12 +32,8 @@ pub fn handle_update(
         storage::store_password(&name, &password)?;
         println!("{}", "Password updated and stored securely in keychain".green());
     }
-    if let Some(tag) = tag {
-        domain.tags = tag;
-    }
-    if let Some(remark) = remark {
-        domain.remark = remark;
-    }
+    i_rs_core::update_field!(domain.tags, tag);
+    i_rs_core::update_field!(domain.remark, remark);
 
     domain.updated_at = Utc::now();
 

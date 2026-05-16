@@ -22,12 +22,8 @@ pub fn handle_update(
         }
     };
 
-    if let Some(host) = host {
-        server.host = host;
-    }
-    if let Some(port) = port {
-        server.port = port;
-    }
+    i_rs_core::update_field!(server.host, host);
+    i_rs_core::update_field!(server.port, port);
     if let Some(user) = user {
         server.user = Some(user);
     }
@@ -35,12 +31,8 @@ pub fn handle_update(
         storage::store_password(&name, &password)?;
         println!("{}", "Password updated and stored securely in keychain".green());
     }
-    if let Some(tag) = tag {
-        server.tags = tag;
-    }
-    if let Some(remark) = remark {
-        server.remark = remark;
-    }
+    i_rs_core::update_field!(server.tags, tag);
+    i_rs_core::update_field!(server.remark, remark);
 
     server.updated_at = Utc::now();
 

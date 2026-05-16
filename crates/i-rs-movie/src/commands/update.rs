@@ -45,18 +45,12 @@ pub fn handle_update(
     if let Some(r) = rating {
         movie.rating = Some(r);
     }
-    if let Some(r) = review {
-        movie.review = r;
-    }
+    i_rs_core::update_field!(movie.review, review);
     if let Some(d) = release_date {
         movie.release_date = Some(d);
     }
-    if let Some(t) = tag {
-        movie.tags = t;
-    }
-    if let Some(r) = remark {
-        movie.remark = r;
-    }
+    i_rs_core::update_field!(movie.tags, tag);
+    i_rs_core::update_field!(movie.remark, remark);
 
     movie.updated_at = Utc::now();
 

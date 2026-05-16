@@ -35,12 +35,8 @@ pub fn handle_update(
             }
         };
 
-        if let Some(def) = definition {
-            vocab.definition = def;
-        }
-        if let Some(ex) = example {
-            vocab.example = ex;
-        }
+        i_rs_core::update_field!(vocab.definition, definition);
+        i_rs_core::update_field!(vocab.example, example);
         if let Some(status_str) = status {
             match VocabStatus::parse_str(&status_str) {
                 Some(s) => vocab.status = s,
@@ -49,12 +45,8 @@ pub fn handle_update(
                 }
             }
         }
-        if let Some(tags) = tag {
-            vocab.tags = tags;
-        }
-        if let Some(remarks) = remark {
-            vocab.remark = remarks;
-        }
+        i_rs_core::update_field!(vocab.tags, tag);
+        i_rs_core::update_field!(vocab.remark, remark);
         if review {
             vocab.review_count += 1;
             if vocab.review_count >= 5 && vocab.status == VocabStatus::Learning {

@@ -25,9 +25,7 @@ pub fn handle_update(
         }
     };
 
-    if let Some(t) = title {
-        article.title = t;
-    }
+    i_rs_core::update_field!(article.title, title);
 
     if let Some(u) = url {
         if let Err(e) = i_rs_core::validate_url(&u) {
@@ -36,9 +34,7 @@ pub fn handle_update(
         article.url = u;
     }
 
-    if let Some(s) = source {
-        article.source = s;
-    }
+    i_rs_core::update_field!(article.source, source);
 
     if let Some(st) = status {
         let new_status = ReadStatus::from(st.as_str());
@@ -48,17 +44,11 @@ pub fn handle_update(
         }
     }
 
-    if let Some(t) = tag {
-        article.tags = t;
-    }
+    i_rs_core::update_field!(article.tags, tag);
 
-    if let Some(r) = remark {
-        article.remark = r;
-    }
+    i_rs_core::update_field!(article.remark, remark);
 
-    if let Some(n) = notes {
-        article.notes = n;
-    }
+    i_rs_core::update_field!(article.notes, notes);
 
     article.updated_at = Utc::now();
 

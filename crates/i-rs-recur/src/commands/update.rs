@@ -22,25 +22,17 @@ pub fn handle_update(
         }
     };
 
-    if let Some(amount) = amount {
-        entry.amount = amount;
-    }
+    i_rs_core::update_field!(entry.amount, amount);
 
-    if let Some(frequency) = frequency {
-        entry.frequency = frequency;
-    }
+    i_rs_core::update_field!(entry.frequency, frequency);
 
     if let Some(start_date) = start_date {
         entry.start_date = parse_datetime(&start_date)?;
     }
 
-    if let Some(tag) = tag {
-        entry.tags = tag;
-    }
+    i_rs_core::update_field!(entry.tags, tag);
 
-    if let Some(remark) = remark {
-        entry.remark = remark;
-    }
+    i_rs_core::update_field!(entry.remark, remark);
 
     entry.updated_at = Utc::now();
 

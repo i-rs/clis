@@ -40,21 +40,15 @@ pub fn handle_update(
             }
         };
 
-        if let Some(d) = distance {
-            record.distance_km = d;
-        }
+        i_rs_core::update_field!(record.distance_km, distance);
 
-        if let Some(d) = duration {
-            record.duration_minutes = d;
-        }
+        i_rs_core::update_field!(record.duration_minutes, duration);
 
         if needs_recalc {
             record.recalc_avg_speed();
         }
 
-        if let Some(e) = elevation {
-            record.elevation_gain = e;
-        }
+        i_rs_core::update_field!(record.elevation_gain, elevation);
 
         if let Some(r) = route {
             if r.is_empty() {

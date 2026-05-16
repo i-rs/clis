@@ -30,15 +30,9 @@ pub fn handle_update(
     if let Some(year) = year {
         birthday.year = Some(year);
     }
-    if let Some(relationship) = relationship {
-        birthday.relationship = relationship;
-    }
-    if let Some(tag) = tag {
-        birthday.tags = tag;
-    }
-    if let Some(remark) = remark {
-        birthday.remark = remark;
-    }
+    i_rs_core::update_field!(birthday.relationship, relationship);
+    i_rs_core::update_field!(birthday.tags, tag);
+    i_rs_core::update_field!(birthday.remark, remark);
 
     birthday.updated_at = Utc::now();
 

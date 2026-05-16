@@ -28,9 +28,7 @@ pub fn handle_update(
         investment.symbol = sym.to_uppercase();
     }
 
-    if let Some(typ) = asset_type {
-        investment.asset_type = typ;
-    }
+    i_rs_core::update_field!(investment.asset_type, asset_type);
 
     if let Some(qty) = quantity {
         if qty <= 0.0 {
@@ -53,13 +51,9 @@ pub fn handle_update(
         investment.current_price = Some(cp);
     }
 
-    if let Some(tags) = tag {
-        investment.tags = tags;
-    }
+    i_rs_core::update_field!(investment.tags, tag);
 
-    if let Some(remarks) = remark {
-        investment.remark = remarks;
-    }
+    i_rs_core::update_field!(investment.remark, remark);
 
     investment.updated_at = Utc::now();
 

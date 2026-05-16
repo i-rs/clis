@@ -24,24 +24,16 @@ pub fn handle_update(
         }
     };
 
-    if let Some(a) = amount {
-        entry.amount = a;
-    }
-    if let Some(c) = billing_cycle {
-        entry.billing_cycle = c;
-    }
+    i_rs_core::update_field!(entry.amount, amount);
+    i_rs_core::update_field!(entry.billing_cycle, billing_cycle);
     if let Some(d) = next_date {
         entry.next_billing_date = parse_datetime(&d)?;
     }
     if let Some(u) = url {
         entry.url = Some(u);
     }
-    if let Some(t) = tag {
-        entry.tags = t;
-    }
-    if let Some(r) = remark {
-        entry.remark = r;
-    }
+    i_rs_core::update_field!(entry.tags, tag);
+    i_rs_core::update_field!(entry.remark, remark);
 
     entry.updated_at = Utc::now();
 

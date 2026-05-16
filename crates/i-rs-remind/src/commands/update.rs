@@ -27,12 +27,8 @@ pub fn handle_update(
     if let Some(title) = title {
         remind.title = Some(title);
     }
-    if let Some(tag) = tag {
-        remind.tags = tag;
-    }
-    if let Some(content) = content {
-        remind.content = content;
-    }
+    i_rs_core::update_field!(remind.tags, tag);
+    i_rs_core::update_field!(remind.content, content);
 
     remind.updated_at = Utc::now();
 

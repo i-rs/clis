@@ -22,18 +22,12 @@ pub fn handle_update(
         }
     };
 
-    if let Some(s) = steps {
-        entry.steps = s;
-    }
+    i_rs_core::update_field!(entry.steps, steps);
     if let Some(d) = distance {
         entry.distance = Some(d);
     }
-    if let Some(t) = tag {
-        entry.tags = t;
-    }
-    if let Some(r) = remark {
-        entry.remark = r;
-    }
+    i_rs_core::update_field!(entry.tags, tag);
+    i_rs_core::update_field!(entry.remark, remark);
 
     storage::save_store(&store)?;
 

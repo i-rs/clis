@@ -31,25 +31,15 @@ pub fn handle_update(
             _ => anyhow::bail!("Invalid gift type. Use 'sent' or 'received'"),
         };
     }
-    if let Some(r) = recipient {
-        gift.recipient = r;
-    }
-    if let Some(o) = occasion {
-        gift.occasion = o;
-    }
-    if let Some(v) = value {
-        gift.value = v;
-    }
+    i_rs_core::update_field!(gift.recipient, recipient);
+    i_rs_core::update_field!(gift.occasion, occasion);
+    i_rs_core::update_field!(gift.value, value);
     if let Some(d) = date {
         let parsed = parse_date(&d)?;
         gift.date = parsed.and_hms_opt(0, 0, 0).expect("0:00:00 is always valid").and_utc();
     }
-    if let Some(t) = tag {
-        gift.tags = t;
-    }
-    if let Some(r) = remark {
-        gift.remark = r;
-    }
+    i_rs_core::update_field!(gift.tags, tag);
+    i_rs_core::update_field!(gift.remark, remark);
 
     gift.updated_at = Utc::now();
     storage::save_store(&store)?;

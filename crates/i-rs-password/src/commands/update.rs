@@ -21,9 +21,7 @@ pub fn handle_update(
         }
     };
 
-    if let Some(url) = url {
-        entry.url = url;
-    }
+    i_rs_core::update_field!(entry.url, url);
     if let Some(account) = account {
         entry.account = Some(account);
     }
@@ -31,12 +29,8 @@ pub fn handle_update(
         storage::store_password(&name, &password)?;
         println!("{}", "Password updated and stored securely in keychain".green());
     }
-    if let Some(tag) = tag {
-        entry.tags = tag;
-    }
-    if let Some(remark) = remark {
-        entry.remark = remark;
-    }
+    i_rs_core::update_field!(entry.tags, tag);
+    i_rs_core::update_field!(entry.remark, remark);
 
     entry.updated_at = Utc::now();
 

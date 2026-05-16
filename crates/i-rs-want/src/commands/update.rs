@@ -30,21 +30,13 @@ pub fn handle_update(
     if let Some(c) = currency {
         entry.currency = Some(c);
     }
-    if let Some(p) = priority {
-        entry.priority = p;
-    }
+    i_rs_core::update_field!(entry.priority, priority);
     if let Some(u) = url {
         entry.url = Some(u);
     }
-    if let Some(t) = tag {
-        entry.tags = t;
-    }
-    if let Some(r) = remark {
-        entry.remark = r;
-    }
-    if let Some(d) = done {
-        entry.is_done = d;
-    }
+    i_rs_core::update_field!(entry.tags, tag);
+    i_rs_core::update_field!(entry.remark, remark);
+    i_rs_core::update_field!(entry.is_done, done);
 
     entry.updated_at = Utc::now();
 

@@ -21,21 +21,11 @@ pub fn update_plant(
             anyhow::bail!("{error_msg}");
         };
 
-        if let Some(s) = species {
-            plant.species = s;
-        }
-        if let Some(l) = location {
-            plant.location = l;
-        }
-        if let Some(i) = watering_interval_days {
-            plant.watering_interval_days = i;
-        }
-        if let Some(t) = tags {
-            plant.tags = t;
-        }
-        if let Some(r) = remark {
-            plant.remark = r;
-        }
+        i_rs_core::update_field!(plant.species, species);
+        i_rs_core::update_field!(plant.location, location);
+        i_rs_core::update_field!(plant.watering_interval_days, watering_interval_days);
+        i_rs_core::update_field!(plant.tags, tags);
+        i_rs_core::update_field!(plant.remark, remark);
 
         plant.updated_at = Utc::now();
     }

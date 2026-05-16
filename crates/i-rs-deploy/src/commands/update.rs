@@ -18,15 +18,9 @@ pub fn handle_update(
         None => anyhow::bail!("Deploy entry '{id}' not found"),
     };
 
-    if let Some(s) = status {
-        entry.status = s;
-    }
-    if let Some(t) = tag {
-        entry.tags = t;
-    }
-    if let Some(r) = remark {
-        entry.remark = r;
-    }
+    i_rs_core::update_field!(entry.status, status);
+    i_rs_core::update_field!(entry.tags, tag);
+    i_rs_core::update_field!(entry.remark, remark);
 
     entry.updated_at = Utc::now();
     storage::save_store(&store)?;

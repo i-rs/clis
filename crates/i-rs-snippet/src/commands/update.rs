@@ -21,21 +21,11 @@ pub fn handle_update(
         }
     };
 
-    if let Some(language) = language {
-        snippet.language = language;
-    }
-    if let Some(code) = code {
-        snippet.code = code;
-    }
-    if let Some(description) = description {
-        snippet.description = description;
-    }
-    if let Some(tag) = tag {
-        snippet.tags = tag;
-    }
-    if let Some(remark) = remark {
-        snippet.remark = remark;
-    }
+    i_rs_core::update_field!(snippet.language, language);
+    i_rs_core::update_field!(snippet.code, code);
+    i_rs_core::update_field!(snippet.description, description);
+    i_rs_core::update_field!(snippet.tags, tag);
+    i_rs_core::update_field!(snippet.remark, remark);
 
     snippet.updated_at = Utc::now();
 

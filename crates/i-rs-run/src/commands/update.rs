@@ -26,25 +26,15 @@ pub fn handle_update(
     if let Some(d) = date {
         record.date = parse_date(&d)?;
     }
-    if let Some(d) = distance {
-        record.distance_km = d;
-    }
+    i_rs_core::update_field!(record.distance_km, distance);
     if let Some(d) = duration {
         record.duration_minutes = d;
         record.pace = crate::models::format_pace(record.distance_km, record.duration_minutes);
     }
-    if let Some(hr) = heart_rate {
-        record.heart_rate = hr;
-    }
-    if let Some(w) = weather {
-        record.weather = w;
-    }
-    if let Some(t) = tags {
-        record.tags = t;
-    }
-    if let Some(r) = remark {
-        record.remark = r;
-    }
+    i_rs_core::update_field!(record.heart_rate, heart_rate);
+    i_rs_core::update_field!(record.weather, weather);
+    i_rs_core::update_field!(record.tags, tags);
+    i_rs_core::update_field!(record.remark, remark);
 
     record.updated_at = Utc::now();
     storage::save_store(&store)?;

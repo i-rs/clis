@@ -28,15 +28,9 @@ pub fn handle_update(
     if let Some(d) = duration {
         podcast.duration_secs = Some(d);
     }
-    if let Some(t) = tag {
-        podcast.tags = t;
-    }
-    if let Some(r) = remark {
-        podcast.remark = r;
-    }
-    if let Some(n) = notes {
-        podcast.notes = n;
-    }
+    i_rs_core::update_field!(podcast.tags, tag);
+    i_rs_core::update_field!(podcast.remark, remark);
+    i_rs_core::update_field!(podcast.notes, notes);
 
     if let (Some(current), Some(total)) = (podcast.current_position_secs, podcast.duration_secs) {
         if current >= total && total > 0 {

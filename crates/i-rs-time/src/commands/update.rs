@@ -17,15 +17,9 @@ pub fn handle_update(
         None => anyhow::bail!("Entry '{id}' not found"),
     };
 
-    if let Some(n) = name {
-        entry.name = n;
-    }
-    if let Some(t) = tag {
-        entry.tags = t;
-    }
-    if let Some(r) = remark {
-        entry.remark = r;
-    }
+    i_rs_core::update_field!(entry.name, name);
+    i_rs_core::update_field!(entry.tags, tag);
+    i_rs_core::update_field!(entry.remark, remark);
 
     entry.updated_at = Utc::now();
     storage::save_store(&store)?;

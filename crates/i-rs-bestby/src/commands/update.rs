@@ -46,12 +46,8 @@ pub fn handle_update(
         }
     }
 
-    if let Some(tag) = tag {
-        entity.tags = tag;
-    }
-    if let Some(remark) = remark {
-        entity.remark = remark;
-    }
+    i_rs_core::update_field!(entity.tags, tag);
+    i_rs_core::update_field!(entity.remark, remark);
 
     entity.updated_at = Utc::now();
 

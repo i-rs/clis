@@ -27,21 +27,11 @@ pub fn handle_update(
     if let Some(date) = date {
         entry_mut.date = parse_date(&date)?;
     }
-    if let Some(amount) = amount {
-        entry_mut.amount = amount;
-    }
-    if let Some(entry_type) = entry_type {
-        entry_mut.entry_type = entry_type;
-    }
-    if let Some(category) = category {
-        entry_mut.category = category;
-    }
-    if let Some(tag) = tag {
-        entry_mut.tags = tag;
-    }
-    if let Some(remark) = remark {
-        entry_mut.remark = remark;
-    }
+    i_rs_core::update_field!(entry_mut.amount, amount);
+    i_rs_core::update_field!(entry_mut.entry_type, entry_type);
+    i_rs_core::update_field!(entry_mut.category, category);
+    i_rs_core::update_field!(entry_mut.tags, tag);
+    i_rs_core::update_field!(entry_mut.remark, remark);
 
     storage::save_store(&store)?;
 

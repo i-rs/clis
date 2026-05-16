@@ -24,9 +24,7 @@ pub fn handle_update(
         anyhow::bail!("Budget not found");
     };
 
-    if let Some(a) = amount {
-        budget.amount = a;
-    }
+    i_rs_core::update_field!(budget.amount, amount);
 
     if let Some(p) = period {
         budget.period = match p.as_str() {
@@ -46,13 +44,9 @@ pub fn handle_update(
         };
     }
 
-    if let Some(t) = tags {
-        budget.tags = t;
-    }
+    i_rs_core::update_field!(budget.tags, tags);
 
-    if let Some(r) = remark {
-        budget.remark = r;
-    }
+    i_rs_core::update_field!(budget.remark, remark);
 
     budget.updated_at = Utc::now();
 
