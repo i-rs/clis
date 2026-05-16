@@ -4,7 +4,6 @@ use crate::storage;
 use anyhow::Result;
 use chrono::Utc;
 
-#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     name: String,
     title: String,

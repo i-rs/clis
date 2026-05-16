@@ -7,7 +7,6 @@ use owo_colors::OwoColorize;
 use uuid::Uuid;
 use i_rs_core::parse_date;
 
-#[allow(clippy::too_many_arguments)]
 pub fn handle_add(
     date: String,
     distance: f64,
