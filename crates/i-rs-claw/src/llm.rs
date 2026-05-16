@@ -224,6 +224,12 @@ fn build_system_prompt(
     prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
     prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
 
+    // Collapse 3+ consecutive newlines into 2 (one blank line)
+    // Ensures empty dynamic content doesn't leave gaps in the stable prefix
+    while prompt.contains("\n\n\n") {
+        prompt = prompt.replace("\n\n\n", "\n\n");
+    }
+
     prompt
 }
 
