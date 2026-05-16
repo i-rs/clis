@@ -202,13 +202,15 @@ impl App {
     // =============================================
 
     /// Scroll messages up (toward older messages).
-    pub fn scroll_up(&mut self, lines: usize) {
-        self.scroll_offset = self.scroll_offset.saturating_add(lines);
+    pub fn scroll_up(&mut self) {
+        if self.scroll_offset < self.messages.len() {
+            self.scroll_offset += 1;
+        }
     }
 
     /// Scroll messages down (toward newer messages).
-    pub fn scroll_down(&mut self, lines: usize) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(lines);
+    pub fn scroll_down(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(1);
     }
 
     /// Update the real-time status text (shown in status bar)

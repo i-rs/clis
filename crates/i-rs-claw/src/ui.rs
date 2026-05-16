@@ -64,19 +64,17 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     // Subtract 1 line for the top border
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Build items from the end, respecting scroll_offset from bottom
+    // Build items from the end, skipping scroll_offset messages
     let mut items: Vec<ListItem> = Vec::new();
-    let mut remaining_skip = app.scroll_offset;
+    let mut skipped = 0usize;
     let mut lines_used = 0usize;
 
     for msg in app.messages.iter().rev() {
-        let h = message_line_count(msg, text_width);
-        if remaining_skip >= h {
-            // This entire message is scrolled past
-            remaining_skip -= h;
+        if skipped < app.scroll_offset {
+            skipped += 1;
             continue;
         }
-        // Partial or full visibility
+        let h = message_line_count(msg, text_width);
         if lines_used + h > area_lines && !items.is_empty() {
             break;
         }

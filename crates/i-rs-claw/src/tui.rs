@@ -329,7 +329,7 @@ fn main_loop(
                         if !app.show_session_list && !app.is_processing() =>
                     {
                         if app.input.is_empty() {
-                            app.scroll_up(3);
+                            app.scroll_up();
                         } else if let Some(text) = app.navigate_history_up() {
                             app.input = text;
                             app.move_cursor_end();
@@ -339,7 +339,7 @@ fn main_loop(
                         if !app.show_session_list && !app.is_processing() =>
                     {
                         if app.input.is_empty() {
-                            app.scroll_down(3);
+                            app.scroll_down();
                         } else if let Some(text) = app.navigate_history_down() {
                             app.input = text;
                             app.move_cursor_end();
@@ -463,8 +463,8 @@ fn main_loop(
                 Event::Mouse(mouse) => {
                     if !app.is_processing() {
                         match mouse.kind {
-                            MouseEventKind::ScrollDown => app.scroll_down(3),
-                            MouseEventKind::ScrollUp => app.scroll_up(3),
+                            MouseEventKind::ScrollDown => app.scroll_down(),
+                            MouseEventKind::ScrollUp => app.scroll_up(),
                             _ => {}
                         }
                     }
