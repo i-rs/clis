@@ -22,6 +22,15 @@ export default defineConfig({
         text: 'Articles',
         items: [
           { text: 'Overview', link: '/articles/' },
+          {
+            text: '推广文章',
+            collapsed: false,
+            items: [
+              { text: '全都能教 AI 自己怎么用', link: '/articles/promo-ai-native-cli' },
+              { text: '我是怎么用 Rust 管理过来的', link: '/articles/promo-rust-mono-repo' },
+              { text: '一个人的数据指挥中心', link: '/articles/promo-community' },
+            ]
+          },
           { text: '同一份数据，两个入口 — 共享存储层', link: '/articles/shared-storage-layer' },
           { text: 'i-rs 内置 Skill 系统', link: '/articles/built-in-skill-system' },
           { text: 'AI 原生命令行 — AI Skill 系统', link: '/articles/ai-native-cli' },

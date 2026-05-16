@@ -4,6 +4,20 @@
 
 ## 精选文章
 
+### [70 个 CLI 工具，全都能教 AI 自己怎么用](./promo-ai-native-cli)（推广）
+
+> 一个 Rust 宏，70 个工具，每个都内置了 AI 技能系统。适合发在掘金、思否、dev.to、Medium 等技术社区。
+
+### [70 个 CLI 工具，我是怎么用 Rust 管理过来的](./promo-rust-mono-repo)（推广）
+
+> 一个 Cargo 工作空间，70 个 crate，全部用宏生成。适合 Rust 技术社群分享。
+
+### [一个人的数据指挥中心，70 个开源 CLI，等你加入](./promo-community)（推广）
+
+> 从健康到财务，从宠物到学习——你的生活数据，值得一个统一的命令行入口。适合开源社区、产品爱好者分享。
+
+---
+
 ### [同一份数据，两个入口 — CLI 与 API 的共享存储层](./shared-storage-layer)
 
 深入 i-rs 最独特的架构设计：CLI 和 REST API 读写同一个 JSON 文件。拆解 `Storage<T>`、`SharedStore<T>`、`make_app_tools!` 三层架构，看 70 个工具如何在不依赖数据库的情况下实现数据统一。
