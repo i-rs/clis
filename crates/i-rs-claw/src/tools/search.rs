@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use crate::tools::rig_tools::ALL_TOOLS;
+
 pub const TOOL_INDEX: &[(&str, &str)] = &[
     // 健康管理
     ("weight", "体重管理：记录、查看、统计体重数据"),
@@ -82,17 +84,17 @@ pub const TOOL_INDEX: &[(&str, &str)] = &[
 
 /// Format a compact tool index for system prompt Layer 2.
 /// If `enabled` is Some, only include tools in that set (empty set = all).
+/// Only tools present in ALL_TOOLS (the active tool set) are included.
 pub fn format_index(enabled: Option<&HashSet<String>>) -> String {
+    // Build an index of only the actively available tools
+    let active: Vec<&(&str, &str)> = TOOL_INDEX.iter()
+        .filter(|(name, _)| ALL_TOOLS.contains(name))
+        .filter(|(name, _)| is_tool_enabled(name, enabled))
+        .collect();
     let mut result = String::from("## 工具索引（");
-    let count = match enabled {
-        Some(set) if !set.is_empty() => set.len(),
-        _ => TOOL_INDEX.len(),
-    };
-    result.push_str(&format!("{}个工具)\n\n", count));
-    for (name, desc) in TOOL_INDEX.iter() {
-        if is_tool_enabled(name, enabled) {
-            result.push_str(&format!("- {}: {}\n", name, desc));
-        }
+    result.push_str(&format!("{}个工具)\n\n", active.len()));
+    for (name, desc) in active {
+        result.push_str(&format!("- {}: {}\n", name, desc));
     }
     result
 }
@@ -108,6 +110,7 @@ pub fn search(query: &str) -> String {
     let query_lower = query.to_lowercase();
     let results: Vec<String> = TOOL_INDEX
         .iter()
+        .filter(|(name, _)| ALL_TOOLS.contains(name))
         .filter(|(name, desc)| {
             name.contains(&query_lower) || desc.to_lowercase().contains(&query_lower)
         })

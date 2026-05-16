@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use crate::tools::search::is_tool_enabled;
 
-const ALL_TOOLS: &[&str] = &[
+pub const ALL_TOOLS: &[&str] = &[
     // Temporarily only enable aligned crates; others disabled until re-aligned
     "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
 ];

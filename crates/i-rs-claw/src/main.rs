@@ -115,7 +115,8 @@ fn run_config() -> anyhow::Result<()> {
 
     // ── Tool Toggle ──
     println!("\n工具管理（留空=全部启用，输入工具名可开关）：");
-    let all_tools: Vec<&str> = crate::tools::search::TOOL_INDEX.iter().map(|(n, _)| *n).collect();
+    let all_tools: Vec<&str> = crate::tools::rig_tools::ALL_TOOLS.to_vec();
+    let all_tool_count = crate::tools::search::TOOL_INDEX.len();
 
     // Show current state
     let all_enabled = cfg.enabled_tools.is_empty();
@@ -162,9 +163,9 @@ fn run_config() -> anyhow::Result<()> {
     println!("  Base URL: {}", cfg.base_url);
     println!("  Model: {}", cfg.model);
     if cfg.enabled_tools.is_empty() {
-        println!("  工具: 全部启用 ({} 个)", all_tools.len());
+        println!("  工具: 全部启用 ({} 个 / 总 {} 个)", all_tools.len(), all_tool_count);
     } else {
-        println!("  工具: 已启用 {} 个 / 总共 {} 个", cfg.enabled_tools.len(), all_tools.len());
+        println!("  工具: 已启用 {} 个 / 可配 {} 个 / 总数 {} 个", cfg.enabled_tools.len(), all_tools.len(), all_tool_count);
     }
 
     Ok(())
