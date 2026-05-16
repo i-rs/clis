@@ -3,17 +3,7 @@ mod tests {
     use crate::{Cli, Commands, commands, run};
     use clap::Parser;
 
-    fn setup() {
-        use std::sync::OnceLock;
-        static INIT: OnceLock<()> = OnceLock::new();
-        INIT.get_or_init(|| {
-            let tmp = std::env::temp_dir()
-                .join(format!("i-rs-domain-test-{}", std::process::id()));
-            // ensure dir exists
-            let _ = std::fs::create_dir_all(&tmp);
-            unsafe { std::env::set_var("CONFIG_DIR", tmp.to_str().unwrap()); }
-        });
-    }
+    i_rs_core::test_setup!("i-rs-domain");
 
     #[test]
     fn test_help() {
