@@ -8,6 +8,10 @@ pub fn handle_delete(key: String, format: OutputFormat) -> Result<()> {
     crate::storage::save_store(&store)?;
 
     if format.is_json() {
+        println!(
+            "{}",
+            serde_json::json!({"success": true, "message": format!("Key '{}' deleted", key)})
+        );
         return Ok(());
     }
 

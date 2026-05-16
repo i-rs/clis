@@ -43,13 +43,41 @@ i-rs-kv list [OPTIONS]
 
 Options:
 - `-t, --tag <TAG>` - Filter by tag
+- `-p, --pattern <PATTERN>` - Filter by key or value pattern
 
-### get
+### search
 
-Get entry details.
+Search entries by key, value, tags, or remarks.
 
 ```bash
-i-rs-kv get <KEY>
+i-rs-kv search <QUERY>
+```
+
+Arguments:
+- `QUERY` - Search term (case-insensitive, matches against key, value, tags, and remarks)
+
+### stats
+
+Show KV store statistics.
+
+```bash
+i-rs-kv stats [OPTIONS]
+```
+
+### copy
+
+Copy an entry to a new key.
+
+```bash
+i-rs-kv copy <SRC_KEY> <DST_KEY>
+```
+
+### rename
+
+Rename an entry key.
+
+```bash
+i-rs-kv rename <OLD_KEY> <NEW_KEY>
 ```
 
 ### delete
@@ -108,9 +136,23 @@ i-rs-kv add api-url "https://api.example.com" [OPTIONS]
 
 # List entries
 i-rs-kv list [OPTIONS]
+i-rs-kv list --tag config
+i-rs-kv list --pattern api
+
+# Search entries
+i-rs-kv search xxx
+i-rs-kv search config --json
 
 # Get value
 i-rs-kv get username
+
+# Copy & Rename
+i-rs-kv copy api_key api_key_backup
+i-rs-kv rename old_key new_key
+
+# Statistics
+i-rs-kv stats
+i-rs-kv stats --json
 
 # JSON output
 i-rs-kv list --json

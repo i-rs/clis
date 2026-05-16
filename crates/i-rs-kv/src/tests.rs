@@ -68,4 +68,69 @@ mod tests {
         let cmd = Commands::Data(commands::data::DataCommand::Export);
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
     }
+
+    #[test]
+    fn test_search() {
+        setup();
+        let add_cmd = Commands::Add {
+            key: "test-search-key".to_string(),
+            value: "searchable-value".to_string(),
+            tag: vec!["test".to_string()],
+            remark: vec![],
+        };
+        assert!(run(add_cmd, crate::presentation::OutputFormat::Table).is_ok());
+        let search_cmd = Commands::Search {
+            query: "searchable".to_string(),
+        };
+        assert!(run(search_cmd, crate::presentation::OutputFormat::Table).is_ok());
+    }
+
+    #[test]
+    fn test_stats() {
+        setup();
+        let cmd = Commands::Stats {};
+        assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
+    }
+
+    #[test]
+    fn test_copy_and_rename() {
+        setup();
+        // Add source entry
+        let add_cmd = Commands::Add {
+            key: "test-copy-src".to_string(),
+            value: "copy-value".to_string(),
+            tag: vec![],
+            remark: vec![],
+        };
+        assert!(run(add_cmd, crate::presentation::OutputFormat::Table).is_ok());
+        // Copy
+        let copy_cmd = Commands::Copy {
+            src: "test-copy-src".to_string(),
+            dst: "test-copy-dst".to_string(),
+        };
+        assert!(run(copy_cmd, crate::presentation::OutputFormat::Table).is_ok());
+        // Rename
+        let rename_cmd = Commands::Rename {
+            old: "test-copy-dst".to_string(),
+            new: "test-rename-final".to_string(),
+        };
+        assert!(run(rename_cmd, crate::presentation::OutputFormat::Table).is_ok());
+    }
+
+    #[test]
+    fn test_list_pattern() {
+        setup();
+        let add_cmd = Commands::Add {
+            key: "test-pattern-key".to_string(),
+            value: "pattern-value".to_string(),
+            tag: vec![],
+            remark: vec![],
+        };
+        assert!(run(add_cmd, crate::presentation::OutputFormat::Table).is_ok());
+        let list_cmd = Commands::List {
+            tag: None,
+            pattern: Some("pattern".to_string()),
+        };
+        assert!(run(list_cmd, crate::presentation::OutputFormat::Table).is_ok());
+    }
 }

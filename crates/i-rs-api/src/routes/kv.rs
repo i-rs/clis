@@ -42,7 +42,7 @@ pub struct SetKvRequest {
 async fn list_kv(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
     let records = state
         .kv
-        .read(|store| i_rs_kv::service::list_kv(store, None).map_err(ApiError::from))?;
+        .read(|store| i_rs_kv::service::list_kv(store, None, None).map_err(ApiError::from))?;
     Ok(ok_json_list(records))
 }
 

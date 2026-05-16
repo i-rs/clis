@@ -9,6 +9,7 @@ Key-value storage CLI tool for storing and retrieving arbitrary data.
 - Time-based metadata
 - Quick get/set operations
 - JSON output support
+- Data export/import/clear
 
 ## Install
 
@@ -34,6 +35,23 @@ i-rs-kv list
 # List with JSON output
 i-rs-kv list --json
 ```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `add <KEY> <VALUE>` | Add a new key-value entry |
+| `get <KEY>` | Get entry details |
+| `list [--tag]` | List all entries |
+| `update <KEY> [--value] [--tag] [--remark]` | Update an entry |
+| `delete <KEY>` | Delete an entry |
+| `search <QUERY>` | Search entries by value content |
+| `stats` | Show entry statistics |
+| `copy <SRC> <DST>` | Copy an entry |
+| `rename <OLD> <NEW>` | Rename an entry |
+| `data {export|import|clear}` | Manage stored data |
+| `example` | Show usage examples |
+| `skill [sub]` | Show skill information |
 
 ## Data Storage
 

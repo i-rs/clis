@@ -89,3 +89,14 @@ impl From<&KvEntry> for ListItem {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KvStats {
+    pub total_entries: usize,
+    pub total_tags: usize,
+    pub total_remarks: usize,
+    pub total_value_bytes: usize,
+    pub avg_value_bytes: f64,
+    pub oldest_entry: Option<String>,
+    pub newest_entry: Option<String>,
+}

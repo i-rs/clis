@@ -2,9 +2,13 @@ use crate::models::{KvRow, ListItem};
 use crate::presentation::{OutputFormat, format_table, output_list, print_entry_count};
 use anyhow::Result;
 
-pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
+pub fn handle_list(
+    tag: Option<String>,
+    pattern: Option<String>,
+    format: OutputFormat,
+) -> Result<()> {
     let store = crate::storage::load_store()?;
-    let entries = crate::service::list_kv(&store, tag.clone())?;
+    let entries = crate::service::list_kv(&store, tag.clone(), pattern.as_deref())?;
     let entries_ref: Vec<&crate::models::KvEntry> = entries.iter().collect();
 
     i_rs_core::handle_empty!(entries_ref, format, tag.as_deref(), "No entries found.");
