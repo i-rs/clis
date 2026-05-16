@@ -1099,11 +1099,13 @@ fn message_line_count(msg: &Message, text_width: usize) -> usize {
 }
 
 /// Estimate how many lines a block of text wraps to.
+/// Strips ANSI codes for accurate width calculation.
 fn wrapped_line_count(text: &str, max_width: usize) -> usize {
     if max_width == 0 {
         return text.lines().count();
     }
-    text.lines()
+    let clean = strip_ansi(text);
+    clean.lines()
         .map(|line| {
             let w = unicode_width::UnicodeWidthStr::width(line);
             if w == 0 {
