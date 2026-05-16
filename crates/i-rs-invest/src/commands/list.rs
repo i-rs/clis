@@ -19,10 +19,7 @@ pub fn handle_list(
         store.investments.values().collect()
     };
 
-    if investments.is_empty() {
-        println!("No investments found.");
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(investments, format, None::<&str>, "No investments found.");
 
     match format {
         OutputFormat::Json => {
