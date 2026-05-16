@@ -31,7 +31,7 @@ impl Config {
             api_key: String::new(),
             base_url: default_base_url(),
             model: default_model(),
-            enabled_tools: DEFAULT_TOOLS.iter().map(|s| s.to_string()).collect(),
+            enabled_tools: HashSet::new(),
         }
     }
 

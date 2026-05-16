@@ -12,6 +12,7 @@ i-rs-claw is a terminal-based AI assistant that understands natural language and
 - **Tool call transparency**: See exactly which tools are being called and their results
 - **Multi-turn conversations**: Context preserved across the session
 - **First-learn-then-execute**: AI automatically learns tool syntax via `skill teach` before operating data
+- **Voice input**: macOS-native speech recognition via [VoiceInput](https://github.com/shibing624/VoiceInput) (see setup below)
 
 ## Installation
 
@@ -70,6 +71,41 @@ Type your request at the prompt and press Enter. Examples:
 | `Enter` | Send message |
 | `Ctrl+Q` / `Ctrl+C` | Quit |
 | `Backspace` | Delete character |
+| `[Fn]` | Voice input (see below) |
+
+## Voice Input (macOS)
+
+i-rs-claw supports hands-free voice input via [VoiceInput](https://github.com/shibing624/VoiceInput), a lightweight menu bar tool for macOS.
+
+### Setup
+
+1. Download the DMG from [releases](https://github.com/shibing624/VoiceInput/releases)
+2. Drag to Applications folder and launch
+3. Grant required permissions on first run:
+   - **Microphone** — for audio capture
+   - **Speech Recognition** — for on-device transcription (Apple Speech)
+   - **Accessibility** — for text injection into terminal
+4. (Optional) Switch language in menu bar (Simplified Chinese / English, etc.)
+
+### Usage
+
+While the i-rs-claw input field is focused, hold **Fn** (or right **Command**, configurable) and speak. Release the key — the transcribed text is automatically injected at the cursor position. Works in any terminal (Terminal.app, iTerm2, Ghostty, etc.) and any app.
+
+### How It Works
+
+```
+Hold Fn  →  Microphone on  →  Apple Speech (local)  →  Release Fn  →  Text at cursor
+```
+
+- Real-time waveform preview in menu bar
+- Full offline support (on-device recognition)
+- Optional LLM-based text correction
+- Supports Chinese, English, and 50+ languages
+
+### Tips
+
+- For best Chinese recognition, select Simplified Chinese in the VoiceInput menu bar
+- The `[Fn] 语音输入` hint at the bottom of the input box indicates voice input is available
 
 ## Architecture
 

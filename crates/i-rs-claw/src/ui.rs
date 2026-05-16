@@ -17,7 +17,7 @@ pub fn render(f: &mut Frame, app: &App) {
             Constraint::Length(1), // Title bar
             Constraint::Min(1),    // Chat area
             Constraint::Length(1), // Processing indicator
-            Constraint::Length(3), // Input
+            Constraint::Length(4), // Input
             Constraint::Length(1), // Status bar
         ])
         .split(area);
@@ -201,16 +201,31 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
 
     let prefix = if app.is_processing() { "⏳ " } else { "❯ " };
 
-    let (display_text, display_style) = if app.is_processing() {
-        (format!("{}{}", prefix, app.input), Style::default().fg(Color::DarkGray))
-    } else if app.input.is_empty() {
-        (format!("{}输入消息...", prefix), Style::default().fg(Color::Rgb(80, 80, 100)))
+    let lines = if app.is_processing() {
+        vec![Line::from(Span::styled(
+            format!("{}{}", prefix, app.input),
+            Style::default().fg(Color::DarkGray),
+        ))]
     } else {
-        (format!("{}{}", prefix, app.input), Style::default().fg(Color::White))
+        let input_line = if app.input.is_empty() {
+            Line::from(Span::styled(
+                format!("{}输入消息...", prefix),
+                Style::default().fg(Color::Rgb(80, 80, 100)),
+            ))
+        } else {
+            Line::from(Span::styled(
+                format!("{}{}", prefix, app.input),
+                Style::default().fg(Color::White),
+            ))
+        };
+        let hint_line = Line::from(Span::styled(
+            "  [Fn] 语音输入",
+            Style::default().fg(Color::Rgb(60, 60, 80)),
+        ));
+        vec![input_line, hint_line]
     };
 
-    let input = Paragraph::new(Span::styled(display_text, display_style))
-        .block(input_block);
+    let input = Paragraph::new(lines).block(input_block);
 
     f.render_widget(input, area);
 
@@ -892,49 +907,35 @@ fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String]) -> V
         None => return vec![],
     };
 
-    // Build the segment: find the range in `raw` that corresponds to `line` in `plain`.
-    // Map byte positions in `plain` to byte positions in `raw` (accounting for ANSI codes).
-    let raw_bytes = raw.as_bytes();
-    let plain_bytes = plain.as_bytes();
+    // Walk raw char by char (via char_indices to guarantee char boundaries),
+    // skip ANSI escapes, and track corresponding byte position in plain.
+    let line_end_byte = line_start + line.len();
+    let mut raw_bytes = raw.char_indices();
+    let mut plain_byte_pos: usize = 0;
+    let mut raw_start: Option<usize> = None;
+    let mut raw_end: usize = raw.len();
 
-    // Find the byte in raw that corresponds to line_start in plain
-    let mut raw_pos = 0usize;
-    let mut plain_pos = 0usize;
-    let mut raw_start = None;
-    let mut raw_end = 0;
-
-    while raw_pos < raw_bytes.len() && plain_pos < plain_bytes.len() {
-        if raw_bytes[raw_pos] == b'\x1b' && raw_pos + 1 < raw_bytes.len() && raw_bytes[raw_pos + 1] == b'[' {
-            // Skip ANSI sequence
-            let mut esc_end = raw_pos + 2;
-            while esc_end < raw_bytes.len() && !raw_bytes[esc_end].is_ascii_alphabetic() {
-                esc_end += 1;
-            }
-            if esc_end < raw_bytes.len() {
-                esc_end += 1; // skip the letter
-            }
-            raw_pos = esc_end;
-            continue;
-        }
-
-        if raw_start.is_none() && plain_pos >= line_start {
-            raw_start = Some(raw_pos);
-        }
-
-        if let Some(_start) = raw_start {
-            let remaining = line.len() - (plain_pos - line_start);
-            if plain_pos - line_start + remaining >= line.len() {
-                raw_end = raw_pos + (plain_bytes[plain_pos..].len() - (plain_pos - line_start));
-                // Approximate end: scan raw to find end of this line segment
-                let target = plain_pos - line_start + line.len();
-                if plain_pos >= target {
+    while let Some((raw_offset, c)) = raw_bytes.next() {
+        if c == '\x1b' {
+            // Skip ANSI escape sequence
+            for (_, esc_c) in &mut raw_bytes {
+                if esc_c.is_ascii_alphabetic() || esc_c == '~' {
                     break;
                 }
             }
+            continue;
         }
 
-        raw_pos += 1;
-        plain_pos += 1;
+        if raw_start.is_none() && plain_byte_pos >= line_start {
+            raw_start = Some(raw_offset);
+        }
+
+        if raw_start.is_some() && plain_byte_pos >= line_end_byte {
+            raw_end = raw_offset;
+            break;
+        }
+
+        plain_byte_pos += c.len_utf8();
     }
 
     let raw_start = raw_start.unwrap_or(0);
@@ -1152,7 +1153,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines).style(Style::default().bg(Color::Rgb(35, 50, 45)))
+            ListItem::new(lines).style(Style::default().bg(Color::Rgb(12, 18, 14)))
         }
         Message::Assistant { text } => {
             let mut lines = vec![Line::from(Span::styled(
@@ -1238,7 +1239,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 }
             }
 
-            ListItem::new(lines).style(Style::default().bg(Color::Rgb(28, 28, 35)))
+            ListItem::new(lines).style(Style::default().bg(Color::Rgb(10, 10, 16)))
         }
         Message::Error { text } => {
             let mut lines = vec![
@@ -1256,7 +1257,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines).style(Style::default().bg(Color::Rgb(55, 30, 30)))
+            ListItem::new(lines).style(Style::default().bg(Color::Rgb(18, 8, 8)))
         }
     }
 }

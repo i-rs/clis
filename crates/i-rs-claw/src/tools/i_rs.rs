@@ -22,11 +22,11 @@ impl super::ClawTool for IrsTool {
                 "tool": {
                     "type": "string",
                     "enum": enabled_cli_tools,
-                    "description": "i-rs 工具名称（i-rs 后的第一个参数）"
+                    "description": "i-rs 工具名称（i-rs 后的第一个参数，如 weight/run/sleep/mood/todo 等）。不熟悉的工具先调用 command=skill args=[\"teach\"] 学习一次，学完即可使用"
                 },
                 "command": {
                     "type": "string",
-                    "description": "子命令。常见的有 add/list/delete/stats。还有 skill（用来学习工具用法）"
+                    "description": "子命令。常用：add/list/get/delete/update/stats。不熟悉的工具先用 skill teach 学习一次，学完即可使用。skill 子命令常见参数：[\"teach\"]"
                 },
                 "args": {
                     "type": "array",
@@ -61,7 +61,6 @@ impl super::ClawTool for IrsTool {
 
 /// Execute `i-rs <tool> <command> [args...]` and return the output.
 fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String> {
-    // If --json was passed in args, keep it; otherwise omit for table output
     let mut all_args = Vec::with_capacity(args.len() + 1);
     all_args.push(cmd.to_string());
     all_args.extend_from_slice(args);
