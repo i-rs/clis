@@ -59,13 +59,12 @@ impl super::ClawTool for IrsTool {
     }
 }
 
-/// Execute `i-rs <tool> <command> [args...] --json` and return the output.
+/// Execute `i-rs <tool> <command> [args...]` and return the output.
 fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String> {
-    // Append --json for structured output (all i-rs tools support this)
-    let mut all_args = Vec::with_capacity(args.len() + 2);
+    // If --json was passed in args, keep it; otherwise omit for table output
+    let mut all_args = Vec::with_capacity(args.len() + 1);
     all_args.push(cmd.to_string());
     all_args.extend_from_slice(args);
-    all_args.push("--json".to_string());
 
     let output = Command::new("i-rs")
         .arg(tool)
