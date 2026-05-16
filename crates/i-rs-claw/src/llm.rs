@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::utils;
 use futures_util::StreamExt;
 use serde_json::Value;
+use std::time::Instant;
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -30,6 +31,15 @@ pub enum LlmEvent {
     Error(String),
     /// All responses complete, carries final API message list and optional token usage
     Done(Vec<Value>, Option<TokenUsage>),
+    /// HTTP request log for debug sidebar
+    HttpLog {
+        status: u16,
+        duration_ms: u64,
+        model: String,
+        prompt_tokens: u32,
+        completion_tokens: u32,
+        error: Option<String>,
+    },
 }
 
 #[derive(Default, Clone)]
@@ -52,6 +62,7 @@ async fn stream_chat(
     tool_schemas: &[Value],
     tx: &mpsc::UnboundedSender<LlmEvent>,
 ) -> anyhow::Result<StreamResult> {
+    let start = Instant::now();
     let mut body = serde_json::json!({
         "model": config.model,
         "messages": messages,
@@ -64,8 +75,9 @@ async fn stream_chat(
         body["parallel_tool_calls"] = serde_json::Value::Bool(false);
     }
 
+    let url = format!("{}/chat/completions", config.base_url);
     let response = client
-        .post(format!("{}/chat/completions", config.base_url))
+        .post(&url)
         .header("Authorization", format!("Bearer {}", config.api_key))
         .header("HTTP-Referer", "https://github.com/i-rs/clis")
         .header("X-Title", "i-rs-claw")
@@ -74,97 +86,95 @@ async fn stream_chat(
         .await
         .map_err(|e| anyhow::anyhow!("API 请求失败: {}", e))?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let text = response.text().await.unwrap_or_default();
-        return Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text));
-    }
+    let status = response.status().as_u16();
 
-    let mut stream = response.bytes_stream();
-    let mut buf = String::new();
-    let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
-    let mut finish_reason = String::new();
-    let mut reasoning_buf = String::new();
-    let mut content_buf = String::new();
-    let mut usage: Option<TokenUsage> = None;
+    if response.status().is_success() {
+        let mut stream = response.bytes_stream();
+        let mut buf = String::new();
+        let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
+        let mut finish_reason = String::new();
+        let mut reasoning_buf = String::new();
+        let mut content_buf = String::new();
+        let mut usage: Option<TokenUsage> = None;
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
-        buf.push_str(&String::from_utf8_lossy(&chunk));
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
+            buf.push_str(&String::from_utf8_lossy(&chunk));
 
-        // Process complete SSE lines
-        while let Some(pos) = buf.find('\n') {
-            let line = buf[..pos].trim().to_string();
-            buf = buf[pos + 1..].to_string();
+            // Process complete SSE lines
+            while let Some(pos) = buf.find('\n') {
+                let line = buf[..pos].trim().to_string();
+                buf = buf[pos + 1..].to_string();
 
-            if line.is_empty() {
-                continue;
-            }
-
-            if let Some(data) = line.strip_prefix("data: ") {
-                if data.trim() == "[DONE]" {
+                if line.is_empty() {
                     continue;
                 }
 
-                if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
-                    // Check for usage data (final chunk with stream_options.include_usage)
-                    if let Some(usage_data) = parsed.get("usage") {
-                        if !usage_data.is_null() {
-                            usage = Some(TokenUsage {
-                                prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
-                                completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
-                                total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
-                            });
-                        }
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if data.trim() == "[DONE]" {
+                        continue;
                     }
 
-                    if let Some(choices) = parsed["choices"].as_array() {
-                        if let Some(choice) = choices.first() {
-                            if let Some(reason) = choice["finish_reason"].as_str() {
-                                if !reason.is_empty() && reason != "null" && reason != "stop" {
-                                    finish_reason = reason.to_string();
-                                }
+                    if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
+                        // Check for usage data (final chunk with stream_options.include_usage)
+                        if let Some(usage_data) = parsed.get("usage") {
+                            if !usage_data.is_null() {
+                                usage = Some(TokenUsage {
+                                    prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
+                                    completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
+                                    total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
+                                });
                             }
+                        }
 
-                            if let Some(delta) = choice.get("delta") {
-                                // Accumulate reasoning_content (DeepSeek requires echoing it back)
-                                if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
-                                    reasoning_buf.push_str(rc);
-                                }
-
-                                // Text content
-                                if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
-                                    if !text.is_empty() {
-                                        content_buf.push_str(text);
-                                        let _ = tx.send(LlmEvent::Token(text.to_string()));
+                        if let Some(choices) = parsed["choices"].as_array() {
+                            if let Some(choice) = choices.first() {
+                                if let Some(reason) = choice["finish_reason"].as_str() {
+                                    if !reason.is_empty() && reason != "null" && reason != "stop" {
+                                        finish_reason = reason.to_string();
                                     }
                                 }
 
-                                // Tool calls (streaming delta)
-                                if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array())
-                                {
-                                    for tc in tcs {
-                                        let idx = tc
-                                            .get("index")
-                                            .and_then(|i| i.as_i64())
-                                            .unwrap_or(0)
-                                            as usize;
-                                        if idx >= tool_calls.len() {
-                                            tool_calls.resize(idx + 1, ToolCallAcc::default());
+                                if let Some(delta) = choice.get("delta") {
+                                    // Accumulate reasoning_content (DeepSeek requires echoing it back)
+                                    if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
+                                        reasoning_buf.push_str(rc);
+                                    }
+
+                                    // Text content
+                                    if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
+                                        if !text.is_empty() {
+                                            content_buf.push_str(text);
+                                            let _ = tx.send(LlmEvent::Token(text.to_string()));
                                         }
-                                        if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
-                                            tool_calls[idx].id = id.to_string();
-                                        }
-                                        if let Some(func) = tc.get("function") {
-                                            if let Some(name) =
-                                                func.get("name").and_then(|n| n.as_str())
-                                            {
-                                                tool_calls[idx].name = name.to_string();
+                                    }
+
+                                    // Tool calls (streaming delta)
+                                    if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array())
+                                    {
+                                        for tc in tcs {
+                                            let idx = tc
+                                                .get("index")
+                                                .and_then(|i| i.as_i64())
+                                                .unwrap_or(0)
+                                                as usize;
+                                            if idx >= tool_calls.len() {
+                                                tool_calls.resize(idx + 1, ToolCallAcc::default());
                                             }
-                                            if let Some(args) =
-                                                func.get("arguments").and_then(|a| a.as_str())
-                                            {
-                                                tool_calls[idx].arguments.push_str(args);
+                                            if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
+                                                tool_calls[idx].id = id.to_string();
+                                            }
+                                            if let Some(func) = tc.get("function") {
+                                                if let Some(name) =
+                                                    func.get("name").and_then(|n| n.as_str())
+                                                {
+                                                    tool_calls[idx].name = name.to_string();
+                                                }
+                                                if let Some(args) =
+                                                    func.get("arguments").and_then(|a| a.as_str())
+                                                {
+                                                    tool_calls[idx].arguments.push_str(args);
+                                                }
                                             }
                                         }
                                     }
@@ -175,28 +185,52 @@ async fn stream_chat(
                 }
             }
         }
-    }
 
-    if finish_reason == "tool_calls" && !tool_calls.is_empty()
-        && tool_calls.iter().any(|tc| !tc.id.is_empty())
-    {
-        let mut parsed = Vec::new();
-        for tc in &tool_calls {
-            let args: Value =
-                serde_json::from_str(&tc.arguments).unwrap_or(serde_json::json!({}));
-            parsed.push((
-                ToolCallAcc {
-                    id: tc.id.clone(),
-                    name: tc.name.clone(),
-                    arguments: tc.arguments.clone(),
-                },
-                args,
-            ));
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let prompt_tokens = usage.map(|u| u.prompt_tokens).unwrap_or(0);
+        let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
+        let _ = tx.send(LlmEvent::HttpLog {
+            status,
+            duration_ms,
+            model: config.model.clone(),
+            prompt_tokens,
+            completion_tokens,
+            error: None,
+        });
+
+        if finish_reason == "tool_calls" && !tool_calls.is_empty()
+            && tool_calls.iter().any(|tc| !tc.id.is_empty())
+        {
+            let mut parsed = Vec::new();
+            for tc in &tool_calls {
+                let args: Value =
+                    serde_json::from_str(&tc.arguments).unwrap_or(serde_json::json!({}));
+                parsed.push((
+                    ToolCallAcc {
+                        id: tc.id.clone(),
+                        name: tc.name.clone(),
+                        arguments: tc.arguments.clone(),
+                    },
+                    args,
+                ));
+            }
+            return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
         }
-        return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
-    }
 
-    Ok(StreamResult::Text(usage, content_buf))
+        return Ok(StreamResult::Text(usage, content_buf));
+    } else {
+        let text = response.text().await.unwrap_or_default();
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let _ = tx.send(LlmEvent::HttpLog {
+            status,
+            duration_ms,
+            model: config.model.clone(),
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            error: Some(format!("HTTP {}: {}", status, text)),
+        });
+        return Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text));
+    }
 }
 
 /// Load system prompt from external file and inject dynamic layers.

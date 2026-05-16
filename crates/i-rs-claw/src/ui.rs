@@ -24,7 +24,22 @@ pub fn render(f: &mut Frame, app: &App) {
         .split(area);
 
     render_title(f, layout[0], app);
-    render_chat(f, layout[1], app);
+
+    if app.show_sidebar && !app.is_processing() {
+        // Split chat area horizontally when sidebar is open
+        let chat_side = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Min(1),
+                Constraint::Percentage(35),
+            ])
+            .split(layout[1]);
+        render_chat(f, chat_side[0], app);
+        render_sidebar(f, chat_side[1], app);
+    } else {
+        render_chat(f, layout[1], app);
+    }
+
     render_processing(f, layout[2], app);
     render_input(f, layout[3], app);
     render_status(f, layout[4], app);
@@ -273,6 +288,12 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
         "Ctrl+N  ",
         Style::default().fg(Color::Rgb(140, 140, 160)),
     ));
+    if !app.show_sidebar {
+        spans.push(Span::styled(
+            "Ctrl+R  ",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+    }
     spans.push(Span::styled(
         "Ctrl+L",
         Style::default().fg(Color::Rgb(140, 140, 160)),
@@ -378,6 +399,104 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     );
 
     f.render_widget(list, popup_area);
+}
+
+fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
+    // Sidebar block with border
+    let block = Block::default()
+        .borders(Borders::LEFT | Borders::TOP)
+        .border_style(Style::default().fg(Color::Rgb(80, 80, 100)))
+        .title(" 🔍 Debug ")
+        .title_alignment(ratatui::layout::Alignment::Center);
+
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    if app.http_logs.is_empty() {
+        let empty = Paragraph::new(Line::from(Span::styled(
+            " (no requests)",
+            Style::default().fg(Color::DarkGray),
+        )));
+        f.render_widget(empty, inner);
+        return;
+    }
+
+    let mut items: Vec<ListItem> = Vec::new();
+    let max_lines = inner.height as usize;
+    let side_width = inner.width as usize;
+
+    for log in &app.http_logs {
+        if items.len() >= max_lines {
+            break;
+        }
+
+        let (status_icon, status_color) = if log.error.is_some() {
+            ("✗", Color::Red)
+        } else if log.status == 200 || log.status == 201 {
+            ("✓", Color::Green)
+        } else {
+            ("!", Color::Yellow)
+        };
+
+        let duration_fmt = if log.duration_ms >= 1000 {
+            format!("{:.1}s", log.duration_ms as f64 / 1000.0)
+        } else {
+            format!("{}ms", log.duration_ms)
+        };
+
+        // Line 1: timestamp + status
+        items.push(ListItem::new(vec![
+            Line::from(vec![
+                Span::styled(
+                    format!(" {} ", log.timestamp),
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    format!("{} {}", status_icon, log.status),
+                    Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                ),
+            ]),
+            // Line 2: duration + model + tokens
+            Line::from(vec![
+                Span::styled(
+                    format!(" {} ", duration_fmt),
+                    Style::default().fg(Color::Yellow),
+                ),
+                Span::styled(
+                    truncate_str(&log.model, side_width.saturating_sub(12)),
+                    Style::default().fg(Color::Cyan),
+                ),
+            ]),
+        ]));
+
+        // Token stats line (if available)
+        if log.prompt_tokens > 0 || log.completion_tokens > 0 {
+            items.push(ListItem::new(vec![Line::from(Span::styled(
+                format!(
+                    "   {}p + {}c",
+                    log.prompt_tokens, log.completion_tokens
+                ),
+                Style::default().fg(Color::Rgb(140, 140, 160)),
+            ))]));
+        }
+
+        // Error detail line
+        if let Some(err) = &log.error {
+            items.push(ListItem::new(vec![Line::from(Span::styled(
+                format!("   {}", truncate_str(err, side_width.saturating_sub(4))),
+                Style::default().fg(Color::Red),
+            ))]));
+        }
+
+        // Separator between entries
+        items.push(ListItem::new(vec![Line::from(Span::styled(
+            " ───",
+            Style::default().fg(Color::Rgb(50, 50, 65)),
+        ))]));
+    }
+
+    let list = List::new(items);
+    f.render_widget(list, inner);
 }
 
 fn truncate_str(s: &str, max_len: usize) -> String {

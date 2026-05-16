@@ -203,6 +203,24 @@ fn main_loop(
                 LlmEvent::Error(text) => {
                     app.add_error(&text);
                 }
+                LlmEvent::HttpLog {
+                    status,
+                    duration_ms,
+                    model,
+                    prompt_tokens,
+                    completion_tokens,
+                    error,
+                } => {
+                    app.add_http_log(app::HttpLog {
+                        timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+                        status,
+                        duration_ms,
+                        model,
+                        prompt_tokens,
+                        completion_tokens,
+                        error,
+                    });
+                }
                 LlmEvent::Done(msgs, usage) => {
                     app.finish_processing(Some(msgs.clone()));
                     app.token_usage = usage;
@@ -316,8 +334,18 @@ fn main_loop(
                         app.reset_for_new_session();
                         app.show_session_list = false;
                     }
+                    KeyCode::Char('r') if key.modifiers == KeyModifiers::CONTROL => {
+                        // Toggle HTTP debug sidebar
+                        app.show_sidebar = !app.show_sidebar;
+                        if app.show_sidebar {
+                            app.show_session_list = false;
+                        }
+                    }
                     KeyCode::Esc if app.show_session_list => {
                         app.show_session_list = false;
+                    }
+                    KeyCode::Esc if app.show_sidebar => {
+                        app.show_sidebar = false;
                     }
                     KeyCode::Up if app.show_session_list => {
                         app.session_list_index =

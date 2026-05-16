@@ -1,6 +1,18 @@
 use crate::config::Config;
 use serde_json::Value;
 
+/// Record of an HTTP request to the LLM API.
+#[derive(Debug, Clone)]
+pub struct HttpLog {
+    pub timestamp: String,       // formatted local time
+    pub status: u16,             // HTTP status code
+    pub duration_ms: u64,        // total request + streaming time
+    pub model: String,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub error: Option<String>,   // non-empty on failure
+}
+
 #[derive(Clone)]
 pub enum Message {
     User { text: String },
@@ -43,6 +55,10 @@ pub struct App {
     pub input_cursor: usize,
     /// How many lines the user has scrolled up from the bottom (0 = bottom)
     pub scroll_offset: usize,
+    /// Whether the HTTP debug sidebar is shown
+    pub show_sidebar: bool,
+    /// HTTP request logs (newest first)
+    pub http_logs: Vec<HttpLog>,
 }
 
 impl App {
@@ -71,6 +87,8 @@ impl App {
             input_history: Vec::new(),
             input_history_index: None,
             scroll_offset: 0,
+            show_sidebar: false,
+            http_logs: Vec::new(),
         }
     }
 
@@ -251,6 +269,13 @@ impl App {
         self.tool_call_count += 1;
     }
 
+    pub fn add_http_log(&mut self, log: HttpLog) {
+        self.http_logs.insert(0, log);
+        if self.http_logs.len() > 50 {
+            self.http_logs.pop();
+        }
+    }
+
     pub fn add_error(&mut self, text: &str) {
         // Remove trailing empty assistant message (from NewRound before error)
         if let Some(Message::Assistant { text }) = self.messages.last() {
@@ -290,5 +315,7 @@ impl App {
         self.input_cursor = 0;
         self.input_history.clear();
         self.input_history_index = None;
+        self.show_sidebar = false;
+        self.http_logs.clear();
     }
 }

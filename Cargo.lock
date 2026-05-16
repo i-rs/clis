@@ -2281,6 +2281,7 @@ dependencies = [
  "crossterm",
  "dirs",
  "futures-util",
+ "owo-colors 4.3.0",
  "ratatui",
  "reqwest",
  "rig-core",
