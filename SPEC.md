@@ -55,7 +55,7 @@ i-rs-clis/
 | i-rs-note | 笔记管理 | - |
 | i-rs-todo | 待办管理 | done |
 | i-rs-keys | API密钥管理 | - |
-| i-rs-kv | 键值存储 | - |
+| i-rs-kv | 键值存储 | search, stats, copy, rename |
 | i-rs-deploy | 部署追踪 | rollback, stats |
 
 ### 健康追踪
@@ -265,6 +265,7 @@ keyring-core.workspace = true
 - `docs/crates/i-rs-{name}/usage.md` - 使用说明
 - `docs/crates/i-rs-{name}/examples.md` - 示例
 - `docs/crates/i-rs-{name}/test.md` - 测试数据
+- `docs/crates/i-rs-{name}/api.md` - REST API 文档（如工具已接入 i-rs-api）
 
 6. **创建 Skills** (必需!)
 - `skills/i-rs-{name}/SKILL.md` - AI技能文档 (包含 YAML frontmatter)
@@ -289,6 +290,7 @@ cargo check
 - [ ] `docs/crates/i-rs-{name}/examples.md` 存在
 - [ ] `docs/crates/i-rs-{name}/test.md` 存在
 - [ ] `skills/i-rs-{name}/SKILL.md` 存在
+- [ ] `docs/crates/i-rs-{name}/api.md` 存在（如已接入 i-rs-api）
 - [ ] `docs/.vitepress/config.ts` 包含侧边栏条目
 - [ ] `Cargo.toml` workspace 包含此 crate
 
@@ -357,8 +359,18 @@ enum Commands {
     Update { name: String, #[arg(short, long)] tags: Vec<String> },
     Example {},
     Skill { sub: Option<String> },
+    // 可选扩展命令（按需添加）:
+    // Search { query: String },
+    // Stats {},
+    // Copy { src: String, dst: String },
+    // Rename { old: String, new: String },
 }
 ```
+
+扩展命令模式说明：
+- **search**: 按内容搜索条目，接收 `query` 参数
+- **stats**: 统计信息，接收 `--json` 控制输出格式
+- **copy/rename**: 需要两个位置参数（源和目标），JSON 模式返回条目数据
 
 ### 6.2 main.rs 模板
 
@@ -452,7 +464,110 @@ i-rs-xxx data import /path/to/file.json
 i-rs-xxx data clear
 ```
 
-## 7. JSON输出规范
+## 7. REST API 开发规范（i-rs-api）
+
+### 7.1 架构模式
+
+i-rs-api 通过 `SharedStore<T>`（RwLock 封装）提供线程安全的内存内存储，所有数据变更自动持久化到磁盘。
+
+```
+┌─────────────────────┐
+│  Axum Router        │  HTTP 请求路由
+├─────────────────────┤
+│  routes/kv.rs       │  端点处理函数
+├─────────────────────┤
+│  i_rs_kv::service   │  CLI 和 API 共享的业务逻辑层
+├─────────────────────┤
+│  SharedStore<T>      │  线程安全的内存存储
+├─────────────────────┤
+│  i_rs_core::Storage │  磁盘持久化
+└─────────────────────┘
+```
+
+### 7.2 Service 层复用
+
+API 端点直接复用 CLI crate 的 `service` 模块，避免重复实现：
+
+```rust
+// API 端点直接调用 service 层
+async fn list_kv(state: State<Arc<AppState>>) -> ApiResult<...> {
+    let records = state.kv.read(|store| {
+        i_rs_kv::service::list_kv(store, tag, pattern).map_err(ApiError::from)
+    })?;
+    Ok(ok_json_list(records))
+}
+
+// 写操作使用 write() 确保自动持久化
+async fn copy_kv_handler(state: State<Arc<AppState>>, ...) -> ApiResult<...> {
+    let entry = state.kv.write(|store| {
+        i_rs_kv::service::copy_kv(store, &key, req.dst).map_err(ApiError::from)
+    })?;
+    Ok(ok_json(entry))
+}
+```
+
+### 7.3 Router 端点注册
+
+```rust
+pub fn router() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/", get(list_kv))
+        .route("/search", get(search_handler))     // 搜索端点
+        .route("/stats", get(stats_handler))       // 统计端点
+        .route("/{key}", get(get_kv))
+        .route("/{key}", post(set_kv))
+        .route("/{key}", delete(delete_kv).patch(update_kv))
+        .route("/{key}/copy", post(copy_handler))  // 复制端点
+        .route("/{key}/rename", patch(rename_handler)) // 重命名端点
+}
+```
+
+注意事项：
+- 字面路径（`/search`、`/stats`）必须注册在参数化路径（`/{key}`）之前
+- 写操作统一使用 `state.store.write()` 确保自动刷盘
+- 读操作使用 `state.store.read()` 避免锁竞争
+
+### 7.4 端点设计规范
+
+| 操作 | 方法 | 路径模式 | 描述 |
+|------|------|---------|------|
+| 列表 | GET | `/` | 返回条目数组 + count |
+| 搜索 | GET | `/search?q=` | 按内容搜索 |
+| 统计 | GET | `/stats` | 返回统计数据 |
+| 详情 | GET | `/{id}` | 返回单个条目 |
+| 创建 | POST | `/{id}` | 创建条目 |
+| 更新 | PATCH | `/{id}` | 部分更新（JSON 合并） |
+| 删除 | DELETE | `/{id}` | 删除条目 |
+| 复制 | POST | `/{id}/copy` | body: {dst} |
+| 重命名 | PATCH | `/{id}/rename` | body: {new} |
+
+### 7.5 响应格式
+
+成功响应：
+```json
+{"success": true, "data": ...}
+{"success": true, "data": [...], "meta": {"count": N}}
+{"success": true, "message": "OK"}
+```
+
+错误响应：
+```json
+{"success": false, "error": {"code": "NOT_FOUND", "message": "..."}}
+```
+
+错误码映射规则（`ApiError::from(anyhow::Error)`）：
+- `not found` / `no ` → `NOT_FOUND` (404)
+- `already exists` → `CONFLICT` (409)
+- `invalid` / `parse` / `validation` → `BAD_REQUEST` (400)
+- 其余 → `SERVER_ERROR` (500)
+
+### 7.6 文档要求
+
+- 每个接入 i-rs-api 的工具必须维护 `docs/crates/i-rs-{name}/api.md`
+- 文档需包含：端点概览表、每个端点的请求/响应示例
+- 新增端点时必须同步更新 api.md
+
+## 8. JSON输出规范
 
 ```json
 {
@@ -473,7 +588,7 @@ i-rs-xxx data clear
 }
 ```
 
-## 8. 存储规范
+## 9. 存储规范
 
 - **密码**: 必须存储在 OS keychain 中
 - **数据文件**: `~/.config/i-rs/{name}.json`
@@ -481,7 +596,7 @@ i-rs-xxx data clear
 - **存储结构**: 统一使用 `BTreeMap` (不用 HashMap)
 - **CRUD 方法**: 统一为 `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
 
-## 9. 输入验证
+## 10. 输入验证
 
 ```rust
 use i_rs_core::{validate_name, validate_url, validate_weight, validate_amount};
@@ -501,7 +616,7 @@ if let Err(e) = validate_name(&name) {
 | `validate_weight` | > 0, ≤1000 kg |
 | `validate_amount` | > 0, ≤10亿 |
 
-## 10. Bug 预防
+## 11. Bug 预防
 
 ### Store 加载模式 (正确)
 ```rust
@@ -517,7 +632,7 @@ let store = storage::load_store()?;
 let mut store = storage::load_store()?;  // BUG: 重复加载!
 ```
 
-## 11. Workspace 依赖
+## 12. Workspace 依赖
 
 ```toml
 [workspace.dependencies]
@@ -540,7 +655,7 @@ uuid = { version = "1.0", features = ["v4"] }
 - **不要**添加 `tokio` 或 `reqwest` (当前无 crate 使用 async)
 - **uuid** 按需添加 (仅当使用 `Uuid::new_v4()`)
 
-## 12. 发布流程
+## 13. 发布流程
 
 ```bash
 # 更新版本号 (workspace.package.version in Cargo.toml)
@@ -553,7 +668,7 @@ CI (cargo-dist) auto-builds 并发布到:
 - npm (`@i-rs/i-rs-*`)
 - Homebrew (`i-rs/homebrew-tap/i-rs-*`)
 
-## 13. 构建配置
+## 14. 构建配置
 
 ```toml
 [profile.release]
@@ -565,7 +680,7 @@ codegen-units = 1
 inherits = "release"
 ```
 
-## 14. CI / 质量保障
+## 15. CI / 质量保障
 
 - `check.yml` — push/PR 时运行 `cargo check` + `clippy` + `fmt`
 - `release.yml` — tag 推送时 cargo-dist 发布
@@ -573,7 +688,7 @@ inherits = "release"
 - i-rs-core 有 21 个单元测试覆盖 validation 和 date 模块
 - i-rs-api 有 32 个集成测试覆盖 CRUD、PATCH、404、BadRequest、数据导出/清空
 
-## 15. 重要文件
+## 16. 重要文件
 
 - `SPEC.md` — 项目规范 (中文)
 - `AGENTS.md` — AI 开发工作流
