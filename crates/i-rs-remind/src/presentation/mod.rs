@@ -1,6 +1,6 @@
 use crate::models::RemindRow;
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
 pub fn format_table(reminds: &[&crate::models::Remind]) -> String {
     let rows: Vec<RemindRow> = reminds

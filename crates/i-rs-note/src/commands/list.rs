@@ -1,5 +1,5 @@
 use crate::models::Note;
-use crate::presentation::{format_table, print_note_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_note_count, output_list, OutputFormat};
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
@@ -7,14 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     let notes = crate::service::list_notes(&store, tag.clone())?;
     let notes_ref: Vec<&Note> = notes.iter().collect();
 
-    if notes_ref.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No notes found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(notes_ref, format, tag.as_deref(), "No notes found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]

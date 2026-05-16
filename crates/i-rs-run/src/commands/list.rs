@@ -1,5 +1,5 @@
 use crate::models::RunRecord;
-use crate::presentation::{format_run_table, output_list, print_run_count, print_warning, OutputFormat};
+use crate::presentation::{format_run_table, output_list, print_run_count, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -7,14 +7,7 @@ pub fn handle_list(format: OutputFormat) -> Result<()> {
     let store = storage::load_store()?;
     let records: Vec<RunRecord> = store.records.values().cloned().collect();
 
-    if records.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
-        } else {
-            print_warning("No run records found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(records, format, None, "No run records found.");
 
     let records_ref: Vec<&RunRecord> = records.iter().collect();
 

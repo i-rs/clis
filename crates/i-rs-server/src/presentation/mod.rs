@@ -1,6 +1,6 @@
 use crate::models::ServerRow;
 use owo_colors::OwoColorize;
-pub use i_rs_core::presentation::{print_header, print_success, print_warning, OutputFormat};
+pub use i_rs_core::presentation::{print_header, print_success, OutputFormat};
 pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
 pub fn format_table(servers: &[&crate::models::Server]) -> String {
     let rows: Vec<ServerRow> = servers

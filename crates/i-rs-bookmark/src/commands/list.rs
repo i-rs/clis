@@ -1,5 +1,5 @@
 use crate::models::Bookmark;
-use crate::presentation::{format_table, print_bookmark_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_bookmark_count, output_list, OutputFormat};
 use anyhow::Result;
 
 pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
@@ -7,14 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     let bookmarks = crate::service::list_bookmarks(&store, tag.clone())?;
     let bookmarks_ref: Vec<&Bookmark> = bookmarks.iter().collect();
 
-    if bookmarks_ref.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No bookmarks found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(bookmarks_ref, format, tag.as_deref(), "No bookmarks found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]

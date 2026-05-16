@@ -41,14 +41,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
     let today = Utc::now().date_naive();
     let entries: Vec<&crate::models::MealEntry> = storage::get_entries_by_date(&store, today);
 
-    if entries.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
-        } else {
-            print_warning("No meals recorded today.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(entries, format, None, "No meals recorded today.");
 
     if format.is_json() {
         let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(*e)).collect();

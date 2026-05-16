@@ -1,5 +1,5 @@
 use crate::models::{Article, ReadStatus};
-use crate::presentation::{format_table, print_article_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_article_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -10,14 +10,7 @@ pub fn handle_list(tag: Option<String>, status: Option<String>, format: OutputFo
 
     let articles: Vec<&Article> = storage::filter_by_tag_and_status(&store, tag.as_deref(), status_filter);
 
-    if articles.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No articles found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(articles, format, tag.as_deref(), "No articles found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]

@@ -1,4 +1,4 @@
-use crate::presentation::{format_table, print_birthday_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_birthday_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -7,14 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let birthdays: Vec<&crate::models::Birthday> = storage::filter_by_tag(&store, tag.as_deref());
 
-    if birthdays.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No birthdays found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(birthdays, format, tag.as_deref(), "No birthdays found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]

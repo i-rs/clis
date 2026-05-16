@@ -1,4 +1,4 @@
-use crate::presentation::{format_table, print_snippet_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_snippet_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -7,14 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let snippets: Vec<&crate::models::Snippet> = storage::filter_by_tag(&store, tag.as_deref());
 
-    if snippets.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No snippets found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(snippets, format, tag.as_deref(), "No snippets found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]

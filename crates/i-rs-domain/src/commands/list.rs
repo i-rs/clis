@@ -1,4 +1,4 @@
-use crate::presentation::{format_table, print_domain_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_domain_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -7,14 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let domains: Vec<&crate::models::Domain> = storage::filter_by_tag(&store, tag.as_deref());
 
-    if domains.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No domains found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(domains, format, tag.as_deref(), "No domains found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]

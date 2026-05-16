@@ -187,7 +187,7 @@ macro_rules! handle_empty {
     ($entries:expr, $format:expr) => {
         if $entries.is_empty() {
             if $format.is_json() {
-                ::println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, None::<&str>, $format));
+                println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, None::<&str>, $format));
             } else {
                 $crate::presentation::print_warning("No records found.");
             }
@@ -197,9 +197,19 @@ macro_rules! handle_empty {
     ($entries:expr, $format:expr, $filter:expr) => {
         if $entries.is_empty() {
             if $format.is_json() {
-                ::println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, $filter, $format));
+                println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, $filter, $format));
             } else {
                 $crate::presentation::print_warning("No records found.");
+            }
+            return Ok(());
+        }
+    };
+    ($entries:expr, $format:expr, $filter:expr, $msg:expr) => {
+        if $entries.is_empty() {
+            if $format.is_json() {
+                println!("{}", $crate::presentation::output_list::<::serde_json::Value>(&[], 0, $filter, $format));
+            } else {
+                $crate::presentation::print_warning($msg);
             }
             return Ok(());
         }

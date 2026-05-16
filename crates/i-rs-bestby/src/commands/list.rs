@@ -1,5 +1,5 @@
 use crate::models::{EntityRow, ListItem};
-use crate::presentation::{format_table, print_entity_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_entity_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -8,14 +8,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let entities: Vec<&crate::models::Entity> = storage::filter_by_tag(&store, tag.as_deref());
 
-    if entities.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No items found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(entities, format, tag.as_deref(), "No items found.");
 
     if format.is_json() {
         let items: Vec<ListItem> = entities.iter().map(|e| ListItem::from(*e)).collect();

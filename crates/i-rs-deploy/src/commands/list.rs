@@ -1,5 +1,5 @@
 use crate::models::{DeployRow, ListItem};
-use crate::presentation::{format_table, print_deploy_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_deploy_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -24,14 +24,7 @@ pub fn handle_list(
     let mut entries: Vec<_> = entries;
     entries.sort_by_key(|e| std::cmp::Reverse(e.deployed_at));
 
-    if entries.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, None, format));
-        } else {
-            print_warning("No deploy records found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(entries, format, None, "No deploy records found.");
 
     if format.is_json() {
         let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(*e)).collect();

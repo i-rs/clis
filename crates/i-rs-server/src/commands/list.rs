@@ -1,4 +1,4 @@
-use crate::presentation::{format_table, print_server_count, print_warning, output_list, OutputFormat};
+use crate::presentation::{format_table, print_server_count, output_list, OutputFormat};
 use crate::storage;
 use anyhow::Result;
 
@@ -7,14 +7,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
 
     let servers: Vec<&crate::models::Server> = storage::filter_servers_by_tag(&store, tag.as_deref());
 
-    if servers.is_empty() {
-        if format.is_json() {
-            println!("{}", output_list::<serde_json::Value>(&[], 0, tag.as_deref(), format));
-        } else {
-            print_warning("No servers found.");
-        }
-        return Ok(());
-    }
+    i_rs_core::handle_empty!(servers, format, tag.as_deref(), "No servers found.");
 
     if format.is_json() {
         #[derive(serde::Serialize, Clone)]
