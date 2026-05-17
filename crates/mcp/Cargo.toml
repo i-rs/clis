@@ -1,0 +1,87 @@
+[package]
+name = "i-rs-mcp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "MCP (Model Context Protocol) server for i-rs CLI tools"
+
+[dependencies]
+i-rs-core = { path = "../core" }
+i-rs-ac = { path = "../clis/i-rs-ac" }
+i-rs-allergy = { path = "../clis/i-rs-allergy" }
+i-rs-appliance = { path = "../clis/i-rs-appliance" }
+i-rs-aqua = { path = "../clis/i-rs-aqua" }
+i-rs-article = { path = "../clis/i-rs-article" }
+i-rs-bed = { path = "../clis/i-rs-bed" }
+i-rs-bestby = { path = "../clis/i-rs-bestby" }
+i-rs-birthday = { path = "../clis/i-rs-birthday" }
+i-rs-bookmark = { path = "../clis/i-rs-bookmark" }
+i-rs-budget = { path = "../clis/i-rs-budget" }
+i-rs-cal = { path = "../clis/i-rs-cal" }
+i-rs-car = { path = "../clis/i-rs-car" }
+i-rs-contact = { path = "../clis/i-rs-contact" }
+i-rs-cycle = { path = "../clis/i-rs-cycle" }
+i-rs-cycling = { path = "../clis/i-rs-cycling" }
+i-rs-debt = { path = "../clis/i-rs-debt" }
+i-rs-deploy = { path = "../clis/i-rs-deploy" }
+i-rs-domain = { path = "../clis/i-rs-domain" }
+i-rs-dose = { path = "../clis/i-rs-dose" }
+i-rs-event = { path = "../clis/i-rs-event" }
+i-rs-exercise = { path = "../clis/i-rs-exercise" }
+i-rs-fast = { path = "../clis/i-rs-fast" }
+i-rs-feedpet = { path = "../clis/i-rs-feedpet" }
+i-rs-filter = { path = "../clis/i-rs-filter" }
+i-rs-gift = { path = "../clis/i-rs-gift" }
+i-rs-goal = { path = "../clis/i-rs-goal" }
+i-rs-grocery = { path = "../clis/i-rs-grocery" }
+i-rs-habit = { path = "../clis/i-rs-habit" }
+i-rs-height = { path = "../clis/i-rs-height" }
+i-rs-invest = { path = "../clis/i-rs-invest" }
+i-rs-invoice = { path = "../clis/i-rs-invoice" }
+i-rs-keys = { path = "../clis/i-rs-keys" }
+i-rs-kv = { path = "../clis/i-rs-kv" }
+i-rs-ledger = { path = "../clis/i-rs-ledger" }
+i-rs-meal = { path = "../clis/i-rs-meal" }
+i-rs-mood = { path = "../clis/i-rs-mood" }
+i-rs-movie = { path = "../clis/i-rs-movie" }
+i-rs-note = { path = "../clis/i-rs-note" }
+i-rs-password = { path = "../clis/i-rs-password" }
+i-rs-petbath = { path = "../clis/i-rs-petbath" }
+i-rs-pig = { path = "../clis/i-rs-pig" }
+i-rs-plant = { path = "../clis/i-rs-plant" }
+i-rs-podcast = { path = "../clis/i-rs-podcast" }
+i-rs-project = { path = "../clis/i-rs-project" }
+i-rs-purify = { path = "../clis/i-rs-purify" }
+i-rs-quote = { path = "../clis/i-rs-quote" }
+i-rs-read = { path = "../clis/i-rs-read" }
+i-rs-recur = { path = "../clis/i-rs-recur" }
+i-rs-remind = { path = "../clis/i-rs-remind" }
+i-rs-run = { path = "../clis/i-rs-run" }
+i-rs-server = { path = "../clis/i-rs-server" }
+i-rs-sheet = { path = "../clis/i-rs-sheet" }
+i-rs-sit = { path = "../clis/i-rs-sit" }
+i-rs-sleep = { path = "../clis/i-rs-sleep" }
+i-rs-snippet = { path = "../clis/i-rs-snippet" }
+i-rs-spark = { path = "../clis/i-rs-spark" }
+i-rs-step = { path = "../clis/i-rs-step" }
+i-rs-sub = { path = "../clis/i-rs-sub" }
+i-rs-tax = { path = "../clis/i-rs-tax" }
+i-rs-tick = { path = "../clis/i-rs-tick" }
+i-rs-time = { path = "../clis/i-rs-time" }
+i-rs-todo = { path = "../clis/i-rs-todo" }
+i-rs-toothbrush = { path = "../clis/i-rs-toothbrush" }
+i-rs-towel = { path = "../clis/i-rs-towel" }
+i-rs-vision = { path = "../clis/i-rs-vision" }
+i-rs-vocab = { path = "../clis/i-rs-vocab" }
+i-rs-walkdog = { path = "../clis/i-rs-walkdog" }
+i-rs-want = { path = "../clis/i-rs-want" }
+i-rs-water = { path = "../clis/i-rs-water" }
+i-rs-weight = { path = "../clis/i-rs-weight" }
+
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+paste = "1.0"

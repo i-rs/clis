@@ -17,11 +17,12 @@ Rust monorepo with **70 cross-platform CLI tools** for personal data management,
 ```
 i-rs-clis/
 ├── crates/
-│   ├── i-rs/               # Meta CLI (unified entry point for all tools)
-│   ├── i-rs-core/          # Shared core library (macros, Storage, presentation, utils)
-│   ├── i-rs-api/           # REST API server (Axum)
-│   ├── i-rs-mcp/           # MCP server (JSON-RPC 2.0 over stdio)
-│   ├── i-rs-{name}...      # 70 CLI tools
+│   ├── clis/               # 70 CLI tools (i-rs-{name})
+│   │   └── i-rs/           # Meta CLI (unified entry point)
+│   ├── core/               # Shared core library (macros, Storage, presentation, utils)
+│   ├── cli-api/            # REST API server (Axum)
+│   ├── mcp/                # MCP server (JSON-RPC 2.0 over stdio)
+│   ├── claw/               # i-rs-claw TUI AI assistant
 ├── extensions/              # Browser extensions (Native Messaging)
 │   ├── i-rs-kv-chrome/     # Chrome extension for i-rs-kv
 │   ├── i-rs-native-msg/    # Native messaging host (Rust)
@@ -103,7 +104,7 @@ It does NOT have its own models/storage/commands - it only routes to other tools
 - **Does NOT follow standard CLI crate pattern** — no `main.rs` clap CLI, no `commands/`, `models/`, `storage/`, `presentation/` directories
 
 ```
-crates/i-rs-mcp/
+crates/mcp/
 ├── Cargo.toml              # Dependencies on all 68 i-rs-* crates + serde/serde_json/uuid/chrono/paste
 └── src/
     ├── main.rs             # MCP server entry: macros + session loop
@@ -295,7 +296,7 @@ cargo install cargo-deny && cargo deny check
 The `i-rs-core` crate provides shared functionality for all CLI tools:
 
 ```
-crates/i-rs-core/src/
+crates/core/src/
 ├── lib.rs                    # Public API exports
 ├── macro.rs                  # Macros: create_store!, skill_command!, exit_on_error!
 ├── storage/
@@ -352,7 +353,7 @@ pub use i_rs_core::utils::validation::{
 
 Each CLI crate follows this pattern:
 ```
-crates/i-rs-{name}/
+crates/clis/i-rs-{name}/
 ├── src/
 │   ├── main.rs           # CLI entry point: Cli::parse() + exit_on_error!
 │   ├── commands/         # add, delete, get, list, update, example, skill
@@ -370,7 +371,7 @@ When creating a new crate `i-rs-{name}`, follow this **complete checklist**:
 
 ### Step 1: Create Directory Structure
 ```bash
-mkdir -p crates/i-rs-{name}/src/{models,storage,commands,presentation}
+mkdir -p crates/clis/i-rs-{name}/src/{models,storage,commands,presentation}
 mkdir -p docs/crates/i-rs-{name}
 mkdir -p skills/i-rs-{name}
 ```
@@ -471,7 +472,7 @@ cargo check
 
 ## ⚠️ IMPORTANT: Incomplete Crate Checklist
 
-- [ ] `crates/i-rs-{name}/README.md` exists
+- [ ] `crates/clis/i-rs-{name}/README.md` exists
 - [ ] `docs/crates/i-rs-{name}/index.md` exists
 - [ ] `docs/crates/i-rs-{name}/usage.md` exists
 - [ ] `docs/crates/i-rs-{name}/examples.md` exists
@@ -720,9 +721,9 @@ CI (cargo-dist) auto-builds and publishes to:
 - `docs/.vitepress/config.ts` - Documentation sidebar config
 - `.github/workflows/check.yml` - CI (cargo check + clippy + fmt)
 - `.github/workflows/release.yml` - Release automation
-- `crates/i-rs-api/src/update.rs` - Generic JSON merge/partial-update utility
-- `crates/i-rs-mcp/src/main.rs` - MCP server with `make_mcp_tools!` macro and session loop
-- `crates/i-rs-mcp/src/transport.rs` - JSON-RPC 2.0 stdio transport layer
+- `crates/cli-api/src/update.rs` - Generic JSON merge/partial-update utility
+- `crates/mcp/src/main.rs` - MCP server with `make_mcp_tools!` macro and session loop
+- `crates/mcp/src/transport.rs` - JSON-RPC 2.0 stdio transport layer
 
 ## VitePress Documentation
 

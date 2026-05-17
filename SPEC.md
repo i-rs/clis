@@ -216,7 +216,7 @@ pub use i_rs_core::utils::validation::{
 
 1. **创建目录结构**
 ```bash
-mkdir -p crates/i-rs-{name}/src/{models,storage,commands,presentation}
+mkdir -p crates/clis/i-rs-{name}/src/{models,storage,commands,presentation}
 mkdir -p docs/crates/i-rs-{name}
 mkdir -p skills/i-rs-{name}
 ```
@@ -271,7 +271,7 @@ keyring-core.workspace = true
 - `skills/i-rs-{name}/SKILL.md` - AI技能文档 (包含 YAML frontmatter)
 
 7. **更新 Workspace Cargo.toml**
-在根目录 `Cargo.toml` 的 `members` 中添加 `"crates/i-rs-{name}"`
+在根目录 `Cargo.toml` 的 `members` 中添加 `"crates/clis/i-rs-{name}"`
 
 8. **更新 VitePress 配置** (必需!)
 在 `docs/.vitepress/config.ts` 侧边栏添加条目
@@ -284,7 +284,7 @@ cargo check
 
 ### 4.2 文档完整性检查清单
 
-- [ ] `crates/i-rs-{name}/README.md` 存在
+- [ ] `crates/clis/i-rs-{name}/README.md` 存在
 - [ ] `docs/crates/i-rs-{name}/index.md` 存在
 - [ ] `docs/crates/i-rs-{name}/usage.md` 存在
 - [ ] `docs/crates/i-rs-{name}/examples.md` 存在
