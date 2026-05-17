@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Plus, List, Loader, Brain, Terminal, ChevronDown, ChevronRight, Bot } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, type ChatMessage, type ToolCallMsg } from '../api'
+import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, type ChatMessage, type ToolCallMsg } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -42,16 +42,59 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       const resp = await getCurrentSession()
       if (resp.success && resp.data && resp.data.id) {
         const sessionAgentId = resp.data.agent_id || 'default'
-        // If current session belongs to a different agent, create a new one
+        // If current session belongs to a different agent, find or create one
         if (sessionAgentId !== selectedAgent) {
-          const createResp = await createSession(
-            selectedAgent !== 'default' ? selectedAgent : undefined
-          )
-          if (createResp.success && createResp.data) {
-            setHasSession(true)
-            setSessionTitle('New Chat')
-            setSessionAgent(createResp.data.agent_id || null)
-            setMessages([])
+          const sessionsResp = await listSessions()
+          const agentSessions = (sessionsResp.data || [])
+            .filter((s: { agent_id: string }) => (s.agent_id || 'default') === selectedAgent)
+            .sort((a: { created_at: number }, b: { created_at: number }) => b.created_at - a.created_at)
+          if (agentSessions.length > 0) {
+            // Switch to the most recent session for this agent
+            const recent = agentSessions[0]
+            await switchSession(recent.id)
+            const sessionResp = await getCurrentSession()
+            if (sessionResp.success && sessionResp.data) {
+              setHasSession(true)
+              setSessionTitle(sessionResp.data.title || 'Untitled')
+              const sessAgent = sessionResp.data.agent_id || null
+              if (sessAgent) setSessionAgent(sessAgent)
+              const raw = sessionResp.data.messages || []
+              const msgs: ChatMessage[] = []
+              let pendingToolCalls: ToolCallMsg[] = []
+              for (const m of raw) {
+                if (m.role === 'user') {
+                  pendingToolCalls = []
+                  msgs.push({ role: 'user', content: m.content || '' })
+                } else if (m.role === 'assistant') {
+                  msgs.push({
+                    role: 'assistant',
+                    content: m.content || '',
+                    toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
+                  })
+                  pendingToolCalls = []
+                } else if (m.role === 'tool_call') {
+                  pendingToolCalls.push({
+                    name: m.name || '',
+                    args: m.args || '',
+                    result: m.result || '',
+                    step: 0,
+                    total_steps: 1,
+                  })
+                }
+              }
+              setMessages(msgs)
+            }
+          } else {
+            // No existing session for this agent, create one
+            const createResp = await createSession(
+              selectedAgent !== 'default' ? selectedAgent : undefined
+            )
+            if (createResp.success && createResp.data) {
+              setHasSession(true)
+              setSessionTitle('New Chat')
+              setSessionAgent(createResp.data.agent_id || null)
+              setMessages([])
+            }
           }
           return
         }
@@ -88,15 +131,57 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         }
         setMessages(msgs)
       } else {
-        // No session exists, create one for the selected agent
-        const createResp = await createSession(
-          selectedAgent !== 'default' ? selectedAgent : undefined
-        )
-        if (createResp.success && createResp.data) {
-          setHasSession(true)
-          setSessionTitle('New Chat')
-          setSessionAgent(createResp.data.agent_id || null)
-          setMessages([])
+        // No session exists, try to find the most recent one for this agent
+        const sessionsResp = await listSessions()
+        const agentSessions = (sessionsResp.data || [])
+          .filter((s: { agent_id: string }) => (s.agent_id || 'default') === selectedAgent)
+          .sort((a: { created_at: number }, b: { created_at: number }) => b.created_at - a.created_at)
+        if (agentSessions.length > 0) {
+          const recent = agentSessions[0]
+          await switchSession(recent.id)
+          const sessionResp = await getCurrentSession()
+          if (sessionResp.success && sessionResp.data) {
+            setHasSession(true)
+            setSessionTitle(sessionResp.data.title || 'Untitled')
+            const sessAgent = sessionResp.data.agent_id || null
+            if (sessAgent) setSessionAgent(sessAgent)
+            const raw = sessionResp.data.messages || []
+            const msgs: ChatMessage[] = []
+            let pendingToolCalls: ToolCallMsg[] = []
+            for (const m of raw) {
+              if (m.role === 'user') {
+                pendingToolCalls = []
+                msgs.push({ role: 'user', content: m.content || '' })
+              } else if (m.role === 'assistant') {
+                msgs.push({
+                  role: 'assistant',
+                  content: m.content || '',
+                  toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
+                })
+                pendingToolCalls = []
+              } else if (m.role === 'tool_call') {
+                pendingToolCalls.push({
+                  name: m.name || '',
+                  args: m.args || '',
+                  result: m.result || '',
+                  step: 0,
+                  total_steps: 1,
+                })
+              }
+            }
+            setMessages(msgs)
+          }
+        } else {
+          // Create a new session for the selected agent
+          const createResp = await createSession(
+            selectedAgent !== 'default' ? selectedAgent : undefined
+          )
+          if (createResp.success && createResp.data) {
+            setHasSession(true)
+            setSessionTitle('New Chat')
+            setSessionAgent(createResp.data.agent_id || null)
+            setMessages([])
+          }
         }
       }
     }
