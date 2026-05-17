@@ -1,7 +1,12 @@
+pub mod chat_search;
+pub mod file_ops;
 pub mod i_rs;
 pub mod index;
+pub mod mcp_tools;
 pub mod search_tools;
 pub mod user_memory;
+pub mod vision_tool;
+pub mod web_search;
 
 use serde_json::Value;
 use std::collections::HashSet;
@@ -25,7 +30,7 @@ pub trait ClawTool: Send + Sync {
 
 // ── Tool registry ──
 
-/// Registry of all built-in tools.
+/// Registry of all tools (built-in + MCP-discovered).
 ///
 /// Adding a new built-in tool:
 /// 1. Create `tools/my_tool.rs` with a struct implementing `ClawTool`
@@ -38,11 +43,32 @@ impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: vec![
+                Box::new(chat_search::ChatSearchTool),
+                Box::new(file_ops::FileOpsTool),
                 Box::new(i_rs::IrsTool),
                 Box::new(search_tools::SearchToolsTool),
                 Box::new(user_memory::UserMemoryTool),
+                Box::new(vision_tool::VisionTool),
+                Box::new(web_search::WebSearchTool),
             ],
         }
+    }
+
+    /// Create registry with additional MCP-discovered tools.
+    #[allow(dead_code)]
+    pub fn with_mcp(
+        mcp_registry: &crate::mcp::McpRegistry,
+    ) -> Self {
+        let mut reg = Self::new();
+        for (client_idx, tool_def) in &mcp_registry.tools {
+            if let Some(client) = mcp_registry.clients.get(*client_idx) {
+                reg.tools.push(Box::new(mcp_tools::McpToolWrapper::new(
+                    tool_def.clone(),
+                    client.clone(),
+                )));
+            }
+        }
+        reg
     }
 
     /// Get tool schemas for OpenAI-compatible chat completion APIs.
@@ -64,7 +90,7 @@ impl ToolRegistry {
             .collect()
     }
 
-    /// Execute a built-in tool by name.
+    /// Execute a tool by name.
     pub fn execute(&self, name: &str, args: &Value) -> Result<String, String> {
         self.tools
             .iter()

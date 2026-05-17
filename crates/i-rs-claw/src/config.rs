@@ -7,6 +7,9 @@ pub const DEFAULT_TOOLS: &[&str] = &[
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
+    /// Provider type: "openai", "anthropic", "ollama"
+    #[serde(default = "default_provider")]
+    pub provider: String,
     pub api_key: String,
     #[serde(default = "default_base_url")]
     pub base_url: String,
@@ -15,6 +18,28 @@ pub struct Config {
     /// Set of tool names to enable. Empty = all enabled.
     #[serde(default)]
     pub enabled_tools: HashSet<String>,
+    /// Optional search API key for custom search engine.
+    /// If not set, falls back to DuckDuckGo (free, no key needed).
+    #[serde(default)]
+    pub search_api_key: Option<String>,
+    /// Optional custom search API endpoint.
+    /// If not set, uses DuckDuckGo Instant Answer API.
+    #[serde(default)]
+    pub search_base_url: Option<String>,
+    /// Allowed directories for file operations (read/write/list).
+    /// Empty means file operations are disabled.
+    #[serde(default)]
+    pub allowed_dirs: Vec<String>,
+    /// MCP server connections for external tool discovery.
+    #[serde(default)]
+    pub mcp_servers: Vec<crate::mcp::McpServerConfig>,
+    /// Custom color theme (loaded from theme.json, not serialized)
+    #[serde(skip)]
+    pub theme: crate::theme::Theme,
+}
+
+fn default_provider() -> String {
+    "openai".to_string()
 }
 
 fn default_base_url() -> String {
@@ -29,9 +54,15 @@ impl Config {
     pub fn new() -> Self {
         Self {
             api_key: String::new(),
+            provider: default_provider(),
             base_url: default_base_url(),
             model: default_model(),
             enabled_tools: HashSet::new(),
+            search_api_key: None,
+            search_base_url: None,
+            allowed_dirs: Vec::new(),
+            mcp_servers: Vec::new(),
+            theme: crate::theme::Theme::default(),
         }
     }
 
@@ -57,6 +88,14 @@ impl Config {
 
         let config: Config = toml::from_str(&content)
             .map_err(|e| anyhow::anyhow!("解析配置文件失败: {}", e))?;
+
+        let mut config = config;
+
+        // Load custom theme from ~/.i-rs-claw/theme.json
+        if let Some(parent) = config_path.parent() {
+            let theme_path = parent.join("theme.json");
+            config.theme = crate::theme::Theme::load(&theme_path);
+        }
 
         if config.api_key.is_empty() {
             anyhow::bail!("配置文件中 api_key 不能为空");

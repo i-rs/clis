@@ -1,6 +1,13 @@
 use crate::config::Config;
 use serde_json::Value;
 
+/// A step in the LLM's execution plan.
+#[derive(Debug, Clone)]
+pub struct PlanStep {
+    pub description: String,
+    pub done: bool,
+}
+
 /// Record of an HTTP request to the LLM API.
 #[derive(Debug, Clone)]
 pub struct HttpLog {
@@ -18,7 +25,13 @@ pub struct HttpLog {
 pub enum Message {
     User { text: String },
     Assistant { text: String },
-    ToolCall { name: String, args: String, result: String },
+    ToolCall {
+        name: String,
+        args: String,
+        result: String,
+        step: usize,
+        total_steps: usize,
+    },
     Error { text: String },
 }
 
@@ -66,6 +79,16 @@ pub struct App {
     pub sidebar_body_idx: Option<usize>,
     /// Scroll offset within the body overlay
     pub sidebar_body_scroll: usize,
+    /// Current reasoning text from LLM (DeepSeek chain-of-thought)
+    pub current_reasoning: String,
+    /// Proactive reminder text from i-rs remind (shown to LLM on next user message)
+    pub reminder_text: Option<String>,
+    /// Current execution plan steps (for plan-and-execute)
+    pub plan_steps: Vec<PlanStep>,
+    /// Session list search/filter text
+    pub session_search: String,
+    /// Whether session search mode is active
+    pub session_search_mode: bool,
 }
 
 impl App {
@@ -99,6 +122,11 @@ impl App {
             sidebar_selected: 0,
             sidebar_body_idx: None,
             sidebar_body_scroll: 0,
+            current_reasoning: String::new(),
+            reminder_text: None,
+            plan_steps: Vec::new(),
+            session_search: String::new(),
+            session_search_mode: false,
         }
     }
 
@@ -111,6 +139,7 @@ impl App {
             .push(Message::User { text: text.to_string() });
         self.state = AppState::Processing;
         self.scroll_offset = 0;
+        self.plan_steps.clear(); // Clear plan from previous turn
     }
 
     // ── Input cursor manipulation ──
@@ -249,6 +278,7 @@ impl App {
     /// Start a new assistant message. If the last message is an empty assistant,
     /// reuse it instead of creating a new one.
     pub fn start_assistant_message(&mut self) {
+        self.current_reasoning.clear();
         let is_empty_assistant = matches!(
             self.messages.last(),
             Some(Message::Assistant { text }) if text.is_empty()
@@ -270,11 +300,13 @@ impl App {
         }
     }
 
-    pub fn add_tool_call(&mut self, name: &str, args: &str, result: &str) {
+    pub fn add_tool_call(&mut self, name: &str, args: &str, result: &str, step: usize, total_steps: usize) {
         self.messages.push(Message::ToolCall {
             name: name.to_string(),
             args: args.to_string(),
             result: result.to_string(),
+            step,
+            total_steps,
         });
         self.tool_call_count += 1;
     }
@@ -287,6 +319,7 @@ impl App {
     }
 
     pub fn add_error(&mut self, text: &str) {
+        self.current_reasoning.clear();
         // Remove trailing empty assistant message (from NewRound before error)
         if let Some(Message::Assistant { text }) = self.messages.last() {
             if text.is_empty() {
@@ -303,6 +336,7 @@ impl App {
 
     /// Finish processing and save the accumulated API messages for context preservation
     pub fn finish_processing(&mut self, api_messages: Option<Vec<Value>>) {
+        self.current_reasoning.clear();
         // Remove trailing empty assistant message
         if let Some(Message::Assistant { text }) = self.messages.last() {
             if text.is_empty() {
@@ -312,6 +346,45 @@ impl App {
         self.api_messages = api_messages;
         self.state = AppState::Idle;
         self.status_text.clear();
+    }
+
+    // =============================================
+    // Plan-and-Execute tracking
+    // =============================================
+
+    /// Parse plan steps from assistant text.
+    /// Detects lines matching patterns like "1. description" or "- description".
+    pub fn detect_plan(&mut self, text: &str) {
+        if self.is_processing() {
+            self.plan_steps.clear();
+            // Only keep lines that look like numbered plan steps
+            for line in text.lines() {
+                let trimmed = line.trim();
+                // Match "N. description" patterns
+                if let Some(rest) = trimmed
+                    .strip_prefix(|c: char| c.is_ascii_digit())
+                    .and_then(|s| s.strip_prefix(". "))
+                {
+                    let clean = rest.trim_end_matches(|c: char| c == '.' || c == '，' || c == ',');
+                    if !clean.is_empty() {
+                        self.plan_steps.push(PlanStep {
+                            description: clean.to_string(),
+                            done: false,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    /// Mark the next incomplete plan step as done.
+    pub fn mark_next_plan_step_done(&mut self) {
+        for step in &mut self.plan_steps {
+            if !step.done {
+                step.done = true;
+                break;
+            }
+        }
     }
 
     /// Reset app for a new session (clear messages, etc.)
@@ -330,5 +403,8 @@ impl App {
         self.sidebar_selected = 0;
         self.sidebar_body_idx = None;
         self.sidebar_body_scroll = 0;
+        self.plan_steps.clear();
+        self.session_search.clear();
+        self.session_search_mode = false;
     }
 }

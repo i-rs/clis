@@ -1,9 +1,19 @@
 use crate::config::Config;
+use crate::provider::LlmProvider;
 use crate::utils;
-use futures_util::StreamExt;
 use serde_json::Value;
-use std::time::Instant;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 use tokio::sync::mpsc;
+
+/// Global MCP registry (initialized at startup from config).
+static MCP_REGISTRY: OnceLock<crate::mcp::McpRegistry> = OnceLock::new();
+
+/// Initialize the global MCP registry.
+pub fn init_mcp(servers: &[crate::mcp::McpServerConfig]) {
+    let registry = crate::mcp::McpRegistry::new(servers);
+    let _ = MCP_REGISTRY.set(registry);
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokenUsage {
@@ -17,6 +27,8 @@ pub struct TokenUsage {
 pub enum LlmEvent {
     /// A text token from the streaming response
     Token(String),
+    /// Reasoning content from the model (DeepSeek chain-of-thought)
+    Reasoning(String),
     /// Signals the app to start a new assistant message (for multi-round responses)
     NewRound,
     /// A tool was executed (with result)
@@ -24,6 +36,10 @@ pub enum LlmEvent {
         name: String,
         args: String,
         result: String,
+        /// Zero-based index of this tool call in the current round
+        step: usize,
+        /// Total number of tool calls in the current round
+        total_steps: usize,
     },
     /// Real-time status update (shown in status bar)
     Status(String),
@@ -44,198 +60,15 @@ pub enum LlmEvent {
 }
 
 #[derive(Default, Clone)]
-struct ToolCallAcc {
-    id: String,
-    name: String,
-    arguments: String,
+pub(crate) struct ToolCallAcc {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) arguments: String,
 }
 
-enum StreamResult {
+pub(crate) enum StreamResult {
     Text(Option<TokenUsage>, String), // usage + accumulated text content
     ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content
-}
-
-/// Stream chat completion and parse SSE events
-async fn stream_chat(
-    client: &reqwest::Client,
-    messages: &[Value],
-    config: &Config,
-    tool_schemas: &[Value],
-    tx: &mpsc::UnboundedSender<LlmEvent>,
-) -> anyhow::Result<StreamResult> {
-    let start = Instant::now();
-    let mut body = serde_json::json!({
-        "model": config.model,
-        "messages": messages,
-        "stream": true,
-        "stream_options": { "include_usage": true },
-    });
-
-    if !tool_schemas.is_empty() {
-        body["tools"] = Value::Array(tool_schemas.to_vec());
-        body["parallel_tool_calls"] = serde_json::Value::Bool(false);
-    }
-
-    let body_json = serde_json::to_string(&body).unwrap_or_default();
-
-    let url = format!("{}/chat/completions", config.base_url);
-    let response = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .header("HTTP-Referer", "https://github.com/i-rs/clis")
-        .header("X-Title", "i-rs-claw")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| anyhow::anyhow!("API 请求失败: {}", e))?;
-
-    let status = response.status().as_u16();
-
-    if response.status().is_success() {
-        let mut stream = response.bytes_stream();
-        let mut buf = String::new();
-        let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
-        let mut finish_reason = String::new();
-        let mut reasoning_buf = String::new();
-        let mut content_buf = String::new();
-        let mut usage: Option<TokenUsage> = None;
-
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
-            buf.push_str(&String::from_utf8_lossy(&chunk));
-
-            // Process complete SSE lines
-            while let Some(pos) = buf.find('\n') {
-                let line = buf[..pos].trim().to_string();
-                buf = buf[pos + 1..].to_string();
-
-                if line.is_empty() {
-                    continue;
-                }
-
-                if let Some(data) = line.strip_prefix("data: ") {
-                    if data.trim() == "[DONE]" {
-                        continue;
-                    }
-
-                    if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
-                        // Check for usage data (final chunk with stream_options.include_usage)
-                        if let Some(usage_data) = parsed.get("usage") {
-                            if !usage_data.is_null() {
-                                usage = Some(TokenUsage {
-                                    prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
-                                    completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
-                                    total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
-                                });
-                            }
-                        }
-
-                        if let Some(choices) = parsed["choices"].as_array() {
-                            if let Some(choice) = choices.first() {
-                                if let Some(reason) = choice["finish_reason"].as_str() {
-                                    if !reason.is_empty() && reason != "null" && reason != "stop" {
-                                        finish_reason = reason.to_string();
-                                    }
-                                }
-
-                                if let Some(delta) = choice.get("delta") {
-                                    // Accumulate reasoning_content (DeepSeek requires echoing it back)
-                                    if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
-                                        reasoning_buf.push_str(rc);
-                                    }
-
-                                    // Text content
-                                    if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
-                                        if !text.is_empty() {
-                                            content_buf.push_str(text);
-                                            let _ = tx.send(LlmEvent::Token(text.to_string()));
-                                        }
-                                    }
-
-                                    // Tool calls (streaming delta)
-                                    if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array())
-                                    {
-                                        for tc in tcs {
-                                            let idx = tc
-                                                .get("index")
-                                                .and_then(|i| i.as_i64())
-                                                .unwrap_or(0)
-                                                as usize;
-                                            if idx >= tool_calls.len() {
-                                                tool_calls.resize(idx + 1, ToolCallAcc::default());
-                                            }
-                                            if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
-                                                tool_calls[idx].id = id.to_string();
-                                            }
-                                            if let Some(func) = tc.get("function") {
-                                                if let Some(name) =
-                                                    func.get("name").and_then(|n| n.as_str())
-                                                {
-                                                    tool_calls[idx].name = name.to_string();
-                                                }
-                                                if let Some(args) =
-                                                    func.get("arguments").and_then(|a| a.as_str())
-                                                {
-                                                    tool_calls[idx].arguments.push_str(args);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let duration_ms = start.elapsed().as_millis() as u64;
-        let prompt_tokens = usage.map(|u| u.prompt_tokens).unwrap_or(0);
-        let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
-        let _ = tx.send(LlmEvent::HttpLog {
-            status,
-            duration_ms,
-            model: config.model.clone(),
-            prompt_tokens,
-            completion_tokens,
-            error: None,
-            request_body: body_json.clone(),
-        });
-
-        if finish_reason == "tool_calls" && !tool_calls.is_empty()
-            && tool_calls.iter().any(|tc| !tc.id.is_empty())
-        {
-            let mut parsed = Vec::new();
-            for tc in &tool_calls {
-                let args: Value =
-                    serde_json::from_str(&tc.arguments).unwrap_or(serde_json::json!({}));
-                parsed.push((
-                    ToolCallAcc {
-                        id: tc.id.clone(),
-                        name: tc.name.clone(),
-                        arguments: tc.arguments.clone(),
-                    },
-                    args,
-                ));
-            }
-            return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
-        }
-
-        return Ok(StreamResult::Text(usage, content_buf));
-    } else {
-        let text = response.text().await.unwrap_or_default();
-        let duration_ms = start.elapsed().as_millis() as u64;
-        let _ = tx.send(LlmEvent::HttpLog {
-            status,
-            duration_ms,
-            model: config.model.clone(),
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            error: Some(format!("HTTP {}: {}", status, text)),
-            request_body: body_json.clone(),
-        });
-        return Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text));
-    }
 }
 
 /// Load system prompt from external file and inject dynamic layers.
@@ -276,6 +109,9 @@ fn build_system_prompt(
     prompt
 }
 
+/// Prefix used to identify reminder system messages in the message list.
+const REMINDER_PREFIX: &str = "注意：用户有以下即将到期或已到期的提醒事项";
+
 /// Convert app messages to API-compatible message list.
 /// If `saved_api_messages` exists, reuse them as base (preserving tool call context)
 /// and only append the new user message.
@@ -283,15 +119,45 @@ pub fn build_messages(
     app_messages: &[crate::app::Message],
     user_text: &str,
     saved_api_messages: &Option<Vec<Value>>,
+    tool_frequency: &HashMap<String, usize>,
     tool_index: &str,
     hot_tools: &str,
     skills: &str,
     user_memory: &str,
     user_profile: &str,
+    reminder_text: Option<&str>,
 ) -> Vec<Value> {
+    // Helper: remove stale reminder system message at index 1 if present
+    let remove_reminder_msg = |msgs: &mut Vec<Value>| {
+        if msgs.len() > 1
+            && msgs[1].get("role").and_then(|r| r.as_str()) == Some("system")
+            && msgs[1]
+                .get("content")
+                .and_then(|c| c.as_str())
+                .map_or(false, |c| c.starts_with(REMINDER_PREFIX))
+        {
+            msgs.remove(1);
+        }
+    };
+
+    // Helper: inject reminder system message at index 1
+    let inject_reminder = |msgs: &mut Vec<Value>, text: &str| {
+        if !text.is_empty() {
+            msgs.insert(
+                1,
+                serde_json::json!({
+                    "role": "system",
+                    "content": format!("{}：\n{}", REMINDER_PREFIX, text),
+                }),
+            );
+        }
+    };
+
     if let Some(prev_msgs) = saved_api_messages {
         // Reuse saved API messages (has full context including tool calls)
         let mut msgs = prev_msgs.clone();
+        // Remove stale reminder message before injecting fresh one
+        remove_reminder_msg(&mut msgs);
         // Remove trailing user message if exists (from previous turn)
         if msgs.len() > 1
             && msgs
@@ -303,12 +169,13 @@ pub fn build_messages(
         }
         msgs.push(serde_json::json!({"role": "user", "content": user_text}));
 
-        // Keep last ~20 messages for context window
-        if msgs.len() > 21 {
-            let system = msgs[0].clone();
-            msgs = msgs.split_off(msgs.len() - 20);
-            msgs.insert(0, system);
+        // Inject fresh reminder
+        if let Some(rt) = reminder_text {
+            inject_reminder(&mut msgs, rt);
         }
+
+        // Smart compress: preserve skill teach docs + recent conversation context
+        smart_compress(&mut msgs, tool_frequency, 5, 15);
         return msgs;
     }
 
@@ -317,6 +184,11 @@ pub fn build_messages(
         "role": "system",
         "content": build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile)
     })];
+
+    // Inject reminder right after system prompt
+    if let Some(rt) = reminder_text {
+        inject_reminder(&mut msgs, rt);
+    }
 
     // Keep last ~8 display messages for context
     let max_turns = 8;
@@ -339,19 +211,166 @@ pub fn build_messages(
 }
 
 /// Execute a parsed tool call and return the result.
+/// Tries built-in tools first, then falls back to MCP-discovered tools.
 fn execute_tool_call(
     name: &str,
     args: &Value,
 ) -> String {
+    // Try built-in tools first
     let registry = crate::tools::ToolRegistry::new();
-    match registry.execute(name, args) {
-        Ok(r) => r,
-        Err(e) => format!("错误: {}", e),
+    if let Ok(r) = registry.execute(name, args) {
+        return r;
     }
+
+    // Try MCP-discovered tools
+    if let Some(mcp) = MCP_REGISTRY.get() {
+        for (client_idx, tool_def) in &mcp.tools {
+            if tool_def.name == name {
+                if let Some(client) = mcp.clients.get(*client_idx) {
+                    return client.call_tool(name, args)
+                        .unwrap_or_else(|e| format!("MCP 错误: {}", e));
+                }
+            }
+        }
+    }
+
+    format!("错误: 未知工具 {}", name)
+}
+
+/// A detected skill teach doc pair in the API message list.
+struct TeachPair {
+    assist_idx: usize,
+    result_idx: usize,
+    tool_name: String,
+}
+
+/// Find skill teach doc pairs (i_rs → skill command) by scanning backwards.
+/// Deduplicates by tool name, keeping the latest occurrence of each tool.
+fn find_teach_pairs(msgs: &[Value]) -> Vec<TeachPair> {
+    use std::collections::HashSet;
+    let mut pairs: Vec<TeachPair> = Vec::new();
+    let mut seen_tools: HashSet<String> = HashSet::new();
+
+    let mut i = msgs.len();
+    while i > 0 {
+        i -= 1;
+        if let Some(tool_calls) = msgs[i].get("tool_calls").and_then(|t| t.as_array()) {
+            for tc in tool_calls {
+                if let Some(name) = tc.get("function")
+                    .and_then(|f| f.get("name"))
+                    .and_then(|n| n.as_str())
+                {
+                    if name != "i_rs" { continue; }
+                    let args_str = tc.get("function")
+                        .and_then(|f| f.get("arguments"))
+                        .and_then(|a| a.as_str())
+                        .unwrap_or("");
+                    if let Ok(parsed) = serde_json::from_str::<Value>(args_str) {
+                        let cmd = parsed.get("command").and_then(|c| c.as_str()).unwrap_or("");
+                        if cmd != "skill" { continue; }
+                        let tool_name = parsed.get("tool").and_then(|t| t.as_str()).unwrap_or("unknown").to_string();
+
+                        if seen_tools.contains(&tool_name) { continue; }
+                        seen_tools.insert(tool_name.clone());
+
+                        if i + 1 < msgs.len() && msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool") {
+                            pairs.push(TeachPair { assist_idx: i, result_idx: i + 1, tool_name });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    pairs
+}
+
+/// Score teach pairs by global cross-session frequency + position recency.
+/// Returns indices into the pairs list sorted by score (highest first).
+///
+/// Frequency is weighted 10× so that tools used across multiple sessions
+/// are strongly preferred over one-off tool learns.
+fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize>) -> Vec<usize> {
+    let max_recency = pairs.len().max(1);
+    let mut scored: Vec<(usize, usize)> = pairs.iter().enumerate().map(|(pos, pair)| {
+        let freq = tool_frequency.get(&pair.tool_name).copied().unwrap_or(0);
+        let recency = max_recency - pos;
+        (freq * 10 + recency, pos)
+    }).collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0));
+    scored.into_iter().map(|(_, pos)| pos).collect()
+}
+
+/// Smart compress API message list, preserving high-value content.
+///
+/// Strategy:
+/// 1. Always keep system message
+/// 2. Find skill teach doc pairs, score by cross-session frequency + recency
+/// 3. Keep top-scoring pairs that fall outside the recent window
+/// 4. Keep recent conversation messages intact
+/// 5. Drop old dialog that lacks teach value
+///
+/// This implements "predict which tools are worth keeping" by using
+/// cross-session usage frequency as the primary signal (weighted 10×)
+/// and recency as the secondary signal.
+fn smart_compress(
+    msgs: &mut Vec<Value>,
+    tool_frequency: &HashMap<String, usize>,
+    max_teach_docs: usize,
+    recent_keep: usize,
+) {
+    if msgs.len() <= 1 + recent_keep {
+        return;
+    }
+
+    use std::collections::HashSet;
+
+    let teach_pairs = find_teach_pairs(msgs);
+    let sorted_ranks = score_teach_pairs(&teach_pairs, tool_frequency);
+
+    let mut preserve: HashSet<usize> = HashSet::new();
+    preserve.insert(0); // system message
+
+    // Keep top-scoring teach pairs
+    for rank in 0..max_teach_docs.min(sorted_ranks.len()) {
+        let pos = sorted_ranks[rank];
+        preserve.insert(teach_pairs[pos].assist_idx);
+        preserve.insert(teach_pairs[pos].result_idx);
+    }
+
+    // Keep recent conversation messages
+    let recent_start = msgs.len().saturating_sub(recent_keep);
+    for idx in recent_start..msgs.len() {
+        preserve.insert(idx);
+    }
+
+    // Build compressed message list
+    let mut new_msgs: Vec<Value> = Vec::with_capacity(preserve.len());
+    for idx in 0..recent_start {
+        if preserve.contains(&idx) {
+            new_msgs.push(msgs[idx].clone());
+        }
+    }
+    for idx in recent_start..msgs.len() {
+        new_msgs.push(msgs[idx].clone());
+    }
+
+    *msgs = new_msgs;
+}
+
+/// Compress API messages after a conversation turn completes.
+///
+/// Preserves top 5 skill teach docs (scored by cross-session frequency + recency)
+/// and the last 20 conversation messages for context.
+pub fn compress_api_messages(
+    msgs: &mut Vec<Value>,
+    tool_frequency: &std::collections::HashMap<String, usize>,
+) {
+    smart_compress(msgs, tool_frequency, 5, 20);
 }
 
 /// Main chat loop: stream, handle tool calls, continue until done
 pub async fn chat_loop(
+    provider: Box<dyn LlmProvider>,
     config: Config,
     messages: Vec<Value>,
     tx: mpsc::UnboundedSender<LlmEvent>,
@@ -361,28 +380,26 @@ pub async fn chat_loop(
     } else {
         Some(&config.enabled_tools)
     };
-    let tool_schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
-    let mut msgs = messages;
-
-    // Reuse HTTP client across retries
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            let _ = tx.send(LlmEvent::Error(format!("创建 HTTP 客户端失败: {}", e)));
-            return;
+    let mut tool_schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
+    // Append MCP tool schemas if available
+    if let Some(mcp) = MCP_REGISTRY.get() {
+        for (client_idx, tool_def) in &mcp.tools {
+            if let Some(_client) = mcp.clients.get(*client_idx) {
+                let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
+                tool_schemas.push(schema);
+            }
         }
-    };
+    }
+    let mut msgs = messages;
+    let mut retry_counts: HashMap<String, u32> = HashMap::new();
+    const MAX_RETRIES: u32 = 2;
 
     loop {
         let _ = tx.send(LlmEvent::NewRound);
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
-        match stream_chat(&client, &msgs, &config, &tool_schemas, &tx).await {
+        match provider.stream_chat(&msgs, &tool_schemas, &tx).await {
             Ok(StreamResult::Text(usage, text)) => {
-                // Add the assistant's text response to message history
                 if !text.is_empty() {
                     msgs.push(serde_json::json!({
                         "role": "assistant",
@@ -393,7 +410,6 @@ pub async fn chat_loop(
                 break;
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
-                // Add assistant message with tool_calls to history
                 let tool_calls_array: Vec<Value> = calls
                     .iter()
                     .map(|(tc, _)| {
@@ -420,33 +436,57 @@ pub async fn chat_loop(
                 msgs.push(assistant_msg);
 
                 // Execute each tool call
-                for (tc, args) in &calls {
+                let total = calls.len();
+                for (step, (tc, args)) in calls.iter().enumerate() {
                     let status_msg = if tc.name == "i_rs" {
                         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
                         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
-                        format!("⚡ 调用工具: {} {}", tool, cmd)
+                        if total > 1 {
+                            format!("⚡ [{}/{}] 调用工具: {} {}", step + 1, total, tool, cmd)
+                        } else {
+                            format!("⚡ 调用工具: {} {}", tool, cmd)
+                        }
+                    } else if total > 1 {
+                        format!("⚡ [{}/{}] 调用工具: {}", step + 1, total, tc.name)
                     } else {
                         format!("⚡ 调用工具: {}", tc.name)
                     };
                     let _ = tx.send(LlmEvent::Status(status_msg));
                     let result = execute_tool_call(&tc.name, args);
+                    let is_error = result.starts_with("错误:");
 
                     let _ = tx.send(LlmEvent::ToolExecuted {
                         name: tc.name.clone(),
                         args: args.to_string(),
-                        result: if result.len() > 200 {
-                            format!("{}...(truncated)", utils::truncate(&result, 200))
-                        } else {
-                            result.clone()
-                        },
+                        result: utils::smart_truncate(&result, 200),
+                        step,
+                        total_steps: total,
                     });
 
+                    if is_error {
+                        let count = retry_counts.entry(tc.id.clone()).or_insert(0);
+                        *count += 1;
+
+                        if *count <= MAX_RETRIES {
+                            // Add error to conversation so LLM sees what went wrong
+                            msgs.push(serde_json::json!({
+                                "role": "tool",
+                                "tool_call_id": tc.id,
+                                "content": &result,
+                            }));
+                            // Add explicit retry guidance
+                            msgs.push(serde_json::json!({
+                                "role": "system",
+                                "content": format!("工具调用返回错误，请修正参数后重试（第{}/{}次）。错误信息：{}", count, MAX_RETRIES, result),
+                            }));
+                            // Break to let outer loop retry immediately
+                            break;
+                        }
+                        // Max retries exceeded: fall through to add error as normal result
+                    }
+
                     // Add tool result to conversation history
-                    let trimmed = if result.len() > 500 {
-                        format!("{}...(truncated)", utils::truncate(&result, 500))
-                    } else {
-                        result.clone()
-                    };
+                    let trimmed = utils::smart_truncate(&result, 500);
                     msgs.push(serde_json::json!({
                         "role": "tool",
                         "tool_call_id": tc.id,

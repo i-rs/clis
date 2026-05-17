@@ -24,3 +24,5 @@ uuid.workspace = true
 clap.workspace = true
 unicode-width = "0.2"
 owo-colors.workspace = true
+pulldown-cmark.workspace = true
+async-trait.workspace = true

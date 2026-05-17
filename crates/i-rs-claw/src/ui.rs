@@ -1,3 +1,4 @@
+use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -11,37 +12,59 @@ use crate::app::{App, Message};
 pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
 
+    let plan_height: u16 = if !app.plan_steps.is_empty() && app.is_processing() {
+        1
+    } else {
+        0
+    };
+
+    let mut constraints = vec![
+        Constraint::Length(1), // Title bar
+        Constraint::Min(1),    // Chat area
+    ];
+
+    if plan_height > 0 {
+        constraints.push(Constraint::Length(1)); // Plan indicator
+    }
+
+    constraints.extend(vec![
+        Constraint::Length(1),                             // Processing indicator
+        Constraint::Length(input_height(&app.input)),      // Input
+        Constraint::Length(1),                             // Status bar
+    ]);
+
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1), // Title bar
-            Constraint::Min(1),    // Chat area
-            Constraint::Length(1), // Processing indicator
-            Constraint::Length(4), // Input
-            Constraint::Length(1), // Status bar
-        ])
+        .constraints(constraints)
         .split(area);
 
-    render_title(f, layout[0], app);
-
+    let mut idx = 0;
+    render_title(f, layout[idx], app);
+    idx += 1;
+    // Chat area with optional sidebar
     if app.show_sidebar && !app.is_processing() {
-        // Split chat area horizontally when sidebar is open
         let chat_side = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Min(1),
                 Constraint::Percentage(35),
             ])
-            .split(layout[1]);
+            .split(layout[idx]);
         render_chat(f, chat_side[0], app);
         render_sidebar(f, chat_side[1], app);
     } else {
-        render_chat(f, layout[1], app);
+        render_chat(f, layout[idx], app);
     }
-
-    render_processing(f, layout[2], app);
-    render_input(f, layout[3], app);
-    render_status(f, layout[4], app);
+    idx += 1;
+    if plan_height > 0 {
+        render_plan(f, layout[idx], app);
+        idx += 1;
+    }
+    render_processing(f, layout[idx], app);
+    idx += 1;
+    render_input(f, layout[idx], app);
+    idx += 1;
+    render_status(f, layout[idx], app);
 
     // Session list overlay (rendered on top of everything)
     if app.show_session_list {
@@ -67,7 +90,7 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
     // Full-width background
     f.render_widget(
         ratatui::widgets::Block::default()
-            .style(Style::default().bg(Color::Rgb(25, 25, 42))),
+            .style(Style::default().bg(app.config.theme.background())),
         area,
     );
 
@@ -77,7 +100,7 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
     spans.push(Span::styled(
         " ✦ i-rs-claw",
         Style::default()
-            .fg(Color::Cyan)
+            .fg(app.config.theme.primary())
             .add_modifier(Modifier::BOLD),
     ));
 
@@ -119,6 +142,49 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
             .fg(Color::Rgb(100, 100, 130))
             .add_modifier(Modifier::BOLD),
     ));
+
+    let line = Line::from(spans);
+    f.render_widget(line, area);
+}
+
+/// Render the current execution plan as a compact progress bar.
+fn render_plan(f: &mut Frame, area: Rect, app: &App) {
+    if app.plan_steps.is_empty() {
+        return;
+    }
+    let _total = app.plan_steps.len();
+    let done_count = app.plan_steps.iter().filter(|s| s.done).count();
+
+    let mut spans: Vec<Span> = vec![
+        Span::styled(
+            " 📋 计划: ",
+            Style::default()
+                .fg(app.config.theme.primary())
+                .add_modifier(Modifier::BOLD),
+        ),
+    ];
+
+    for (i, step) in app.plan_steps.iter().enumerate() {
+        if i > 0 {
+            spans.push(Span::styled(
+                " → ",
+                Style::default().fg(app.config.theme.dim_text()),
+            ));
+        }
+        let (icon, color) = if step.done {
+            ("✓", app.config.theme.secondary())
+        } else if i == done_count {
+            ("⏳", app.config.theme.accent())
+        } else {
+            ("○", app.config.theme.dim_text())
+        };
+        let display = if step.description.len() > 20 {
+            format!("{} {}…", icon, &step.description[..18])
+        } else {
+            format!("{} {}", icon, step.description)
+        };
+        spans.push(Span::styled(display, Style::default().fg(color)));
+    }
 
     let line = Line::from(spans);
     f.render_widget(line, area);
@@ -186,6 +252,32 @@ fn render_processing(f: &mut Frame, area: Rect, app: &App) {
             .add_modifier(Modifier::BOLD),
     ));
     f.render_widget(label, area);
+
+    // Render reasoning content below the processing line if available
+    if !app.current_reasoning.is_empty() {
+        // Show last line of reasoning as compact dimmed text
+        let last_line = app.current_reasoning.lines().last().unwrap_or("");
+        let display = if last_line.len() > 80 {
+            let truncated: String = last_line.chars().take(77).collect();
+            format!("...{}", truncated)
+        } else {
+            last_line.to_string()
+        };
+        if !display.is_empty() {
+            let reasoning = Line::from(Span::styled(
+                format!(" 🤔 {}", display),
+                Style::default().fg(Color::Rgb(120, 120, 140)),
+            ));
+            f.render_widget(reasoning, area);
+        }
+    }
+}
+
+/// Calculate required height for input area based on content line count.
+fn input_height(input: &str) -> u16 {
+    let content_lines = input.lines().count().max(1);
+    // content lines + hint line + top/bottom borders
+    (content_lines + 1 + 2).max(3).min(10) as u16
 }
 
 fn render_input(f: &mut Frame, area: Rect, app: &App) {
@@ -201,28 +293,35 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
 
     let prefix = if app.is_processing() { "⏳ " } else { "❯ " };
 
-    let lines = if app.is_processing() {
+    let lines: Vec<Line> = if app.is_processing() {
         vec![Line::from(Span::styled(
             format!("{}{}", prefix, app.input),
             Style::default().fg(Color::DarkGray),
         ))]
-    } else {
-        let input_line = if app.input.is_empty() {
+    } else if app.input.is_empty() {
+        vec![
             Line::from(Span::styled(
                 format!("{}输入消息...", prefix),
                 Style::default().fg(Color::Rgb(80, 80, 100)),
-            ))
-        } else {
+            )),
             Line::from(Span::styled(
-                format!("{}{}", prefix, app.input),
+                "  [Fn] 语音输入  [Alt+Enter] 换行",
+                Style::default().fg(Color::Rgb(60, 60, 80)),
+            )),
+        ]
+    } else {
+        let mut result: Vec<Line> = app.input.lines().enumerate().map(|(i, line)| {
+            let p = if i == 0 { prefix } else { "  " };
+            Line::from(Span::styled(
+                format!("{}{}", p, line),
                 Style::default().fg(Color::White),
             ))
-        };
-        let hint_line = Line::from(Span::styled(
-            "  [Fn] 语音输入",
+        }).collect();
+        result.push(Line::from(Span::styled(
+            "  [Fn] 语音输入  [Alt+Enter] 换行",
             Style::default().fg(Color::Rgb(60, 60, 80)),
-        ));
-        vec![input_line, hint_line]
+        )));
+        result
     };
 
     let input = Paragraph::new(lines).block(input_block);
@@ -230,14 +329,18 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(input, area);
 
     // Set cursor position (only when not processing)
-    if !app.is_processing() {
+    if !app.is_processing() && !app.input.is_empty() {
+        let input_before = &app.input[..app.input_cursor];
+        let line_idx = input_before.matches('\n').count();
+        let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
         let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
-        let cursor_offset = if app.input.is_empty() {
-            0
-        } else {
-            unicode_width::UnicodeWidthStr::width(&app.input[..app.input_cursor])
-        };
-        let cursor_x = area.x + 1 + prefix_width as u16 + cursor_offset as u16;
+        let cursor_x = area.x + 1 + prefix_width as u16 + pos_in_line as u16;
+        let cursor_y = area.y + 1 + line_idx as u16;
+        f.set_cursor_position((cursor_x, cursor_y));
+    } else if !app.is_processing() {
+        let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
+        let cursor_x = area.x + 1 + prefix_width as u16;
         let cursor_y = area.y + 1;
         f.set_cursor_position((cursor_x, cursor_y));
     }
@@ -247,7 +350,7 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let bg = if app.is_processing() {
         Color::Blue
     } else {
-        Color::Rgb(30, 30, 46)
+        app.config.theme.background()
     };
 
     // Fill full-width background
@@ -268,51 +371,47 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
     } else {
         // Idle state — green dot + bold
         spans.push(Span::styled(
-            " ● ",
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-        ));
-        spans.push(Span::styled(
-            "就绪 ",
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            format!(" ● 就绪 "),
+            Style::default().fg(app.config.theme.secondary()).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
             format!("{} ", app.config.model),
-            Style::default().fg(Color::Cyan),
+            Style::default().fg(app.config.theme.primary()),
         ));
     }
 
     // Separator
     spans.push(Span::styled(
         "│ ",
-        Style::default().fg(Color::Rgb(80, 80, 100)),
+        Style::default().fg(app.config.theme.dim_text()),
     ));
 
     // Tool & message stats
     spans.push(Span::styled(
         format!("⚙ {} ", app.tool_call_count),
-        Style::default().fg(Color::Cyan),
+        Style::default().fg(app.config.theme.primary()),
     ));
     spans.push(Span::styled(
         format!("💬 {} ", app.messages.len()),
-        Style::default().fg(Color::Cyan),
+        Style::default().fg(app.config.theme.primary()),
     ));
 
     // Token usage
     if let Some(usage) = &app.token_usage {
         spans.push(Span::styled(
             "│ ",
-            Style::default().fg(Color::Rgb(80, 80, 100)),
+            Style::default().fg(app.config.theme.dim_text()),
         ));
         spans.push(Span::styled(
             format!("tok: {}p+{}c ", usage.prompt_tokens, usage.completion_tokens),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(app.config.theme.accent()),
         ));
     }
 
     // Keybindings (right side)
     spans.push(Span::styled(
         "│ ",
-        Style::default().fg(Color::Rgb(80, 80, 100)),
+        Style::default().fg(app.config.theme.dim_text()),
     ));
     spans.push(Span::styled(
         "Ctrl+Q ",
@@ -347,15 +446,45 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
 
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    // Items: title + each session
-    let empty = app.session_list.is_empty();
+    // Filter sessions by search text
+    let q = app.session_search.to_lowercase();
+    let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
+        app.session_list.iter().collect()
+    } else {
+        app.session_list
+            .iter()
+            .filter(|s| s.title.to_lowercase().contains(&q))
+            .collect()
+    };
+
+    let empty = filtered.is_empty();
+    let theme_primary = app.config.theme.primary();
 
     let mut items: Vec<ListItem> = Vec::new();
 
-    // Header
+    // Header with optional search bar
+    let search_display = if app.session_search_mode {
+        let search_line = if app.session_search.is_empty() {
+            " 🔍 输入搜索关键词…".to_string()
+        } else {
+            format!(" 🔍 {}", app.session_search)
+        };
+        items.push(ListItem::new(vec![
+            Line::from(Span::styled(
+                search_line,
+                Style::default()
+                    .fg(theme_primary)
+                    .add_modifier(Modifier::BOLD),
+            )),
+        ]));
+        " 会话列表"
+    } else {
+        " 会话列表"
+    };
+
     items.push(ListItem::new(vec![
         Line::from(Span::styled(
-            " 会话列表",
+            search_display,
             Style::default()
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
@@ -368,16 +497,20 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
 
     if empty {
         items.push(ListItem::new(vec![Line::from(Span::styled(
-            " 暂无会话",
+            if q.is_empty() {
+                " 暂无会话"
+            } else {
+                " 未找到匹配会话"
+            },
             Style::default().fg(Color::DarkGray),
         ))]));
     } else {
-        for (i, session) in app.session_list.iter().enumerate() {
+        for (i, session) in filtered.iter().enumerate() {
             let selected = i == app.session_list_index;
             let prefix = if selected { " ▶ " } else { "    " };
             let style = if selected {
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(theme_primary)
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
@@ -390,7 +523,7 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                     style,
                 ),
             ])]));
-            
+
             // Session info: messages count and relative time
             items.push(ListItem::new(vec![Line::from(vec![
                 Span::raw("      "),
@@ -408,10 +541,12 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(Color::DarkGray),
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
-        if empty {
+        if empty && !app.session_search_mode {
             " Ctrl+N 新建会话  Ctrl+L 关闭"
+        } else if app.session_search_mode {
+            " 输入搜索  Esc 关闭搜索  Enter 切换"
         } else {
-            " ↑↓ 选择  Enter 切换  Ctrl+N 新建  Ctrl+L 关闭"
+            " ↑↓ 选择  Enter 切换  / 搜索  Ctrl+N 新建  Ctrl+L 关闭"
         },
         Style::default().fg(Color::DarkGray),
     ))]));
@@ -419,7 +554,7 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     let list = List::new(items).block(
         Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(theme_primary)),
     );
 
     f.render_widget(list, popup_area);
@@ -1093,8 +1228,16 @@ fn message_line_count(msg: &Message, text_width: usize) -> usize {
             name,
             args,
             result,
+            step,
+            total_steps,
         } => {
             let mut lines = 1; // header
+            // Build step prefix for multi-call progress
+            let _step_prefix = if *total_steps > 1 {
+                format!("[{}/{}] ", *step + 1usize, total_steps)
+            } else {
+                String::new()
+            };
             // optional explanation line
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
                 if name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
@@ -1134,6 +1277,165 @@ fn wrapped_line_count(text: &str, max_width: usize) -> usize {
         .sum()
 }
 
+/// Quick check if a string contains markdown syntax worth rendering.
+fn is_markdown(text: &str) -> bool {
+    text.contains("**")
+        || text.contains('*')
+        || text.contains('`')
+        || (text.len() > 1 && text.as_bytes()[0] == b'#')
+        || (text.len() > 1 && text.as_bytes()[0] == b'-' && text.as_bytes()[1] == b' ')
+        || text.contains("\n- ")
+        || text.contains("---")
+        || text.contains("___")
+}
+
+/// Render markdown text into styled ratatui lines.
+///
+/// Supports: **bold**, *italic*, `inline code`, ```code blocks```,
+/// headings (# ## ###), lists (-), and horizontal rules (---).
+fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+
+    // Accumulator for one logical line (paragraph fragment)
+    struct MdLine {
+        spans: Vec<(String, Style)>,
+        width: usize,
+    }
+    impl MdLine {
+        fn new() -> Self { Self { spans: Vec::new(), width: 0 } }
+        fn add(&mut self, text: &str, style: Style) {
+            self.width += unicode_width::UnicodeWidthStr::width(text);
+            if let Some(last) = self.spans.last_mut() {
+                if last.1 == style {
+                    last.0.push_str(text);
+                    return;
+                }
+            }
+            self.spans.push((text.to_string(), style));
+        }
+        fn flush(&mut self, out: &mut Vec<Line<'static>>, max_width: usize) {
+            if self.spans.is_empty() {
+                return;
+            }
+            if self.width <= max_width {
+                let spans: Vec<Span> = self.spans.drain(..)
+                    .map(|(t, s)| Span::styled(t, s))
+                    .collect();
+                out.push(Line::from(spans));
+            } else {
+                // Wrap long lines: rebuild from plain text (loses inner styles)
+                let plain: String = self.spans.iter().map(|(t, _)| t.as_str()).collect();
+                self.spans.clear();
+                for w in wrap_text(&plain, max_width) {
+                    out.push(Line::from(Span::styled(w, Style::default().fg(Color::White))));
+                }
+            }
+        }
+    }
+
+    let mut acc = MdLine::new();
+    let mut bold = false;
+    let mut italic = false;
+    let mut in_code_block = false;
+    let mut code_text = String::new();
+
+    for event in Parser::new(text) {
+        match event {
+            Event::Start(tag) => match tag {
+                Tag::Paragraph => {}
+                Tag::Heading { level, .. } => {
+                    acc.flush(&mut lines, max_width);
+                    let n = level as u8;
+                    let prefix = if n <= 3 && n > 0 {
+                        format!("{} ", "#".repeat(n as usize))
+                    } else {
+                        String::new()
+                    };
+                    acc.add(&prefix, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+                }
+                Tag::List(_) => {}
+                Tag::Item => {
+                    acc.flush(&mut lines, max_width);
+                    acc.add("• ", Style::default().fg(Color::Cyan));
+                }
+                Tag::Emphasis => italic = true,
+                Tag::Strong => bold = true,
+                Tag::CodeBlock(_) => {
+                    acc.flush(&mut lines, max_width);
+                    in_code_block = true;
+                    code_text.clear();
+                }
+                Tag::Link { .. } => {}
+                _ => {}
+            },
+            Event::End(tag) => match tag {
+                TagEnd::Paragraph => {
+                    acc.flush(&mut lines, max_width);
+                }
+                TagEnd::Heading(_) => {
+                    acc.flush(&mut lines, max_width);
+                }
+                TagEnd::Item => {
+                    acc.flush(&mut lines, max_width);
+                }
+                TagEnd::Emphasis => italic = false,
+                TagEnd::Strong => bold = false,
+                TagEnd::CodeBlock => {
+                    in_code_block = false;
+                    for code_line in code_text.lines() {
+                        lines.push(Line::from(Span::styled(
+                            format!("  {}", code_line),
+                            Style::default()
+                                .fg(Color::Rgb(200, 200, 120))
+                                .bg(Color::Rgb(20, 20, 25)),
+                        )));
+                    }
+                    lines.push(Line::from(Span::raw("")));
+                }
+                TagEnd::Link => {}
+                TagEnd::List(_) => {}
+                _ => {}
+            },
+            Event::Text(t) => {
+                if in_code_block {
+                    code_text.push_str(&t);
+                } else {
+                    let mut style = Style::default().fg(Color::White);
+                    if bold {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
+                    if italic {
+                        style = style.add_modifier(Modifier::ITALIC);
+                    }
+                    acc.add(&t, style);
+                }
+            }
+            Event::Code(t) => {
+                acc.add(
+                    &t,
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .bg(Color::Rgb(30, 30, 30)),
+                );
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                acc.flush(&mut lines, max_width);
+            }
+            Event::Rule => {
+                acc.flush(&mut lines, max_width);
+                lines.push(Line::from(Span::styled(
+                    "  ─────────────────────────────────",
+                    Style::default().fg(Color::DarkGray),
+                )));
+            }
+            _ => {}
+        }
+    }
+
+    acc.flush(&mut lines, max_width);
+    lines
+}
+
 /// Build a ListItem widget from a Message.
 fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
     match msg {
@@ -1168,11 +1470,19 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                     Style::default().fg(Color::DarkGray),
                 )));
             } else {
-                for wrapped in wrap_text(text, text_width) {
-                    lines.push(Line::from(Span::styled(
-                        format!("   {}", wrapped),
-                        Style::default().fg(Color::White),
-                    )));
+                let md_lines = render_markdown(text, text_width.saturating_sub(3));
+                if !is_markdown(text) || md_lines.is_empty() {
+                    // Fallback to simple wrapping for plain text
+                    for wrapped in wrap_text(text, text_width) {
+                        lines.push(Line::from(Span::styled(
+                            format!("   {}", wrapped),
+                            Style::default().fg(Color::White),
+                        )));
+                    }
+                } else {
+                    for md_line in &md_lines {
+                        lines.push(md_line.clone());
+                    }
                 }
             }
             lines.push(Line::from(Span::raw("")));
@@ -1182,8 +1492,17 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
             name,
             args,
             result,
+            step,
+            total_steps,
         } => {
             let mut lines = Vec::new();
+
+            // Build step prefix for multi-call progress
+            let step_prefix = if *total_steps > 1 {
+                format!("[{}/{}] ", *step + 1usize, total_steps)
+            } else {
+                String::new()
+            };
 
             let (header, detail) =
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
@@ -1192,19 +1511,29 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                         let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
                         let explanation = val.get("explanation").and_then(|v| v.as_str());
                         (
-                            format!(" ⚡ i-rs-{} {}", tool, cmd),
+                            format!(" ⚡ {}{} {}", step_prefix, tool, cmd),
                             explanation.map(|s| s.to_string()),
                         )
+                    } else if name == "search_conversations" {
+                        let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                        (format!(" 🔍 搜索历史: {}", q), None)
                     } else if name == "search_tools" {
                         let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
                         (format!(" 🔍 search: {}", q), None)
                     } else if name == "update_user_memory" {
                         (" 💾 记住用户信息".to_string(), None)
+                    } else if name == "file_ops" {
+                        let op = val.get("operation").and_then(|v| v.as_str()).unwrap_or("?");
+                        let p = val.get("path").and_then(|v| v.as_str()).unwrap_or("?");
+                        (format!(" 📁 {}: {}", op, p), None)
+                    } else if name == "web_search" {
+                        let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                        (format!(" 🔍 搜索网络: {}", q), None)
                     } else {
-                        (format!(" ⚡ {}", name), None)
+                        (format!(" ⚡ {}{}", step_prefix, name), None)
                     }
                 } else {
-                    (format!(" ⚡ {} {}", name, args), None)
+                    (format!(" ⚡ {}{} {}", step_prefix, name, args), None)
                 };
 
             lines.push(Line::from(Span::styled(

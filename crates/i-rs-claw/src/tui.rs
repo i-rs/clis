@@ -8,6 +8,7 @@ use crate::tool_cache::ToolDocCache;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use std::io;
+use std::time::Instant;
 use tokio::sync::mpsc;
 use owo_colors::OwoColorize;
 
@@ -55,6 +56,14 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     let session_id = session_mgr.current_id().unwrap().to_string();
     let loaded = session_mgr.load_app_messages(&session_id, 50);
     app.messages = loaded;
+
+    // Check for due reminders at startup
+    app.reminder_text = check_reminders();
+
+    // Initialize MCP connections from config
+    if !app.config.mcp_servers.is_empty() {
+        crate::llm::init_mcp(&app.config.mcp_servers);
+    }
 
     if app.messages.is_empty() {
         let onboarding = !cross_memory.has_user_profile();
@@ -131,6 +140,9 @@ fn main_loop(
     llm_tx: &mpsc::UnboundedSender<LlmEvent>,
     llm_rx: &mut mpsc::UnboundedReceiver<LlmEvent>,
 ) -> anyhow::Result<()> {
+    let mut last_reminder_check = Instant::now();
+    const REMINDER_INTERVAL_SECS: u64 = 120;
+
     loop {
         terminal.draw(|f| crate::ui::render(f, app))?;
 
@@ -142,6 +154,24 @@ fn main_loop(
                 }
                 LlmEvent::Token(text) => {
                     app.append_assistant_text(&text);
+                    // Detect plan steps from last assistant message text
+                    let plan_text = app
+                        .messages
+                        .last()
+                        .map(|m| {
+                            if let crate::app::Message::Assistant { text: t } = m {
+                                t.clone()
+                            } else {
+                                String::new()
+                            }
+                        })
+                        .unwrap_or_default();
+                    if !plan_text.is_empty() {
+                        app.detect_plan(&plan_text);
+                    }
+                }
+                LlmEvent::Reasoning(text) => {
+                    app.current_reasoning.push_str(&text);
                 }
                 LlmEvent::Status(text) => {
                     app.set_status(&text);
@@ -150,8 +180,12 @@ fn main_loop(
                     name,
                     args,
                     result,
+                    step,
+                    total_steps,
                 } => {
-                    app.add_tool_call(&name, &args, &result);
+                    app.add_tool_call(&name, &args, &result, step, total_steps);
+                    // Mark the next plan step as completed
+                    app.mark_next_plan_step_done();
 
                     // Save user information from update_user_memory tool
                     if name == "update_user_memory" {
@@ -229,7 +263,10 @@ fn main_loop(
                         request_body,
                     });
                 }
-                LlmEvent::Done(msgs, usage) => {
+                LlmEvent::Done(mut msgs, usage) => {
+                    // Compress API messages to protect teach docs + fit context
+                    crate::llm::compress_api_messages(&mut msgs, cross_memory.tool_frequency());
+
                     app.finish_processing(Some(msgs.clone()));
                     app.token_usage = usage;
 
@@ -252,6 +289,8 @@ fn main_loop(
                                 name,
                                 args,
                                 result,
+                                step: _,
+                                total_steps: _,
                             } => serde_json::json!({
                                 "type": "tool_call",
                                 "name": name,
@@ -283,6 +322,17 @@ fn main_loop(
                         }
                     }
                 }
+            }
+        }
+
+        // Periodic background reminder check (every 2 minutes)
+        {
+            let elapsed = last_reminder_check.elapsed().as_secs();
+            if elapsed >= REMINDER_INTERVAL_SECS && !app.is_processing() {
+                if let Some(reminders) = check_reminders() {
+                    app.reminder_text = Some(reminders);
+                }
+                last_reminder_check = Instant::now();
             }
         }
 
@@ -322,6 +372,8 @@ fn main_loop(
                                         name,
                                         args,
                                         result,
+                                        step: _,
+                                        total_steps: _,
                                     } => serde_json::json!({
                                         "type": "tool_call",
                                         "name": name,
@@ -350,7 +402,13 @@ fn main_loop(
                         }
                     }
                     KeyCode::Esc if app.show_session_list => {
-                        app.show_session_list = false;
+                        if app.session_search_mode {
+                            // Exit search mode
+                            app.session_search_mode = false;
+                            app.session_search.clear();
+                        } else {
+                            app.show_session_list = false;
+                        }
                     }
                     KeyCode::Esc if app.show_sidebar && app.sidebar_body_idx.is_some() => {
                         // Close body overlay, keep sidebar open
@@ -396,10 +454,27 @@ fn main_loop(
                             app.session_list_index.saturating_sub(1);
                     }
                     KeyCode::Down if app.show_session_list => {
-                        let max = app.session_list.len().saturating_sub(1);
-                        if app.session_list_index < max {
-                            app.session_list_index += 1;
+                        // In search mode, don't change selection index
+                        if !app.session_search_mode {
+                            let max = app.session_list.len().saturating_sub(1);
+                            if app.session_list_index < max {
+                                app.session_list_index += 1;
+                            }
                         }
+                    }
+                    KeyCode::Char('/') if app.show_session_list && !app.session_search_mode => {
+                        // Enter search mode
+                        app.session_search_mode = true;
+                        app.session_search.clear();
+                    }
+                    KeyCode::Char(c) if app.show_session_list && app.session_search_mode => {
+                        // Type to search
+                        app.session_search.push(c);
+                        app.session_list_index = 0;
+                    }
+                    KeyCode::Backspace if app.show_session_list && app.session_search_mode => {
+                        app.session_search.pop();
+                        app.session_list_index = 0;
                     }
                     KeyCode::Up
                         if !app.show_session_list && !app.show_sidebar && !app.is_processing() =>
@@ -425,9 +500,22 @@ fn main_loop(
                         }
                     }
                     KeyCode::Enter if app.show_session_list => {
-                        if let Some(meta) =
-                            app.session_list.get(app.session_list_index)
-                        {
+                        // Build filtered list to find the actual session ID
+                        let q = app.session_search.to_lowercase();
+                        let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
+                            app.session_list.iter().collect()
+                        } else {
+                            app.session_list
+                                .iter()
+                                .filter(|s| s.title.to_lowercase().contains(&q))
+                                .collect()
+                        };
+
+                        if app.session_search_mode {
+                            app.session_search_mode = false;
+                        }
+
+                        if let Some(meta) = filtered.get(app.session_list_index) {
                             let new_id = meta.id.clone();
                             let is_current = session_mgr
                                 .current_id()
@@ -452,6 +540,8 @@ fn main_loop(
                                             name,
                                             args,
                                             result,
+                                            step: _,
+                                            total_steps: _,
                                         } => serde_json::json!({
                                             "type": "tool_call",
                                             "name": name,
@@ -483,7 +573,11 @@ fn main_loop(
                         app.show_session_list = false;
                     }
                     KeyCode::Enter => {
-                        if !app.input.is_empty() && !app.is_processing() {
+                        if key.modifiers == KeyModifiers::ALT {
+                            if !app.is_processing() {
+                                app.insert_char('\n');
+                            }
+                        } else if !app.input.is_empty() && !app.is_processing() {
                             let text = std::mem::take(&mut app.input);
                             app.input_cursor = 0;
                             app.commit_input_to_history(&text);
@@ -497,18 +591,21 @@ fn main_loop(
                                 &app.messages,
                                 &text,
                                 &app.api_messages,
+                                cross_memory.tool_frequency(),
                                 &app.tool_index_text,
                                 &cross_memory.format_hot_tools(tool_cache),
                                 &skill_store.format_skills(),
                                 &cross_memory.format_user_memory(),
                                 &cross_memory.format_user_profile(),
+                                app.reminder_text.as_deref(),
                             );
 
                             // Spawn LLM chat in background
                             let config = app.config.clone();
                             let tx = llm_tx.clone();
+                            let provider = crate::provider::create_provider(&config);
                             rt.spawn(async move {
-                                crate::llm::chat_loop(config, msgs, tx).await;
+                                crate::llm::chat_loop(provider, config, msgs, tx).await;
                             });
                         }
                     }
@@ -569,4 +666,83 @@ fn claw_dir() -> std::path::PathBuf {
     dirs::home_dir()
         .expect("无法获取用户主目录")
         .join(".i-rs-claw")
+}
+
+/// Check for due/overdue reminders via `i-rs remind list --json`.
+/// Returns a formatted string listing all due reminders, or None if none found.
+fn check_reminders() -> Option<String> {
+    let output = std::process::Command::new("i-rs")
+        .arg("remind")
+        .arg("list")
+        .arg("--json")
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(stdout.as_ref()).ok()?;
+
+    let items = parsed.get("data")?.as_array()?;
+
+    let due: Vec<String> = items
+        .iter()
+        .filter(|item| {
+            let is_done = item
+                .get("is_done")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            if is_done {
+                return false;
+            }
+            let days = item
+                .get("days_until_event")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(1);
+            days <= 0
+        })
+        .map(|item| {
+            let name = item
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("未知");
+            let title = item
+                .get("title")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty());
+            let _date = item
+                .get("event_date")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let days = item
+                .get("days_until_event")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+
+            match title {
+                Some(t) => {
+                    if days == 0 {
+                        format!("  - {}「{}」（今天到期）", t, name)
+                    } else {
+                        format!("  - {}「{}」（已过期 {} 天）", t, name, days.abs())
+                    }
+                }
+                None => {
+                    if days == 0 {
+                        format!("  - {}（今天到期）", name)
+                    } else {
+                        format!("  - {}（已过期 {} 天）", name, days.abs())
+                    }
+                }
+            }
+        })
+        .collect();
+
+    if due.is_empty() {
+        return None;
+    }
+
+    Some(due.join("\n"))
 }

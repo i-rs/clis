@@ -22,6 +22,27 @@ pub fn run_config() -> anyhow::Result<()> {
         Config::new()
     };
 
+    // ── Provider Selection ──
+    let provider_names: Vec<&str> = crate::provider::ProviderKind::all()
+        .iter()
+        .map(|p| p.as_str())
+        .collect();
+    let provider_default = if provider_names.contains(&cfg.provider.as_str()) {
+        cfg.provider.clone()
+    } else {
+        "openai".to_string()
+    };
+    print!("Provider [{}] ({}): ",
+        provider_default,
+        provider_names.join("/"));
+    io::stdout().flush()?;
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.provider = trimmed;
+    }
+
     // ── API Key ──
     let current = if cfg.api_key.is_empty() {
         String::new()
@@ -61,9 +82,59 @@ pub fn run_config() -> anyhow::Result<()> {
         cfg.model = trimmed;
     }
 
+    // ── Search API Key (optional) ──
+    let search_current = cfg.search_api_key.as_ref().map(|k| {
+        if k.is_empty() {
+            String::new()
+        } else {
+            format!(" [{}...{}]", &k[..4.min(k.len())], &k[k.len().saturating_sub(4)..])
+        }
+    }).unwrap_or_default();
+    print!("Search API Key{} (留空使用 DuckDuckGo): ", search_current);
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.search_api_key = Some(trimmed);
+    }
+
+    // ── Search Base URL (optional) ──
+    let search_url_default = cfg.search_base_url.as_deref().unwrap_or("DuckDuckGo (free)");
+    print!("Search Base URL [{}]: ", search_url_default);
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.search_base_url = Some(trimmed);
+    }
+
+    // ── MCP Servers (optional) ──
+    let mcp_count = cfg.mcp_servers.len();
+    println!("\n  MCP 服务器 (当前 {} 个):", mcp_count);
+    println!("  MCP (Model Context Protocol) 允许连接外部工具服务器。");
+    println!("  配置格式: name|command|arg1 arg2|KEY=VAL");
+    println!("  例如: filesystem|npx|-y @modelcontextprotocol/server-filesystem /path");
+    println!("  留空则跳过 MCP 配置，可后续在配置文件中修改。");
+    print!("添加 MCP 服务器 (留空跳过): ");
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let mcp_input = input.trim().to_string();
+    if !mcp_input.is_empty() {
+        if let Some(server) = parse_mcp_server(&mcp_input) {
+            cfg.mcp_servers.push(server);
+            println!("  ✓ 已添加 MCP 服务器");
+        } else {
+            println!("  ⚠ 格式无效，期望: name|command|arg1 arg2|KEY=VAL");
+        }
+    }
+
     // ── Save ──
-    if cfg.api_key.is_empty() {
-        anyhow::bail!("API Key 不能为空，配置未保存");
+    let needs_api_key = cfg.provider.as_str() != "ollama";
+    if needs_api_key && cfg.api_key.is_empty() {
+        anyhow::bail!("{} 需要 API Key，配置未保存", cfg.provider);
     }
 
     cfg.save()?;
@@ -75,6 +146,7 @@ pub fn run_config() -> anyhow::Result<()> {
     };
 
     println!("\n配置摘要：");
+    println!("  Provider: {}", cfg.provider);
     println!(
         "  API Key: {}...{}",
         &cfg.api_key[..4.min(cfg.api_key.len())],
@@ -82,6 +154,11 @@ pub fn run_config() -> anyhow::Result<()> {
     );
     println!("  Base URL: {}", cfg.base_url);
     println!("  Model: {}", cfg.model);
+    println!(
+        "  搜索: {}",
+        cfg.search_base_url.as_deref().unwrap_or("DuckDuckGo (free)")
+    );
+    println!("  MCP 服务器: {} 个", cfg.mcp_servers.len());
     println!(
         "  工具: {} ({} 个 / 总 {} 个)",
         if cfg.enabled_tools.is_empty() {
@@ -304,6 +381,78 @@ pub fn run_session_list() -> anyhow::Result<()> {
 }
 
 // =============================================
+// Session Export
+// =============================================
+
+pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
+    let session_mgr = crate::session::SessionManager::new(claw_dir().join("claw"));
+
+    let output = match format {
+        "md" => session_mgr.export_markdown(session_id),
+        "json" => session_mgr.export_json(session_id),
+        _ => None,
+    };
+
+    match output {
+        Some(content) => {
+            println!("{}", content);
+            Ok(())
+        }
+        None => anyhow::bail!("未找到会话: {}", session_id),
+    }
+}
+
+// =============================================
+// Quick Ask (non-interactive)
+// =============================================
+
+pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
+    let config = crate::config::Config::load()?;
+    let provider = crate::provider::create_provider(&config);
+
+    let msgs = vec![
+        serde_json::json!({
+            "role": "system",
+            "content": "你是一个有用的AI助手。请用中文简洁回答用户的问题。"
+        }),
+        serde_json::json!({
+            "role": "user",
+            "content": message
+        }),
+    ];
+
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(async {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+
+        tokio::spawn(async move {
+            let _ = provider
+                .stream_chat(&msgs, &[], &tx)
+                .await;
+        });
+
+        use std::io::Write;
+        while let Some(event) = rx.recv().await {
+            match event {
+                crate::llm::LlmEvent::Token(t) => {
+                    print!("{}", t);
+                    let _ = io::stdout().flush();
+                }
+                crate::llm::LlmEvent::Error(e) => {
+                    eprintln!("\n错误: {}", e);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        println!();
+        Ok::<_, anyhow::Error>(())
+    })?;
+
+    Ok(())
+}
+
+// =============================================
 // Helpers
 // =============================================
 
@@ -311,4 +460,28 @@ fn claw_dir() -> std::path::PathBuf {
     dirs::home_dir()
         .expect("无法获取用户主目录")
         .join(".i-rs-claw")
+}
+
+/// Parse MCP server config from user input.
+/// Format: name|command|arg1 arg2|KEY=VAL
+fn parse_mcp_server(input: &str) -> Option<crate::mcp::McpServerConfig> {
+    let parts: Vec<&str> = input.splitn(4, '|').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let name = parts[0].trim().to_string();
+    let command = parts[1].trim().to_string();
+    if name.is_empty() || command.is_empty() {
+        return None;
+    }
+    let args = parts.get(2).map(|s| s.trim().split_whitespace().map(|a| a.to_string()).collect());
+    let env = parts.get(3).map(|s| s.trim().split_whitespace().map(|e| e.to_string()).collect());
+    Some(crate::mcp::McpServerConfig {
+        name,
+        transport_type: "stdio".to_string(),
+        command: Some(command),
+        args,
+        url: None,
+        env,
+    })
 }

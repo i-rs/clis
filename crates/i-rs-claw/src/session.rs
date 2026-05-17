@@ -111,6 +111,66 @@ impl SessionManager {
         }
     }
 
+    /// Search sessions by title keyword (case-insensitive).
+    #[allow(dead_code)]
+    pub fn search_sessions(&self, query: &str) -> Vec<&SessionMeta> {
+        if query.is_empty() {
+            return self.sessions.iter().collect();
+        }
+        let q = query.to_lowercase();
+        self.sessions
+            .iter()
+            .filter(|s| s.title.to_lowercase().contains(&q))
+            .collect()
+    }
+
+    /// Export session messages as Markdown.
+    pub fn export_markdown(&self, id: &str) -> Option<String> {
+        let records = self.load_messages(id, 1000);
+        let meta = self.sessions.iter().find(|s| s.id == id)?;
+
+        let mut md = format!("# 会话：{}\n\n", meta.title);
+        md.push_str(&format!(
+            "> 创建时间：{}\n\n",
+            chrono::DateTime::from_timestamp(meta.created_at, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default()
+        ));
+
+        for record in &records {
+            let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            let text = record.get("text").and_then(|t| t.as_str()).unwrap_or("");
+            match msg_type {
+                "user" => md.push_str(&format!("**用户:** {}\n\n", text)),
+                "assistant" => md.push_str(&format!("**Claw:** {}\n\n", text)),
+                "tool_call" => {
+                    let name = record.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                    md.push_str(&format!("*[工具调用: {}]*\n\n", name));
+                }
+                "error" => md.push_str(&format!("**错误:** {}\n\n", text)),
+                _ => {}
+            }
+        }
+        Some(md)
+    }
+
+    /// Export session messages as JSON.
+    pub fn export_json(&self, id: &str) -> Option<String> {
+        let records = self.load_messages(id, 1000);
+        let meta = self.sessions.iter().find(|s| s.id == id)?;
+
+        let export = serde_json::json!({
+            "session": {
+                "id": meta.id,
+                "title": meta.title,
+                "created_at": meta.created_at,
+                "updated_at": meta.updated_at,
+            },
+            "messages": records,
+        });
+        serde_json::to_string_pretty(&export).ok()
+    }
+
     /// Rename a session (typically set title to first user message).
     pub fn rename_session(&mut self, id: &str, title: &str) -> bool {
         if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == id) {
@@ -228,6 +288,8 @@ impl SessionManager {
                         name: v.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
                         args: v.get("args").and_then(|a| a.as_str()).unwrap_or("").to_string(),
                         result: v.get("result").and_then(|r| r.as_str()).unwrap_or("").to_string(),
+                        step: 0,
+                        total_steps: 0,
                     }),
                     "error" => Some(crate::app::Message::Error {
                         text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),

@@ -49,6 +49,11 @@ impl CrossSessionMemory {
     // Tool frequency tracking
     // =============================================
 
+    /// Get tool frequency map (for context compression decisions)
+    pub fn tool_frequency(&self) -> &HashMap<String, usize> {
+        &self.tool_frequency
+    }
+
     /// Record a tool call to update frequency.
     pub fn record_tool_use(&mut self, tool_name: &str) {
         let count = self.tool_frequency.entry(tool_name.to_string()).or_insert(0);
