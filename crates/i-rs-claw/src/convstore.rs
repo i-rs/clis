@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 /// A single search result from a conversation session.
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     pub session_id: String,
     pub session_title: String,
@@ -10,6 +10,7 @@ pub struct SearchResult {
     pub excerpt: String,
     pub context_before: Vec<String>,
     pub context_after: Vec<String>,
+    #[allow(dead_code)]
     pub updated_at: i64,
 }
 

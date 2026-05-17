@@ -422,9 +422,68 @@ fn main_loop(
                             // Exit search mode
                             app.session_search_mode = false;
                             app.session_search.clear();
+                        } else if app.session_confirm_delete {
+                            app.session_confirm_delete = false;
+                        } else if !app.session_rename_buf.is_empty() {
+                            app.session_rename_buf.clear();
                         } else {
                             app.show_session_list = false;
                         }
+                    }
+                    // Session list: Ctrl+D delete
+                    KeyCode::Char('d')
+                        if key.modifiers == KeyModifiers::CONTROL && app.show_session_list =>
+                    {
+                        app.session_confirm_delete = true;
+                    }
+                    // Session list: Ctrl+R rename
+                    KeyCode::Char('r')
+                        if key.modifiers == KeyModifiers::CONTROL && app.show_session_list =>
+                    {
+                        let q = app.session_search.to_lowercase();
+                        let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
+                            app.session_list.iter().collect()
+                        } else {
+                            app.session_list
+                                .iter()
+                                .filter(|s| s.title.to_lowercase().contains(&q))
+                                .collect()
+                        };
+                        if let Some(meta) = filtered.get(app.session_list_index) {
+                            app.session_rename_buf = meta.title.clone();
+                        }
+                    }
+                    // Confirm delete: 'y' to confirm
+                    KeyCode::Char('y') if app.session_confirm_delete => {
+                        let q = app.session_search.to_lowercase();
+                        let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
+                            app.session_list.iter().collect()
+                        } else {
+                            app.session_list
+                                .iter()
+                                .filter(|s| s.title.to_lowercase().contains(&q))
+                                .collect()
+                        };
+                        if let Some(meta) = filtered.get(app.session_list_index) {
+                            let id = meta.id.clone();
+                            let is_current = session_mgr
+                                .current_id()
+                                .map(|cid| cid == &id)
+                                .unwrap_or(false);
+                            session_mgr.delete_session(&id);
+                            app.session_confirm_delete = false;
+                            app.session_list = session_mgr.sessions().to_vec();
+                            if is_current {
+                                // If current session was deleted, reset
+                                app.reset_for_new_session();
+                            }
+                        } else {
+                            app.session_confirm_delete = false;
+                        }
+                    }
+                    // Confirm delete: 'n' or any other key to cancel
+                    KeyCode::Char('n') if app.session_confirm_delete => {
+                        app.session_confirm_delete = false;
                     }
                     KeyCode::Esc if app.show_sidebar && app.sidebar_body_idx.is_some() => {
                         // Close body overlay, keep sidebar open
@@ -432,6 +491,11 @@ fn main_loop(
                     }
                     KeyCode::Esc if app.show_sidebar => {
                         app.show_sidebar = false;
+                    }
+                    // Clear tab completions on Esc
+                    KeyCode::Esc if !app.tab_completions.is_empty() => {
+                        app.tab_completions.clear();
+                        app.tab_completion_index = 0;
                     }
                     KeyCode::Up
                         if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_none() =>
@@ -516,6 +580,30 @@ fn main_loop(
                         }
                     }
                     KeyCode::Enter if app.show_session_list => {
+                        // If renaming, confirm rename
+                        if !app.session_rename_buf.is_empty() {
+                            let q = app.session_search.to_lowercase();
+                            let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
+                                app.session_list.iter().collect()
+                            } else {
+                                app.session_list
+                                    .iter()
+                                    .filter(|s| s.title.to_lowercase().contains(&q))
+                                    .collect()
+                            };
+                            if let Some(meta) = filtered.get(app.session_list_index) {
+                                let title = std::mem::take(&mut app.session_rename_buf);
+                                if !title.trim().is_empty() {
+                                    session_mgr.rename_session(&meta.id, title.trim());
+                                }
+                                app.session_list = session_mgr.sessions().to_vec();
+                            } else {
+                                app.session_rename_buf.clear();
+                            }
+                            // Keep the session list open after rename
+                            break;
+                        }
+
                         // Build filtered list to find the actual session ID
                         let q = app.session_search.to_lowercase();
                         let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
@@ -630,6 +718,11 @@ fn main_loop(
                     KeyCode::Backspace => {
                         if !app.input.is_empty() {
                             app.delete_before_cursor();
+                            // Clear tab completions on edit
+                            if !app.tab_completions.is_empty() {
+                                app.tab_completions.clear();
+                                app.tab_completion_index = 0;
+                            }
                         }
                     }
                     KeyCode::Left => {
@@ -644,8 +737,52 @@ fn main_loop(
                     KeyCode::End => {
                         app.move_cursor_end();
                     }
+                    KeyCode::Tab => {
+                        if !app.is_processing() && !app.input.is_empty() {
+                            let completions = crate::completion::get_completions(&app.input, app.input_cursor);
+                            if !completions.is_empty() {
+                                if app.tab_completions.is_empty() {
+                                    app.tab_completions = completions;
+                                    app.tab_completion_index = 0;
+                                } else {
+                                    // Cycle forward
+                                    app.tab_completion_index = (app.tab_completion_index + 1) % app.tab_completions.len();
+                                }
+                                // Replace input with selected completion + space
+                                let selected = &app.tab_completions[app.tab_completion_index];
+                                let before = &app.input[..app.input_cursor];
+                                let after = &app.input[app.input_cursor..];
+                                // Find last word boundary for replacement
+                                let word_start = before.rfind(|c: char| c.is_whitespace()).map(|i| i + 1).unwrap_or(0);
+                                app.input = format!("{}{} {}", &before[..word_start], selected, after);
+                                app.input_cursor = word_start + selected.len() + 1;
+                            }
+                        }
+                    }
+                    KeyCode::BackTab => {
+                        // Shift+Tab: cycle backward
+                        if !app.is_processing() && !app.tab_completions.is_empty() {
+                            let len = app.tab_completions.len();
+                            app.tab_completion_index = if app.tab_completion_index == 0 {
+                                len.saturating_sub(1)
+                            } else {
+                                app.tab_completion_index - 1
+                            };
+                            let selected = &app.tab_completions[app.tab_completion_index];
+                            let before = &app.input[..app.input_cursor];
+                            let after = &app.input[app.input_cursor..];
+                            let word_start = before.rfind(|c: char| c.is_whitespace()).map(|i| i + 1).unwrap_or(0);
+                            app.input = format!("{}{} {}", &before[..word_start], selected, after);
+                            app.input_cursor = word_start + selected.len() + 1;
+                        }
+                    }
                     KeyCode::Char(c) => {
                         if !app.is_processing() {
+                            // Clear tab completions when user types
+                            if !app.tab_completions.is_empty() {
+                                app.tab_completions.clear();
+                                app.tab_completion_index = 0;
+                            }
                             app.insert_char(c);
                         }
                     }

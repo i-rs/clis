@@ -1,11 +1,13 @@
 mod app;
 mod cli;
+mod completion;
 mod config;
 mod convstore;
 mod llm;
 mod mcp;
 mod memory;
 mod provider;
+mod semantic;
 mod session;
 mod skill_store;
 mod tool_cache;

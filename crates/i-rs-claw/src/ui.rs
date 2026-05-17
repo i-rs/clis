@@ -71,6 +71,11 @@ pub fn render(f: &mut Frame, app: &App) {
         render_session_list(f, area, app);
     }
 
+    // Completion popup overlay
+    if !app.tab_completions.is_empty() {
+        render_completions(f, area, app);
+    }
+
     // Request body overlay (rendered on top of everything)
     if let Some(idx) = app.sidebar_body_idx {
         if let Some(log) = app.http_logs.get(idx) {
@@ -280,6 +285,16 @@ fn input_height(input: &str) -> u16 {
     (content_lines + 1 + 2).max(3).min(10) as u16
 }
 
+/// Return the input hint line showing available shortcuts.
+/// Voice input hint is only shown on macOS where Fn key is available.
+fn input_hint_text() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "  [Fn] 语音输入  [Alt+Enter] 换行"
+    } else {
+        "  [Alt+Enter] 换行"
+    }
+}
+
 fn render_input(f: &mut Frame, area: Rect, app: &App) {
     let input_block = Block::default()
         .borders(Borders::ALL)
@@ -305,7 +320,7 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(Color::Rgb(80, 80, 100)),
             )),
             Line::from(Span::styled(
-                "  [Fn] 语音输入  [Alt+Enter] 换行",
+                input_hint_text(),
                 Style::default().fg(Color::Rgb(60, 60, 80)),
             )),
         ]
@@ -318,7 +333,7 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
             ))
         }).collect();
         result.push(Line::from(Span::styled(
-            "  [Fn] 语音输入  [Alt+Enter] 换行",
+            input_hint_text(),
             Style::default().fg(Color::Rgb(60, 60, 80)),
         )));
         result
@@ -535,19 +550,141 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
+    // Rename input field
+    if !app.session_rename_buf.is_empty() {
+        items.push(ListItem::new(vec![Line::from(Span::styled(
+            " ────────────────────────────────────────",
+            Style::default().fg(Color::DarkGray),
+        ))]));
+        items.push(ListItem::new(vec![Line::from(vec![
+            Span::styled(
+                " ✏️ 重命名: ",
+                Style::default()
+                    .fg(app.config.theme.primary())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                app.session_rename_buf.clone(),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                " ▌",
+                Style::default().fg(Color::Yellow),
+            ),
+        ])]));
+    }
+
+    // Delete confirmation
+    if app.session_confirm_delete {
+        items.push(ListItem::new(vec![Line::from(Span::styled(
+            " ────────────────────────────────────────",
+            Style::default().fg(Color::DarkGray),
+        ))]));
+        items.push(ListItem::new(vec![Line::from(Span::styled(
+            " ⚠ 确认删除此会话? (y = 确认, n = 取消)",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ))]));
+    }
+
     // Footer
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ────────────────────────────────────────",
         Style::default().fg(Color::DarkGray),
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
-        if empty && !app.session_search_mode {
+        if app.session_confirm_delete {
+            " 确认删除? (y/n)"
+        } else if !app.session_rename_buf.is_empty() {
+            " 输入新名称  Enter 确认  Esc 取消"
+        } else if empty && !app.session_search_mode {
             " Ctrl+N 新建会话  Ctrl+L 关闭"
         } else if app.session_search_mode {
             " 输入搜索  Esc 关闭搜索  Enter 切换"
         } else {
-            " ↑↓ 选择  Enter 切换  / 搜索  Ctrl+N 新建  Ctrl+L 关闭"
+            " ↑↓ 选择  Enter 切换  / 搜索  Ctrl+R 重命名  Ctrl+D 删除  Ctrl+N 新建  Ctrl+L 关闭"
         },
+        Style::default().fg(Color::DarkGray),
+    ))]));
+
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme_primary)),
+    );
+
+    f.render_widget(list, popup_area);
+}
+
+/// Overlay showing tab completion candidates near the input area.
+fn render_completions(f: &mut Frame, area: Rect, app: &App) {
+    if app.tab_completions.is_empty() {
+        return;
+    }
+
+    let count = app.tab_completions.len();
+    let popup_height = (count as u16).min(12).saturating_add(2); // header + footer
+    let popup_width = (area.width as f32 * 0.45) as u16;
+    let popup_x = area.x + 2;
+    let popup_y = area.bottom().saturating_sub(
+        1  // status bar
+        + input_height(&app.input) as u16
+        + 1  // processing
+        + popup_height
+        + 2
+    );
+
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let idx = app.tab_completion_index;
+    let theme_primary = app.config.theme.primary();
+
+    let mut items: Vec<ListItem> = Vec::new();
+
+    // Header
+    items.push(ListItem::new(vec![
+        Line::from(Span::styled(
+            format!(" Tab 补全 ({} 个)", count),
+            Style::default()
+                .fg(theme_primary)
+                .add_modifier(Modifier::BOLD),
+        )),
+    ]));
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        " ────────────────────────────────────────",
+        Style::default().fg(Color::DarkGray),
+    ))]));
+
+    for (i, completion) in app.tab_completions.iter().enumerate() {
+        if i >= 12 {
+            let remaining = count - 12;
+            items.push(ListItem::new(vec![Line::from(Span::styled(
+                format!("   ... 还有 {} 个", remaining),
+                Style::default().fg(Color::DarkGray),
+            ))]));
+            break;
+        }
+        let selected = i == idx;
+        let prefix = if selected { " ▶ " } else { "    " };
+        let style = if selected {
+            Style::default()
+                .fg(theme_primary)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        items.push(ListItem::new(vec![Line::from(vec![
+            Span::styled(prefix, style),
+            Span::styled(completion.clone(), style),
+        ])]));
+    }
+
+    // Footer
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        " ────────────────────────────────────────",
+        Style::default().fg(Color::DarkGray),
+    ))]));
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        " Tab 选择  Shift+Tab 反向  Esc 关闭",
         Style::default().fg(Color::DarkGray),
     ))]));
 

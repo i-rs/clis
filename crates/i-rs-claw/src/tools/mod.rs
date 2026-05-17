@@ -1,9 +1,11 @@
+pub mod chart_tool;
 pub mod chat_search;
 pub mod file_ops;
 pub mod i_rs;
 pub mod index;
 pub mod mcp_tools;
 pub mod search_tools;
+pub mod semantic_search;
 pub mod user_memory;
 pub mod vision_tool;
 pub mod web_search;
@@ -43,10 +45,12 @@ impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: vec![
+                Box::new(chart_tool::ChartTool),
                 Box::new(chat_search::ChatSearchTool),
                 Box::new(file_ops::FileOpsTool),
                 Box::new(i_rs::IrsTool),
                 Box::new(search_tools::SearchToolsTool),
+                Box::new(semantic_search::SemanticSearchTool),
                 Box::new(user_memory::UserMemoryTool),
                 Box::new(vision_tool::VisionTool),
                 Box::new(web_search::WebSearchTool),

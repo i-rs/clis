@@ -90,6 +90,14 @@ pub struct App {
     pub session_search: String,
     /// Whether session search mode is active
     pub session_search_mode: bool,
+    /// Tab completion candidates for the current input
+    pub tab_completions: Vec<String>,
+    /// Current index in tab completion cycle
+    pub tab_completion_index: usize,
+    /// Rename buffer when renaming a session
+    pub session_rename_buf: String,
+    /// Whether delete confirmation is shown
+    pub session_confirm_delete: bool,
 }
 
 impl App {
@@ -128,6 +136,10 @@ impl App {
             plan_steps: Vec::new(),
             session_search: String::new(),
             session_search_mode: false,
+            tab_completions: Vec::new(),
+            tab_completion_index: 0,
+            session_rename_buf: String::new(),
+            session_confirm_delete: false,
         }
     }
 
