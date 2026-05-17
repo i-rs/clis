@@ -98,6 +98,8 @@ pub struct App {
     pub session_rename_buf: String,
     /// Whether delete confirmation is shown
     pub session_confirm_delete: bool,
+    /// Transient feedback text (e.g. "已复制"), cleared on next user interaction
+    pub copy_feedback: Option<String>,
 }
 
 impl App {
@@ -140,6 +142,7 @@ impl App {
             tab_completion_index: 0,
             session_rename_buf: String::new(),
             session_confirm_delete: false,
+            copy_feedback: None,
         }
     }
 
@@ -148,6 +151,7 @@ impl App {
     }
 
     pub fn add_user_message(&mut self, text: &str) {
+        self.copy_feedback.take();
         self.messages
             .push(Message::User { text: text.to_string() });
         self.state = AppState::Processing;
@@ -159,6 +163,7 @@ impl App {
 
     /// Insert a character at the cursor position.
     pub fn insert_char(&mut self, c: char) {
+        self.copy_feedback.take();
         self.input.insert(self.input_cursor, c);
         self.input_cursor += c.len_utf8();
     }

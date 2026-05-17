@@ -356,6 +356,26 @@ fn main_loop(
         if event::poll(std::time::Duration::from_millis(50))? {
             match event::read()? {
                 Event::Key(key) => match key.code {
+                    KeyCode::Char('c') if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+                        // Copy last assistant message to clipboard
+                        let text = app
+                            .messages
+                            .iter()
+                            .rev()
+                            .find_map(|m| match m {
+                                crate::app::Message::Assistant { text } if !text.is_empty() => Some(text.clone()),
+                                _ => None,
+                            });
+                        if let Some(content) = text {
+                            if copy_to_clipboard(&content) {
+                                app.copy_feedback = Some("✓ 已复制".to_string());
+                            } else {
+                                app.copy_feedback = Some("✗ 复制失败".to_string());
+                            }
+                        } else {
+                            app.copy_feedback = Some("无内容可复制".to_string());
+                        }
+                    }
                     KeyCode::Char('q') | KeyCode::Char('c')
                         if key.modifiers == KeyModifiers::CONTROL =>
                     {
@@ -911,4 +931,39 @@ fn notify_macos(title: &str, message: &str) {
             message, title
         )])
         .output();
+}
+
+/// Copy text to system clipboard using platform-specific command.
+fn copy_to_clipboard(text: &str) -> bool {
+    let cmd = if cfg!(target_os = "macos") {
+        ("pbcopy", &[] as &[&str])
+    } else if cfg!(target_os = "linux") {
+        // Prefer wl-copy (Wayland), fallback to xclip (X11)
+        if std::process::Command::new("wl-copy").output().is_ok() {
+            ("wl-copy", &[] as &[&str])
+        } else {
+            ("xclip", &["-selection", "clipboard"] as &[&str])
+        }
+    } else if cfg!(target_os = "windows") {
+        ("clip", &[] as &[&str])
+    } else {
+        return false;
+    };
+
+    std::process::Command::new(cmd.0)
+        .args(cmd.1)
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut child| {
+            use std::io::Write;
+            child
+                .stdin
+                .take()
+                .and_then(|mut stdin| {
+                    stdin.write_all(text.as_bytes()).ok()
+                });
+            child.wait_with_output()
+        })
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }

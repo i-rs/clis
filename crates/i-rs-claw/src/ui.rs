@@ -377,6 +377,18 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
 
     let mut spans: Vec<Span> = Vec::new();
 
+    // Copy feedback (transient, highest priority)
+    if let Some(fb) = &app.copy_feedback {
+        spans.push(Span::styled(
+            format!(" {} ", fb),
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled(
+            "│ ",
+            Style::default().fg(app.config.theme.dim_text()),
+        ));
+    }
+
     if app.is_processing() {
         // Processing state
         spans.push(Span::styled(
@@ -444,6 +456,14 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
     }
     spans.push(Span::styled(
         "Ctrl+L",
+        Style::default().fg(Color::Rgb(140, 140, 160)),
+    ));
+    spans.push(Span::styled(
+        "  ",
+        Style::default().fg(Color::Rgb(140, 140, 160)),
+    ));
+    spans.push(Span::styled(
+        "Ctrl+Shift+C",
         Style::default().fg(Color::Rgb(140, 140, 160)),
     ));
 
