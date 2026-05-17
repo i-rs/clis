@@ -289,6 +289,39 @@ fn smart_compress(
         preserve.insert(idx);
     }
 
+    // Ensure tool_call + tool result pairs are kept together to prevent
+    // orphaned tool messages ("role='tool' must follow tool_calls" error).
+    // Scan both directions: if a "tool" result is kept but its preceding
+    // tool_call was dropped, restore the tool_call; and vice versa.
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for idx in 0..msgs.len() {
+            let kept = preserve.contains(&idx);
+            if !kept {
+                continue;
+            }
+            // If this is a tool result, ensure preceding tool_call is kept
+            if msgs[idx].get("role").and_then(|r| r.as_str()) == Some("tool")
+                && idx > 0
+                && msgs[idx - 1].get("tool_calls").is_some()
+                && !preserve.contains(&(idx - 1))
+            {
+                preserve.insert(idx - 1);
+                changed = true;
+            }
+            // If this is a tool_call, ensure following tool result is kept
+            if msgs[idx].get("tool_calls").is_some()
+                && idx + 1 < msgs.len()
+                && msgs[idx + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
+                && !preserve.contains(&(idx + 1))
+            {
+                preserve.insert(idx + 1);
+                changed = true;
+            }
+        }
+    }
+
     // Build compressed message list
     let mut new_msgs: Vec<Value> = Vec::with_capacity(preserve.len());
     for idx in 0..recent_start {

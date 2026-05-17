@@ -2,6 +2,8 @@ use crate::gateway::{GatewayEvent, PlatformAdapter};
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 
+const TELEGRAM_API_BASE: &str = "https://api.telegram.org/bot";
+
 /// Configuration for the Telegram bot adapter.
 pub struct TelegramConfig {
     pub bot_token: String,
@@ -24,7 +26,7 @@ impl TelegramAdapter {
     }
 
     fn api_url(&self, method: &str) -> String {
-        format!("https://api.telegram.org/bot{}/{}", self.config.bot_token, method)
+        format!("{}{}/{}", TELEGRAM_API_BASE, self.config.bot_token, method)
     }
 }
 

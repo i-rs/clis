@@ -69,9 +69,9 @@ pub struct GatewayConfig {
     /// Slack bot configuration.
     #[serde(default)]
     pub slack: Option<PlatformConfig>,
-    /// WeChat/WeCom bot configuration.
+    /// WeChat iLink Bot (personal WeChat) configuration.
     #[serde(default)]
-    pub wechat: Option<PlatformConfig>,
+    pub wechat: Option<WeChatPlatformConfig>,
 }
 
 // ── Dashboard Configuration ──
@@ -108,7 +108,7 @@ fn default_dashboard_port() -> u16 {
     3000
 }
 
-/// Generic platform configuration used by all gateway adapters.
+/// Generic platform configuration used by Telegram/Discord/Slack.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformConfig {
     /// Whether this platform adapter is enabled.
@@ -117,12 +117,23 @@ pub struct PlatformConfig {
     /// API token or key for the platform.
     #[serde(default)]
     pub token: Option<String>,
-    /// Webhook URL (used by WeChat/Slack).
+    /// Webhook URL (used by Slack).
     #[serde(default)]
     pub webhook_url: Option<String>,
     /// Additional configuration as key-value pairs.
     #[serde(default)]
     pub extra: Option<::std::collections::HashMap<String, String>>,
+}
+
+/// WeChat iLink Bot (personal WeChat) configuration.
+///
+/// No static token/URL needed -- credentials obtained via QR login
+/// on first run and persisted to ~/.i-rs-claw/claw/wechat_credentials.json
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WeChatPlatformConfig {
+    /// Whether the WeChat bot is enabled.
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 fn default_provider() -> String {

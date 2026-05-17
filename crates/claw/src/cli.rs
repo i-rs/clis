@@ -462,11 +462,13 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone()));
+    let core = std::sync::Arc::new(std::sync::Mutex::new(
+        crate::core::AppCore::new(config.clone()),
+    ));
 
     // Initialize MCP if configured
-    if !core.config.mcp_servers.is_empty() {
-        crate::core::engine::init_mcp(&core.config.mcp_servers);
+    if !config.mcp_servers.is_empty() {
+        crate::core::engine::init_mcp(&config.mcp_servers);
     }
 
     #[allow(unused_mut)]
@@ -490,56 +492,14 @@ pub fn run_gateway() -> anyhow::Result<()> {
             }
         }
 
-        #[cfg(feature = "gateway-discord")]
-        if let Some(ref dc) = config.gateway.discord {
-            if dc.enabled {
-                if let Some(ref token) = dc.token {
-                    let adapter = crate::gateway::discord::DiscordAdapter::new(
-                        crate::gateway::discord::DiscordConfig {
-                            bot_token: token.clone(),
-                            enabled: true,
-                        },
-                    );
-                    server.register(Box::new(adapter));
-                    println!("  ✓ Discord bot registered");
-                }
-            }
-        }
-
-        #[cfg(feature = "gateway-slack")]
-        if let Some(ref sl) = config.gateway.slack {
-            if sl.enabled {
-                if let Some(ref token) = sl.token {
-                    let adapter = crate::gateway::slack::SlackAdapter::new(
-                        crate::gateway::slack::SlackConfig {
-                            bot_token: token.clone(),
-                            app_token: sl.extra.as_ref()
-                                .and_then(|e| e.get("app_token").cloned())
-                                .unwrap_or_default(),
-                            enabled: true,
-                        },
-                    );
-                    server.register(Box::new(adapter));
-                    println!("  ✓ Slack bot registered");
-                }
-            }
-        }
-
         #[cfg(feature = "gateway-wechat")]
         if let Some(ref wc) = config.gateway.wechat {
             if wc.enabled {
-                if let Some(ref url) = wc.webhook_url {
-                    let adapter = crate::gateway::wechat::WeChatAdapter::new(
-                        crate::gateway::wechat::WeChatConfig {
-                            webhook_url: url.clone(),
-                            secret: wc.extra.as_ref()
-                                .and_then(|e| e.get("secret").cloned()),
-                            enabled: true,
-                        },
-                    );
-                    server.register(Box::new(adapter));
-                    println!("  ✓ WeChat bot registered");
-                }
+                let adapter = crate::gateway::wechat::WeChatAdapter::new(
+                    crate::gateway::wechat::WeChatConfig { enabled: true },
+                );
+                server.register(Box::new(adapter));
+                println!("  ✓ WeChat bot registered");
             }
         }
     }
@@ -552,6 +512,10 @@ pub fn run_gateway() -> anyhow::Result<()> {
         println!("  [gateway.telegram]");
         println!("  enabled = true");
         println!("  token = \"your-bot-token\"");
+        println!("");
+        println!("  [gateway.wechat]");
+        println!("  enabled = true");
+        println!("  # Credentials obtained via QR login on first run");
         return Ok(());
     }
 

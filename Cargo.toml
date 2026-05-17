@@ -107,6 +107,7 @@ paste = "1.0"
 reqwest = { version = "0.13.3", features = ["json", "stream", "blocking"] }
 pulldown-cmark = "0.13"
 async-trait = "0.1"
+base64 = "0.22"
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.31.0"
