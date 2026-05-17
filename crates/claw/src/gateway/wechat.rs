@@ -12,6 +12,7 @@ const WECHAT_API_BASE: &str = "https://ilinkai.weixin.qq.com";
 /// Configuration for the WeChat iLink Bot adapter.
 pub struct WeChatConfig {
     pub enabled: bool,
+    pub agent_id: String,
 }
 
 /// Persisted credentials from QR login.
@@ -336,6 +337,7 @@ impl PlatformAdapter for WeChatAdapter {
                                                 .unwrap_or("")
                                                 .to_string(),
                                             text,
+                                            agent_id: "default".to_string(),
                                         });
                                     }
                                 }

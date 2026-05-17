@@ -7,9 +7,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct SessionMeta {
     pub id: String,
     pub title: String,
+    /// Which agent profile this session belongs to.
+    /// Defaults to "default" for backward compatibility.
+    #[serde(default = "default_agent_id")]
+    pub agent_id: String,
     pub created_at: i64,
     pub updated_at: i64,
     pub message_count: usize,
+}
+
+fn default_agent_id() -> String {
+    "default".to_string()
 }
 
 /// Manages conversation sessions with JSONL persistence.
@@ -76,11 +84,17 @@ impl SessionManager {
 
     /// Create a new session and return its ID.
     pub fn create_session(&mut self) -> String {
+        self.create_session_for("default")
+    }
+
+    /// Create a new session for a specific agent and return its ID.
+    pub fn create_session_for(&mut self, agent_id: &str) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let now = now_secs();
         let meta = SessionMeta {
             id: id.clone(),
             title: "新对话".to_string(),
+            agent_id: agent_id.to_string(),
             created_at: now,
             updated_at: now,
             message_count: 0,

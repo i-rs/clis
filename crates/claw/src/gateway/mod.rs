@@ -21,6 +21,8 @@ pub enum GatewayEvent {
         user_id: String,
         /// The message text content.
         text: String,
+        /// Agent profile to use for processing this message.
+        agent_id: String,
     },
     /// An error from a platform adapter.
     Error {
@@ -108,6 +110,7 @@ impl GatewayServer {
                     chat_id,
                     user_id: _,
                     text,
+                    agent_id,
                 } => {
                     let core = core.clone();
 
@@ -133,7 +136,7 @@ impl GatewayServer {
 
                     // Process the message with session continuity + tool execution
                     let response =
-                        Self::process_message(&core, &platform, &chat_id, &text).await;
+                        Self::process_message(&core, &platform, &chat_id, &text, &agent_id).await;
 
                     // Stop the typing indicator
                     if let Some(h) = typing_handle {
@@ -164,8 +167,10 @@ impl GatewayServer {
         platform: &str,
         chat_id: &str,
         text: &str,
+        agent_id: &str,
     ) -> String {
         let text_owned = text.to_string();
+        let agent_id_owned = agent_id.to_string();
 
         // Build messages with session context (lock held briefly)
         let (session_id, msgs, config) = {
@@ -183,20 +188,30 @@ impl GatewayServer {
                 // Reuse existing session for conversation continuity
                 core.session_mgr.switch_to(&uuid);
             } else {
-                // First message from this user: create a new session
-                let new_id = core.session_mgr.create_session();
+                // First message from this user: create a session with agent_id
+                let new_id = core.session_mgr.create_session_for(&agent_id_owned);
                 core.session_mgr.rename_session(&new_id, &session_id);
             }
 
             let saved = core.session_mgr.load_api_messages(&session_id);
-            let msgs = core.build_messages(&[], &text_owned, &saved, None);
-            let config = core.config.clone();
-            (session_id, msgs, config)
+            let msgs = core.build_messages_for(&[], &text_owned, &saved, None, &agent_id_owned);
+
+            // Clone config with agent-specific tool overrides
+            let resolved = core.config.agent_config(&agent_id_owned);
+            let mut agent_config = core.config.clone();
+            agent_config.enabled_tools = resolved.enabled_tools;
+
+            (session_id, msgs, agent_config)
         };
 
         // Spawn the multi-round chat loop (no lock held during streaming)
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let provider = crate::provider::create_provider(&config);
+        let provider = crate::provider::create_provider_for(
+            &config.provider,
+            &config.api_key,
+            &config.base_url,
+            &config.model,
+        );
         tokio::spawn(async move {
             crate::core::engine::chat_loop(provider, config, msgs, tx).await;
         });

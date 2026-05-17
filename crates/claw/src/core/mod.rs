@@ -56,6 +56,12 @@ impl AppCore {
         }
     }
 
+    /// Resolve the config for a given agent ID.
+    /// Falls back to default config if agent doesn't exist.
+    pub fn agent_config(&self, id: &str) -> crate::config::ResolvedAgentConfig {
+        self.config.agent_config(id)
+    }
+
     /// Build the API message list for an LLM chat call.
     /// Wraps engine::build_messages with AppCore's state.
     pub fn build_messages(
@@ -65,10 +71,23 @@ impl AppCore {
         saved_api_messages: &Option<Vec<Value>>,
         reminder_text: Option<&str>,
     ) -> Vec<Value> {
-        let enabled = if self.config.enabled_tools.is_empty() {
+        self.build_messages_for(app_messages, user_text, saved_api_messages, reminder_text, "default")
+    }
+
+    /// Build the API message list for a specific agent.
+    pub fn build_messages_for(
+        &self,
+        app_messages: &[Message],
+        user_text: &str,
+        saved_api_messages: &Option<Vec<Value>>,
+        reminder_text: Option<&str>,
+        agent_id: &str,
+    ) -> Vec<Value> {
+        let resolved = self.config.agent_config(agent_id);
+        let enabled = if resolved.enabled_tools.is_empty() {
             None
         } else {
-            Some(&self.config.enabled_tools)
+            Some(&resolved.enabled_tools)
         };
         let tool_index = crate::tools::format_index(enabled);
 
@@ -83,6 +102,7 @@ impl AppCore {
             &self.cross_memory.format_user_memory(),
             &self.cross_memory.format_user_profile(),
             reminder_text,
+            resolved.system_prompt.as_deref(),
         )
     }
 
@@ -94,10 +114,33 @@ impl AppCore {
         llm_tx: mpsc::UnboundedSender<LlmEvent>,
         messages: Vec<Value>,
     ) {
-        let config = self.config.clone();
-        let provider = crate::provider::create_provider(&config);
+        self.spawn_chat_for(rt, llm_tx, messages, "default")
+    }
+
+    /// Spawn the LLM chat loop for a specific agent.
+    pub fn spawn_chat_for(
+        &self,
+        rt: &tokio::runtime::Runtime,
+        llm_tx: mpsc::UnboundedSender<LlmEvent>,
+        messages: Vec<Value>,
+        agent_id: &str,
+    ) {
+        let resolved = self.config.agent_config(agent_id);
+
+        // Create provider for this agent config
+        let provider = crate::provider::create_provider_for(
+            &resolved.provider,
+            &resolved.api_key,
+            &resolved.base_url,
+            &resolved.model,
+        );
+
+        // Clone config with agent-specific tool overrides
+        let mut agent_config = self.config.clone();
+        agent_config.enabled_tools = resolved.enabled_tools;
+
         rt.spawn(async move {
-            engine::chat_loop(provider, config, messages, llm_tx).await;
+            engine::chat_loop(provider, agent_config, messages, llm_tx).await;
         });
     }
 

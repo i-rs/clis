@@ -8,6 +8,7 @@ const TELEGRAM_API_BASE: &str = "https://api.telegram.org/bot";
 pub struct TelegramConfig {
     pub bot_token: String,
     pub enabled: bool,
+    pub agent_id: String,
 }
 
 /// Telegram bot adapter using the Bot API via reqwest.
@@ -68,6 +69,7 @@ impl PlatformAdapter for TelegramAdapter {
                                                 chat_id,
                                                 user_id,
                                                 text,
+                                                agent_id: self.config.agent_id.clone(),
                                             });
                                         }
                                     }

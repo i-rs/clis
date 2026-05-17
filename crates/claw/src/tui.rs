@@ -709,15 +709,16 @@ fn main_loop(
                             app_core.session_mgr.append_message("user", &text, None);
 
                             // Build messages for LLM
-                            let msgs = app_core.build_messages(
+                            let msgs = app_core.build_messages_for(
                                 &app.messages,
                                 &text,
                                 &app.api_messages,
                                 app.reminder_text.as_deref(),
+                                &app.current_agent,
                             );
 
                             // Spawn LLM chat in background
-                            app_core.spawn_chat(rt, llm_tx.clone(), msgs);
+                            app_core.spawn_chat_for(rt, llm_tx.clone(), msgs, &app.current_agent);
                         }
                     }
                     KeyCode::Backspace => {

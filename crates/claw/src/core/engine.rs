@@ -60,6 +60,7 @@ pub(crate) fn build_system_prompt(
 /// Convert app messages to API-compatible message list.
 /// If `saved_api_messages` exists, reuse them as base (preserving tool call context)
 /// and only append the new user message.
+/// If `system_prompt_override` is provided, it replaces the default system prompt.
 pub fn build_messages(
     app_messages: &[crate::app::Message],
     user_text: &str,
@@ -71,6 +72,7 @@ pub fn build_messages(
     user_memory: &str,
     user_profile: &str,
     reminder_text: Option<&str>,
+    system_prompt_override: Option<&str>,
 ) -> Vec<Value> {
     // Helper: remove stale reminder system message at index 1 if present
     let remove_reminder_msg = |msgs: &mut Vec<Value>| {
@@ -125,9 +127,13 @@ pub fn build_messages(
     }
 
     // First turn: build from scratch
+    let system_prompt = system_prompt_override
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile));
+
     let mut msgs = vec![serde_json::json!({
         "role": "system",
-        "content": build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile)
+        "content": system_prompt,
     })];
 
     // Inject reminder right after system prompt

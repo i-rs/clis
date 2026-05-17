@@ -141,6 +141,7 @@ export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
                   <div className="session-title">{session.title}</div>
                   <div className="session-meta">
                     {session.message_count} messages &middot; {new Date(session.created_at * 1000).toLocaleString()}
+                    {session.agent_id !== 'default' && <span className="session-agent-badge">{session.agent_id}</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>

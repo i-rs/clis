@@ -834,3 +834,24 @@ pub fn create_provider(config: &crate::config::Config) -> Box<dyn LlmProvider> {
         ProviderKind::Ollama => Box::new(OllamaProvider::new(config.model.clone())),
     }
 }
+
+/// Create a provider from a resolved agent config.
+pub fn create_provider_for(
+    provider_type: &str,
+    api_key: &str,
+    base_url: &str,
+    model: &str,
+) -> Box<dyn LlmProvider> {
+    match ProviderKind::from_str(provider_type) {
+        ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
+            api_key.to_string(),
+            base_url.to_string(),
+            model.to_string(),
+        )),
+        ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
+            api_key.to_string(),
+            model.to_string(),
+        )),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(model.to_string())),
+    }
+}

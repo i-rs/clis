@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub const DEFAULT_TOOLS: &[&str] = &[
     "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
@@ -43,6 +43,10 @@ pub struct Config {
     /// Dashboard web server configuration.
     #[serde(default)]
     pub dashboard: DashboardConfig,
+    /// Named agent profiles. Empty = default agent only.
+    /// Each agent can override provider, model, tools, and system prompt.
+    #[serde(default)]
+    pub agents: HashMap<String, AgentConfig>,
     /// Custom color theme (loaded from theme.json, not serialized)
     #[serde(skip)]
     pub theme: crate::theme::Theme,
@@ -50,6 +54,114 @@ pub struct Config {
 
 fn default_true() -> bool {
     true
+}
+
+// ── Agent Configuration ──
+
+/// Configuration for a named agent profile.
+///
+/// All fields are optional — if not set, the agent inherits from
+/// the top-level Config fields (provider, api_key, base_url, model).
+///
+/// If `system_prompt` is set, it overrides the default system prompt.
+/// If `system_prompt_file` is set and `system_prompt` is not, the file
+/// is loaded at runtime.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentConfig {
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub enabled_tools: Option<HashSet<String>>,
+    /// Inline system prompt override (takes precedence over file).
+    #[serde(default)]
+    pub system_prompt: Option<String>,
+    /// Path to a system prompt file (relative to config dir or absolute).
+    #[serde(default)]
+    pub system_prompt_file: Option<String>,
+}
+
+/// Resolved configuration for a specific agent, with all fields flattened.
+/// Produced by `Config::agent_config()`.
+#[derive(Debug, Clone)]
+pub struct ResolvedAgentConfig {
+    pub agent_id: String,
+    pub provider: String,
+    pub api_key: String,
+    pub base_url: String,
+    pub model: String,
+    pub enabled_tools: HashSet<String>,
+    pub system_prompt: Option<String>,
+}
+
+impl ResolvedAgentConfig {
+    /// Is this the default agent?
+    pub fn is_default(&self) -> bool {
+        self.agent_id == "default"
+    }
+}
+
+impl Config {
+    /// Resolve config for a given agent ID by merging agent overrides
+    /// with the top-level defaults.
+    pub fn agent_config(&self, id: &str) -> ResolvedAgentConfig {
+        let agent = self.agents.get(id);
+
+        let system_prompt = agent
+            .and_then(|a| a.system_prompt.clone())
+            .or_else(|| {
+                agent
+                    .and_then(|a| a.system_prompt_file.as_ref())
+                    .and_then(|path| {
+                        let p = if path.starts_with('/') {
+                            std::path::PathBuf::from(path)
+                        } else {
+                            // Relative to config directory
+                            Self::config_path()
+                                .ok()
+                                .and_then(|cp| cp.parent().map(|parent| parent.join(path)))
+                                .unwrap_or_else(|| std::path::PathBuf::from(path))
+                        };
+                        std::fs::read_to_string(&p).ok()
+                    })
+            });
+
+        ResolvedAgentConfig {
+            agent_id: id.to_string(),
+            provider: agent
+                .and_then(|a| a.provider.clone())
+                .unwrap_or_else(|| self.provider.clone()),
+            api_key: agent
+                .and_then(|a| a.api_key.clone())
+                .unwrap_or_else(|| self.api_key.clone()),
+            base_url: agent
+                .and_then(|a| a.base_url.clone())
+                .unwrap_or_else(|| self.base_url.clone()),
+            model: agent
+                .and_then(|a| a.model.clone())
+                .unwrap_or_else(|| self.model.clone()),
+            enabled_tools: agent
+                .and_then(|a| a.enabled_tools.clone())
+                .unwrap_or_else(|| self.enabled_tools.clone()),
+            system_prompt,
+        }
+    }
+
+    /// Get the list of available agent IDs (including "default").
+    pub fn agent_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.agents.keys().cloned().collect();
+        ids.sort();
+        // "default" is always available as the implicit fallback
+        if !ids.contains(&"default".to_string()) {
+            ids.insert(0, "default".to_string());
+        }
+        ids
+    }
 }
 
 // ── Gateway Configuration ──
@@ -120,6 +232,9 @@ pub struct PlatformConfig {
     /// Webhook URL (used by Slack).
     #[serde(default)]
     pub webhook_url: Option<String>,
+    /// Optional agent profile to use for this platform.
+    #[serde(default)]
+    pub agent_id: Option<String>,
     /// Additional configuration as key-value pairs.
     #[serde(default)]
     pub extra: Option<::std::collections::HashMap<String, String>>,
@@ -162,6 +277,7 @@ impl Config {
             allowed_dirs: Vec::new(),
             mcp_servers: Vec::new(),
             plugins_auto_discover: true,
+            agents: HashMap::new(),
             gateway: GatewayConfig::default(),
             dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),

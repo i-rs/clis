@@ -101,6 +101,8 @@ pub struct App {
     pub session_confirm_delete: bool,
     /// Transient feedback text (e.g. "已复制"), cleared on next user interaction
     pub copy_feedback: Option<String>,
+    /// Current agent profile ID
+    pub current_agent: String,
 }
 
 impl App {
@@ -144,6 +146,7 @@ impl App {
             session_rename_buf: String::new(),
             session_confirm_delete: false,
             copy_feedback: None,
+            current_agent: "default".to_string(),
         }
     }
 

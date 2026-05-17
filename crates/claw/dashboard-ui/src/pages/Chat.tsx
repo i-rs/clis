@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Plus, List, Loader, Brain, Terminal, ChevronDown, ChevronRight } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, type ChatMessage, type ToolCallMsg } from '../api'
+import { Send, Plus, List, Loader, Brain, Terminal, ChevronDown, ChevronRight, Bot } from 'lucide-react'
+import { sendMessage, streamChat, getCurrentSession, createSession, listAgents, type ChatMessage, type ToolCallMsg, type AgentInfo } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -14,6 +14,9 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
   const [loading, setLoading] = useState(false)
   const [sessionTitle, setSessionTitle] = useState('')
   const [hasSession, setHasSession] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState('default')
+  const [agents, setAgents] = useState<AgentInfo[]>([])
+  const [sessionAgent, setSessionAgent] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -34,13 +37,25 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
     scrollToBottom()
   }, [messages, loading, scrollToBottom])
 
-  // Load current session on mount
+  // Load current session and agents on mount
   useEffect(() => {
     const load = async () => {
+      // Fetch agents
+      const agentsResp = await listAgents()
+      if (agentsResp.success && agentsResp.data) {
+        setAgents(agentsResp.data)
+      }
+
+      // Load current session
       const resp = await getCurrentSession()
       if (resp.success && resp.data && resp.data.id) {
         setHasSession(true)
         setSessionTitle(resp.data.title || 'Untitled')
+        const sessionAgent = resp.data.agent_id || null
+        if (sessionAgent) {
+          setSessionAgent(sessionAgent)
+          setSelectedAgent(sessionAgent)
+        }
         // Convert API messages to ChatMessage[], merging tool_call into assistant
         const raw = resp.data.messages || []
         const msgs: ChatMessage[] = []
@@ -73,6 +88,7 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
         if (createResp.success && createResp.data) {
           setHasSession(true)
           setSessionTitle('New Chat')
+          setSessionAgent(createResp.data.agent_id || null)
           setMessages([])
         }
       }
@@ -88,10 +104,12 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
     setLoading(false)
     streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
     setSessionTitle('New Chat')
+    setSessionAgent(null)
     try {
-      const resp = await createSession()
+      const resp = await createSession(selectedAgent !== 'default' ? selectedAgent : undefined)
       if (resp.success && resp.data) {
         setHasSession(true)
+        setSessionAgent(resp.data.agent_id || selectedAgent)
         onSessionChange?.()
       }
     } catch { /* ignore */ }
@@ -121,7 +139,7 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
     forceUpdate((n) => n + 1)
 
     try {
-      const resp = await sendMessage(text)
+      const resp = await sendMessage(text, selectedAgent !== 'default' ? selectedAgent : undefined)
       if (!resp.success || !resp.data) {
         setMessages((prev) => [...prev, { role: 'error', content: resp.error || 'Failed to send message' }])
         setLoading(false)
@@ -203,6 +221,23 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2>{sessionTitle}</h2>
+            {(sessionAgent || selectedAgent) && (
+              <span className="agent-badge" title={`Agent: ${sessionAgent || selectedAgent}`}>
+                <Bot size={12} />
+                {sessionAgent || selectedAgent}
+              </span>
+            )}
+            {agents.length > 1 && !sessionAgent && (
+              <select
+                className="agent-selector"
+                value={selectedAgent}
+                onChange={(e) => setSelectedAgent(e.target.value)}
+              >
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>{a.id}</option>
+                ))}
+              </select>
+            )}
             {hasSession && (
               <button
                 className="btn-ghost"

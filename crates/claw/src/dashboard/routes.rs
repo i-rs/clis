@@ -70,6 +70,12 @@ pub async fn send_message(
         None => return ApiResponse::err("Missing 'message' field"),
     };
 
+    let agent_id = body
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default")
+        .to_string();
+
     let mut core = state.core.lock().unwrap();
 
     // Create or get a session
@@ -80,7 +86,7 @@ pub async fn send_message(
         .unwrap_or_default();
 
     if session_id.is_empty() {
-        core.session_mgr.create_session();
+        core.session_mgr.create_session_for(&agent_id);
     }
 
     let sid = core
@@ -101,22 +107,24 @@ pub async fn send_message(
     }))
 }
 
-/// Build API-compatible messages from JSONL session records.
-fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str) -> Vec<Value> {
+/// Build API-compatible messages from JSONL session records, using the
+/// system prompt and tool index for the given agent.
+fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent_id: &str) -> Vec<Value> {
     let records = core.session_mgr.load_messages(session_id, 50);
+    let resolved = core.config.agent_config(agent_id);
 
-    let mut msgs = vec![serde_json::json!({
-        "role": "system",
-        "content": crate::core::engine::build_system_prompt(
-            &crate::tools::format_index(
-                if core.config.enabled_tools.is_empty() { None } else { Some(&core.config.enabled_tools) }
-            ),
+    let system_prompt = resolved.system_prompt.unwrap_or_else(|| {
+        let enabled = if resolved.enabled_tools.is_empty() { None } else { Some(&resolved.enabled_tools) };
+        crate::core::engine::build_system_prompt(
+            &crate::tools::format_index(enabled),
             &core.cross_memory.format_hot_tools(&core.tool_cache),
             &core.skill_store.format_skills(),
             &core.cross_memory.format_user_memory(),
             &core.cross_memory.format_user_profile(),
         )
-    })];
+    });
+
+    let mut msgs = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
 
     for record in &records {
         let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
@@ -170,17 +178,17 @@ async fn dashboard_chat_loop(
     tx: mpsc::UnboundedSender<LlmEvent>,
     state: AppState,
     session_id: String,
+    enabled_tools: Option<std::collections::HashSet<String>>,
 ) {
     use crate::core::engine::execute_tool_call;
     use crate::utils::smart_truncate;
 
     // Build tool schemas (same as chat_stream did before spawning)
     let tool_schemas = {
-        let core = state.core.lock().unwrap();
-        let enabled = if core.config.enabled_tools.is_empty() {
+        let enabled = if enabled_tools.as_ref().map_or(true, |t| t.is_empty()) {
             None
         } else {
-            Some(&core.config.enabled_tools)
+            enabled_tools.as_ref()
         };
         let mut schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
         // Append MCP tool schemas if available
@@ -383,14 +391,28 @@ pub async fn chat_stream(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> impl IntoResponse {
-    let (msgs, provider, sid) = {
+    let (msgs, provider, sid, enabled_tools) = {
         let mut core = state.core.lock().unwrap();
         core.session_mgr.switch_to(&session_id);
 
-        let msgs = build_dashboard_messages(&core, &session_id);
-        let provider = crate::provider::create_provider(&core.config);
+        // Read agent_id from session meta, defaulting to "default"
+        let agent_id = core
+            .session_mgr
+            .session_meta(&session_id)
+            .map(|m| m.agent_id.clone())
+            .unwrap_or_else(|| "default".to_string());
 
-        (msgs, provider, session_id.clone())
+        let msgs = build_dashboard_messages(&core, &session_id, &agent_id);
+        let resolved = core.config.agent_config(&agent_id);
+        let provider = crate::provider::create_provider_for(
+            &resolved.provider,
+            &resolved.api_key,
+            &resolved.base_url,
+            &resolved.model,
+        );
+        let enabled_tools = Some(resolved.enabled_tools.clone());
+
+        (msgs, provider, session_id.clone(), enabled_tools)
     };
 
     let (tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
@@ -399,7 +421,7 @@ pub async fn chat_stream(
     let loop_sid = sid.clone();
 
     tokio::spawn(async move {
-        dashboard_chat_loop(provider, msgs, tx, loop_state, loop_sid).await;
+        dashboard_chat_loop(provider, msgs, tx, loop_state, loop_sid, enabled_tools).await;
     });
 
     let stream = futures_util::stream::unfold(Some(rx), |rx_opt| async move {
@@ -491,6 +513,7 @@ pub async fn get_current_session(
                 "title": meta.as_ref().map(|m| &m.title),
                 "message_count": meta.as_ref().map(|m| m.message_count).unwrap_or(0),
                 "messages": msgs,
+                "agent_id": meta.as_ref().map(|m| &m.agent_id),
             }))
         }
         None => ApiResponse::ok(serde_json::json!({
@@ -505,13 +528,21 @@ pub async fn get_current_session(
 /// Create a new session and switch to it.
 pub async fn create_session(
     State(state): State<AppState>,
+    body: Option<Json<Value>>,
 ) -> Json<ApiResponse<Value>> {
+    let agent_id = body
+        .as_ref()
+        .and_then(|b| b.get("agent_id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
+
     let mut core = state.core.lock().unwrap();
-    let id = core.session_mgr.create_session();
+    let id = core.session_mgr.create_session_for(agent_id);
     ApiResponse::ok(serde_json::json!({
         "id": id,
         "title": "",
         "message_count": 0,
+        "agent_id": agent_id,
     }))
 }
 
@@ -527,6 +558,7 @@ pub async fn switch_session(
             "id": id,
             "title": meta.as_ref().map(|m| &m.title),
             "message_count": meta.as_ref().map(|m| m.message_count).unwrap_or(0),
+            "agent_id": meta.as_ref().map(|m| &m.agent_id),
         }))
     } else {
         ApiResponse::err("Session not found")
@@ -548,6 +580,7 @@ pub async fn list_sessions(
                 "title": s.title,
                 "message_count": s.message_count,
                 "created_at": s.created_at,
+                "agent_id": s.agent_id,
             })
         })
         .collect();
@@ -583,6 +616,7 @@ pub async fn get_session(
         "id": id,
         "messages": msgs,
         "title": meta.as_ref().map(|m| &m.title),
+        "agent_id": meta.as_ref().map(|m| &m.agent_id),
     }))
 }
 
@@ -595,6 +629,27 @@ pub async fn delete_session(
     core.session_mgr.delete_session(&id);
     drop(core);
     ApiResponse::ok("deleted")
+}
+
+/// List available agent profiles.
+pub async fn get_agents(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Vec<Value>>> {
+    let core = state.core.lock().unwrap();
+    let agent_ids = core.config.agent_ids();
+    let agents: Vec<Value> = agent_ids
+        .iter()
+        .map(|id| {
+            let resolved = core.config.agent_config(id);
+            serde_json::json!({
+                "id": id,
+                "provider": resolved.provider,
+                "model": resolved.model,
+                "tool_count": resolved.enabled_tools.len(),
+            })
+        })
+        .collect();
+    ApiResponse::ok(agents)
 }
 
 /// List available tools.

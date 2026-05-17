@@ -5,6 +5,7 @@ export interface SessionMeta {
   title: string
   message_count: number
   created_at: number
+  agent_id: string
 }
 
 export interface ToolSchema {
@@ -51,12 +52,20 @@ export async function getConfig(): Promise<ApiResponse<Record<string, unknown>>>
   return res.json()
 }
 
+export interface AgentInfo {
+  id: string
+  provider: string
+  model: string
+  tool_count: number
+}
+
 // ── Sessions ──
 
 export interface CurrentSession {
   id: string | null
   title: string | null
   message_count: number
+  agent_id?: string | null
   messages: { role: string; content?: string; name?: string; args?: string; result?: string }[]
 }
 
@@ -70,8 +79,13 @@ export async function listSessions(): Promise<ApiResponse<SessionMeta[]>> {
   return res.json()
 }
 
-export async function createSession(): Promise<ApiResponse<{ id: string; title: string; message_count: number }>> {
-  const res = await fetch(`${BASE}/sessions`, { method: 'POST' })
+export async function createSession(agentId?: string): Promise<ApiResponse<{ id: string; title: string; message_count: number; agent_id: string }>> {
+  const body = agentId ? { agent_id: agentId } : {}
+  const res = await fetch(`${BASE}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   return res.json()
 }
 
@@ -80,7 +94,7 @@ export async function switchSession(id: string): Promise<ApiResponse<{ id: strin
   return res.json()
 }
 
-export async function getSession(id: string): Promise<ApiResponse<{ id: string; title: string; messages: { role: string; content: string }[] }>> {
+export async function getSession(id: string): Promise<ApiResponse<{ id: string; title: string; messages: { role: string; content: string }[]; agent_id?: string }>> {
   const res = await fetch(`${BASE}/sessions/${encodeURIComponent(id)}`)
   return res.json()
 }
@@ -113,12 +127,23 @@ export async function listSkills(): Promise<ApiResponse<SkillInfo[]>> {
 
 // ── Chat ──
 
-export async function sendMessage(message: string): Promise<ApiResponse<{ session_id: string; status: string }>> {
+export async function sendMessage(message: string, agentId?: string): Promise<ApiResponse<{ session_id: string; status: string }>> {
+  const body: Record<string, unknown> = { message }
+  if (agentId) {
+    body.agent_id = agentId
+  }
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body),
   })
+  return res.json()
+}
+
+// ── Agents ──
+
+export async function listAgents(): Promise<ApiResponse<AgentInfo[]>> {
+  const res = await fetch(`${BASE}/agents`)
   return res.json()
 }
 

@@ -61,7 +61,8 @@ impl Dashboard {
             )
             .route("/api/tools", axum::routing::get(routes::list_tools))
             .route("/api/plugins", axum::routing::get(routes::list_plugins))
-            .route("/api/skills", axum::routing::get(routes::list_skills));
+            .route("/api/skills", axum::routing::get(routes::list_skills))
+            .route("/api/agents", axum::routing::get(routes::get_agents));
 
         // Static frontend routes (SPA)
         let static_routes = Router::new()
