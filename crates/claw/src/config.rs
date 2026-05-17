@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+use crate::mcp::McpServerConfig;
+
 pub const DEFAULT_TOOLS: &[&str] = &[
     "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
 ];
@@ -84,6 +86,14 @@ pub struct AgentConfig {
     /// Path to a system prompt file (relative to config dir or absolute).
     #[serde(default)]
     pub system_prompt_file: Option<String>,
+    /// MCP server connections for this agent.
+    /// If None, inherits from global mcp_servers.
+    #[serde(default)]
+    pub mcp_servers: Option<Vec<McpServerConfig>>,
+    /// Allowed directories for file operations (workspace).
+    /// If None, inherits from global allowed_dirs.
+    #[serde(default)]
+    pub allowed_dirs: Option<Vec<String>>,
 }
 
 /// Resolved configuration for a specific agent, with all fields flattened.
@@ -97,6 +107,8 @@ pub struct ResolvedAgentConfig {
     pub model: String,
     pub enabled_tools: HashSet<String>,
     pub system_prompt: Option<String>,
+    pub mcp_servers: Vec<McpServerConfig>,
+    pub allowed_dirs: Vec<String>,
 }
 
 impl ResolvedAgentConfig {
@@ -149,6 +161,12 @@ impl Config {
                 .and_then(|a| a.enabled_tools.clone())
                 .unwrap_or_else(|| self.enabled_tools.clone()),
             system_prompt,
+            mcp_servers: agent
+                .and_then(|a| a.mcp_servers.clone())
+                .unwrap_or_else(|| self.mcp_servers.clone()),
+            allowed_dirs: agent
+                .and_then(|a| a.allowed_dirs.clone())
+                .unwrap_or_else(|| self.allowed_dirs.clone()),
         }
     }
 
@@ -249,6 +267,9 @@ pub struct WeChatPlatformConfig {
     /// Whether the WeChat bot is enabled.
     #[serde(default)]
     pub enabled: bool,
+    /// Optional agent profile to use for this platform.
+    #[serde(default)]
+    pub agent_id: Option<String>,
 }
 
 fn default_provider() -> String {
@@ -338,6 +359,28 @@ impl Config {
         std::fs::write(&config_path, content)?;
         println!("✓ 配置已保存: {}", config_path.display());
         Ok(())
+    }
+
+    /// Add a named agent profile to config.
+    /// Returns an error if the agent already exists.
+    pub fn add_agent(&mut self, id: &str, agent: AgentConfig) -> anyhow::Result<()> {
+        if id.is_empty() {
+            anyhow::bail!("Agent ID cannot be empty");
+        }
+        if self.agents.contains_key(id) {
+            anyhow::bail!("Agent '{}' already exists", id);
+        }
+        self.agents.insert(id.to_string(), agent);
+        Ok(())
+    }
+
+    /// Remove a named agent profile from config.
+    /// "default" agent cannot be removed.
+    pub fn remove_agent(&mut self, id: &str) -> anyhow::Result<AgentConfig> {
+        if id == "default" {
+            anyhow::bail!("Cannot remove the default agent");
+        }
+        self.agents.remove(id).ok_or_else(|| anyhow::anyhow!("Agent '{}' not found", id))
     }
 
     #[allow(dead_code)]

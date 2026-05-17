@@ -6,7 +6,7 @@ use std::path::PathBuf;
 ///
 /// Persisted to disk as a JSON file and updated after each conversation turn.
 /// Feeds into the multi-layer system prompt (Layer 3: hot tools, Layer 4: user memory).
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossSessionMemory {
     /// Tool name → usage count across all sessions
     tool_frequency: HashMap<String, usize>,
@@ -27,8 +27,23 @@ pub struct CrossSessionMemory {
 }
 
 impl CrossSessionMemory {
+    /// Create memory for a specific agent.
+    /// "default" agent reads from legacy `memory.json`; others from
+    /// `claw_dir/agents/{agent_id}/memory.json`.
+    pub fn for_agent(claw_dir: &PathBuf, agent_id: &str) -> Self {
+        let path = if agent_id == "default" {
+            claw_dir.join("memory.json")
+        } else {
+            claw_dir.join("agents").join(agent_id).join("memory.json")
+        };
+        Self::new_with_path(path)
+    }
+
     pub fn new(claw_dir: PathBuf) -> Self {
-        let path = claw_dir.join("memory.json");
+        Self::for_agent(&claw_dir, "default")
+    }
+
+    fn new_with_path(path: PathBuf) -> Self {
         let mut mem = if path.exists() {
             Self::load(&path)
         } else {

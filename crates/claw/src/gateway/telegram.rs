@@ -41,6 +41,7 @@ impl PlatformAdapter for TelegramAdapter {
         let client = self.client.clone();
         let token = self.config.bot_token.clone();
         let name = self.name().to_string();
+        let agent_id = self.config.agent_id.clone();
 
         tokio::spawn(async move {
             let mut offset: i64 = 0;
@@ -69,7 +70,7 @@ impl PlatformAdapter for TelegramAdapter {
                                                 chat_id,
                                                 user_id,
                                                 text,
-                                                agent_id: self.config.agent_id.clone(),
+                                                agent_id: agent_id.clone(),
                                             });
                                         }
                                     }

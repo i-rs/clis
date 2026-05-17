@@ -173,7 +173,7 @@ impl GatewayServer {
         let agent_id_owned = agent_id.to_string();
 
         // Build messages with session context (lock held briefly)
-        let (session_id, msgs, config) = {
+        let (session_id, msgs, config, mcp) = {
             let mut core = core.lock().unwrap();
             let session_id = format!("gateway:{}:{}", platform, chat_id);
 
@@ -200,8 +200,9 @@ impl GatewayServer {
             let resolved = core.config.agent_config(&agent_id_owned);
             let mut agent_config = core.config.clone();
             agent_config.enabled_tools = resolved.enabled_tools;
+            let mcp = core.agent_store.mcp_registry_for(&agent_id_owned).clone();
 
-            (session_id, msgs, agent_config)
+            (session_id, msgs, agent_config, mcp)
         };
 
         // Spawn the multi-round chat loop (no lock held during streaming)
@@ -213,7 +214,7 @@ impl GatewayServer {
             &config.model,
         );
         tokio::spawn(async move {
-            crate::core::engine::chat_loop(provider, config, msgs, tx).await;
+            crate::core::engine::chat_loop(provider, config, msgs, tx, mcp).await;
         });
 
         // Accumulate the response

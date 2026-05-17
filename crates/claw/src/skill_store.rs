@@ -12,11 +12,24 @@ pub struct SkillEntry {
 /// Skills are `.md` files that inject custom behavior instructions into the
 /// system prompt. Each file name (without `.md`) becomes the skill name,
 /// and its content is the skill definition that guides the LLM.
+#[derive(Debug, Clone)]
 pub struct SkillStore {
     skills_dir: PathBuf,
 }
 
 impl SkillStore {
+    /// Create skill store for a specific agent.
+    /// "default" reads from legacy `claw_dir/skills`; others from
+    /// `claw_dir/agents/{agent_id}/skills`.
+    pub fn for_agent(claw_dir: &PathBuf, agent_id: &str) -> Self {
+        let skills_dir = if agent_id == "default" {
+            claw_dir.join("skills")
+        } else {
+            claw_dir.join("agents").join(agent_id).join("skills")
+        };
+        Self { skills_dir }
+    }
+
     pub fn new(claw_dir: PathBuf) -> Self {
         Self {
             skills_dir: claw_dir.join("skills"),

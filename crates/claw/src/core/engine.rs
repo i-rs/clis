@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::llm::{LlmEvent, StreamResult, ToolCallAcc};
+use crate::mcp::McpRegistry;
 use crate::provider::LlmProvider;
 use crate::utils;
 use serde_json::Value;
@@ -8,9 +9,13 @@ use std::sync::OnceLock;
 use tokio::sync::mpsc;
 
 /// Global MCP registry (initialized at startup from config).
+/// Kept for backward compatibility — new code should pass McpRegistry via chat_loop parameter.
+#[allow(dead_code)]
 pub(crate) static MCP_REGISTRY: OnceLock<crate::mcp::McpRegistry> = OnceLock::new();
 
 /// Initialize the global MCP registry.
+/// Kept for backward compatibility.
+#[allow(dead_code)]
 pub fn init_mcp(servers: &[crate::mcp::McpServerConfig]) {
     let registry = crate::mcp::McpRegistry::new(servers);
     let _ = MCP_REGISTRY.set(registry);
@@ -166,6 +171,7 @@ pub fn build_messages(
 pub(crate) fn execute_tool_call(
     name: &str,
     args: &Value,
+    mcp: Option<&McpRegistry>,
 ) -> String {
     // Try built-in tools first
     let registry = crate::tools::ToolRegistry::new();
@@ -174,8 +180,8 @@ pub(crate) fn execute_tool_call(
         return registry.execute(name, args).unwrap_or_else(|e| e);
     }
 
-    // Try MCP-discovered tools
-    if let Some(mcp) = MCP_REGISTRY.get() {
+    // Try MCP-discovered tools (from the registry parameter)
+    if let Some(mcp) = mcp {
         for (client_idx, tool_def) in &mcp.tools {
             if tool_def.name == name {
                 if let Some(client) = mcp.clients.get(*client_idx) {
@@ -359,6 +365,7 @@ pub async fn chat_loop(
     config: Config,
     messages: Vec<Value>,
     tx: mpsc::UnboundedSender<LlmEvent>,
+    mcp: McpRegistry,
 ) {
     let enabled = if config.enabled_tools.is_empty() {
         None
@@ -367,12 +374,10 @@ pub async fn chat_loop(
     };
     let mut tool_schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
     // Append MCP tool schemas if available
-    if let Some(mcp) = MCP_REGISTRY.get() {
-        for (client_idx, tool_def) in &mcp.tools {
-            if let Some(_client) = mcp.clients.get(*client_idx) {
-                let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
-                tool_schemas.push(schema);
-            }
+    for (client_idx, tool_def) in &mcp.tools {
+        if let Some(_client) = mcp.clients.get(*client_idx) {
+            let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
+            tool_schemas.push(schema);
         }
     }
     let mut msgs = messages;
@@ -437,9 +442,10 @@ pub async fn chat_loop(
                     let tc_name = tc.name.clone();
                     let args_str = serde_json::to_string(&args).unwrap_or_default();
                     let args_for_blocking = args.clone();
+                    let mcp_for_exec = mcp.clone();
                     handles.push(tokio::spawn(async move {
                         let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking)
+                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec))
                         })
                         .await
                         .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));

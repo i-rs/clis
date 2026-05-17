@@ -43,7 +43,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     }
 
     // Analyze cross-session tool usage from all sessions
-    app_core.cross_memory.analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
+    let agent_id = app.current_agent.clone();
+    app_core.agent_store.memory_for_mut(&agent_id).analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
 
     // Load messages from current session
     let session_id = app_core.session_mgr.current_id().unwrap().to_string();
@@ -65,13 +66,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         }
     }
 
-    // Initialize MCP connections from config
-    if !app_core.config.mcp_servers.is_empty() {
-        core::engine::init_mcp(&app_core.config.mcp_servers);
-    }
-
     if app.messages.is_empty() {
-        let onboarding = !app_core.cross_memory.has_user_profile();
+        let onboarding = !app_core.agent_store.memory_for(&app.current_agent).has_user_profile();
         if onboarding {
             app.messages.push(app::Message::Assistant {
                 text: concat!(
@@ -204,7 +200,7 @@ fn main_loop(
                                 .and_then(|v| v.as_str())
                                 .filter(|s| !s.is_empty())
                             {
-                                app_core.cross_memory.set_user_name(user_name);
+                                app_core.agent_store.memory_for_mut(&app.current_agent).set_user_name(user_name);
                             }
                             if let Some(info) =
                                 parsed.get("user_info").and_then(|v| v.as_array())
@@ -213,7 +209,7 @@ fn main_loop(
                                     if let Some(s) =
                                         item.as_str().filter(|s| !s.is_empty())
                                     {
-                                        app_core.cross_memory.add_user_info(s);
+                                        app_core.agent_store.memory_for_mut(&app.current_agent).add_user_info(s);
                                     }
                                 }
                             }
@@ -225,7 +221,7 @@ fn main_loop(
                                     if let Some(s) =
                                         item.as_str().filter(|s| !s.is_empty())
                                     {
-                                        app_core.cross_memory.add_preference(s);
+                                        app_core.agent_store.memory_for_mut(&app.current_agent).add_preference(s);
                                     }
                                 }
                             }
@@ -233,6 +229,7 @@ fn main_loop(
                     }
 
                     // Record tool usage for cross-session memory
+                    let agent_id = app.current_agent.clone();
                     if name == "i_rs" {
                         if let Ok(parsed) =
                             serde_json::from_str::<serde_json::Value>(&args)
@@ -240,11 +237,11 @@ fn main_loop(
                             if let Some(tool) =
                                 parsed.get("tool").and_then(|t| t.as_str())
                             {
-                                app_core.cross_memory.record_tool_use(tool);
+                                app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(tool);
                             }
                         }
                     } else {
-                        app_core.cross_memory.record_tool_use(&name);
+                        app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(&name);
                     }
                 }
                 LlmEvent::Error(text) => {
@@ -272,7 +269,7 @@ fn main_loop(
                 }
                 LlmEvent::Done(mut msgs, usage) => {
                     // Compress API messages to protect teach docs + fit context
-                    app_core.compress_api_messages(&mut msgs);
+                    app_core.compress_api_messages(&mut msgs, &app.current_agent);
 
                     app.finish_processing(Some(msgs.clone()));
                     app.token_usage = usage;

@@ -6,6 +6,7 @@ use std::path::PathBuf;
 /// Layer 2 is built from static TOOL_INDEX data (tool name + description).
 /// Layer 3 is fetched at session start via `i-rs <tool> skill teach` for
 /// frequently used tools, then cached to disk for reuse.
+#[derive(Debug, Clone)]
 pub struct ToolDocCache {
     /// Cached `skill teach` output keyed by tool name
     pub hot_docs: HashMap<String, String>,
@@ -16,6 +17,18 @@ pub struct ToolDocCache {
 
 #[allow(dead_code)]
 impl ToolDocCache {
+    /// Create tool cache for a specific agent.
+    /// "default" uses legacy global cache dir; others use
+    /// `claw_dir/agents/{agent_id}/`.
+    pub fn for_agent(cache_dir: &PathBuf, agent_id: &str) -> Self {
+        let dir = if agent_id == "default" {
+            cache_dir.clone()
+        } else {
+            cache_dir.join("agents").join(agent_id)
+        };
+        Self::new(dir)
+    }
+
     pub fn new(cache_dir: PathBuf) -> Self {
         let hot_docs = Self::load_hot_docs(&cache_dir);
 

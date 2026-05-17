@@ -365,6 +365,7 @@ impl McpClient {
 // ── MCP Registry ──
 
 /// Registry managing all MCP server connections.
+#[derive(Clone)]
 pub struct McpRegistry {
     /// All connected MCP clients.
     pub clients: Vec<McpClient>,
@@ -373,6 +374,20 @@ pub struct McpRegistry {
 }
 
 impl McpRegistry {
+    /// Initialize MCP connections for a specific agent.
+    /// Uses agent-specific servers if configured, otherwise falls back to global ones.
+    pub fn for_agent(
+        agent_config: &crate::config::ResolvedAgentConfig,
+        global_servers: &[McpServerConfig],
+    ) -> Self {
+        let servers: &[McpServerConfig] = if agent_config.mcp_servers.is_empty() {
+            global_servers
+        } else {
+            &agent_config.mcp_servers
+        };
+        Self::new(servers)
+    }
+
     /// Initialize MCP connections from config.
     /// Failed connections are logged but don't block startup.
     #[allow(dead_code)]

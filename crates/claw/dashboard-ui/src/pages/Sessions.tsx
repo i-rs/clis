@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Plus, Play, Trash2, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Plus, Play, Trash2, MessageSquare, Bot } from 'lucide-react'
 import { listSessions, getSession, deleteSession, createSession, switchSession, type SessionMeta } from '../api'
 
 interface Props {
+  selectedAgent: string
   onNavigate?: (page: 'chat') => void
   onSessionChange?: () => void
 }
 
-export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
+export default function SessionsPage({ selectedAgent, onNavigate, onSessionChange }: Props) {
   const [sessions, setSessions] = useState<SessionMeta[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedSession, setSelectedSession] = useState<{ id: string; title: string; messages: { role: string; content: string }[] } | null>(null)
+  const [selectedSession, setSelectedSession] = useState<{ id: string; title: string; messages: { role: string; content: string }[]; agent_id?: string } | null>(null)
 
   const loadSessions = async () => {
     setLoading(true)
@@ -66,7 +67,7 @@ export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
 
   const handleNewSession = async () => {
     try {
-      const resp = await createSession()
+      const resp = await createSession(selectedAgent !== 'default' ? selectedAgent : undefined)
       if (resp.success && resp.data) {
         onSessionChange?.()
         onNavigate?.('chat')
@@ -113,9 +114,15 @@ export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
 
   return (
     <>
-      <div className="page-header">
+          <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2>Sessions ({sessions.length})</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2>Sessions ({sessions.length})</h2>
+            <span className="agent-badge">
+              <Bot size={11} />
+              {selectedAgent}
+            </span>
+          </div>
           <button className="send-btn btn-sm" onClick={handleNewSession}>
             <Plus size={14} />
             New Session

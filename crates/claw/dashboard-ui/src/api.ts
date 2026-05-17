@@ -56,7 +56,10 @@ export interface AgentInfo {
   id: string
   provider: string
   model: string
+  base_url: string
   tool_count: number
+  enabled_tools: string[]
+  system_prompt: string | null
 }
 
 // ── Sessions ──
@@ -144,6 +147,36 @@ export async function sendMessage(message: string, agentId?: string): Promise<Ap
 
 export async function listAgents(): Promise<ApiResponse<AgentInfo[]>> {
   const res = await fetch(`${BASE}/agents`)
+  return res.json()
+}
+
+export async function createAgent(body: Record<string, unknown>): Promise<ApiResponse<{ id: string; status: string }>> {
+  const res = await fetch(`${BASE}/agents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+export async function deleteAgent(id: string): Promise<ApiResponse<{ id: string; status: string }>> {
+  const res = await fetch(`${BASE}/agents/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  return res.json()
+}
+
+export async function getAgentConfig(id: string): Promise<ApiResponse<AgentInfo>> {
+  const res = await fetch(`${BASE}/agents/${encodeURIComponent(id)}`)
+  return res.json()
+}
+
+export async function updateAgent(id: string, body: Record<string, unknown>): Promise<ApiResponse<{ id: string; status: string }>> {
+  const res = await fetch(`${BASE}/agents/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   return res.json()
 }
 

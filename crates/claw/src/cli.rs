@@ -466,11 +466,6 @@ pub fn run_gateway() -> anyhow::Result<()> {
         crate::core::AppCore::new(config.clone()),
     ));
 
-    // Initialize MCP if configured
-    if !config.mcp_servers.is_empty() {
-        crate::core::engine::init_mcp(&config.mcp_servers);
-    }
-
     #[allow(unused_mut)]
     let mut server = crate::gateway::GatewayServer::new();
 
@@ -538,11 +533,6 @@ pub fn run_dashboard() -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
 
     let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone()));
-
-    // Initialize MCP if configured
-    if !core.config.mcp_servers.is_empty() {
-        crate::core::engine::init_mcp(&core.config.mcp_servers);
-    }
 
     // Discover plugins and merge into MCP config
     if core.config.plugins_auto_discover {

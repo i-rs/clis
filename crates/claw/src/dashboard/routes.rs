@@ -1,5 +1,6 @@
 use crate::dashboard::AppState;
 use crate::llm::{LlmEvent, StreamResult};
+use crate::mcp::McpRegistry;
 use axum::{
     extract::{Path, State},
     response::sse::{Event, Sse},
@@ -115,12 +116,15 @@ fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent
 
     let system_prompt = resolved.system_prompt.unwrap_or_else(|| {
         let enabled = if resolved.enabled_tools.is_empty() { None } else { Some(&resolved.enabled_tools) };
+        let memory = core.agent_store.memory_for(agent_id);
+        let tool_cache = core.agent_store.tool_cache_for(agent_id);
+        let skill_store = core.agent_store.skill_store_for(agent_id);
         crate::core::engine::build_system_prompt(
             &crate::tools::format_index(enabled),
-            &core.cross_memory.format_hot_tools(&core.tool_cache),
-            &core.skill_store.format_skills(),
-            &core.cross_memory.format_user_memory(),
-            &core.cross_memory.format_user_profile(),
+            &memory.format_hot_tools(tool_cache),
+            &skill_store.format_skills(),
+            &memory.format_user_memory(),
+            &memory.format_user_profile(),
         )
     });
 
@@ -179,6 +183,7 @@ async fn dashboard_chat_loop(
     state: AppState,
     session_id: String,
     enabled_tools: Option<std::collections::HashSet<String>>,
+    mcp: McpRegistry,
 ) {
     use crate::core::engine::execute_tool_call;
     use crate::utils::smart_truncate;
@@ -192,12 +197,10 @@ async fn dashboard_chat_loop(
         };
         let mut schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
         // Append MCP tool schemas if available
-        if let Some(mcp) = crate::core::engine::MCP_REGISTRY.get() {
-            for (client_idx, tool_def) in &mcp.tools {
-                if let Some(_client) = mcp.clients.get(*client_idx) {
-                    let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
-                    schemas.push(schema);
-                }
+        for (client_idx, tool_def) in &mcp.tools {
+            if let Some(_client) = mcp.clients.get(*client_idx) {
+                let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
+                schemas.push(schema);
             }
         }
         schemas
@@ -269,9 +272,10 @@ async fn dashboard_chat_loop(
                     let tc_name = tc.name.clone();
                     let args_str = serde_json::to_string(&args).unwrap_or_default();
                     let args_for_blocking = args.clone();
+                    let mcp_for_exec = mcp.clone();
                     handles.push(tokio::spawn(async move {
                         let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking)
+                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec))
                         })
                         .await
                         .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));
@@ -391,7 +395,7 @@ pub async fn chat_stream(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> impl IntoResponse {
-    let (msgs, provider, sid, enabled_tools) = {
+    let (msgs, provider, sid, enabled_tools, mcp) = {
         let mut core = state.core.lock().unwrap();
         core.session_mgr.switch_to(&session_id);
 
@@ -411,8 +415,9 @@ pub async fn chat_stream(
             &resolved.model,
         );
         let enabled_tools = Some(resolved.enabled_tools.clone());
+        let mcp = core.agent_store.mcp_registry_for(&agent_id).clone();
 
-        (msgs, provider, session_id.clone(), enabled_tools)
+        (msgs, provider, session_id.clone(), enabled_tools, mcp)
     };
 
     let (tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
@@ -421,7 +426,7 @@ pub async fn chat_stream(
     let loop_sid = sid.clone();
 
     tokio::spawn(async move {
-        dashboard_chat_loop(provider, msgs, tx, loop_state, loop_sid, enabled_tools).await;
+        dashboard_chat_loop(provider, msgs, tx, loop_state, loop_sid, enabled_tools, mcp).await;
     });
 
     let stream = futures_util::stream::unfold(Some(rx), |rx_opt| async move {
@@ -641,15 +646,179 @@ pub async fn get_agents(
         .iter()
         .map(|id| {
             let resolved = core.config.agent_config(id);
+            let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
             serde_json::json!({
                 "id": id,
                 "provider": resolved.provider,
                 "model": resolved.model,
+                "base_url": resolved.base_url,
                 "tool_count": resolved.enabled_tools.len(),
+                "enabled_tools": tools,
+                "system_prompt": resolved.system_prompt,
             })
         })
         .collect();
     ApiResponse::ok(agents)
+}
+
+/// Get detailed config for a single agent.
+pub async fn get_agent_detail(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.lock().unwrap();
+    let resolved = core.config.agent_config(&id);
+    let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
+    ApiResponse::ok(serde_json::json!({
+        "id": id,
+        "provider": resolved.provider,
+        "model": resolved.model,
+        "base_url": resolved.base_url,
+        "enabled_tools": tools,
+        "tool_count": resolved.enabled_tools.len(),
+        "system_prompt": resolved.system_prompt,
+        "mcp_servers": resolved.mcp_servers,
+        "allowed_dirs": resolved.allowed_dirs,
+    }))
+}
+
+/// Update an agent profile. Only provided fields are overridden.
+pub async fn update_agent(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> Json<ApiResponse<Value>> {
+    if id == "default" {
+        return ApiResponse::err("Cannot update the default agent");
+    }
+
+    let mut core = state.core.lock().unwrap();
+
+    // Get existing agent config
+    let existing = match core.config.agents.get(&id) {
+        Some(a) => a.clone(),
+        None => return ApiResponse::err(&format!("Agent '{}' not found", id)),
+    };
+
+    // Merge body with existing (only override provided fields)
+    let agent_config = crate::config::AgentConfig {
+        provider: body.get("provider").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.provider),
+        api_key: body.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.api_key),
+        base_url: body.get("base_url").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.base_url),
+        model: body.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.model),
+        enabled_tools: body.get("enabled_tools")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .or(existing.enabled_tools),
+        system_prompt: body.get("system_prompt").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.system_prompt),
+        system_prompt_file: existing.system_prompt_file,
+        mcp_servers: None, // inherit from existing via merge
+        allowed_dirs: None,
+    };
+
+    core.config.agents.insert(id.clone(), agent_config);
+
+    if let Err(e) = core.config.save() {
+        return ApiResponse::err(&format!("Failed to save config: {}", e));
+    }
+
+    ApiResponse::ok(serde_json::json!({
+        "id": id,
+        "status": "updated",
+    }))
+}
+
+/// Create a new agent profile.
+/// Body fields (all optional except `id`):
+/// - `id`: agent identifier (required, cannot be "default")
+/// - `provider`, `model`, `base_url`, `api_key`: provider overrides
+/// - `system_prompt`: custom system prompt
+/// - `enabled_tools`: list of tool names to enable (empty = all)
+pub async fn create_agent(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Json<ApiResponse<Value>> {
+    let agent_id = match body.get("id").and_then(|v| v.as_str()) {
+        Some(id) if !id.is_empty() && id != "default" => id.to_string(),
+        Some("default") => return ApiResponse::err("Cannot create agent with id 'default'"),
+        _ => return ApiResponse::err("Missing or invalid 'id' field"),
+    };
+
+    let mut core = state.core.lock().unwrap();
+
+    // Check if agent already exists
+    if core.config.agents.contains_key(&agent_id) {
+        return ApiResponse::err(&format!("Agent '{}' already exists", agent_id));
+    }
+
+    // Build agent config from request body (all optional)
+    let agent_config = crate::config::AgentConfig {
+        provider: body.get("provider").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        api_key: body.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        base_url: body.get("base_url").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        model: body.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        enabled_tools: body.get("enabled_tools")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
+        system_prompt: body.get("system_prompt").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        system_prompt_file: None,
+        mcp_servers: None,
+        allowed_dirs: None,
+    };
+
+    // Add to config
+    if let Err(e) = core.config.add_agent(&agent_id, agent_config) {
+        return ApiResponse::err(&e.to_string());
+    }
+
+    // Create agent data directories on disk
+    let claw_dir = core.claw_dir().clone();
+    let agent_dir = claw_dir.join("agents").join(&agent_id);
+    let _ = std::fs::create_dir_all(&agent_dir);
+
+    // Initialize runtime data in agent_store
+    let config = core.config.clone();
+    core.agent_store.add_agent(&config, &claw_dir, &agent_id);
+
+    // Persist config
+    if let Err(e) = core.config.save() {
+        return ApiResponse::err(&format!("Failed to save config: {}", e));
+    }
+
+    ApiResponse::ok(serde_json::json!({
+        "id": agent_id,
+        "status": "created",
+    }))
+}
+
+/// Delete an agent profile. Cannot delete "default".
+pub async fn delete_agent(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Json<ApiResponse<Value>> {
+    if id == "default" {
+        return ApiResponse::err("Cannot delete the default agent");
+    }
+
+    let mut core = state.core.lock().unwrap();
+
+    // Remove from config
+    if let Err(e) = core.config.remove_agent(&id) {
+        return ApiResponse::err(&e.to_string());
+    }
+
+    // Remove from runtime store
+    core.agent_store.remove_agent(&id);
+
+    // Persist config
+    if let Err(e) = core.config.save() {
+        return ApiResponse::err(&format!("Failed to save config: {}", e));
+    }
+
+    ApiResponse::ok(serde_json::json!({
+        "id": id,
+        "status": "deleted",
+    }))
 }
 
 /// List available tools.
@@ -692,6 +861,6 @@ pub async fn list_skills(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<crate::skill_store::SkillEntry>>> {
     let core = state.core.lock().unwrap();
-    let skills = core.skill_store.list_skills();
+    let skills = core.agent_store.skill_store_for("default").list_skills();
     ApiResponse::ok(skills)
 }
