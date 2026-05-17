@@ -570,6 +570,9 @@ pub async fn get_session(
             crate::app::Message::Assistant { text } => {
                 serde_json::json!({"role": "assistant", "content": text})
             }
+            crate::app::Message::ToolCall { name, args, result, .. } => {
+                serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
+            }
             _ => serde_json::json!({"role": "unknown"}),
         })
         .collect();

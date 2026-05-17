@@ -41,13 +41,27 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
       if (resp.success && resp.data && resp.data.id) {
         setHasSession(true)
         setSessionTitle(resp.data.title || 'Untitled')
-        // Convert API messages to ChatMessage[]
-        const msgs: ChatMessage[] = (resp.data.messages || [])
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content || '',
-          }))
+        // Convert API messages to ChatMessage[], merging tool_call into assistant
+        const raw = resp.data.messages || []
+        const msgs: ChatMessage[] = []
+        for (const m of raw) {
+          if (m.role === 'user') {
+            msgs.push({ role: 'user', content: m.content || '' })
+          } else if (m.role === 'assistant') {
+            msgs.push({ role: 'assistant', content: m.content || '' })
+          } else if (m.role === 'tool_call' && msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant') {
+            // Attach tool_call to the preceding assistant message
+            const last = msgs[msgs.length - 1]
+            last.toolCalls = last.toolCalls || []
+            last.toolCalls.push({
+              name: m.name || '',
+              args: m.args || '',
+              result: m.result || '',
+              step: 0,
+              total_steps: 1,
+            })
+          }
+        }
         setMessages(msgs)
       } else {
         // No session exists, create one

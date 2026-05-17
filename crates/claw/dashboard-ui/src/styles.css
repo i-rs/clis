@@ -822,6 +822,45 @@ pre, .code-block {
   line-height: 1.6;
 }
 
+/* ── Markdown Tables ── */
+
+.table-wrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.md-table th,
+.md-table td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.md-table th {
+  background: var(--bg-hover);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.md-table td {
+  color: var(--text-primary);
+}
+
+.md-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.md-table tr:hover td {
+  background: var(--bg-hover);
+}
+
 /* ── Tool Call Cards ── */
 
 .tool-calls-details {
