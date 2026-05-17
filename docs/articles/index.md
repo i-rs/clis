@@ -20,6 +20,14 @@
 
 > 从健康到财务，从宠物到学习——你的生活数据，值得一个统一的命令行入口。适合开源社区、产品爱好者分享。
 
+### [i-rs-claw — 你的 AI 终端数据助理](./i-rs-claw-intro)
+
+> 70 个 CLI 工具，一个自然语言入口。i-rs-claw 把终端变成了能听懂人话的 AI 数据助理。适合所有对 AI + CLI 结合感兴趣的人阅读。
+
+### [i-rs-claw 架构解析 — AI 终端助理的内部结构](./i-rs-claw-architecture)
+
+> 从 Ratatui 事件循环到 skill teach 管道，从 LLM 集成到工具调度系统——一份完整的架构说明书。适合开发者、架构师。
+
 ---
 
 ### [同一份数据，两个入口 — CLI 与 API 的共享存储层](./shared-storage-layer)
