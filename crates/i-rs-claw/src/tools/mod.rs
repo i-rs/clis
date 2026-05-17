@@ -94,12 +94,17 @@ impl ToolRegistry {
             .collect()
     }
 
-    /// Execute a tool by name.
+   /// Execute a tool by name.
     pub fn execute(&self, name: &str, args: &Value) -> Result<String, String> {
         self.tools
             .iter()
             .find(|t| t.name() == name)
             .map(|t| t.execute(args))
             .unwrap_or_else(|| Err(format!("未知工具: {}", name)))
+    }
+
+    /// Check if a built-in tool exists.
+    pub fn tool_exists(&self, name: &str) -> bool {
+        self.tools.iter().any(|t| t.name() == name)
     }
 }

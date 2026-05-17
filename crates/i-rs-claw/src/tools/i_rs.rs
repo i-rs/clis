@@ -121,7 +121,7 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String>
 pub fn enabled_cli_tool_names(enabled: Option<&std::collections::HashSet<String>>) -> Vec<&'static str> {
     index::TOOL_INDEX
         .iter()
-        .map(|(name, _)| *name)
+        .map(|(name, _, _)| *name)
         .filter(|t| index::is_tool_enabled(t, enabled))
         .collect()
 }

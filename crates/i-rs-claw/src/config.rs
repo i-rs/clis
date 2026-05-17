@@ -124,7 +124,7 @@ impl Config {
     }
 
     #[allow(dead_code)]
-    pub fn all_tools() -> Vec<(&'static str, &'static str)> {
+    pub fn all_tools() -> Vec<(&'static str, &'static str, &'static str)> {
         crate::tools::TOOL_INDEX.to_vec()
     }
 }
@@ -167,7 +167,7 @@ mod tests {
     fn test_all_tools_contains_kv() {
         let tools = Config::all_tools();
         assert!(!tools.is_empty());
-        assert!(tools.iter().any(|(name, _)| *name == "kv"));
+        assert!(tools.iter().any(|(name, _, _)| *name == "kv"));
     }
 }
 

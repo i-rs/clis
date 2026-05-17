@@ -218,8 +218,9 @@ fn execute_tool_call(
 ) -> String {
     // Try built-in tools first
     let registry = crate::tools::ToolRegistry::new();
-    if let Ok(r) = registry.execute(name, args) {
-        return r;
+    if registry.tool_exists(name) {
+        // Tool found — let it execute; propagate real CLI error (not "unknown tool")
+        return registry.execute(name, args).unwrap_or_else(|e| e);
     }
 
     // Try MCP-discovered tools

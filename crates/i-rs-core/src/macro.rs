@@ -61,6 +61,31 @@ macro_rules! skill_command {
     ($crate_name:literal) => {
         use clap::Subcommand;
 
+        // --------------------------------------------------------------------
+        // Internal structs for structured command data
+        // --------------------------------------------------------------------
+
+        /// Structured info about a single CLI command/subcommand.
+        struct CmdInfo {
+            name: ::std::string::String,
+            desc: ::std::string::String,
+            usage: ::std::string::String,
+            args: ::std::vec::Vec<ArgInfo>,
+            options: ::std::vec::Vec<ArgInfo>,
+        }
+
+        /// Structured info about a single argument or option.
+        struct ArgInfo {
+            name: ::std::string::String,
+            desc: ::std::string::String,
+            positional: bool,
+            required: bool,
+        }
+
+        // --------------------------------------------------------------------
+        // SkillCommand enum
+        // --------------------------------------------------------------------
+
         #[derive(Subcommand, Debug, Clone)]
         #[command(
             name = "skill",
@@ -74,8 +99,12 @@ macro_rules! skill_command {
                 /// Search query (case-insensitive)
                 query: String,
             },
-            /// Generate a comprehensive teaching prompt for AI agents
-            Teach,
+            /// Generate a comprehensive teaching prompt for AI agents (text or --json)
+            Teach {
+                /// Output in machine-readable JSON format
+                #[arg(long)]
+                json: bool,
+            },
             /// Install the skill file to a directory
             Install {
                 /// Target directory path (prints to stdout if omitted)
@@ -108,8 +137,8 @@ macro_rules! skill_command {
                     println!("Description: {}", desc);
                     println!();
                     println!("Commands ({} total):", commands.len());
-                    for (cmd_name, cmd_desc) in &commands {
-                        println!("  {} - {}", cmd_name, cmd_desc);
+                    for cmd_info in &commands {
+                        println!("  {} - {}", cmd_info.name, cmd_info.desc);
                     }
                 }
                 SkillCommand::Search { query } => {
@@ -125,44 +154,20 @@ macro_rules! skill_command {
                         println!("No matches found for '{}'.", query);
                     }
                 }
-                SkillCommand::Teach => {
+                SkillCommand::Teach { json } => {
                     let name = extract_frontmatter_field(SKILL_RAW, "name")
                         .unwrap_or($crate_name);
                     let desc = extract_frontmatter_field(SKILL_RAW, "description")
                         .unwrap_or("");
+                    let tool_name = $crate_name.trim_start_matches("i-rs-");
                     let commands = extract_commands(SKILL_RAW);
-                    let data_file = concat!($crate_name, ".json")
-                        .trim_start_matches("i-rs-");
+                    let examples = extract_examples(SKILL_RAW);
 
-                    println!("# {} — AI Teaching Document", name);
-                    println!();
-                    println!("## Tool Identity");
-                    println!("{}", desc);
-                    println!();
-                    println!("## Data Storage");
-                    println!(
-                        "- Config file: ~/.config/i-rs/{}",
-                        data_file
-                    );
-                    println!("-	Format: JSON with BTreeMap structure");
-                    println!("-	Override with CONFIG_DIR environment variable");
-                    println!();
-                    println!("## REST API Integration");
-                    println!("-	REST API available via i-rs-api server");
-                    println!("-	Default endpoint: http://localhost:8080");
-                    println!("-	Path: /api/{}", $crate_name);
-                    println!();
-                    println!("## Command Reference");
-                    println!("Total commands: {}", commands.len());
-                    println!();
-                    println!("{}", SKILL_RAW);
-                    println!();
-                    println!("## Ecosystem");
-                    println!("- Part of the i-rs CLI toolset (~70 tools)");
-                    println!("- Shared library: i-rs-core (Storage<T>, macros, presentation)");
-                    println!("- AI skill format: AgentSkills (agentskills.io)");
-                    println!("- All commands support --json for structured output");
-                    println!("- Error handling uses anyhow::Result pattern");
+                    if *json {
+                        print_teach_json(name, desc, $crate_name, tool_name, &commands, &examples);
+                    } else {
+                        print_teach_text(name, desc, $crate_name, tool_name, &commands, &examples);
+                    }
                 }
                 SkillCommand::Install { path, agent } => {
                     let content = match agent.as_deref() {
@@ -227,6 +232,10 @@ macro_rules! skill_command {
             Ok(())
         }
 
+        // ====================================================================
+        // Helper: Extract YAML frontmatter fields
+        // ====================================================================
+
         /// Extract a field value from YAML frontmatter.
         fn extract_frontmatter_field<'a>(content: &'a str, field: &str) -> Option<&'a str> {
             let mut in_frontmatter = false;
@@ -251,25 +260,475 @@ macro_rules! skill_command {
             None
         }
 
-        /// Extract command names and descriptions from ### headings.
-        fn extract_commands(content: &str) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
-            let mut commands = ::std::vec::Vec::new();
-            let mut in_frontmatter = true;
+        // ====================================================================
+        // Helper: Extract structured command info from SKILL.md
+        // ====================================================================
 
-            for line in content.lines() {
-                let trimmed = line.trim();
+        /// Parse all `### <name>` command sections under `## Commands`.
+        ///
+        /// Returns structured info including description, usage, positional
+        /// arguments, and options for each command.
+        fn extract_commands(content: &str) -> ::std::vec::Vec<CmdInfo> {
+            let lines: ::std::vec::Vec<&str> = content.lines().collect();
+            let mut commands: ::std::vec::Vec<CmdInfo> = ::std::vec::Vec::new();
+            let mut i = 0;
+            let len = lines.len();
+
+            // Phase: skip frontmatter
+            let mut in_frontmatter = true;
+            let mut in_commands_section = false;
+
+            while i < len {
+                let trimmed = lines[i].trim();
+
                 if in_frontmatter {
-                    if trimmed == "---" {
+                    if trimmed == "---" && i > 0 {
                         in_frontmatter = false;
+                    }
+                    i += 1;
+                    continue;
+                }
+
+                // Find ## Commands
+                if !in_commands_section {
+                    if trimmed == "## Commands" {
+                        in_commands_section = true;
+                    }
+                    i += 1;
+                    continue;
+                }
+
+                // Another ## heading = left the commands section
+                if trimmed.starts_with("## ") && trimmed != "## Commands" {
+                    break;
+                }
+
+                // ### heading = new command
+                if let Some(name) = trimmed.strip_prefix("### ") {
+                    if let Some(cmd) = parse_one_command(name, &lines, &mut i, len) {
+                        commands.push(cmd);
                     }
                     continue;
                 }
-                if let Some(name) = trimmed.strip_prefix("### ") {
-                    commands.push((name.to_string(), ::std::string::String::new()));
-                }
+
+                i += 1;
             }
+
             commands
         }
+
+        /// Parse a single command block starting from `### <name>` at index `i`.
+        /// Advances `i` past the block.
+        fn parse_one_command(
+            name: &str,
+            lines: &[&str],
+            i: &mut usize,
+            len: usize,
+        ) -> Option<CmdInfo> {
+            *i += 1; // move past ### heading
+
+            let mut cmd = CmdInfo {
+                name: name.to_string(),
+                desc: ::std::string::String::new(),
+                usage: ::std::string::String::new(),
+                args: ::std::vec::Vec::new(),
+                options: ::std::vec::Vec::new(),
+            };
+
+            // States
+            let mut in_code_block = false;
+            let mut in_args_section = false;
+            let mut in_options_section = false;
+            let mut desc_lines: ::std::vec::Vec<::std::string::String> =
+                ::std::vec::Vec::new();
+            let mut usage_lines: ::std::vec::Vec<::std::string::String> =
+                ::std::vec::Vec::new();
+            let mut desc_done = false;
+
+            while *i < len {
+                let raw = lines[*i];
+                let trimmed = raw.trim();
+
+                // Stop at next ### or any ## (other sections)
+                if trimmed.starts_with("### ") {
+                    break;
+                }
+                if trimmed.starts_with("## ") && trimmed != "## " {
+                    break;
+                }
+
+                // Code block
+                if trimmed.starts_with("```") {
+                    if !in_code_block {
+                        in_code_block = true;
+                        desc_done = true;
+                        in_args_section = false;
+                        in_options_section = false;
+                    } else {
+                        in_code_block = false;
+                    }
+                    *i += 1;
+                    continue;
+                }
+
+                if in_code_block {
+                    usage_lines.push(raw.to_string());
+                    *i += 1;
+                    continue;
+                }
+
+                // Section headers: Arguments / Options
+                if trimmed.starts_with("Arguments:") || trimmed.starts_with("Arguments :") {
+                    in_args_section = true;
+                    in_options_section = false;
+                    desc_done = true;
+                    *i += 1;
+                    continue;
+                }
+                if trimmed.starts_with("Options:") || trimmed.starts_with("Options :") {
+                    in_options_section = true;
+                    in_args_section = false;
+                    desc_done = true;
+                    *i += 1;
+                    continue;
+                }
+
+                // Parse argument lines
+                if in_args_section {
+                    if trimmed.starts_with("- `") {
+                        if let Some(arg) = parse_arg_line(trimmed) {
+                            cmd.args.push(arg);
+                        }
+                    }
+                    *i += 1;
+                    continue;
+                }
+
+                // Parse option lines
+                if in_options_section {
+                    if trimmed.starts_with("- `") {
+                        if let Some(opt) = parse_opt_line(trimmed) {
+                            cmd.options.push(opt);
+                        }
+                    }
+                    *i += 1;
+                    continue;
+                }
+
+                // Description text (before code block or sections)
+                if !desc_done && !trimmed.is_empty() {
+                    desc_lines.push(trimmed.to_string());
+                }
+
+                *i += 1;
+            }
+
+            // Finalize description
+            if !desc_lines.is_empty() {
+                // Take first paragraph only
+                cmd.desc = desc_lines[0].clone();
+            }
+            // Finalize usage: join any multi-line code block content
+            if !usage_lines.is_empty() {
+                cmd.usage = usage_lines.join("\n");
+            }
+
+            Some(cmd)
+        }
+
+        /// Parse a positional argument line like `- \`MEAL_TYPE\` - Description`.
+        fn parse_arg_line(line: &str) -> Option<ArgInfo> {
+            let inner = line.strip_prefix("- `")?;
+            let (name_rest, desc) = inner.split_once("` - ")?;
+            Some(ArgInfo {
+                name: name_rest.to_string(),
+                desc: desc.to_string(),
+                positional: true,
+                required: !name_rest.starts_with('[') && !name_rest.contains("OPTIONS"),
+            })
+        }
+
+        /// Parse an option line like `- \`--food <ARG>\` - Description`
+        /// or `- \`-f, --flag\` - Description`.
+        fn parse_opt_line(line: &str) -> Option<ArgInfo> {
+            let inner = line.strip_prefix("- `")?;
+            let (opt_rest, desc) = inner.split_once("` - ")?;
+
+            // Extract value placeholder `<VALUE>` from opt_rest
+            // e.g. "--food <FOOD_ITEMS>" -> flag="--food", val="FOOD_ITEMS"
+            let (flag_part, val_part) = if let Some(angle_start) = opt_rest.find(" <") {
+                let flag = &opt_rest[..angle_start];
+                let val = &opt_rest[angle_start + 2..opt_rest.len() - 1]; // strip < >
+                (flag, Some(val.to_string()))
+            } else {
+                (opt_rest, None)
+            };
+
+            let full_name = if let Some(ref v) = val_part {
+                format!("{} <{}>", flag_part, v)
+            } else {
+                flag_part.to_string()
+            };
+
+            Some(ArgInfo {
+                name: full_name,
+                desc: desc.to_string(),
+                positional: false,
+                required: false,
+            })
+        }
+
+        // ====================================================================
+        // Helper: Extract examples from SKILL.md
+        // ====================================================================
+
+        /// Parse example lines from the `## Examples` code block.
+        fn extract_examples(content: &str) -> ::std::vec::Vec<::std::string::String> {
+            let mut examples: ::std::vec::Vec<::std::string::String> =
+                ::std::vec::Vec::new();
+            let lines: ::std::vec::Vec<&str> = content.lines().collect();
+            let mut i = 0;
+            let len = lines.len();
+            let mut in_frontmatter = true;
+            let mut in_examples_section = false;
+            let mut in_code_block = false;
+
+            while i < len {
+                let trimmed = lines[i].trim();
+
+                if in_frontmatter {
+                    if trimmed == "---" && i > 0 {
+                        in_frontmatter = false;
+                    }
+                    i += 1;
+                    continue;
+                }
+
+                if !in_examples_section {
+                    if trimmed == "## Examples" {
+                        in_examples_section = true;
+                    }
+                    i += 1;
+                    continue;
+                }
+
+                // Another ## heading = leave examples
+                if trimmed.starts_with("## ") && trimmed != "## Examples" {
+                    break;
+                }
+
+                if trimmed.starts_with("```") {
+                    if !in_code_block {
+                        in_code_block = true;
+                    } else {
+                        break; // end of examples code block
+                    }
+                    i += 1;
+                    continue;
+                }
+
+                if in_code_block {
+                    examples.push(lines[i].to_string());
+                }
+
+                i += 1;
+            }
+
+            examples
+        }
+
+        // ====================================================================
+        // Output functions for `teach`
+        // ====================================================================
+
+        /// Print a clean, LLM-friendly teaching document (text format).
+        fn print_teach_text(
+            name: &str,
+            desc: &str,
+            binary: &str,
+            tool_name: &str,
+            commands: &[CmdInfo],
+            examples: &[::std::string::String],
+        ) {
+            // --- Header ---
+            println!("# {} ({}) \u{2014} AI Tool Guide", tool_name, binary);
+            println!();
+            println!("## Description");
+            println!("{}", desc);
+            println!();
+            println!("## Invocation");
+            println!("  Claw: i_rs(tool=\"{}\", command=\"...\", args=[...])", tool_name);
+            println!("  CLI:  i-rs {} <command> [args]", tool_name);
+            println!("  Binary: {}", binary);
+            println!();
+            println!("## Commands ({} total)", commands.len());
+            println!();
+
+            for cmd in commands {
+                println!("### {}", cmd.name);
+
+                if !cmd.desc.is_empty() {
+                    println!("{}", cmd.desc);
+                    println!();
+                }
+                if !cmd.usage.is_empty() {
+                    let normalized = cmd.usage.replace(
+                        &format!("{} ", binary),
+                        &format!("i-rs {} ", tool_name)
+                    );
+                    println!("  Usage: `{}`", normalized);
+                    println!();
+                }
+
+                // Separate required / optional positional args
+                let required_args: ::std::vec::Vec<&ArgInfo> = cmd
+                    .args
+                    .iter()
+                    .filter(|a| a.required)
+                    .collect();
+                let optional_args: ::std::vec::Vec<&ArgInfo> = cmd
+                    .args
+                    .iter()
+                    .filter(|a| !a.required)
+                    .collect();
+
+                if !required_args.is_empty() {
+                    println!("  Arguments:");
+                    for arg in &required_args {
+                        println!("    {} (required) - {}", arg.name, arg.desc);
+                    }
+                    println!();
+                }
+                if !optional_args.is_empty() {
+                    println!("  Optional Arguments:");
+                    for arg in &optional_args {
+                        println!("    {} - {}", arg.name, arg.desc);
+                    }
+                    println!();
+                }
+
+                // Separate required / optional options
+                let required_opts: ::std::vec::Vec<&ArgInfo> = cmd
+                    .options
+                    .iter()
+                    .filter(|o| o.required && !o.name.starts_with('['))
+                    .collect();
+                let optional_opts: ::std::vec::Vec<&ArgInfo> = cmd
+                    .options
+                    .iter()
+                    .filter(|o| !o.required || o.name.starts_with('['))
+                    .collect();
+
+                if !required_opts.is_empty() {
+                    println!("  Required Options:");
+                    for opt in &required_opts {
+                        println!("    {} - {}", opt.name, opt.desc);
+                    }
+                    println!();
+                }
+                if !optional_opts.is_empty() {
+                    println!("  Options:");
+                    for opt in &optional_opts {
+                        println!("    {} - {}", opt.name, opt.desc);
+                    }
+                    println!();
+                }
+            }
+
+            // --- Examples ---
+            if !examples.is_empty() {
+                println!("## Examples");
+                println!();
+                for ex in examples {
+                    let normalized = ex.replace(
+                        &format!("{} ", binary),
+                        &format!("i-rs {} ", tool_name)
+                    );
+                    println!("  {}", normalized);
+                }
+                println!();
+            }
+        }
+
+        /// Print a machine-readable JSON teaching document.
+        fn print_teach_json(
+            name: &str,
+            desc: &str,
+            binary: &str,
+            tool_name: &str,
+            commands: &[CmdInfo],
+            examples: &[::std::string::String],
+        ) {
+            let cmds: ::std::vec::Vec<serde_json::Value> = commands
+                .iter()
+                .map(|cmd| {
+                    let normalized_usage = cmd.usage.replace(
+                        &format!("{} ", binary),
+                        &format!("i-rs {} ", tool_name)
+                    );
+
+                    let args: ::std::vec::Vec<serde_json::Value> = cmd
+                        .args
+                        .iter()
+                        .map(|a| {
+                            serde_json::json!({
+                                "name": a.name,
+                                "description": a.desc,
+                                "positional": a.positional,
+                                "required": a.required,
+                            })
+                        })
+                        .collect();
+
+                    let opts: ::std::vec::Vec<serde_json::Value> = cmd
+                        .options
+                        .iter()
+                        .map(|o| {
+                            serde_json::json!({
+                                "name": o.name,
+                                "description": o.desc,
+                                "positional": o.positional,
+                                "required": o.required,
+                            })
+                        })
+                        .collect();
+
+                    serde_json::json!({
+                        "name": cmd.name,
+                        "description": cmd.desc,
+                        "usage": normalized_usage,
+                        "args": args,
+                        "options": opts,
+                    })
+                })
+                .collect();
+
+            // Normalize example binary prefixes for JSON too
+            let normalized_examples: ::std::vec::Vec<::std::string::String> = examples
+                .iter()
+                .map(|ex| {
+                    ex.replace(
+                        &format!("{} ", binary),
+                        &format!("i-rs {} ", tool_name)
+                    )
+                })
+                .collect();
+
+            let output = serde_json::json!({
+                "name": name,
+                "description": desc,
+                "tool": tool_name,
+                "binary": binary,
+                "commands": cmds,
+                "examples": normalized_examples,
+            });
+
+            println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        }
+
+        // ====================================================================
+        // Legacy parser (deprecated)
+        // ====================================================================
 
         /// Parse a skill subcommand argument. Returns `None` for empty input
         /// (show raw), `Some(cmd)` for valid subcommands, and exits with an

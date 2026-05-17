@@ -92,7 +92,7 @@ pub fn get_completions(input: &str, cursor: usize) -> Vec<String> {
     let trimmed = input_before.trim();
     if trimmed.is_empty() {
         // Show all tool names
-        return TOOL_INDEX.iter().map(|(name, _)| name.to_string()).collect();
+        return TOOL_INDEX.iter().map(|(name, _, _)| name.to_string()).collect();
     }
 
     let parts: Vec<&str> = trimmed.split_whitespace().collect();
@@ -100,12 +100,12 @@ pub fn get_completions(input: &str, cursor: usize) -> Vec<String> {
     match parts.len() {
         0 => {
             // Show all tool names
-            TOOL_INDEX.iter().map(|(name, _)| name.to_string()).collect()
+            TOOL_INDEX.iter().map(|(name, _, _)| name.to_string()).collect()
         }
         1 => {
             let word = parts[0];
             // Check if it's a complete tool name
-            let is_complete_tool = TOOL_INDEX.iter().any(|(name, _)| *name == word);
+            let is_complete_tool = TOOL_INDEX.iter().any(|(name, _, _)| *name == word);
             if is_complete_tool {
                 // Suggest common commands for this tool
                 get_tool_commands(word)
@@ -118,7 +118,7 @@ pub fn get_completions(input: &str, cursor: usize) -> Vec<String> {
             // Two or more words: "tool command_partial"
             let tool = parts[0];
             let prefix = parts[1..].join(" ");
-            if TOOL_INDEX.iter().any(|(name, _)| *name == tool) {
+            if TOOL_INDEX.iter().any(|(name, _, _)| *name == tool) {
                 get_command_completions(tool, &prefix)
             } else {
                 Vec::new()
@@ -132,8 +132,8 @@ fn get_tool_completions(prefix: &str) -> Vec<String> {
     let lower = prefix.to_lowercase();
     let mut matches: Vec<String> = TOOL_INDEX
         .iter()
-        .filter(|(name, _)| name.starts_with(&lower))
-        .map(|(name, _)| name.to_string())
+        .filter(|(name, _, _)| name.starts_with(&lower))
+        .map(|(name, _, _)| name.to_string())
         .collect();
     matches.sort();
     matches

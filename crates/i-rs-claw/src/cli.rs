@@ -192,7 +192,7 @@ pub fn run_tools() -> anyhow::Result<()> {
 
     let all_tools: Vec<&str> = crate::tools::TOOL_INDEX
         .iter()
-        .map(|(n, _)| *n)
+        .map(|(n, _, _)| *n)
         .collect();
     let total = all_tools.len();
 
@@ -247,8 +247,8 @@ pub fn run_tools() -> anyhow::Result<()> {
                         let checkbox = if checked { "[✓]" } else { "[ ]" };
                         let desc = crate::tools::TOOL_INDEX
                             .iter()
-                            .find(|(n, _)| n == name)
-                            .map(|(_, d)| *d)
+                            .find(|(n, _, _)| n == name)
+                            .map(|(_, d, _)| *d)
                             .unwrap_or("");
                         let text = format!(" {} {}", checkbox, name);
                         let line = Line::from(vec![
