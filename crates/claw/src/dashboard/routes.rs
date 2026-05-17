@@ -307,31 +307,71 @@ async fn dashboard_chat_loop(
     // Attempt to sync app messages to JSONL after the full loop
     let core = state.core.lock().unwrap();
     if let Some(api_msgs) = core.session_mgr.load_api_messages(&session_id) {
-        // Convert API msgs to JSONL records and save
-        let records: Vec<Value> = api_msgs
-            .iter()
-            .filter_map(|m| {
-                let role = m.get("role").and_then(|r| r.as_str())?;
-                match role {
-                    "user" => Some(serde_json::json!({
+        // Convert API msgs to JSONL records, preserving tool call info
+        let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
+        let mut i = 0;
+        while i < api_msgs.len() {
+            let m = &api_msgs[i];
+            let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
+            match role {
+                "user" => {
+                    records.push(serde_json::json!({
                         "type": "user",
                         "text": m.get("content").and_then(|c| c.as_str()).unwrap_or(""),
-                    })),
-                    "assistant" => {
-                        let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                        if text.is_empty() || text == "null" {
-                            None // tool_call assistant msg with null content
-                        } else {
-                            Some(serde_json::json!({
-                                "type": "assistant",
-                                "text": text,
-                            }))
-                        }
-                    }
-                    _ => None,
+                    }));
+                    i += 1;
                 }
-            })
-            .collect();
+                "assistant" => {
+                    let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                    if m.get("tool_calls").and_then(|t| t.as_array()).is_some() {
+                        // Tool call: pair with the next tool result
+                        if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
+                            for tc in tc_array {
+                                let name = tc.get("function")
+                                    .and_then(|f| f.get("name"))
+                                    .and_then(|n| n.as_str())
+                                    .unwrap_or("");
+                                let args = tc.get("function")
+                                    .and_then(|f| f.get("arguments"))
+                                    .and_then(|a| a.as_str())
+                                    .unwrap_or("");
+                                // Look ahead for the tool result
+                                let result = if i + 1 < api_msgs.len()
+                                    && api_msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
+                                {
+                                    api_msgs[i + 1].get("content")
+                                        .and_then(|c| c.as_str())
+                                        .unwrap_or("")
+                                        .to_string()
+                                } else {
+                                    String::new()
+                                };
+                                records.push(serde_json::json!({
+                                    "type": "tool_call",
+                                    "name": name,
+                                    "args": args,
+                                    "result": result,
+                                }));
+                            }
+                        }
+                        // Skip both assistant(tool_calls) and tool result
+                        i += 2;
+                    } else if !text.is_empty() && text != "null" {
+                        records.push(serde_json::json!({
+                            "type": "assistant",
+                            "text": text,
+                        }));
+                        i += 1;
+                    } else {
+                        i += 1;
+                    }
+                }
+                _ => {
+                    // Skip tool results (already handled via pairing above)
+                    i += 1;
+                }
+            }
+        }
         if !records.is_empty() {
             core.session_mgr.save_all_messages(&session_id, &records);
         }
