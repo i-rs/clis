@@ -58,7 +58,8 @@ impl Dashboard {
                 axum::routing::post(routes::switch_session),
             )
             .route("/api/tools", axum::routing::get(routes::list_tools))
-            .route("/api/plugins", axum::routing::get(routes::list_plugins));
+            .route("/api/plugins", axum::routing::get(routes::list_plugins))
+            .route("/api/skills", axum::routing::get(routes::list_skills));
 
         // Static frontend routes (SPA)
         let static_routes = Router::new()

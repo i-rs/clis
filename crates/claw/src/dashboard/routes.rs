@@ -588,3 +588,12 @@ pub async fn list_plugins(
         .collect();
     ApiResponse::ok(plugins)
 }
+
+/// List user-defined skills.
+pub async fn list_skills(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Vec<crate::skill_store::SkillEntry>>> {
+    let core = state.core.lock().unwrap();
+    let skills = core.skill_store.list_skills();
+    ApiResponse::ok(skills)
+}

@@ -4,8 +4,9 @@ import SessionsPage from './pages/Sessions'
 import ConfigPage from './pages/Config'
 import ToolsPage from './pages/Tools'
 import PluginsPage from './pages/Plugins'
+import SkillsPage from './pages/Skills'
 
-type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins'
+type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins' | 'skills'
 
 const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'chat', label: 'Chat', icon: '\u{1F4AC}' },
@@ -13,6 +14,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'config', label: 'Config', icon: '\u{2699}\u{FE0F}' },
   { id: 'tools', label: 'Tools', icon: '\u{1F527}' },
   { id: 'plugins', label: 'Plugins', icon: '\u{1F9F0}' },
+  { id: 'skills', label: 'Skills', icon: '\u{1F4DD}' },
 ]
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
         return <ToolsPage />
       case 'plugins':
         return <PluginsPage />
+      case 'skills':
+        return <SkillsPage />
     }
   }
 

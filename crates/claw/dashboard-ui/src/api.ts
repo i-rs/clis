@@ -24,6 +24,13 @@ export interface PluginInfo {
   enabled: boolean
 }
 
+// ── Skills ──
+
+export interface SkillInfo {
+  name: string
+  content: string
+}
+
 export interface ApiResponse<T> {
   success: boolean
   data?: T
@@ -94,6 +101,13 @@ export async function listTools(): Promise<ApiResponse<ToolSchema[]>> {
 
 export async function listPlugins(): Promise<ApiResponse<PluginInfo[]>> {
   const res = await fetch(`${BASE}/plugins`)
+  return res.json()
+}
+
+// ── Skills ──
+
+export async function listSkills(): Promise<ApiResponse<SkillInfo[]>> {
+  const res = await fetch(`${BASE}/skills`)
   return res.json()
 }
 

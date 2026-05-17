@@ -1,5 +1,12 @@
 use std::path::PathBuf;
 
+/// A single skill entry with name and content.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SkillEntry {
+    pub name: String,
+    pub content: String,
+}
+
 /// Loads and formats user-defined skills from `~/.i-rs-claw/skills/`.
 ///
 /// Skills are `.md` files that inject custom behavior instructions into the
@@ -75,5 +82,28 @@ impl SkillStore {
             .collect();
         names.sort();
         names
+    }
+
+    /// Return list of skills with their full content.
+    pub fn list_skills(&self) -> Vec<SkillEntry> {
+        let dir = match std::fs::read_dir(&self.skills_dir) {
+            Ok(d) => d,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut entries: Vec<SkillEntry> = dir
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
+            .filter_map(|e| {
+                let name = e.path()
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())?;
+                let content = std::fs::read_to_string(e.path()).ok()?;
+                Some(SkillEntry { name, content })
+            })
+            .collect();
+        entries.sort_by(|a, b| a.name.cmp(&b.name));
+        entries
     }
 }
