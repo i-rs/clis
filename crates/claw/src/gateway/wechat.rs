@@ -30,8 +30,8 @@ pub struct WeChatAdapter {
     credentials: Arc<Mutex<Option<WeChatCredentials>>>,
     /// Map of user_id -> context_token for tracking reply context.
     reply_tokens: Arc<Mutex<HashMap<String, String>>>,
-    /// Cached typing_ticket from getConfig (lazy, one-time fetch).
-    typing_ticket: Arc<Mutex<Option<String>>>,
+    /// Map of user_id -> typing_ticket from getConfig (cached per-user).
+    typing_tickets: Arc<Mutex<HashMap<String, String>>>,
     credentials_path: PathBuf,
 }
 
@@ -59,7 +59,7 @@ impl WeChatAdapter {
             client,
             credentials: Arc::new(Mutex::new(None)),
             reply_tokens: Arc::new(Mutex::new(HashMap::new())),
-            typing_ticket: Arc::new(Mutex::new(None)),
+            typing_tickets: Arc::new(Mutex::new(HashMap::new())),
             credentials_path,
         }
     }
@@ -85,9 +85,9 @@ impl WeChatAdapter {
     }
 
     /// Fetch and cache the typing_ticket from getConfig endpoint.
-    async fn get_typing_ticket(&self) -> Option<String> {
-        // Return cached ticket if available
-        if let Some(ticket) = self.typing_ticket.lock().unwrap().clone() {
+    async fn get_typing_ticket(&self, user_id: &str) -> Option<String> {
+        // Return cached ticket if available for this user
+        if let Some(ticket) = self.typing_tickets.lock().unwrap().get(user_id).cloned() {
             return Some(ticket);
         }
 
@@ -96,8 +96,9 @@ impl WeChatAdapter {
 
         let url = format!("{}/ilink/bot/getconfig", WECHAT_API_BASE);
         let uin = make_x_wechat_uin();
+        // getConfig requires ilink_user_id in the request body
         let body = serde_json::json!({
-            "base_info": { "channel_version": "1.0.3" }
+            "ilink_user_id": user_id,
         });
 
         match self
@@ -112,19 +113,28 @@ impl WeChatAdapter {
             .await
         {
             Ok(resp) => {
-                match resp.json::<serde_json::Value>().await {
-                    Ok(json) => {
-                        if let Some(ticket) = json["typing_ticket"].as_str() {
-                            let ticket = ticket.to_string();
-                            *self.typing_ticket.lock().unwrap() = Some(ticket.clone());
-                            Some(ticket)
+                let status = resp.status();
+                match resp.text().await {
+                    Ok(raw) => {
+                        // Try to parse as JSON
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&raw) {
+                            if let Some(ticket) = json["typing_ticket"].as_str() {
+                                let ticket = ticket.to_string();
+                                self.typing_tickets.lock().unwrap().insert(user_id.to_string(), ticket.clone());
+                                Some(ticket)
+                            } else {
+                                eprintln!("[Gateway/WeChat] getConfig ({}): no typing_ticket in {}",
+                                    status, raw);
+                                None
+                            }
                         } else {
-                            eprintln!("[Gateway/WeChat] getConfig missing typing_ticket");
+                            eprintln!("[Gateway/WeChat] getConfig ({}): parse error: {}",
+                                status, raw);
                             None
                         }
                     }
                     Err(e) => {
-                        eprintln!("[Gateway/WeChat] getConfig parse error: {}", e);
+                        eprintln!("[Gateway/WeChat] getConfig read body error: {}", e);
                         None
                     }
                 }
@@ -433,7 +443,7 @@ impl PlatformAdapter for WeChatAdapter {
     }
 
     async fn send_typing(&self, chat_id: &str) {
-        let Some(ticket) = self.get_typing_ticket().await else {
+        let Some(ticket) = self.get_typing_ticket(chat_id).await else {
             return;
         };
 
@@ -443,9 +453,11 @@ impl PlatformAdapter for WeChatAdapter {
 
         let url = format!("{}/ilink/bot/sendtyping", WECHAT_API_BASE);
         let uin = make_x_wechat_uin();
+        // sendTyping uses ilink_user_id, typing_ticket, and status=1
         let body = serde_json::json!({
-            "to_user_id": chat_id,
+            "ilink_user_id": chat_id,
             "typing_ticket": ticket,
+            "status": 1,
         });
 
         match self
@@ -461,9 +473,11 @@ impl PlatformAdapter for WeChatAdapter {
         {
             Ok(resp) => {
                 if !resp.status().is_success() {
+                    let status = resp.status();
+                    let raw = resp.text().await.unwrap_or_default();
                     eprintln!(
-                        "[Gateway/WeChat] send_typing failed: {}",
-                        resp.status()
+                        "[Gateway/WeChat] send_typing ({}): {}",
+                        status, raw
                     );
                 }
             }
