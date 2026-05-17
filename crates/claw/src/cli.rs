@@ -1,6 +1,8 @@
 use crate::config::Config;
 use crate::session::SessionManager;
 use crossterm::event::{self, Event, KeyCode};
+#[cfg(feature = "dashboard")]
+use owo_colors::OwoColorize;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
@@ -585,7 +587,11 @@ pub fn run_dashboard() -> anyhow::Result<()> {
     }
 
     let dashboard = crate::dashboard::Dashboard::new(config.dashboard);
-    println!("Dashboard server starting...");
+    println!(
+        "{}  {}\n",
+        " 🔷 i-rs-claw Dashboard".bold().bright_blue(),
+        "🚀 Server starting...".bright_green()
+    );
     rt.block_on(dashboard.run(core));
     Ok(())
 }

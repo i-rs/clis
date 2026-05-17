@@ -3,6 +3,8 @@
 use std::sync::{Arc, Mutex};
 use std::net::SocketAddr;
 
+use owo_colors::OwoColorize;
+
 pub mod assets;
 pub mod routes;
 
@@ -74,9 +76,25 @@ impl Dashboard {
             .parse()
             .expect("Invalid dashboard address");
 
-        println!("Dashboard: http://{}", addr);
-        println!("  API:     http://{}/api/health", addr);
-        println!("  Chat:    http://{}/api/chat", addr);
+        println!(
+            "  {}  {}  http://{}/api/health",
+            "📡".bright_blue(),
+            "API".bold().bright_cyan(),
+            addr
+        );
+        println!(
+            "  {}  {} http://{}/api/chat",
+            "💬".bright_blue(),
+            "Chat".bold().bright_cyan(),
+            addr
+        );
+        println!(
+            "  {}  {}	{}",
+            "🔗".bright_blue(),
+            "Dashboard".bold().bright_cyan(),
+            format!("http://{}", addr).underline().bright_blue()
+        );
+        println!();
 
         let listener = tokio::net::TcpListener::bind(addr)
             .await
