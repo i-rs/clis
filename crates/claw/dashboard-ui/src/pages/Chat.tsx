@@ -44,16 +44,20 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
         // Convert API messages to ChatMessage[], merging tool_call into assistant
         const raw = resp.data.messages || []
         const msgs: ChatMessage[] = []
+        let pendingToolCalls: ToolCallMsg[] = []
         for (const m of raw) {
           if (m.role === 'user') {
+            pendingToolCalls = []
             msgs.push({ role: 'user', content: m.content || '' })
           } else if (m.role === 'assistant') {
-            msgs.push({ role: 'assistant', content: m.content || '' })
-          } else if (m.role === 'tool_call' && msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant') {
-            // Attach tool_call to the preceding assistant message
-            const last = msgs[msgs.length - 1]
-            last.toolCalls = last.toolCalls || []
-            last.toolCalls.push({
+            msgs.push({
+              role: 'assistant',
+              content: m.content || '',
+              toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
+            })
+            pendingToolCalls = []
+          } else if (m.role === 'tool_call') {
+            pendingToolCalls.push({
               name: m.name || '',
               args: m.args || '',
               result: m.result || '',
