@@ -5,6 +5,7 @@ pub mod wechat;
 
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Event emitted by a platform adapter when a message is received or an error occurs.
@@ -48,6 +49,13 @@ pub trait PlatformAdapter: Send + Sync {
     /// Send a text message to a specific chat/conversation.
     async fn send_message(&self, chat_id: &str, text: &str);
 
+    /// Send a typing indicator to a specific chat/conversation.
+    ///
+    /// The default implementation is a no-op for platforms that don't
+    /// support typing indicators. For supported platforms, this shows
+    /// "正在输入..." or similar to the user while the bot is processing.
+    async fn send_typing(&self, _chat_id: &str) {}
+
     /// Stop the adapter and clean up resources.
     async fn stop(&self);
 }
@@ -57,7 +65,7 @@ pub trait PlatformAdapter: Send + Sync {
 /// Manages multiple `PlatformAdapter` instances, forwards user messages
 /// to the LLM (with session continuity), and sends responses back.
 pub struct GatewayServer {
-    adapters: Vec<Box<dyn PlatformAdapter>>,
+    adapters: Vec<Arc<dyn PlatformAdapter>>,
 }
 
 impl GatewayServer {
@@ -69,7 +77,7 @@ impl GatewayServer {
     }
 
     /// Register a platform adapter.
-    pub fn register(&mut self, adapter: Box<dyn PlatformAdapter>) {
+    pub fn register(&mut self, adapter: Arc<dyn PlatformAdapter>) {
         self.adapters.push(adapter);
     }
 
@@ -102,15 +110,41 @@ impl GatewayServer {
                     text,
                 } => {
                     let core = core.clone();
+
+                    // Find the originating adapter by index
+                    let adapter_idx = self
+                        .adapters
+                        .iter()
+                        .position(|a| a.name() == platform);
+
+                    // Spawn periodic typing indicator while processing
+                    let typing_handle = if let Some(idx) = adapter_idx {
+                        let adapter = self.adapters[idx].clone();
+                        let cid = chat_id.clone();
+                        Some(tokio::spawn(async move {
+                            loop {
+                                adapter.send_typing(&cid).await;
+                                tokio::time::sleep(Duration::from_secs(5)).await;
+                            }
+                        }))
+                    } else {
+                        None
+                    };
+
                     // Process the message with session continuity + tool execution
                     let response =
                         Self::process_message(&core, &platform, &chat_id, &text).await;
+
+                    // Stop the typing indicator
+                    if let Some(h) = typing_handle {
+                        h.abort();
+                    }
+
                     // Find the originating adapter and send the response
-                    for adapter in &self.adapters {
-                        if adapter.name() == platform {
-                            adapter.send_message(&chat_id, &response).await;
-                            break;
-                        }
+                    if let Some(idx) = adapter_idx {
+                        self.adapters[idx]
+                            .send_message(&chat_id, &response)
+                            .await;
                     }
                 }
                 GatewayEvent::Error { platform, error } => {

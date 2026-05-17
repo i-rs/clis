@@ -486,7 +486,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
                             enabled: true,
                         },
                     );
-                    server.register(Box::new(adapter));
+                    server.register(std::sync::Arc::new(adapter));
                     println!("  ✓ Telegram bot registered");
                 }
             }
@@ -498,7 +498,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
                 let adapter = crate::gateway::wechat::WeChatAdapter::new(
                     crate::gateway::wechat::WeChatConfig { enabled: true },
                 );
-                server.register(Box::new(adapter));
+                server.register(std::sync::Arc::new(adapter));
                 println!("  ✓ WeChat bot registered");
             }
         }
