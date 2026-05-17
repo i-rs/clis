@@ -3,8 +3,13 @@ mod cli;
 mod completion;
 mod config;
 mod convstore;
+mod core;
+#[cfg(feature = "dashboard")]
+mod dashboard;
+mod gateway;
 mod llm;
 mod mcp;
+mod plugin;
 mod memory;
 mod provider;
 mod semantic;
@@ -58,6 +63,25 @@ enum Command {
         #[arg(long)]
         session: Option<String>,
     },
+    /// Start the gateway server for social platform integration
+    Gateway,
+    /// Start the dashboard web server
+    Dashboard,
+    /// List and manage plugins
+    Plugin {
+        /// List all discovered plugins
+        #[arg(long)]
+        list: bool,
+        /// Show detailed info for a plugin
+        #[arg(long)]
+        info: Option<String>,
+        /// Enable a plugin
+        #[arg(long)]
+        enable: Option<String>,
+        /// Disable a plugin
+        #[arg(long)]
+        disable: Option<String>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -81,5 +105,24 @@ fn main() -> anyhow::Result<()> {
         } => cli::run_export(&id, "json"),
         Command::Session { .. } => cli::run_session_list(),
         Command::Ask { message, session } => cli::run_ask(&message, session.as_deref()),
+        Command::Gateway => cli::run_gateway(),
+        Command::Dashboard => cli::run_dashboard(),
+        Command::Plugin {
+            list: true,
+            ..
+        } => cli::run_plugin_list(),
+        Command::Plugin {
+            info: Some(name),
+            ..
+        } => cli::run_plugin_info(&name),
+        Command::Plugin {
+            enable: Some(name),
+            ..
+        } => cli::run_plugin_enable(&name),
+        Command::Plugin {
+            disable: Some(name),
+            ..
+        } => cli::run_plugin_disable(&name),
+        Command::Plugin { .. } => cli::run_plugin_list(),
     }
 }

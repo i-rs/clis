@@ -1,0 +1,61 @@
+import { useState } from 'react'
+import ChatPage from './pages/Chat'
+import SessionsPage from './pages/Sessions'
+import ConfigPage from './pages/Config'
+import ToolsPage from './pages/Tools'
+import PluginsPage from './pages/Plugins'
+
+type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins'
+
+const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
+  { id: 'chat', label: 'Chat', icon: '\u{1F4AC}' },
+  { id: 'sessions', label: 'Sessions', icon: '\u{1F4CB}' },
+  { id: 'config', label: 'Config', icon: '\u{2699}\u{FE0F}' },
+  { id: 'tools', label: 'Tools', icon: '\u{1F527}' },
+  { id: 'plugins', label: 'Plugins', icon: '\u{1F9F0}' },
+]
+
+export default function App() {
+  const [currentPage, setCurrentPage] = useState<Page>('chat')
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'chat':
+        return <ChatPage />
+      case 'sessions':
+        return <SessionsPage />
+      case 'config':
+        return <ConfigPage />
+      case 'tools':
+        return <ToolsPage />
+      case 'plugins':
+        return <PluginsPage />
+    }
+  }
+
+  return (
+    <div className="app-layout">
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <h1>i-rs-claw</h1>
+          <div className="subtitle">AI Personal Assistant</div>
+        </div>
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              className={`nav-item${currentPage === item.id ? ' active' : ''}`}
+              onClick={() => setCurrentPage(item.id)}
+            >
+              <span className="icon">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <main className="main-content">
+        {renderPage()}
+      </main>
+    </div>
+  )
+}

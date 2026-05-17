@@ -61,6 +61,7 @@ pub struct App {
     /// Token usage from the last LLM response
     pub token_usage: Option<crate::llm::TokenUsage>,
     /// Filtered tool index text (respects enabled_tools)
+    #[allow(dead_code)]
     pub tool_index_text: String,
     /// Input history for up/down navigation (most recent last)
     pub input_history: Vec<String>,

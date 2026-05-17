@@ -453,6 +453,242 @@ pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
 }
 
 // =============================================
+// Gateway subcommand
+// =============================================
+
+pub fn run_gateway() -> anyhow::Result<()> {
+    let config = crate::config::Config::load()?;
+    let rt = tokio::runtime::Runtime::new()?;
+
+    let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone()));
+
+    // Initialize MCP if configured
+    if !core.config.mcp_servers.is_empty() {
+        crate::core::engine::init_mcp(&core.config.mcp_servers);
+    }
+
+    #[allow(unused_mut)]
+    let mut server = crate::gateway::GatewayServer::new();
+
+    // Register platform adapters based on config
+    if config.gateway.enabled {
+        #[cfg(feature = "gateway-telegram")]
+        if let Some(ref tg) = config.gateway.telegram {
+            if tg.enabled {
+                if let Some(ref token) = tg.token {
+                    let adapter = crate::gateway::telegram::TelegramAdapter::new(
+                        crate::gateway::telegram::TelegramConfig {
+                            bot_token: token.clone(),
+                            enabled: true,
+                        },
+                    );
+                    server.register(Box::new(adapter));
+                    println!("  ✓ Telegram bot registered");
+                }
+            }
+        }
+
+        #[cfg(feature = "gateway-discord")]
+        if let Some(ref dc) = config.gateway.discord {
+            if dc.enabled {
+                if let Some(ref token) = dc.token {
+                    let adapter = crate::gateway::discord::DiscordAdapter::new(
+                        crate::gateway::discord::DiscordConfig {
+                            bot_token: token.clone(),
+                            enabled: true,
+                        },
+                    );
+                    server.register(Box::new(adapter));
+                    println!("  ✓ Discord bot registered");
+                }
+            }
+        }
+
+        #[cfg(feature = "gateway-slack")]
+        if let Some(ref sl) = config.gateway.slack {
+            if sl.enabled {
+                if let Some(ref token) = sl.token {
+                    let adapter = crate::gateway::slack::SlackAdapter::new(
+                        crate::gateway::slack::SlackConfig {
+                            bot_token: token.clone(),
+                            app_token: sl.extra.as_ref()
+                                .and_then(|e| e.get("app_token").cloned())
+                                .unwrap_or_default(),
+                            enabled: true,
+                        },
+                    );
+                    server.register(Box::new(adapter));
+                    println!("  ✓ Slack bot registered");
+                }
+            }
+        }
+
+        #[cfg(feature = "gateway-wechat")]
+        if let Some(ref wc) = config.gateway.wechat {
+            if wc.enabled {
+                if let Some(ref url) = wc.webhook_url {
+                    let adapter = crate::gateway::wechat::WeChatAdapter::new(
+                        crate::gateway::wechat::WeChatConfig {
+                            webhook_url: url.clone(),
+                            secret: wc.extra.as_ref()
+                                .and_then(|e| e.get("secret").cloned()),
+                            enabled: true,
+                        },
+                    );
+                    server.register(Box::new(adapter));
+                    println!("  ✓ WeChat bot registered");
+                }
+            }
+        }
+    }
+
+    if server.adapter_count() == 0 {
+        println!("ℹ No gateway adapters enabled. Configure them in config.toml:");
+        println!("  [gateway]");
+        println!("  enabled = true");
+        println!("");
+        println!("  [gateway.telegram]");
+        println!("  enabled = true");
+        println!("  token = \"your-bot-token\"");
+        return Ok(());
+    }
+
+    println!("Gateway server running. Press Ctrl+C to stop.");
+    rt.block_on(server.run(core));
+    Ok(())
+}
+
+// =============================================
+// Dashboard subcommand
+// =============================================
+
+#[cfg(feature = "dashboard")]
+pub fn run_dashboard() -> anyhow::Result<()> {
+    let config = crate::config::Config::load()?;
+    let rt = tokio::runtime::Runtime::new()?;
+
+    let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone()));
+
+    // Initialize MCP if configured
+    if !core.config.mcp_servers.is_empty() {
+        crate::core::engine::init_mcp(&core.config.mcp_servers);
+    }
+
+    // Discover plugins and merge into MCP config
+    if core.config.plugins_auto_discover {
+        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_configs = plugin_mgr.to_mcp_configs();
+        if !plugin_configs.is_empty() {
+            // Plugin configs are already merged into mcp_servers at init
+            eprintln!("  {} plugins discovered", plugin_configs.len(),);
+        }
+    }
+
+    let dashboard = crate::dashboard::Dashboard::new(config.dashboard);
+    println!("Dashboard server starting...");
+    rt.block_on(dashboard.run(core));
+    Ok(())
+}
+
+#[cfg(not(feature = "dashboard"))]
+pub fn run_dashboard() -> anyhow::Result<()> {
+    anyhow::bail!(
+        "Dashboard feature is not enabled. Rebuild with: cargo build --features dashboard"
+    );
+}
+
+// =============================================
+// Plugin subcommand
+// =============================================
+
+pub fn run_plugin_list() -> anyhow::Result<()> {
+    let mgr = crate::plugin::PluginManager::new();
+
+    if mgr.plugin_count() == 0 {
+        println!("No plugins found in {:?}", mgr.plugins_dir());
+        return Ok(());
+    }
+
+    println!("Plugins ({} discovered, {} enabled):\n", mgr.plugin_count(), mgr.enabled_count());
+    for m in &mgr.manifests {
+        let status = if mgr.is_enabled(&m.plugin.name) {
+            "enabled"
+        } else {
+            "disabled"
+        };
+        println!(
+            "  {:<20} v{:<8} [{}]  {}",
+            m.plugin.name,
+            m.plugin.version,
+            status,
+            m.plugin.description
+        );
+    }
+    Ok(())
+}
+
+pub fn run_plugin_info(name: &str) -> anyhow::Result<()> {
+    let mgr = crate::plugin::PluginManager::new();
+
+    match mgr.find(name) {
+        Some(m) => {
+            let status = if mgr.is_enabled(name) {
+                "enabled"
+            } else {
+                "disabled"
+            };
+            println!("Plugin: {}", m.plugin.name);
+            println!("  Version:     {}", m.plugin.version);
+            println!("  Description: {}", m.plugin.description);
+            if let Some(ref author) = m.plugin.author {
+                println!("  Author:      {}", author);
+            }
+            if let Some(ref url) = m.plugin.homepage {
+                println!("  Homepage:    {}", url);
+            }
+            println!("  Status:      {}", status);
+            println!("  Transport:   {}", m.transport.transport_type);
+            if let Some(ref cmd) = m.transport.command {
+                println!("  Command:     {}", cmd);
+            }
+            if let Some(ref url) = m.transport.url {
+                println!("  URL:         {}", url);
+            }
+        }
+        None => {
+            println!("Plugin '{}' not found", name);
+        }
+    }
+    Ok(())
+}
+
+pub fn run_plugin_enable(name: &str) -> anyhow::Result<()> {
+    let mut mgr = crate::plugin::PluginManager::new();
+
+    if mgr.find(name).is_none() {
+        println!("Plugin '{}' not found", name);
+        return Ok(());
+    }
+
+    mgr.enable(name);
+    println!("Enabled plugin: {}", name);
+    Ok(())
+}
+
+pub fn run_plugin_disable(name: &str) -> anyhow::Result<()> {
+    let mut mgr = crate::plugin::PluginManager::new();
+
+    if mgr.find(name).is_none() {
+        println!("Plugin '{}' not found", name);
+        return Ok(());
+    }
+
+    mgr.disable(name);
+    println!("Disabled plugin: {}", name);
+    Ok(())
+}
+
+// =============================================
 // Helpers
 // =============================================
 

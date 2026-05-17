@@ -16,5 +16,12 @@ extensions/**/*.zip
 extensions/**/dist/
 extensions/**/build/
 
+**/*/dist/
+
 # Native Messaging host build artifacts
 extensions/i-rs-native-msg/target/
+
+# Browser agent screenshots
+*.png
+*.jpeg
+*.jpg

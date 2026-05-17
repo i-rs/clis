@@ -26,3 +26,16 @@ unicode-width = "0.2"
 owo-colors.workspace = true
 pulldown-cmark.workspace = true
 async-trait.workspace = true
+axum = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+rust-embed = { version = "8", features = ["include-exclude"], optional = true }
+mime_guess = { version = "2", optional = true }
+
+[features]
+default = []
+dashboard = ["axum", "tower-http", "rust-embed", "mime_guess"]
+gateway-telegram = []
+gateway-discord = []
+gateway-slack = []
+gateway-wechat = []
+gateway-all = ["gateway-telegram", "gateway-discord", "gateway-slack", "gateway-wechat"]

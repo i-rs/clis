@@ -65,6 +65,16 @@ export default defineConfig({
             ]
           },
           {
+            text: 'i-rs-claw (AI Assistant)',
+            collapsed: true,
+            items: [
+              { text: 'Overview', link: '/crates/i-rs-claw/' },
+              { text: 'Usage', link: '/crates/i-rs-claw/usage' },
+              { text: 'Examples', link: '/crates/i-rs-claw/examples' },
+              { text: 'Test', link: '/crates/i-rs-claw/test' }
+            ]
+          },
+          {
             text: 'i-rs-server',
             collapsed: true,
             items: [

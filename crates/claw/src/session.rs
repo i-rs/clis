@@ -111,6 +111,12 @@ impl SessionManager {
         }
     }
 
+    /// Get session metadata by ID.
+    #[allow(dead_code)]
+    pub fn session_meta(&self, id: &str) -> Option<&SessionMeta> {
+        self.sessions.iter().find(|s| s.id == id)
+    }
+
     /// Search sessions by title keyword (case-insensitive).
     #[allow(dead_code)]
     pub fn save_plan_steps(&self, id: &str, steps: &[crate::app::PlanStep]) {

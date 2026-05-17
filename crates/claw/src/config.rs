@@ -33,9 +33,96 @@ pub struct Config {
     /// MCP server connections for external tool discovery.
     #[serde(default)]
     pub mcp_servers: Vec<crate::mcp::McpServerConfig>,
+    /// Automatically discover plugins from ~/.i-rs-claw/plugins/.
+    /// Discovered plugins are merged into mcp_servers at startup.
+    #[serde(default = "default_true")]
+    pub plugins_auto_discover: bool,
+    /// Gateway configuration for social platform integration.
+    #[serde(default)]
+    pub gateway: GatewayConfig,
+    /// Dashboard web server configuration.
+    #[serde(default)]
+    pub dashboard: DashboardConfig,
     /// Custom color theme (loaded from theme.json, not serialized)
     #[serde(skip)]
     pub theme: crate::theme::Theme,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+// ── Gateway Configuration ──
+
+/// Gateway configuration for social platform integration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GatewayConfig {
+    /// Master switch for the gateway server.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Telegram bot configuration.
+    #[serde(default)]
+    pub telegram: Option<PlatformConfig>,
+    /// Discord bot configuration.
+    #[serde(default)]
+    pub discord: Option<PlatformConfig>,
+    /// Slack bot configuration.
+    #[serde(default)]
+    pub slack: Option<PlatformConfig>,
+    /// WeChat/WeCom bot configuration.
+    #[serde(default)]
+    pub wechat: Option<PlatformConfig>,
+}
+
+// ── Dashboard Configuration ──
+
+/// Dashboard web server configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardConfig {
+    /// Whether the dashboard is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Host address to bind to.
+    #[serde(default = "default_dashboard_host")]
+    pub host: String,
+    /// Port to listen on.
+    #[serde(default = "default_dashboard_port")]
+    pub port: u16,
+}
+
+impl Default for DashboardConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: default_dashboard_host(),
+            port: default_dashboard_port(),
+        }
+    }
+}
+
+fn default_dashboard_host() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_dashboard_port() -> u16 {
+    3000
+}
+
+/// Generic platform configuration used by all gateway adapters.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformConfig {
+    /// Whether this platform adapter is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// API token or key for the platform.
+    #[serde(default)]
+    pub token: Option<String>,
+    /// Webhook URL (used by WeChat/Slack).
+    #[serde(default)]
+    pub webhook_url: Option<String>,
+    /// Additional configuration as key-value pairs.
+    #[serde(default)]
+    pub extra: Option<::std::collections::HashMap<String, String>>,
 }
 
 fn default_provider() -> String {
@@ -63,6 +150,9 @@ impl Config {
             search_base_url: None,
             allowed_dirs: Vec::new(),
             mcp_servers: Vec::new(),
+            plugins_auto_discover: true,
+            gateway: GatewayConfig::default(),
+            dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),
         }
     }

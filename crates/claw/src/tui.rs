@@ -1,10 +1,7 @@
 use crate::app;
 use crate::config::Config;
+use crate::core;
 use crate::llm::LlmEvent;
-use crate::memory::CrossSessionMemory;
-use crate::session::SessionManager;
-use crate::skill_store::SkillStore;
-use crate::tool_cache::ToolDocCache;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use std::io;
@@ -30,31 +27,27 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     let mut app = app::App::new(config);
 
-    // Initialize tool doc cache, session manager, and cross-session memory
-    let claw_dir = claw_dir().join("claw");
-    let tool_cache = ToolDocCache::new(claw_dir.clone());
-    let skill_store = SkillStore::new(claw_dir.clone());
-    let mut session_mgr = SessionManager::new(claw_dir.clone());
-    let mut cross_memory = CrossSessionMemory::new(claw_dir);
+    // Initialize AppCore (session manager, memory, tool cache, skill store)
+    let mut app_core = crate::core::AppCore::new(app.config.clone());
 
     // If a specific session ID was requested, try to switch to it
     if let Some(sid) = session_id {
-        if !session_mgr.switch_to(sid) {
+        if !app_core.session_mgr.switch_to(sid) {
             eprintln!("⚠ 未找到会话: {}", sid);
         }
     }
 
     // Ensure at least one session exists
-    if session_mgr.current_id().is_none() {
-        session_mgr.create_session();
+    if app_core.session_mgr.current_id().is_none() {
+        app_core.session_mgr.create_session();
     }
 
     // Analyze cross-session tool usage from all sessions
-    cross_memory.analyze_sessions(session_mgr.sessions(), &session_mgr);
+    app_core.cross_memory.analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
 
     // Load messages from current session
-    let session_id = session_mgr.current_id().unwrap().to_string();
-    let loaded = session_mgr.load_app_messages(&session_id, 50);
+    let session_id = app_core.session_mgr.current_id().unwrap().to_string();
+    let loaded = app_core.session_mgr.load_app_messages(&session_id, 50);
     app.messages = loaded;
 
     // Check for due reminders at startup
@@ -63,13 +56,22 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         notify_macos("i-rs-claw 提醒", "你有即将到期或已过期的提醒事项");
     }
 
+    // Discover plugins and merge into MCP config
+    if app_core.config.plugins_auto_discover {
+        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_configs = plugin_mgr.to_mcp_configs();
+        if !plugin_configs.is_empty() {
+            app_core.config.mcp_servers.extend(plugin_configs);
+        }
+    }
+
     // Initialize MCP connections from config
-    if !app.config.mcp_servers.is_empty() {
-        crate::llm::init_mcp(&app.config.mcp_servers);
+    if !app_core.config.mcp_servers.is_empty() {
+        core::engine::init_mcp(&app_core.config.mcp_servers);
     }
 
     if app.messages.is_empty() {
-        let onboarding = !cross_memory.has_user_profile();
+        let onboarding = !app_core.cross_memory.has_user_profile();
         if onboarding {
             app.messages.push(app::Message::Assistant {
                 text: concat!(
@@ -95,10 +97,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         &mut terminal,
         &rt,
         &mut app,
-        &mut session_mgr,
-        &mut cross_memory,
-        &tool_cache,
-        &skill_store,
+        &mut app_core,
         &llm_tx,
         &mut llm_rx,
     );
@@ -121,7 +120,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
     println!("{}", format!("  📊 {} 条消息 · {} 次工具调用{}", msg_count, tool_count, token_display).dimmed());
-    if let Some(sid) = session_mgr.current_id() {
+    if let Some(sid) = app_core.session_mgr.current_id() {
         println!("{} {}", "↻ 重新进入:".yellow(), format!("i-rs-claw tui --session {}", sid).cyan().bold());
     }
 
@@ -136,10 +135,7 @@ fn main_loop(
     terminal: &mut ratatui::Terminal<CrosstermBackend<io::Stdout>>,
     rt: &tokio::runtime::Runtime,
     app: &mut app::App,
-    session_mgr: &mut SessionManager,
-    cross_memory: &mut CrossSessionMemory,
-    tool_cache: &ToolDocCache,
-    skill_store: &SkillStore,
+    app_core: &mut core::AppCore,
     llm_tx: &mpsc::UnboundedSender<LlmEvent>,
     llm_rx: &mut mpsc::UnboundedReceiver<LlmEvent>,
 ) -> anyhow::Result<()> {
@@ -172,8 +168,8 @@ fn main_loop(
                     if !plan_text.is_empty() {
                         app.detect_plan(&plan_text);
                         // Persist plan steps to disk
-                        if let Some(sid) = session_mgr.current_id() {
-                            session_mgr.save_plan_steps(sid, &app.plan_steps);
+                        if let Some(sid) = app_core.session_mgr.current_id() {
+                            app_core.session_mgr.save_plan_steps(sid, &app.plan_steps);
                         }
                     }
                 }
@@ -194,8 +190,8 @@ fn main_loop(
                     // Mark the next plan step as completed
                     app.mark_next_plan_step_done();
                     // Persist plan progress to disk
-                    if let Some(sid) = session_mgr.current_id() {
-                        session_mgr.save_plan_steps(sid, &app.plan_steps);
+                    if let Some(sid) = app_core.session_mgr.current_id() {
+                        app_core.session_mgr.save_plan_steps(sid, &app.plan_steps);
                     }
 
                     // Save user information from update_user_memory tool
@@ -208,7 +204,7 @@ fn main_loop(
                                 .and_then(|v| v.as_str())
                                 .filter(|s| !s.is_empty())
                             {
-                                cross_memory.set_user_name(user_name);
+                                app_core.cross_memory.set_user_name(user_name);
                             }
                             if let Some(info) =
                                 parsed.get("user_info").and_then(|v| v.as_array())
@@ -217,7 +213,7 @@ fn main_loop(
                                     if let Some(s) =
                                         item.as_str().filter(|s| !s.is_empty())
                                     {
-                                        cross_memory.add_user_info(s);
+                                        app_core.cross_memory.add_user_info(s);
                                     }
                                 }
                             }
@@ -229,7 +225,7 @@ fn main_loop(
                                     if let Some(s) =
                                         item.as_str().filter(|s| !s.is_empty())
                                     {
-                                        cross_memory.add_preference(s);
+                                        app_core.cross_memory.add_preference(s);
                                     }
                                 }
                             }
@@ -244,11 +240,11 @@ fn main_loop(
                             if let Some(tool) =
                                 parsed.get("tool").and_then(|t| t.as_str())
                             {
-                                cross_memory.record_tool_use(tool);
+                                app_core.cross_memory.record_tool_use(tool);
                             }
                         }
                     } else {
-                        cross_memory.record_tool_use(&name);
+                        app_core.cross_memory.record_tool_use(&name);
                     }
                 }
                 LlmEvent::Error(text) => {
@@ -276,18 +272,18 @@ fn main_loop(
                 }
                 LlmEvent::Done(mut msgs, usage) => {
                     // Compress API messages to protect teach docs + fit context
-                    crate::llm::compress_api_messages(&mut msgs, cross_memory.tool_frequency());
+                    app_core.compress_api_messages(&mut msgs);
 
                     app.finish_processing(Some(msgs.clone()));
                     app.token_usage = usage;
 
                     // Clear persisted plan on completion
-                    if let Some(sid) = session_mgr.current_id() {
-                        session_mgr.save_plan_steps(sid, &[]);
+                    if let Some(sid) = app_core.session_mgr.current_id() {
+                        app_core.session_mgr.save_plan_steps(sid, &[]);
                     }
 
                     // Persist conversation to session
-                    let session_id = session_mgr
+                    let session_id = app_core.session_mgr
                         .current_id()
                         .unwrap_or_default()
                         .to_string();
@@ -318,11 +314,11 @@ fn main_loop(
                             }
                         })
                         .collect();
-                    session_mgr.save_all_messages(&session_id, &records);
-                    session_mgr.save_api_messages(&session_id, &msgs);
+                    app_core.session_mgr.save_all_messages(&session_id, &records);
+                    app_core.session_mgr.save_api_messages(&session_id, &msgs);
 
                     // Rename session based on first user message
-                    let needs_rename = session_mgr
+                    let needs_rename = app_core.session_mgr
                         .current_session()
                         .map(|s| s.title == "新对话" || s.title.is_empty())
                         .unwrap_or(false);
@@ -334,7 +330,7 @@ fn main_loop(
                                 None
                             }
                         }) {
-                            session_mgr.rename_session(&session_id, &first_user);
+                            app_core.session_mgr.rename_session(&session_id, &first_user);
                         }
                     }
                 }
@@ -386,13 +382,13 @@ fn main_loop(
                         app.show_session_list = !app.show_session_list;
                         if app.show_session_list {
                             app.session_list_index = 0;
-                            app.session_list = session_mgr.sessions().to_vec();
+                            app.session_list = app_core.session_mgr.sessions().to_vec();
                         }
                     }
                     KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
                         // Save current session, create new one
                         if let Some(old_id) =
-                            session_mgr.current_id().map(|id| id.to_string())
+                            app_core.session_mgr.current_id().map(|id| id.to_string())
                         {
                             let records: Vec<serde_json::Value> = app
                                 .messages
@@ -421,12 +417,12 @@ fn main_loop(
                                     }
                                 })
                                 .collect();
-                            session_mgr.save_all_messages(&old_id, &records);
+                            app_core.session_mgr.save_all_messages(&old_id, &records);
                             if let Some(ref msgs) = app.api_messages {
-                                session_mgr.save_api_messages(&old_id, msgs);
+                                app_core.session_mgr.save_api_messages(&old_id, msgs);
                             }
                         }
-                        session_mgr.create_session();
+                        app_core.session_mgr.create_session();
                         app.reset_for_new_session();
                         app.show_session_list = false;
                     }
@@ -486,13 +482,13 @@ fn main_loop(
                         };
                         if let Some(meta) = filtered.get(app.session_list_index) {
                             let id = meta.id.clone();
-                            let is_current = session_mgr
+                            let is_current = app_core.session_mgr
                                 .current_id()
                                 .map(|cid| cid == &id)
                                 .unwrap_or(false);
-                            session_mgr.delete_session(&id);
+                            app_core.session_mgr.delete_session(&id);
                             app.session_confirm_delete = false;
-                            app.session_list = session_mgr.sessions().to_vec();
+                            app.session_list = app_core.session_mgr.sessions().to_vec();
                             if is_current {
                                 // If current session was deleted, reset
                                 app.reset_for_new_session();
@@ -614,9 +610,9 @@ fn main_loop(
                             if let Some(meta) = filtered.get(app.session_list_index) {
                                 let title = std::mem::take(&mut app.session_rename_buf);
                                 if !title.trim().is_empty() {
-                                    session_mgr.rename_session(&meta.id, title.trim());
+                                    app_core.session_mgr.rename_session(&meta.id, title.trim());
                                 }
-                                app.session_list = session_mgr.sessions().to_vec();
+                                app.session_list = app_core.session_mgr.sessions().to_vec();
                             } else {
                                 app.session_rename_buf.clear();
                             }
@@ -641,12 +637,12 @@ fn main_loop(
 
                         if let Some(meta) = filtered.get(app.session_list_index) {
                             let new_id = meta.id.clone();
-                            let is_current = session_mgr
+                            let is_current = app_core.session_mgr
                                 .current_id()
                                 .map(|id| id == &new_id)
                                 .unwrap_or(false);
                             if !is_current {
-                                let old_id = session_mgr
+                                let old_id = app_core.session_mgr
                                     .current_id()
                                     .unwrap_or_default()
                                     .to_string();
@@ -677,23 +673,23 @@ fn main_loop(
                                         }
                                     })
                                     .collect();
-                                session_mgr.save_all_messages(&old_id, &records);
+                                app_core.session_mgr.save_all_messages(&old_id, &records);
                                 if let Some(ref msgs) = app.api_messages {
-                                    session_mgr.save_api_messages(&old_id, msgs);
+                                    app_core.session_mgr.save_api_messages(&old_id, msgs);
                                 }
 
                                 // Switch to new session
-                                session_mgr.switch_to(&new_id);
+                                app_core.session_mgr.switch_to(&new_id);
                                 let loaded =
-                                    session_mgr.load_app_messages(&new_id, 50);
+                                    app_core.session_mgr.load_app_messages(&new_id, 50);
                                 app.messages = loaded;
                                 app.api_messages =
-                                    session_mgr.load_api_messages(&new_id);
+                                    app_core.session_mgr.load_api_messages(&new_id);
                                 app.tool_call_count = 0;
                                 app.status_text.clear();
                                 app.token_usage = None;
                                 app.plan_steps =
-                                    session_mgr.load_plan_steps(&new_id);
+                                    app_core.session_mgr.load_plan_steps(&new_id);
                             }
                         }
                         app.show_session_list = false;
@@ -710,29 +706,18 @@ fn main_loop(
                             app.add_user_message(&text);
 
                             // Persist user message to session
-                            session_mgr.append_message("user", &text, None);
+                            app_core.session_mgr.append_message("user", &text, None);
 
                             // Build messages for LLM
-                            let msgs = crate::llm::build_messages(
+                            let msgs = app_core.build_messages(
                                 &app.messages,
                                 &text,
                                 &app.api_messages,
-                                cross_memory.tool_frequency(),
-                                &app.tool_index_text,
-                                &cross_memory.format_hot_tools(tool_cache),
-                                &skill_store.format_skills(),
-                                &cross_memory.format_user_memory(),
-                                &cross_memory.format_user_profile(),
                                 app.reminder_text.as_deref(),
                             );
 
                             // Spawn LLM chat in background
-                            let config = app.config.clone();
-                            let tx = llm_tx.clone();
-                            let provider = crate::provider::create_provider(&config);
-                            rt.spawn(async move {
-                                crate::llm::chat_loop(provider, config, msgs, tx).await;
-                            });
+                            app_core.spawn_chat(rt, llm_tx.clone(), msgs);
                         }
                     }
                     KeyCode::Backspace => {
@@ -837,6 +822,7 @@ fn main_loop(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn claw_dir() -> std::path::PathBuf {
     dirs::home_dir()
         .expect("无法获取用户主目录")

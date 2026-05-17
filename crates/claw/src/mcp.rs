@@ -79,9 +79,22 @@ pub struct McpToolDefinition {
 
 // ── MCP Client (single server) ──
 
-struct McpClientInner {
+/// Internal connection for stdio-based MCP transport.
+struct StdioInner {
     stdin: ChildStdinWrapper,
     stdout: BufReader<ChildStdoutWrapper>,
+}
+
+/// Internal connection for SSE-based MCP transport.
+struct SseInner {
+    client: reqwest::blocking::Client,
+    url: String,
+}
+
+/// Internal transport enum for McpClient.
+enum McpClientInner {
+    Stdio(StdioInner),
+    Sse(SseInner),
 }
 
 // Wrappers to handle the fact that ChildStdin/stdout are owned types
@@ -95,10 +108,10 @@ impl std::io::Read for ChildStdoutWrapper {
     }
 }
 
-/// Client for a single MCP server connection (stdio transport).
+/// Client for a single MCP server connection.
 ///
-/// Uses JSON-RPC 2.0 over stdin/stdout of a spawned child process.
-/// Thread-safe via internal Mutex — safe for parallel_tool_calls.
+/// Supports both stdio (subprocess stdin/stdout) and SSE (HTTP POST)
+/// transports. Thread-safe via internal Mutex.
 #[derive(Clone)]
 pub struct McpClient {
     pub name: String,
@@ -110,7 +123,7 @@ pub struct McpClient {
 }
 
 impl McpClient {
-    /// Connect to an MCP server by spawning a subprocess.
+    /// Connect to an MCP server via stdio subprocess.
     pub fn connect(config: &McpServerConfig) -> Result<Self, String> {
         let command = config
             .command
@@ -143,10 +156,38 @@ impl McpClient {
             .take()
             .ok_or_else(|| "无法获取 MCP 服务器 stdout".to_string())?;
 
-        let inner = McpClientInner {
+        let inner = McpClientInner::Stdio(StdioInner {
             stdin: ChildStdinWrapper(stdin),
             stdout: BufReader::new(ChildStdoutWrapper(stdout)),
-        };
+        });
+
+        Ok(Self {
+            name: config.name.clone(),
+            inner: Arc::new(Mutex::new(inner)),
+            next_id: Arc::new(AtomicU64::new(1)),
+            healthy: true,
+        })
+    }
+
+    /// Connect to an MCP server via SSE (HTTP POST) transport.
+    ///
+    /// Uses `reqwest::blocking::Client` for synchronous HTTP requests.
+    /// The server URL is taken from the config's `url` field.
+    pub fn connect_sse(config: &McpServerConfig) -> Result<Self, String> {
+        let url = config
+            .url
+            .as_deref()
+            .ok_or_else(|| "SSE MCP 服务器缺少 url 配置".to_string())?;
+
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
+        let inner = McpClientInner::Sse(SseInner {
+            client,
+            url: url.to_string(),
+        });
 
         Ok(Self {
             name: config.name.clone(),
@@ -247,32 +288,67 @@ impl McpClient {
     }
 
     /// Send a JSON-RPC request and wait for the matching response.
+    /// Dispatches to the appropriate transport (stdio or sse).
     fn send_request(&self, method: &str, params: Option<Value>) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let request = make_request(id, method, params);
 
         let mut inner = self.inner.lock().map_err(|e| format!("MCP 锁错误: {}", e))?;
 
-        // Write request
-        let request_str =
-            serde_json::to_string(&request).map_err(|e| format!("JSON 序列化失败: {}", e))?;
-        writeln!(inner.stdin.0, "{}", request_str)
-            .map_err(|e| format!("写入 MCP stdin 失败: {}", e))?;
-        inner.stdin.0.flush().map_err(|e| format!("刷新 MCP stdin 失败: {}", e))?;
+        match &mut *inner {
+            McpClientInner::Stdio(stdio) => {
+                // Write request to stdin
+                let request_str =
+                    serde_json::to_string(&request).map_err(|e| format!("JSON 序列化失败: {}", e))?;
+                writeln!(stdio.stdin.0, "{}", request_str)
+                    .map_err(|e| format!("写入 MCP stdin 失败: {}", e))?;
+                stdio.stdin.0.flush().map_err(|e| format!("刷新 MCP stdin 失败: {}", e))?;
 
-        // Read responses until we find the matching ID
-        let mut line = String::new();
-        loop {
-            line.clear();
-            let bytes_read = inner
-                .stdout
-                .read_line(&mut line)
-                .map_err(|e| format!("读取 MCP stdout 失败: {}", e))?;
-            if bytes_read == 0 {
-                return Err("MCP 服务器连接已关闭".to_string());
+                // Read responses until we find the matching ID
+                let mut line = String::new();
+                loop {
+                    line.clear();
+                    let bytes_read = stdio
+                        .stdout
+                        .read_line(&mut line)
+                        .map_err(|e| format!("读取 MCP stdout 失败: {}", e))?;
+                    if bytes_read == 0 {
+                        return Err("MCP 服务器连接已关闭".to_string());
+                    }
+
+                    if let Some(resp) = is_matching_response(&line, id) {
+                        if let Some(error) = resp.get("error") {
+                            let msg = error
+                                .get("message")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("未知错误");
+                            return Err(format!("MCP 错误 ({}): {}", method, msg));
+                        }
+                        return Ok(resp.get("result").cloned().unwrap_or(Value::Null));
+                    }
+                }
             }
+            McpClientInner::Sse(sse) => {
+                // Send JSON-RPC via HTTP POST
+                let response = sse
+                    .client
+                    .post(&sse.url)
+                    .json(&request)
+                    .send()
+                    .map_err(|e| format!("SSE POST 失败: {}", e))?;
 
-            if let Some(resp) = is_matching_response(&line, id) {
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let text = response.text().unwrap_or_default();
+                    return Err(format!("SSE HTTP 错误 {}: {}", status, text));
+                }
+
+                let resp: Value = response
+                    .json()
+                    .map_err(|e| format!("SSE 响应解析失败: {}", e))?;
+
+                // SSE transport returns response directly (not line-buffered),
+                // but JSON-RPC structure is the same.
                 if let Some(error) = resp.get("error") {
                     let msg = error
                         .get("message")
@@ -280,7 +356,7 @@ impl McpClient {
                         .unwrap_or("未知错误");
                     return Err(format!("MCP 错误 ({}): {}", method, msg));
                 }
-                return Ok(resp.get("result").cloned().unwrap_or(Value::Null));
+                Ok(resp.get("result").cloned().unwrap_or(Value::Null))
             }
         }
     }
@@ -305,15 +381,27 @@ impl McpRegistry {
         let mut tools = Vec::new();
 
         for (_idx, server) in servers.iter().enumerate() {
-            if server.transport_type != "stdio" {
-                eprintln!("⚠ MCP 警告: '{}' 使用了不支持的传输方式 '{}'，已跳过", server.name, server.transport_type);
-                continue;
-            }
-
-            let client = match McpClient::connect(server) {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("⚠ MCP 连接失败 '{}': {}", server.name, e);
+            // Dispatch based on transport type
+            let client = match server.transport_type.as_str() {
+                "stdio" => match McpClient::connect(server) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("⚠ MCP 连接失败 '{}': {}", server.name, e);
+                        continue;
+                    }
+                },
+                "sse" => match McpClient::connect_sse(server) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("⚠ MCP SSE 连接失败 '{}': {}", server.name, e);
+                        continue;
+                    }
+                },
+                other => {
+                    eprintln!(
+                        "⚠ MCP 警告: '{}' 使用了不支持的传输方式 '{}'，已跳过",
+                        server.name, other
+                    );
                     continue;
                 }
             };
