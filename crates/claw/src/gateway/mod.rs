@@ -138,12 +138,20 @@ impl GatewayServer {
             let mut core = core.lock().unwrap();
             let session_id = format!("gateway:{}:{}", platform, chat_id);
 
-            // Try to switch to existing session, or create a new one
-            if !core.session_mgr.switch_to(&session_id) {
+            // Find existing gateway session by title, since session IDs are UUIDs
+            // but we identify them by the stable "gateway:{platform}:{chat_id}" title.
+            let found = core.session_mgr.sessions()
+                .iter()
+                .find(|s| s.title == session_id)
+                .map(|s| s.id.clone());
+
+            if let Some(uuid) = found {
+                // Reuse existing session for conversation continuity
+                core.session_mgr.switch_to(&uuid);
+            } else {
+                // First message from this user: create a new session
                 let new_id = core.session_mgr.create_session();
                 core.session_mgr.rename_session(&new_id, &session_id);
-                // Do NOT switch again -- create_session already made it current.
-                // But switch_to didn't find it, so current is now the new session.
             }
 
             let saved = core.session_mgr.load_api_messages(&session_id);
