@@ -86,6 +86,16 @@ export async function sendMessage(message: string): Promise<ApiResponse<{ sessio
   return res.json()
 }
 
+// ── Tool call event ──
+
+export interface ToolCallEvent {
+  name: string
+  args: string
+  result: string
+  step: number
+  total_steps: number
+}
+
 // ── SSE Chat Stream ──
 
 export type SseEventHandler = {
@@ -94,13 +104,25 @@ export type SseEventHandler = {
   onStatus?: (text: string) => void
   onError?: (error: string) => void
   onDone?: (usage: unknown) => void
+  onNewRound?: () => void
+  onToolExecuted?: (evt: ToolCallEvent) => void
 }
 
 // ── Chat message type ──
 
+export interface ToolCallMsg {
+  name: string
+  args: string
+  result: string
+  step: number
+  total_steps: number
+}
+
 export type ChatMessage = {
   role: 'user' | 'assistant' | 'error'
   content: string
+  reasoning?: string
+  toolCalls?: ToolCallMsg[]
 }
 
 // ── SSE stream parsing ──
@@ -145,7 +167,16 @@ export function streamChat(sessionId: string, handlers: SseEventHandler): AbortC
             case 'error':
               handlers.onError?.(data)
               break
-            case 'done':
+              case 'new_round':
+              handlers.onNewRound?.()
+              break
+            case 'tool_executed':
+              try {
+                const parsed = JSON.parse(data)
+                handlers.onToolExecuted?.(parsed as ToolCallEvent)
+              } catch { /* ignore parse errors */ }
+              break
+          case 'done':
               try {
                 const parsed = JSON.parse(data)
                 handlers.onDone?.(parsed.usage)

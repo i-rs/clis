@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 use tokio::sync::mpsc;
 
 /// Global MCP registry (initialized at startup from config).
-static MCP_REGISTRY: OnceLock<crate::mcp::McpRegistry> = OnceLock::new();
+pub(crate) static MCP_REGISTRY: OnceLock<crate::mcp::McpRegistry> = OnceLock::new();
 
 /// Initialize the global MCP registry.
 pub fn init_mcp(servers: &[crate::mcp::McpServerConfig]) {
@@ -157,7 +157,7 @@ pub fn build_messages(
 
 /// Execute a parsed tool call and return the result.
 /// Tries built-in tools first, then falls back to MCP-discovered tools.
-fn execute_tool_call(
+pub(crate) fn execute_tool_call(
     name: &str,
     args: &Value,
 ) -> String {

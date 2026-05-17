@@ -392,11 +392,11 @@ body {
 
 /* ── Code Blocks ── */
 
-pre, code {
+pre, code, .inline-code {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
-pre {
+pre, .code-block {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -404,4 +404,290 @@ pre {
   overflow-x: auto;
   font-size: 12px;
   line-height: 1.5;
+  margin: 8px 0;
+}
+
+.inline-code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #f0c674;
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+
+/* ── Reasoning Blocks ── */
+
+.reasoning-details {
+  margin-bottom: 8px;
+}
+
+.reasoning-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  user-select: none;
+}
+
+.reasoning-summary:hover {
+  background: var(--bg-hover);
+}
+
+.reasoning-content {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 6px 12px;
+  margin-top: 4px;
+  border-left: 2px solid var(--accent);
+  background: rgba(76, 154, 255, 0.05);
+  border-radius: 0 4px 4px 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* ── Tool Call Cards ── */
+
+.tool-calls-details {
+  margin-top: 8px;
+}
+
+.tool-calls-summary {
+  font-size: 12px;
+  color: var(--warning);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  user-select: none;
+  font-weight: 600;
+}
+
+.tool-calls-summary:hover {
+  background: rgba(252, 196, 25, 0.1);
+}
+
+.tool-calls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tool-call-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.tool-call-header:hover {
+  background: var(--bg-hover);
+}
+
+.tool-call-icon {
+  font-size: 12px;
+}
+
+.tool-call-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.tool-call-toggle {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.tool-call-body {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+}
+
+.tool-call-section {
+  margin-bottom: 6px;
+}
+
+.tool-call-section:last-child {
+  margin-bottom: 0;
+}
+
+.tool-call-section-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.tool-call-code {
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-secondary);
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ── Streaming ── */
+
+.streaming-cursor {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.message.assistant.streaming {
+  border: 1px solid rgba(76, 154, 255, 0.2);
+}
+
+/* ── Markdown Tables ── */
+
+.table-wrapper {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.md-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.md-table th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.md-table td {
+  color: var(--text-secondary);
+}
+
+.md-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Markdown Blockquotes ── */
+
+.md-blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 4px 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+  background: rgba(76, 154, 255, 0.05);
+  border-radius: 0 4px 4px 0;
+}
+
+/* ── Markdown Lists ── */
+
+.md-list {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+.md-list li {
+  margin: 2px 0;
+}
+
+/* ── Markdown Headings ── */
+
+.md-h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 12px 0 6px;
+  color: var(--text-primary);
+}
+
+.md-h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 10px 0 4px;
+  color: var(--text-primary);
+}
+
+.md-h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+  color: var(--text-primary);
+}
+
+/* ── Message content spacing ── */
+
+.message-content {
+  line-height: 1.6;
+}
+
+.message-content p {
+  margin: 6px 0;
+}
+
+.message-content p:first-child {
+  margin-top: 0;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+.message-content li {
+  margin: 2px 0;
+}
+
+.message-content a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.message-content a:hover {
+  color: var(--accent-hover);
+}
+
+.message-content img {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 8px 0;
 }

@@ -11,9 +11,8 @@ use axum::{
 /// The output directory `dashboard-ui/dist/` is embedded at compile time.
 #[derive(rust_embed::RustEmbed)]
 #[folder = "dashboard-ui/dist"]
-#[include = "*.html"]
-#[include = "*.js"]
-#[include = "*.css"]
+#[include = "*"]
+#[include = "assets/*"]
 struct Assets;
 
 fn serve_embedded(path: &str) -> Response {
