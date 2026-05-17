@@ -1,11 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { sendMessage, streamChat, type ChatMessage, type ToolCallMsg } from '../api'
+import { sendMessage, streamChat, getCurrentSession, createSession, type ChatMessage, type ToolCallMsg } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
-export default function ChatPage() {
+interface Props {
+  onNavigate?: (page: 'sessions') => void
+  onSessionChange?: () => void
+}
+
+export default function ChatPage({ onNavigate, onSessionChange }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sessionTitle, setSessionTitle] = useState('')
+  const [hasSession, setHasSession] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -25,6 +32,51 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom()
   }, [messages, loading, scrollToBottom])
+
+  // Load current session on mount
+  useEffect(() => {
+    const load = async () => {
+      const resp = await getCurrentSession()
+      if (resp.success && resp.data && resp.data.id) {
+        setHasSession(true)
+        setSessionTitle(resp.data.title || 'Untitled')
+        // Convert API messages to ChatMessage[]
+        const msgs: ChatMessage[] = (resp.data.messages || [])
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content || '',
+          }))
+        setMessages(msgs)
+      } else {
+        // No session exists, create one
+        const createResp = await createSession()
+        if (createResp.success && createResp.data) {
+          setHasSession(true)
+          setSessionTitle('New Chat')
+          setMessages([])
+        }
+      }
+    }
+    load()
+  }, [])
+
+  const handleNewChat = async () => {
+    if (loading) return
+    abortRef.current?.abort()
+    setMessages([])
+    setInput('')
+    setLoading(false)
+    streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
+    setSessionTitle('New Chat')
+    try {
+      const resp = await createSession()
+      if (resp.success && resp.data) {
+        setHasSession(true)
+        onSessionChange?.()
+      }
+    } catch { /* ignore */ }
+  }
 
   const commitStreaming = useCallback(() => {
     const s = streamingRef.current
@@ -99,6 +151,7 @@ export default function ChatPage() {
         onDone: () => {
           commitStreaming()
           setLoading(false)
+          onSessionChange?.()
         },
       })
       abortRef.current = controller
@@ -128,7 +181,28 @@ export default function ChatPage() {
   return (
     <div className="chat-container">
       <div className="page-header">
-        <h2>Chat</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2>{sessionTitle}</h2>
+            {hasSession && (
+              <button
+                className="btn-ghost btn-sm"
+                onClick={() => onNavigate?.('sessions')}
+                title="Switch session"
+              >
+                📋
+              </button>
+            )}
+          </div>
+          <button
+            className="send-btn btn-sm"
+            onClick={handleNewChat}
+            disabled={loading}
+            title="New chat"
+          >
+            + New Chat
+          </button>
+        </div>
       </div>
 
       <div className="chat-messages">

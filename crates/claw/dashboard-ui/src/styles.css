@@ -251,6 +251,26 @@ body {
   cursor: not-allowed;
 }
 
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+}
+
 /* ── Cards ── */
 
 .card {
@@ -318,6 +338,22 @@ body {
 .session-delete:hover {
   color: var(--error);
   border-color: var(--error);
+}
+
+.session-use {
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.session-use:hover {
+  background: rgba(76, 154, 255, 0.1);
 }
 
 /* ── Tables ── */

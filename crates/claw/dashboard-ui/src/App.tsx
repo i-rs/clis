@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import ChatPage from './pages/Chat'
 import SessionsPage from './pages/Sessions'
 import ConfigPage from './pages/Config'
@@ -17,13 +17,22 @@ const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('chat')
+  const [sessionRefreshKey, setSessionRefreshKey] = useState(0)
+
+  const navigateTo = useCallback((page: Page) => {
+    setCurrentPage(page)
+  }, [])
+
+  const refreshSessions = useCallback(() => {
+    setSessionRefreshKey((k) => k + 1)
+  }, [])
 
   const renderPage = () => {
     switch (currentPage) {
       case 'chat':
-        return <ChatPage />
+        return <ChatPage key={sessionRefreshKey} onNavigate={navigateTo} onSessionChange={refreshSessions} />
       case 'sessions':
-        return <SessionsPage />
+        return <SessionsPage onNavigate={navigateTo} onSessionChange={refreshSessions} />
       case 'config':
         return <ConfigPage />
       case 'tools':
@@ -45,7 +54,7 @@ export default function App() {
             <button
               key={item.id}
               className={`nav-item${currentPage === item.id ? ' active' : ''}`}
-              onClick={() => setCurrentPage(item.id)}
+              onClick={() => navigateTo(item.id)}
             >
               <span className="icon">{item.icon}</span>
               {item.label}

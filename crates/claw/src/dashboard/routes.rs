@@ -421,6 +421,78 @@ pub async fn chat_stream(
     Sse::new(stream)
 }
 
+/// Get current session info.
+pub async fn get_current_session(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.lock().unwrap();
+    let id = core.session_mgr.current_id().map(|s| s.to_string());
+    match id {
+        Some(ref sid) => {
+            let meta = core.session_mgr.session_meta(sid);
+            let messages = core.session_mgr.load_app_messages(sid, 50);
+            let msgs: Vec<Value> = messages
+                .iter()
+                .map(|m| match m {
+                    crate::app::Message::User { text } => {
+                        serde_json::json!({"role": "user", "content": text})
+                    }
+                    crate::app::Message::Assistant { text } => {
+                        serde_json::json!({"role": "assistant", "content": text})
+                    }
+                    crate::app::Message::ToolCall { name, args, result, .. } => {
+                        serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
+                    }
+                    _ => serde_json::json!({"role": "unknown"}),
+                })
+                .collect();
+            ApiResponse::ok(serde_json::json!({
+                "id": sid,
+                "title": meta.as_ref().map(|m| &m.title),
+                "message_count": meta.as_ref().map(|m| m.message_count).unwrap_or(0),
+                "messages": msgs,
+            }))
+        }
+        None => ApiResponse::ok(serde_json::json!({
+            "id": null,
+            "title": null,
+            "message_count": 0,
+            "messages": [],
+        })),
+    }
+}
+
+/// Create a new session and switch to it.
+pub async fn create_session(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Value>> {
+    let mut core = state.core.lock().unwrap();
+    let id = core.session_mgr.create_session();
+    ApiResponse::ok(serde_json::json!({
+        "id": id,
+        "title": "",
+        "message_count": 0,
+    }))
+}
+
+/// Switch to an existing session.
+pub async fn switch_session(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Json<ApiResponse<Value>> {
+    let mut core = state.core.lock().unwrap();
+    if core.session_mgr.switch_to(&id) {
+        let meta = core.session_mgr.session_meta(&id);
+        ApiResponse::ok(serde_json::json!({
+            "id": id,
+            "title": meta.as_ref().map(|m| &m.title),
+            "message_count": meta.as_ref().map(|m| m.message_count).unwrap_or(0),
+        }))
+    } else {
+        ApiResponse::err("Session not found")
+    }
+}
+
 /// List all sessions.
 pub async fn list_sessions(
     State(state): State<AppState>,

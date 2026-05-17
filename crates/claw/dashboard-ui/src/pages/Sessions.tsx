@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
-import { listSessions, getSession, deleteSession, type SessionMeta } from '../api'
+import { listSessions, getSession, deleteSession, createSession, switchSession, type SessionMeta } from '../api'
 
-export default function SessionsPage() {
+interface Props {
+  onNavigate?: (page: 'chat') => void
+  onSessionChange?: () => void
+}
+
+export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
   const [sessions, setSessions] = useState<SessionMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSession, setSelectedSession] = useState<{ id: string; title: string; messages: { role: string; content: string }[] } | null>(null)
@@ -46,6 +51,30 @@ export default function SessionsPage() {
     }
   }
 
+  const handleUse = async (id: string) => {
+    try {
+      const resp = await switchSession(id)
+      if (resp.success) {
+        onSessionChange?.()
+        onNavigate?.('chat')
+      }
+    } catch (err) {
+      console.error('Failed to switch session', err)
+    }
+  }
+
+  const handleNewSession = async () => {
+    try {
+      const resp = await createSession()
+      if (resp.success && resp.data) {
+        onSessionChange?.()
+        onNavigate?.('chat')
+      }
+    } catch (err) {
+      console.error('Failed to create session', err)
+    }
+  }
+
   if (selectedSession) {
     return (
       <>
@@ -81,7 +110,12 @@ export default function SessionsPage() {
   return (
     <>
       <div className="page-header">
-        <h2>Sessions ({sessions.length})</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2>Sessions ({sessions.length})</h2>
+          <button className="send-btn btn-sm" onClick={handleNewSession}>
+            + New Session
+          </button>
+        </div>
       </div>
       <div className="page-body">
         {loading ? (
@@ -98,9 +132,14 @@ export default function SessionsPage() {
                     {session.message_count} messages &middot; {new Date(session.created_at * 1000).toLocaleString()}
                   </div>
                 </div>
-                <button className="session-delete" onClick={() => handleDelete(session.id)}>
-                  Delete
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button className="session-use" onClick={() => handleUse(session.id)}>
+                    Use
+                  </button>
+                  <button className="session-delete" onClick={() => handleDelete(session.id)}>
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>

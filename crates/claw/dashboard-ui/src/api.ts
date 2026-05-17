@@ -46,8 +46,30 @@ export async function getConfig(): Promise<ApiResponse<Record<string, unknown>>>
 
 // ── Sessions ──
 
+export interface CurrentSession {
+  id: string | null
+  title: string | null
+  message_count: number
+  messages: { role: string; content?: string; name?: string; args?: string; result?: string }[]
+}
+
+export async function getCurrentSession(): Promise<ApiResponse<CurrentSession>> {
+  const res = await fetch(`${BASE}/sessions/current`)
+  return res.json()
+}
+
 export async function listSessions(): Promise<ApiResponse<SessionMeta[]>> {
   const res = await fetch(`${BASE}/sessions`)
+  return res.json()
+}
+
+export async function createSession(): Promise<ApiResponse<{ id: string; title: string; message_count: number }>> {
+  const res = await fetch(`${BASE}/sessions`, { method: 'POST' })
+  return res.json()
+}
+
+export async function switchSession(id: string): Promise<ApiResponse<{ id: string; title: string | null; message_count: number }>> {
+  const res = await fetch(`${BASE}/sessions/${encodeURIComponent(id)}/switch`, { method: 'POST' })
   return res.json()
 }
 

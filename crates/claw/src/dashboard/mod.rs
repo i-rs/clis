@@ -47,10 +47,15 @@ impl Dashboard {
                 "/api/chat/stream/{session_id}",
                 axum::routing::get(routes::chat_stream),
             )
-            .route("/api/sessions", axum::routing::get(routes::list_sessions))
+            .route("/api/sessions/current", axum::routing::get(routes::get_current_session))
+            .route("/api/sessions", axum::routing::get(routes::list_sessions).post(routes::create_session))
             .route(
                 "/api/sessions/{id}",
                 axum::routing::get(routes::get_session).delete(routes::delete_session),
+            )
+            .route(
+                "/api/sessions/{id}/switch",
+                axum::routing::post(routes::switch_session),
             )
             .route("/api/tools", axum::routing::get(routes::list_tools))
             .route("/api/plugins", axum::routing::get(routes::list_plugins));
