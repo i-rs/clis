@@ -36,17 +36,30 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     scrollToBottom()
   }, [messages, loading, scrollToBottom])
 
-  // Load current session on mount
+  // Load current session on mount or when agent changes
   useEffect(() => {
     const load = async () => {
-      // Load current session
       const resp = await getCurrentSession()
       if (resp.success && resp.data && resp.data.id) {
+        const sessionAgentId = resp.data.agent_id || 'default'
+        // If current session belongs to a different agent, create a new one
+        if (sessionAgentId !== selectedAgent) {
+          const createResp = await createSession(
+            selectedAgent !== 'default' ? selectedAgent : undefined
+          )
+          if (createResp.success && createResp.data) {
+            setHasSession(true)
+            setSessionTitle('New Chat')
+            setSessionAgent(createResp.data.agent_id || null)
+            setMessages([])
+          }
+          return
+        }
         setHasSession(true)
         setSessionTitle(resp.data.title || 'Untitled')
-        const sessionAgent = resp.data.agent_id || null
-        if (sessionAgent) {
-          setSessionAgent(sessionAgent)
+        const sessAgent = resp.data.agent_id || null
+        if (sessAgent) {
+          setSessionAgent(sessAgent)
         }
         // Convert API messages to ChatMessage[], merging tool_call into assistant
         const raw = resp.data.messages || []
@@ -75,8 +88,10 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         }
         setMessages(msgs)
       } else {
-        // No session exists, create one
-        const createResp = await createSession()
+        // No session exists, create one for the selected agent
+        const createResp = await createSession(
+          selectedAgent !== 'default' ? selectedAgent : undefined
+        )
         if (createResp.success && createResp.data) {
           setHasSession(true)
           setSessionTitle('New Chat')
@@ -86,7 +101,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       }
     }
     load()
-  }, [])
+  }, [selectedAgent])
 
   const handleNewChat = async () => {
     if (loading) return
