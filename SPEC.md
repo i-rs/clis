@@ -5,7 +5,7 @@
 ```
 i-rs-clis/
 ├── crates/
-│   ├── i-rs-core/              # 共享核心库
+│   ├── core/                   # 共享核心库
 │   │   └── src/
 │   │       ├── lib.rs          # 公共API导出
 │   │       ├── macro.rs        # create_store!, skill_command!, exit_on_error!
@@ -17,7 +17,7 @@ i-rs-clis/
 │   │       └── utils/
 │   │           ├── date.rs     # parse_date(), parse_datetime()
 │   │           └── validation.rs # validate_*() + 21 个单元测试
-│   ├── i-rs-api/               # REST API (Axum)
+│   ├── cli-api/                # REST API (Axum)
 │   │   └── src/
 │   │       ├── main.rs         # 服务入口 + 32 集成测试
 │   │       ├── build.rs        # 自动生成 routes.rs 模块声明
@@ -26,7 +26,9 @@ i-rs-clis/
 │   │       ├── update.rs       # merge_entry() 通用 JSON 合并更新
 │   │       ├── store.rs        # SharedStore<T> (RwLock 封装)
 │   │       └── routes/         # 70 个路由模块 (CRUD + PATCH)
-│   ├── i-rs-{name}...          # 70个 CLI 工具
+│   ├── claw/                   # i-rs-claw TUI AI 助手
+│   ├── mcp/                    # i-rs-mcp MCP 服务器
+│   ├── clis/i-rs-{name}...     # 70个 CLI 工具
 ├── docs/                       # VitePress 文档站点
 │   └── .vitepress/
 │       └── config.ts           # 侧边栏配置
