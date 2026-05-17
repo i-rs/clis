@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { ArrowLeft, Plus, Play, Trash2, MessageSquare } from 'lucide-react'
 import { listSessions, getSession, deleteSession, createSession, switchSession, type SessionMeta } from '../api'
 
 interface Props {
@@ -81,18 +82,21 @@ export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
         <div className="page-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
-              className="nav-item"
-              style={{ width: 'auto', padding: '4px 12px' }}
+              className="icon-btn"
               onClick={() => setSelectedSession(null)}
             >
-              &larr; Back
+              <ArrowLeft size={16} className="icon-btn-icon" />
+              Back
             </button>
             <h2>{selectedSession.title}</h2>
           </div>
         </div>
         <div className="page-body">
           {selectedSession.messages.length === 0 ? (
-            <div className="empty-state"><p>No messages in this session.</p></div>
+            <div className="empty-state">
+              <MessageSquare size={40} className="empty-state-icon" />
+              <p>No messages in this session.</p>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {selectedSession.messages.map((msg, i) => (
@@ -113,15 +117,22 @@ export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h2>Sessions ({sessions.length})</h2>
           <button className="send-btn btn-sm" onClick={handleNewSession}>
-            + New Session
+            <Plus size={14} />
+            New Session
           </button>
         </div>
       </div>
       <div className="page-body">
         {loading ? (
-          <div className="loading">Loading sessions...</div>
+          <div className="loading">
+            <div className="loading-spinner" />
+            Loading sessions...
+          </div>
         ) : sessions.length === 0 ? (
-          <div className="empty-state"><p>No sessions yet. Start a chat!</p></div>
+          <div className="empty-state">
+            <MessageSquare size={40} className="empty-state-icon" />
+            <p>No sessions yet. Start a chat!</p>
+          </div>
         ) : (
           <div className="card">
             {sessions.map((session) => (
@@ -134,9 +145,11 @@ export default function SessionsPage({ onNavigate, onSessionChange }: Props) {
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button className="session-use" onClick={() => handleUse(session.id)}>
+                    <Play size={12} />
                     Use
                   </button>
                   <button className="session-delete" onClick={() => handleDelete(session.id)}>
+                    <Trash2 size={12} />
                     Delete
                   </button>
                 </div>

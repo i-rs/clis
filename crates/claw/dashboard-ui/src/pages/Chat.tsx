@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { Send, Plus, List, Loader, Brain, Terminal, ChevronDown, ChevronRight } from 'lucide-react'
 import { sendMessage, streamChat, getCurrentSession, createSession, type ChatMessage, type ToolCallMsg } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
@@ -186,11 +187,12 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
             <h2>{sessionTitle}</h2>
             {hasSession && (
               <button
-                className="btn-ghost btn-sm"
+                className="btn-ghost"
                 onClick={() => onNavigate?.('sessions')}
                 title="Switch session"
+                style={{ fontSize: '14px' }}
               >
-                📋
+                <List size={16} />
               </button>
             )}
           </div>
@@ -200,7 +202,8 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
             disabled={loading}
             title="New chat"
           >
-            + New Chat
+            <Plus size={14} />
+            New Chat
           </button>
         </div>
       </div>
@@ -211,7 +214,10 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
         ))}
         {hasStreaming && <StreamingBubble display={display} />}
         {loading && !hasStreaming && (
-          <div className="message status">Thinking...</div>
+          <div className="message status">
+            <Loader size={12} className="loading-spinner" />
+            Thinking...
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -233,7 +239,8 @@ export default function ChatPage({ onNavigate, onSessionChange }: Props) {
             onClick={handleSend}
             disabled={loading || !input.trim()}
           >
-            {loading ? '...' : 'Send'}
+            <Send size={15} className="send-icon" />
+            Send
           </button>
         </div>
       </div>
@@ -251,7 +258,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={`message ${message.role}`}>
       {hasReasoning && (
         <details className="reasoning-details" open>
-          <summary className="reasoning-summary">Thinking process</summary>
+          <summary className="reasoning-summary">
+            <Brain size={12} />
+            Thinking process
+          </summary>
           <div className="reasoning-content">{message.reasoning}</div>
         </details>
       )}
@@ -267,6 +277,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       {hasToolCalls && (
         <details className="tool-calls-details">
           <summary className="tool-calls-summary">
+            <Terminal size={12} />
             Tool calls ({message.toolCalls!.length})
           </summary>
           <div className="tool-calls-list">
@@ -289,7 +300,10 @@ function StreamingBubble({ display }: { display: { content: string; reasoning: s
     <div className="message assistant streaming">
       {hasReasoning && (
         <details className="reasoning-details" open>
-          <summary className="reasoning-summary">Thinking process</summary>
+          <summary className="reasoning-summary">
+            <Brain size={12} />
+            Thinking process
+          </summary>
           <div className="reasoning-content">{display.reasoning}</div>
         </details>
       )}
@@ -301,6 +315,7 @@ function StreamingBubble({ display }: { display: { content: string; reasoning: s
       {hasToolCalls && (
         <details className="tool-calls-details" open>
           <summary className="tool-calls-summary">
+            <Terminal size={12} />
             Tool calls ({display.toolCalls.length})
           </summary>
           <div className="tool-calls-list">
@@ -311,7 +326,10 @@ function StreamingBubble({ display }: { display: { content: string; reasoning: s
         </details>
       )}
       {!hasContent && !hasToolCalls && (
-        <div className="streaming-cursor">Thinking...</div>
+        <div className="streaming-cursor">
+          <Loader size={12} className="loading-spinner" />
+          Thinking...
+        </div>
       )}
     </div>
   )
@@ -340,9 +358,13 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCallMsg }) {
   return (
     <div className="tool-call-card">
       <div className="tool-call-header" onClick={() => setExpanded(!expanded)}>
-        <span className="tool-call-icon">⚡</span>
+        <span className="tool-call-icon">
+          <Terminal size={12} />
+        </span>
         <span className="tool-call-name">{stepLabel} {toolName}</span>
-        <span className="tool-call-toggle">{expanded ? '▼' : '▶'}</span>
+        <span className="tool-call-toggle">
+          {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+        </span>
       </div>
       {expanded && (
         <div className="tool-call-body">

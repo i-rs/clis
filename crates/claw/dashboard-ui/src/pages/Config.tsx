@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Settings } from 'lucide-react'
 import { getConfig } from '../api'
 
 export default function ConfigPage() {
@@ -21,7 +22,10 @@ export default function ConfigPage() {
       </div>
       <div className="page-body">
         {loading ? (
-          <div className="loading">Loading config...</div>
+          <div className="loading">
+            <div className="loading-spinner" />
+            Loading config...
+          </div>
         ) : config ? (
           <div className="card">
             <table className="data-table">
@@ -54,7 +58,10 @@ export default function ConfigPage() {
             </table>
           </div>
         ) : (
-          <div className="empty-state"><p>Failed to load configuration.</p></div>
+          <div className="empty-state">
+            <Settings size={40} className="empty-state-icon" />
+            <p>Failed to load configuration.</p>
+          </div>
         )}
       </div>
     </>

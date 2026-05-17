@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Wrench } from 'lucide-react'
 import { listTools, type ToolSchema } from '../api'
 
 export default function ToolsPage() {
@@ -21,9 +22,15 @@ export default function ToolsPage() {
       </div>
       <div className="page-body">
         {loading ? (
-          <div className="loading">Loading tools...</div>
+          <div className="loading">
+            <div className="loading-spinner" />
+            Loading tools...
+          </div>
         ) : tools.length === 0 ? (
-          <div className="empty-state"><p>No tools available.</p></div>
+          <div className="empty-state">
+            <Wrench size={40} className="empty-state-icon" />
+            <p>No tools available.</p>
+          </div>
         ) : (
           <div>
             {tools.map((tool) => (

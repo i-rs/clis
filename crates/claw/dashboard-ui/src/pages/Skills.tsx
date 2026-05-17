@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { BookOpen, ChevronRight, ChevronDown } from 'lucide-react'
 import { listSkills, type SkillInfo } from '../api'
 
 export default function SkillsPage() {
@@ -32,9 +33,13 @@ export default function SkillsPage() {
       </div>
       <div className="page-body">
         {loading ? (
-          <div className="loading">Loading skills...</div>
+          <div className="loading">
+            <div className="loading-spinner" />
+            Loading skills...
+          </div>
         ) : skills.length === 0 ? (
           <div className="empty-state">
+            <BookOpen size={40} className="empty-state-icon" />
             <p>No skills found. Add <code>.md</code> skill files to <code>~/.i-rs-claw/claw/skills/</code></p>
           </div>
         ) : (
@@ -50,7 +55,7 @@ export default function SkillsPage() {
                 >
                   <span className="skill-name">{skill.name}</span>
                   <span className={`skill-toggle ${expanded.has(skill.name) ? 'expanded' : ''}`}>
-                    ▶
+                    {expanded.has(skill.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </span>
                 </div>
                 {expanded.has(skill.name) && (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Puzzle } from 'lucide-react'
 import { listPlugins, type PluginInfo } from '../api'
 
 export default function PluginsPage() {
@@ -21,9 +22,13 @@ export default function PluginsPage() {
       </div>
       <div className="page-body">
         {loading ? (
-          <div className="loading">Loading plugins...</div>
+          <div className="loading">
+            <div className="loading-spinner" />
+            Loading plugins...
+          </div>
         ) : plugins.length === 0 ? (
           <div className="empty-state">
+            <Puzzle size={40} className="empty-state-icon" />
             <p>No plugins discovered. Add plugin manifests to ~/.i-rs-claw/plugins/</p>
           </div>
         ) : (
