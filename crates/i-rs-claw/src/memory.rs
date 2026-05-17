@@ -223,3 +223,92 @@ impl CrossSessionMemory {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_memory() -> CrossSessionMemory {
+        CrossSessionMemory {
+            tool_frequency: HashMap::new(),
+            hot_tools: Vec::new(),
+            preferences: Vec::new(),
+            user_name: None,
+            user_info: Vec::new(),
+            path: std::env::temp_dir().join("i-rs-claw-test-memory.json"),
+        }
+    }
+
+    #[test]
+    fn test_record_tool_use() {
+        let mut mem = test_memory();
+        mem.record_tool_use("weight");
+        mem.record_tool_use("weight");
+        mem.record_tool_use("mood");
+
+        assert_eq!(mem.tool_frequency.get("weight"), Some(&2));
+        assert_eq!(mem.tool_frequency.get("mood"), Some(&1));
+        assert_eq!(mem.hot_tools.first().unwrap(), "weight");
+        let _ = std::fs::remove_file(&mem.path);
+    }
+
+    #[test]
+    fn test_has_user_profile() {
+        let mut mem = test_memory();
+        assert!(!mem.has_user_profile());
+
+        mem.set_user_name("Alice");
+        assert!(mem.has_user_profile());
+        let _ = std::fs::remove_file(&mem.path);
+
+        let mut mem2 = test_memory();
+        mem2.add_user_info("likes coffee");
+        assert!(mem2.has_user_profile());
+        let _ = std::fs::remove_file(&mem2.path);
+    }
+
+    #[test]
+    fn test_add_user_info_dedup() {
+        let mut mem = test_memory();
+        mem.add_user_info("likes coffee");
+        mem.add_user_info("likes coffee");
+        assert_eq!(mem.user_info.len(), 1);
+        let _ = std::fs::remove_file(&mem.path);
+    }
+
+    #[test]
+    fn test_format_user_memory_empty() {
+        let mem = test_memory();
+        assert!(mem.format_user_memory().is_empty());
+    }
+
+    #[test]
+    fn test_format_user_memory_with_data() {
+        let mut mem = test_memory();
+        mem.set_user_name("Bob");
+        mem.add_preference("likes dark mode");
+        let output = mem.format_user_memory();
+        assert!(output.contains("用户称呼：Bob"));
+        assert!(output.contains("likes dark mode"));
+        let _ = std::fs::remove_file(&mem.path);
+    }
+
+    #[test]
+    fn test_format_user_profile_known() {
+        let mut mem = test_memory();
+        mem.set_user_name("Charlie");
+        mem.add_user_info("works from home");
+        let output = mem.format_user_profile();
+        assert!(output.contains("用户称呼：Charlie"));
+        assert!(output.contains("works from home"));
+        assert!(!output.contains("新用户"));
+        let _ = std::fs::remove_file(&mem.path);
+    }
+
+    #[test]
+    fn test_format_user_profile_new() {
+        let mem = test_memory();
+        let output = mem.format_user_profile();
+        assert!(output.contains("新用户"));
+    }
+}

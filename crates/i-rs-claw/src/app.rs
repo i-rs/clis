@@ -1,8 +1,9 @@
 use crate::config::Config;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// A step in the LLM's execution plan.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanStep {
     pub description: String,
     pub done: bool,

@@ -52,8 +52,9 @@ fn default_model() -> String {
 
 impl Config {
     pub fn new() -> Self {
+        let env_api_key = std::env::var("I_RS_CLAW_API_KEY").unwrap_or_default();
         Self {
-            api_key: String::new(),
+            api_key: env_api_key,
             provider: default_provider(),
             base_url: default_base_url(),
             model: default_model(),
@@ -97,6 +98,13 @@ impl Config {
             config.theme = crate::theme::Theme::load(&theme_path);
         }
 
+        // Override API key from environment variable if set
+        if let Ok(env_key) = std::env::var("I_RS_CLAW_API_KEY") {
+            if !env_key.is_empty() {
+                config.api_key = env_key;
+            }
+        }
+
         if config.api_key.is_empty() {
             anyhow::bail!("配置文件中 api_key 不能为空");
         }
@@ -118,6 +126,48 @@ impl Config {
     #[allow(dead_code)]
     pub fn all_tools() -> Vec<(&'static str, &'static str)> {
         crate::tools::TOOL_INDEX.to_vec()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_config_defaults() {
+        // SAFETY: test runs single-threaded
+        unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
+        let config = Config::new();
+        assert!(config.api_key.is_empty());
+        assert_eq!(config.provider, "openai");
+        assert_eq!(config.base_url, "https://api.openai.com/v1");
+        assert_eq!(config.model, "gpt-4o-mini");
+        assert!(config.enabled_tools.is_empty());
+    }
+
+    #[test]
+    fn test_env_var_overrides_new() {
+        // SAFETY: test runs single-threaded
+        unsafe { std::env::set_var("I_RS_CLAW_API_KEY", "sk-test-key-from-env") };
+        let config = Config::new();
+        assert_eq!(config.api_key, "sk-test-key-from-env");
+        unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
+    }
+
+    #[test]
+    fn test_env_var_empty_string() {
+        // SAFETY: test runs single-threaded
+        unsafe { std::env::set_var("I_RS_CLAW_API_KEY", "") };
+        let config = Config::new();
+        assert!(config.api_key.is_empty());
+        unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
+    }
+
+    #[test]
+    fn test_all_tools_contains_kv() {
+        let tools = Config::all_tools();
+        assert!(!tools.is_empty());
+        assert!(tools.iter().any(|(name, _)| *name == "kv"));
     }
 }
 

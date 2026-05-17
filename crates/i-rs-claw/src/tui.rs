@@ -59,6 +59,9 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     // Check for due reminders at startup
     app.reminder_text = check_reminders();
+    if app.reminder_text.is_some() {
+        notify_macos("i-rs-claw 提醒", "你有即将到期或已过期的提醒事项");
+    }
 
     // Initialize MCP connections from config
     if !app.config.mcp_servers.is_empty() {
@@ -168,6 +171,10 @@ fn main_loop(
                         .unwrap_or_default();
                     if !plan_text.is_empty() {
                         app.detect_plan(&plan_text);
+                        // Persist plan steps to disk
+                        if let Some(sid) = session_mgr.current_id() {
+                            session_mgr.save_plan_steps(sid, &app.plan_steps);
+                        }
                     }
                 }
                 LlmEvent::Reasoning(text) => {
@@ -186,6 +193,10 @@ fn main_loop(
                     app.add_tool_call(&name, &args, &result, step, total_steps);
                     // Mark the next plan step as completed
                     app.mark_next_plan_step_done();
+                    // Persist plan progress to disk
+                    if let Some(sid) = session_mgr.current_id() {
+                        session_mgr.save_plan_steps(sid, &app.plan_steps);
+                    }
 
                     // Save user information from update_user_memory tool
                     if name == "update_user_memory" {
@@ -269,6 +280,11 @@ fn main_loop(
 
                     app.finish_processing(Some(msgs.clone()));
                     app.token_usage = usage;
+
+                    // Clear persisted plan on completion
+                    if let Some(sid) = session_mgr.current_id() {
+                        session_mgr.save_plan_steps(sid, &[]);
+                    }
 
                     // Persist conversation to session
                     let session_id = session_mgr
@@ -568,6 +584,8 @@ fn main_loop(
                                 app.tool_call_count = 0;
                                 app.status_text.clear();
                                 app.token_usage = None;
+                                app.plan_steps =
+                                    session_mgr.load_plan_steps(&new_id);
                             }
                         }
                         app.show_session_list = false;
@@ -744,5 +762,16 @@ fn check_reminders() -> Option<String> {
         return None;
     }
 
+    notify_macos("i-rs-claw 提醒", &format!("你有 {} 个待处理提醒", due.len()));
     Some(due.join("\n"))
+}
+
+/// Send a macOS notification via osascript.
+fn notify_macos(title: &str, message: &str) {
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", &format!(
+            r###"display notification "{}" with title "{}""###,
+            message, title
+        )])
+        .output();
 }

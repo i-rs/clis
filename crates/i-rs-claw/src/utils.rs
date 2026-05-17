@@ -53,6 +53,23 @@ fn strip_ansi(s: &str) -> String {
     result
 }
 
+/// Find complete JSON string enclosed in quotes.
+fn find_json_string(s: &str) -> Option<String> {
+    let s = s.trim();
+    let mut chars = s.char_indices();
+    // Skip leading quote
+    let _ = chars.next();
+    while let Some((i, c)) = chars.next() {
+        if c == '\\' {
+            // Skip escaped character
+            let _ = chars.next();
+        } else if c == '"' {
+            return Some(s[..=i].to_string());
+        }
+    }
+    None
+}
+
 /// Find the longest complete JSON prefix within the given string.
 fn find_json_prefix(s: &str) -> Option<String> {
     let s = s.trim();
@@ -64,7 +81,7 @@ fn find_json_prefix(s: &str) -> Option<String> {
     let (open, close) = match first {
         '{' => ('{', '}'),
         '[' => ('[', ']'),
-        '"' => ('"', '"'),
+        '"' => return find_json_string(s), // special case: string
         _ => return None,
     };
 
@@ -101,5 +118,102 @@ fn find_json_prefix(s: &str) -> Option<String> {
         Some(s[..last_complete].to_string())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_ansi_no_ansi() {
+        assert_eq!(strip_ansi("hello world"), "hello world");
+    }
+
+    #[test]
+    fn test_strip_ansi_sgr() {
+        assert_eq!(strip_ansi("\x1b[31mred\x1b[0m"), "red");
+    }
+
+    #[test]
+    fn test_strip_ansi_multiple() {
+        assert_eq!(strip_ansi("\x1b[1m\x1b[32mbold green\x1b[0m"), "bold green");
+    }
+
+    #[test]
+    fn test_strip_ansi_cursor() {
+        assert_eq!(strip_ansi("line1\x1b[K\nline2"), "line1\nline2");
+    }
+
+    #[test]
+    fn test_strip_ansi_empty() {
+        assert_eq!(strip_ansi(""), "");
+    }
+
+    #[test]
+    fn test_find_json_prefix_object() {
+        assert_eq!(find_json_prefix(r#"{"a":1,"b":2}"#).as_deref(), Some(r#"{"a":1,"b":2}"#));
+    }
+
+    #[test]
+    fn test_find_json_prefix_nested() {
+        let s = r#"{"a":{"b":[1,2]},"c":3}extra"#;
+        assert_eq!(find_json_prefix(s).as_deref(), Some(r#"{"a":{"b":[1,2]},"c":3}"#));
+    }
+
+    #[test]
+    fn test_find_json_prefix_array() {
+        assert_eq!(find_json_prefix("[1,2,3]").as_deref(), Some("[1,2,3]"));
+    }
+
+    #[test]
+    fn test_find_json_prefix_string() {
+        assert_eq!(find_json_prefix(r#""hello"more"#).as_deref(), Some(r#""hello""#));
+    }
+
+    #[test]
+    fn test_find_json_prefix_unbalanced() {
+        assert_eq!(find_json_prefix(r#"{"a":1"#), None);
+    }
+
+    #[test]
+    fn test_find_json_prefix_not_json() {
+        assert_eq!(find_json_prefix("plain text"), None);
+    }
+
+    #[test]
+    fn test_find_json_prefix_empty() {
+        assert_eq!(find_json_prefix(""), None);
+    }
+
+    #[test]
+    fn test_smart_truncate_plain_under_limit() {
+        let result = smart_truncate("short", 100);
+        assert_eq!(result, "short");
+    }
+
+    #[test]
+    fn test_smart_truncate_plain_over_limit() {
+        let result = smart_truncate("this is a long string", 10);
+        assert!(result.ends_with("...(truncated)"));
+        assert!(result.len() <= 10 + "...(truncated)".len());
+    }
+
+    #[test]
+    fn test_smart_truncate_with_ansi() {
+        let result = smart_truncate("\x1b[31mhello\x1b[0m", 100);
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn test_smart_truncate_json() {
+        let s = r#"{"a":"very long string that should be truncated","b":2}"#;
+        let result = smart_truncate(s, 30);
+        assert!(result.contains("...(truncated)"));
+    }
+
+    #[test]
+    fn test_smart_truncate_empty() {
+        assert_eq!(smart_truncate("", 10), "");
     }
 }

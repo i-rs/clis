@@ -1,7 +1,11 @@
 use serde_json::Value;
 use std::process::Command;
+use std::time::Duration;
 
 use crate::tools::index;
+
+/// CLI execution timeout.
+const CLI_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Built-in tool that executes `i-rs <tool> <command>` CLI commands.
 pub struct IrsTool;
@@ -65,29 +69,51 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String>
     all_args.push(cmd.to_string());
     all_args.extend_from_slice(args);
 
-    let output = Command::new("i-rs")
+    let mut child = Command::new("i-rs")
         .arg(tool)
         .args(&all_args)
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .map_err(|e| format!("执行 i-rs {} {} 失败: {}", tool, cmd, e))?;
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let trimmed = stdout.trim();
-        if trimmed.is_empty() {
-            Ok(r#"{"success":true}"#.to_string())
-        } else {
-            Ok(trimmed.to_string())
+    let start = std::time::Instant::now();
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let output = child.wait_with_output()
+                    .map_err(|e| format!("读取命令输出失败: {}", e))?;
+
+                if status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let trimmed = stdout.trim();
+                    if trimmed.is_empty() {
+                        return Ok(r#"{"success":true}"#.to_string());
+                    } else {
+                        return Ok(trimmed.to_string());
+                    }
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let combined = if stderr.trim().is_empty() {
+                        stdout.trim().to_string()
+                    } else {
+                        stderr.trim().to_string()
+                    };
+                    return Err(combined);
+                }
+            }
+            Ok(None) => {
+                if start.elapsed() > CLI_TIMEOUT {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!("命令执行超时 (30s): i-rs {} {}", tool, cmd));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => return Err(format!("等待命令完成失败: {}", e)),
         }
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let combined = if stderr.trim().is_empty() {
-            stdout.trim().to_string()
-        } else {
-            stderr.trim().to_string()
-        };
-        Err(combined)
     }
 }
 

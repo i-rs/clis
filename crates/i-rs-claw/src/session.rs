@@ -113,6 +113,32 @@ impl SessionManager {
 
     /// Search sessions by title keyword (case-insensitive).
     #[allow(dead_code)]
+    pub fn save_plan_steps(&self, id: &str, steps: &[crate::app::PlanStep]) {
+        let path = self.plan_steps_path(id);
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(content) = serde_json::to_string(steps) {
+            let _ = std::fs::write(&path, content);
+        }
+    }
+
+    /// Load plan steps from disk.
+    pub fn load_plan_steps(&self, id: &str) -> Vec<crate::app::PlanStep> {
+        let path = self.plan_steps_path(id);
+        if !path.exists() {
+            return Vec::new();
+        }
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(steps) = serde_json::from_str(&content) {
+                return steps;
+            }
+        }
+        Vec::new()
+    }
+
+    /// Search sessions by title keyword (case-insensitive).
+    #[allow(dead_code)]
     pub fn search_sessions(&self, query: &str) -> Vec<&SessionMeta> {
         if query.is_empty() {
             return self.sessions.iter().collect();
@@ -368,6 +394,10 @@ impl SessionManager {
         self.claw_dir.join("sessions").join(format!("{}_api.json", id))
     }
 
+    fn plan_steps_path(&self, id: &str) -> PathBuf {
+        self.claw_dir.join("sessions").join(format!("{}_plan.json", id))
+    }
+
     fn index_path(claw_dir: &PathBuf) -> PathBuf {
         claw_dir.join("index.json")
     }
@@ -400,4 +430,159 @@ fn now_secs() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_dir() -> PathBuf {
+        let id = uuid::Uuid::new_v4().to_string();
+        let dir = std::env::temp_dir().join(format!("i-rs-claw-test-{}", id));
+        let _ = std::fs::create_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn test_create_session() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+        assert!(mgr.current_id().is_some());
+        assert_eq!(mgr.sessions().len(), 1);
+        assert!(mgr.current_session().is_some());
+        assert!(!id.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_save_load_messages() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+
+        let msgs = vec![
+            serde_json::json!({"type": "user", "text": "hello"}),
+            serde_json::json!({"type": "assistant", "text": "hi there"}),
+        ];
+        mgr.save_all_messages(&id, &msgs);
+
+        let loaded = mgr.load_messages(&id, 10);
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0]["text"], "hello");
+        assert_eq!(loaded[1]["text"], "hi there");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_save_load_api_messages() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+
+        let msgs = vec![
+            serde_json::json!({"role": "user", "content": "hello"}),
+        ];
+        mgr.save_api_messages(&id, &msgs);
+
+        let loaded = mgr.load_api_messages(&id);
+        assert!(loaded.is_some());
+        assert_eq!(loaded.unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_rename_session() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+
+        mgr.rename_session(&id, "My Chat");
+        assert_eq!(mgr.current_session().unwrap().title, "My Chat");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_search_sessions() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id1 = mgr.create_session();
+        mgr.rename_session(&id1, "Weather Talk");
+        let id2 = mgr.create_session();
+        mgr.rename_session(&id2, "Coding Help");
+
+        let results = mgr.search_sessions("weather");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Weather Talk");
+
+        let all = mgr.search_sessions("");
+        assert_eq!(all.len(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_export_markdown() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+        mgr.rename_session(&id, "Test Chat");
+
+        let msgs = vec![
+            serde_json::json!({"type": "user", "text": "hello"}),
+            serde_json::json!({"type": "assistant", "text": "hi there"}),
+        ];
+        mgr.save_all_messages(&id, &msgs);
+
+        let md = mgr.export_markdown(&id);
+        assert!(md.is_some());
+        let md = md.unwrap();
+        assert!(md.contains("Test Chat"));
+        assert!(md.contains("hello"));
+        assert!(md.contains("hi there"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_export_json() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+
+        let msgs = vec![
+            serde_json::json!({"type": "user", "text": "hello"}),
+        ];
+        mgr.save_all_messages(&id, &msgs);
+
+        let json = mgr.export_json(&id);
+        assert!(json.is_some());
+        let parsed: serde_json::Value = serde_json::from_str(&json.unwrap()).unwrap();
+        assert_eq!(parsed["session"]["id"], id);
+        assert_eq!(parsed["messages"].as_array().unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_plan_steps_persistence() {
+        let dir = test_dir();
+        let mut mgr = SessionManager::new(dir.clone());
+        let id = mgr.create_session();
+
+        let steps = vec![
+            crate::app::PlanStep { description: "Step 1".to_string(), done: false },
+            crate::app::PlanStep { description: "Step 2".to_string(), done: true },
+        ];
+        mgr.save_plan_steps(&id, &steps);
+
+        let loaded = mgr.load_plan_steps(&id);
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].description, "Step 1");
+        assert!(!loaded[0].done);
+        assert!(loaded[1].done);
+
+        // Clear plan
+        mgr.save_plan_steps(&id, &[]);
+        let loaded = mgr.load_plan_steps(&id);
+        assert!(loaded.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

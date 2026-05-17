@@ -393,8 +393,15 @@ pub async fn chat_loop(
     let mut msgs = messages;
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
     const MAX_RETRIES: u32 = 2;
+    const MAX_ROUNDS: u32 = 20;
+    let mut round_count = 0u32;
 
     loop {
+        round_count += 1;
+        if round_count > MAX_ROUNDS {
+            let _ = tx.send(LlmEvent::Error("已达最大执行轮数限制 (20)，已停止循环。".to_string()));
+            break;
+        }
         let _ = tx.send(LlmEvent::NewRound);
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
@@ -435,63 +442,88 @@ pub async fn chat_loop(
                 }
                 msgs.push(assistant_msg);
 
-                // Execute each tool call
+                // Parallel execute all tool calls
                 let total = calls.len();
-                for (step, (tc, args)) in calls.iter().enumerate() {
-                    let status_msg = if tc.name == "i_rs" {
-                        let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
-                        let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
-                        if total > 1 {
-                            format!("⚡ [{}/{}] 调用工具: {} {}", step + 1, total, tool, cmd)
-                        } else {
-                            format!("⚡ 调用工具: {} {}", tool, cmd)
-                        }
-                    } else if total > 1 {
-                        format!("⚡ [{}/{}] 调用工具: {}", step + 1, total, tc.name)
-                    } else {
-                        format!("⚡ 调用工具: {}", tc.name)
-                    };
-                    let _ = tx.send(LlmEvent::Status(status_msg));
-                    let result = execute_tool_call(&tc.name, args);
-                    let is_error = result.starts_with("错误:");
+                let _ = tx.send(LlmEvent::Status(format!("⚡ 并行执行 {} 个工具...", total)));
 
-                    let _ = tx.send(LlmEvent::ToolExecuted {
-                        name: tc.name.clone(),
-                        args: args.to_string(),
-                        result: utils::smart_truncate(&result, 200),
-                        step,
-                        total_steps: total,
-                    });
+                let mut handles = Vec::new();
+                for (step, (tc, args)) in calls.into_iter().enumerate() {
+                    let tx = tx.clone();
+                    let tc_name = tc.name.clone();
+                    let args_str = serde_json::to_string(&args).unwrap_or_default();
+                    let args_for_blocking = args.clone();
+                    handles.push(tokio::spawn(async move {
+                        let result = tokio::task::spawn_blocking(move || {
+                            execute_tool_call(&tc_name, &args_for_blocking)
+                        })
+                        .await
+                        .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));
 
-                    if is_error {
+                        let _ = tx.send(LlmEvent::ToolExecuted {
+                            name: tc.name.clone(),
+                            args: args_str,
+                            result: utils::smart_truncate(&result, 200),
+                            step,
+                            total_steps: total,
+                        });
+
+                        (tc, args, result)
+                    }));
+                }
+
+                // Collect all results in order
+                let mut all_results: Vec<(ToolCallAcc, Value, String)> = Vec::new();
+                for handle in handles {
+                    if let Ok(r) = handle.await {
+                        all_results.push(r);
+                    }
+                }
+
+                // Check for errors and track retry counts
+                let mut should_retry = false;
+                for (tc, _, result) in &all_results {
+                    if result.starts_with("错误:") {
                         let count = retry_counts.entry(tc.id.clone()).or_insert(0);
                         *count += 1;
-
                         if *count <= MAX_RETRIES {
-                            // Add error to conversation so LLM sees what went wrong
-                            msgs.push(serde_json::json!({
-                                "role": "tool",
-                                "tool_call_id": tc.id,
-                                "content": &result,
-                            }));
-                            // Add explicit retry guidance
+                            should_retry = true;
+                        }
+                    }
+                }
+
+                if should_retry {
+                    // Push all results so LLM sees what succeeded/failed
+                    for (tc, _args, result) in &all_results {
+                        msgs.push(serde_json::json!({ "role": "tool", "tool_call_id": tc.id, "content": utils::smart_truncate(result, 500) }));
+                    }
+                    // Add retry guidance
+                    msgs.push(serde_json::json!({
+                        "role": "system",
+                        "content": "部分工具调用返回错误，请修正参数后重试。".to_string(),
+                    }));
+                } else {
+                    // Add reflection for max-retries-exceeded errors, then push all results
+                    for (tc, _args, result) in &all_results {
+                        if result.starts_with("错误:") {
                             msgs.push(serde_json::json!({
                                 "role": "system",
-                                "content": format!("工具调用返回错误，请修正参数后重试（第{}/{}次）。错误信息：{}", count, MAX_RETRIES, result),
+                                "content": format!(
+                                    "工具 '{}' 连续 {} 次调用失败。请反思：\n\
+                                     1. 参数是否正确？\n\
+                                     2. 是否需要换一种方式完成用户请求？\n\
+                                     3. 是否不需要这个工具，用其他方式回答用户？\n\
+                                     错误信息：{}",
+                                    tc.name, MAX_RETRIES, result
+                                ),
                             }));
-                            // Break to let outer loop retry immediately
-                            break;
                         }
-                        // Max retries exceeded: fall through to add error as normal result
+                        let trimmed = utils::smart_truncate(result, 500);
+                        msgs.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": trimmed,
+                        }));
                     }
-
-                    // Add tool result to conversation history
-                    let trimmed = utils::smart_truncate(&result, 500);
-                    msgs.push(serde_json::json!({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": trimmed,
-                    }));
                 }
                 // Continue loop: send tool results back to LLM
             }
