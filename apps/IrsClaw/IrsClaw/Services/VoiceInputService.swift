@@ -146,19 +146,18 @@ class VoiceInputService: ObservableObject {
             guard let self else { return }
 
             if let error {
-                // Log all errors — most common: "No speech detected", network error
+                // Log all errors for diagnostics
                 print("[VoiceInput] Recognition error: \(error.localizedDescription)")
 
-                // Only propagate persistent errors, not transient ones
-                if let sError = error as? NSError {
+                // Propagate only non-cancellation errors to the UI
+                let nsError = error as NSError
+                if nsError.code != 216 { // 216 = cancellation (expected on stop())
                     Task { @MainActor [weak self] in
-                        switch sError.code {
-                        case 203, 216: // No speech detected / recognition timed out
+                        switch nsError.code {
+                        case 203: // No speech detected
                             self?.errorMessage = "No speech detected. Please speak louder or check your microphone."
-                        case 200: // Recognition error
-                            self?.errorMessage = "Recognition failed: \(sError.localizedDescription)"
                         default:
-                            self?.errorMessage = "Recognition error: \(sError.localizedDescription)"
+                            self?.errorMessage = "Recognition error: \(nsError.localizedDescription)"
                         }
                     }
                 }

@@ -144,7 +144,7 @@ struct ChatView: View {
     @ViewBuilder
     private func errorBar(_ error: String) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.mic")
+            Image(systemName: "exclamationmark.microphone")
                 .foregroundStyle(.orange)
                 .font(.caption)
 
