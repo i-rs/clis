@@ -40,6 +40,8 @@ class ClawService: ObservableObject {
     @Published var config: ClawConfig?
     @Published var errorMessage: String?
     @Published var backendPid: Int32?
+    /// Current agent ID for the active chat session.
+    @Published var currentAgentId: String = "default"
     /// Incremented on each message update to trigger scroll in ChatView
     @Published var messageVersion = 0
 
@@ -186,13 +188,16 @@ class ClawService: ObservableObject {
                 self.currentSession = sessions.first(where: { $0.id == sid })
                 self.currentSessionId = sid
             }
+            if let agentId = cs.agentId {
+                self.currentAgentId = agentId
+            }
             self.messages = cs.messages.map { convertToAppMessage($0) }
         }
     }
 
     /// Create a new session.
-    func createSession(agentId: String = "default") async {
-        let body: [String: String] = ["agent_id": agentId]
+    func createSession() async {
+        let body: [String: String] = ["agent_id": currentAgentId]
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return }
         guard let data = await post("/api/sessions", body: bodyData) else { return }
         guard let response: ApiResponse<ClawSession> = decode(data) else { return }
@@ -242,10 +247,18 @@ class ClawService: ObservableObject {
         }
     }
 
+    /// Switch the active agent for the current session.
+    /// Creates a new session with the chosen agent.
+    func switchAgent(_ agentId: String) {
+        guard agentId != currentAgentId, connectionState.isConnected else { return }
+        currentAgentId = agentId
+        Task { await createSession() }
+    }
+
     // MARK: - Chat (Send Message + SSE Stream)
 
     /// Send a message and start streaming the response via SSE.
-    func sendMessage(_ text: String, agentId: String = "default") {
+    func sendMessage(_ text: String) {
         guard !text.isEmpty, !isProcessing else { return }
 
         sseTask?.cancel()
@@ -257,7 +270,7 @@ class ClawService: ObservableObject {
 
         Task {
             // POST message
-            let body: [String: String] = ["message": text, "agent_id": agentId]
+            let body: [String: String] = ["message": text, "agent_id": currentAgentId]
             guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
                 self.isProcessing = false
                 return
