@@ -1,5 +1,4 @@
 import Foundation
-import AppKit
 import Combine
 
 // MARK: - Connection State
@@ -47,10 +46,35 @@ class ClawService: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let baseURL = "http://127.0.0.1:3000"
+    private static let defaultBaseURL = "http://127.0.0.1:3000"
     private let decoder = JSONDecoder()
     private var sseTask: Task<Void, Never>?
     private var healthCheckTask: Task<Void, Never>?
+
+    /// The server URL used for all API requests.
+    /// Stored in UserDefaults for cross-platform cloud deployment support.
+    private var baseURL: String {
+        UserDefaults.standard.string(forKey: "server_url") ?? Self.defaultBaseURL
+    }
+
+    /// Update the server URL and reconnect.
+    func updateServerURL(_ newURL: String) {
+        let url = newURL.trimmingCharacters(in: .whitespaces)
+        guard !url.isEmpty else { return }
+        UserDefaults.standard.set(url, forKey: "server_url")
+        print("[ClawService] Server URL updated to: \(url)")
+        restartBackend()
+    }
+
+    /// Reset server URL to default.
+    func resetServerURL() {
+        UserDefaults.standard.removeObject(forKey: "server_url")
+        restartBackend()
+    }
+
+    var serverURLDisplay: String {
+        baseURL
+    }
 
     // MARK: - Backend Connection
 

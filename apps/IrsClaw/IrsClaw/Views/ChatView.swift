@@ -53,7 +53,7 @@ struct ChatView: View {
                 TextField("Ask i-rs-claw...", text: $inputText)
                     .textFieldStyle(.plain)
                     .padding(8)
-                    .background(Color(nsColor: .controlBackgroundColor))
+                    .background(Color.platformControlBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .disabled(service.isProcessing)
 
@@ -87,7 +87,7 @@ struct ChatView: View {
                 .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(12)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(Color.platformWindowBackground)
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
             if voiceInput.isRecording {
@@ -170,7 +170,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Color.platformControlBackground)
     }
 
     // MARK: - Recording Bar

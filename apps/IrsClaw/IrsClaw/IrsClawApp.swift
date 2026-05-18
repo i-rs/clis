@@ -15,11 +15,14 @@ struct IrsClawApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(service)
+                #if os(macOS)
                 .frame(minWidth: 800, minHeight: 500)
+                #endif
                 .onDisappear {
                     service.stopBackend()
                 }
         }
+        #if os(macOS)
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .newItem) {
@@ -30,5 +33,6 @@ struct IrsClawApp: App {
                 .disabled(!service.connectionState.isConnected)
             }
         }
+        #endif
     }
 }

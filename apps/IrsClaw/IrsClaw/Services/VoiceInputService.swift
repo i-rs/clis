@@ -182,6 +182,16 @@ class VoiceInputService: ObservableObject {
             request.append(buffer)
         }
 
+        // Configure audio session (iOS needs explicit session setup)
+        #if os(iOS)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("[VoiceInput] AVAudioSession setup failed: \(error)")
+        }
+        #endif
+
         // Start audio engine
         isRecording = true
         audioEngine.prepare()

@@ -403,6 +403,7 @@ struct AddAgentSheet: View {
 
 struct BackendSettingsView: View {
     @ObservedObject var service: ClawService
+    @State private var serverURL: String = ""
 
     var body: some View {
         Form {
@@ -443,11 +444,31 @@ struct BackendSettingsView: View {
                 }
                 .padding(.vertical, 4)
 
-                SettingsRow(icon: "point.3.connected.trianglepath.dotted", iconColor: .blue) {
-                    LabeledContent("API Endpoint") {
-                        Text("http://127.0.0.1:3000")
+                // Configurable Server URL
+                HStack(spacing: 10) {
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .foregroundStyle(.blue)
+                        .font(.body)
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Server URL", text: $serverURL)
+                            .textFieldStyle(.roundedBorder)
                             .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 6) {
+                            Button("Save & Reconnect") {
+                                service.updateServerURL(serverURL)
+                            }
+                            .controlSize(.small)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                            Button("Reset") {
+                                service.resetServerURL()
+                            }
+                            .controlSize(.small)
+                        }
                     }
                 }
             } header: {
@@ -494,6 +515,9 @@ struct BackendSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            serverURL = service.serverURLDisplay
+        }
     }
 }
 
