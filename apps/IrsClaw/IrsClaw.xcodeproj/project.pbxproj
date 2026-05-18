@@ -526,6 +526,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "i-rs-claw needs microphone access for voice input";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "i-rs-claw needs speech recognition to transcribe your voice into text";
+				INFOPLIST_KEY_WKWatchOnly = TRUE;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -559,6 +560,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "i-rs-claw needs microphone access for voice input";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "i-rs-claw needs speech recognition to transcribe your voice into text";
+				INFOPLIST_KEY_WKWatchOnly = TRUE;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
