@@ -178,15 +178,8 @@ class VoiceInputService: ObservableObject {
             }
         }
 
-        // Install audio tap — use PCM format compatible with speech recognizer
-        let pcmFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: min(inputFormat.sampleRate, 16000),
-            channels: 1,
-            interleaved: false
-        ) ?? inputFormat
-
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: pcmFormat) { buffer, _ in
+        // Install audio tap — must use the node's actual output format
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
             request.append(buffer)
         }
 
@@ -195,7 +188,7 @@ class VoiceInputService: ObservableObject {
         audioEngine.prepare()
         do {
             try audioEngine.start()
-            print("[VoiceInput] Recording started (format: \(pcmFormat.sampleRate)Hz, \(pcmFormat.channelCount)ch)")
+            print("[VoiceInput] Recording started (format: \(inputFormat.sampleRate)Hz, \(inputFormat.channelCount)ch)")
         } catch {
             isRecording = false
             audioEngine.inputNode.removeTap(onBus: 0)
