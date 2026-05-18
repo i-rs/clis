@@ -44,8 +44,12 @@ struct SessionListView: View {
             }
         }
         .listStyle(.sidebar)
+        #if os(macOS)
         .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 350)
-        .searchable(text: $searchText, placement: .sidebar, prompt: "Search sessions")
+        #else
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .searchable(text: $searchText, prompt: "Search sessions")
     }
 }
 

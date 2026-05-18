@@ -8,7 +8,11 @@
 
 /* Begin PBXFileReference section */
 		463837352FBB8F8600DA7D28 /* IrsClaw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IrsClaw.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IrsClaw-iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "IrsClaw-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABBCC012FBB8F8600DA7D28 /* IrsClaw Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "IrsClaw Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABBCC022FBB8F8600DA7D28 /* ClawService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Services/ClawService.swift"; sourceTree = "<group>"; };
+		AABBCC032FBB8F8600DA7D28 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Models/ChatModels.swift"; sourceTree = "<group>"; };
+		AABBCC042FBB8F8600DA7D28 /* Color+Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Extensions/Color+Platform.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -17,10 +21,35 @@
 			path = IrsClaw;
 			sourceTree = "<group>";
 		};
+		AABBCC052FBB8F8600DA7D28 /* IrsClaw Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "IrsClaw Watch App";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXBuildFile section */
+		AABBCC0D2FBB8F8600DA7D28 /* ClawService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC022FBB8F8600DA7D28 /* ClawService.swift */; };
+		AABBCC0E2FBB8F8600DA7D28 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC032FBB8F8600DA7D28 /* ChatModels.swift */; };
+		AABBCC0F2FBB8F8600DA7D28 /* Color+Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC042FBB8F8600DA7D28 /* Color+Platform.swift */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		463837322FBB8F8600DA7D28 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		463837522FBB8F8700DA7D28 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABBCC062FBB8F8600DA7D28 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -34,6 +63,7 @@
 			isa = PBXGroup;
 			children = (
 				463837372FBB8F8600DA7D28 /* IrsClaw */,
+				AABBCC052FBB8F8600DA7D28 /* IrsClaw Watch App */,
 				463837362FBB8F8600DA7D28 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,35 +73,12 @@
 			children = (
 				463837352FBB8F8600DA7D28 /* IrsClaw.app */,
 				463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */,
+				AABBCC012FBB8F8600DA7D28 /* IrsClaw Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
-
-/* Begin PBXBuildPhase section */
-		463837512FBB8F8700DA7D28 /* iOS Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		463837522FBB8F8700DA7D28 /* iOS Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		463837532FBB8F8700DA7D28 /* iOS Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		463837342FBB8F8600DA7D28 /* IrsClaw */ = {
@@ -100,9 +107,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 463837562FBB8F8700DA7D28 /* Build configuration list for PBXNativeTarget "IrsClaw-iOS" */;
 			buildPhases = (
-				463837512FBB8F8700DA7D28 /* iOS Sources */,
-				463837522FBB8F8700DA7D28 /* iOS Frameworks */,
-				463837532FBB8F8700DA7D28 /* iOS Resources */,
+				463837512FBB8F8700DA7D28 /* Sources */,
+				463837522FBB8F8700DA7D28 /* Frameworks */,
+				463837532FBB8F8700DA7D28 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -111,11 +118,33 @@
 			fileSystemSynchronizedGroups = (
 				463837372FBB8F8600DA7D28 /* IrsClaw */,
 			);
-			name = IrsClaw-iOS;
+			name = "IrsClaw-iOS";
 			packageProductDependencies = (
 			);
 			productName = IrsClaw;
 			productReference = 463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AABBCC072FBB8F8600DA7D28 /* IrsClaw Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABBCC0C2FBB8F8600DA7D28 /* Build configuration list for PBXNativeTarget "IrsClaw Watch App" */;
+			buildPhases = (
+				AABBCC092FBB8F8600DA7D28 /* Sources */,
+				AABBCC062FBB8F8600DA7D28 /* Frameworks */,
+				AABBCC082FBB8F8600DA7D28 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AABBCC052FBB8F8600DA7D28 /* IrsClaw Watch App */,
+			);
+			name = "IrsClaw Watch App";
+			packageProductDependencies = (
+			);
+			productName = IrsClaw;
+			productReference = AABBCC012FBB8F8600DA7D28 /* IrsClaw Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -132,6 +161,9 @@
 						CreatedOnToolsVersion = 26.5;
 					};
 					463837502FBB8F8700DA7D28 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					AABBCC072FBB8F8600DA7D28 = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
@@ -152,12 +184,27 @@
 			targets = (
 				463837342FBB8F8600DA7D28 /* IrsClaw */,
 				463837502FBB8F8700DA7D28 /* IrsClaw-iOS */,
+				AABBCC072FBB8F8600DA7D28 /* IrsClaw Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		463837332FBB8F8600DA7D28 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		463837532FBB8F8700DA7D28 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABBCC082FBB8F8600DA7D28 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -171,6 +218,23 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		463837512FBB8F8700DA7D28 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABBCC092FBB8F8600DA7D28 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABBCC0D2FBB8F8600DA7D28 /* ClawService.swift in Sources */,
+				AABBCC0E2FBB8F8600DA7D28 /* ChatModels.swift in Sources */,
+				AABBCC0F2FBB8F8600DA7D28 /* Color+Platform.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -447,6 +511,73 @@
 			};
 			name = Release;
 		};
+		AABBCC0A2FBB8F8600DA7D28 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_AND_PRESERVE_ARCHS = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F8JZTX6J52;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "i-rs-claw needs microphone access for voice input";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "i-rs-claw needs speech recognition to transcribe your voice into text";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = me.siwi.IrsClaw.watchkitapp;
+				PRODUCT_NAME = IrsClawWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		AABBCC0B2FBB8F8600DA7D28 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F8JZTX6J52;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "i-rs-claw needs microphone access for voice input";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "i-rs-claw needs speech recognition to transcribe your voice into text";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.siwi.IrsClaw.watchkitapp;
+				PRODUCT_NAME = IrsClawWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -473,6 +604,15 @@
 			buildConfigurations = (
 				463837542FBB8F8700DA7D28 /* Debug */,
 				463837552FBB8F8700DA7D28 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AABBCC0C2FBB8F8600DA7D28 /* Build configuration list for PBXNativeTarget "IrsClaw Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABBCC0A2FBB8F8600DA7D28 /* Debug */,
+				AABBCC0B2FBB8F8600DA7D28 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

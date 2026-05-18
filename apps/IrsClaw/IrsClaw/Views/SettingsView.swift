@@ -65,7 +65,9 @@ struct SettingsView: View {
             detailView
                 .padding(.horizontal)
         }
+        #if os(macOS)
         .frame(width: 620, height: 460)
+        #endif
     }
 
     @ViewBuilder
@@ -395,7 +397,6 @@ struct AddAgentSheet: View {
             }
             .padding()
         }
-        .frame(width: 420, height: 480)
     }
 }
 
@@ -518,6 +519,9 @@ struct BackendSettingsView: View {
         .onAppear {
             serverURL = service.serverURLDisplay
         }
+        #if !os(macOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }
 
