@@ -25,3 +25,12 @@ extensions/i-rs-native-msg/target/
 *.png
 *.jpeg
 *.jpg
+
+# Xcode / macOS project build artifacts
+**/xcuserdata/
+**/*.xcuserstate
+**/DerivedData/
+**/.build/
+*.app/
+*.dSYM.zip
+*.dSYM
