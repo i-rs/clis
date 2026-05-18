@@ -31,7 +31,7 @@ struct MessageBubbleView: View {
 
                     MarkdownTextView(text: text)
                         .padding(12)
-                        .background(Color(nsColor: .controlBackgroundColor))
+                        .background(Color.platformControlBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 Spacer(minLength: 60)
@@ -55,7 +55,7 @@ struct MessageBubbleView: View {
                     }
                 }
                 .padding(10)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .background(Color.platformControlBackground.opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
@@ -207,7 +207,7 @@ struct CodeBlockView: View {
                     .textSelection(.enabled)
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+        .background(Color.platformControlBackground.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -240,7 +240,12 @@ struct InlineMarkdownView: View {
                     // Remove markers ** ** or __ __
                     let clean = String(text[swiftRange]).dropFirst(2).dropLast(2)
                     var cleanAttr = AttributedString(String(clean))
-                    cleanAttr.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+                    #if os(macOS)
+                    let boldFontSize = NSFont.systemFontSize
+                    #else
+                    let boldFontSize = UIFont.systemFontSize
+                    #endif
+                    cleanAttr.font = .boldSystemFont(ofSize: boldFontSize)
                     if let attrRange = Range(match.range(at: 1), in: text) ?? Range(match.range(at: 2), in: text) {
                         if let attributedRange = Range(attrRange, in: attributed) {
                             attributed.replaceSubrange(attributedRange, with: cleanAttr)
@@ -258,7 +263,12 @@ struct InlineMarkdownView: View {
                 if let swiftRange = Range(range, in: text) {
                     let codeText = String(text[swiftRange])
                     var attrText = AttributedString(codeText)
-                    attrText.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+                    #if os(macOS)
+                    let fontSize = NSFont.systemFontSize
+                    #else
+                    let fontSize = UIFont.systemFontSize
+                    #endif
+                    attrText.font = .monospacedSystemFont(ofSize: fontSize - 1, weight: .regular)
                     attrText.backgroundColor = .init(red: 0.9, green: 0.9, blue: 0.9, alpha: 0.3)
                     if let attributedRange = Range(match.range, in: attributed) {
                         attributed.replaceSubrange(attributedRange, with: attrText)

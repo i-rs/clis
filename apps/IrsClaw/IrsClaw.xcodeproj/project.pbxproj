@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		463837352FBB8F8600DA7D28 /* IrsClaw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IrsClaw.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IrsClaw-iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -41,11 +42,36 @@
 			isa = PBXGroup;
 			children = (
 				463837352FBB8F8600DA7D28 /* IrsClaw.app */,
+				463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXBuildPhase section */
+		463837512FBB8F8700DA7D28 /* iOS Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		463837522FBB8F8700DA7D28 /* iOS Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		463837532FBB8F8700DA7D28 /* iOS Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		463837342FBB8F8600DA7D28 /* IrsClaw */ = {
@@ -70,6 +96,28 @@
 			productReference = 463837352FBB8F8600DA7D28 /* IrsClaw.app */;
 			productType = "com.apple.product-type.application";
 		};
+		463837502FBB8F8700DA7D28 /* IrsClaw-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 463837562FBB8F8700DA7D28 /* Build configuration list for PBXNativeTarget "IrsClaw-iOS" */;
+			buildPhases = (
+				463837512FBB8F8700DA7D28 /* iOS Sources */,
+				463837522FBB8F8700DA7D28 /* iOS Frameworks */,
+				463837532FBB8F8700DA7D28 /* iOS Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				463837372FBB8F8600DA7D28 /* IrsClaw */,
+			);
+			name = IrsClaw-iOS;
+			packageProductDependencies = (
+			);
+			productName = IrsClaw;
+			productReference = 463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -81,6 +129,9 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					463837342FBB8F8600DA7D28 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					463837502FBB8F8700DA7D28 = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
@@ -100,6 +151,7 @@
 			projectRoot = "";
 			targets = (
 				463837342FBB8F8600DA7D28 /* IrsClaw */,
+				463837502FBB8F8700DA7D28 /* IrsClaw-iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -333,6 +385,68 @@
 			};
 			name = Release;
 		};
+		463837542FBB8F8700DA7D28 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F8JZTX6J52;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "i-rs-claw needs microphone access for voice input";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "i-rs-claw needs speech recognition to transcribe your voice into text";
+				INFOPLIST_KEY_UILaunchScreen = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.siwi.IrsClaw;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		463837552FBB8F8700DA7D28 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F8JZTX6J52;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "i-rs-claw needs microphone access for voice input";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "i-rs-claw needs speech recognition to transcribe your voice into text";
+				INFOPLIST_KEY_UILaunchScreen = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.siwi.IrsClaw;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -350,6 +464,15 @@
 			buildConfigurations = (
 				463837412FBB8F8700DA7D28 /* Debug */,
 				463837422FBB8F8700DA7D28 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		463837562FBB8F8700DA7D28 /* Build configuration list for PBXNativeTarget "IrsClaw-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				463837542FBB8F8700DA7D28 /* Debug */,
+				463837552FBB8F8700DA7D28 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
