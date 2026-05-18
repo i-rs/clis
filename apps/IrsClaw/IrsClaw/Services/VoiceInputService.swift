@@ -132,12 +132,15 @@ class VoiceInputService: ObservableObject {
             recognitionRequest.append(buffer)
         }
 
+        // Set flag before prepare/start so guard catches re-entrant calls
+        isRecording = true
+
         audioEngine.prepare()
         do {
             try audioEngine.start()
-            isRecording = true
             print("[VoiceInput] Recording started")
         } catch {
+            isRecording = false
             errorMessage = "Failed to start microphone: \(error.localizedDescription)"
         }
     }
@@ -146,16 +149,18 @@ class VoiceInputService: ObservableObject {
     func stop() {
         guard isRecording else { return }
 
+        // Set flag immediately to prevent re-entrant calls from recognition callback
+        isRecording = false
+
         if audioEngine.isRunning {
             audioEngine.stop()
         }
         audioEngine.inputNode.removeTap(onBus: 0)
 
         recognitionRequest?.endAudio()
+        recognitionRequest = nil
         recognitionTask?.cancel()
         recognitionTask = nil
-        recognitionRequest = nil
-        isRecording = false
 
         if !transcribedText.isEmpty {
             print("[VoiceInput] Final text: \(transcribedText)")
