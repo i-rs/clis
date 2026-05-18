@@ -4,6 +4,7 @@ struct ChatView: View {
     @ObservedObject var service: ClawService
     @State private var inputText = ""
     @State private var scrollToBottom = false
+    @StateObject private var voiceInput = VoiceInputService()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,7 +17,6 @@ struct ChatView: View {
                                 .id(item.id)
                         }
 
-                        // Bottom anchor for auto-scroll
                         Color.clear
                             .frame(height: 1)
                             .id("bottom")
@@ -33,18 +33,73 @@ struct ChatView: View {
 
             Divider()
 
+            // Recording indicator bar
+            if voiceInput.isRecording {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 6, height: 6)
+                        .opacity(voiceInput.isRecording ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: voiceInput.isRecording)
+
+                    Text("Recording...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if !voiceInput.transcribedText.isEmpty {
+                        Text(voiceInput.transcribedText)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+
+                    Spacer()
+
+                    Button("Done") {
+                        voiceInput.stop()
+                        if !voiceInput.transcribedText.isEmpty {
+                            inputText = voiceInput.transcribedText
+                        }
+                    }
+                    .controlSize(.small)
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.05))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             // Input Bar
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 TextField("Ask i-rs-claw...", text: $inputText)
                     .textFieldStyle(.plain)
                     .padding(8)
                     .background(Color(nsColor: .controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .disabled(service.isProcessing)
-                    .onSubmit {
-                        sendMessage()
-                    }
 
+                // Microphone button
+                Button {
+                    voiceInput.toggle()
+                    // When recording stops (toggled off), fill input
+                    if !voiceInput.isRecording, !voiceInput.transcribedText.isEmpty {
+                        inputText = voiceInput.transcribedText
+                    }
+                } label: {
+                    Image(systemName: voiceInput.isRecording
+                          ? "mic.fill"
+                          : "mic")
+                        .font(.title3)
+                        .foregroundStyle(voiceInput.isRecording ? .red : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Voice Input (⌥V)")
+                .keyboardShortcut("v", modifiers: .option)
+                .disabled(!voiceInput.isAvailable || service.isProcessing)
+
+                // Send button
                 Button {
                     sendMessage()
                 } label: {
@@ -53,9 +108,27 @@ struct ChatView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || service.isProcessing)
+                .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(12)
             .background(Color(nsColor: .windowBackgroundColor))
+        }
+        .onChange(of: voiceInput.transcribedText) { _, newText in
+            // During recording, update input text live
+            if voiceInput.isRecording {
+                inputText = newText
+            }
+        }
+        .onChange(of: voiceInput.isRecording) { _, isNowRecording in
+            if !isNowRecording, !voiceInput.transcribedText.isEmpty {
+                // Recording just stopped — fill input with final text
+                inputText = voiceInput.transcribedText
+            }
+        }
+        .onChange(of: voiceInput.errorMessage) { _, error in
+            if let error {
+                service.errorMessage = error
+            }
         }
     }
 
