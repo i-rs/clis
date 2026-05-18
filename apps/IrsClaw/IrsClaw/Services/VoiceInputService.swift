@@ -29,42 +29,55 @@ class VoiceInputService: ObservableObject {
     }
 
     init() {
-        // Prefer Chinese, fall back to English
-        self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
-            ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        // Log recognizer availability for debugging
+        let cnRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
+        let enRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        print("[VoiceInput] zh-CN available: \(cnRecognizer?.isAvailable ?? false), en-US available: \(enRecognizer?.isAvailable ?? false)")
+
+        self.speechRecognizer = cnRecognizer
+            ?? enRecognizer
             ?? SFSpeechRecognizer()
+        print("[VoiceInput] Using locale: \(self.speechRecognizer?.locale.identifier ?? "nil")")
+
         checkPermissions()
     }
 
     // MARK: - Permissions
 
     private func checkPermissions() {
-        // Speech recognition authorization
         switch SFSpeechRecognizer.authorizationStatus() {
         case .authorized:
             hasSpeechPermission = true
+            print("[VoiceInput] Speech recognition: authorized")
         case .notDetermined:
+            print("[VoiceInput] Speech recognition: requesting authorization...")
             SFSpeechRecognizer.requestAuthorization { [weak self] status in
-                Task { @MainActor in
-                    self?.hasSpeechPermission = status == .authorized
+                Task { @MainActor [weak self] in
+                    let granted = status == .authorized
+                    print("[VoiceInput] Speech recognition: \(granted ? "granted" : "denied")")
+                    self?.hasSpeechPermission = granted
                 }
             }
         default:
             hasSpeechPermission = false
+            print("[VoiceInput] Speech recognition: denied")
         }
 
-        // Microphone authorization (macOS)
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             hasMicrophonePermission = true
+            print("[VoiceInput] Microphone: authorized")
         case .notDetermined:
+            print("[VoiceInput] Microphone: requesting authorization...")
             AVCaptureDevice.requestAccess(for: .audio) { granted in
                 Task { @MainActor [weak self] in
+                    print("[VoiceInput] Microphone: \(granted ? "granted" : "denied")")
                     self?.hasMicrophonePermission = granted
                 }
             }
         default:
             hasMicrophonePermission = false
+            print("[VoiceInput] Microphone: denied")
         }
     }
 
@@ -83,73 +96,117 @@ class VoiceInputService: ObservableObject {
     func start() {
         guard !isRecording else { return }
 
-        if !hasMicrophonePermission || !hasSpeechPermission {
-            errorMessage = "Microphone and speech recognition permissions required"
+        errorMessage = nil
+
+        // Check permissions
+        guard hasMicrophonePermission, hasSpeechPermission else {
+            let msg = "Microphone and speech recognition permissions required"
+            print("[VoiceInput] start: \(msg)")
+            errorMessage = msg
             checkPermissions()
             return
         }
 
-        guard let recognizer = speechRecognizer, recognizer.isAvailable else {
-            errorMessage = "Speech recognizer is not available"
+        // Check recognizer availability
+        guard let recognizer = speechRecognizer else {
+            errorMessage = "Speech recognizer not available on this device"
+            print("[VoiceInput] start: no recognizer")
+            return
+        }
+        guard recognizer.isAvailable else {
+            errorMessage = "Speech recognizer is busy. Try again later."
+            print("[VoiceInput] start: recognizer not available")
             return
         }
 
-        // Reset transcribed text
+        // Check audio input availability
+        let inputNode = audioEngine.inputNode
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        print("[VoiceInput] Audio input format: \(inputFormat.sampleRate)Hz, \(inputFormat.channelCount)ch")
+        if inputFormat.sampleRate == 0 {
+            errorMessage = "No audio input device found"
+            print("[VoiceInput] start: no audio input device")
+            return
+        }
+
+        // Reset
         transcribedText = ""
-        errorMessage = nil
 
         // Cancel any previous task
         recognitionTask?.cancel()
         recognitionTask = nil
 
         // Create recognition request
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest else {
-            errorMessage = "Failed to create recognition request"
-            return
-        }
-        recognitionRequest.shouldReportPartialResults = true
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        self.recognitionRequest = request
 
-        // Start recognition
-        recognitionTask = recognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
+        // Start recognition task
+        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
 
-                if let result {
-                    self.transcribedText = result.bestTranscription.formattedString
+            if let error {
+                // Log all errors — most common: "No speech detected", network error
+                print("[VoiceInput] Recognition error: \(error.localizedDescription)")
+
+                // Only propagate persistent errors, not transient ones
+                if let sError = error as? NSError {
+                    Task { @MainActor [weak self] in
+                        switch sError.code {
+                        case 203, 216: // No speech detected / recognition timed out
+                            self?.errorMessage = "No speech detected. Please speak louder or check your microphone."
+                        case 200: // Recognition error
+                            self?.errorMessage = "Recognition failed: \(sError.localizedDescription)"
+                        default:
+                            self?.errorMessage = "Recognition error: \(sError.localizedDescription)"
+                        }
+                    }
                 }
+            }
 
-                if error != nil || (result?.isFinal ?? false) {
-                    self.stop()
+            if let result {
+                Task { @MainActor [weak self] in
+                    self?.transcribedText = result.bestTranscription.formattedString
+                }
+            }
+
+            // Stop only when recognition is truly finished
+            if result?.isFinal == true {
+                Task { @MainActor [weak self] in
+                    self?.stop()
                 }
             }
         }
 
-        // Configure audio engine (macOS: no AVAudioSession needed)
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            recognitionRequest.append(buffer)
+        // Install audio tap — use PCM format compatible with speech recognizer
+        let pcmFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: min(inputFormat.sampleRate, 16000),
+            channels: 1,
+            interleaved: false
+        ) ?? inputFormat
+
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: pcmFormat) { buffer, _ in
+            request.append(buffer)
         }
 
-        // Set flag before prepare/start so guard catches re-entrant calls
+        // Start audio engine
         isRecording = true
-
         audioEngine.prepare()
         do {
             try audioEngine.start()
-            print("[VoiceInput] Recording started")
+            print("[VoiceInput] Recording started (format: \(pcmFormat.sampleRate)Hz, \(pcmFormat.channelCount)ch)")
         } catch {
             isRecording = false
+            audioEngine.inputNode.removeTap(onBus: 0)
             errorMessage = "Failed to start microphone: \(error.localizedDescription)"
+            print("[VoiceInput] Failed to start: \(error)")
         }
     }
 
     /// Stop recording and finalize recognition.
     func stop() {
         guard isRecording else { return }
-
-        // Set flag immediately to prevent re-entrant calls from recognition callback
         isRecording = false
 
         if audioEngine.isRunning {
@@ -163,7 +220,9 @@ class VoiceInputService: ObservableObject {
         recognitionTask = nil
 
         if !transcribedText.isEmpty {
-            print("[VoiceInput] Final text: \(transcribedText)")
+            print("[VoiceInput] Final text (\(transcribedText.count) chars): \(transcribedText)")
+        } else {
+            print("[VoiceInput] No transcription result")
         }
     }
 }

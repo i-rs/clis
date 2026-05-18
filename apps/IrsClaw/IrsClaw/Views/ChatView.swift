@@ -33,42 +33,13 @@ struct ChatView: View {
 
             Divider()
 
-            // Recording indicator bar
-            if voiceInput.isRecording {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(.red)
-                        .frame(width: 6, height: 6)
-                        .opacity(voiceInput.isRecording ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: voiceInput.isRecording)
-
-                    Text("Recording...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if !voiceInput.transcribedText.isEmpty {
-                        Text(voiceInput.transcribedText)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-
-                    Spacer()
-
-                    Button("Done") {
-                        voiceInput.stop()
-                        if !voiceInput.transcribedText.isEmpty {
-                            inputText = voiceInput.transcribedText
-                        }
-                    }
-                    .controlSize(.small)
-                    .buttonStyle(.borderedProminent)
+            // Recording / error indicator bar
+            if voiceInput.isRecording || !(voiceInput.errorMessage?.isEmpty ?? true) {
+                if voiceInput.isRecording {
+                    recordingBar
+                } else if let error = voiceInput.errorMessage, !error.isEmpty {
+                    errorBar(error)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.red.opacity(0.05))
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             // Input Bar
@@ -83,7 +54,6 @@ struct ChatView: View {
                 // Microphone button
                 Button {
                     voiceInput.toggle()
-                    // When recording stops (toggled off), fill input
                     if !voiceInput.isRecording, !voiceInput.transcribedText.isEmpty {
                         inputText = voiceInput.transcribedText
                     }
@@ -114,23 +84,88 @@ struct ChatView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
-            // During recording, update input text live
             if voiceInput.isRecording {
                 inputText = newText
             }
         }
         .onChange(of: voiceInput.isRecording) { _, isNowRecording in
             if !isNowRecording, !voiceInput.transcribedText.isEmpty {
-                // Recording just stopped — fill input with final text
                 inputText = voiceInput.transcribedText
             }
         }
         .onChange(of: voiceInput.errorMessage) { _, error in
-            if let error {
-                service.errorMessage = error
+            if let error, !error.isEmpty {
+                print("[ChatView] Voice error: \(error)")
             }
         }
     }
+
+    // MARK: - Recording Bar
+
+    @ViewBuilder
+    private var recordingBar: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(.red)
+                .frame(width: 6, height: 6)
+                .opacity(0.8)
+
+            Text("Recording...")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if !voiceInput.transcribedText.isEmpty {
+                Text(voiceInput.transcribedText)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+
+            Spacer()
+
+            Button("Done") {
+                voiceInput.stop()
+                if !voiceInput.transcribedText.isEmpty {
+                    inputText = voiceInput.transcribedText
+                }
+            }
+            .controlSize(.small)
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.red.opacity(0.05))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - Error Bar
+
+    @ViewBuilder
+    private func errorBar(_ error: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.mic")
+                .foregroundStyle(.orange)
+                .font(.caption)
+
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button("Dismiss") {
+                voiceInput.errorMessage = nil
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.05))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - Actions
 
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
