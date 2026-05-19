@@ -74,9 +74,6 @@ const EXTRA_COMMANDS: &[(&str, &[&str])] = &[
     ("walkdog", &[]),
     ("aqua", &[]),
     ("want", &[]),
-    ("contact", &["remind", "stats"]),
-    ("birthday", &["stats"]),
-    ("event", &["stats"]),
 ];
 
 /// Get completions for the current input context.

@@ -83,15 +83,6 @@ execution_mode = "React"
 #   token = "YOUR_BOT_TOKEN"
 #   agent_id = "default"
 #
-#   [gateway.discord]
-#   enabled = false
-#   token = "YOUR_BOT_TOKEN"
-#
-#   [gateway.slack]
-#   enabled = false
-#   token = "YOUR_SLACK_TOKEN"
-#   webhook_url = "https://hooks.slack.com/services/xxx"
-#
 #   # 微信个人号 — 无需静态 token/URL，首次运行二维码登录
 #   [gateway.wechat]
 #   enabled = false

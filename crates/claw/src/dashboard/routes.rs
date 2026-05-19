@@ -789,7 +789,10 @@ pub async fn create_agent(
     }
 
     // Create agent data directories on disk
-    let claw_dir = core.claw_dir().clone();
+    let claw_dir = match core.claw_dir() {
+        Ok(d) => d,
+        Err(e) => return ApiResponse::err(&format!("无法获取 claw 目录: {}", e)),
+    };
     let agent_dir = claw_dir.join("agents").join(&agent_id);
     let _ = std::fs::create_dir_all(&agent_dir);
 

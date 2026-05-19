@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc;
+use tokio::signal::unix::{signal, SignalKind};
 
 /// Event emitted by a platform adapter when a message is received or an error occurs.
 #[derive(Debug)]
@@ -98,6 +99,7 @@ impl GatewayServer {
     /// For each incoming message, it uses the full session-aware chat loop
     /// (with tool execution) and sends the response back via the originating
     /// platform's adapter. Blocks until all adapters have stopped.
+    /// Handles SIGINT (Ctrl+C) for graceful shutdown.
     pub async fn run(self, core: Arc<Mutex<crate::core::AppCore>>) {
         let (event_tx, mut event_rx) = mpsc::unbounded_channel::<GatewayEvent>();
 
@@ -106,57 +108,86 @@ impl GatewayServer {
             adapter.start(event_tx.clone()).await;
         }
 
-        // Main event loop
-        while let Some(event) = event_rx.recv().await {
-            match event {
-                GatewayEvent::Message {
-                    platform,
-                    chat_id,
-                    user_id: _,
-                    text,
-                    agent_id,
-                } => {
-                    let core = core.clone();
+        // Setup SIGINT handler for graceful shutdown
+        let mut sigint = match signal(SignalKind::interrupt()) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[Gateway] 无法设置信号处理器: {}", e);
+                return;
+            }
+        };
 
-                    // Find the originating adapter by index
-                    let adapter_idx = self
-                        .adapters
-                        .iter()
-                        .position(|a| a.name() == platform);
-
-                    // Spawn periodic typing indicator while processing
-                    let typing_handle = if let Some(idx) = adapter_idx {
-                        let adapter = self.adapters[idx].clone();
-                        let cid = chat_id.clone();
-                        Some(tokio::spawn(async move {
-                            loop {
-                                adapter.send_typing(&cid).await;
-                                tokio::time::sleep(Duration::from_secs(5)).await;
-                            }
-                        }))
-                    } else {
-                        None
-                    };
-
-                    // Process the message with session continuity + tool execution
-                    let response =
-                        Self::process_message(&core, &platform, &chat_id, &text, &agent_id).await;
-
-                    // Stop the typing indicator
-                    if let Some(h) = typing_handle {
-                        h.abort();
-                    }
-
-                    // Find the originating adapter and send the response
-                    if let Some(idx) = adapter_idx {
-                        self.adapters[idx]
-                            .send_message(&chat_id, &response)
-                            .await;
+        // Main event loop with Ctrl+C handling
+        loop {
+            tokio::select! {
+                _ = sigint.recv() => {
+                    eprintln!("\n[Gateway] 收到中断信号，正在优雅关闭...");
+                    break;
+                }
+                event = event_rx.recv() => {
+                    match event {
+                        Some(event) => self.handle_event(core.clone(), event).await,
+                        None => break, // all adapters disconnected
                     }
                 }
-                GatewayEvent::Error { platform, error } => {
-                    eprintln!("[Gateway/{}] Error: {}", platform, error);
+            }
+        }
+
+        // Graceful shutdown: stop all adapters
+        for adapter in &self.adapters {
+            adapter.stop().await;
+        }
+        eprintln!("[Gateway] 已关闭");
+    }
+
+    /// Handle a single gateway event (message or error).
+    async fn handle_event(&self, core: Arc<Mutex<crate::core::AppCore>>, event: GatewayEvent) {
+        match event {
+            GatewayEvent::Message {
+                platform,
+                chat_id,
+                user_id: _,
+                text,
+                agent_id,
+            } => {
+                // Find the originating adapter by index
+                let adapter_idx = self
+                    .adapters
+                    .iter()
+                    .position(|a| a.name() == platform);
+
+                // Spawn periodic typing indicator while processing
+                let typing_handle = if let Some(idx) = adapter_idx {
+                    let adapter = self.adapters[idx].clone();
+                    let cid = chat_id.clone();
+                    Some(tokio::spawn(async move {
+                        loop {
+                            adapter.send_typing(&cid).await;
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                        }
+                    }))
+                } else {
+                    None
+                };
+
+                // Process the message with session continuity + tool execution
+                let response =
+                    Self::process_message(&core, &platform, &chat_id, &text, &agent_id).await;
+
+                // Stop the typing indicator
+                if let Some(h) = typing_handle {
+                    h.abort();
                 }
+
+                // Find the originating adapter and send the response
+                if let Some(idx) = adapter_idx {
+                    self.adapters[idx]
+                        .send_message(&chat_id, &response)
+                        .await;
+                }
+            }
+            GatewayEvent::Error { platform, error } => {
+                eprintln!("[Gateway/{}] Error: {}", platform, error);
             }
         }
     }
@@ -178,7 +209,13 @@ impl GatewayServer {
 
         // Build messages with session context (lock held briefly)
         let (session_id, msgs, config, mcp) = {
-            let mut core = core.lock().unwrap();
+            let mut core = match core.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    eprintln!("[Gateway] Mutex poisoned, recovering");
+                    poisoned.into_inner()
+                }
+            };
             let session_id = format!("gateway:{}:{}", platform, chat_id);
 
             // Find existing gateway session by title, since session IDs are UUIDs
@@ -232,7 +269,13 @@ impl GatewayServer {
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _) => {
                     // Lock again only for persistence
-                    let mut core = core.lock().unwrap();
+                    let mut core = match core.lock() {
+                        Ok(guard) => guard,
+                        Err(poisoned) => {
+                            eprintln!("[Gateway] Mutex poisoned, recovering");
+                            poisoned.into_inner()
+                        }
+                    };
                     core.session_mgr
                         .save_api_messages(&session_id, &api_msgs);
                     core.session_mgr.append_message("user", &text_owned, None);

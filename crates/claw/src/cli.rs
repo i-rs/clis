@@ -463,7 +463,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
 
     let core = std::sync::Arc::new(std::sync::Mutex::new(
-        crate::core::AppCore::new(config.clone()),
+        crate::core::AppCore::new(config.clone())?,
     ));
 
     #[allow(unused_mut)]
@@ -532,7 +532,7 @@ pub fn run_dashboard() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone()));
+    let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone())?);
 
     // Discover plugins and merge into MCP config
     if core.config.plugins_auto_discover {

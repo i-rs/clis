@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -77,11 +78,8 @@ impl PluginState {
     }
 
     fn save(&self, path: &PathBuf) {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
         if let Ok(content) = serde_json::to_string_pretty(self) {
-            let _ = std::fs::write(path, content);
+            let _ = atomic_write(path, &content);
         }
     }
 
@@ -116,9 +114,8 @@ impl PluginManager {
     /// Create a new PluginManager and discover plugins.
     pub fn new() -> Self {
         let plugins_dir = dirs::home_dir()
-            .expect("cannot get home directory")
-            .join(".i-rs-claw")
-            .join("plugins");
+            .map(|h| h.join(".i-rs-claw").join("plugins"))
+            .unwrap_or_else(|| PathBuf::from(".i-rs-claw/plugins"));
 
         let state_path = plugins_dir.join("state.json");
         let state = PluginState::load(&state_path);

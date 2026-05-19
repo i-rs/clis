@@ -256,7 +256,7 @@ impl OpenaiProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120))
             .build()
-            .expect("创建 HTTP 客户端失败");
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self { client, api_key, base_url, model }
     }
 }
@@ -306,7 +306,7 @@ impl OllamaProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120))
             .build()
-            .expect("创建 HTTP 客户端失败");
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self {
             client,
             base_url: "http://localhost:11434/v1".to_string(),
@@ -319,7 +319,7 @@ impl OllamaProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120))
             .build()
-            .expect("创建 HTTP 客户端失败");
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self { client, base_url, model }
     }
 }
@@ -369,7 +369,7 @@ impl AnthropicProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120))
             .build()
-            .expect("创建 HTTP 客户端失败");
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self { client, api_key, model }
     }
 }

@@ -1,3 +1,4 @@
+use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -230,12 +231,6 @@ pub struct GatewayConfig {
     /// Telegram bot configuration.
     #[serde(default)]
     pub telegram: Option<PlatformConfig>,
-    /// Discord bot configuration.
-    #[serde(default)]
-    pub discord: Option<PlatformConfig>,
-    /// Slack bot configuration.
-    #[serde(default)]
-    pub slack: Option<PlatformConfig>,
     /// WeChat iLink Bot (personal WeChat) configuration.
     #[serde(default)]
     pub wechat: Option<WeChatPlatformConfig>,
@@ -284,15 +279,9 @@ pub struct PlatformConfig {
     /// API token or key for the platform.
     #[serde(default)]
     pub token: Option<String>,
-    /// Webhook URL (used by Slack).
-    #[serde(default)]
-    pub webhook_url: Option<String>,
     /// Optional agent profile to use for this platform.
     #[serde(default)]
     pub agent_id: Option<String>,
-    /// Additional configuration as key-value pairs.
-    #[serde(default)]
-    pub extra: Option<::std::collections::HashMap<String, String>>,
 }
 
 /// WeChat iLink Bot (personal WeChat) configuration.
@@ -397,11 +386,8 @@ impl Config {
 
     pub fn save(&self) -> anyhow::Result<()> {
         let config_path = Self::config_path()?;
-        if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
         let content = toml::to_string_pretty(self)?;
-        std::fs::write(&config_path, content)?;
+        atomic_write(&config_path, &content)?;
         println!("✓ 配置已保存: {}", config_path.display());
         Ok(())
     }
@@ -469,32 +455,45 @@ impl Config {
             }
         }
 
+        // Validate MCP servers (both top-level and in agent configs)
         for server in &self.mcp_servers {
-            match server.transport_type.as_str() {
-                "stdio" => {
-                    if server.command.is_none() {
-                        warnings.push(format!(
-                            "MCP server '{}' 使用 stdio 但未设置 command",
-                            server.name
-                        ));
-                    }
+            Self::validate_mcp_server(server, &mut warnings, "全局");
+        }
+        for (agent_id, agent) in &self.agents {
+            if let Some(ref servers) = agent.mcp_servers {
+                for server in servers {
+                    Self::validate_mcp_server(server, &mut warnings, &format!("agent '{}'", agent_id));
                 }
-                "sse" => {
-                    if server.url.is_none() {
-                        warnings.push(format!(
-                            "MCP server '{}' 使用 sse 但未设置 url",
-                            server.name
-                        ));
-                    }
-                }
-                other => warnings.push(format!(
-                    "MCP server '{}' 使用了未知 transport '{}'",
-                    server.name, other
-                )),
             }
         }
 
         warnings
+    }
+
+    /// Validate a single MCP server configuration.
+    fn validate_mcp_server(server: &crate::mcp::McpServerConfig, warnings: &mut Vec<String>, scope: &str) {
+        match server.transport_type.as_str() {
+            "stdio" => {
+                if server.command.is_none() {
+                    warnings.push(format!(
+                        "MCP server '{}' ({}) 使用 stdio 但未设置 command",
+                        server.name, scope
+                    ));
+                }
+            }
+            "sse" => {
+                if server.url.is_none() {
+                    warnings.push(format!(
+                        "MCP server '{}' ({}) 使用 sse 但未设置 url",
+                        server.name, scope
+                    ));
+                }
+            }
+            other => warnings.push(format!(
+                "MCP server '{}' ({}) 使用了未知 transport '{}'",
+                server.name, scope, other
+            )),
+        }
     }
 
     /// Add a named agent profile to config.

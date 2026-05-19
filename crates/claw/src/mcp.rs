@@ -83,6 +83,17 @@ pub struct McpToolDefinition {
 struct StdioInner {
     stdin: ChildStdinWrapper,
     stdout: BufReader<ChildStdoutWrapper>,
+    /// Child process handle — kept alive to kill on Drop.
+    child: std::process::Child,
+}
+
+impl Drop for StdioInner {
+    fn drop(&mut self) {
+        // Signal graceful shutdown: close stdin first
+        let _ = self.stdin.0.flush();
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
 }
 
 /// Internal connection for SSE-based MCP transport.
@@ -159,6 +170,7 @@ impl McpClient {
         let inner = McpClientInner::Stdio(StdioInner {
             stdin: ChildStdinWrapper(stdin),
             stdout: BufReader::new(ChildStdoutWrapper(stdout)),
+            child,
         });
 
         Ok(Self {

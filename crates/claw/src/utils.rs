@@ -1,3 +1,28 @@
+use std::path::Path;
+
+/// Atomic file write: write to a temp file first, then atomically rename.
+/// This prevents data corruption if the process crashes mid-write.
+/// Returns `Ok(())` on success, `Err` with a description on failure.
+pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Write to a temporary file next to the target
+    let tmp_path = path.with_extension(format!(
+        "tmp.{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+
+    std::fs::write(&tmp_path, content.as_bytes())?;
+    std::fs::rename(&tmp_path, path)?;
+    Ok(())
+}
+
 /// Smart truncation for LLM tool results.
 ///
 /// 1. Strip ANSI color codes (useless for LLM consumption)

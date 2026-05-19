@@ -17,9 +17,27 @@ jobs:
       - name: Install Rust
         run: rustup update stable && rustup component add clippy rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: cargo check
+      - name: cargo check (workspace)
         run: cargo check --workspace
       - name: cargo clippy
         run: cargo clippy --workspace -- -D warnings
       - name: cargo fmt
         run: cargo fmt --all --check
+
+  claw-features:
+    strategy:
+      matrix:
+        features:
+          - dashboard
+          - gateway-telegram
+          - gateway-wechat
+          - gateway-all
+          - gateway-all,dashboard
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        run: rustup update stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check (i-rs-claw --features ${{ matrix.features }})
+        run: cargo check -p i-rs-claw --features ${{ matrix.features }}

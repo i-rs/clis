@@ -1,3 +1,4 @@
+use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -192,10 +193,12 @@ impl SessionManager {
     #[allow(dead_code)]
     pub fn save_plan_steps(&self, id: &str, steps: &[crate::app::PlanStep]) {
         let path = self.plan_steps_path(id);
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-        if let Ok(content) = serde_json::to_string(steps) { let _ = std::fs::write(&path, content); }
+        if let Ok(content) = serde_json::to_string(steps) {
+            let _ = atomic_write(&path, &content);
+        }
     }
 
+    #[allow(dead_code)]
     pub fn load_plan_steps(&self, id: &str) -> Vec<crate::app::PlanStep> {
         let path = self.plan_steps_path(id);
         if !path.exists() { return Vec::new(); }
@@ -208,8 +211,9 @@ impl SessionManager {
     #[allow(dead_code)]
     pub fn save_plan(&self, id: &str, plan: &crate::core::orchestrator::Plan) {
         let path = self.plan_path(id);
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-        if let Ok(content) = serde_json::to_string(plan) { let _ = std::fs::write(&path, content); }
+        if let Ok(content) = serde_json::to_string(plan) {
+            let _ = atomic_write(&path, &content);
+        }
     }
 
     #[allow(dead_code)]
@@ -323,18 +327,20 @@ impl SessionManager {
 
     pub fn save_all_messages(&self, id: &str, records: &[serde_json::Value]) {
         let path = self.messages_path(id);
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-        let mut file = match std::fs::File::create(&path) { Ok(f) => std::io::BufWriter::new(f), Err(_) => return };
-        use std::io::Write;
-        for record in records {
-            if let Ok(line) = serde_json::to_string(record) { let _ = writeln!(&mut file, "{}", line); }
-        }
+        let content: String = records
+            .iter()
+            .filter_map(|record| {
+                serde_json::to_string(record).ok().map(|line| line + "\n")
+            })
+            .collect();
+        let _ = atomic_write(&path, &content);
     }
 
     pub fn save_api_messages(&self, id: &str, messages: &[serde_json::Value]) {
         let path = self.api_cache_path(id);
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-        if let Ok(content) = serde_json::to_string(messages) { let _ = std::fs::write(&path, content); }
+        if let Ok(content) = serde_json::to_string(messages) {
+            let _ = atomic_write(&path, &content);
+        }
     }
 
     pub fn load_api_messages(&self, id: &str) -> Option<Vec<serde_json::Value>> {
@@ -365,10 +371,8 @@ impl SessionManager {
     }
 
     fn save_index(&self) {
-        let path = Self::index_path(&self.claw_dir);
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
         if let Ok(content) = serde_json::to_string_pretty(&self.sessions) {
-            let _ = std::fs::write(&path, content);
+            let _ = atomic_write(&Self::index_path(&self.claw_dir), &content);
         }
     }
 }

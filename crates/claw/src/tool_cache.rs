@@ -1,3 +1,4 @@
+use crate::utils::atomic_write;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -124,11 +125,8 @@ impl ToolDocCache {
 
     fn save_hot_docs(&self) {
         let path = Self::cache_path(&self.cache_dir);
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
         if let Ok(content) = serde_json::to_string(&self.hot_docs) {
-            let _ = std::fs::write(&path, content);
+            let _ = atomic_write(&path, &content);
         }
     }
 }

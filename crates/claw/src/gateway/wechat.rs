@@ -35,6 +35,8 @@ pub struct WeChatAdapter {
     /// Map of user_id -> typing_ticket from getConfig (cached per-user).
     typing_tickets: Arc<Mutex<HashMap<String, String>>>,
     credentials_path: PathBuf,
+    /// Handle for the background polling task, aborted on stop.
+    task_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 fn make_x_wechat_uin() -> String {
@@ -51,18 +53,20 @@ impl WeChatAdapter {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
             .build()
-            .expect("Failed to create HTTP client");
+            .unwrap_or_else(|e| {
+                eprintln!("[Gateway/WeChat] 创建 HTTP 客户端失败: {}", e);
+                reqwest::Client::new()
+            });
         let credentials_path = dirs::home_dir()
-            .unwrap_or_default()
-            .join(".i-rs-claw")
-            .join("claw")
-            .join("wechat_credentials.json");
+            .map(|p| p.join(".i-rs-claw").join("claw").join("wechat_credentials.json"))
+            .unwrap_or_else(|| PathBuf::from("./wechat_credentials.json"));
         Self {
             client,
             credentials: Arc::new(Mutex::new(None)),
             reply_tokens: Arc::new(Mutex::new(HashMap::new())),
             typing_tickets: Arc::new(Mutex::new(HashMap::new())),
             credentials_path,
+            task_handle: Mutex::new(None),
         }
     }
 
@@ -249,7 +253,7 @@ impl PlatformAdapter for WeChatAdapter {
         let bot_token = credentials.bot_token;
         let reply_tokens = self.reply_tokens.clone();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             // The get_updates_buf cursor - similar to Telegram's offset
             let mut get_updates_buf = String::new();
 
@@ -365,6 +369,8 @@ impl PlatformAdapter for WeChatAdapter {
                 }
             }
         });
+
+        *self.task_handle.lock().unwrap() = Some(handle);
     }
 
     async fn send_message(&self, chat_id: &str, text: &str) {
@@ -491,6 +497,8 @@ impl PlatformAdapter for WeChatAdapter {
     }
 
     async fn stop(&self) {
-        // No persistent connections to close
+        if let Some(handle) = self.task_handle.lock().unwrap().take() {
+            handle.abort();
+        }
     }
 }

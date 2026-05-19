@@ -9,6 +9,48 @@ use std::time::Instant;
 use tokio::sync::mpsc;
 use owo_colors::OwoColorize;
 
+// ── Helpers ──
+
+/// Serialize app messages to JSON and persist them for a session.
+/// Used in multiple places (chat loop, new session, agent switch, session switch).
+fn save_session_messages(
+    session_mgr: &crate::session::SessionManager,
+    session_id: &str,
+    messages: &[crate::app::Message],
+    api_messages: Option<&[serde_json::Value]>,
+) {
+    let records: Vec<serde_json::Value> = messages
+        .iter()
+        .map(|m| match m {
+            crate::app::Message::User { text } => {
+                serde_json::json!({"type": "user", "text": text})
+            }
+            crate::app::Message::Assistant { text } => {
+                serde_json::json!({"type": "assistant", "text": text})
+            }
+            crate::app::Message::ToolCall {
+                name,
+                args,
+                result,
+                step: _,
+                total_steps: _,
+            } => serde_json::json!({
+                "type": "tool_call",
+                "name": name,
+                "args": args,
+                "result": result
+            }),
+            crate::app::Message::Error { text } => {
+                serde_json::json!({"type": "error", "text": text})
+            }
+        })
+        .collect();
+    session_mgr.save_all_messages(session_id, &records);
+    if let Some(msgs) = api_messages {
+        session_mgr.save_api_messages(session_id, msgs);
+    }
+}
+
 // =============================================
 // TUI subcommand
 // =============================================
@@ -28,7 +70,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     let mut app = app::App::new(config);
 
     // Initialize AppCore (session manager, memory, tool cache, skill store)
-    let mut app_core = crate::core::AppCore::new(app.config.clone());
+    let mut app_core = crate::core::AppCore::new(app.config.clone())?;
 
     // If a specific session ID was requested, try to switch to it
     if let Some(sid) = session_id {
@@ -47,7 +89,9 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     app_core.agent_store.memory_for_mut(&agent_id).analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
 
     // Load messages from current session
-    let session_id = app_core.session_mgr.current_id().unwrap().to_string();
+    let session_id = app_core.session_mgr.current_id()
+        .ok_or_else(|| anyhow::anyhow!("无当前会话，无法加载消息"))?
+        .to_string();
     let loaded = app_core.session_mgr.load_app_messages(&session_id, 50);
     app.messages = loaded;
 
@@ -300,39 +344,20 @@ fn main_loop(
                     }
 
                     // Persist conversation to session
-                    let session_id = app_core.session_mgr
-                        .current_id()
-                        .unwrap_or_default()
-                        .to_string();
-                    let records: Vec<serde_json::Value> = app
-                        .messages
-                        .iter()
-                        .map(|m| match m {
-                            crate::app::Message::User { text } => {
-                                serde_json::json!({"type": "user", "text": text})
-                            }
-                            crate::app::Message::Assistant { text } => {
-                                serde_json::json!({"type": "assistant", "text": text})
-                            }
-                            crate::app::Message::ToolCall {
-                                name,
-                                args,
-                                result,
-                                step: _,
-                                total_steps: _,
-                            } => serde_json::json!({
-                                "type": "tool_call",
-                                "name": name,
-                                "args": args,
-                                "result": result
-                            }),
-                            crate::app::Message::Error { text } => {
-                                serde_json::json!({"type": "error", "text": text})
-                            }
-                        })
-                        .collect();
-                    app_core.session_mgr.save_all_messages(&session_id, &records);
-                    app_core.session_mgr.save_api_messages(&session_id, &msgs);
+                    let session_id = match app_core.session_mgr.current_id() {
+                        Some(id) => id.to_string(),
+                        None => {
+                            eprintln!("⚠ 未找到当前会话，跳过持久化");
+                            app.finish_processing(None);
+                            break;
+                        }
+                    };
+                    save_session_messages(
+                        &app_core.session_mgr,
+                        &session_id,
+                        &app.messages,
+                        Some(&msgs),
+                    );
 
                     // Rename session based on first user message
                     let needs_rename = app_core.session_mgr
@@ -350,15 +375,19 @@ fn main_loop(
                             app_core.session_mgr.rename_session(&session_id, &first_user);
                         }
                     }
+
+                    // Flush pending memory writes (tool frequency, user info, etc.)
+                    app_core.agent_store.memory_for_mut(&app.current_agent).flush();
                 }
             }
         }
 
-        // Periodic background reminder check (every 2 minutes)
+        // Periodic background reminder check (every 2 minutes, non-blocking)
         {
             let elapsed = last_reminder_check.elapsed().as_secs();
             if elapsed >= REMINDER_INTERVAL_SECS && !app.is_processing() {
-                if let Some(reminders) = check_reminders() {
+                let h = rt.spawn_blocking(check_reminders);
+                if let Ok(Some(reminders)) = rt.block_on(h) {
                     app.reminder_text = Some(reminders);
                 }
                 last_reminder_check = Instant::now();
@@ -407,37 +436,12 @@ fn main_loop(
                         if let Some(old_id) =
                             app_core.session_mgr.current_id().map(|id| id.to_string())
                         {
-                            let records: Vec<serde_json::Value> = app
-                                .messages
-                                .iter()
-                                .map(|m| match m {
-                                    crate::app::Message::User { text } => {
-                                        serde_json::json!({"type": "user", "text": text})
-                                    }
-                                    crate::app::Message::Assistant { text } => {
-                                        serde_json::json!({"type": "assistant", "text": text})
-                                    }
-                                    crate::app::Message::ToolCall {
-                                        name,
-                                        args,
-                                        result,
-                                        step: _,
-                                        total_steps: _,
-                                    } => serde_json::json!({
-                                        "type": "tool_call",
-                                        "name": name,
-                                        "args": args,
-                                        "result": result
-                                    }),
-                                    crate::app::Message::Error { text } => {
-                                        serde_json::json!({"type": "error", "text": text})
-                                    }
-                                })
-                                .collect();
-                            app_core.session_mgr.save_all_messages(&old_id, &records);
-                            if let Some(ref msgs) = app.api_messages {
-                                app_core.session_mgr.save_api_messages(&old_id, msgs);
-                            }
+                            save_session_messages(
+                                &app_core.session_mgr,
+                                &old_id,
+                                &app.messages,
+                                app.api_messages.as_deref(),
+                            );
                         }
                         app_core.session_mgr.create_session();
                         app.reset_for_new_session();
@@ -475,31 +479,12 @@ fn main_loop(
                             if *agent_id != app.current_agent {
                                 // Save current session messages
                                 if let Some(old_id) = app_core.session_mgr.current_id().map(|id| id.to_string()) {
-                                    let records: Vec<serde_json::Value> = app
-                                        .messages
-                                        .iter()
-                                        .map(|m| match m {
-                                            crate::app::Message::User { text } => {
-                                                serde_json::json!({"type": "user", "text": text})
-                                            }
-                                            crate::app::Message::Assistant { text } => {
-                                                serde_json::json!({"type": "assistant", "text": text})
-                                            }
-                                            crate::app::Message::ToolCall { name, args, result, .. } => serde_json::json!({
-                                                "type": "tool_call",
-                                                "name": name,
-                                                "args": args,
-                                                "result": result
-                                            }),
-                                            crate::app::Message::Error { text } => {
-                                                serde_json::json!({"type": "error", "text": text})
-                                            }
-                                        })
-                                        .collect();
-                                    app_core.session_mgr.save_all_messages(&old_id, &records);
-                                    if let Some(ref msgs) = app.api_messages {
-                                        app_core.session_mgr.save_api_messages(&old_id, msgs);
-                                    }
+                                    save_session_messages(
+                                        &app_core.session_mgr,
+                                        &old_id,
+                                        &app.messages,
+                                        app.api_messages.as_deref(),
+                                    );
                                 }
 
                                 // Switch to new agent
@@ -509,6 +494,10 @@ fn main_loop(
 
                                 // Create new session for this agent
                                 app_core.session_mgr.create_session_for(agent_id);
+
+                                // Re-analyze tool usage for the new agent
+                                app_core.agent_store.memory_for_mut(agent_id)
+                                    .analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
                             }
                         }
                         app.show_agent_picker = false;
@@ -736,37 +725,12 @@ fn main_loop(
                                     .current_id()
                                     .unwrap_or_default()
                                     .to_string();
-                                let records: Vec<serde_json::Value> = app
-                                    .messages
-                                    .iter()
-                                    .map(|m| match m {
-                                        crate::app::Message::User { text } => {
-                                            serde_json::json!({"type": "user", "text": text})
-                                        }
-                                        crate::app::Message::Assistant { text } => {
-                                            serde_json::json!({"type": "assistant", "text": text})
-                                        }
-                                        crate::app::Message::ToolCall {
-                                            name,
-                                            args,
-                                            result,
-                                            step: _,
-                                            total_steps: _,
-                                        } => serde_json::json!({
-                                            "type": "tool_call",
-                                            "name": name,
-                                            "args": args,
-                                            "result": result
-                                        }),
-                                        crate::app::Message::Error { text } => {
-                                            serde_json::json!({"type": "error", "text": text})
-                                        }
-                                    })
-                                    .collect();
-                                app_core.session_mgr.save_all_messages(&old_id, &records);
-                                if let Some(ref msgs) = app.api_messages {
-                                    app_core.session_mgr.save_api_messages(&old_id, msgs);
-                                }
+                                    save_session_messages(
+                                        &app_core.session_mgr,
+                                        &old_id,
+                                        &app.messages,
+                                        app.api_messages.as_deref(),
+                                    );
 
                                 // Switch to new session
                                 app_core.session_mgr.switch_to(&new_id);

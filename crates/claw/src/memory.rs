@@ -1,11 +1,12 @@
+use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Cross-session memory that tracks tool usage patterns and user preferences.
 ///
-/// Persisted to disk as a JSON file and updated after each conversation turn.
-/// Feeds into the multi-layer system prompt (Layer 3: hot tools, Layer 4: user memory).
+/// Persisted to disk as a JSON file. Uses a dirty flag to batch
+/// multiple mutations into a single write on `flush()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossSessionMemory {
     /// Tool name → usage count across all sessions
@@ -24,6 +25,9 @@ pub struct CrossSessionMemory {
     /// Path to disk cache file
     #[serde(skip)]
     path: PathBuf,
+    /// Whether there are unsaved changes
+    #[serde(skip, default)]
+    dirty: bool,
 }
 
 impl CrossSessionMemory {
@@ -50,6 +54,7 @@ impl CrossSessionMemory {
                 user_name: None,
                 user_info: Vec::new(),
                 path: path.clone(),
+                dirty: false,
             }
         };
         mem.path = path;
@@ -70,7 +75,7 @@ impl CrossSessionMemory {
         let count = self.tool_frequency.entry(tool_name.to_string()).or_insert(0);
         *count += 1;
         self.update_hot_tools();
-        self.save();
+        self.dirty = true;
     }
 
     /// Update hot_tools list sorted by frequency (descending), top 5.
@@ -101,7 +106,7 @@ impl CrossSessionMemory {
             }
         }
         self.update_hot_tools();
-        self.save();
+        self.flush();
     }
 
     // =============================================
@@ -116,7 +121,7 @@ impl CrossSessionMemory {
     /// Set user's name
     pub fn set_user_name(&mut self, name: &str) {
         self.user_name = Some(name.to_string());
-        self.save();
+        self.dirty = true;
     }
 
     /// Add a user info fact (deduplicated).
@@ -124,7 +129,7 @@ impl CrossSessionMemory {
         let p = info.to_string();
         if !self.user_info.contains(&p) {
             self.user_info.push(p);
-            self.save();
+            self.dirty = true;
         }
     }
 
@@ -133,7 +138,7 @@ impl CrossSessionMemory {
         let p = pref.to_string();
         if !self.preferences.contains(&p) {
             self.preferences.push(p);
-            self.save();
+            self.dirty = true;
         }
     }
 
@@ -203,13 +208,15 @@ impl CrossSessionMemory {
     // Disk persistence
     // =============================================
 
-    fn save(&self) {
-        if let Some(parent) = self.path.parent() {
-            let _ = std::fs::create_dir_all(parent);
+    /// Flush pending changes to disk. A no-op if nothing changed since last flush.
+    pub fn flush(&mut self) {
+        if !self.dirty {
+            return;
         }
         if let Ok(content) = serde_json::to_string_pretty(&self) {
-            let _ = std::fs::write(&self.path, content);
+            let _ = atomic_write(&self.path, &content);
         }
+        self.dirty = false;
     }
 
     fn load(path: &PathBuf) -> Self {
@@ -226,6 +233,7 @@ impl CrossSessionMemory {
             user_name: None,
             user_info: Vec::new(),
             path: path.clone(),
+            dirty: false,
         }
     }
 }
@@ -242,6 +250,7 @@ mod tests {
             user_name: None,
             user_info: Vec::new(),
             path: std::env::temp_dir().join("i-rs-claw-test-memory.json"),
+            dirty: false,
         }
     }
 

@@ -45,14 +45,16 @@ impl AgentRuntimeStore {
     }
 
     pub fn memory_for(&self, agent_id: &str) -> &CrossSessionMemory {
-        self.memories.get(agent_id).unwrap_or_else(|| &self.memories["default"])
+        self.memories.get(agent_id).unwrap_or_else(|| {
+            self.memories.get("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
+        })
     }
 
     pub fn memory_for_mut(&mut self, agent_id: &str) -> &mut CrossSessionMemory {
         if self.memories.contains_key(agent_id) {
-            self.memories.get_mut(agent_id).expect("just checked")
+            self.memories.get_mut(agent_id).expect("AgentRuntimeStore: agent just checked not found, this is a bug")
         } else {
-            self.memories.get_mut("default").expect("default agent must exist")
+            self.memories.get_mut("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
         }
     }
 
@@ -109,9 +111,9 @@ pub struct AppCore {
 impl AppCore {
     /// Create a new AppCore from configuration.
     /// Initializes session manager and per-agent runtime data.
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config) -> anyhow::Result<Self> {
         let claw_dir = dirs::home_dir()
-            .expect("cannot get home directory")
+            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?
             .join(".i-rs-claw")
             .join("claw");
 
@@ -121,11 +123,11 @@ impl AppCore {
         let session_mgr = SessionManager::new(claw_dir.clone());
         let agent_store = AgentRuntimeStore::new(&config, &claw_dir);
 
-        Self {
+        Ok(Self {
             config,
             session_mgr,
             agent_store,
-        }
+        })
     }
 
     /// Migrate legacy data files (memory.json, skills/, etc.) to agents/default/
@@ -272,10 +274,9 @@ impl AppCore {
 
     /// Get the base directory for claw data.
     #[allow(dead_code)]
-    pub fn claw_dir(&self) -> std::path::PathBuf {
-        dirs::home_dir()
-            .expect("cannot get home directory")
-            .join(".i-rs-claw")
-            .join("claw")
+    pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
+        let home = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+        Ok(home.join(".i-rs-claw").join("claw"))
     }
 }

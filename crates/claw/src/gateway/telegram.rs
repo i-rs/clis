@@ -1,5 +1,6 @@
 use crate::gateway::{GatewayEvent, PlatformAdapter};
 use async_trait::async_trait;
+use std::sync::Mutex;
 use tokio::sync::mpsc;
 
 const TELEGRAM_API_BASE: &str = "https://api.telegram.org/bot";
@@ -16,6 +17,8 @@ pub struct TelegramConfig {
 pub struct TelegramAdapter {
     config: TelegramConfig,
     client: reqwest::Client,
+    /// Handle for the background polling task, aborted on stop.
+    task_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 impl TelegramAdapter {
@@ -23,8 +26,15 @@ impl TelegramAdapter {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .expect("Failed to create HTTP client");
-        Self { config, client }
+            .unwrap_or_else(|e| {
+                eprintln!("[Gateway/Telegram] 创建 HTTP 客户端失败: {}", e);
+                reqwest::Client::new()
+            });
+        Self {
+            config,
+            client,
+            task_handle: Mutex::new(None),
+        }
     }
 
     fn api_url(&self, method: &str) -> String {
@@ -44,7 +54,7 @@ impl PlatformAdapter for TelegramAdapter {
         let name = self.name().to_string();
         let agent_id = self.config.agent_id.clone();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let mut offset: i64 = 0;
             loop {
                 let url = format!(
@@ -93,6 +103,8 @@ impl PlatformAdapter for TelegramAdapter {
                 }
             }
         });
+
+        *self.task_handle.lock().unwrap() = Some(handle);
     }
 
     async fn send_message(&self, chat_id: &str, text: &str) {
@@ -106,6 +118,8 @@ impl PlatformAdapter for TelegramAdapter {
     }
 
     async fn stop(&self) {
-        // No persistent connections to close for long polling
+        if let Some(handle) = self.task_handle.lock().unwrap().take() {
+            handle.abort();
+        }
     }
 }
