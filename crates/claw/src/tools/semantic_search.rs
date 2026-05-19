@@ -1,5 +1,5 @@
 use crate::semantic::SemanticSearch;
-use crate::tools::ClawTool;
+use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 
 /// Built-in tool for semantic search across conversation history.
@@ -44,7 +44,7 @@ impl ClawTool for SemanticSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())

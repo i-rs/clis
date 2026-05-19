@@ -39,10 +39,6 @@ impl CrossSessionMemory {
         Self::new_with_path(path)
     }
 
-    pub fn new(claw_dir: PathBuf) -> Self {
-        Self::for_agent(&claw_dir, "default")
-    }
-
     fn new_with_path(path: PathBuf) -> Self {
         let mut mem = if path.exists() {
             Self::load(&path)
@@ -117,12 +113,6 @@ impl CrossSessionMemory {
         self.user_name.is_some() || !self.user_info.is_empty()
     }
 
-    /// Get user's name
-    #[allow(dead_code)]
-    pub fn user_name(&self) -> Option<&str> {
-        self.user_name.as_deref()
-    }
-
     /// Set user's name
     pub fn set_user_name(&mut self, name: &str) {
         self.user_name = Some(name.to_string());
@@ -152,6 +142,7 @@ impl CrossSessionMemory {
     // =============================================
 
     /// Format Layer 3: hot tools with full teach docs.
+    #[allow(dead_code)]
     pub fn format_hot_tools(&self, cache: &crate::tool_cache::ToolDocCache) -> String {
         if self.hot_tools.is_empty() {
             return String::new();

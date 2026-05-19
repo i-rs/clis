@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 const WECHAT_API_BASE: &str = "https://ilinkai.weixin.qq.com";
 
 /// Configuration for the WeChat iLink Bot adapter.
+#[allow(dead_code)]
 pub struct WeChatConfig {
     pub enabled: bool,
     pub agent_id: String,

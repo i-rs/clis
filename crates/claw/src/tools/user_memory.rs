@@ -1,4 +1,4 @@
-use crate::tools::ClawTool;
+use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 
 /// A built-in tool that allows the LLM to persist user information
@@ -40,7 +40,7 @@ impl ClawTool for UserMemoryTool {
         })
     }
 
-    fn execute(&self, args: &Value) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         let mut saved: Vec<String> = Vec::new();
 
         if let Some(name) = args

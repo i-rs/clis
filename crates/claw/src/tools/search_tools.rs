@@ -1,6 +1,7 @@
 use serde_json::Value;
 
 use crate::tools::index;
+use crate::tools::ToolContext;
 
 /// Built-in tool that searches the i-rs CLI tool index by keyword.
 pub struct SearchToolsTool;
@@ -27,7 +28,7 @@ impl super::ClawTool for SearchToolsTool {
         })
     }
 
-    fn execute(&self, args: &Value) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         let query = args.get("query").and_then(|q| q.as_str()).unwrap_or("");
         Ok(index::search(query))
     }

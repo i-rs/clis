@@ -1,4 +1,4 @@
-use crate::tools::ClawTool;
+use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
@@ -27,7 +27,7 @@ impl ClawTool for VisionTool {
         })
     }
 
-    fn execute(&self, _args: &Value) -> Result<String, String> {
+    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         read_clipboard_image_text()
     }
 }

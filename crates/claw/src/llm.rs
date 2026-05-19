@@ -5,7 +5,6 @@ use serde_json::Value;
 pub struct TokenUsage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
-    #[allow(dead_code)]
     pub total_tokens: u32,
 }
 

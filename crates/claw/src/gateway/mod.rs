@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 #[derive(Debug)]
 pub enum GatewayEvent {
     /// A user message from a social platform.
+    #[allow(dead_code)]
     Message {
         /// Platform name (e.g. "telegram", "wechat").
         platform: String,
@@ -25,6 +26,7 @@ pub enum GatewayEvent {
         agent_id: String,
     },
     /// An error from a platform adapter.
+    #[allow(dead_code)]
     Error {
         /// Platform name.
         platform: String,
@@ -59,6 +61,7 @@ pub trait PlatformAdapter: Send + Sync {
     async fn send_typing(&self, _chat_id: &str) {}
 
     /// Stop the adapter and clean up resources.
+    #[allow(dead_code)]
     async fn stop(&self);
 }
 
@@ -79,6 +82,7 @@ impl GatewayServer {
     }
 
     /// Register a platform adapter.
+    #[allow(dead_code)]
     pub fn register(&mut self, adapter: Arc<dyn PlatformAdapter>) {
         self.adapters.push(adapter);
     }

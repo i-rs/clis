@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::ClawTool;
+use super::{ClawTool, ToolContext};
 
 /// Chart tool: generates ASCII bar charts and line charts from i-rs CLI data.
 pub struct ChartTool;
@@ -68,7 +68,7 @@ impl ClawTool for ChartTool {
         })
     }
 
-    fn execute(&self, args: &Value) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         let tool = args
             .get("tool")
             .and_then(|v| v.as_str())

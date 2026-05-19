@@ -13,8 +13,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-#[allow(dead_code)]
-
 /// Central storage for per-agent runtime data.
 /// Each agent gets its own memory, tool cache, skill store, and MCP registry.
 pub struct AgentRuntimeStore {
@@ -26,7 +24,7 @@ pub struct AgentRuntimeStore {
 
 impl AgentRuntimeStore {
     pub fn new(config: &Config, claw_dir: &PathBuf) -> Self {
-        let agent_ids = config.agent_ids();
+        let agent_ids = config.all_agent_ids();
         let mut store = Self {
             memories: HashMap::new(),
             tool_caches: HashMap::new(),
@@ -69,6 +67,7 @@ impl AgentRuntimeStore {
 
     /// Initialize runtime data for a new agent.
     /// Called after adding an agent to config.
+    #[allow(dead_code)]
     pub fn add_agent(&mut self, config: &Config, claw_dir: &PathBuf, agent_id: &str) {
         let resolved = config.agent_config(agent_id);
         self.memories.insert(agent_id.to_string(), CrossSessionMemory::for_agent(claw_dir, agent_id));
@@ -78,6 +77,7 @@ impl AgentRuntimeStore {
     }
 
     /// Remove runtime data for an agent.
+    #[allow(dead_code)]
     pub fn remove_agent(&mut self, agent_id: &str) {
         self.memories.remove(agent_id);
         self.tool_caches.remove(agent_id);
@@ -101,7 +101,6 @@ pub struct AppCore {
     pub session_mgr: SessionManager,
     /// Per-agent runtime data (memory, tool cache, skills, MCP).
     pub agent_store: AgentRuntimeStore,
-    claw_dir: PathBuf,
 }
 
 impl AppCore {
@@ -123,7 +122,6 @@ impl AppCore {
             config,
             session_mgr,
             agent_store,
-            claw_dir,
         }
     }
 
@@ -162,12 +160,14 @@ impl AppCore {
 
     /// Resolve the config for a given agent ID.
     /// Falls back to default config if agent doesn't exist.
+    #[allow(dead_code)]
     pub fn agent_config(&self, id: &str) -> crate::config::ResolvedAgentConfig {
         self.config.agent_config(id)
     }
 
     /// Build the API message list for an LLM chat call.
     /// Wraps engine::build_messages with AppCore's state.
+    #[allow(dead_code)]
     pub fn build_messages(
         &self,
         app_messages: &[Message],
@@ -216,6 +216,7 @@ impl AppCore {
 
     /// Spawn the LLM chat loop in a background task.
     /// The `llm_tx` sender receives LlmEvent updates (tokens, tool calls, errors, done).
+    #[allow(dead_code)]
     pub fn spawn_chat(
         &self,
         rt: &tokio::runtime::Runtime,
@@ -263,7 +264,10 @@ impl AppCore {
 
     /// Get the base directory for claw data.
     #[allow(dead_code)]
-    pub fn claw_dir(&self) -> &PathBuf {
-        &self.claw_dir
+    pub fn claw_dir(&self) -> std::path::PathBuf {
+        dirs::home_dir()
+            .expect("cannot get home directory")
+            .join(".i-rs-claw")
+            .join("claw")
     }
 }

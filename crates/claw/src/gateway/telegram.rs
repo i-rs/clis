@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 const TELEGRAM_API_BASE: &str = "https://api.telegram.org/bot";
 
 /// Configuration for the Telegram bot adapter.
+#[allow(dead_code)]
 pub struct TelegramConfig {
     pub bot_token: String,
     pub enabled: bool,

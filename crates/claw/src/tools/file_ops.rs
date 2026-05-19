@@ -1,4 +1,4 @@
-use crate::tools::ClawTool;
+use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
@@ -42,7 +42,7 @@ impl ClawTool for FileOpsTool {
         })
     }
 
-    fn execute(&self, args: &Value) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         let operation = args
             .get("operation")
             .and_then(|v| v.as_str())

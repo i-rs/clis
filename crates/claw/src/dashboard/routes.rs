@@ -188,6 +188,15 @@ async fn dashboard_chat_loop(
     use crate::core::engine::execute_tool_call;
     use crate::utils::smart_truncate;
 
+    // Build ToolContext for tool execution
+    let tool_ctx = {
+        let core = state.core.lock().unwrap();
+        crate::tools::ToolContext {
+            config: core.config.clone(),
+            mcp: mcp.clone(),
+        }
+    };
+
     // Build tool schemas (same as chat_stream did before spawning)
     let tool_schemas = {
         let enabled = if enabled_tools.as_ref().map_or(true, |t| t.is_empty()) {
@@ -273,9 +282,10 @@ async fn dashboard_chat_loop(
                     let args_str = serde_json::to_string(&args).unwrap_or_default();
                     let args_for_blocking = args.clone();
                     let mcp_for_exec = mcp.clone();
+                    let ctx_for_spawn = tool_ctx.clone();
                     handles.push(tokio::spawn(async move {
                         let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec))
+                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec), &ctx_for_spawn)
                         })
                         .await
                         .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));
@@ -641,12 +651,13 @@ pub async fn get_agents(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
     let core = state.core.lock().unwrap();
-    let agent_ids = core.config.agent_ids();
+    let agent_ids = core.config.all_agent_ids();
     let agents: Vec<Value> = agent_ids
         .iter()
         .map(|id| {
             let resolved = core.config.agent_config(id);
             let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
+            let is_sub = id != "default" && !core.config.agents.contains_key(id);
             serde_json::json!({
                 "id": id,
                 "provider": resolved.provider,
@@ -655,6 +666,8 @@ pub async fn get_agents(
                 "tool_count": resolved.enabled_tools.len(),
                 "enabled_tools": tools,
                 "system_prompt": resolved.system_prompt,
+                "is_sub_agent": is_sub,
+                "capabilities": resolved.capabilities,
             })
         })
         .collect();
@@ -714,6 +727,7 @@ pub async fn update_agent(
         system_prompt_file: existing.system_prompt_file,
         mcp_servers: None, // inherit from existing via merge
         allowed_dirs: None,
+        capabilities: existing.capabilities,
     };
 
     core.config.agents.insert(id.clone(), agent_config);
@@ -764,6 +778,7 @@ pub async fn create_agent(
         system_prompt_file: None,
         mcp_servers: None,
         allowed_dirs: None,
+        capabilities: Vec::new(),
     };
 
     // Add to config

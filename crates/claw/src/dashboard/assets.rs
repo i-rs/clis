@@ -4,12 +4,13 @@ use axum::{
     http::{header, StatusCode},
     response::Response,
 };
+use rust_embed::RustEmbed;
 
 /// Embedded dashboard frontend assets.
 ///
 /// Built from `dashboard-ui/` via `npm run build`.
 /// The output directory `dashboard-ui/dist/` is embedded at compile time.
-#[derive(rust_embed::RustEmbed)]
+#[derive(RustEmbed)]
 #[folder = "dashboard-ui/dist"]
 #[include = "*"]
 #[include = "assets/*"]

@@ -71,6 +71,11 @@ pub fn render(f: &mut Frame, app: &App) {
         render_session_list(f, area, app);
     }
 
+    // Agent picker overlay
+    if app.show_agent_picker {
+        render_agent_picker(f, area, app);
+    }
+
     // Completion popup overlay
     if !app.tab_completions.is_empty() {
         render_completions(f, area, app);
@@ -116,9 +121,9 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
         ));
     } else {
-        // Tagline
+        // Tagline + agent name
         spans.push(Span::styled(
-            "  个人数据智能助理",
+            format!("  个人数据智能助理  [{}]", app.current_agent),
             Style::default().fg(Color::Rgb(180, 180, 200)),
         ));
     }
@@ -459,6 +464,10 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(Color::Rgb(140, 140, 160)),
     ));
     spans.push(Span::styled(
+        "  Ctrl+P ",
+        Style::default().fg(Color::Rgb(140, 140, 160)),
+    ));
+    spans.push(Span::styled(
         "  ",
         Style::default().fg(Color::Rgb(140, 140, 160)),
     ));
@@ -632,6 +641,58 @@ fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
             .border_style(Style::default().fg(theme_primary)),
     );
 
+    f.render_widget(list, popup_area);
+}
+
+/// Overlay showing the agent profile picker.
+fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
+    let popup_width = 40u16.min(area.width.saturating_sub(4));
+    let popup_height = (app.agent_list.len() as u16 + 3).min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let theme_primary = app.config.theme.primary();
+
+    let mut items: Vec<ListItem> = Vec::new();
+
+    for (i, agent_id) in app.agent_list.iter().enumerate() {
+        let is_selected = i == app.agent_picker_index;
+        let is_current = *agent_id == app.current_agent;
+        let prefix = if is_selected { " ▶ " } else { "    " };
+        let suffix = if is_current { " ◀ 当前" } else { "" };
+        let style = if is_selected {
+            Style::default()
+                .fg(theme_primary)
+                .add_modifier(Modifier::BOLD)
+        } else if is_current {
+            Style::default().fg(Color::Green)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        items.push(ListItem::new(vec![Line::from(vec![
+            Span::styled(prefix, style),
+            Span::styled(format!("{}{}", agent_id, suffix), style),
+        ])]));
+    }
+
+    // Footer
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        " ──────────────────────────────",
+        Style::default().fg(Color::DarkGray),
+    ))]));
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        " ↑↓ 选择  Enter 切换  Esc 取消",
+        Style::default().fg(Color::DarkGray),
+    ))]));
+
+    let list = List::new(items).block(
+        Block::default()
+            .title(" Agent 切换 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme_primary)),
+    );
     f.render_widget(list, popup_area);
 }
 

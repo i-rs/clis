@@ -49,6 +49,10 @@ pub struct Config {
     /// Each agent can override provider, model, tools, and system prompt.
     #[serde(default)]
     pub agents: HashMap<String, AgentConfig>,
+    /// Sub-agent profiles for delegation only (not shown in TUI).
+    /// Accessible via delegate_task tool.
+    #[serde(default)]
+    pub sub_agents: HashMap<String, AgentConfig>,
     /// Custom color theme (loaded from theme.json, not serialized)
     #[serde(skip)]
     pub theme: crate::theme::Theme,
@@ -94,12 +98,18 @@ pub struct AgentConfig {
     /// If None, inherits from global allowed_dirs.
     #[serde(default)]
     pub allowed_dirs: Option<Vec<String>>,
+    /// Capability descriptions for task routing and delegation decisions.
+    /// E.g., ["数据分析", "代码生成", "数据可视化"]
+    #[serde(default)]
+    pub capabilities: Vec<String>,
 }
 
 /// Resolved configuration for a specific agent, with all fields flattened.
 /// Produced by `Config::agent_config()`.
 #[derive(Debug, Clone)]
 pub struct ResolvedAgentConfig {
+    /// Agent profile ID
+    #[allow(dead_code)]
     pub agent_id: String,
     pub provider: String,
     pub api_key: String,
@@ -108,21 +118,17 @@ pub struct ResolvedAgentConfig {
     pub enabled_tools: HashSet<String>,
     pub system_prompt: Option<String>,
     pub mcp_servers: Vec<McpServerConfig>,
+    #[allow(dead_code)]
     pub allowed_dirs: Vec<String>,
-}
-
-impl ResolvedAgentConfig {
-    /// Is this the default agent?
-    pub fn is_default(&self) -> bool {
-        self.agent_id == "default"
-    }
+    #[allow(dead_code)]
+    pub capabilities: Vec<String>,
 }
 
 impl Config {
     /// Resolve config for a given agent ID by merging agent overrides
     /// with the top-level defaults.
     pub fn agent_config(&self, id: &str) -> ResolvedAgentConfig {
-        let agent = self.agents.get(id);
+        let agent = self.agents.get(id).or_else(|| self.sub_agents.get(id));
 
         let system_prompt = agent
             .and_then(|a| a.system_prompt.clone())
@@ -167,14 +173,29 @@ impl Config {
             allowed_dirs: agent
                 .and_then(|a| a.allowed_dirs.clone())
                 .unwrap_or_else(|| self.allowed_dirs.clone()),
+            capabilities: agent
+                .map(|a| a.capabilities.clone())
+                .unwrap_or_default(),
         }
     }
 
-    /// Get the list of available agent IDs (including "default").
+    /// Get the list of visible agent IDs for TUI (main agents + "default").
     pub fn agent_ids(&self) -> Vec<String> {
         let mut ids: Vec<String> = self.agents.keys().cloned().collect();
         ids.sort();
-        // "default" is always available as the implicit fallback
+        if !ids.contains(&"default".to_string()) {
+            ids.insert(0, "default".to_string());
+        }
+        ids
+    }
+
+    /// Get the list of ALL agent IDs (including sub_agents).
+    /// Used for runtime initialization, NOT for TUI display.
+    pub fn all_agent_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = Vec::new();
+        ids.extend(self.agents.keys().cloned());
+        ids.extend(self.sub_agents.keys().cloned());
+        ids.sort();
         if !ids.contains(&"default".to_string()) {
             ids.insert(0, "default".to_string());
         }
@@ -299,6 +320,7 @@ impl Config {
             mcp_servers: Vec::new(),
             plugins_auto_discover: true,
             agents: HashMap::new(),
+            sub_agents: HashMap::new(),
             gateway: GatewayConfig::default(),
             dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),
@@ -343,8 +365,14 @@ impl Config {
             }
         }
 
-        if config.api_key.is_empty() {
-            anyhow::bail!("配置文件中 api_key 不能为空");
+        // Validate config
+        if config.provider != "ollama" && config.api_key.is_empty() {
+            anyhow::bail!("配置文件中 api_key 不能为空 (Ollama 除外)");
+        }
+
+        // Print non-fatal validation warnings
+        for warning in config.validate() {
+            eprintln!("⚠ {}", warning);
         }
 
         Ok(config)
@@ -361,8 +389,100 @@ impl Config {
         Ok(())
     }
 
+    /// Validate configuration and return non-fatal warnings.
+    pub fn validate(&self) -> Vec<String> {
+        let mut warnings = Vec::new();
+
+        match self.provider.as_str() {
+            "openai" | "ollama" | "anthropic" => {}
+            other => warnings.push(format!(
+                "未知 provider: '{}' (支持: openai, ollama, anthropic)",
+                other
+            )),
+        }
+
+        if self.provider != "ollama" && self.api_key.is_empty() {
+            warnings.push(format!("{} provider 需要设置 api_key", self.provider));
+        }
+
+        if self.model.is_empty() {
+            warnings.push("model 未设置".to_string());
+        }
+
+        if !self.base_url.is_empty() && !self.base_url.starts_with("http") {
+            warnings.push("base_url 应该以 http:// 或 https:// 开头".to_string());
+        }
+
+        if self.dashboard.enabled && self.dashboard.port > 0 && self.dashboard.port < 1024 {
+            warnings
+                .push("dashboard 使用了特权端口 (<1024)，可能需要 root 权限".to_string());
+        }
+
+        for (id, agent) in &self.agents {
+            if id.contains(' ') || id.contains('/') || id.contains('\\') {
+                warnings.push(format!("agent ID '{}' 包含非法字符 (空格/斜杠)", id));
+            }
+            if let Some(ref p) = agent.provider {
+                match p.as_str() {
+                    "openai" | "ollama" | "anthropic" => {}
+                    other => {
+                        warnings.push(format!(
+                            "agent '{}' 使用了未知 provider '{}'",
+                            id, other
+                        ));
+                    }
+                }
+            }
+        }
+
+        for (id, agent) in &self.sub_agents {
+            if id.contains(' ') || id.contains('/') || id.contains('\\') {
+                warnings.push(format!("sub_agent ID '{}' 包含非法字符 (空格/斜杠)", id));
+            }
+            if let Some(ref p) = agent.provider {
+                match p.as_str() {
+                    "openai" | "ollama" | "anthropic" => {}
+                    other => {
+                        warnings.push(format!(
+                            "sub_agent '{}' 使用了未知 provider '{}'",
+                            id, other
+                        ));
+                    }
+                }
+            }
+        }
+
+        for server in &self.mcp_servers {
+            match server.transport_type.as_str() {
+                "stdio" => {
+                    if server.command.is_none() {
+                        warnings.push(format!(
+                            "MCP server '{}' 使用 stdio 但未设置 command",
+                            server.name
+                        ));
+                    }
+                }
+                "sse" => {
+                    if server.url.is_none() {
+                        warnings.push(format!(
+                            "MCP server '{}' 使用 sse 但未设置 url",
+                            server.name
+                        ));
+                    }
+                }
+                other => warnings.push(format!(
+                    "MCP server '{}' 使用了未知 transport '{}'",
+                    server.name, other
+                )),
+            }
+        }
+
+        warnings
+    }
+
     /// Add a named agent profile to config.
     /// Returns an error if the agent already exists.
+    #[allow(dead_code)]
     pub fn add_agent(&mut self, id: &str, agent: AgentConfig) -> anyhow::Result<()> {
         if id.is_empty() {
             anyhow::bail!("Agent ID cannot be empty");
@@ -376,16 +496,12 @@ impl Config {
 
     /// Remove a named agent profile from config.
     /// "default" agent cannot be removed.
+    #[allow(dead_code)]
     pub fn remove_agent(&mut self, id: &str) -> anyhow::Result<AgentConfig> {
         if id == "default" {
             anyhow::bail!("Cannot remove the default agent");
         }
         self.agents.remove(id).ok_or_else(|| anyhow::anyhow!("Agent '{}' not found", id))
-    }
-
-    #[allow(dead_code)]
-    pub fn all_tools() -> Vec<(&'static str, &'static str, &'static str)> {
-        crate::tools::TOOL_INDEX.to_vec()
     }
 }
 
@@ -423,12 +539,8 @@ mod tests {
         unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
     }
 
-    #[test]
-    fn test_all_tools_contains_kv() {
-        let tools = Config::all_tools();
-        assert!(!tools.is_empty());
-        assert!(tools.iter().any(|(name, _, _)| *name == "kv"));
-    }
+
 }
+
 
 

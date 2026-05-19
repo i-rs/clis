@@ -5,21 +5,7 @@ use crate::provider::LlmProvider;
 use crate::utils;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::OnceLock;
 use tokio::sync::mpsc;
-
-/// Global MCP registry (initialized at startup from config).
-/// Kept for backward compatibility — new code should pass McpRegistry via chat_loop parameter.
-#[allow(dead_code)]
-pub(crate) static MCP_REGISTRY: OnceLock<crate::mcp::McpRegistry> = OnceLock::new();
-
-/// Initialize the global MCP registry.
-/// Kept for backward compatibility.
-#[allow(dead_code)]
-pub fn init_mcp(servers: &[crate::mcp::McpServerConfig]) {
-    let registry = crate::mcp::McpRegistry::new(servers);
-    let _ = MCP_REGISTRY.set(registry);
-}
 
 /// Prefix used to identify reminder system messages in the message list.
 const REMINDER_PREFIX: &str = "注意：用户有以下即将到期或已到期的提醒事项";
@@ -172,12 +158,13 @@ pub(crate) fn execute_tool_call(
     name: &str,
     args: &Value,
     mcp: Option<&McpRegistry>,
+    ctx: &crate::tools::ToolContext,
 ) -> String {
     // Try built-in tools first
     let registry = crate::tools::ToolRegistry::new();
     if registry.tool_exists(name) {
         // Tool found — let it execute; propagate real CLI error (not "unknown tool")
-        return registry.execute(name, args).unwrap_or_else(|e| e);
+        return registry.execute(name, args, ctx).unwrap_or_else(|e| e);
     }
 
     // Try MCP-discovered tools (from the registry parameter)
@@ -381,6 +368,10 @@ pub async fn chat_loop(
         }
     }
     let mut msgs = messages;
+    let tool_ctx = crate::tools::ToolContext {
+        config: config.clone(),
+        mcp: mcp.clone(),
+    };
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
     const MAX_RETRIES: u32 = 2;
     const MAX_ROUNDS: u32 = 20;
@@ -443,9 +434,11 @@ pub async fn chat_loop(
                     let args_str = serde_json::to_string(&args).unwrap_or_default();
                     let args_for_blocking = args.clone();
                     let mcp_for_exec = mcp.clone();
+                    let ctx_for_spawn = tool_ctx.clone();
                     handles.push(tokio::spawn(async move {
+                        let ctx_for_blocking = ctx_for_spawn;
                         let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec))
+                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec), &ctx_for_blocking)
                         })
                         .await
                         .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));

@@ -430,6 +430,79 @@ fn main_loop(
                             app.show_session_list = false;
                         }
                     }
+                    KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+                        // Toggle agent picker
+                        app.show_agent_picker = !app.show_agent_picker;
+                        if app.show_agent_picker {
+                            app.show_session_list = false;
+                            app.show_sidebar = false;
+                            app.sidebar_body_idx = None;
+                            app.agent_list = app_core.config.agent_ids();
+                            app.agent_picker_index = app.agent_list
+                                .iter()
+                                .position(|id| *id == app.current_agent)
+                                .unwrap_or(0);
+                        }
+                    }
+                    // Agent picker: Esc to close
+                    KeyCode::Esc if app.show_agent_picker => {
+                        app.show_agent_picker = false;
+                    }
+                    // Agent picker: Enter to switch
+                    KeyCode::Enter if app.show_agent_picker => {
+                        let agent_id = app.agent_list.get(app.agent_picker_index).cloned();
+                        if let Some(ref agent_id) = agent_id {
+                            if *agent_id != app.current_agent {
+                                // Save current session messages
+                                if let Some(old_id) = app_core.session_mgr.current_id().map(|id| id.to_string()) {
+                                    let records: Vec<serde_json::Value> = app
+                                        .messages
+                                        .iter()
+                                        .map(|m| match m {
+                                            crate::app::Message::User { text } => {
+                                                serde_json::json!({"type": "user", "text": text})
+                                            }
+                                            crate::app::Message::Assistant { text } => {
+                                                serde_json::json!({"type": "assistant", "text": text})
+                                            }
+                                            crate::app::Message::ToolCall { name, args, result, .. } => serde_json::json!({
+                                                "type": "tool_call",
+                                                "name": name,
+                                                "args": args,
+                                                "result": result
+                                            }),
+                                            crate::app::Message::Error { text } => {
+                                                serde_json::json!({"type": "error", "text": text})
+                                            }
+                                        })
+                                        .collect();
+                                    app_core.session_mgr.save_all_messages(&old_id, &records);
+                                    if let Some(ref msgs) = app.api_messages {
+                                        app_core.session_mgr.save_api_messages(&old_id, msgs);
+                                    }
+                                }
+
+                                // Switch to new agent
+                                app.current_agent = agent_id.clone();
+                                app.reset_for_new_session();
+                                app.status_text = format!("已切换到 agent: {}", agent_id);
+
+                                // Create new session for this agent
+                                app_core.session_mgr.create_session_for(agent_id);
+                            }
+                        }
+                        app.show_agent_picker = false;
+                    }
+                    // Agent picker: Up/Down
+                    KeyCode::Up if app.show_agent_picker => {
+                        app.agent_picker_index = app.agent_picker_index.saturating_sub(1);
+                    }
+                    KeyCode::Down if app.show_agent_picker => {
+                        let max = app.agent_list.len().saturating_sub(1);
+                        if app.agent_picker_index < max {
+                            app.agent_picker_index += 1;
+                        }
+                    }
                     KeyCode::Esc if app.show_session_list => {
                         if app.session_search_mode {
                             // Exit search mode
@@ -818,13 +891,6 @@ fn main_loop(
     }
 
     Ok(())
-}
-
-#[allow(dead_code)]
-fn claw_dir() -> std::path::PathBuf {
-    dirs::home_dir()
-        .expect("无法获取用户主目录")
-        .join(".i-rs-claw")
 }
 
 /// Check for due/overdue reminders via `i-rs remind list --json`.

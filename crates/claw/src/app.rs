@@ -60,9 +60,7 @@ pub struct App {
     pub session_list: Vec<crate::session::SessionMeta>,
     /// Token usage from the last LLM response
     pub token_usage: Option<crate::llm::TokenUsage>,
-    /// Filtered tool index text (respects enabled_tools)
-    #[allow(dead_code)]
-    pub tool_index_text: String,
+
     /// Input history for up/down navigation (most recent last)
     pub input_history: Vec<String>,
     /// Current position in input history (None = fresh input)
@@ -103,16 +101,17 @@ pub struct App {
     pub copy_feedback: Option<String>,
     /// Current agent profile ID
     pub current_agent: String,
+    /// Whether the agent picker popup is shown
+    pub show_agent_picker: bool,
+    /// Selected index in the agent picker
+    pub agent_picker_index: usize,
+    /// Available agent IDs (cached from config)
+    pub agent_list: Vec<String>,
 }
 
 impl App {
     pub fn new(config: Config) -> Self {
-        let enabled = if config.enabled_tools.is_empty() {
-            None
-        } else {
-            Some(&config.enabled_tools)
-        };
-        let tool_index_text = crate::tools::format_index(enabled);
+        let agent_list = config.agent_ids();
 
         Self {
             messages: Vec::new(),
@@ -127,7 +126,7 @@ impl App {
             session_list_index: 0,
             session_list: Vec::new(),
             token_usage: None,
-            tool_index_text,
+
             input_history: Vec::new(),
             input_history_index: None,
             scroll_offset: 0,
@@ -147,6 +146,9 @@ impl App {
             session_confirm_delete: false,
             copy_feedback: None,
             current_agent: "default".to_string(),
+            show_agent_picker: false,
+            agent_picker_index: 0,
+            agent_list,
         }
     }
 
@@ -185,8 +187,7 @@ impl App {
     }
 
     /// Delete the character at the cursor (Delete key).
-    #[allow(dead_code)]
-    pub fn delete_at_cursor(&mut self) {
+    pub fn _delete_at_cursor(&mut self) {
         if self.input_cursor >= self.input.len() {
             return;
         }

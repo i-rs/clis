@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 /// A single skill entry with name and content.
 #[derive(Debug, Clone, serde::Serialize)]
+#[allow(dead_code)]
 pub struct SkillEntry {
     pub name: String,
     pub content: String,
@@ -28,12 +29,6 @@ impl SkillStore {
             claw_dir.join("agents").join(agent_id).join("skills")
         };
         Self { skills_dir }
-    }
-
-    pub fn new(claw_dir: PathBuf) -> Self {
-        Self {
-            skills_dir: claw_dir.join("skills"),
-        }
     }
 
     /// Format all skill files as a system prompt layer.
@@ -98,6 +93,7 @@ impl SkillStore {
     }
 
     /// Return list of skills with their full content.
+    #[allow(dead_code)]
     pub fn list_skills(&self) -> Vec<SkillEntry> {
         let dir = match std::fs::read_dir(&self.skills_dir) {
             Ok(d) => d,

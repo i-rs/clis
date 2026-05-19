@@ -1,5 +1,6 @@
 pub mod chart_tool;
 pub mod chat_search;
+pub mod delegate;
 pub mod file_ops;
 pub mod i_rs;
 pub mod index;
@@ -16,6 +17,18 @@ use std::collections::HashSet;
 // ── Backward-compatible re-exports ──
 pub use index::{format_index, TOOL_INDEX};
 
+/// Execution context passed to all tools during execution.
+/// Contains application state needed for advanced tool operations
+/// such as task delegation to sub-agents.
+#[derive(Clone)]
+pub struct ToolContext {
+    /// Full application configuration (for agent lookup).
+    pub config: crate::config::Config,
+    /// MCP registry for current agent (for MCP tool forwarding).
+    #[allow(dead_code)]
+    pub mcp: crate::mcp::McpRegistry,
+}
+
 // ── Built-in tool trait ──
 
 /// A built-in tool that the LLM can call.
@@ -26,8 +39,8 @@ pub trait ClawTool: Send + Sync {
     /// `enabled_cli_tools` is the list of i-rs CLI tools that are enabled
     /// (needed by IrsTool to generate the dynamic `tool.enum`).
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value;
-    /// Execute this tool with the given arguments.
-    fn execute(&self, args: &Value) -> Result<String, String>;
+    /// Execute this tool with the given arguments and execution context.
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, String>;
 }
 
 // ── Tool registry ──
@@ -52,6 +65,7 @@ impl ToolRegistry {
                 Box::new(search_tools::SearchToolsTool),
                 Box::new(semantic_search::SemanticSearchTool),
                 Box::new(user_memory::UserMemoryTool),
+                Box::new(delegate::DelegateTool),
                 Box::new(vision_tool::VisionTool),
                 Box::new(web_search::WebSearchTool),
             ],
@@ -95,11 +109,11 @@ impl ToolRegistry {
     }
 
    /// Execute a tool by name.
-    pub fn execute(&self, name: &str, args: &Value) -> Result<String, String> {
+    pub fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, String> {
         self.tools
             .iter()
             .find(|t| t.name() == name)
-            .map(|t| t.execute(args))
+            .map(|t| t.execute(args, ctx))
             .unwrap_or_else(|| Err(format!("未知工具: {}", name)))
     }
 

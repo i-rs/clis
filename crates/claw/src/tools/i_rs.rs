@@ -3,6 +3,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use crate::tools::index;
+use crate::tools::ToolContext;
 
 /// CLI execution timeout.
 const CLI_TIMEOUT: Duration = Duration::from_secs(30);
@@ -46,7 +47,7 @@ impl super::ClawTool for IrsTool {
         })
     }
 
-    fn execute(&self, args: &Value) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
         let cmd_args: Vec<String> = args
