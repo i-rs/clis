@@ -107,6 +107,13 @@ pub struct App {
     pub agent_picker_index: usize,
     /// Available agent IDs (cached from config)
     pub agent_list: Vec<String>,
+
+    /// Index of the currently selected message (in selection mode)
+    pub selected_message: Option<usize>,
+    /// Whether message selection mode is active
+    pub selection_mode: bool,
+    /// Indices of tool call messages that are expanded
+    pub tool_call_expanded: std::collections::HashSet<usize>,
 }
 
 impl App {
@@ -149,6 +156,9 @@ impl App {
             show_agent_picker: false,
             agent_picker_index: 0,
             agent_list,
+            selected_message: None,
+            selection_mode: false,
+            tool_call_expanded: std::collections::HashSet::new(),
         }
     }
 
@@ -429,5 +439,8 @@ impl App {
         self.plan_steps.clear();
         self.session_search.clear();
         self.session_search_mode = false;
+        self.selected_message = None;
+        self.selection_mode = false;
+        self.tool_call_expanded.clear();
     }
 }

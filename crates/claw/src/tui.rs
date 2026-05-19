@@ -32,13 +32,15 @@ fn save_session_messages(
                 name,
                 args,
                 result,
-                step: _,
-                total_steps: _,
+                step,
+                total_steps,
             } => serde_json::json!({
                 "type": "tool_call",
                 "name": name,
                 "args": args,
-                "result": result
+                "result": result,
+                "step": step,
+                "total_steps": total_steps,
             }),
             crate::app::Message::Error { text } => {
                 serde_json::json!({"type": "error", "text": text})
@@ -399,24 +401,67 @@ fn main_loop(
             match event::read()? {
                 Event::Key(key) => match key.code {
                     KeyCode::Char('c') if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                        // Copy last assistant message to clipboard
-                        let text = app
-                            .messages
-                            .iter()
-                            .rev()
-                            .find_map(|m| match m {
-                                crate::app::Message::Assistant { text } if !text.is_empty() => Some(text.clone()),
-                                _ => None,
+                        if app.selection_mode {
+                            // Copy selected message
+                            let content = app.selected_message.and_then(|idx| {
+                                app.messages.get(idx).map(|m| match m {
+                                    crate::app::Message::User { text } => text.clone(),
+                                    crate::app::Message::Assistant { text } => text.clone(),
+                                    crate::app::Message::ToolCall { name, args, result, .. } =>
+                                        format!("Tool: {}\nArgs: {}\nResult: {}", name, args, result),
+                                    crate::app::Message::Error { text } => text.clone(),
+                                })
                             });
-                        if let Some(content) = text {
-                            if copy_to_clipboard(&content) {
-                                app.copy_feedback = Some("✓ 已复制".to_string());
+                            if let Some(content) = content {
+                                if copy_to_clipboard(&content) {
+                                    app.copy_feedback = Some("✓ 已复制".to_string());
+                                } else {
+                                    app.copy_feedback = Some("✗ 复制失败".to_string());
+                                }
                             } else {
-                                app.copy_feedback = Some("✗ 复制失败".to_string());
+                                app.copy_feedback = Some("无内容可复制".to_string());
                             }
                         } else {
-                            app.copy_feedback = Some("无内容可复制".to_string());
+                            // Copy last assistant message to clipboard
+                            let text = app
+                                .messages
+                                .iter()
+                                .rev()
+                                .find_map(|m| match m {
+                                    crate::app::Message::Assistant { text } if !text.is_empty() => Some(text.clone()),
+                                    _ => None,
+                                });
+                            if let Some(content) = text {
+                                if copy_to_clipboard(&content) {
+                                    app.copy_feedback = Some("✓ 已复制".to_string());
+                                } else {
+                                    app.copy_feedback = Some("✗ 复制失败".to_string());
+                                }
+                            } else {
+                                app.copy_feedback = Some("无内容可复制".to_string());
+                            }
                         }
+                    }
+                    // Ctrl+S: Toggle message selection mode
+                    KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                        if !app.messages.is_empty() {
+                            app.selection_mode = !app.selection_mode;
+                            app.selected_message = if app.selection_mode {
+                                Some(app.messages.len().saturating_sub(1))
+                            } else {
+                                None
+                            };
+                        }
+                    }
+                    // Esc: exit selection mode
+                    KeyCode::Esc if app.selection_mode => {
+                        app.selection_mode = false;
+                        app.selected_message = None;
+                    }
+                    // q: exit selection mode
+                    KeyCode::Char('q') if app.selection_mode => {
+                        app.selection_mode = false;
+                        app.selected_message = None;
                     }
                     KeyCode::Char('q') | KeyCode::Char('c')
                         if key.modifiers == KeyModifiers::CONTROL =>
@@ -651,8 +696,39 @@ fn main_loop(
                         app.session_search.pop();
                         app.session_list_index = 0;
                     }
+                    // Selection mode: navigate messages (Up=older, Down=newer)
+                    KeyCode::Up if app.selection_mode => {
+                        if let Some(idx) = app.selected_message {
+                            if idx > 0 {
+                                app.selected_message = Some(idx - 1);
+                            }
+                        }
+                    }
+                    KeyCode::Down if app.selection_mode => {
+                        if let Some(idx) = app.selected_message {
+                            if idx + 1 < app.messages.len() {
+                                app.selected_message = Some(idx + 1);
+                                // Auto-scroll if newly selected message is not visible
+                                let n = app.messages.len();
+                                let max_visible = n.saturating_sub(1).saturating_sub(app.scroll_offset);
+                                if idx + 1 > max_visible {
+                                    app.scroll_offset = n.saturating_sub(1).saturating_sub(idx + 1);
+                                }
+                            }
+                        }
+                    }
+                    // Selection mode: Space toggles tool call expansion
+                    KeyCode::Char(' ') if app.selection_mode => {
+                        if let Some(idx) = app.selected_message {
+                            if matches!(app.messages.get(idx), Some(crate::app::Message::ToolCall { .. })) {
+                                if !app.tool_call_expanded.remove(&idx) {
+                                    app.tool_call_expanded.insert(idx);
+                                }
+                            }
+                        }
+                    }
                     KeyCode::Up
-                        if !app.show_session_list && !app.show_sidebar && !app.is_processing() =>
+                        if !app.show_session_list && !app.show_sidebar && !app.is_processing() && !app.selection_mode =>
                     {
                         if app.input.is_empty() {
                             app.scroll_up();
@@ -662,7 +738,7 @@ fn main_loop(
                         }
                     }
                     KeyCode::Down
-                        if !app.show_session_list && !app.show_sidebar && !app.is_processing() =>
+                        if !app.show_session_list && !app.show_sidebar && !app.is_processing() && !app.selection_mode =>
                     {
                         if app.input.is_empty() {
                             app.scroll_down();
@@ -863,8 +939,8 @@ fn main_loop(
                         }
                     } else if !app.is_processing() && !app.show_sidebar {
                         match mouse.kind {
-                            MouseEventKind::ScrollDown => app.scroll_down(),
-                            MouseEventKind::ScrollUp => app.scroll_up(),
+                            MouseEventKind::ScrollDown => app.scroll_up(),
+                            MouseEventKind::ScrollUp => app.scroll_down(),
                             _ => {}
                         }
                     }

@@ -206,39 +206,68 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     // Subtract 1 line for the top border
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Build items from the end, skipping scroll_offset messages
-    let mut items: Vec<ListItem> = Vec::new();
-    let mut skipped = 0usize;
-    let mut lines_used = 0usize;
+    // Clear scroll offset if at bottom (newest message just added)
+    // This ensures new messages always scroll to bottom
 
-    for msg in app.messages.iter().rev() {
-        if skipped < app.scroll_offset {
-            skipped += 1;
+    // Two-pass approach to ensure NEWEST messages are always fully visible:
+    // Pass 1: compute heights for all visible (non-skipped) messages
+    let mut heights: Vec<usize> = Vec::with_capacity(app.messages.len());
+    for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
+        if rev_idx < app.scroll_offset {
             continue;
         }
-        let h = message_line_count(msg, text_width);
-        if lines_used + h > area_lines && !items.is_empty() {
+        let msg_index = app.messages.len() - 1 - rev_idx;
+        heights.push(message_line_count(app, msg, text_width, msg_index));
+    }
+    // heights[0] = newest visible, heights[n-1] = oldest visible
+
+    // Pass 2: determine how many fit from the NEWEST side
+    let total = heights.len();
+    let mut remaining = area_lines;
+    let mut end_idx = 0usize; // exclusive index in heights
+    for &h in heights.iter() {
+        if h <= remaining {
+            remaining -= h;
+            end_idx += 1;
+        } else {
             break;
         }
-        lines_used += h;
-        items.push(build_message_item(msg, text_width));
+    }
+    // If even the first message doesn't fit, force show at least it
+    if end_idx == 0 && total > 0 {
+        end_idx = 1;
+    }
+
+    // Pass 3: build items newest-to-oldest, then reverse for chronological order
+    let mut items: Vec<ListItem> = Vec::new();
+    for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
+        if rev_idx < app.scroll_offset {
+            continue;
+        }
+        let array_idx = rev_idx - app.scroll_offset; // index in heights
+        if array_idx >= end_idx {
+            continue; // too old, clipped from top
+        }
+        let msg_index = app.messages.len() - 1 - rev_idx;
+        items.push(build_message_item(app, msg, text_width, msg_index));
     }
     items.reverse();
 
     // Show an indicator when scrolled up
     let at_bottom = app.scroll_offset == 0;
+    let hidden_extra = total.saturating_sub(end_idx); // extra hidden by area, not by scroll
 
     let mut block = Block::default()
         .borders(Borders::TOP)
-        .border_style(Style::default().fg(if at_bottom {
+        .border_style(Style::default().fg(if at_bottom && hidden_extra == 0 {
             Color::DarkGray
         } else {
             Color::Rgb(100, 120, 200)
         }));
 
-    if !at_bottom && !items.is_empty() {
-        let hidden = app.scroll_offset;
-        block = block.title(format!(" ▲ {} 条历史消息 ", hidden));
+    let total_hidden = app.scroll_offset + hidden_extra;
+    if total_hidden > 0 && !items.is_empty() {
+        block = block.title(format!(" ▲ {} 条历史消息 ", total_hidden));
         block = block.title_alignment(ratatui::layout::Alignment::Center);
     }
 
@@ -369,6 +398,8 @@ fn render_input(f: &mut Frame, area: Rect, app: &App) {
 fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let bg = if app.is_processing() {
         Color::Blue
+    } else if app.selection_mode {
+        Color::Rgb(40, 30, 10)
     } else {
         app.config.theme.background()
     };
@@ -394,11 +425,43 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
     }
 
-    if app.is_processing() {
+    if app.selection_mode {
+        // Selection mode indicator
+        spans.push(Span::styled(
+            " ● [选择模式] ".to_string(),
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled(
+            "│ ",
+            Style::default().fg(app.config.theme.dim_text()),
+        ));
+        spans.push(Span::styled(
+            "│ ",
+            Style::default().fg(app.config.theme.dim_text()),
+        ));
+        spans.push(Span::styled(
+            "↑↓选择  Space展开  Ctrl+Shift+C复制  Esc退出",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+    } else if app.is_processing() {
         // Processing state
         spans.push(Span::styled(
             format!(" ⏳ {} ", app.status_text),
             Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ));
+        // Separator
+        spans.push(Span::styled(
+            "│ ",
+            Style::default().fg(app.config.theme.dim_text()),
+        ));
+        // Tool & message stats
+        spans.push(Span::styled(
+            format!("⚙ {} ", app.tool_call_count),
+            Style::default().fg(app.config.theme.primary()),
+        ));
+        spans.push(Span::styled(
+            format!("💬 {} ", app.messages.len()),
+            Style::default().fg(app.config.theme.primary()),
         ));
     } else {
         // Idle state — green dot + bold
@@ -410,71 +473,71 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
             format!("{} ", app.config.model),
             Style::default().fg(app.config.theme.primary()),
         ));
-    }
-
-    // Separator
-    spans.push(Span::styled(
-        "│ ",
-        Style::default().fg(app.config.theme.dim_text()),
-    ));
-
-    // Tool & message stats
-    spans.push(Span::styled(
-        format!("⚙ {} ", app.tool_call_count),
-        Style::default().fg(app.config.theme.primary()),
-    ));
-    spans.push(Span::styled(
-        format!("💬 {} ", app.messages.len()),
-        Style::default().fg(app.config.theme.primary()),
-    ));
-
-    // Token usage
-    if let Some(usage) = &app.token_usage {
+        // Separator
+        spans.push(Span::styled(
+            "│ ",
+            Style::default().fg(app.config.theme.dim_text()),
+        ));
+        // Tool & message stats
+        spans.push(Span::styled(
+            format!("⚙ {} ", app.tool_call_count),
+            Style::default().fg(app.config.theme.primary()),
+        ));
+        spans.push(Span::styled(
+            format!("💬 {} ", app.messages.len()),
+            Style::default().fg(app.config.theme.primary()),
+        ));
+        // Token usage
+        if let Some(usage) = &app.token_usage {
+            spans.push(Span::styled(
+                "│ ",
+                Style::default().fg(app.config.theme.dim_text()),
+            ));
+            spans.push(Span::styled(
+                format!("tok: {}p+{}c ", usage.prompt_tokens, usage.completion_tokens),
+                Style::default().fg(app.config.theme.accent()),
+            ));
+        }
+        // Keybindings (right side)
         spans.push(Span::styled(
             "│ ",
             Style::default().fg(app.config.theme.dim_text()),
         ));
         spans.push(Span::styled(
-            format!("tok: {}p+{}c ", usage.prompt_tokens, usage.completion_tokens),
-            Style::default().fg(app.config.theme.accent()),
+            "Ctrl+Q ",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
-    }
-
-    // Keybindings (right side)
-    spans.push(Span::styled(
-        "│ ",
-        Style::default().fg(app.config.theme.dim_text()),
-    ));
-    spans.push(Span::styled(
-        "Ctrl+Q ",
-        Style::default().fg(Color::Rgb(140, 140, 160)),
-    ));
-    spans.push(Span::styled(
-        "Ctrl+N  ",
-        Style::default().fg(Color::Rgb(140, 140, 160)),
-    ));
-    if !app.show_sidebar {
         spans.push(Span::styled(
-            "Ctrl+R  ",
+            "Ctrl+N  ",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+        if !app.show_sidebar {
+            spans.push(Span::styled(
+                "Ctrl+R  ",
+                Style::default().fg(Color::Rgb(140, 140, 160)),
+            ));
+        }
+        spans.push(Span::styled(
+            "Ctrl+L",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+        spans.push(Span::styled(
+            "  Ctrl+P ",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+        spans.push(Span::styled(
+            "  ",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+        spans.push(Span::styled(
+            "Ctrl+Shift+C",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+        spans.push(Span::styled(
+            "  Ctrl+S",
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
     }
-    spans.push(Span::styled(
-        "Ctrl+L",
-        Style::default().fg(Color::Rgb(140, 140, 160)),
-    ));
-    spans.push(Span::styled(
-        "  Ctrl+P ",
-        Style::default().fg(Color::Rgb(140, 140, 160)),
-    ));
-    spans.push(Span::styled(
-        "  ",
-        Style::default().fg(Color::Rgb(140, 140, 160)),
-    ));
-    spans.push(Span::styled(
-        "Ctrl+Shift+C",
-        Style::default().fg(Color::Rgb(140, 140, 160)),
-    ));
 
     let line = Line::from(spans);
     f.render_widget(line, area);
@@ -1428,7 +1491,7 @@ fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String]) -> V
 }
 
 /// Estimate the number of rendered lines a message occupies.
-fn message_line_count(msg: &Message, text_width: usize) -> usize {
+fn message_line_count(app: &App, msg: &Message, text_width: usize, msg_index: usize) -> usize {
     match msg {
         Message::User { text } => {
             // header + wrapped lines + trailing blank
@@ -1446,26 +1509,37 @@ fn message_line_count(msg: &Message, text_width: usize) -> usize {
             name,
             args,
             result,
-            step,
-            total_steps,
+            ..
         } => {
+            // Collapsed: only header + optional explanation
+            if !app.tool_call_expanded.contains(&msg_index) {
+                let mut lines = 1; // header
+                // optional explanation line
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
+                    if name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
+                        lines += 1;
+                    }
+                }
+                return lines;
+            }
+
             let mut lines = 1; // header
-            // Build step prefix for multi-call progress
-            let _step_prefix = if *total_steps > 1 {
-                format!("[{}/{}] ", *step + 1usize, total_steps)
-            } else {
-                String::new()
-            };
             // optional explanation line
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
                 if name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
                     lines += 1;
                 }
             }
-            // result lines (at least 1 if non-empty)
+            // result lines — use format_json_result for accurate counting
             if !result.is_empty() {
-                // Most results are JSON → each data item is roughly 1-3 lines
-                lines += wrapped_line_count(result, text_width.saturating_sub(3)).max(1);
+                let (json_lines, was_json) = format_json_result(result, text_width);
+                if was_json {
+                    lines += json_lines.len();
+                } else if has_ansi(result) {
+                    lines += wrapped_line_count(&strip_ansi(result), text_width.saturating_sub(3)).max(1);
+                } else {
+                    lines += wrapped_line_count(result, text_width.saturating_sub(3)).max(1);
+                }
             }
             lines
         }
@@ -1655,7 +1729,9 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
 }
 
 /// Build a ListItem widget from a Message.
-fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
+fn build_message_item(app: &App, msg: &Message, text_width: usize, msg_index: usize) -> ListItem<'static> {
+    let is_selected = app.selection_mode && app.selected_message == Some(msg_index);
+
     match msg {
         Message::User { text } => {
             let mut lines = vec![
@@ -1673,7 +1749,8 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines).style(Style::default().bg(Color::Rgb(12, 18, 14)))
+            let bg = if is_selected { Color::Rgb(25, 35, 25) } else { Color::Rgb(12, 18, 14) };
+            ListItem::new(lines).style(Style::default().bg(bg))
         }
         Message::Assistant { text } => {
             let mut lines = vec![Line::from(Span::styled(
@@ -1704,7 +1781,12 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 }
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines)
+            let bg = if is_selected { Color::Rgb(25, 30, 45) } else { Color::Rgb(0, 0, 0) };
+            let mut item = ListItem::new(lines);
+            if is_selected {
+                item = item.style(Style::default().bg(bg));
+            }
+            item
         }
         Message::ToolCall {
             name,
@@ -1714,6 +1796,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
             total_steps,
         } => {
             let mut lines = Vec::new();
+            let is_expanded = app.tool_call_expanded.contains(&msg_index);
 
             // Build step prefix for multi-call progress
             let step_prefix = if *total_steps > 1 {
@@ -1754,8 +1837,9 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                     (format!(" ⚡ {}{} {}", step_prefix, name, args), None)
                 };
 
+            let indicator = if is_expanded { " [-]" } else { " [+]" };
             lines.push(Line::from(Span::styled(
-                header,
+                format!("{}{}", header, indicator),
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
@@ -1768,7 +1852,7 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
 
-            if !result.is_empty() {
+            if is_expanded && !result.is_empty() {
                 let (json_lines, _) = format_json_result(result, text_width);
                 if !json_lines.is_empty() {
                     lines.extend(json_lines);
@@ -1786,7 +1870,8 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 }
             }
 
-            ListItem::new(lines).style(Style::default().bg(Color::Rgb(10, 10, 16)))
+            let bg = if is_selected { Color::Rgb(25, 25, 35) } else { Color::Rgb(10, 10, 16) };
+            ListItem::new(lines).style(Style::default().bg(bg))
         }
         Message::Error { text } => {
             let mut lines = vec![
@@ -1804,7 +1889,8 @@ fn build_message_item(msg: &Message, text_width: usize) -> ListItem<'static> {
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            ListItem::new(lines).style(Style::default().bg(Color::Rgb(18, 8, 8)))
+            let bg = if is_selected { Color::Rgb(35, 15, 15) } else { Color::Rgb(18, 8, 8) };
+            ListItem::new(lines).style(Style::default().bg(bg))
         }
     }
 }
