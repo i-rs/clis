@@ -1,11 +1,11 @@
-# i-rs CLI 项目规范
+# i-rs 项目规范
 
 ## 1. 项目结构
 
 ```
 i-rs-clis/
 ├── crates/
-│   ├── core/                   # 共享核心库
+│   ├── core/                   # 共享核心库 (i-rs-core)
 │   │   └── src/
 │   │       ├── lib.rs          # 公共API导出
 │   │       ├── macro.rs        # create_store!, skill_command!, exit_on_error!
@@ -17,7 +17,7 @@ i-rs-clis/
 │   │       └── utils/
 │   │           ├── date.rs     # parse_date(), parse_datetime()
 │   │           └── validation.rs # validate_*() + 21 个单元测试
-│   ├── cli-api/                # REST API (Axum)
+│   ├── cli-api/                # REST API 服务器 (i-rs-api, Axum)
 │   │   └── src/
 │   │       ├── main.rs         # 服务入口 + 32 集成测试
 │   │       ├── build.rs        # 自动生成 routes.rs 模块声明
@@ -26,13 +26,20 @@ i-rs-clis/
 │   │       ├── update.rs       # merge_entry() 通用 JSON 合并更新
 │   │       ├── store.rs        # SharedStore<T> (RwLock 封装)
 │   │       └── routes/         # 70 个路由模块 (CRUD + PATCH)
-│   ├── claw/                   # i-rs-claw TUI AI 助手
-│   ├── mcp/                    # i-rs-mcp MCP 服务器
-│   ├── clis/i-rs-{name}...     # 70个 CLI 工具
+│   ├── claw/                   # TUI 智能助理 (i-rs-claw)
+│   │   ├── src/               # 21 个源文件
+│   │   ├── prompts/            # LLM 系统提示词
+│   │   └── dashboard-ui/       # Dashboard 前端资源
+│   ├── mcp/                    # MCP 协议服务器 (i-rs-mcp)
+│   │   └── src/
+│   │       ├── main.rs         # 入口: 宏 + 会话循环
+│   │       └── transport.rs    # JSON-RPC 2.0 stdio 传输层
+│   └── clis/i-rs-{name}...     # 70 个 CLI 工具
 ├── docs/                       # VitePress 文档站点
 │   └── .vitepress/
 │       └── config.ts           # 侧边栏配置
-├── skills/                     # AI 技能文档 (70个)
+├── skills/                     # AI 技能文档 (70 个 CLI 工具)
+├── extensions/                 # 浏览器扩展 + Native Messaging
 ├── scripts/                    # 辅助脚本
 ├── .github/workflows/
 │   ├── release.yml             # cargo-dist 自动发布
@@ -45,6 +52,8 @@ i-rs-clis/
 ├── SPEC.md                     # 本规范文档
 └── AGENTS.md                   # 开发规范 (AI)
 ```
+
+> 当前项目包含 75+ crate，覆盖三类产品形态：**CLI 工具** (70 个 i-rs-{name})、**TUI 智能助理** (i-rs-claw)、**服务器** (i-rs-api / i-rs-mcp)。详见 AGENTS.md 获取各类 crate 的开发规范和目录结构。
 
 ## 2. 工具列表 (当前 70 个)
 
@@ -212,7 +221,10 @@ pub use i_rs_core::utils::validation::{
 | `example_command!()` | 生成示例命令处理函数 | `commands/example.rs` |
 | `data_command!(DataCommand)` | 生成 Data 子命令枚举 + handler | `commands/data.rs` |
 
-## 4. Crate 开发流程 (清单)
+## 4. Crate 开发流程
+
+> 以下第 4-6 章规范仅适用于 `crates/clis/i-rs-{name}` 标准 CLI 工具。
+> **i-rs-claw**、**i-rs-api**、**i-rs-mcp** 的结构和开发规范与 CLI 工具不同，详见 AGENTS.md 的对应章节。
 
 ### 4.1 创建新工具步骤
 
@@ -560,6 +572,8 @@ async fn delete_kv(
 
 ## 7. REST API 开发规范（i-rs-api）
 
+> 本章节是 i-rs-api（`crates/cli-api/`）REST API 服务器的专属规范。该 crate 的结构和开发方式与 CLI 工具不同，详见 AGENTS.md 的「i-rs-api」章节。
+
 ### 7.1 架构模式
 
 i-rs-api 通过 `SharedStore<T>`（RwLock 封装）提供线程安全的内存内存储，所有数据变更自动持久化到磁盘。
@@ -728,6 +742,8 @@ let mut store = storage::load_store()?;  // BUG: 重复加载!
 
 ## 12. Workspace 依赖
 
+### CLI 工具通用依赖
+
 ```toml
 [workspace.dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -743,11 +759,41 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4"] }
 ```
 
-### 各 crate Cargo.toml 注意事项
+### CLI 工具 Cargo.toml 注意事项
 - **不要**添加 `dirs` (通过 i-rs-core 间接使用)
 - **不要**添加 `serde_json` (仅当直接使用 serde_json::json! 时)
 - **不要**添加 `tokio` 或 `reqwest` (当前无 crate 使用 async)
 - **uuid** 按需添加 (仅当使用 `Uuid::new_v4()`)
+
+### i-rs-claw 额外依赖
+
+以下依赖仅用于 `crates/claw/`，不在 CLI 工具中使用：
+
+| 依赖 | 版本策略 | 用途 |
+|------|---------|------|
+| `tokio` | workspace | 异步运行时 (chat_loop, MCP 客户端) |
+| `reqwest` | workspace | HTTP 客户端 (LLM API, 网页搜索) |
+| `ratatui` | 0.30 | TUI 终端 UI 框架 |
+| `crossterm` | 0.29 | 终端事件/渲染后端 |
+| `futures-util` | 0.3 | 异步流处理 |
+| `toml` | workspace | 配置文件解析 |
+| `rig-core` | 0.37 | LLM Provider SDK (可选) |
+| `unicode-width` | 0.2 | Unicode 宽度计算 (TUI 布局) |
+| `pulldown-cmark` | 0.2 | Markdown 渲染 (TUI) |
+| `async-trait` | workspace | 异步 trait 支持 |
+| `base64` | workspace | Base64 编解码 |
+| `axum` | workspace | Dashboard 服务器 (feature = "dashboard") |
+| `tower-http` | workspace | HTTP 中间件 (feature = "dashboard") |
+| `rust-embed` | 8 | 嵌入 Dashboard 前端资源 (feature = "dashboard") |
+
+### i-rs-api 额外依赖
+
+| 依赖 | 版本策略 | 用途 |
+|------|---------|------|
+| `axum` | workspace | Web 框架 (需 features = ["macros"]) |
+| `tokio` | workspace | 异步运行时 |
+| `tower-http` | workspace | CORS 等 HTTP 中间件 |
+| `paste` | workspace | 宏元编程 |
 
 ## 13. 发布流程
 
@@ -779,8 +825,14 @@ inherits = "release"
 - `check.yml` — push/PR 时运行 `cargo check` + `clippy` + `fmt`
 - `release.yml` — tag 推送时 cargo-dist 发布
 - `deny.toml` — cargo-deny 许可证/安全审计
-- i-rs-core 有 21 个单元测试覆盖 validation 和 date 模块
-- i-rs-api 有 32 个集成测试覆盖 CRUD、PATCH、404、BadRequest、数据导出/清空
+
+### 测试覆盖
+
+| Crate | 测试数 | 范围 |
+|-------|--------|------|
+| i-rs-core | 21 单元测试 | validation + date 模块 |
+| i-rs-api | 32 集成测试 | CRUD、PATCH、404、BadRequest、数据导出/清空 |
+| i-rs-claw | 48 单元测试 | 会话管理、状态机、语义搜索、配置等 (需 `--test-threads=1` 避免 env var 竞争) |
 
 ## 16. 文章与推广规范
 
@@ -795,7 +847,7 @@ inherits = "release"
 | **新 crate 构思** | 设计一个新工具前的调研、决策过程 | 为什么选择 BTreeMap、存储格式对比 |
 | **已有 crate 优化** | 性能提升、代码精简、模式提炼 | 将 data 命令抽为宏、消除重复代码 |
 | **演进决策** | 技术选型、架构取舍、设计哲学 | 为什么用 JSON 不用 SQLite、为什么不引入 tokio |
-| **工程创新** | 独特的 Rust 实践、宏技巧、自动化方案 | build.rs 自动生成路由、三个宏管理 70 个 crate |
+| **工程创新** | 独特的 Rust 实践、宏技巧、自动化方案 | build.rs 自动生成路由、三个宏管理 70 个 crate、claw ReAct 架构 |
 
 ### 16.2 文章存放位置
 
@@ -838,11 +890,20 @@ inherits = "release"
 
 ## 17. 重要文件
 
-- `SPEC.md` — 项目规范 (中文)
-- `AGENTS.md` — AI 开发工作流
-- `Cargo.toml` — Workspace 配置
-- `rust-toolchain.toml` — Rust 工具链固定
-- `deny.toml` — 依赖审计配置
-- `docs/.vitepress/config.ts` — 文档侧边栏
-- `.github/workflows/` — CI/CD 配置
-- `docs/articles/` — 推广文章专区
+| 文件 | 说明 |
+|------|------|
+| `SPEC.md` | 项目规范 (本文，中文) |
+| `AGENTS.md` | AI 开发工作流 (按 crate 类别分章) |
+| `Cargo.toml` | Workspace 配置 |
+| `rust-toolchain.toml` | Rust 工具链固定 |
+| `deny.toml` | 依赖审计配置 |
+| `docs/.vitepress/config.ts` | VitePress 文档侧边栏 |
+| `.github/workflows/` | CI/CD 配置 |
+| `docs/articles/` | 推广文章专区 |
+| `crates/claw/prompts/system.md` | i-rs-claw LLM 系统提示词 |
+| `crates/claw/src/core/engine.rs` | ReAct 聊天循环核心逻辑 |
+| `crates/claw/src/tui.rs` | TUI 主循环 |
+| `crates/cli-api/src/main.rs` | REST API 服务器入口 (含 `make_app_tools!`) |
+| `crates/cli-api/src/update.rs` | 通用 JSON 合并/部分更新工具 |
+| `crates/mcp/src/main.rs` | MCP 服务器入口 (含 `make_mcp_tools!`) |
+| `crates/core/src/macro.rs` | 核心宏定义 |

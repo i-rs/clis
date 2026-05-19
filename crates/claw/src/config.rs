@@ -53,6 +53,10 @@ pub struct Config {
     /// Accessible via delegate_task tool.
     #[serde(default)]
     pub sub_agents: HashMap<String, AgentConfig>,
+    /// Execution mode for multi-step tasks.
+    /// Defaults to ReAct (no upfront planning).
+    #[serde(default)]
+    pub execution_mode: ExecutionMode,
     /// Custom color theme (loaded from theme.json, not serialized)
     #[serde(skip)]
     pub theme: crate::theme::Theme,
@@ -102,6 +106,18 @@ pub struct AgentConfig {
     /// E.g., ["数据分析", "代码生成", "数据可视化"]
     #[serde(default)]
     pub capabilities: Vec<String>,
+}
+
+/// Execution mode for multi-step tasks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum ExecutionMode {
+    /// ReAct loop: think → tool → observe → think → tool → ... → done.
+    /// No upfront planning needed; the LLM decides each step based on previous results.
+    #[default]
+    React,
+    /// Plan-then-Execute: LLM outputs a structured plan first, then executes step by step.
+    /// Useful for complex workflows where steps need user confirmation.
+    PlanThenExecute,
 }
 
 /// Resolved configuration for a specific agent, with all fields flattened.
@@ -321,6 +337,7 @@ impl Config {
             plugins_auto_discover: true,
             agents: HashMap::new(),
             sub_agents: HashMap::new(),
+            execution_mode: ExecutionMode::default(),
             gateway: GatewayConfig::default(),
             dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),

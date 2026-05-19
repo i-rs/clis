@@ -53,6 +53,7 @@ pub async fn get_config(State(state): State<AppState>) -> Json<ApiResponse<Value
         "provider": core.config.provider,
         "model": core.config.model,
         "base_url": core.config.base_url,
+        "execution_mode": core.config.execution_mode,
         "enabled_tools": core.config.enabled_tools,
         "mcp_servers": core.config.mcp_servers,
         "plugins_auto_discover": core.config.plugins_auto_discover,
@@ -125,6 +126,7 @@ fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent
             &skill_store.format_skills(),
             &memory.format_user_memory(),
             &memory.format_user_profile(),
+            core.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
         )
     });
 

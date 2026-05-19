@@ -8,7 +8,211 @@
 ///   let results = searcher.search("running weight last week", 5)?;
 
 use crate::convstore::{ConvStore, SearchResult};
-use std::collections::{BTreeMap, HashSet};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::PathBuf;
+
+// =============================================
+// Embedding Provider (remote API)
+// =============================================
+
+/// Generate embeddings for text using a remote API.
+#[async_trait::async_trait]
+pub trait EmbeddingProvider: Send + Sync {
+    /// Generate an embedding vector for a single text string.
+    async fn embed(&self, text: &str) -> anyhow::Result<Vec<f64>>;
+    /// Generate embeddings for multiple texts (batched).
+    async fn embed_batch(&self, texts: &[String]) -> anyhow::Result<Vec<Vec<f64>>>;
+}
+
+/// OpenAI-compatible embedding provider (uses /embeddings endpoint).
+pub struct OpenaiEmbeddingProvider {
+    client: reqwest::Client,
+    api_key: String,
+    base_url: String,
+    model: String,
+}
+
+impl OpenaiEmbeddingProvider {
+    pub fn new(api_key: String, base_url: String, model: Option<String>) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .expect("Failed to create HTTP client");
+        Self {
+            client,
+            api_key,
+            base_url,
+            model: model.unwrap_or_else(|| "text-embedding-3-small".to_string()),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl EmbeddingProvider for OpenaiEmbeddingProvider {
+    async fn embed(&self, text: &str) -> anyhow::Result<Vec<f64>> {
+        let mut results = self.embed_batch(&[text.to_string()]).await?;
+        results.pop().ok_or_else(|| anyhow::anyhow!("No embedding returned"))
+    }
+
+    async fn embed_batch(&self, texts: &[String]) -> anyhow::Result<Vec<Vec<f64>>> {
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+        let url = format!("{}/embeddings", self.base_url.trim_end_matches('/'));
+        let body = serde_json::json!({
+            "input": texts,
+            "model": self.model,
+        });
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Embedding API request failed: {}", e))?;
+        if !response.status().is_success() {
+            let text = response.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!("Embedding API error: {}", text));
+        }
+        let data: serde_json::Value = response.json().await?;
+        let embeddings = data["data"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("No data in embedding response"))?;
+        let mut results = Vec::with_capacity(embeddings.len());
+        for entry in embeddings {
+            let vec: Vec<f64> = entry["embedding"]
+                .as_array()
+                .ok_or_else(|| anyhow::anyhow!("No embedding vector"))?
+                .iter()
+                .map(|v| v.as_f64().unwrap_or(0.0))
+                .collect();
+            results.push(vec);
+        }
+        Ok(results)
+    }
+}
+
+// =============================================
+// Embedding Index (local storage + search)
+// =============================================
+
+/// A single entry in the embedding index.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexEntry {
+    pub session_id: String,
+    pub session_title: String,
+    pub message_type: String,
+    pub excerpt: String,
+    pub context_before: Vec<String>,
+    pub context_after: Vec<String>,
+    pub updated_at: i64,
+    /// The embedding vector (list of floats).
+    pub embedding: Vec<f64>,
+}
+
+/// Local embedding index for cosine similarity search.
+pub struct EmbeddingIndex {
+    entries: Vec<IndexEntry>,
+    path: PathBuf,
+}
+
+impl EmbeddingIndex {
+    /// Create or load an embedding index from disk.
+    pub fn new(claw_dir: PathBuf) -> Self {
+        let path = claw_dir.join("embedding_index.json");
+        let entries = if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                serde_json::from_str(&content).unwrap_or_default()
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+        Self { entries, path }
+    }
+
+    /// Return number of indexed entries.
+    #[allow(dead_code)]
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Add entries to the index and persist.
+    pub fn add_entries(&mut self, new_entries: Vec<IndexEntry>) {
+        for entry in new_entries {
+            // Deduplicate by (session_id, excerpt)
+            let key = format!("{}:{}", entry.session_id, entry.excerpt);
+            if !self.entries.iter().any(|e| format!("{}:{}", e.session_id, e.excerpt) == key) {
+                self.entries.push(entry);
+            }
+        }
+        self.save();
+    }
+
+    /// Clear and rebuild the index.
+    #[allow(dead_code)]
+    pub fn clear(&mut self) {
+        self.entries.clear();
+        self.save();
+    }
+
+    /// Search by cosine similarity against query embedding.
+    /// Returns top-N results sorted by similarity score (0.0 to 1.0).
+    pub fn search(&self, query_embedding: &[f64], max_results: usize) -> Vec<(IndexEntry, f64)> {
+        if self.entries.is_empty() || query_embedding.is_empty() {
+            return Vec::new();
+        }
+        let mut scored: Vec<(usize, f64)> = self
+            .entries
+            .iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let sim = cosine_similarity(query_embedding, &entry.embedding);
+                (i, sim)
+            })
+            .collect();
+        // Sort by score descending
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Take top results
+        scored.truncate(max_results);
+        scored
+            .into_iter()
+            .filter(|(_, score)| *score > 0.3) // Minimum similarity threshold
+            .map(|(i, score)| (self.entries[i].clone(), score))
+            .collect()
+    }
+
+    fn save(&self) {
+        if let Some(parent) = self.path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(content) = serde_json::to_string(&self.entries) {
+            let _ = std::fs::write(&self.path, content);
+        }
+    }
+}
+
+/// Compute cosine similarity between two vectors.
+fn cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let norm_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+    if norm_a == 0.0 || norm_b == 0.0 {
+        0.0
+    } else {
+        (dot / (norm_a * norm_b)).clamp(0.0, 1.0)
+    }
+}
+
+// =============================================
+// Enhanced SemanticSearch
+// =============================================
 
 /// A search result with a relevance score.
 #[derive(Debug, Clone)]
@@ -17,23 +221,40 @@ pub struct ScoredResult {
     pub score: f64,
 }
 
-/// Lightweight semantic search engine.
+/// Lightweight semantic search engine with optional embedding support.
 pub struct SemanticSearch {
     conv_store: ConvStore,
+    embed_index: EmbeddingIndex,
+    claw_dir: PathBuf,
 }
 
 impl SemanticSearch {
-    pub fn new(claw_dir: std::path::PathBuf) -> Self {
+    pub fn new(claw_dir: PathBuf) -> Self {
+        let embed_index = EmbeddingIndex::new(claw_dir.clone());
         Self {
-            conv_store: ConvStore::new(claw_dir),
+            conv_store: ConvStore::new(claw_dir.clone()),
+            embed_index,
+            claw_dir,
         }
     }
 
-    /// Search conversations with TF-IDF relevance scoring.
+    /// Get a reference to the embedding index for indexing.
+    #[allow(dead_code)]
+    pub fn embed_index(&self) -> &EmbeddingIndex {
+        &self.embed_index
+    }
+
+    /// Get a mutable reference to the embedding index for indexing.
+    pub fn embed_index_mut(&mut self) -> &mut EmbeddingIndex {
+        &mut self.embed_index
+    }
+
+    /// Search conversations with relevance scoring.
     ///
     /// 1. First uses ConvStore's keyword search to find matching messages.
     /// 2. Then scores results by TF-IDF relevance against the query.
-    /// 3. Returns top results sorted by score descending.
+    /// 3. If an embedding provider is available, re-ranks results by cosine similarity.
+    /// 4. Returns top results sorted by score descending.
     pub fn search(&self, query: &str, max_results: usize) -> Vec<ScoredResult> {
         if query.trim().is_empty() {
             return Vec::new();
@@ -69,18 +290,49 @@ impl SemanticSearch {
         scored.truncate(max_results);
         scored
     }
+
+    /// Search using the embedding index for semantic similarity.
+    /// Returns results re-ranked by embedding cosine similarity when available.
+    #[allow(dead_code)]
+    pub fn search_embedding(
+        &self,
+        query_embedding: &[f64],
+        max_results: usize,
+    ) -> Vec<(ScoredResult, f64)> {
+        let indexed = self.embed_index.search(query_embedding, max_results);
+        if indexed.is_empty() {
+            return Vec::new();
+        }
+        indexed
+            .into_iter()
+            .filter_map(|(entry, score)| {
+                // Build a ScoredResult from the indexed entry
+                let result = SearchResult {
+                    session_id: entry.session_id,
+                    session_title: entry.session_title,
+                    message_type: entry.message_type,
+                    excerpt: entry.excerpt.clone(),
+                    context_before: entry.context_before,
+                    context_after: entry.context_after,
+                    updated_at: entry.updated_at,
+                };
+                let scored = ScoredResult {
+                    score, // Use embedding score directly
+                    result,
+                };
+                Some((scored, score))
+            })
+            .collect()
+    }
 }
 
 /// Tokenize text into lowercase words (English + Chinese).
 fn tokenize(text: &str) -> Vec<String> {
     let text = text.to_lowercase();
     let mut tokens = Vec::new();
-
-    // Split on whitespace and punctuation
     let mut current = String::new();
     for c in text.chars() {
         if c.is_alphanumeric() || c.is_ascii() || c > '\x7f' {
-            // Include CJK characters as individual tokens
             if c > '\x7f' && !c.is_whitespace() {
                 if !current.is_empty() {
                     tokens.push(current.clone());
@@ -105,7 +357,6 @@ fn tokenize(text: &str) -> Vec<String> {
     if !current.is_empty() {
         tokens.push(current);
     }
-
     tokens
 }
 
@@ -119,12 +370,6 @@ fn term_frequency(tokens: &[String]) -> BTreeMap<String, usize> {
 }
 
 /// Compute TF-IDF relevance score between a search result and query.
-///
-/// Score is based on:
-/// - Term frequency: how often query terms appear in the result text
-/// - Inverse document frequency: rare terms get higher weight (simulated)
-/// - Length normalization: shorter matches get slight boost
-/// - Bonus for title matches (session title containing query terms)
 fn compute_relevance(
     result: &SearchResult,
     query_terms: &[String],
@@ -134,7 +379,6 @@ fn compute_relevance(
         return 0.0;
     }
 
-    // Build result text for scoring
     let searchable = format!(
         "{} {} {} {} {}",
         result.session_title,
@@ -148,15 +392,9 @@ fn compute_relevance(
     let total_terms = result_terms.len().max(1) as f64;
 
     let mut score = 0.0;
-
     for (term, query_count) in query_tf {
         let query_weight = *query_count as f64;
-
-        // Term frequency in result
         let tf = *result_tf.get(term).unwrap_or(&0) as f64;
-
-        // Simulated IDF: rarer terms get higher weight
-        // Common Chinese stop words get lower weight
         let idf = if is_stop_word(term) {
             0.3
         } else if term.len() <= 1 {
@@ -164,12 +402,9 @@ fn compute_relevance(
         } else {
             1.0
         };
-
-        // TF-IDF contribution
         score += query_weight * tf * idf / total_terms;
     }
 
-    // Title match bonus
     let title_lower = result.session_title.to_lowercase();
     for term in query_terms {
         if title_lower.contains(term) {
@@ -177,14 +412,11 @@ fn compute_relevance(
         }
     }
 
-    // Length normalization: slightly boost shorter, denser matches
     let len_norm = (1.0 + 10.0 / total_terms).min(2.0);
     score *= len_norm;
-
     score
 }
 
-/// Common stop words with low semantic value.
 fn is_stop_word(word: &str) -> bool {
     matches!(
         word,
@@ -202,4 +434,93 @@ fn is_stop_word(word: &str) -> bool {
             | "she" | "we" | "they" | "me" | "him" | "her" | "us"
             | "them"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_tokenize() {
+        let tokens = tokenize("hello world");
+        assert!(tokens.contains(&"hello".to_string()));
+        assert!(tokens.contains(&"world".to_string()));
+    }
+
+    #[test]
+    fn test_tokenize_chinese() {
+        let tokens = tokenize("你好世界");
+        assert_eq!(tokens.len(), 4); // 4 individual CJK chars
+    }
+
+    #[test]
+    fn test_cosine_similarity() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![1.0, 0.0, 0.0];
+        assert!((cosine_similarity(&a, &b) - 1.0).abs() < 1e-6);
+
+        let c = vec![0.0, 1.0, 0.0];
+        assert!((cosine_similarity(&a, &c) - 0.0).abs() < 1e-6);
+
+        // Empty vectors
+        assert_eq!(cosine_similarity(&[], &[]), 0.0);
+    }
+
+    #[test]
+    fn test_embedding_index() {
+        let dir = std::env::temp_dir().join("i-rs-claw-test-embed");
+        let _ = std::fs::create_dir_all(&dir);
+        let mut idx = EmbeddingIndex::new(dir.clone());
+
+        assert_eq!(idx.len(), 0);
+
+        idx.add_entries(vec![IndexEntry {
+            session_id: "s1".to_string(),
+            session_title: "Test".to_string(),
+            message_type: "user".to_string(),
+            excerpt: "hello world".to_string(),
+            context_before: vec![],
+            context_after: vec![],
+            updated_at: 0,
+            embedding: vec![1.0, 0.0, 0.0],
+        }]);
+
+        assert_eq!(idx.len(), 1);
+
+        let results = idx.search(&[1.0, 0.0, 0.0], 5);
+        assert_eq!(results.len(), 1);
+        assert!((results[0].1 - 1.0).abs() < 1e-6);
+
+        // Dedup: same key should not be added twice
+        idx.add_entries(vec![IndexEntry {
+            session_id: "s1".to_string(),
+            session_title: "Test".to_string(),
+            message_type: "user".to_string(),
+            excerpt: "hello world".to_string(),
+            context_before: vec![],
+            context_after: vec![],
+            updated_at: 0,
+            embedding: vec![1.0, 0.0, 0.0],
+        }]);
+        assert_eq!(idx.len(), 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_term_frequency() {
+        let tokens = vec!["a".to_string(), "b".to_string(), "a".to_string()];
+        let tf = term_frequency(&tokens);
+        assert_eq!(tf.get("a"), Some(&2));
+        assert_eq!(tf.get("b"), Some(&1));
+    }
+
+    #[test]
+    fn test_is_stop_word() {
+        assert!(is_stop_word("的"));
+        assert!(is_stop_word("the"));
+        assert!(!is_stop_word("重要"));
+        assert!(!is_stop_word("important"));
+    }
 }

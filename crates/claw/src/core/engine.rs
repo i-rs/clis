@@ -10,6 +10,42 @@ use tokio::sync::mpsc;
 /// Prefix used to identify reminder system messages in the message list.
 const REMINDER_PREFIX: &str = "注意：用户有以下即将到期或已到期的提醒事项";
 
+/// ReAct mode instruction (default) — no upfront planning, just act step by step.
+const REACT_PROMPT: &str = "\
+当用户请求涉及 **2 个或以上不同工具调用** 时：
+1. 无需预先规划整个流程，直接开始执行第一步
+2. 根据上一步的结果自然决定下一步
+3. 按顺序依次执行，每次调用一个工具
+4. 所有步骤完成后给出总结
+";
+
+/// Plan-then-Execute mode instruction (experimental).
+const PLAN_THEN_EXECUTE_PROMPT: &str = "\
+当用户请求涉及 **2 个或以上不同工具调用** 时，必须使用执行计划模式。
+
+### Plan-then-Execute 标准流程
+
+**步骤 1：分析需求**
+- 识别用户需求的几个步骤
+- 为每个步骤分配对应的工具
+
+**步骤 2：输出结构化计划**
+在回复开头输出计划（纯文本格式）：
+📋 执行计划：
+1. [步骤描述] → 工具名/命令
+2. [步骤描述] → 工具名/命令
+3. [步骤描述] → 工具名/命令
+
+**步骤 3：逐步骤执行**
+- 每执行完一步，更新计划状态：在回复中标注 ✅ 完成
+- 如某步失败，输出 ❌ 失败原因，然后决定重试或跳过
+- 所有步骤完成后输出总结
+
+### 计划跟踪格式
+在涉及多步操作时，每次回复前部显示当前进度：
+📋 计划进度: 1/3 ✅ → 2/3 🔄 → 3/3 ✅
+";
+
 /// Load system prompt from external file and inject dynamic layers.
 ///
 /// Layers:
@@ -24,6 +60,7 @@ pub(crate) fn build_system_prompt(
     skills: &str,
     user_memory: &str,
     user_profile: &str,
+    plan_then_execute: bool,
 ) -> String {
     let mut prompt = include_str!("../../prompts/system.md").to_string();
     let now = chrono::Local::now();
@@ -32,6 +69,9 @@ pub(crate) fn build_system_prompt(
     prompt = prompt
         .replace("{current_date}", &today)
         .replace("{current_weekday}", &weekday);
+
+    let plan_mode = if plan_then_execute { PLAN_THEN_EXECUTE_PROMPT } else { REACT_PROMPT };
+    prompt = prompt.replace("{{PLAN_MODE}}", plan_mode);
 
     prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
     prompt = prompt.replace("{{HOT_TOOLS}}", hot_tools);
@@ -64,6 +104,7 @@ pub fn build_messages(
     user_profile: &str,
     reminder_text: Option<&str>,
     system_prompt_override: Option<&str>,
+    plan_then_execute: bool,
 ) -> Vec<Value> {
     // Helper: remove stale reminder system message at index 1 if present
     let remove_reminder_msg = |msgs: &mut Vec<Value>| {
@@ -120,7 +161,7 @@ pub fn build_messages(
     // First turn: build from scratch
     let system_prompt = system_prompt_override
         .map(|s| s.to_string())
-        .unwrap_or_else(|| build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile));
+        .unwrap_or_else(|| build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile, plan_then_execute));
 
     let mut msgs = vec![serde_json::json!({
         "role": "system",
@@ -257,7 +298,7 @@ fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize
 /// This implements "predict which tools are worth keeping" by using
 /// cross-session usage frequency as the primary signal (weighted 10x)
 /// and recency as the secondary signal.
-fn smart_compress(
+pub fn smart_compress(
     msgs: &mut Vec<Value>,
     tool_frequency: &HashMap<String, usize>,
     max_teach_docs: usize,

@@ -1,0 +1,133 @@
+# ============================================================================
+# i-rs-claw 配置文件
+# 路径: ~/.i-rs-claw/config.toml
+# 格式: TOML
+# ============================================================================
+
+# ── LLM Provider ────────────────────────────────────────────────────────────
+#
+# provider:  "openai" | "anthropic" | "ollama"
+#            兼容 OpenAI API 的第三方服务（如 DeepSeek、Groq、OpenRouter）也设为 "openai"
+provider = "openai"
+
+# api_key:  API 密钥
+#           也可以通过环境变量 I_RS_CLAW_API_KEY 设置，优先级高于文件
+api_key = "your-api-key"
+
+# base_url: API 端点地址
+base_url = "https://api.deepseek.com"
+
+# model:    模型名称
+model = "deepseek-v4-flash"
+
+
+# ── 工具管理 ────────────────────────────────────────────────────────────────
+#
+# enabled_tools:  启用的工具列表。留空 = 全部启用
+#                 如需限制工具范围，取消注释并编辑以下列表
+# enabled_tools = ["kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo"]
+
+
+# ── 搜索引擎 ────────────────────────────────────────────────────────────────
+#
+# search_api_key:   专用搜索 API 密钥（例如 SerpAPI、Google Custom Search）
+#                   不设置则回退到 DuckDuckGo（免费，无需密钥）
+# search_base_url:  自定义搜索 API 端点地址
+# search_api_key = "your-search-api-key"
+# search_base_url = "https://custom-search-api.example.com"
+
+
+# ── 文件操作权限 ────────────────────────────────────────────────────────────
+#
+# allowed_dirs:  允许工具读写/列目录的路径。留空表示禁止文件操作
+# allowed_dirs = ["~/Documents", "~/Downloads"]
+
+
+# ── MCP 服务器 ──────────────────────────────────────────────────────────────
+#
+# mcp_servers:  外部 MCP 工具服务器列表
+#               transport_type: "stdio"（本地进程）或 "sse"（远程 HTTP）
+#
+# [[mcp_servers]]
+# name = "filesystem"
+# transport_type = "stdio"
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/workspace"]
+# env = ["NODE_PATH=/usr/local/lib/node_modules"]
+
+# [[mcp_servers]]
+# name = "github"
+# transport_type = "sse"
+# url = "https://mcp-github.example.com/sse"
+
+
+# ── 插件发现 ────────────────────────────────────────────────────────────────
+#
+# plugins_auto_discover:  自动发现 ~/.i-rs-claw/plugins/ 下的插件
+plugins_auto_discover = true
+
+
+# ── 执行模式 ────────────────────────────────────────────────────────────────
+#
+# execution_mode:  "React" (默认) | "PlanThenExecute" (实验性)
+execution_mode = "React"
+
+
+# ── Gateway（社交平台接入）──────────────────────────────────────────────────
+#
+# [gateway]
+# enabled = false
+#
+#   [gateway.telegram]
+#   enabled = false
+#   token = "YOUR_BOT_TOKEN"
+#   agent_id = "default"
+#
+#   [gateway.discord]
+#   enabled = false
+#   token = "YOUR_BOT_TOKEN"
+#
+#   [gateway.slack]
+#   enabled = false
+#   token = "YOUR_SLACK_TOKEN"
+#   webhook_url = "https://hooks.slack.com/services/xxx"
+#
+#   # 微信个人号 — 无需静态 token/URL，首次运行二维码登录
+#   [gateway.wechat]
+#   enabled = false
+#   agent_id = "default"
+
+
+# ── Dashboard（Web 管理界面）───────────────────────────────────────────────
+#
+# [dashboard]
+# enabled = false
+# host = "127.0.0.1"
+# port = 3000
+
+
+# ── Agent 配置 ──────────────────────────────────────────────────────────────
+#
+# 每个 agent 可覆盖 provider/model/tools/system_prompt，未设字段继承顶层配置
+#
+# [agents.analyst]
+# model = "gpt-4o"
+# tools = ["kv", "weight", "sleep", "mood", "exercise"]
+# system_prompt = "你是一名数据分析师…"
+# capabilities = ["数据分析", "趋势预测"]
+#
+# [agents.writer]
+# provider = "anthropic"
+# model = "claude-sonnet-4-20250514"
+# tools = ["note", "snippet", "vocab", "bookmark", "quote"]
+# system_prompt_file = "agents/writer_prompt.md"     # 相对 ~/.i-rs-claw/ 的路径
+# capabilities = ["内容创作"]
+
+
+# ── Sub-agent（仅用于 delegate_task，TUI 不可见）────────────────────────────
+#
+# [sub_agents.coder]
+# model = "gpt-4o"
+# enabled_tools = ["kv", "todo", "note", "remind", "project", "snippet"]
+# system_prompt = "你是一名编程助手…"
+# capabilities = ["代码审查", "脚本编写"]

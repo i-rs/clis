@@ -1,193 +1,55 @@
-# AGENTS.md - i-rs CLI Tools
+# AGENTS.md - i-rs 项目
 
 ## Project Overview
 
-Rust monorepo with **70 cross-platform CLI tools** for personal data management, plus special crates, MCP server, and browser extensions:
+Rust monorepo 包含 **75+ crate**，覆盖三类产品形态：
 
-- **`i-rs`** - Meta CLI (unified entry point)
-- **`i-rs-core`** - Shared core library
-- **`i-rs-api`** - REST API server
-- **`i-rs-mcp`** - MCP (Model Context Protocol) server
-- **`extensions/`** - Browser extensions via Native Messaging
+| 类别 | Crates | 说明 |
+|------|--------|------|
+| **CLI 工具** | 70 个 `i-rs-{name}` | 个人数据管理命令行工具 |
+| **智能助理** | `i-rs-claw` | TUI AI 助理，带 Dashboard/Gateway 可观测性扩展 |
+| **服务器** | `i-rs-api` | REST API 服务器 (Axum) |
+| **协议服务** | `i-rs-mcp` | MCP 协议服务器 (JSON-RPC over stdio) |
+| **共享库** | `i-rs-core` | 所有 crate 的基础库 |
 
-**Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api.
+**Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api, 48 unit tests in i-rs-claw.
 
 ## Project Structure
 
 ```
 i-rs-clis/
 ├── crates/
-│   ├── clis/               # 70 CLI tools (i-rs-{name})
-│   │   └── i-rs/           # Meta CLI (unified entry point)
-│   ├── core/               # Shared core library (macros, Storage, presentation, utils)
-│   ├── cli-api/            # REST API server (Axum)
-│   ├── mcp/                # MCP server (JSON-RPC 2.0 over stdio)
-│   ├── claw/               # i-rs-claw TUI AI assistant
-├── extensions/              # Browser extensions (Native Messaging)
-│   ├── i-rs-kv-chrome/     # Chrome extension for i-rs-kv
-│   ├── i-rs-native-msg/    # Native messaging host (Rust)
-│   └── install-*.sh        # Installation scripts
-├── docs/                   # VitePress documentation
-│   └── .vitepress/
-│       └── config.ts       # Documentation sidebar config
-├── skills/                 # AI skill documents (70 crates)
+│   ├── clis/               # [CLI 工具] 70 个 i-rs-{name}
+│   │   └── i-rs/           # Meta CLI (统一入口)
+│   ├── claw/               # [智能助理] i-rs-claw TUI AI assistant
+│   │   ├── src/            # 21 个源文件
+│   │   ├── prompts/        # LLM 系统提示词
+│   │   └── dashboard-ui/   # Dashboard 前端 (嵌入资源)
+│   ├── cli-api/            # [REST API] i-rs-api Axum 服务器
+│   ├── mcp/                # [MCP 协议] i-rs-mcp 服务器
+│   └── core/               # [共享库] i-rs-core
+├── docs/                   # VitePress 文档
+├── skills/                 # AI 技能文档 (70 CLI crates)
+├── extensions/             # 浏览器扩展 + Native Messaging
 ├── .github/workflows/
-│   ├── release.yml         # cargo-dist auto-publish
+│   ├── release.yml         # cargo-dist 自动发布
 │   └── check.yml           # CI: check + clippy + fmt
-├── deny.toml               # cargo-deny config
-├── rust-toolchain.toml     # Pinned Rust toolchain
-├── Cargo.lock              # Committed for reproducible builds
-├── Cargo.toml              # Workspace config
+├── deny.toml
+├── rust-toolchain.toml
+├── Cargo.lock
+├── Cargo.toml
 ├── README.md
-├── SPEC.md                 # Detailed specifications (Chinese)
-└── AGENTS.md               # This file
+├── SPEC.md
+└── AGENTS.md               # 本文
 ```
 
-## Special Crates
+---
 
-These crates are **not standard CLI tools** and have different development requirements:
+## 1. CLI 工具 (70 个 i-rs-{name})
 
-| Crate | Type | Description |
-|-------|------|-------------|
-| `i-rs` | Meta CLI | Unified entry point that delegates to all 70 CLI tools |
-| `i-rs-core` | Shared Library | Core library providing `Storage<T>`, macros, presentation, and utilities |
-| `i-rs-api` | REST API | REST API server built with Axum, wrapping CLI tools as HTTP endpoints |
-| `i-rs-mcp` | MCP Server | MCP (Model Context Protocol) server exposing CLI tools as JSON-RPC 2.0 tools over stdio |
+以下规范仅适用于 `crates/clis/i-rs-{name}` 这类标准 CLI 工具。
 
-### i-rs (Meta CLI)
-
-`i-rs` is a **meta wrapper** that provides a unified CLI entry point:
-
-```bash
-i-rs weight list     # Calls i-rs-weight list
-i-rs mood calendar   # Calls i-rs-mood calendar
-```
-
-It does NOT have its own models/storage/commands - it only routes to other tools.
-
-### i-rs-core (Shared Library)
-
-`i-rs-core` is the **foundation** for all 70 CLI tools:
-
-- **Must NOT depend on any other i-rs-* crates**
-- Provides: `Storage<T>`, `create_store!`, `skill_command!`, `exit_on_error!`, presentation helpers, validation utilities
-- 21 unit tests verify core functionality
-
-### i-rs-api (REST API)
-
-`i-rs-api` is a **REST API** built with Axum:
-
-- **`make_app_tools!` macro** — generates `AppState` struct, `load_state()`, and `build_base_router()` from a single list of 70 (field, store_type, filename) tuples
-- **`build.rs`** — auto-generates `routes.rs` module declarations from `src/routes/*.rs` files
-- **70 CRUD route modules** — one per CLI tool, each with `GET /` (list), `POST /` (create), `GET /{id}` (get), `DELETE /{id}` (delete), `PATCH /{id}` (update)
-- **Service layer reuse** — API endpoints call `i_rs_{name}::service::*` directly, NOT CLI `commands::handle_*` functions
-- **Per-tool data endpoints** — `GET /data/export`, `POST /data/import`, `DELETE /data/clear`
-- **`update.rs`** — generic `merge_entry()` for partial JSON updates: shallow merge for primitives/arrays, deep merge for nested objects, null field removal, and auto-`updated_at` timestamp
-- **`response.rs`** — unified `ApiError` / `ApiResult` with consistent JSON error responses
-- **All update endpoints use `PATCH`** (not `PUT`) for semantic partial updates
-- **32 integration tests** — covering health, CRUD, PATCH, 404, bad request, data export/clear across all 3 store patterns (String-keyed BTreeMap, NaiveDate-keyed BTreeMap, Vec-based)
-- Uses `i-rs-core` but NOT the standard CLI crate pattern
-- Does NOT have: `storage/mod.rs`, `commands/`, `models/`, `presentation/`
-
-### i-rs-mcp (MCP Server)
-
-`i-rs-mcp` is an **MCP (Model Context Protocol) server** that exposes all 70 i-rs CLI tools as MCP tools:
-
-- **JSON-RPC 2.0 over stdio** — communicates via stdin/stdout using the MCP wire protocol
-- **`make_mcp_tools!` macro** — generates `AppState`, `load_state()`, `get_tool_definitions()`, and `handle_tool_call()` from a single list of 65 (field, store_type, entity_type, map_field, key_type) tuples
-- **Each tool = 4 operations** — list, get, add, delete (with JSON-RPC `tools/call` dispatch)
-- **`SharedStore<T>`** — thread-safe `Arc<RwLock<T>>` wrapper with auto-flush on write
-- **Runtime JSON reflection** — `store_values()` and `store_get()` use serde_json runtime serialization to handle different BTreeMap field names and key types
-- **`remove_by_key!` macro** — three arms for key-type-specific remove logic (s=String, d=NaiveDate, u=Uuid)
-- **`fill_defaults()`** — injects `id`/`created_at`/`updated_at` before entity deserialization
-- **65 BTreeMap-based tools registered** (Phase 1); 5 non-standard stores (car/plant/project/budget/goal) deferred to Phase 2
-- **Does NOT follow standard CLI crate pattern** — no `main.rs` clap CLI, no `commands/`, `models/`, `storage/`, `presentation/` directories
-
-```
-crates/mcp/
-├── Cargo.toml              # Dependencies on all 68 i-rs-* crates + serde/serde_json/uuid/chrono/paste
-└── src/
-    ├── main.rs             # MCP server entry: macros + session loop
-    └── transport.rs        # JSON-RPC 2.0 stdio transport layer
-```
-
-## Browser Extensions (Native Messaging)
-
-Browser extensions can communicate with i-rs tools using Chrome/Firefox Native Messaging.
-
-### Architecture
-
-```
-┌─────────────────┐     Native Messaging      ┌──────────────────┐
-│  Browser        │ ◄──── JSON over stdio ────► │  Native Host     │
-│  Extension JS   │                            │  (Rust binary)   │
-└─────────────────┘                            └────────┬─────────┘
-                                                        │
-                                                        │ reads/writes
-                                                        ▼
-                                               ┌──────────────────┐
-                                               │  ~/.config/i-rs/ │
-                                               │      kv.json     │
-                                               └──────────────────┘
-```
-
-### Directory Structure
-
-```
-extensions/
-├── i-rs-kv-chrome/          # Chrome extension for i-rs-kv
-│   ├── manifest.json        # Extension manifest (Manifest V3)
-│   ├── popup.html/css/js    # Popup UI
-│   ├── background.js        # Service worker
-│   └── icons/               # Extension icons
-├── i-rs-native-msg/         # Native Messaging host (Rust)
-│   ├── src/main.rs          # Host implementation
-│   └── Cargo.toml           # Dependencies
-├── install-macos.sh         # One-click installer for macOS
-└── install-linux.sh         # One-click installer for Linux
-```
-
-### Message Protocol
-
-Messages are JSON objects with an `action` field:
-
-```json
-{ "action": "List" }
-{ "action": "Get", "key": "my-key" }
-{ "action": "Set", "key": "my-key", "value": "my-value" }
-{ "action": "Delete", "key": "my-key" }
-{ "action": "Search", "query": "term" }
-```
-
-Response format:
-```json
-{ "success": true, "message": "OK", "data": [...] }
-```
-
-### Installation
-
-1. Build native messaging host:
-   ```bash
-   cd extensions/i-rs-native-msg
-   cargo build --release
-   ```
-
-2. Install binary to PATH and create host manifest:
-   ```bash
-   # macOS
-   ./extensions/install-macos.sh
-   
-   # Linux
-   ./extensions/install-linux.sh
-   ```
-
-3. Load extension in browser:
-   - Chrome: `chrome://extensions/` → Load unpacked
-   - Firefox: `about:debugging` → Load Temporary Add-on
-
-4. Update extension ID in host manifest
-
-## CLI Tools Summary (70 tools)
+### CLI Tools Summary
 
 | Tool | Description | Special Commands |
 |------|-------------|-----------------|
@@ -262,476 +124,310 @@ Response format:
 | i-rs-walkdog | Dog walking | - |
 | i-rs-aqua | Aquarium maintenance | - |
 
-## Build & Development
+### Crate Structure (CLI Tools Only)
 
-```bash
-# Build all crates
-cargo build
-
-# Build specific tool
-cargo build -p i-rs-mood
-
-# Run specific tool
-cargo run -p i-rs-mood -- --help
-
-# Test core library
-cargo test -p i-rs-core
-
-# Test REST API server (32 integration tests)
-cargo test -p i-rs-api
-
-# Check for warnings (MUST be 0)
-cargo check
-
-# Full CI check
-cargo clippy --workspace -- -D warnings
-cargo fmt --all --check
-
-# Dependency audit
-cargo install cargo-deny && cargo deny check
-```
-
-## i-rs-core Shared Library
-
-The `i-rs-core` crate provides shared functionality for all CLI tools:
-
-```
-crates/core/src/
-├── lib.rs                    # Public API exports
-├── macro.rs                  # Macros: create_store!, skill_command!, exit_on_error!
-├── storage/
-│   └── mod.rs              # Storage<T>, filter_by_tag, HasTags
-├── presentation/
-│   ├── mod.rs              # print_error/success/header/warning + render_table
-│   ├── output.rs           # JSON output formatting
-│   └── theme.rs            # Customizable theme (theme.json)
-└── utils/
-    ├── date.rs             # parse_date(), parse_datetime()
-    └── validation.rs       # validate_name/url/weight/amount (21 tests)
-```
-
-### i-rs-core Exports
-
-```rust
-// Storage
-pub use i_rs_core::storage::{Storage, filter_by_tag, HasTags};
-
-// Presentation
-pub use i_rs_core::presentation::{
-    print_error, print_header, print_success, print_warning, println_dimmed,
-    render_table, OutputFormat, Theme,
-};
-pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
-
-// Utils
-pub use i_rs_core::utils::date::{parse_date, parse_datetime};
-pub use i_rs_core::utils::validation::{
-    validate_name, validate_url, validate_weight, validate_amount, ValidationError,
-};
-
-// Macros (all via i_rs_core::macro_name!)
-// - create_store!(XxxStore, "filename")
-// - skill_command!("i-rs-crate-name")
-// - exit_on_error!(result, json_bool)
-```
-
-### i-rs-core Quick Ref
-
-| Item | Description |
-|------|-------------|
-| `Storage<T>` | Generic JSON file persistence |
-| `create_store!` | Generates `load_store()` + `save_store()` |
-| `render_table()` | Consistent table styling (cyan borders, green rows) |
-| `skill_command!` | Generates `SkillCommand` (clap Subcommand) + `handle_skill(&SkillCommand) -> Result<()>` with info/search/teach/install/summary/content/raw subcommands |
-| `exit_on_error!` | Unified error handling with JSON support |
-| `print_error/success/header/warning` | Colored output helpers |
-| `output_list/item/error` | JSON response formatting |
-| `parse_date/parse_datetime` | Flexible date parsing |
-| `validate_name/url/weight/amount` | Input validation |
-
-## Crate Structure
-
-Each CLI crate follows this pattern:
 ```
 crates/clis/i-rs-{name}/
 ├── src/
-│   ├── main.rs           # CLI entry point: Cli::parse() + exit_on_error!
+│   ├── main.rs           # CLI entry: Cli::parse() + exit_on_error!
 │   ├── commands/         # add, delete, get, list, update, example, skill
 │   │   └── skill.rs     # ONE LINE: i_rs_core::skill_command!("i-rs-xxx");
-│   ├── models/           # Data structs with serde + tabled + BTreeMap store
+│   ├── models/           # Entity + Row (serde + tabled + BTreeMap)
 │   ├── storage/          # ONE LINE: i_rs_core::create_store!(XxxStore, "xxx");
-│   └── presentation/     # render_table() + custom format functions
-├── Cargo.toml            # Minimal deps (no dirs/serde_json unless needed)
+│   └── presentation/     # render_table() + custom format
+├── Cargo.toml
 └── README.md
 ```
 
-## New Crate Workflow (CHECKLIST)
+### New CLI Crate Workflow
 
-When creating a new crate `i-rs-{name}`, follow this **complete checklist**:
+1. `mkdir -p crates/clis/i-rs-{name}/src/{models,storage,commands,presentation}`
+2. Create `Cargo.toml` with minimal deps (no `dirs`/`serde_json`/`tokio`/`reqwest`)
+3. Create source files following the pattern above
+4. Create `README.md`, `docs/crates/i-rs-{name}/`, `skills/i-rs-{name}/SKILL.md`
+5. Add to workspace `Cargo.toml` members
+6. Update `docs/.vitepress/config.ts` sidebar
+7. `cargo check` (0 errors, 0 warnings)
 
-### Step 1: Create Directory Structure
-```bash
-mkdir -p crates/clis/i-rs-{name}/src/{models,storage,commands,presentation}
-mkdir -p docs/crates/i-rs-{name}
-mkdir -p skills/i-rs-{name}
-```
+### Common Patterns (CLI Tools)
 
-### Step 2: Create Cargo.toml
-```toml
-[package]
-name = "i-rs-{name}"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-
-[dependencies]
-i-rs-core = { path = "../i-rs-core" }
-clap.workspace = true
-anyhow.workspace = true
-serde.workspace = true
-tabled.workspace = true
-owo-colors.workspace = true
-chrono.workspace = true
-uuid.workspace = true        # if using UUIDs
-keyring.workspace = true     # if storing passwords/keys
-keyring-core.workspace = true
-```
-
-Note: Do NOT add `dirs` (comes through i-rs-core), `serde_json` (only if directly used), `tokio`/`reqwest` (not used).
-
-### Step 3: Create Source Files
-
-**storage/mod.rs** (one line):
-```rust
-use crate::models::XxxStore;
-i_rs_core::create_store!(XxxStore, "xxx");
-```
-
-**commands/skill.rs** (one line):
-```rust
-i_rs_core::skill_command!("i-rs-xxx");
-```
-
-**main.rs** (error handling):
-```rust
-fn main() {
-    let cli = Cli::parse();
-    let format = if cli.json { OutputFormat::Json } else { OutputFormat::Table };
-    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
-}
-```
-
-**presentation/mod.rs** (table rendering):
-```rust
-pub fn format_table(rows: &[XxxRow]) -> String {
-    i_rs_core::render_table(&rows)
-}
-```
-
-Full file list:
-- `src/models/mod.rs` - Entity struct + Row struct (Tabled) + Store (BTreeMap)
-- `src/storage/mod.rs` - `create_store!` macro call
-- `src/presentation/mod.rs` - `render_table()` + count printing
-- `src/commands/mod.rs` - Module exports
-- `src/commands/add.rs` - Add command
-- `src/commands/delete.rs` - Delete command
-- `src/commands/get.rs` - Get command
-- `src/commands/list.rs` - List command
-- `src/commands/update.rs` - Update command
-- `src/commands/example.rs` - Example command
-- `src/commands/skill.rs` - `skill_command!` macro call
-- `src/commands/data.rs` - Data management (export/import/clear)
-- `src/main.rs` - CLI parsing with `exit_on_error!`
-
-### Step 4: Create README.md (REQUIRED!)
-
-### Step 5: Create Docs (REQUIRED!)
-- `docs/crates/i-rs-{name}/index.md`
-- `docs/crates/i-rs-{name}/usage.md`
-- `docs/crates/i-rs-{name}/examples.md`
-- `docs/crates/i-rs-{name}/test.md`
-
-### Step 6: Create Skills (REQUIRED!)
-`skills/i-rs-{name}/SKILL.md` with YAML frontmatter.
-
-### Step 7: Update Workspace Cargo.toml
-Add to `members` array.
-
-### Step 8: Update VitePress Config
-Add sidebar entry in `docs/.vitepress/config.ts`.
-
-### Step 9: Build and Verify
-```bash
-cargo check
-# Must be 0 errors, 0 warnings
-```
+- **Storage**: `BTreeMap<String, Entity>` (NOT HashMap)
+- **CRUD naming**: `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
+- **Error handling**: `exit_on_error!` macro in main.rs, `anyhow::Result` elsewhere
+- **CLI framework**: clap with derive macro, kebab-case params
+- **Output**: `render_table()` for tables, `output_list/output_item` for JSON
+- **JSON output**: All commands support `--json` global flag
+- **Password/keys**: OS keychain (keyring crate), NEVER in JSON
+- **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR`)
+- **Date handling**: chrono with `ts_seconds` serde format
+- **Cargo.lock**: MUST be committed
+- **No unwrap()**: Use `expect("msg")` or proper error handling
 
 ---
 
-## ⚠️ IMPORTANT: Incomplete Crate Checklist
+## 2. i-rs-claw (TUI 智能助理)
 
-- [ ] `crates/clis/i-rs-{name}/README.md` exists
-- [ ] `docs/crates/i-rs-{name}/index.md` exists
-- [ ] `docs/crates/i-rs-{name}/usage.md` exists
-- [ ] `docs/crates/i-rs-{name}/examples.md` exists
-- [ ] `docs/crates/i-rs-{name}/test.md` exists
-- [ ] `skills/i-rs-{name}/SKILL.md` exists
-- [ ] `docs/.vitepress/config.ts` has sidebar entry for this crate
-- [ ] `Cargo.toml` workspace has this crate in members
-- [ ] `storage/mod.rs` uses `create_store!` macro
-- [ ] `commands/skill.rs` uses `skill_command!` macro
-- [ ] `commands/data.rs` exists with Export/Import/Clear commands
-- [ ] `main.rs` uses `exit_on_error!` for error handling
-- [ ] Store uses `BTreeMap` (not `HashMap`)
-- [ ] CRUD methods named `add_entry`/`remove_entry`/`get_entry`/`get_entry_mut`
+`crates/claw/` — 一个 **TUI AI 助理**，深度集成 i-rs CLI 工具集，支持多模型、多 Agent、MCP 工具扩展。
 
-## Key Conventions
+### 依赖特征
 
-- **Workspace deps**: All dependencies defined in root `Cargo.toml`, crates use `.workspace = true`
-- **i-rs-core dependency**: All crates depend on `i-rs-core = { path = "../i-rs-core" }`
-- **Passwords**: Always store in OS keychain (keyring crate), NEVER in JSON config
-- **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR` env var)
-- **Date handling**: chrono with `ts_seconds` serde format
-- **Error handling**: `exit_on_error!` macro in main.rs, `anyhow::Result` elsewhere
-- **CLI framework**: clap with derive macro, snake_case params auto-convert to kebab-case
-- **Output**: `render_table()` for tables, `output_list/output_item` for JSON
-- **JSON output**: All commands support `--json` global flag
-- **JSON output scope**: All handlers use `format` param. `handle_add`/`handle_update`/`handle_get`/`handle_list` return entity data via `output_item`/`output_list`; `handle_delete` returns `{"success": true, "message": "..."}` via `serde_json::json!`. (API uses service layer directly, not CLI handlers.)
-- **Storage**: `BTreeMap<String, Entity>` (NOT HashMap)
-- **CRUD naming**: `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
-- **No unwrap()**: Use `expect("message")` or proper error handling
-- **Cargo.lock**: MUST be committed (reproducible builds)
-- **Build**: `cargo check` must show 0 errors and 0 warnings
+- **Cargo.toml 核心依赖**: `ratatui`, `crossterm`, `tokio`, `serde_json`, `reqwest`, `clap`, `dirs`, `toml`, `uuid`, `owo-colors`, `async-trait`, `base64`
+- **可选 Dashboard**: `axum`, `tower-http`, `rust-embed` (feature = `dashboard`)
+- **可选 Gateway**: `gateway-telegram`, `gateway-wechat` (feature gates)
+- **不需要** `i-rs-core` 依赖（直接调 CLI 二进制进程）
 
-## Common Patterns
+### 源码结构
 
-### Model Struct
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Entity {
-    pub name: String,
-    #[serde(default)]
-    pub tags: Vec<String>,
-    #[serde(default)]
-    pub remark: Vec<String>,
-    #[serde(with = "chrono::serde::ts_seconds")]
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    #[serde(with = "chrono::serde::ts_seconds")]
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
+```
+crates/claw/src/
+├── main.rs            # 入口: CLI 子命令分发 (tui/config/chat/version)
+├── cli.rs             # clap CLI 定义 + 子命令处理
+├── app.rs             # App 状态结构体 (UI 消息列表、输入、会话列表等)
+├── config.rs          # ~/.i-rs-claw/config.toml 解析 + Agent 配置
+├── tui.rs             # TUI 主循环 (事件处理 + LLM 事件分发)
+├── ui.rs              # ratatui 渲染 (62KB, 整个 TUI 布局)
+├── llm.rs             # LlmEvent 枚举、流式事件类型
+├── provider.rs        # LLM 提供者抽象 (OpenAI/Anthropic/Ollama/Zhipu)
+├── mcp.rs             # MCP 协议客户端 (注册表 + 工具发现)
+├── tools/             # 内置工具注册表 (i_rs, filesystem, curl 等)
+│   ├── mod.rs         # ToolRegistry + ToolContext
+│   ├── i_rs.rs        # i-rs CLI 工具包装
+│   ├── mcp_tools.rs   # MCP 工具Schema转换
+│   ├── search.rs      # 网页搜索工具
+│   ├── filesystem.rs  # 文件操作工具
+│   ├── curl.rs        # HTTP 请求工具
+│   └── delegate.rs    # 子 Agent 委托工具
+├── core/
+│   ├── mod.rs         # AppCore (统一的运行时状态)
+│   ├── engine.rs      # chat_loop (ReAct 循环) + 消息构建 + smart_compress
+│   ├── context.rs     # ContextManager (自适应 token 压缩)
+│   ├── executor.rs    # ToolExecutor (超时/重试/并行)
+│   └── orchestrator.rs # Plan-then-Execute (实验性/配置可选)
+├── router.rs          # TaskRouter (多模型路由)
+├── session.rs         # SessionManager + 会话状态机
+├── semantic.rs        # EmbeddingSearch (TF-IDF + 向量语义搜索)
+├── memory.rs          # CrossSessionMemory (跨会话用户记忆)
+├── skill_store.rs     # 技能文档存储
+├── tool_cache.rs      # 工具文档缓存 (skill teach)
+├── completion.rs      # 输入补全
+├── theme.rs           # 主题定制 (theme.json)
+├── plugin.rs          # 插件自动发现
+├── convstore.rs       # 会话搜索存储
+├── utils.rs           # 工具函数 (ansi 处理, JSON 前缀查找, smart_truncate)
+├── gateway/           # 社交平台集成 (Telegram/WeChat/Discord)
+│   ├── mod.rs
+│   ├── telegram.rs
+│   └── wechat.rs
+└── dashboard/         # Web Dashboard
+    ├── mod.rs
+    ├── router.rs
+    └── api.rs
 ```
 
-### Store (BTreeMap)
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MyStore {
-    pub entries: BTreeMap<String, MyEntity>,
-}
+### 核心架构
 
-impl MyStore {
-    pub fn add_entry(&mut self, entry: MyEntity) {
-        self.entries.insert(entry.name.clone(), entry);
-    }
-    pub fn remove_entry(&mut self, name: &str) -> Option<MyEntity> {
-        self.entries.remove(name)
-    }
-    pub fn get_entry(&self, name: &str) -> Option<&MyEntity> {
-        self.entries.get(name)
-    }
-    pub fn get_entry_mut(&mut self, name: &str) -> Option<&mut MyEntity> {
-        self.entries.get_mut(name)
-    }
-}
+```
+用户输入 → AppCore.build_messages_for()
+              ↓
+          engine::build_messages()  → 构建 API 消息列表 (系统提示词 + 历史 + 工具索引)
+              ↓
+          engine::chat_loop()       → ReAct 循环 (stream→tool_call→result→loop→done)
+              ↓
+          LlmEvent 流               → Token / ToolExecuted / Error / Done
+              ↓
+          TUI 渲染 (ui.rs)           → 实时显示
 ```
 
-### storage/mod.rs
-```rust
-use crate::models::MyStore;
-i_rs_core::create_store!(MyStore, "my-entity");
+**关键数据流**:
+- `Config` → `AgentConfig` (每个 Agent 可独立配置 provider/model/tools)
+- `AppCore` 是全局单例，持有 `SessionManager`, `AgentRuntimeStore` (每 Agent 的 memory/tool_cache/skill_store/mcp)
+- `chat_loop` 是纯 ReAct: stream → 收到 tool_calls → 并行执行 → 结果塞回消息 → 再次请求 LLM → 直到 LLM 返回文本
+
+### Config 文件 (~/.i-rs-claw/config.toml)
+
+```toml
+provider = "openai"
+api_key = "sk-xxx"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+# execution_mode = "PlanThenExecute"  # 实验性，默认 ReAct
+
+[agents.chatgpt]
+model = "gpt-4o"
+
+[agents.claude]
+provider = "anthropic"
+api_key = "sk-ant-xxx"
+
+[sub_agents.analyst]
+model = "o3-mini"
+capabilities = ["数据分析", "代码生成"]
+
+[[mcp_servers]]
+name = "playwright"
+transport_type = "stdio"
+command = "npx @anthropic-ai/claude-code-mcp"
 ```
 
-Generated by `create_store!`:
-- `load_store()` / `save_store()` — basic persistence
-- `export_data()` — serialize store to JSON string
-- `import_data(input)` — deserialize and save from JSON string
-- `clear_data()` — reset store to default (empty)
+### 开发规范
 
-### commands/data.rs
-Each crate has a `data` subcommand (export/import/clear):
-```rust
-use clap::Subcommand;
-use std::io::Read;
+1. **不要用 `i-rs-core`** — claw 直接调 CLI 二进制进程 (`std::process::Command`)
+2. **所有异步操作走 tokio** — `tokio::spawn` + `mpsc` 通道
+3. **LLM 流式事件** — 通过 `LlmEvent` 枚举传递给 TUI
+4. **工具添加** — 在 `tools/` 下新建文件，注册到 `ToolRegistry`
+5. **测试** — `cargo test -p i-rs-claw` (48 tests, 需要 `--test-threads=1` 避免 env var 竞争)
+6. **文档** — 无需 `docs/crates/` 或 `skills/`，无 README 要求
+7. **Dashboard 开发** — 需要 `dashboard` feature：`cargo check --features dashboard`
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum DataCommand {
-    Export,
-    Import { file: Option<String> },
-    Clear,
-}
+---
 
-pub fn handle(command: &DataCommand) -> anyhow::Result<()> { ... }
+## 3. i-rs-api (REST API 服务器)
+
+`crates/cli-api/` 是一个 Axum 服务器，将 70 个 CLI 工具暴露为 REST API。
+
+### 依赖特征
+
+- 依赖所有 `i-rs-{name}` crate（直接调 service 层，不走 CLI）
+- 核心栈：`axum` + `tokio` + `tower-http` + `serde_json`
+- 使用 `paste` crate 进行宏元编程
+
+### 源码结构
+
+```
+crates/cli-api/src/
+├── main.rs     # 入口: Axum 服务器启动 + make_app_tools! 宏调用 (26KB)
+├── api.rs      # 常量 + 辅助函数
+├── store.rs    # SharedStore 线程安全包装
+├── routes.rs   # 自动生成的路由模块声明 (build.rs 生成)
+├── response.rs # ApiError / ApiResult 统一错误格式
+├── update.rs   # merge_entry() 通用 JSON 合并/部分更新
+└── routes/     # 70 个路由模块 (每 CLI 工具一个 .rs 文件)
+    ├── weight.rs
+    ├── mood.rs
+    └── ...
 ```
 
-### commands/skill.rs
-```rust
-i_rs_core::skill_command!("i-rs-my-entity");
-```
+### 关键模式
 
-Generated `SkillCommand` subcommands:
-- `info`: Structured metadata
-- `search <query>`: Search within skill content
-- `teach`: Generate AI teaching document
-- `install [--agent] [path]`: Install skill file
-- `summary`: Show description
-- `content`: Show body after frontmatter
-- `raw`: Show raw SKILL.md (default)
+- **`make_app_tools!` 宏** — 从统一的 (field, store_type, filename) 元组列表生成 `AppState`、`load_state()`、`build_base_router()`
+- **`build.rs`** — 自动生成 `routes.rs` 的模块声明
+- **Service 层复用** — API 路由调用 `i_rs_{name}::service::*`，非 CLI handler
+- **每工具 5 端点**: `GET /` (list), `POST /` (create), `GET /{id}` (get), `DELETE /{id}` (delete), `PATCH /{id}` (update)
+- **Data 端点**: `GET /data/export`, `POST /data/import`, `DELETE /data/clear`
+- **统一错误格式**: `ApiError` / `ApiResult`，JSON 结构一致
+- **部分更新**: `PATCH` 方法，`merge_entry()` 支持嵌套对象深合并 + null 字段删除
 
-### main.rs Error Handling
-```rust
-fn main() {
-    let cli = Cli::parse();
-    let format = if cli.json { OutputFormat::Json } else { OutputFormat::Table };
-    i_rs_core::exit_on_error!(run(cli.command, format), cli.json);
-}
-```
+### 开发规范
 
-### presentation/mod.rs Pattern
-```rust
-use crate::models::{Entity, EntityRow};
+1. **添加新 CLI 工具后** — 在 `main.rs` 的 `make_app_tools!` 列表中添加对应条目
+2. **添加新路由** — 在 `routes/` 下新建文件，`build.rs` 自动生成模块声明
+3. **测试** — `cargo test -p i-rs-api` (32 integration tests)
+4. **无需** `docs/crates/` 或 `skills/`
+5. **不遵循** CLI crate 结构（无 `commands/` `models/` `storage/` `presentation/`）
 
-pub use i_rs_core::presentation::{print_error, print_header, print_success, print_warning, OutputFormat};
-pub use i_rs_core::presentation::output::{output_list, output_item, output_error};
+---
 
-pub fn format_table(entities: &[&Entity]) -> String {
-    let rows: Vec<EntityRow> = entities.iter().map(EntityRow::from_entity).collect();
-    i_rs_core::render_table(&rows)
-}
+## 4. i-rs-mcp (MCP 协议服务器)
 
-pub fn print_entity_count(count: usize) {
-    println!("\n{} {} entities", "Total:".dimmed(), count.to_string().cyan());
-}
-```
+`crates/mcp/` 实现 MCP (Model Context Protocol) 服务器，通过 JSON-RPC 2.0 over stdio 暴露 65 个工具。
 
-## Global Commands (All Crates)
+**详见 [crates/mcp/README.md](/crates/mcp/README.md)**。关键点：
 
-### example Command
-```bash
-i-rs-{name} example
-```
+- `make_mcp_tools!` 宏从统一的元组列表生成工具注册
+- 线程安全 `SharedStore<T>` (Arc<RwLock<T>>)
+- 运行时 JSON 反射 (`store_values()` / `store_get()`)
+- 不遵循 CLI crate 结构
 
-### skill Command
-```bash
-i-rs-{name} skill          # Show raw skill document
-i-rs-{name} skill summary  # Show summary (from SKILL.md description)
-i-rs-{name} skill content  # Show content (after YAML frontmatter)
-```
+---
 
-## JSON Output
+## 5. i-rs-core (共享库)
 
-All commands support `--json` global flag for JSON output:
+所有 crate 的公共基础库。
 
-```bash
-i-rs-{name} list --json
-i-rs-{name} get <name> --json
-```
+**详见 [crates/core/README.md](/crates/core/README.md)**。关键点：
 
-### JSON Response Format
+- **不能依赖**任何 `i-rs-*` crate
+- 提供 `Storage<T>`, `create_store!`, `skill_command!`, `exit_on_error!`
+- 21 unit tests
+- 详见本文前面 CLI 工具的 "Common Patterns" 章节
 
-**List Response:**
-```json
-{
-  "success": true,
-  "data": [...],
-  "meta": { "count": 10, "filter": "work" }
-}
-```
+---
 
-**Item Response:**
-```json
-{ "success": true, "data": {...} }
-```
+## 跨类别规范
 
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": { "code": "NOT_FOUND", "message": "Entry 'xxx' not found" }
-}
-```
-
-## Input Validation
-
-```rust
-use i_rs_core::{validate_name, validate_url, validate_weight, ValidationError};
-
-if let Err(e) = validate_name(&name) {
-    print_error(&e.message);
-    anyhow::bail!("{}", e.message);
-}
-```
-
-### Validation Rules
-
-| Function | Rules |
-|----------|-------|
-| `validate_name` | Non-empty, ≤100 chars, no `/ \ : * ? " < > \|` |
-| `validate_url` | Non-empty, starts with `http://` or `https://`, ≤2000 chars |
-| `validate_weight` | > 0, ≤1000 kg |
-| `validate_amount` | > 0, ≤1 billion |
-
-## Bug Prevention
-
-### Store Loading Pattern (CORRECT)
-```rust
-let mut store = storage::load_store()?;
-// ... use store ...
-storage::save_store(&store)?;
-```
-
-### Store Loading Pattern (INCORRECT - BUG!)
-```rust
-let store = storage::load_store()?;
-// ... later ...
-let mut store = storage::load_store()?;  // BUG!
-storage::add_entry(&mut store, entry);
-```
-
-## Release Process
+### Build & Development
 
 ```bash
-# Update version in root Cargo.toml (workspace.package.version)
+# 全量编译
+cargo check --workspace    # 0 errors, 0 warnings
+
+# 测试各 crate
+cargo test -p i-rs-core
+cargo test -p i-rs-api
+cargo test -p i-rs-claw -- --test-threads=1  # 避免 env var 竞争
+
+# 完整 CI 检查
+cargo clippy --workspace -- -D warnings
+cargo fmt --all --check
+cargo deny check
+```
+
+### VitePress Documentation
+
+`docs/` 使用 VitePress。不同类型 crate 的文档要求不同：
+
+| 类别 | 需创建文档 | 路径 |
+|------|-----------|------|
+| CLI 工具 | `index.md`, `usage.md`, `examples.md`, `test.md` | `docs/crates/i-rs-{name}/` |
+| claw | **不需要** | - |
+| cli-api | **不需要** | - |
+| mcp | **不需要** | - |
+| core | `index.md`（API 参考） | `docs/crates/i-rs-core/` |
+
+### Skills
+
+`skills/` 目录存储 AI 技能文档：
+
+| 类别 | 需创建 Skill |
+|------|-------------|
+| CLI 工具 | 每个 crate 一个 `skills/i-rs-{name}/SKILL.md` |
+| claw | **不需要** |
+| cli-api | **不需要** |
+| mcp | **不需要** |
+
+### Workspace Cargo.toml
+
+添加新 crate 到 `members` 数组（根目录 `Cargo.toml`）。
+
+### 发布
+
+```bash
+# 更新版本号 (根 Cargo.toml workspace.package.version)
 git tag v0.0.x
 git push origin v0.0.x
 ```
 
-CI (cargo-dist) auto-builds and publishes to:
-- GitHub Releases
-- npm (`@i-rs/i-rs-*`)
-- Homebrew (`i-rs/homebrew-tap/i-rs-*`)
+CI (cargo-dist) 自动构建并发布到 GitHub Releases / npm / Homebrew。
 
-## Important Files
+### 关键约定（所有 crate 通用）
 
-- `SPEC.md` - Detailed project specification (Chinese)
-- `AGENTS.md` - This file (development workflow for AI)
-- `Cargo.toml` - Workspace config
-- `rust-toolchain.toml` - Pinned Rust toolchain
-- `deny.toml` - cargo-deny license/advisory configuration
-- `docs/.vitepress/config.ts` - Documentation sidebar config
-- `.github/workflows/check.yml` - CI (cargo check + clippy + fmt)
-- `.github/workflows/release.yml` - Release automation
-- `crates/cli-api/src/update.rs` - Generic JSON merge/partial-update utility
-- `crates/mcp/src/main.rs` - MCP server with `make_mcp_tools!` macro and session loop
-- `crates/mcp/src/transport.rs` - JSON-RPC 2.0 stdio transport layer
+- **Workspace deps**: 所有依赖在根 `Cargo.toml`，crate 用 `.workspace = true`
+- **Build**: `cargo check` 必须 0 errors + 0 warnings
+- **No unwrap()**: 用 `expect("message")` 或 proper error handling
+- **Cargo.lock**: 必须提交（reproducible builds）
 
-## VitePress Documentation
+### 重要文件索引
 
-Documentation at `docs/` uses VitePress. Each crate has 4 pages in `docs/crates/i-rs-{name}/`:
-- `index.md` - Overview
-- `usage.md` - Command reference
-- `examples.md` - Detailed examples
-- `test.md` - Test records
-
-Skills provide specialized instructions and workflows for specific tasks.
-Use the skill tool to load a skill when a task matches its description.
+- `SPEC.md` — 项目详细规范
+- `AGENTS.md` — 本文件（AI 开发工作流参考）
+- `Cargo.toml` — Workspace 配置
+- `rust-toolchain.toml` — 固定 Rust 工具链
+- `deny.toml` — cargo-deny 许可/安全配置
+- `docs/.vitepress/config.ts` — VitePress 侧边栏配置
+- `.github/workflows/check.yml` — CI
+- `.github/workflows/release.yml` — 发布自动化
+- `crates/claw/src/` — claw 源码（21 个文件，最大 crate）
+- `crates/claw/prompts/system.md` — LLM 系统提示词
+- `crates/cli-api/src/update.rs` — 通用 JSON 合并/部分更新工具
+- `crates/mcp/src/main.rs` — MCP 服务器入口
+- `crates/core/src/` — 共享库源码

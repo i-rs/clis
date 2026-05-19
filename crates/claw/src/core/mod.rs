@@ -1,4 +1,7 @@
+pub mod context;
 pub mod engine;
+pub mod executor;
+pub mod orchestrator;
 
 use crate::app::Message;
 use crate::config::Config;
@@ -211,6 +214,7 @@ impl AppCore {
             &memory.format_user_profile(),
             reminder_text,
             resolved.system_prompt.as_deref(),
+            self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
         )
     }
 
@@ -257,9 +261,13 @@ impl AppCore {
     }
 
     /// Compress API messages after a conversation turn completes.
+    /// Uses ContextManager for adaptive token-aware compression.
     pub fn compress_api_messages(&self, msgs: &mut Vec<Value>, agent_id: &str) {
         let memory = self.agent_store.memory_for(agent_id);
-        engine::compress_api_messages(msgs, memory.tool_frequency());
+        // Use ContextManager for adaptive compression based on token budget
+        let resolved = self.config.agent_config(agent_id);
+        let ctx_mgr = context::ContextManager::for_model(&resolved.model);
+        ctx_mgr.compress(msgs, memory.tool_frequency());
     }
 
     /// Get the base directory for claw data.

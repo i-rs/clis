@@ -149,23 +149,25 @@ fn main_loop(
                 }
                 LlmEvent::Token(text) => {
                     app.append_assistant_text(&text);
-                    // Detect plan steps from last assistant message text
-                    let plan_text = app
-                        .messages
-                        .last()
-                        .map(|m| {
-                            if let crate::app::Message::Assistant { text: t } = m {
-                                t.clone()
-                            } else {
-                                String::new()
+                    // Only detect/track plan steps in Plan-then-Execute mode
+                    if app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute {
+                        let plan_text = app
+                            .messages
+                            .last()
+                            .map(|m| {
+                                if let crate::app::Message::Assistant { text: t } = m {
+                                    t.clone()
+                                } else {
+                                    String::new()
+                                }
+                            })
+                            .unwrap_or_default();
+                        if !plan_text.is_empty() {
+                            app.detect_plan(&plan_text);
+                            // Persist plan steps to disk
+                            if let Some(sid) = app_core.session_mgr.current_id() {
+                                app_core.session_mgr.save_plan_steps(sid, &app.plan_steps);
                             }
-                        })
-                        .unwrap_or_default();
-                    if !plan_text.is_empty() {
-                        app.detect_plan(&plan_text);
-                        // Persist plan steps to disk
-                        if let Some(sid) = app_core.session_mgr.current_id() {
-                            app_core.session_mgr.save_plan_steps(sid, &app.plan_steps);
                         }
                     }
                 }
@@ -174,6 +176,12 @@ fn main_loop(
                 }
                 LlmEvent::Status(text) => {
                     app.set_status(&text);
+                    // Track session state transitions
+                    if text.starts_with("⚡") || text.contains("并行执行") {
+                        if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
+                            app_core.session_mgr.mark_waiting_for_tool(&sid);
+                        }
+                    }
                 }
                 LlmEvent::ToolExecuted {
                     name,
@@ -183,11 +191,13 @@ fn main_loop(
                     total_steps,
                 } => {
                     app.add_tool_call(&name, &args, &result, step, total_steps);
-                    // Mark the next plan step as completed
-                    app.mark_next_plan_step_done();
-                    // Persist plan progress to disk
-                    if let Some(sid) = app_core.session_mgr.current_id() {
-                        app_core.session_mgr.save_plan_steps(sid, &app.plan_steps);
+                    // Mark the next plan step as completed (only in Plan-then-Execute mode)
+                    if app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute {
+                        app.mark_next_plan_step_done();
+                        // Persist plan progress to disk
+                        if let Some(sid) = app_core.session_mgr.current_id() {
+                            app_core.session_mgr.save_plan_steps(sid, &app.plan_steps);
+                        }
                     }
 
                     // Save user information from update_user_memory tool
@@ -246,6 +256,9 @@ fn main_loop(
                 }
                 LlmEvent::Error(text) => {
                     app.add_error(&text);
+                    if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
+                        app_core.session_mgr.mark_error(&sid, &text);
+                    }
                 }
                 LlmEvent::HttpLog {
                     status,
@@ -274,9 +287,16 @@ fn main_loop(
                     app.finish_processing(Some(msgs.clone()));
                     app.token_usage = usage;
 
-                    // Clear persisted plan on completion
-                    if let Some(sid) = app_core.session_mgr.current_id() {
-                        app_core.session_mgr.save_plan_steps(sid, &[]);
+                    // Mark session as active (turn completed)
+                    if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
+                        app_core.session_mgr.mark_active(&sid);
+                    }
+
+                    // Clear persisted plan on completion (if Plan-then-Execute mode)
+                    if app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute {
+                        if let Some(sid) = app_core.session_mgr.current_id() {
+                            app_core.session_mgr.save_plan_steps(sid, &[]);
+                        }
                     }
 
                     // Persist conversation to session

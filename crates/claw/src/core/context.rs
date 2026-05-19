@@ -1,0 +1,139 @@
+#![allow(dead_code)]
+
+use serde_json::Value;
+use std::collections::HashMap;
+
+/// Manages context window with token-aware compression.
+///
+/// Enhances the existing smart_compress with:
+/// - Token counting for adaptive window sizing
+/// - Budget-driven compression (adjust windows based on total tokens)
+/// - Summarization fallback when context exceeds limits
+pub struct ContextManager {
+    /// Model-dependent context limit (estimated).
+    pub max_tokens: usize,
+    /// Maximum teach documents to preserve.
+    pub teach_window: usize,
+    /// Number of recent messages to preserve intact.
+    pub recent_window: usize,
+    /// Token ratio threshold for triggering summarization (0.0-1.0).
+    pub summarizer_threshold: f64,
+}
+
+impl Default for ContextManager {
+    fn default() -> Self {
+        Self {
+            // Most models have 8K-128K context; use conservative 8K as baseline
+            max_tokens: 8192,
+            teach_window: 5,
+            recent_window: 15,
+            summarizer_threshold: 0.85,
+        }
+    }
+}
+
+impl ContextManager {
+    /// Create a manager tuned for a specific model context size.
+    pub fn for_model(model: &str) -> Self {
+        let max_tokens = match model {
+            m if m.contains("gpt-4o") || m.contains("claude-3.5") => 128_000,
+            m if m.contains("gpt-4") || m.contains("claude-3") => 32_000,
+            m if m.contains("deepseek") || m.contains("glm-4") => 128_000,
+            m if m.contains("gemini") => 1_000_000,
+            // Most open models: 8K-32K
+            _ => 8192,
+        };
+        Self {
+            max_tokens,
+            ..Default::default()
+        }
+    }
+
+    /// Count approximate tokens in a message list.
+    /// Uses simple heuristic: ~4 chars per token + message overhead.
+    pub fn count_tokens(msgs: &[Value]) -> usize {
+        let mut total = 0;
+        for msg in msgs {
+            // Base message overhead (~25 tokens per message for metadata)
+            total += 25;
+
+            if let Some(content) = msg.get("content").and_then(|c| c.as_str()) {
+                total += content.len() / 4; // ~4 chars per token
+            }
+            if let Some(role) = msg.get("role").and_then(|r| r.as_str()) {
+                total += role.len() / 4;
+            }
+            // Tool calls add tokens
+            if let Some(tcs) = msg.get("tool_calls").and_then(|t| t.as_array()) {
+                for tc in tcs {
+                    if let Some(func) = tc.get("function") {
+                        if let Some(name) = func.get("name").and_then(|n| n.as_str()) {
+                            total += name.len() / 4;
+                        }
+                        if let Some(args) = func.get("arguments").and_then(|a| a.as_str()) {
+                            total += args.len() / 4;
+                        }
+                    }
+                }
+            }
+        }
+        total.max(100) // At least ~100 tokens
+    }
+
+    /// Adaptive compression based on token budget.
+    ///
+    /// Tunes teach_window and recent_window based on total token count,
+    /// then delegates to the existing smart_compress logic.
+    pub fn compress(
+        &self,
+        msgs: &mut Vec<Value>,
+        tool_frequency: &HashMap<String, usize>,
+    ) {
+        if msgs.len() <= 2 {
+            return;
+        }
+
+        let total_tokens = Self::count_tokens(msgs);
+
+        // Adapt windows based on token budget
+        let (teach_window, recent_window) = if total_tokens > self.max_tokens {
+            // Over budget: reduce windows
+            let reduction = (total_tokens as f64 / self.max_tokens as f64).min(3.0);
+            (
+                (self.teach_window as f64 / reduction).max(2.0) as usize,
+                (self.recent_window as f64 / reduction).max(5.0) as usize,
+            )
+        } else {
+            (self.teach_window, self.recent_window)
+        };
+
+        // Delegate to the existing smart_compress with adapted windows
+        crate::core::engine::smart_compress(msgs, tool_frequency, teach_window, recent_window);
+    }
+
+    /// Check if the message list is approaching the context limit.
+    pub fn is_near_limit(&self, msgs: &[Value]) -> bool {
+        let total = Self::count_tokens(msgs);
+        total as f64 > self.max_tokens as f64 * self.summarizer_threshold
+    }
+
+    /// Build a compression advisory for the system prompt.
+    /// Makes the LLM aware of context management.
+    pub fn context_advisory(&self, msgs: &[Value]) -> String {
+        let total = Self::count_tokens(msgs);
+        let ratio = total as f64 / self.max_tokens as f64;
+        if ratio > 0.9 {
+            format!(
+                "(上下文占用 {:.0}%，接近限制。建议简化回复，优先引用近期内容。)",
+                ratio * 100.0
+            )
+        } else if ratio > 0.7 {
+            format!(
+                "(上下文占用 {:.0}%)",
+                ratio * 100.0
+            )
+        } else {
+            String::new()
+        }
+    }
+}
