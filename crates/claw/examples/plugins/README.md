@@ -127,7 +127,7 @@ url = "https://mcp-weather.example.com/sse"
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | cargo run -p hello-mcp
 
 # 测试 tools/call
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"arguments":{"name":"hello","arguments":{"name":"世界"}}}}' | cargo run -p hello-mcp
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"hello","arguments":{"name":"世界"}}}' | cargo run -p hello-mcp
 ```
 
 ## MCP 协议速览

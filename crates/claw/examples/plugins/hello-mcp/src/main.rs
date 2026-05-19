@@ -44,6 +44,7 @@ struct JsonRpcError {
 
 /// 工具定义（对应 tools/list 响应中的 "tools" 数组）
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ToolDefinition {
     name: String,
     description: String,
