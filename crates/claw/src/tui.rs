@@ -59,7 +59,17 @@ fn save_session_messages(
 // =============================================
 
 pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
-    let config = Config::load()?;
+    let mut config = Config::load()?;
+
+    // Discover plugins and merge into MCP config BEFORE creating AppCore
+    // so that MCP registries are initialized with plugin configs
+    if config.plugins_auto_discover {
+        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_configs = plugin_mgr.to_mcp_configs();
+        if !plugin_configs.is_empty() {
+            config.mcp_servers.extend(plugin_configs);
+        }
+    }
 
     // Setup terminal
     crossterm::terminal::enable_raw_mode()?;
@@ -103,15 +113,6 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     app.reminder_text = check_reminders();
     if app.reminder_text.is_some() {
         notify_macos("i-rs-claw 提醒", "你有即将到期或已过期的提醒事项");
-    }
-
-    // Discover plugins and merge into MCP config
-    if app_core.config.plugins_auto_discover {
-        let plugin_mgr = crate::plugin::PluginManager::new();
-        let plugin_configs = plugin_mgr.to_mcp_configs();
-        if !plugin_configs.is_empty() {
-            app_core.config.mcp_servers.extend(plugin_configs);
-        }
     }
 
     if app.messages.is_empty() {

@@ -70,6 +70,20 @@ impl AgentRuntimeStore {
         self.mcp_registries.get(agent_id).unwrap_or_else(|| &self.mcp_registries["default"])
     }
 
+    /// Refresh MCP registries for all agents (e.g. after plugin discovery).
+    /// Re-loads MCP connections from current config.
+    #[allow(dead_code)]
+    pub fn refresh_mcp_registries(&mut self, config: &Config) {
+        let agent_ids: Vec<String> = self.mcp_registries.keys().cloned().collect();
+        for id in agent_ids {
+            let resolved = config.agent_config(&id);
+            self.mcp_registries.insert(
+                id,
+                McpRegistry::for_agent(&resolved, &config.mcp_servers),
+            );
+        }
+    }
+
     /// Initialize runtime data for a new agent.
     /// Called after adding an agent to config.
     #[allow(dead_code)]
