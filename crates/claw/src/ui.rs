@@ -13,9 +13,21 @@ pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
 
     let plan_height: u16 = if !app.plan_steps.is_empty() && app.is_processing() {
-        1
+        (app.plan_steps.len() as u16).min(5)
     } else {
         0
+    };
+
+    // Dynamic processing area height: spinner + optional reasoning lines
+    let processing_height: u16 = if app.is_processing() && !app.status_text.is_empty() {
+        let reason_lines = if !app.current_reasoning.is_empty() {
+            (app.current_reasoning.lines().count() as u16).min(3)
+        } else {
+            0
+        };
+        1 + reason_lines
+    } else {
+        1
     };
 
     let mut constraints = vec![
@@ -28,7 +40,7 @@ pub fn render(f: &mut Frame, app: &App) {
     }
 
     constraints.extend(vec![
-        Constraint::Length(1),                             // Processing indicator
+        Constraint::Length(processing_height),             // Processing indicator
         Constraint::Length(input_height(&app.input)),      // Input
         Constraint::Length(1),                             // Status bar
     ]);
@@ -68,12 +80,20 @@ pub fn render(f: &mut Frame, app: &App) {
 
     // Session list overlay (rendered on top of everything)
     if app.show_session_list {
+        render_backdrop(f, area);
         render_session_list(f, area, app);
     }
 
     // Agent picker overlay
     if app.show_agent_picker {
+        render_backdrop(f, area);
         render_agent_picker(f, area, app);
+    }
+
+    // Help panel overlay
+    if app.show_help {
+        render_backdrop(f, area);
+        render_help_panel(f, area);
     }
 
     // Completion popup overlay
@@ -157,47 +177,48 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(line, area);
 }
 
-/// Render the current execution plan as a compact progress bar.
+/// Render the current execution plan as a compact progress list.
 fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     if app.plan_steps.is_empty() {
         return;
     }
-    let _total = app.plan_steps.len();
     let done_count = app.plan_steps.iter().filter(|s| s.done).count();
 
-    let mut spans: Vec<Span> = vec![
-        Span::styled(
-            " 📋 计划: ",
-            Style::default()
-                .fg(app.config.theme.primary())
-                .add_modifier(Modifier::BOLD),
-        ),
-    ];
+    let total = app.plan_steps.len();
+    let max_show = total.min(5);
 
-    for (i, step) in app.plan_steps.iter().enumerate() {
-        if i > 0 {
-            spans.push(Span::styled(
-                " → ",
-                Style::default().fg(app.config.theme.dim_text()),
-            ));
-        }
+    let mut lines: Vec<Line> = Vec::with_capacity(max_show + 1);
+
+    // Header with summary
+    lines.push(Line::from(Span::styled(
+        format!(" 📋 计划 ({}/{}) ", done_count, total),
+        Style::default()
+            .fg(app.config.theme.primary())
+            .add_modifier(Modifier::BOLD),
+    )));
+
+    for (i, step) in app.plan_steps.iter().take(max_show).enumerate() {
         let (icon, color) = if step.done {
             ("✓", app.config.theme.secondary())
-        } else if i == done_count {
+        } else if i == done_count || (done_count == 0 && i == 0) {
             ("⏳", app.config.theme.accent())
         } else {
             ("○", app.config.theme.dim_text())
         };
-        let display = if step.description.len() > 20 {
-            format!("{} {}…", icon, &step.description[..18])
-        } else {
-            format!("{} {}", icon, step.description)
-        };
-        spans.push(Span::styled(display, Style::default().fg(color)));
+        lines.push(Line::from(Span::styled(
+            format!("   {} {}", icon, step.description),
+            Style::default().fg(color),
+        )));
     }
 
-    let line = Line::from(spans);
-    f.render_widget(line, area);
+    if total > max_show {
+        lines.push(Line::from(Span::styled(
+            format!("   ... 还有 {} 步", total - max_show),
+            Style::default().fg(app.config.theme.dim_text()),
+        )));
+    }
+
+    f.render_widget(Paragraph::new(lines), area);
 }
 
 fn render_chat(f: &mut Frame, area: Rect, app: &App) {
@@ -206,8 +227,9 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     // Subtract 1 line for the top border
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Clear scroll offset if at bottom (newest message just added)
-    // This ensures new messages always scroll to bottom
+    // Pre-compute formatted ToolCall result lines — used by both line counting and rendering
+    let mut format_cache: std::collections::HashMap<usize, Vec<Line<'static>>> =
+        std::collections::HashMap::new();
 
     // Two-pass approach to ensure NEWEST messages are always fully visible:
     // Pass 1: compute heights for all visible (non-skipped) messages
@@ -217,7 +239,13 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             continue;
         }
         let msg_index = app.messages.len() - 1 - rev_idx;
-        heights.push(message_line_count(app, msg, text_width, msg_index));
+        heights.push(message_line_count(
+            app,
+            msg,
+            text_width,
+            msg_index,
+            &mut format_cache,
+        ));
     }
     // heights[0] = newest visible, heights[n-1] = oldest visible
 
@@ -249,7 +277,7 @@ fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             continue; // too old, clipped from top
         }
         let msg_index = app.messages.len() - 1 - rev_idx;
-        items.push(build_message_item(app, msg, text_width, msg_index));
+        items.push(build_message_item(app, msg, text_width, msg_index, &format_cache));
     }
     items.reverse();
 
@@ -284,31 +312,46 @@ fn render_processing(f: &mut Frame, area: Rect, app: &App) {
     let frame = (app.messages.len() + app.tool_call_count) % dots.len();
     let spinner = dots[frame];
 
+    // Split area: first line for spinner+status, rest for reasoning
+    let (status_area, reason_area) = if area.height > 1 {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(1), Constraint::Min(1)])
+            .split(area);
+        (chunks[0], chunks[1])
+    } else {
+        (area, Rect::default())
+    };
+
     let label = Line::from(Span::styled(
         format!(" {}  {}", spinner, app.status_text),
         Style::default()
             .fg(Color::Cyan)
             .add_modifier(Modifier::BOLD),
     ));
-    f.render_widget(label, area);
+    f.render_widget(label, status_area);
 
     // Render reasoning content below the processing line if available
-    if !app.current_reasoning.is_empty() {
-        // Show last line of reasoning as compact dimmed text
-        let last_line = app.current_reasoning.lines().last().unwrap_or("");
-        let display = if last_line.len() > 80 {
-            let truncated: String = last_line.chars().take(77).collect();
-            format!("...{}", truncated)
-        } else {
-            last_line.to_string()
-        };
-        if !display.is_empty() {
-            let reasoning = Line::from(Span::styled(
-                format!(" 🤔 {}", display),
-                Style::default().fg(Color::Rgb(120, 120, 140)),
-            ));
-            f.render_widget(reasoning, area);
+    if !app.current_reasoning.is_empty() && reason_area.height >= 1 {
+        let mut reason_lines: Vec<Line> = app
+            .current_reasoning
+            .lines()
+            .take(reason_area.height as usize)
+            .map(|line| {
+                let display = truncate_str(line, (area.width as usize).saturating_sub(4).max(20));
+                Line::from(Span::styled(
+                    format!(" 🤔 {}", display),
+                    Style::default().fg(Color::Rgb(120, 120, 140)),
+                ))
+            })
+            .collect();
+
+        // Fill remaining lines
+        while reason_lines.len() < reason_area.height as usize {
+            reason_lines.push(Line::from(Span::raw("")));
         }
+
+        f.render_widget(Paragraph::new(reason_lines), reason_area);
     }
 }
 
@@ -316,7 +359,7 @@ fn render_processing(f: &mut Frame, area: Rect, app: &App) {
 fn input_height(input: &str) -> u16 {
     let content_lines = input.lines().count().max(1);
     // content lines + hint line + top/bottom borders
-    (content_lines + 1 + 2).max(3).min(10) as u16
+    (content_lines + 1 + 2).max(3).min(20) as u16
 }
 
 /// Return the input hint line showing available shortcuts.
@@ -432,15 +475,7 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
-            "│ ",
-            Style::default().fg(app.config.theme.dim_text()),
-        ));
-        spans.push(Span::styled(
-            "│ ",
-            Style::default().fg(app.config.theme.dim_text()),
-        ));
-        spans.push(Span::styled(
-            "↑↓选择  Space展开  Ctrl+Shift+C复制  Esc退出",
+            "↑↓选择  Space展开  Ctrl+D删除  Ctrl+Shift+C复制  退出Esc",
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
     } else if app.is_processing() {
@@ -512,10 +547,13 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
         if !app.show_sidebar {
-            spans.push(Span::styled(
-                "Ctrl+R  ",
-                Style::default().fg(Color::Rgb(140, 140, 160)),
-            ));
+            // Only show Ctrl+R if there are HTTP logs to inspect
+            if !app.http_logs.is_empty() {
+                spans.push(Span::styled(
+                    "Ctrl+R  ",
+                    Style::default().fg(Color::Rgb(140, 140, 160)),
+                ));
+            }
         }
         spans.push(Span::styled(
             "Ctrl+L",
@@ -535,6 +573,10 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
         spans.push(Span::styled(
             "  Ctrl+S",
+            Style::default().fg(Color::Rgb(140, 140, 160)),
+        ));
+        spans.push(Span::styled(
+            "  Ctrl+H",
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
     }
@@ -757,6 +799,86 @@ fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
             .border_style(Style::default().fg(theme_primary)),
     );
     f.render_widget(list, popup_area);
+}
+
+/// Help panel overlay showing all keyboard shortcuts.
+fn render_help_panel(f: &mut Frame, area: Rect) {
+    let popup_width = 50u16.min(area.width.saturating_sub(4));
+    let popup_height = 28u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let shortcuts = [
+        ("Ctrl+Q", "退出程序"),
+        ("Ctrl+N", "新建会话"),
+        ("Ctrl+S", "消息选择模式"),
+        ("Ctrl+H", "显示/隐藏帮助"),
+        ("Ctrl+L", "清屏 / 重置滚动"),
+        ("Ctrl+P", "会话列表"),
+        ("Ctrl+R", "HTTP 调试面板"),
+        ("Ctrl+Shift+C", "复制当前消息"),
+        ("Alt+Enter", "输入换行"),
+        ("Fn", "语音输入 (macOS)"),
+        ("", ""),
+        ("--- 选择模式 ---", ""),
+        ("↑/↓", "切换选中消息"),
+        ("Space", "展开/折叠工具调用"),
+        ("Ctrl+D", "删除选中消息"),
+        ("Esc/q", "退出选择模式"),
+        ("", ""),
+        ("--- 会话列表 ---", ""),
+        ("Ctrl+F", "搜索会话"),
+        ("Enter", "切换到会话"),
+        ("Ctrl+D", "删除会话"),
+        ("Ctrl+R", "重命名会话"),
+    ];
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (key, desc) in &shortcuts {
+        if key.is_empty() {
+            lines.push(Line::from(Span::raw("")));
+            continue;
+        }
+        if desc.is_empty() {
+            // Section header
+            lines.push(Line::from(Span::styled(
+                *key,
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )));
+        } else {
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("  {:<18}", key),
+                    Style::default().fg(Color::Rgb(180, 180, 120)),
+                ),
+                Span::styled(
+                    desc.to_string(),
+                    Style::default().fg(Color::White),
+                ),
+            ]));
+        }
+    }
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" ⌨ 快捷键帮助 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
+/// Render a dark backdrop over the entire terminal area when overlays are shown.
+fn render_backdrop(f: &mut Frame, area: Rect) {
+    f.render_widget(
+        Block::default()
+            .style(Style::default().bg(Color::Rgb(20, 20, 30))),
+        area,
+    );
 }
 
 /// Overlay showing tab completion candidates near the input area.
@@ -1089,10 +1211,22 @@ fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    let width = unicode_width::UnicodeWidthStr::width(s);
+    if width <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
+        let mut out = String::new();
+        let mut w = 0usize;
+        for c in s.chars() {
+            let cw = unicode_width::UnicodeWidthChar::width(c).unwrap_or(1);
+            if w + cw + 3 > max_len {
+                break;
+            }
+            out.push(c);
+            w += cw;
+        }
+        out.push_str("...");
+        out
     }
 }
 
@@ -1114,6 +1248,11 @@ fn relative_time(ts: i64) -> String {
     } else {
         format!("{}月前", diff / 2592000)
     }
+}
+
+/// Convert a NaiveDateTime to a relative time string.
+fn relative_time_naive(ts: chrono::NaiveDateTime) -> String {
+    relative_time(ts.and_utc().timestamp())
 }
 
 /// Format a JSON CLI result into display lines.
@@ -1491,7 +1630,13 @@ fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String]) -> V
 }
 
 /// Estimate the number of rendered lines a message occupies.
-fn message_line_count(app: &App, msg: &Message, text_width: usize, msg_index: usize) -> usize {
+fn message_line_count(
+    app: &App,
+    msg: &Message,
+    text_width: usize,
+    msg_index: usize,
+    format_cache: &mut std::collections::HashMap<usize, Vec<Line<'static>>>,
+) -> usize {
     match msg {
         Message::User { text } => {
             // header + wrapped lines + trailing blank
@@ -1530,16 +1675,16 @@ fn message_line_count(app: &App, msg: &Message, text_width: usize, msg_index: us
                     lines += 1;
                 }
             }
-            // result lines — use format_json_result for accurate counting
+            // result lines — use cached format_json_result for accurate counting
             if !result.is_empty() {
-                let (json_lines, was_json) = format_json_result(result, text_width);
-                if was_json {
-                    lines += json_lines.len();
-                } else if has_ansi(result) {
-                    lines += wrapped_line_count(&strip_ansi(result), text_width.saturating_sub(3)).max(1);
-                } else {
-                    lines += wrapped_line_count(result, text_width.saturating_sub(3)).max(1);
+                if !format_cache.contains_key(&msg_index) {
+                    format_cache.insert(
+                        msg_index,
+                        format_json_result(result, text_width).0,
+                    );
                 }
+                let cached = format_cache.get(&msg_index).unwrap();
+                lines += cached.len();
             }
             lines
         }
@@ -1674,15 +1819,27 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 TagEnd::Strong => bold = false,
                 TagEnd::CodeBlock => {
                     in_code_block = false;
-                    for code_line in code_text.lines() {
+                    if code_text.lines().any(|l| !l.trim().is_empty()) {
+                        // Code block header
                         lines.push(Line::from(Span::styled(
-                            format!("  {}", code_line),
+                            format!("{:─^width$}", " code ", width = max_width.min(40)),
                             Style::default()
-                                .fg(Color::Rgb(200, 200, 120))
+                                .fg(Color::Rgb(120, 120, 80))
                                 .bg(Color::Rgb(20, 20, 25)),
                         )));
+                        for code_line in code_text.lines() {
+                            lines.push(Line::from(Span::styled(
+                                format!("  {}", code_line),
+                                Style::default()
+                                    .fg(Color::Rgb(200, 200, 120))
+                                    .bg(Color::Rgb(20, 20, 25)),
+                            )));
+                        }
+                        lines.push(Line::from(Span::styled(
+                            "".to_string(),
+                            Style::default().bg(Color::Rgb(20, 20, 25)),
+                        )));
                     }
-                    lines.push(Line::from(Span::raw("")));
                 }
                 TagEnd::Link => {}
                 TagEnd::List(_) => {}
@@ -1729,14 +1886,24 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
 }
 
 /// Build a ListItem widget from a Message.
-fn build_message_item(app: &App, msg: &Message, text_width: usize, msg_index: usize) -> ListItem<'static> {
+fn build_message_item(
+    app: &App,
+    msg: &Message,
+    text_width: usize,
+    msg_index: usize,
+    format_cache: &std::collections::HashMap<usize, Vec<Line<'static>>>,
+) -> ListItem<'static> {
     let is_selected = app.selection_mode && app.selected_message == Some(msg_index);
 
     match msg {
         Message::User { text } => {
+            let ts_label = app.message_timestamps
+                .get(msg_index)
+                .map(|ts| format!("  [{}]", relative_time_naive(*ts)))
+                .unwrap_or_default();
             let mut lines = vec![
                 Line::from(Span::styled(
-                    "  You:",
+                    format!("  You:{}", ts_label),
                     Style::default()
                         .fg(Color::Green)
                         .add_modifier(Modifier::BOLD),
@@ -1753,8 +1920,12 @@ fn build_message_item(app: &App, msg: &Message, text_width: usize, msg_index: us
             ListItem::new(lines).style(Style::default().bg(bg))
         }
         Message::Assistant { text } => {
+            let ts_label = app.message_timestamps
+                .get(msg_index)
+                .map(|ts| format!("  [{}]", relative_time_naive(*ts)))
+                .unwrap_or_default();
             let mut lines = vec![Line::from(Span::styled(
-                "  Claw:",
+                format!("  Claw:{}", ts_label),
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
@@ -1838,8 +2009,12 @@ fn build_message_item(app: &App, msg: &Message, text_width: usize, msg_index: us
                 };
 
             let indicator = if is_expanded { " [-]" } else { " [+]" };
+            let ts_label = app.message_timestamps
+                .get(msg_index)
+                .map(|ts| format!("  [{}]", relative_time_naive(*ts)))
+                .unwrap_or_default();
             lines.push(Line::from(Span::styled(
-                format!("{}{}", header, indicator),
+                format!("{}{}{}", header, indicator, ts_label),
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
@@ -1853,19 +2028,20 @@ fn build_message_item(app: &App, msg: &Message, text_width: usize, msg_index: us
             }
 
             if is_expanded && !result.is_empty() {
-                let (json_lines, _) = format_json_result(result, text_width);
-                if !json_lines.is_empty() {
-                    lines.extend(json_lines);
-                } else if has_ansi(result) {
-                    for line in ansi_to_lines(result, text_width) {
-                        lines.push(line);
-                    }
-                } else {
-                    for wrapped in wrap_text(result, text_width.saturating_sub(3)) {
-                        lines.push(Line::from(Span::styled(
-                            format!("   {}", wrapped),
-                            Style::default().fg(Color::White),
-                        )));
+                if let Some(cached_lines) = format_cache.get(&msg_index) {
+                    if !cached_lines.is_empty() {
+                        lines.extend(cached_lines.clone());
+                    } else if has_ansi(result) {
+                        for line in ansi_to_lines(result, text_width) {
+                            lines.push(line);
+                        }
+                    } else {
+                        for wrapped in wrap_text(result, text_width.saturating_sub(3)) {
+                            lines.push(Line::from(Span::styled(
+                                format!("   {}", wrapped),
+                                Style::default().fg(Color::White),
+                            )));
+                        }
                     }
                 }
             }
@@ -1874,9 +2050,13 @@ fn build_message_item(app: &App, msg: &Message, text_width: usize, msg_index: us
             ListItem::new(lines).style(Style::default().bg(bg))
         }
         Message::Error { text } => {
+            let ts_label = app.message_timestamps
+                .get(msg_index)
+                .map(|ts| format!("  [{}]", relative_time_naive(*ts)))
+                .unwrap_or_default();
             let mut lines = vec![
                 Line::from(Span::styled(
-                    " ✗ Error:",
+                    format!(" ✗ Error:{}", ts_label),
                     Style::default()
                         .fg(Color::Red)
                         .add_modifier(Modifier::BOLD),

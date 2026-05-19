@@ -2,6 +2,7 @@ use crate::app;
 use crate::config::Config;
 use crate::core;
 use crate::llm::LlmEvent;
+use chrono;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use std::io;
@@ -96,6 +97,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         .to_string();
     let loaded = app_core.session_mgr.load_app_messages(&session_id, 50);
     app.messages = loaded;
+    app.sync_message_timestamps();
 
     // Check for due reminders at startup
     app.reminder_text = check_reminders();
@@ -125,6 +127,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 )
                 .to_string(),
             });
+            app.message_timestamps.push(chrono::Local::now().naive_local());
         } else {
             app.messages.push(app::Message::Assistant {
                 text: "你好！我是 i-rs-claw，你的个人数据智能助理。\
@@ -132,6 +135,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                        \n试试说：\"记录体重75kg\" 或 \"最近跑步情况如何？\""
                     .to_string(),
             });
+            app.message_timestamps.push(chrono::Local::now().naive_local());
         }
     }
 
@@ -401,9 +405,9 @@ fn main_loop(
             match event::read()? {
                 Event::Key(key) => match key.code {
                     KeyCode::Char('c') if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                        if app.selection_mode {
+                        let content = if app.selection_mode {
                             // Copy selected message
-                            let content = app.selected_message.and_then(|idx| {
+                            app.selected_message.and_then(|idx| {
                                 app.messages.get(idx).map(|m| match m {
                                     crate::app::Message::User { text } => text.clone(),
                                     crate::app::Message::Assistant { text } => text.clone(),
@@ -411,35 +415,25 @@ fn main_loop(
                                         format!("Tool: {}\nArgs: {}\nResult: {}", name, args, result),
                                     crate::app::Message::Error { text } => text.clone(),
                                 })
-                            });
-                            if let Some(content) = content {
-                                if copy_to_clipboard(&content) {
-                                    app.copy_feedback = Some("✓ 已复制".to_string());
-                                } else {
-                                    app.copy_feedback = Some("✗ 复制失败".to_string());
-                                }
-                            } else {
-                                app.copy_feedback = Some("无内容可复制".to_string());
-                            }
+                            })
                         } else {
-                            // Copy last assistant message to clipboard
-                            let text = app
-                                .messages
+                            // Copy last assistant message
+                            app.messages
                                 .iter()
                                 .rev()
                                 .find_map(|m| match m {
                                     crate::app::Message::Assistant { text } if !text.is_empty() => Some(text.clone()),
                                     _ => None,
-                                });
-                            if let Some(content) = text {
-                                if copy_to_clipboard(&content) {
-                                    app.copy_feedback = Some("✓ 已复制".to_string());
-                                } else {
-                                    app.copy_feedback = Some("✗ 复制失败".to_string());
-                                }
+                                })
+                        };
+                        if let Some(content) = content {
+                            if copy_to_clipboard(&content) {
+                                app.copy_feedback = Some("✓ 已复制".to_string());
                             } else {
-                                app.copy_feedback = Some("无内容可复制".to_string());
+                                app.copy_feedback = Some("✗ 复制失败".to_string());
                             }
+                        } else {
+                            app.copy_feedback = Some("无内容可复制".to_string());
                         }
                     }
                     // Ctrl+S: Toggle message selection mode
@@ -453,6 +447,14 @@ fn main_loop(
                             };
                         }
                     }
+                    // Ctrl+H: show keyboard shortcut help panel
+                    KeyCode::Char('h') if key.modifiers == KeyModifiers::CONTROL => {
+                        app.show_help = !app.show_help;
+                    }
+                    // Esc/Enter: close help panel
+                    KeyCode::Esc | KeyCode::Enter if app.show_help => {
+                        app.show_help = false;
+                    }
                     // Esc: exit selection mode
                     KeyCode::Esc if app.selection_mode => {
                         app.selection_mode = false;
@@ -462,6 +464,22 @@ fn main_loop(
                     KeyCode::Char('q') if app.selection_mode => {
                         app.selection_mode = false;
                         app.selected_message = None;
+                    }
+                    KeyCode::Char('d')
+                        if key.modifiers == KeyModifiers::CONTROL && app.selection_mode =>
+                    {
+                        if let Some(idx) = app.selected_message {
+                            let idx = idx.min(app.messages.len().saturating_sub(1));
+                            app.messages.remove(idx);
+                            app.message_timestamps.remove(idx);
+                            app.tool_call_expanded.remove(&idx);
+                            // Fix up expanded indices
+                            let tc = std::mem::take(&mut app.tool_call_expanded);
+                            app.tool_call_expanded = tc.into_iter().map(|i| if i > idx { i - 1 } else { i }).collect();
+                            if idx >= app.messages.len() {
+                                app.selected_message = if app.messages.is_empty() { None } else { Some(app.messages.len() - 1) };
+                            }
+                        }
                     }
                     KeyCode::Char('q') | KeyCode::Char('c')
                         if key.modifiers == KeyModifiers::CONTROL =>
@@ -813,6 +831,7 @@ fn main_loop(
                                 let loaded =
                                     app_core.session_mgr.load_app_messages(&new_id, 50);
                                 app.messages = loaded;
+                                app.sync_message_timestamps();
                                 app.api_messages =
                                     app_core.session_mgr.load_api_messages(&new_id);
                                 app.tool_call_count = 0;

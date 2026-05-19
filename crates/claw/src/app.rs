@@ -1,4 +1,5 @@
 use crate::config::Config;
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -44,6 +45,7 @@ pub enum AppState {
 
 pub struct App {
     pub messages: Vec<Message>,
+    pub message_timestamps: Vec<NaiveDateTime>,
     pub input: String,
     pub state: AppState,
     pub config: Config,
@@ -114,6 +116,8 @@ pub struct App {
     pub selection_mode: bool,
     /// Indices of tool call messages that are expanded
     pub tool_call_expanded: std::collections::HashSet<usize>,
+    /// Whether the keyboard shortcut help panel is shown
+    pub show_help: bool,
 }
 
 impl App {
@@ -122,6 +126,7 @@ impl App {
 
         Self {
             messages: Vec::new(),
+            message_timestamps: Vec::new(),
             input: String::new(),
             input_cursor: 0,
             state: AppState::Idle,
@@ -159,6 +164,7 @@ impl App {
             selected_message: None,
             selection_mode: false,
             tool_call_expanded: std::collections::HashSet::new(),
+            show_help: false,
         }
     }
 
@@ -170,6 +176,7 @@ impl App {
         self.copy_feedback.take();
         self.messages
             .push(Message::User { text: text.to_string() });
+        self.message_timestamps.push(chrono::Local::now().naive_local());
         self.state = AppState::Processing;
         self.scroll_offset = 0;
         self.plan_steps.clear(); // Clear plan from previous turn
@@ -194,19 +201,6 @@ impl App {
             self.input.drain(idx..self.input_cursor);
             self.input_cursor = idx;
         }
-    }
-
-    /// Delete the character at the cursor (Delete key).
-    pub fn _delete_at_cursor(&mut self) {
-        if self.input_cursor >= self.input.len() {
-            return;
-        }
-        let next = self.input[self.input_cursor..].char_indices().nth(1);
-        let end = match next {
-            Some((offset, _)) => self.input_cursor + offset,
-            None => self.input.len(),
-        };
-        self.input.drain(self.input_cursor..end);
     }
 
     pub fn move_cursor_left(&mut self) {
@@ -319,6 +313,7 @@ impl App {
         if !is_empty_assistant {
             self.messages
                 .push(Message::Assistant { text: String::new() });
+            self.message_timestamps.push(chrono::Local::now().naive_local());
         }
     }
 
@@ -341,6 +336,7 @@ impl App {
             step,
             total_steps,
         });
+        self.message_timestamps.push(chrono::Local::now().naive_local());
         self.tool_call_count += 1;
     }
 
@@ -423,6 +419,7 @@ impl App {
     /// Reset app for a new session (clear messages, etc.)
     pub fn reset_for_new_session(&mut self) {
         self.messages.clear();
+        self.message_timestamps.clear();
         self.api_messages = None;
         self.tool_call_count = 0;
         self.status_text.clear();
@@ -442,5 +439,16 @@ impl App {
         self.selected_message = None;
         self.selection_mode = false;
         self.tool_call_expanded.clear();
+    }
+
+    /// Ensure message_timestamps is in sync with messages after loading from session
+    pub fn sync_message_timestamps(&mut self) {
+        let now = chrono::Local::now().naive_local();
+        while self.message_timestamps.len() < self.messages.len() {
+            self.message_timestamps.push(now);
+        }
+        if self.message_timestamps.len() > self.messages.len() {
+            self.message_timestamps.truncate(self.messages.len());
+        }
     }
 }
