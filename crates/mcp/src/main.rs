@@ -1,19 +1,25 @@
 //! i-rs MCP Server
 //!
 //! Exposes all 70 i-rs CLI tools as MCP (Model Context Protocol) tools
-//! over stdio JSON-RPC 2.0, enabling any MCP-compatible AI client
+//! over stdio JSON-RPC 2.0 via rmcp SDK, enabling any MCP-compatible AI client
 //! (Claude Desktop, Cursor, Cline, etc.) to read and write personal data.
 
-mod transport;
+use std::sync::Arc;
 
-use std::sync::{Arc, RwLock};
+use rmcp::model::{
+    CallToolResult, Content, EmptyResult, ErrorData, Implementation, InitializeResult,
+    ListToolsResult, RawContent, RawTextContent, ServerCapabilities, ServerResult, Tool,
+};
+use rmcp::service::{NotificationContext, RequestContext, RoleServer, Service};
+use rmcp::ServiceExt;
 use serde_json::Value;
+use tokio::io::{self as tokio_io};
 
 // ── Thread-safe store ──────────────────────────────────────
 
 /// Thread-safe in-memory store backed by JSON file (same pattern as i-rs-api).
 pub struct SharedStore<T> {
-    inner: Arc<RwLock<T>>,
+    inner: Arc<std::sync::RwLock<T>>,
     filename: String,
 }
 
@@ -30,7 +36,7 @@ impl<T: serde::Serialize + serde::de::DeserializeOwned + Default> SharedStore<T>
     pub fn load(filename: &str) -> Self {
         let mut storage = i_rs_core::Storage::<T>::new(filename);
         let _ = storage.load();
-        let inner = Arc::new(RwLock::new(storage.data));
+        let inner = Arc::new(std::sync::RwLock::new(storage.data));
         Self {
             inner,
             filename: filename.to_string(),
@@ -356,120 +362,119 @@ make_mcp_tools! {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MCP session
+// rmcp Service implementation
 // ═══════════════════════════════════════════════════════════════
 
-/// Run the MCP session loop: read requests, dispatch, respond.
-fn run_session(state: Arc<AppState>) {
-    loop {
-        let req = match transport::read_request() {
-            Ok(Some(r)) => r,
-            Ok(None) => break,       // EOF
-            Err(e) => {
-                transport::log(format!("read error: {e}"));
-                continue;
+/// The MCP server, holding shared application state.
+struct McpServer {
+    state: Arc<AppState>,
+}
+
+impl Service<RoleServer> for McpServer {
+    async fn handle_request(
+        &self,
+        request: rmcp::model::ClientRequest,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ServerResult, ErrorData> {
+        use rmcp::model::ClientRequest;
+
+        match request {
+            ClientRequest::PingRequest(_) => {
+                Ok(ServerResult::EmptyResult(EmptyResult {}))
             }
-        };
-
-        let id = req.id.clone();
-
-        // Handle notification (no id → no response)
-        if id.is_none() {
-            continue;
-        }
-
-        // Determine method and dispatch
-        let method = match req.method.as_deref() {
-            Some(m) => m,
-            None => {
-                send_error(id, transport::INVALID_PARAMS, "missing method", None);
-                continue;
+            ClientRequest::InitializeRequest(_) => {
+                let capabilities = ServerCapabilities::builder()
+                    .enable_tools()
+                    .build();
+                Ok(ServerResult::InitializeResult(
+                    InitializeResult::new(capabilities)
+                        .with_server_info(Implementation::new(
+                            "i-rs-mcp",
+                            env!("CARGO_PKG_VERSION"),
+                        )),
+                ))
             }
-        };
-
-        let params = req.params.unwrap_or(Value::Null);
-
-        let response = match method {
-            "initialize" => handle_initialize(params),
-            "tools/list" => handle_tools_list(),
-            "tools/call" => handle_tools_call(params, &state),
-            _ => {
-                send_error(
-                    id.clone(),
-                    transport::METHOD_NOT_FOUND,
-                    &format!("method not supported: {method}"),
-                    None,
-                );
-                continue;
+            ClientRequest::ListToolsRequest(_) => {
+                let defs = get_tool_definitions();
+                let tools: Vec<Tool> = defs
+                    .into_iter()
+                    .map(|d| {
+                        let schema = d.input_schema.as_object().cloned().unwrap_or_default();
+                        Tool::new(d.name, d.description, Arc::new(schema))
+                    })
+                    .collect();
+                Ok(ServerResult::ListToolsResult(ListToolsResult::with_all_items(
+                    tools,
+                )))
             }
-        };
-
-        match response {
-            Ok(result) => {
-                transport::send_response(&transport::JsonRpcResponse {
-                    jsonrpc: "2.0".into(),
-                    id,
-                    result: Some(result),
-                    error: None,
-                });
+            ClientRequest::CallToolRequest(req) => {
+                let name = &*req.params.name;
+                let args = req.params.arguments.unwrap_or_default();
+                match handle_tool_call(name, Value::Object(args), &self.state) {
+                    Ok(value) => {
+                        Ok(ServerResult::CallToolResult(CallToolResult::structured(value)))
+                    }
+                    Err(e) => {
+                        Ok(ServerResult::CallToolResult(CallToolResult::error(
+                            vec![Content {
+                                raw: RawContent::Text(RawTextContent {
+                                    text: e,
+                                    meta: None,
+                                }),
+                                annotations: None,
+                            }],
+                        )))
+                    }
+                }
             }
-            Err(err_msg) => {
-                send_error(id, transport::INTERNAL_ERROR, &err_msg, None);
-            }
+            other => Err(ErrorData::new(
+                rmcp::model::ErrorCode::METHOD_NOT_FOUND,
+                format!("method not supported: {other:?}"),
+                None,
+            )),
         }
     }
-}
 
-fn send_error(id: Option<Value>, code: i32, message: &str, data: Option<Value>) {
-    transport::send_response(&transport::JsonRpcResponse {
-        jsonrpc: "2.0".into(),
-        id,
-        result: None,
-        error: Some(transport::JsonRpcError {
-            code,
-            message: message.to_string(),
-            data,
-        }),
-    });
-}
+    async fn handle_notification(
+        &self,
+        _notification: rmcp::model::ClientNotification,
+        _context: NotificationContext<RoleServer>,
+    ) -> Result<(), ErrorData> {
+        // Notifications are fire-and-forget; no action needed.
+        Ok(())
+    }
 
-fn handle_initialize(_params: Value) -> Result<Value, String> {
-    Ok(serde_json::json!({
-        "protocolVersion": "2024-11-05",
-        "capabilities": {
-            "tools": {}
-        },
-        "serverInfo": {
-            "name": "i-rs-mcp",
-            "version": env!("CARGO_PKG_VERSION")
-        }
-    }))
-}
-
-fn handle_tools_list() -> Result<Value, String> {
-    let tools = get_tool_definitions();
-    Ok(serde_json::json!({ "tools": tools }))
-}
-
-fn handle_tools_call(params: Value, state: &AppState) -> Result<Value, String> {
-    let name = params["name"]
-        .as_str()
-        .ok_or("missing 'name' in tools/call params")?;
-    let args = params.get("arguments").cloned().unwrap_or(Value::Null);
-    handle_tool_call(name, args, state)
+    fn get_info(&self) -> rmcp::model::ServerInfo {
+        InitializeResult::new(
+            ServerCapabilities::builder().enable_tools().build(),
+        )
+        .with_server_info(Implementation::new("i-rs-mcp", env!("CARGO_PKG_VERSION")))
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Entry point
 // ═══════════════════════════════════════════════════════════════
 
-fn main() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = load_state();
-    transport::log(format!("i-rs MCP Server v{} started", env!("CARGO_PKG_VERSION")));
-    transport::log(format!("loaded {} stores", get_tool_definitions().len() / 4));
+    eprintln!(
+        "[i-rs-mcp] v{} started ({} stores)",
+        env!("CARGO_PKG_VERSION"),
+        get_tool_definitions().len() / 4
+    );
 
-    // Run the MCP session (blocking stdio loop)
-    run_session(state);
+    let server = McpServer { state };
+    let transport = (tokio_io::stdin(), tokio_io::stdout());
 
-    transport::log("shutdown complete");
+    match server.serve(transport).await {
+        Ok(running) => {
+            running.waiting().await.ok();
+        }
+        Err(e) => eprintln!("[i-rs-mcp] server error: {e}"),
+    }
+
+    eprintln!("[i-rs-mcp] shutdown complete");
+    Ok(())
 }

@@ -2746,8 +2746,10 @@ dependencies = [
  "i-rs-water",
  "i-rs-weight",
  "paste",
+ "rmcp",
  "serde",
  "serde_json",
+ "tokio",
  "uuid",
 ]
 

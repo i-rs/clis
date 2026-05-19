@@ -8,6 +8,10 @@ repository.workspace = true
 description = "MCP (Model Context Protocol) server for i-rs CLI tools"
 
 [dependencies]
+rmcp = { version = "1.7.0", default-features = false, features = [
+    "server",
+    "transport-io",
+] }
 i-rs-core = { path = "../core" }
 i-rs-ac = { path = "../clis/i-rs-ac" }
 i-rs-allergy = { path = "../clis/i-rs-allergy" }
@@ -80,6 +84,7 @@ i-rs-want = { path = "../clis/i-rs-want" }
 i-rs-water = { path = "../clis/i-rs-water" }
 i-rs-weight = { path = "../clis/i-rs-weight" }
 
+tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
