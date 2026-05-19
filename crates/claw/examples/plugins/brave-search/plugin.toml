@@ -1,0 +1,11 @@
+[plugin]
+name = "brave-search"
+version = "0.1.0"
+description = "Brave 搜索引擎 (需安装 @anthropic-ai/mcp-server-brave-search 并配置 API_KEY)"
+author = "Anthropic"
+
+[transport]
+transport_type = "stdio"
+command = "npx"
+args = ["-y", "@anthropic-ai/mcp-server-brave-search"]
+env = ["BRAVE_API_KEY=your-brave-api-key-here"]

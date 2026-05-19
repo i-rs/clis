@@ -1,0 +1,11 @@
+[package]
+name = "calculator-mcp"
+version = "0.1.0"
+edition = "2021"
+description = "MCP server example: a calculator with add/sub/mul/div tools"
+
+[workspace]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

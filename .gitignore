@@ -21,6 +21,9 @@ extensions/**/build/
 # Native Messaging host build artifacts
 extensions/i-rs-native-msg/target/
 
+# Example plugin build artifacts
+crates/claw/examples/plugins/*/target/
+
 # Browser agent screenshots
 *.png
 *.jpeg

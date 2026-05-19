@@ -1,0 +1,9 @@
+[plugin]
+name = "hello-mcp"
+version = "0.1.0"
+description = "示例插件：向某人打招呼"
+author = "i-rs"
+
+[transport]
+transport_type = "stdio"
+command = "hello-mcp"

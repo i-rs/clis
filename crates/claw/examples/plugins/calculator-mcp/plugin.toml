@@ -1,0 +1,9 @@
+[plugin]
+name = "calculator-mcp"
+version = "0.1.0"
+description = "示例插件：计算器 (加/减/乘/除/幂/统计)"
+author = "i-rs"
+
+[transport]
+transport_type = "stdio"
+command = "calculator-mcp"

@@ -1,0 +1,10 @@
+[plugin]
+name = "filesystem"
+version = "0.1.0"
+description = "文件系统操作 (读取、写入、搜索文件，需安装 @modelcontextprotocol/server-filesystem)"
+author = "Model Context Protocol"
+
+[transport]
+transport_type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/your/workspace"]
