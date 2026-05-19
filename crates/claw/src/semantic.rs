@@ -9,7 +9,7 @@
 
 use crate::convstore::{ConvStore, SearchResult};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
 // =============================================
@@ -18,6 +18,7 @@ use std::path::PathBuf;
 
 /// Generate embeddings for text using a remote API.
 #[async_trait::async_trait]
+#[allow(dead_code)]
 pub trait EmbeddingProvider: Send + Sync {
     /// Generate an embedding vector for a single text string.
     async fn embed(&self, text: &str) -> anyhow::Result<Vec<f64>>;
@@ -26,6 +27,7 @@ pub trait EmbeddingProvider: Send + Sync {
 }
 
 /// OpenAI-compatible embedding provider (uses /embeddings endpoint).
+#[allow(dead_code)]
 pub struct OpenaiEmbeddingProvider {
     client: reqwest::Client,
     api_key: String,
@@ -34,6 +36,7 @@ pub struct OpenaiEmbeddingProvider {
 }
 
 impl OpenaiEmbeddingProvider {
+    #[allow(dead_code)]
     pub fn new(api_key: String, base_url: String, model: Option<String>) -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
@@ -141,6 +144,7 @@ impl EmbeddingIndex {
     }
 
     /// Add entries to the index and persist.
+    #[allow(dead_code)]
     pub fn add_entries(&mut self, new_entries: Vec<IndexEntry>) {
         for entry in new_entries {
             // Deduplicate by (session_id, excerpt)
@@ -225,6 +229,7 @@ pub struct ScoredResult {
 pub struct SemanticSearch {
     conv_store: ConvStore,
     embed_index: EmbeddingIndex,
+    #[allow(dead_code)]
     claw_dir: PathBuf,
 }
 
@@ -245,6 +250,7 @@ impl SemanticSearch {
     }
 
     /// Get a mutable reference to the embedding index for indexing.
+    #[allow(dead_code)]
     pub fn embed_index_mut(&mut self) -> &mut EmbeddingIndex {
         &mut self.embed_index
     }

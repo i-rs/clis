@@ -380,6 +380,7 @@ pub fn smart_compress(
 ///
 /// Preserves top 5 skill teach docs (scored by cross-session frequency + recency)
 /// and the last 20 conversation messages for context.
+#[allow(dead_code)]
 pub fn compress_api_messages(
     msgs: &mut Vec<Value>,
     tool_frequency: &HashMap<String, usize>,

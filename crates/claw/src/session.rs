@@ -23,6 +23,7 @@ where
 }
 
 impl SessionState {
+    #[allow(dead_code)]
     pub fn label(&self) -> &str {
         match self {
             SessionState::Active => "活跃",
@@ -55,14 +56,17 @@ impl SessionState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_recoverable(&self) -> bool {
         matches!(self, SessionState::Error(_) | SessionState::Active)
     }
 
+    #[allow(dead_code)]
     pub fn is_terminal(&self) -> bool {
         matches!(self, SessionState::Completed | SessionState::Interrupted)
     }
 
+    #[allow(dead_code)]
     pub fn is_waiting(&self) -> bool {
         matches!(self, SessionState::WaitingForTool | SessionState::WaitingForApproval)
     }
@@ -174,11 +178,15 @@ impl SessionManager {
     }
 
     pub fn mark_waiting_for_tool(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::WaitingForTool) }
+    #[allow(dead_code)]
     pub fn mark_waiting_for_approval(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::WaitingForApproval) }
     pub fn mark_active(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::Active) }
+    #[allow(dead_code)]
     pub fn mark_completed(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::Completed) }
+    #[allow(dead_code)]
     pub fn mark_interrupted(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::Interrupted) }
     pub fn mark_error(&mut self, id: &str, msg: &str) -> bool { self.transition_state(id, SessionState::Error(msg.to_string())) }
+    #[allow(dead_code)]
     pub fn sessions_by_state(&self, state: &SessionState) -> Vec<&SessionMeta> { self.sessions.iter().filter(|s| &s.state == state).collect() }
 
     #[allow(dead_code)]
@@ -197,12 +205,14 @@ impl SessionManager {
         Vec::new()
     }
 
+    #[allow(dead_code)]
     pub fn save_plan(&self, id: &str, plan: &crate::core::orchestrator::Plan) {
         let path = self.plan_path(id);
         if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
         if let Ok(content) = serde_json::to_string(plan) { let _ = std::fs::write(&path, content); }
     }
 
+    #[allow(dead_code)]
     pub fn load_plan(&self, id: &str) -> Option<crate::core::orchestrator::Plan> {
         let path = self.plan_path(id);
         if !path.exists() { return None; }
@@ -340,6 +350,7 @@ impl SessionManager {
     fn messages_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}.jsonl", id)) }
     fn api_cache_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_api.json", id)) }
     fn plan_steps_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_plan.json", id)) }
+    #[allow(dead_code)]
     fn plan_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_orchestrator_plan.json", id)) }
     fn index_path(claw_dir: &PathBuf) -> PathBuf { claw_dir.join("index.json") }
 
