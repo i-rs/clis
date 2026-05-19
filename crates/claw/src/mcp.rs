@@ -5,6 +5,10 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+fn default_enabled() -> bool {
+    true
+}
+
 // ── Configuration ──
 
 /// Configuration for a single MCP server connection.
@@ -27,6 +31,9 @@ pub struct McpServerConfig {
     /// Environment variables in KEY=VAL format (for stdio transport).
     #[serde(default)]
     pub env: Option<Vec<String>>,
+    /// Whether this MCP server is enabled. Set to false to disable without removing.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 
 fn default_transport() -> String {
@@ -408,6 +415,10 @@ impl McpRegistry {
         let mut tools = Vec::new();
 
         for (_idx, server) in servers.iter().enumerate() {
+            // Skip disabled servers
+            if !server.enabled {
+                continue;
+            }
             // Dispatch based on transport type
             let client = match server.transport_type.as_str() {
                 "stdio" => match McpClient::connect(server) {

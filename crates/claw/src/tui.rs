@@ -65,7 +65,14 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // so that MCP registries are initialized with plugin configs
     if config.plugins_auto_discover {
         let plugin_mgr = crate::plugin::PluginManager::new();
-        let plugin_configs = plugin_mgr.to_mcp_configs();
+        let mut plugin_configs = plugin_mgr.to_mcp_configs();
+        // Filter out plugins that are disabled in config
+        if !config.disabled_plugins.is_empty() {
+            plugin_configs.retain(|pc| {
+                let plugin_name = pc.name.strip_prefix("plugin:").unwrap_or(&pc.name);
+                !config.disabled_plugins.contains(&plugin_name.to_string())
+            });
+        }
         if !plugin_configs.is_empty() {
             config.mcp_servers.extend(plugin_configs);
         }

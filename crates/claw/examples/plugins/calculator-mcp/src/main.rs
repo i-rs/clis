@@ -202,12 +202,9 @@ fn main() {
             })),
             "tools/list" => Ok(serde_json::json!({ "tools": tools })),
             "tools/call" => {
-                let args = req.params.as_ref()
-                    .and_then(|p| p.get("arguments"))
-                    .cloned()
-                    .unwrap_or(serde_json::Value::Null);
-                let tool_name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let tool_args = args.get("arguments").cloned().unwrap_or(serde_json::Value::Null);
+                let params = req.params.as_ref().unwrap_or(&serde_json::Value::Null);
+                let tool_name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let tool_args = params.get("arguments").cloned().unwrap_or(serde_json::Value::Null);
                 handle_tool_call(tool_name, &tool_args)
             }
             _ => Err(format!("不支持的方法: {}", method)),

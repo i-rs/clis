@@ -40,6 +40,10 @@ pub struct Config {
     /// Discovered plugins are merged into mcp_servers at startup.
     #[serde(default = "default_true")]
     pub plugins_auto_discover: bool,
+    /// Plugins to disable (by name). These will be skipped during auto-discovery.
+    /// Useful when you want a plugin installed but not loaded.
+    #[serde(default)]
+    pub disabled_plugins: Vec<String>,
     /// Gateway configuration for social platform integration.
     #[serde(default)]
     pub gateway: GatewayConfig,
@@ -324,6 +328,7 @@ impl Config {
             allowed_dirs: Vec::new(),
             mcp_servers: Vec::new(),
             plugins_auto_discover: true,
+            disabled_plugins: Vec::new(),
             agents: HashMap::new(),
             sub_agents: HashMap::new(),
             execution_mode: ExecutionMode::default(),

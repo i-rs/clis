@@ -653,6 +653,157 @@ pub fn run_plugin_disable(name: &str) -> anyhow::Result<()> {
 }
 
 // =============================================
+// MCP subcommand
+// =============================================
+
+pub fn run_mcp_list() -> anyhow::Result<()> {
+    let cfg = Config::load()?;
+
+    // Also check for plugin-discovered MCP servers
+    let mut all_mcp = cfg.mcp_servers.clone();
+    if cfg.plugins_auto_discover {
+        let plugin_mgr = crate::plugin::PluginManager::new();
+        for pc in plugin_mgr.to_mcp_configs() {
+            if !all_mcp.iter().any(|s| s.name == pc.name) {
+                all_mcp.push(pc);
+            }
+        }
+    }
+
+    if all_mcp.is_empty() {
+        println!("未配置 MCP 服务器，也没有发现插件");
+        return Ok(());
+    }
+
+    let config_count = cfg.mcp_servers.len();
+    let plugin_count = all_mcp.len() - config_count;
+    println!("MCP 服务器 (配置 {} 个", config_count);
+    if plugin_count > 0 {
+        print!(" + 插件 {} 个", plugin_count);
+    }
+    println!("):\n");
+
+    for srv in &all_mcp {
+        let source = if srv.name.starts_with("plugin:") {
+            "插件"
+        } else {
+            "配置"
+        };
+        let status = if srv.enabled { "enabled" } else { "disabled" };
+        let cmd = srv.command.as_deref().unwrap_or("-");
+        println!(
+            "  {:<20} [{:<6}] [{:<8}]  {}",
+            srv.name,
+            source,
+            status,
+            cmd,
+        );
+    }
+    Ok(())
+}
+
+pub fn run_mcp_check(name: &str) -> anyhow::Result<()> {
+    // Collect potential configs from config file and plugins
+    let cfg = Config::load()?;
+    let mut candidates: Vec<crate::mcp::McpServerConfig> = cfg.mcp_servers.clone();
+
+    if cfg.plugins_auto_discover {
+        let plugin_mgr = crate::plugin::PluginManager::new();
+        for pc in plugin_mgr.to_mcp_configs() {
+            if !candidates.iter().any(|s| s.name == pc.name) {
+                candidates.push(pc);
+            }
+        }
+    }
+
+    // Find by exact name or plugin:name prefix
+    let srv = candidates.iter().find(|s| s.name == name)
+        .or_else(|| candidates.iter().find(|s| {
+            let stripped = s.name.strip_prefix("plugin:").unwrap_or(&s.name);
+            stripped == name
+        }));
+
+    match srv {
+        Some(server) => {
+            println!("正在连接 MCP 服务器 '{}'...", server.name);
+            println!("  传输: {}", server.transport_type);
+            if let Some(cmd) = &server.command {
+                println!("  命令: {}", cmd);
+            }
+            if let Some(ref args) = server.args {
+                println!("  参数: {:?}", args);
+            }
+
+            // Try to connect
+            match crate::mcp::McpClient::connect(server) {
+                Ok(client) => {
+                    match client.initialize() {
+                        Ok(()) => println!("  ✓ 初始化成功"),
+                        Err(e) => {
+                            println!("  ✗ 初始化失败: {}", e);
+                            return Ok(());
+                        }
+                    }
+                    match client.list_tools() {
+                        Ok(tools) => {
+                            println!("  ✓ 发现 {} 个工具:", tools.len());
+                            for t in &tools {
+                                println!("    - {}: {}", t.name, t.description);
+                            }
+                        }
+                        Err(e) => println!("  ✗ 工具发现失败: {}", e),
+                    }
+                }
+                Err(e) => {
+                    println!("  ✗ 连接失败: {}", e);
+                }
+            }
+        }
+        None => {
+            println!("未找到 MCP 服务器 '{}'", name);
+            println!("可用服务器:");
+            for c in &candidates {
+                let stripped = c.name.strip_prefix("plugin:").unwrap_or(&c.name);
+                println!("  - {} ({})", stripped, c.name);
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn run_mcp_enable(name: &str) -> anyhow::Result<()> {
+    let mut cfg = Config::load()?;
+
+    match cfg.mcp_servers.iter_mut().find(|s| s.name == name) {
+        Some(srv) => {
+            srv.enabled = true;
+            cfg.save()?;
+            println!("Enabled MCP server: {}", name);
+        }
+        None => {
+            println!("MCP server '{}' not found", name);
+        }
+    }
+    Ok(())
+}
+
+pub fn run_mcp_disable(name: &str) -> anyhow::Result<()> {
+    let mut cfg = Config::load()?;
+
+    match cfg.mcp_servers.iter_mut().find(|s| s.name == name) {
+        Some(srv) => {
+            srv.enabled = false;
+            cfg.save()?;
+            println!("Disabled MCP server: {}", name);
+        }
+        None => {
+            println!("MCP server '{}' not found", name);
+        }
+    }
+    Ok(())
+}
+
+// =============================================
 // Helpers
 // =============================================
 
@@ -683,5 +834,6 @@ fn parse_mcp_server(input: &str) -> Option<crate::mcp::McpServerConfig> {
         args,
         url: None,
         env,
+        enabled: true,
     })
 }

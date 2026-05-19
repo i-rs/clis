@@ -243,6 +243,7 @@ impl PluginManager {
                     args: t.args.clone(),
                     url: t.url.clone(),
                     env: t.env.clone(),
+                    enabled: true,
                 }
             })
             .collect()

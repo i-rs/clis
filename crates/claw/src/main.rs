@@ -83,6 +83,21 @@ enum Command {
         #[arg(long)]
         disable: Option<String>,
     },
+    /// List and manage MCP servers
+    Mcp {
+        /// List all configured MCP servers
+        #[arg(long)]
+        list: bool,
+        /// Enable a MCP server by name
+        #[arg(long)]
+        enable: Option<String>,
+        /// Disable a MCP server by name
+        #[arg(long)]
+        disable: Option<String>,
+        /// Test MCP connection and show discovered tools
+        #[arg(long)]
+        check: Option<String>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -125,5 +140,22 @@ fn main() -> anyhow::Result<()> {
             ..
         } => cli::run_plugin_disable(&name),
         Command::Plugin { .. } => cli::run_plugin_list(),
+        Command::Mcp {
+            list: true,
+            ..
+        } => cli::run_mcp_list(),
+        Command::Mcp {
+            enable: Some(name),
+            ..
+        } => cli::run_mcp_enable(&name),
+        Command::Mcp {
+            disable: Some(name),
+            ..
+        } => cli::run_mcp_disable(&name),
+        Command::Mcp {
+            check: Some(name),
+            ..
+        } => cli::run_mcp_check(&name),
+        Command::Mcp { .. } => cli::run_mcp_list(),
     }
 }

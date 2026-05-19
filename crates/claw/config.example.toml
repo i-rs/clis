@@ -46,7 +46,7 @@ model = "deepseek-v4-flash"
 # ── MCP 服务器 ──────────────────────────────────────────────────────────────
 #
 # mcp_servers:  外部 MCP 工具服务器列表
-#               transport_type: "stdio"（本地进程）或 "sse"（远程 HTTP）
+#               enabled: 是否启用（默认 true），设为 false 可临时禁用
 #
 # [[mcp_servers]]
 # name = "filesystem"
@@ -54,17 +54,23 @@ model = "deepseek-v4-flash"
 # command = "npx"
 # args = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/workspace"]
 # env = ["NODE_PATH=/usr/local/lib/node_modules"]
+# enabled = true
 
 # [[mcp_servers]]
 # name = "github"
 # transport_type = "sse"
 # url = "https://mcp-github.example.com/sse"
+# enabled = true
 
 
 # ── 插件发现 ────────────────────────────────────────────────────────────────
 #
 # plugins_auto_discover:  自动发现 ~/.i-rs-claw/plugins/ 下的插件
+#                         插件以 "plugin:xxx" 名称注册到 MCP 列表
 plugins_auto_discover = true
+# disabled_plugins:  要禁用的插件列表（保留安装但禁止加载）
+#                    也可以通过 `i-rs-claw plugin enable/disable` 管理
+# disabled_plugins = ["hello-mcp", "calculator-mcp"]
 
 
 # ── 执行模式 ────────────────────────────────────────────────────────────────
