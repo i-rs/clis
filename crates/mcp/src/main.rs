@@ -358,7 +358,7 @@ make_mcp_tools! {
     (walkdog,     i_rs_walkdog::models::WalkdogStore,    i_rs_walkdog::models::WalkdogEntry,    entries, s),
     (want,        i_rs_want::models::WantStore,          i_rs_want::models::WantEntry,          entries, s),
     (water,       i_rs_water::models::WaterStore,        i_rs_water::models::WaterEntry,        entries, s),
-    (weight,      i_rs_weight::models::WeightStore,      i_rs_weight::models::WeightRecord,     records, d),
+    (weight,      i_rs_weight::models::WeightStore,      i_rs_weight::models::WeightRecord,     entries, s),
 }
 
 // ═══════════════════════════════════════════════════════════════

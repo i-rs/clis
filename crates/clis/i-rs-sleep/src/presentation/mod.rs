@@ -1,12 +1,6 @@
-use crate::models::{SleepRow, SleepStats};
-use owo_colors::OwoColorize;
+i_rs_core::presentation!(SleepRow, "records");
 
-pub use i_rs_core::presentation::output::{output_item, output_list};
-pub use i_rs_core::presentation::{OutputFormat, print_header, print_success};
-
-pub fn format_table(rows: &[SleepRow]) -> String {
-    i_rs_core::render_table(rows)
-}
+use crate::models::SleepStats;
 
 pub fn print_stats(stats: &SleepStats) {
     let style = owo_colors::Style::new().bold();
@@ -35,13 +29,5 @@ pub fn print_stats(stats: &SleepStats) {
         "{} {}h",
         "Max duration:".dimmed(),
         format!("{:.1}", stats.max_duration).yellow()
-    );
-}
-
-pub fn print_record_count(count: usize) {
-    println!(
-        "\n{} {} records",
-        "Total:".dimmed(),
-        count.to_string().cyan()
     );
 }

@@ -17,9 +17,11 @@ i-rs-api
 | GET | `/weight` | 列出所有体重记录 |
 | POST | `/weight` | 添加体重记录 |
 | GET | `/weight/stats` | 统计信息 |
-| GET | `/weight/{date}` | 获取某天记录 |
-| PATCH | `/weight/{date}` | 更新某天记录 |
-| DELETE | `/weight/{date}` | 删除某天记录 |
+| GET | `/weight/{id}` | 获取指定记录 |
+| PATCH | `/weight/{id}` | 更新指定记录 |
+| DELETE | `/weight/{id}` | 删除指定记录 |
+
+> 注释：自 weight 0.0.3 版本起，记录由日期主键改为 UUID 主键，CRUD 路径参数统一使用记录 ID。
 
 ## 全局响应格式
 
@@ -57,7 +59,7 @@ i-rs-api
   "success": false,
   "error": {
     "code": "NOT_FOUND",
-    "message": "Weight '2026-01-15' not found"
+    "message": "Weight 'abc12345' not found"
   },
   "meta": {
     "timestamp": "2026-01-15T10:30:00Z",
@@ -118,16 +120,16 @@ GET /weight/stats
 ### 获取记录
 
 ```
-GET /weight/{date}
+GET /weight/{id}
 ```
 
 路径参数：
-- `date` — 日期，格式 `YYYY-MM-DD`
+- `id` — 记录 ID（支持 UUID 短前缀）
 
 ### 更新记录
 
 ```
-PATCH /weight/{date}
+PATCH /weight/{id}
 Content-Type: application/json
 
 {
@@ -137,7 +139,7 @@ Content-Type: application/json
 ```
 
 路径参数：
-- `date` — 日期，格式 `YYYY-MM-DD`
+- `id` — 记录 ID
 
 请求体（所有字段可选）：
 - `weight` — 更新体重值
@@ -146,5 +148,5 @@ Content-Type: application/json
 ### 删除记录
 
 ```
-DELETE /weight/{date}
+DELETE /weight/{id}
 ```

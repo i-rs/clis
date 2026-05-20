@@ -1,11 +1,11 @@
+use crate::models::ListItem;
 use crate::presentation::{OutputFormat, output_error, output_item};
 use anyhow::Result;
 use owo_colors::OwoColorize;
-use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
+pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = crate::storage::load_store()?;
-    let record = match crate::service::get_weight(&store, &date) {
+    let record = match crate::service::get_weight(&store, &id) {
         Ok(r) => r,
         Err(e) => {
             if format.is_json() {
@@ -16,52 +16,26 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     };
 
     if format.is_json() {
-        #[derive(serde::Serialize)]
-        struct GetOutput {
-            date: String,
-            weight: f64,
-            tags: Vec<String>,
-            remark: Vec<String>,
-        }
-
-        let output = GetOutput {
-            date: record.date.format("%Y-%m-%d").to_string(),
-            weight: record.weight,
-            tags: record.tags.clone(),
-            remark: record.remark.clone(),
-        };
-
-        println!("{}", output_item(&output, format));
+        println!("{}", output_item(&ListItem::from(&record), format));
         return Ok(());
     }
 
-    let style = OwoStyle::new().bold();
     println!(
-        "{}",
-        format!("Weight Record: {}", record.date.format("%Y-%m-%d"))
-            .bold()
-            .cyan()
+        "{}  {}",
+        "Weight Record:".bold().cyan(),
+        record.id[..8].to_string().dimmed()
     );
-    println!();
-    println!("{:16} {:.1} kg", "Weight:".style(style), record.weight);
+    println!("  {:16} {:.1} kg", "Weight:".bold(), record.weight);
+    println!("  {:16} {}", "Date:".bold(), record.date.format("%Y-%m-%d"));
     if !record.tags.is_empty() {
         println!(
-            "{:16} {}",
-            "Tags:".style(style),
-            record
-                .tags
-                .iter()
-                .map(|t| t.magenta().to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
+            "  {:16} {}",
+            "Tags:".bold(),
+            record.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", ")
         );
     }
     if !record.remark.is_empty() {
-        println!(
-            "{:16} {}",
-            "Remark:".style(style),
-            record.remark.join("; ").dimmed()
-        );
+        println!("  {:16} {}", "Remark:".bold(), record.remark.join("; ").dimmed());
     }
 
     Ok(())

@@ -60,6 +60,7 @@ impl SleepStore {
         self.entries.remove(id)
     }
 
+    #[allow(dead_code)]
     pub fn get_entry(&self, id: &str) -> Option<&SleepRecord> {
         self.entries.get(id)
     }

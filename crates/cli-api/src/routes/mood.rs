@@ -42,6 +42,7 @@ pub struct AddMoodRequest {
     pub mood: String,
     pub note: Option<String>,
     pub tag: Option<Vec<String>>,
+    pub remark: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,8 +69,10 @@ async fn add_mood(
     let mood = req.mood;
     let content = req.note.map(|n| vec![n]).unwrap_or_default();
     let tags = req.tag.unwrap_or_default();
+    let remark = req.remark.unwrap_or_default();
     let record = state.mood.write(|store| {
-        i_rs_mood::service::add_mood(&mut *store, date, mood, tags, content).map_err(ApiError::from)
+        i_rs_mood::service::add_mood(&mut *store, date, mood, tags, content, remark)
+            .map_err(ApiError::from)
     })?;
     Ok(ok_json(record))
 }

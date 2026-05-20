@@ -6,15 +6,15 @@
 
 ```bash
 # Daily logging
-i-rs-weight add 2025-01-15 75.5
-i-rs-weight add 2025-01-16 75.2
-i-rs-weight add 2025-01-17 75.0
-i-rs-weight add 2025-01-18 74.8
+i-rs-weight add 75.5 --date 2025-01-15
+i-rs-weight add 75.2 --date 2025-01-16
+i-rs-weight add 75.0 --date 2025-01-17
+i-rs-weight add 74.8 --date 2025-01-18
 
 # With notes
-i-rs-weight add 2025-01-19 74.5 --remark "Morning weight"
-i-rs-weight add 2025-01-20 74.9 --remark "After large meal"
-i-rs-weight add 2025-01-21 74.3 --remark "Post workout" --remark "Fasted"
+i-rs-weight add 74.5 --date 2025-01-19 --remark "Morning weight"
+i-rs-weight add 74.9 --date 2025-01-20 --remark "After large meal"
+i-rs-weight add 74.3 --date 2025-01-21 --tag morning --remark "Fasted"
 ```
 
 ### Viewing Records
@@ -39,24 +39,31 @@ i-rs-weight list --stats
 i-rs-weight list --days 30 --chart --stats
 ```
 
+### Getting Records
+
+```bash
+# Get record by ID
+i-rs-weight get abc12345
+```
+
 ### Updating Records
 
 ```bash
 # Correct a measurement
-i-rs-weight update 2025-01-15 --weight 76.0
+i-rs-weight update abc12345 --weight 76.0
 
-# Add note to existing record
-i-rs-weight update 2025-01-15 --remark "After breakfast"
+# Update tag and note
+i-rs-weight update abc12345 --tag corrected --remark "After breakfast"
 
 # Full update
-i-rs-weight update 2025-01-16 -w 75.5 --remark "Corrected"
+i-rs-weight update abcdef --weight 75.5 --tag morning --remark "Corrected"
 ```
 
 ### Deleting Records
 
 ```bash
 # Remove incorrect entry
-i-rs-weight delete 2025-01-15
+i-rs-weight delete abc12345
 ```
 
 ## Advanced Usage
@@ -65,22 +72,22 @@ i-rs-weight delete 2025-01-15
 
 ```bash
 # Week 1
-i-rs-weight add 2025-01-01 80.0 --remark "Starting weight"
-i-rs-weight add 2025-01-02 79.8
-i-rs-weight add 2025-01-03 79.5
-i-rs-weight add 2025-01-04 79.3
-i-rs-weight add 2025-01-05 79.0
-i-rs-weight add 2025-01-06 78.8
-i-rs-weight add 2025-01-07 78.5
+i-rs-weight add 80.0 --date 2025-01-01 --remark "Starting weight"
+i-rs-weight add 79.8 --date 2025-01-02
+i-rs-weight add 79.5 --date 2025-01-03
+i-rs-weight add 79.3 --date 2025-01-04
+i-rs-weight add 79.0 --date 2025-01-05
+i-rs-weight add 78.8 --date 2025-01-06
+i-rs-weight add 78.5 --date 2025-01-07
 
 # Week 2
-i-rs-weight add 2025-01-08 78.2
-i-rs-weight add 2025-01-09 78.0
-i-rs-weight add 2025-01-10 77.8
-i-rs-weight add 2025-01-11 77.5
-i-rs-weight add 2025-01-12 77.3
-i-rs-weight add 2025-01-13 77.0
-i-rs-weight add 2025-01-14 76.8
+i-rs-weight add 78.2 --date 2025-01-08
+i-rs-weight add 78.0 --date 2025-01-09
+i-rs-weight add 77.8 --date 2025-01-10
+i-rs-weight add 77.5 --date 2025-01-11
+i-rs-weight add 77.3 --date 2025-01-12
+i-rs-weight add 77.0 --date 2025-01-13
+i-rs-weight add 76.8 --date 2025-01-14
 
 # View progress
 i-rs-weight list --days 14 --chart --stats
@@ -90,20 +97,20 @@ i-rs-weight list --days 14 --chart --stats
 
 ```bash
 # Track weight with workout notes
-i-rs-weight add 2025-01-15 70.0 --remark "Rest day"
-i-rs-weight add 2025-01-16 70.2 --remark "Upper body workout"
-i-rs-weight add 2025-01-17 69.8 --remark "Lower body workout" --remark "Sweated heavily"
-i-rs-weight add 2025-01-18 70.1 --remark "Rest day"
-i-rs-weight add 2025-01-19 69.9 --remark "Cardio day"
+i-rs-weight add 70.0 --date 2025-01-15 --remark "Rest day"
+i-rs-weight add 70.2 --date 2025-01-16 --remark "Upper body workout"
+i-rs-weight add 69.8 --date 2025-01-17 --remark "Lower body workout" --remark "Sweated heavily"
+i-rs-weight add 70.1 --date 2025-01-18 --remark "Rest day"
+i-rs-weight add 69.9 --date 2025-01-19 --remark "Cardio day"
 ```
 
 ### Bulk Update for Data Correction
 
 ```bash
 # If scale was off by 0.5kg, update multiple entries
-i-rs-weight update 2025-01-01 --weight 75.5
-i-rs-weight update 2025-01-02 --weight 75.2
-i-rs-weight update 2025-01-03 --weight 75.0
+i-rs-weight update abc12345 --weight 75.5
+i-rs-weight update def67890 --weight 75.2
+i-rs-weight update ghi11111 --weight 75.0
 ```
 
 ### Monthly Progress Review

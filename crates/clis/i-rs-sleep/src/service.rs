@@ -3,7 +3,6 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-#[allow(dead_code)]
 /// List sleep records, optionally filtered by tag.
 pub fn list_sleeps(store: &SleepStore, tag: Option<&str>) -> Result<Vec<SleepRecord>> {
     let entries: Vec<SleepRecord> = match tag {
@@ -18,7 +17,6 @@ pub fn list_sleeps(store: &SleepStore, tag: Option<&str>) -> Result<Vec<SleepRec
     Ok(entries)
 }
 
-#[allow(dead_code)]
 /// Get a sleep record by id.
 pub fn get_sleep(store: &SleepStore, id: &str) -> Result<SleepRecord> {
     store

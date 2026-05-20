@@ -38,7 +38,6 @@ pub struct WaterStore {
     pub entries: BTreeMap<String, WaterEntry>,
 }
 
-#[allow(dead_code)]
 impl WaterStore {
     pub fn add_entry(&mut self, entry: WaterEntry) {
         self.entries.insert(entry.id.clone(), entry);
@@ -52,6 +51,7 @@ impl WaterStore {
     pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut WaterEntry> {
         self.entries.get_mut(id)
     }
+    #[allow(dead_code)]
     pub fn get_total_today(&self) -> i32 {
         let today = Utc::now().date_naive();
         self.entries

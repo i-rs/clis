@@ -26,17 +26,19 @@ struct Cli {
 enum Commands {
     /// Add a new entry
     Add {
-        #[arg(value_name = "DATE")]
-        date: String,
         #[arg(value_name = "WEIGHT")]
         weight: f64,
+        #[arg(short, long)]
+        date: Option<String>,
+        #[arg(short, long)]
+        tag: Vec<String>,
         #[arg(short, long)]
         remark: Vec<String>,
     },
     /// Delete an entry
     Delete {
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(value_name = "ID")]
+        id: String,
     },
     /// List all entries
     List {
@@ -49,17 +51,19 @@ enum Commands {
     },
     /// Update an entry
     Update {
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(value_name = "ID")]
+        id: String,
         #[arg(short = 'w', long)]
         weight: Option<f64>,
+        #[arg(short, long)]
+        tag: Option<Vec<String>>,
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
     /// Get an entry by id
     Get {
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(value_name = "ID")]
+        id: String,
     },
     /// Show usage examples
     Example {},
@@ -83,27 +87,29 @@ fn main() {
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
         Commands::Add {
-            date,
             weight,
+            date,
+            tag,
             remark,
         } => {
-            handle_add(date, weight, remark, format)?;
+            handle_add(date, weight, tag, remark, format)?;
         }
-        Commands::Delete { date } => {
-            handle_delete(date, format)?;
+        Commands::Delete { id } => {
+            handle_delete(id, format)?;
         }
-        Commands::Get { date } => {
-            handle_get(date, format)?;
+        Commands::Get { id } => {
+            handle_get(id, format)?;
         }
         Commands::List { days, chart, stats } => {
             handle_list(days, chart, stats, format)?;
         }
         Commands::Update {
-            date,
+            id,
             weight,
+            tag,
             remark,
         } => {
-            handle_update(date, weight, remark, format)?;
+            handle_update(id, weight, tag, remark, format)?;
         }
         Commands::Example {} => {
             handle_example();

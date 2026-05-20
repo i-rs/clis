@@ -9,42 +9,44 @@
 | Command | Description |
 |---------|-------------|
 | `add` | Add a weight record |
+| `get` | Get a weight record by ID |
 | `list` | List weight records with optional chart and stats |
-| `update` | Update a weight record |
-| `delete` | Delete a weight record |
+| `update` | Update a weight record by ID |
+| `delete` | Delete a weight record by ID |
 
 ## add
 
 Add a new weight record.
 
 ```bash
-i-rs-weight add <DATE> <WEIGHT> [OPTIONS]
+i-rs-weight add <WEIGHT> [OPTIONS]
 ```
 
 ### Arguments
 
 | Argument | Description | Required |
 |----------|-------------|----------|
-| `DATE` | Date (YYYY-MM-DD) | Yes |
 | `WEIGHT` | Weight value (kg) | Yes |
 
 ### Options
 
 | Short | Long | Description |
 |-------|------|-------------|
-| `-r` | `--remark` | Remarks (can be specified multiple times) |
+| `-d` | `--date` | Date (YYYY-MM-DD, defaults to today) |
+| `-t` | `--tag` | Tags (can be repeated) |
+| `-r` | `--remark` | Remarks (can be repeated) |
 
 ### Examples
 
 ```bash
 # Add record for today
-i-rs-weight add 2025-01-15 70.5
+i-rs-weight add 70.5
 
-# Add with remark
-i-rs-weight add 2025-01-16 70.3 --remark "After workout"
+# Add with date and remark
+i-rs-weight add 70.3 --date 2025-01-16 --remark "After workout"
 
-# Add multiple remarks
-i-rs-weight add 2025-01-17 70.1 --remark "Morning weight" --remark "Fasted"
+# Add with tags and remarks
+i-rs-weight add 70.1 --date 2025-01-17 --tag morning --remark "Fasted"
 ```
 
 ---
@@ -93,38 +95,59 @@ Shows:
 
 ---
 
-## update
+## get
 
-Update an existing weight record.
+Get a weight record by ID.
 
 ```bash
-i-rs-weight update <DATE> [OPTIONS]
+i-rs-weight get <ID>
 ```
 
 ### Arguments
 
 | Argument | Description | Required |
 |----------|-------------|----------|
-| `DATE` | Date of record to update | Yes |
+| `ID` | Record ID (supports short prefix) | Yes |
+
+### Examples
+
+```bash
+# Get record by ID
+i-rs-weight get abc12345
+```
+
+---
+
+## update
+
+Update an existing weight record.
+
+```bash
+i-rs-weight update <ID> [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `ID` | ID of record to update | Yes |
 
 ### Options
 
 | Short | Long | Description |
 |-------|------|-------------|
 | `-w` | `--weight` | New weight value |
+| `-t` | `--tag` | New tags (replaces all) |
 | `-r` | `--remark` | New remarks (replaces all) |
 
 ### Examples
 
 ```bash
 # Update weight value
-i-rs-weight update 2025-01-15 --weight 70.0
+i-rs-weight update abc12345 --weight 70.0
 
-# Update remarks
-i-rs-weight update 2025-01-15 --remark "Corrected measurement"
-
-# Update both
-i-rs-weight update 2025-01-15 -w 69.5 --remark "Morning weight"
+# Update tags and remarks
+i-rs-weight update abc12345 --tag morning --remark "Corrected measurement"
 ```
 
 ---
@@ -134,20 +157,20 @@ i-rs-weight update 2025-01-15 -w 69.5 --remark "Morning weight"
 Delete a weight record.
 
 ```bash
-i-rs-weight delete <DATE>
+i-rs-weight delete <ID>
 ```
 
 ### Arguments
 
 | Argument | Description | Required |
 |----------|-------------|----------|
-| `DATE` | Date of record to delete | Yes |
+| `ID` | ID of record to delete | Yes |
 
 ### Examples
 
 ```bash
 # Delete a specific record
-i-rs-weight delete 2025-01-15
+i-rs-weight delete abc12345
 ```
 
 ### data

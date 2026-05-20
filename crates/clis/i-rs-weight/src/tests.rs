@@ -20,34 +20,56 @@ mod tests {
     #[test]
     fn test_crud() {
         setup();
-        let cmd = Commands::Add {
-            date: "2024-01-15".to_string(),
-            weight: 1.0,
-            remark: vec![],
+
+        // Use service to create a record and capture its ID
+        let mut store = crate::storage::load_store().unwrap();
+        let record = crate::service::add_weight(
+            &mut store,
+            Some("2024-01-15".to_string()),
+            1.0,
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let id1 = record.id.clone();
+
+        let record2 = crate::service::add_weight(
+            &mut store,
+            Some("2024-01-16".to_string()),
+            1.0,
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let id2 = record2.id.clone();
+        crate::storage::save_store(&store).unwrap();
+
+        // List
+        let cmd = Commands::List {
+            days: None,
+            chart: false,
+            stats: false,
         };
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
-        let cmd = Cli::try_parse_from(["i-rs-weight", "list"])
-            .unwrap()
-            .command;
-        assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
-        let cmd = Commands::Add {
-            date: "2024-01-16".to_string(),
-            weight: 1.0,
-            remark: vec![],
-        };
-        run(cmd, crate::presentation::OutputFormat::Table).unwrap();
+
+        // Get by id (short prefix)
         let get_cmd = Commands::Get {
-            date: "2024-01-16".to_string(),
+            id: id2[..8].to_string(),
         };
         assert!(run(get_cmd, crate::presentation::OutputFormat::Table).is_ok());
+
+        // Update by id
         let update_cmd = Commands::Update {
-            date: "2024-01-16".to_string(),
+            id: id2[..8].to_string(),
             weight: None,
+            tag: None,
             remark: None,
         };
         assert!(run(update_cmd, crate::presentation::OutputFormat::Table).is_ok());
+
+        // Delete by id
         let del_cmd = Commands::Delete {
-            date: "2024-01-16".to_string(),
+            id: id1[..8].to_string(),
         };
         assert!(run(del_cmd, crate::presentation::OutputFormat::Table).is_ok());
     }
@@ -56,7 +78,7 @@ mod tests {
     fn test_get_not_found() {
         setup();
         let get_cmd = Commands::Get {
-            date: "nonexistent".to_string(),
+            id: "nonexist".to_string(),
         };
         assert!(run(get_cmd, crate::presentation::OutputFormat::Table).is_err());
     }

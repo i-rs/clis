@@ -15,11 +15,13 @@ brew install i-rs/homebrew-tap/i-rs-weight
 ### Add Weight Record
 
 ```bash
-i-rs-weight add <DATE> <WEIGHT> [OPTIONS]
+i-rs-weight add <WEIGHT> [OPTIONS]
 ```
 
 Options:
-- `-r, --remark <REMARK>` - Remarks (can be specified multiple times)
+- `-d, --date <DATE>` - Date YYYY-MM-DD (default: today)
+- `-t, --tag <TAG>` - Tags (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### List Weight Records
 
@@ -35,27 +37,34 @@ Options:
 ### Update Weight Record
 
 ```bash
-i-rs-weight update <DATE> [OPTIONS]
+i-rs-weight update <ID> [OPTIONS]
 ```
 
 Options:
 - `-w, --weight <WEIGHT>` - New weight value
-- `-r, --remark <REMARK>` - New remarks
+- `-t, --tag <TAG>` - New tags (replaces all)
+- `-r, --remark <REMARK>` - New remarks (replaces all)
 
 ### Delete Weight Record
 
 ```bash
-i-rs-weight delete <DATE>
+i-rs-weight delete <ID>
+```
+
+### Get Weight Record
+
+```bash
+i-rs-weight get <ID>
 ```
 
 ## Examples
 
 ```bash
 # Add a weight record
-i-rs-weight add 2025-01-15 70.5
+i-rs-weight add 70.5
 
-# Add with remarks
-i-rs-weight add 2025-01-16 70.3 --remark "After workout"
+# Add with date and remarks
+i-rs-weight add 70.3 --date 2025-01-16 --remark "After workout"
 
 # List all records
 i-rs-weight list
@@ -69,11 +78,14 @@ i-rs-weight list --chart
 # Show only stats
 i-rs-weight list --stats
 
+# Get a record
+i-rs-weight get abc12345
+
 # Update a record
-i-rs-weight update 2025-01-15 --weight 70.0
+i-rs-weight update abc12345 --weight 70.0
 
 # Delete a record
-i-rs-weight delete 2025-01-15
+i-rs-weight delete abc12345
 ```
 
 ## Chart Example

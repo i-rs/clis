@@ -277,7 +277,7 @@ async fn test_tools_call_weight_add_and_delete() {
     assert_result(&resp, "weight_add");
     let add_content = &resp["result"]["content"][0]["text"];
     let add_data: Value = serde_json::from_str(add_content.as_str().unwrap()).unwrap();
-    let added_date = add_data["date"].as_str().unwrap().to_string();
+    let added_id = add_data["id"].as_str().unwrap().to_string();
     assert_eq!(add_data["weight"], 75.5);
 
     // Verify by listing
@@ -293,7 +293,7 @@ async fn test_tools_call_weight_add_and_delete() {
     let resp = recv(&mut reader, &mut line).await;
     assert_result(&resp, "weight_list after add");
 
-    // Delete the entry by date (weight store uses NaiveDate keys)
+    // Delete the entry by ID (weight store now uses UUID keys)
     send(
         &mut stdin,
         &jsonrpc(
@@ -301,7 +301,7 @@ async fn test_tools_call_weight_add_and_delete() {
             "tools/call",
             Some(serde_json::json!({
                 "name": "weight_delete",
-                "arguments": {"id": &added_date},
+                "arguments": {"id": &added_id},
             })),
         ),
     )
@@ -325,7 +325,7 @@ async fn test_tools_call_weight_add_and_delete() {
     let list_data: Value = serde_json::from_str(content_text.as_str().unwrap()).unwrap();
     let entries = list_data["entries"].as_array().unwrap();
     assert!(
-        !entries.iter().any(|e| e["date"] == added_date),
+        !entries.iter().any(|e| e["id"] == added_id),
         "expected deleted entry to no longer appear in list"
     );
 

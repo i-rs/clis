@@ -1,6 +1,6 @@
-use crate::models::WeightRecord;
+use crate::models::{ListItem, WeightRecord, WeightRow};
 use crate::presentation::{
-    OutputFormat, format_table, output_list, print_chart, print_record_count, print_warning,
+    OutputFormat, format_table, output_list, print_chart, print_entry_count, print_warning,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -27,25 +27,8 @@ pub fn handle_list(
         return Ok(());
     }
 
-    let records_ref: Vec<&WeightRecord> = records.iter().collect();
-
     if format.is_json() {
-        #[derive(serde::Serialize, Clone)]
-        struct ListItem {
-            date: String,
-            weight: f64,
-            remark: Vec<String>,
-        }
-
-        let items: Vec<ListItem> = records
-            .iter()
-            .map(|r| ListItem {
-                date: r.date.format("%Y-%m-%d").to_string(),
-                weight: r.weight,
-                remark: r.remark.clone(),
-            })
-            .collect();
-
+        let items: Vec<ListItem> = records.iter().map(ListItem::from).collect();
         let filter = days.map(|d| format!("last {d} days"));
         println!(
             "{}",
@@ -54,13 +37,12 @@ pub fn handle_list(
         return Ok(());
     }
 
-    let table = format_table(&records_ref);
-    println!("\n{table}");
-
-    print_record_count(records_ref.len());
+    let rows: Vec<WeightRow> = records.iter().map(WeightRow::from_record).collect();
+    println!("\n{}", format_table(&rows));
+    print_entry_count(rows.len());
 
     if stats {
-        let (min, max, avg, change) = calculate_stats(&records_ref);
+        let (min, max, avg, change) = calculate_stats(&records);
 
         println!("\n{}", "Statistics:".bold().cyan());
         if let Some(min) = min {
@@ -79,6 +61,7 @@ pub fn handle_list(
     }
 
     if chart {
+        let records_ref: Vec<&WeightRecord> = records.iter().collect();
         print_chart(&records_ref, days);
     }
 
@@ -86,7 +69,7 @@ pub fn handle_list(
 }
 
 fn calculate_stats(
-    records: &[&WeightRecord],
+    records: &[WeightRecord],
 ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
     if records.is_empty() {
         return (None, None, None, None);

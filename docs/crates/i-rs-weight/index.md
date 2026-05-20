@@ -10,10 +10,10 @@ i-rs-weight helps you track your body weight over time with optional ASCII chart
 
 ```bash
 # Add a weight record
-i-rs-weight add 2025-01-15 70.5
+i-rs-weight add 70.5
 
-# Add with remarks
-i-rs-weight add 2025-01-16 70.3 --remark "After workout"
+# Add with date and remarks
+i-rs-weight add 70.3 --date 2025-01-16 --remark "After workout"
 
 # List all records
 i-rs-weight list
@@ -27,11 +27,14 @@ i-rs-weight list --chart
 # Show only stats
 i-rs-weight list --stats
 
+# Get a record
+i-rs-weight get abc12345
+
 # Update a record
-i-rs-weight update 2025-01-15 --weight 70.0
+i-rs-weight update abc12345 --weight 70.0
 
 # Delete a record
-i-rs-weight delete 2025-01-15
+i-rs-weight delete abc12345
 ```
 
 ## Installation

@@ -600,7 +600,7 @@ mod tests {
     async fn test_patch_weight() {
         let app = test_app();
 
-        // POST to create a weight entry with a specific date (avoid cross-test conflict)
+        // POST to create a weight entry
         let res = app
             .clone()
             .oneshot(
@@ -616,14 +616,21 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        let weight_id = body["data"]["id"].as_str().unwrap().to_string();
 
-        // PATCH — update weight value using the same date
+        // PATCH — update weight value using the returned ID
         let res = app
             .clone()
             .oneshot(
                 Request::builder()
                     .method("PATCH")
-                    .uri("/api/weight/2024-06-15")
+                    .uri(format!("/api/weight/{}", weight_id))
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::json!({"weight": 71.5}).to_string()))
                     .unwrap(),
@@ -642,20 +649,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_patch_weight_invalid_date() {
+    async fn test_patch_weight_not_found() {
         let app = test_app();
         let res = app
             .oneshot(
                 Request::builder()
                     .method("PATCH")
-                    .uri("/api/weight/not-a-date")
+                    .uri("/api/weight/nonexistent-id")
                     .header("content-type", "application/json")
                     .body(Body::from(r#"{"weight": 70.0}"#))
                     .unwrap(),
             )
             .await
             .unwrap();
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

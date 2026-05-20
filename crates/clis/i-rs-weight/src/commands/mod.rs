@@ -1,4 +1,5 @@
 pub mod add;
+pub mod data;
 pub mod delete;
 pub mod example;
 pub mod get;
@@ -11,7 +12,5 @@ pub use delete::handle_delete;
 pub use example::handle_example;
 pub use get::handle_get;
 pub use list::handle_list;
-pub use skill::{handle_skill};
+pub use skill::handle_skill;
 pub use update::handle_update;
-
-pub mod data;

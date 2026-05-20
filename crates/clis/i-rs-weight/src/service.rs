@@ -3,50 +3,57 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use i_rs_core::parse_date;
 
-/// List weight records, optionally filtered by recent days.
+/// List weight records, optionally filtered by recent days, sorted by date.
 pub fn list_weights(store: &WeightStore, days: Option<usize>) -> Result<Vec<WeightRecord>> {
-    let records: Vec<WeightRecord> = if let Some(d) = days {
+    let mut records: Vec<WeightRecord> = if let Some(d) = days {
         let cutoff = Utc::now().date_naive() - chrono::Duration::days(d as i64);
         store
-            .records
+            .entries
             .values()
             .filter(|r| r.date >= cutoff)
             .cloned()
             .collect()
     } else {
-        store.records.values().cloned().collect()
+        store.entries.values().cloned().collect()
     };
+    records.sort_by(|a, b| a.date.cmp(&b.date));
     Ok(records)
 }
 
-/// Get a single weight record by date string.
-pub fn get_weight(store: &WeightStore, date_str: &str) -> Result<WeightRecord> {
-    let date = parse_date(date_str)?;
+/// Find a record by short-ID prefix matching.
+pub fn find_by_id<'a>(store: &'a WeightStore, id: &str) -> Result<&'a WeightRecord> {
     let record = store
-        .records
-        .get(&date)
-        .cloned()
-        .with_context(|| format!("No record found for {date}"))?;
+        .entries
+        .iter()
+        .find(|(key, _)| key.starts_with(id))
+        .map(|(_, v)| v)
+        .with_context(|| format!("No record found for ID '{id}'"))?;
     Ok(record)
 }
 
-/// Add a weight record.
+/// Get a single weight record by ID.
+pub fn get_weight(store: &WeightStore, id: &str) -> Result<WeightRecord> {
+    find_by_id(store, id).cloned()
+}
+
+/// Add a weight record with UUID. `date_str` defaults to today if None.
 pub fn add_weight(
     store: &mut WeightStore,
-    date_str: String,
+    date_str: Option<String>,
     weight: f64,
+    tags: Vec<String>,
     remark: Vec<String>,
 ) -> Result<WeightRecord> {
-    let date = parse_date(&date_str)?;
-
-    if store.records.contains_key(&date) {
-        anyhow::bail!("Record for {date} already exists");
-    }
+    let date = match date_str {
+        Some(ref s) => parse_date(s)?,
+        None => Utc::now().date_naive(),
+    };
 
     let record = WeightRecord {
+        id: uuid::Uuid::new_v4().to_string(),
         date,
         weight,
-        tags: Vec::new(),
+        tags,
         remark,
     };
 
@@ -54,21 +61,26 @@ pub fn add_weight(
     Ok(record)
 }
 
-/// Update a weight record.
+/// Update a weight record by ID.
 pub fn update_weight(
     store: &mut WeightStore,
-    date_str: String,
+    id: String,
     weight: Option<f64>,
+    tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<WeightRecord> {
-    let date = parse_date(&date_str)?;
+    let record = find_by_id(store, &id)?;
+    let key = record.id.clone();
 
     let record = store
-        .get_entry_mut(&date)
-        .with_context(|| format!("No record found for {date}"))?;
+        .get_entry_mut(&key)
+        .with_context(|| format!("No record found for ID '{id}'"))?;
 
     if let Some(w) = weight {
         record.weight = w;
+    }
+    if let Some(t) = tags {
+        record.tags = t;
     }
     if let Some(r) = remark {
         record.remark = r;
@@ -78,13 +90,13 @@ pub fn update_weight(
     Ok(updated)
 }
 
-/// Delete a weight record.
-pub fn delete_weight(store: &mut WeightStore, date_str: String) -> Result<()> {
-    let date = parse_date(&date_str)?;
+/// Delete a weight record by ID.
+pub fn delete_weight(store: &mut WeightStore, id: String) -> Result<()> {
+    let record = find_by_id(store, &id)?;
+    let key = record.id.clone();
 
-    if store.remove_entry(&date).is_none() {
-        anyhow::bail!("No record found for {date}");
+    if store.remove_entry(&key).is_none() {
+        anyhow::bail!("No record found for ID '{id}'");
     }
-
     Ok(())
 }

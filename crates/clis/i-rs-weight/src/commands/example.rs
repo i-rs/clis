@@ -6,8 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add Weight Record:".bold().green());
-    println!("  i-rs-weight add 2025-06-14 70.5 --remark \"After workout\"");
-    println!("  i-rs-weight add 2025-06-15 70.3");
+    println!("  i-rs-weight add 70.5");
+    println!("  i-rs-weight add 70.5 --date 2025-06-14 --remark \"After workout\"");
+    println!("  i-rs-weight add 70.3 --date 2025-06-15");
     println!();
 
     println!("{}", "List Records:".bold().green());
@@ -25,12 +26,17 @@ pub fn handle_example() {
     println!("  i-rs-weight list --days 30 --stats");
     println!();
 
+    println!("{}", "Get Record by ID:".bold().green());
+    println!("  i-rs-weight get abc12345");
+    println!();
+
     println!("{}", "Update Record:".bold().green());
-    println!("  i-rs-weight update 2025-06-14 --weight 70.2 --remark \"Morning weight\"");
+    println!("  i-rs-weight update abc12345 --weight 70.2");
+    println!("  i-rs-weight update abc12345 --tag morning --remark \"Morning weight\"");
     println!();
 
     println!("{}", "Delete Record:".bold().green());
-    println!("  i-rs-weight delete 2025-06-15");
+    println!("  i-rs-weight delete abc12345");
     println!();
 
     println!("{}", "JSON Output:".bold().green());

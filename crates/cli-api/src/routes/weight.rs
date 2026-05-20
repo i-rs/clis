@@ -10,18 +10,23 @@ use serde::Deserialize;
 use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
+
 async fn update_weight(
     State(state): State<Arc<AppState>>,
-    Path(date): Path<String>,
+    Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let entry_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
-        .map_err(|_| ApiError::BadRequest(format!("Invalid date '{date}', expected YYYY-MM-DD")))?;
     let entry = state.weight.write(|store| -> Result<_, ApiError> {
+        let key = store
+            .entries
+            .iter()
+            .find(|(k, _)| k.starts_with(&id))
+            .map(|(k, _)| k.clone())
+            .ok_or_else(|| ApiError::NotFound(format!("Weight '{id}' not found")))?;
         let entry = store
-            .records
-            .get_mut(&entry_date)
-            .ok_or_else(|| ApiError::NotFound(format!("Weight '{date}' not found")))?;
+            .entries
+            .get_mut(&key)
+            .ok_or_else(|| ApiError::NotFound(format!("Weight '{id}' not found")))?;
         crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
     })?;
@@ -33,14 +38,15 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/", get(list_weights))
         .route("/", post(add_weight))
         .route("/stats", get(weight_stats))
-        .route("/{date}", get(get_weight).patch(update_weight))
-        .route("/{date}", delete(delete_weight))
+        .route("/{id}", get(get_weight).patch(update_weight))
+        .route("/{id}", delete(delete_weight))
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AddWeightRequest {
     pub date: Option<String>,
     pub weight: f64,
+    pub tag: Option<Vec<String>>,
     pub remark: Option<Vec<String>>,
 }
 
@@ -55,42 +61,37 @@ async fn add_weight(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AddWeightRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let date = req
-        .date
-        .unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
     let weight = req.weight;
+    let tags = req.tag.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
     let record = state.weight.write(|store| {
-        i_rs_weight::service::add_weight(store, date, weight, remark).map_err(ApiError::from)
+        i_rs_weight::service::add_weight(store, req.date, weight, tags, remark)
+            .map_err(ApiError::from)
     })?;
     Ok(ok_json(record))
 }
 
 async fn get_weight(
     State(state): State<Arc<AppState>>,
-    Path(date): Path<String>,
+    Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let record = state
         .weight
-        .read(|store| i_rs_weight::service::get_weight(store, &date).map_err(ApiError::from))?;
+        .read(|store| i_rs_weight::service::get_weight(store, &id).map_err(ApiError::from))?;
     Ok(ok_json(record))
 }
 
 async fn weight_stats(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_json::Value>> {
-    let count = state.weight.read(|store| store.records.len());
-    Ok(ok_json(serde_json::json!({ "count": count })))
+    let count = state.weight.read(|store| store.entries.len());
+    Ok(ok_json(serde_json::json!({"count": count})))
 }
 
 async fn delete_weight(
     State(state): State<Arc<AppState>>,
-    Path(date): Path<String>,
+    Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
     state.weight.write(|store| {
-        let entry_date = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
-            .map_err(|_| ApiError::BadRequest(format!("Invalid date '{date}', expected YYYY-MM-DD")))?;
-        store.records.remove(&entry_date)
-            .ok_or_else(|| ApiError::NotFound(format!("Weight '{date}' not found")))?;
-        Ok::<(), ApiError>(())
+        i_rs_weight::service::delete_weight(store, id).map_err(ApiError::from)
     })?;
     Ok(ok_json_message())
 }

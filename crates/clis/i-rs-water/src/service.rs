@@ -20,8 +20,7 @@ pub fn list_waters(store: &WaterStore, tag: Option<&str>) -> Result<Vec<WaterEnt
 /// Get a water entry by id.
 pub fn get_water(store: &WaterStore, id: &str) -> Result<WaterEntry> {
     store
-        .entries
-        .get(id)
+        .get_entry(id)
         .cloned()
         .with_context(|| format!("Water record '{id}' not found"))
 }
@@ -55,8 +54,7 @@ pub fn update_water(
     remark: Option<Vec<String>>,
 ) -> Result<WaterEntry> {
     let entry = store
-        .entries
-        .get_mut(id)
+        .get_entry_mut(id)
         .with_context(|| format!("Water record '{id}' not found"))?;
 
     if let Some(a) = amount_ml {
@@ -75,8 +73,7 @@ pub fn update_water(
 /// Delete a water entry by id.
 pub fn delete_water(store: &mut WaterStore, id: &str) -> Result<()> {
     store
-        .entries
-        .remove(id)
+        .remove_entry(id)
         .ok_or_else(|| anyhow::anyhow!("Water record '{id}' not found"))?;
     Ok(())
 }

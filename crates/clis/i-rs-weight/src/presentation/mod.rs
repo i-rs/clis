@@ -1,18 +1,7 @@
-use crate::models::{WeightRecord, WeightRow};
-pub use i_rs_core::presentation::output::{output_error, output_item, output_list};
-pub use i_rs_core::presentation::{OutputFormat, print_success, print_warning};
-use owo_colors::OwoColorize;
-pub fn format_table(records: &[&WeightRecord]) -> String {
-    let rows: Vec<WeightRow> = records.iter().map(|r| WeightRow::from_record(r)).collect();
-    i_rs_core::render_table(&rows)
-}
-pub fn print_record_count(count: usize) {
-    println!(
-        "\n{} {} records",
-        "Total:".dimmed(),
-        count.to_string().cyan()
-    );
-}
+use crate::models::WeightRecord;
+
+i_rs_core::presentation!(WeightRow, "records", print_warning);
+
 pub fn print_chart(records: &[&WeightRecord], days: Option<usize>) {
     if records.is_empty() {
         print_warning("No records to display chart.");
