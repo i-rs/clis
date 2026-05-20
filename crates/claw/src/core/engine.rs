@@ -531,3 +531,291 @@ pub async fn chat_loop(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── smart_compress tests ──
+
+    #[test]
+    fn test_smart_compress_empty_noop() {
+        let mut msgs = vec![];
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        assert!(msgs.is_empty());
+    }
+
+    #[test]
+    fn test_smart_compress_below_threshold_noop() {
+        let msgs = vec![
+            json!({"role": "system", "content": "sys"}),
+            json!({"role": "user", "content": "hi"}),
+            json!({"role": "assistant", "content": "hello"}),
+        ];
+        // 3 messages <= 1 + recent_keep(5) = 6 → no-op
+        let expected = msgs.clone();
+        let mut actual = msgs;
+        smart_compress(&mut actual, &HashMap::new(), 5, 5);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_smart_compress_keeps_system_message() {
+        let mut msgs: Vec<Value> = (0..20).map(|i| {
+            json!({"role": "user", "content": format!("msg {}", i)})
+        }).collect();
+        msgs.insert(0, json!({"role": "system", "content": "sys"}));
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        assert_eq!(msgs[0]["role"], "system");
+    }
+
+    #[test]
+    fn test_smart_compress_keeps_recent_messages() {
+        let mut msgs: Vec<Value> = (0..20).map(|i| {
+            json!({"role": "user", "content": format!("msg {}", i)})
+        }).collect();
+        msgs.insert(0, json!({"role": "system", "content": "sys"}));
+        let before_len = msgs.len();
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        assert!(msgs.len() < before_len);
+        // Last 5 messages always kept
+        assert_eq!(msgs[msgs.len() - 1]["content"], "msg 19");
+        assert_eq!(msgs[msgs.len() - 5]["content"], "msg 15");
+    }
+
+    #[test]
+    fn test_smart_compress_keeps_top_teach_pairs() {
+        // Build messages with 2 teach pairs + some filler
+        let mut msgs: Vec<Value> = vec![
+            json!({"role": "system", "content": "sys"}),
+            json!({"role": "user", "content": "filler 1"}),
+            json!({"role": "assistant", "content": "filler 1 response"}),
+            json!({"role": "user", "content": "filler 2"}),
+            json!({"role": "assistant", "content": "filler 2 response"}),
+        ];
+        // Add teach pair for "weight" (high frequency = will be kept)
+        msgs.push(json!({
+            "role": "assistant",
+            "tool_calls": [{
+                "function": {
+                    "name": "i_rs",
+                    "arguments": r#"{"command":"skill","tool":"weight"}"#
+                }
+            }]
+        }));
+        msgs.push(json!({"role": "tool", "content": "weight skill doc"}));
+        // Add teach pair for "mood" (low frequency = may be dropped)
+        msgs.push(json!({
+            "role": "assistant",
+            "tool_calls": [{
+                "function": {
+                    "name": "i_rs",
+                    "arguments": r#"{"command":"skill","tool":"mood"}"#
+                }
+            }]
+        }));
+        msgs.push(json!({"role": "tool", "content": "mood skill doc"}));
+        // Add filler to push some beyond recent window
+        for i in 0..10 {
+            msgs.push(json!({"role": "user", "content": format!("recent {}", i)}));
+            msgs.push(json!({"role": "assistant", "content": format!("response {}", i)}));
+        }
+        // Add user query at end
+        msgs.push(json!({"role": "user", "content": "final query"}));
+
+        let mut freq = HashMap::new();
+        freq.insert("weight".to_string(), 5);
+        freq.insert("mood".to_string(), 1);
+
+        smart_compress(&mut msgs, &freq, 1, 5);
+
+        // Weight teach pair (high freq) should be preserved
+        let content_str = serde_json::to_string(&msgs).unwrap();
+        assert!(content_str.contains("weight skill doc"), "high-frequency teach pair should be kept");
+    }
+
+    #[test]
+    fn test_smart_compress_preserves_tool_call_pairs() {
+        // Create messages where a tool_call is about to be dropped but tool result is kept
+        let mut msgs: Vec<Value> = vec![
+            json!({"role": "system", "content": "sys"}),
+        ];
+        // Add many filler messages that will be outside the recent window
+        for i in 0..15 {
+            msgs.push(json!({"role": "user", "content": format!("old msg {}", i)}));
+            msgs.push(json!({"role": "assistant", "content": format!("old resp {}", i)}));
+        }
+        // Add a tool_call + tool result pair
+        msgs.push(json!({
+            "role": "assistant",
+            "tool_calls": [{"function": {"name": "some_tool", "arguments": "{}"}}]
+        }));
+        msgs.push(json!({"role": "tool", "content": "result"}));
+        // Recent messages
+        msgs.push(json!({"role": "user", "content": "recent"}));
+        msgs.push(json!({"role": "assistant", "content": "response"}));
+
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+
+        // The tool_call + tool result should be preserved as a pair
+        let content_str = serde_json::to_string(&msgs).unwrap();
+        assert!(content_str.contains("result"), "tool result should be kept");
+        assert!(content_str.contains("some_tool"), "tool_call should be kept");
+    }
+
+    // ── build_messages tests ──
+
+    #[test]
+    fn test_build_messages_first_turn() {
+        use crate::app::Message;
+        let params = MessageBuildParams {
+            app_messages: &[Message::User { text: "hello".to_string() }],
+            user_text: "hello",
+            saved_api_messages: &None,
+            tool_frequency: &HashMap::new(),
+            tool_index: "",
+            hot_tools: "",
+            skills: "",
+            user_memory: "",
+            user_profile: "",
+            reminder_text: None,
+            system_prompt_override: Some("custom system prompt"),
+            plan_then_execute: false,
+            max_conversation_turns: 8,
+        };
+        let result = build_messages(params);
+        // system + app_messages + user_text = 3
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0]["role"], "system");
+        assert_eq!(result[0]["content"], "custom system prompt");
+        assert_eq!(result[1]["role"], "user");
+        assert_eq!(result[1]["content"], "hello");
+    }
+
+    #[test]
+    fn test_build_messages_second_turn() {
+        use crate::app::Message;
+        let saved = vec![
+            json!({"role": "system", "content": "sys"}),
+            json!({"role": "user", "content": "prev"}),
+            json!({"role": "assistant", "content": "response"}),
+        ];
+        let params = MessageBuildParams {
+            app_messages: &[Message::User { text: "prev".to_string() }, Message::Assistant { text: "response".to_string() }, Message::User { text: "new".to_string() }],
+            user_text: "new",
+            saved_api_messages: &Some(saved),
+            tool_frequency: &HashMap::new(),
+            tool_index: "",
+            hot_tools: "",
+            skills: "",
+            user_memory: "",
+            user_profile: "",
+            reminder_text: None,
+            system_prompt_override: None,
+            plan_then_execute: false,
+            max_conversation_turns: 8,
+        };
+        let result = build_messages(params);
+        // Should have: system + user(prev) + assistant(response) + user(new)
+        assert!(result.len() >= 3);
+        assert_eq!(result[0]["role"], "system");
+        assert_eq!(result[result.len() - 1]["role"], "user");
+        assert_eq!(result[result.len() - 1]["content"], "new");
+    }
+
+    #[test]
+    fn test_build_messages_with_reminder() {
+        use crate::app::Message;
+        let params = MessageBuildParams {
+            app_messages: &[Message::User { text: "remind".to_string() }],
+            user_text: "remind",
+            saved_api_messages: &None,
+            tool_frequency: &HashMap::new(),
+            tool_index: "",
+            hot_tools: "",
+            skills: "",
+            user_memory: "",
+            user_profile: "",
+            reminder_text: Some("吃药"),
+            system_prompt_override: Some("sys"),
+            plan_then_execute: false,
+            max_conversation_turns: 8,
+        };
+        let result = build_messages(params);
+        // system + reminder + app_message + user_text = 4
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0]["role"], "system");
+        assert_eq!(result[1]["role"], "system");
+        assert!(result[1]["content"].as_str().unwrap().contains("吃药"));
+        assert_eq!(result[2]["role"], "user");
+    }
+
+    #[test]
+    fn test_build_messages_second_turn_stale_reminder_removed() {
+        use crate::app::Message;
+        // Simulate saved messages with old reminder at index 1
+        let saved = vec![
+            json!({"role": "system", "content": "sys"}),
+            json!({"role": "system", "content": "注意：用户有以下即将到期或已到期的提醒事项：\n- 吃药"}),
+            json!({"role": "user", "content": "done"}),
+            json!({"role": "assistant", "content": "ok"}),
+        ];
+        let params = MessageBuildParams {
+            app_messages: &[Message::User { text: "done".to_string() }, Message::Assistant { text: "ok".to_string() }, Message::User { text: "new".to_string() }],
+            user_text: "new",
+            saved_api_messages: &Some(saved),
+            tool_frequency: &HashMap::new(),
+            tool_index: "",
+            hot_tools: "",
+            skills: "",
+            user_memory: "",
+            user_profile: "",
+            reminder_text: Some("新提醒"),
+            system_prompt_override: None,
+            plan_then_execute: false,
+            max_conversation_turns: 8,
+        };
+        let result = build_messages(params);
+        // Old reminder should be replaced by new one
+        let system_msgs: Vec<_> = result.iter().filter(|m| m["role"] == "system").collect();
+        assert_eq!(system_msgs.len(), 2);  // original system + new reminder
+        let has_old_reminder = system_msgs.iter().any(|m|
+            m["content"].as_str().unwrap_or("").contains("吃药"));
+        assert!(!has_old_reminder, "old reminder should be removed");
+        let has_new_reminder = system_msgs.iter().any(|m|
+            m["content"].as_str().unwrap_or("").contains("新提醒"));
+        assert!(has_new_reminder, "new reminder should be present");
+    }
+
+    #[test]
+    fn test_build_messages_max_turns() {
+        use crate::app::Message;
+        // Create 20 display messages but only keep last 2 turns
+        let app_msgs: Vec<Message> = (0..20).flat_map(|i| vec![
+            Message::User { text: format!("q{}", i) },
+            Message::Assistant { text: format!("a{}", i) },
+        ]).collect();
+        let params = MessageBuildParams {
+            app_messages: &app_msgs,
+            user_text: "final",
+            saved_api_messages: &None,
+            tool_frequency: &HashMap::new(),
+            tool_index: "",
+            hot_tools: "",
+            skills: "",
+            user_memory: "",
+            user_profile: "",
+            reminder_text: None,
+            system_prompt_override: Some("sys"),
+            plan_then_execute: false,
+            max_conversation_turns: 2,  // only last 2 turns = 4 messages
+        };
+        let result = build_messages(params);
+        // system + last 2 app_messages + final user = 4
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[1]["content"], "q19");
+        assert_eq!(result[2]["content"], "a19");
+        assert_eq!(result[3]["content"], "final");
+    }
+}

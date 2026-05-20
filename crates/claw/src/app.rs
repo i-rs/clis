@@ -213,7 +213,7 @@ impl OverlayState {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AppState {
     Idle,
     Processing,
@@ -501,5 +501,351 @@ impl App {
         if self.message_timestamps.len() > self.messages.len() {
             self.message_timestamps.truncate(self.messages.len());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config() -> Config {
+        let mut c = Config::new();
+        c.api_key = "test".to_string();
+        c
+    }
+
+    #[test]
+    fn test_app_new() {
+        let app = App::new(test_config());
+        assert!(app.messages.is_empty());
+        assert_eq!(app.state, AppState::Idle);
+        assert!(!app.is_processing());
+        assert!(app.http_logs.is_empty());
+        assert_eq!(app.current_agent, "default");
+        assert_eq!(app.tool_call_count, 0);
+    }
+
+    #[test]
+    fn test_add_user_message_sets_processing() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        assert_eq!(app.messages.len(), 1);
+        assert!(matches!(app.messages[0], Message::User { ref text } if text == "hello"));
+        assert!(app.is_processing());
+        assert_eq!(app.scroll_lines, 0);
+    }
+
+    #[test]
+    fn test_finish_processing_clears_state() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        assert!(app.is_processing());
+
+        app.finish_processing(Some(vec![serde_json::json!({"role": "assistant", "content": "hi"})]));
+        assert!(!app.is_processing());
+        assert_eq!(app.state, AppState::Idle);
+        assert!(app.status_text.is_empty());
+        assert!(app.api_messages.is_some());
+    }
+
+    #[test]
+    fn test_finish_processing_removes_empty_assistant() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        app.start_assistant_message();  // creates empty assistant
+        assert_eq!(app.messages.len(), 2);
+        app.finish_processing(None);
+        assert_eq!(app.messages.len(), 1);  // empty assistant removed
+        assert!(!app.is_processing());
+    }
+
+    #[test]
+    fn test_add_error_sets_idle() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        assert!(app.is_processing());
+
+        app.add_error("something went wrong");
+        assert!(!app.is_processing());
+        assert_eq!(app.messages.len(), 2);  // user + error
+        assert!(matches!(app.messages[1], Message::Error { ref text } if text == "something went wrong"));
+        assert!(app.api_messages.is_none());
+    }
+
+    #[test]
+    fn test_add_error_removes_empty_assistant() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        app.start_assistant_message();
+        assert_eq!(app.messages.len(), 2);
+        app.add_error("err");
+        assert_eq!(app.messages.len(), 2);  // user + error
+        assert!(matches!(app.messages[1], Message::Error { .. }));
+    }
+
+    #[test]
+    fn test_assistant_message_append() {
+        let mut app = App::new(test_config());
+        app.start_assistant_message();
+        assert_eq!(app.messages.len(), 1);
+        assert!(matches!(app.messages[0], Message::Assistant { ref text } if text.is_empty()));
+
+        app.append_assistant_text("hello ");
+        app.append_assistant_text("world");
+        assert!(matches!(app.messages[0], Message::Assistant { ref text } if text == "hello world"));
+    }
+
+    #[test]
+    fn test_append_assistant_reuses_empty() {
+        let mut app = App::new(test_config());
+        app.append_assistant_text("direct");
+        assert_eq!(app.messages.len(), 1);
+        assert!(matches!(app.messages[0], Message::Assistant { ref text } if text == "direct"));
+    }
+
+    #[test]
+    fn test_add_tool_call() {
+        let mut app = App::new(test_config());
+        app.add_tool_call("weight", r#"{"action":"list"}"#, "OK", 1, 2);
+        assert_eq!(app.messages.len(), 1);
+        assert!(matches!(&app.messages[0], Message::ToolCall { name, step: 1, total_steps: 2, .. } if name == "weight"));
+        assert_eq!(app.tool_call_count, 1);
+    }
+
+    #[test]
+    fn test_scroll() {
+        let mut app = App::new(test_config());
+        assert_eq!(app.scroll_lines, 0);
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 3);
+        app.scroll_down();
+        assert_eq!(app.scroll_lines, 0);
+        app.scroll_down();
+        assert_eq!(app.scroll_lines, 0);  // saturating
+    }
+
+    #[test]
+    fn test_set_status() {
+        let mut app = App::new(test_config());
+        assert!(app.status_text.is_empty());
+        app.set_status("thinking…");
+        assert_eq!(app.status_text, "thinking…");
+    }
+
+    #[test]
+    fn test_reset_for_new_session() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        app.add_tool_call("test", "{}", "ok", 1, 1);
+        app.set_status("done");
+        app.reset_for_new_session();
+        assert!(app.messages.is_empty());
+        assert!(app.message_timestamps.is_empty());
+        assert!(app.api_messages.is_none());
+        assert_eq!(app.tool_call_count, 0);
+        assert!(app.status_text.is_empty());
+        assert!(app.http_logs.is_empty());
+        assert!(app.plan_steps.is_empty());
+    }
+
+    #[test]
+    fn test_detect_plan() {
+        let mut app = App::new(test_config());
+        app.add_user_message("plan something");
+        app.detect_plan("1. first step.\n2. second step，\n3. third step.");
+        assert_eq!(app.plan_steps.len(), 3);
+        assert_eq!(app.plan_steps[0].description, "first step");
+        assert!(!app.plan_steps[0].done);
+        assert_eq!(app.plan_steps[2].description, "third step");
+    }
+
+    #[test]
+    fn test_detect_plan_ignores_non_numbered() {
+        let mut app = App::new(test_config());
+        app.add_user_message("hi");
+        app.detect_plan("- bullet item\nplain text\n1. actual step");
+        assert_eq!(app.plan_steps.len(), 1);
+        assert_eq!(app.plan_steps[0].description, "actual step");
+    }
+
+    #[test]
+    fn test_detect_plan_only_when_processing() {
+        let mut app = App::new(test_config());
+        app.detect_plan("1. first step");
+        assert!(app.plan_steps.is_empty());  // not processing
+    }
+
+    #[test]
+    fn test_mark_next_plan_step_done() {
+        let mut app = App::new(test_config());
+        app.add_user_message("do it");
+        app.detect_plan("1. step A\n2. step B");
+        app.mark_next_plan_step_done();
+        assert!(app.plan_steps[0].done);
+        assert!(!app.plan_steps[1].done);
+        app.mark_next_plan_step_done();
+        assert!(app.plan_steps[1].done);
+    }
+
+    #[test]
+    fn test_sync_message_timestamps_fills_gaps() {
+        let mut app = App::new(test_config());
+        app.messages.push(Message::User { text: "a".to_string() });
+        app.messages.push(Message::User { text: "b".to_string() });
+        assert!(app.message_timestamps.is_empty());
+        app.sync_message_timestamps();
+        assert_eq!(app.message_timestamps.len(), 2);
+    }
+
+    #[test]
+    fn test_sync_message_timestamps_truncates_excess() {
+        let mut app = App::new(test_config());
+        app.messages.push(Message::User { text: "a".to_string() });
+        app.message_timestamps.push(chrono::Local::now().naive_local());
+        app.message_timestamps.push(chrono::Local::now().naive_local());
+        app.sync_message_timestamps();
+        assert_eq!(app.message_timestamps.len(), 1);
+    }
+
+    #[test]
+    fn test_add_http_log_maintains_bound() {
+        let mut app = App::new(test_config());
+        for i in 0..55 {
+            app.add_http_log(HttpLog {
+                timestamp: "t".to_string(),
+                status: 200,
+                duration_ms: i,
+                model: "m".to_string(),
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                error: None,
+                request_body: String::new(),
+            });
+        }
+        assert_eq!(app.http_logs.len(), 50);
+        assert_eq!(app.http_logs[0].duration_ms, 54);  // newest first
+    }
+
+    #[test]
+    fn test_input_state_insert_and_delete() {
+        let mut input = InputState::new();
+        input.insert_char('h');
+        input.insert_char('i');
+        assert_eq!(input.text, "hi");
+        assert_eq!(input.cursor, 2);
+
+        input.move_cursor_left();
+        assert_eq!(input.cursor, 1);
+        input.insert_char('x');
+        assert_eq!(input.text, "hxi");
+
+        input.delete_before_cursor();
+        assert_eq!(input.text, "hi");
+        assert_eq!(input.cursor, 1);
+    }
+
+    #[test]
+    fn test_input_cursor_bounds() {
+        let mut input = InputState::new();
+        input.insert_char('a');
+        input.move_cursor_left();
+        assert_eq!(input.cursor, 0);
+        input.move_cursor_left();  // no-op
+        assert_eq!(input.cursor, 0);
+
+        input.move_cursor_right();
+        assert_eq!(input.cursor, 1);
+        input.move_cursor_right();  // no-op
+        assert_eq!(input.cursor, 1);
+
+        input.delete_before_cursor();  // cursor at 1, should delete 'a'
+        assert_eq!(input.text, "");
+        input.delete_before_cursor();  // no-op (cursor at 0)
+        assert_eq!(input.text, "");
+    }
+
+    #[test]
+    fn test_input_history() {
+        let mut input = InputState::new();
+        assert!(input.navigate_up().is_none());  // empty
+
+        input.commit_to_history("hello");
+        input.commit_to_history("world");
+        assert_eq!(input.history.len(), 2);
+
+        assert_eq!(input.navigate_up().as_deref(), Some("world"));
+        assert_eq!(input.navigate_up().as_deref(), Some("hello"));
+        assert_eq!(input.navigate_up(), None);  // at start
+
+        assert_eq!(input.navigate_down().as_deref(), Some("world"));
+        assert_eq!(input.navigate_down(), None);  // at end (clear)
+    }
+
+    #[test]
+    fn test_input_history_dedup() {
+        let mut input = InputState::new();
+        input.commit_to_history("same");
+        input.commit_to_history("same");  // duplicate, ignored
+        assert_eq!(input.history.len(), 1);
+    }
+
+    #[test]
+    fn test_input_history_max_50() {
+        let mut input = InputState::new();
+        for i in 0..60 {
+            input.commit_to_history(&format!("item{}", i));
+        }
+        assert_eq!(input.history.len(), 50);
+        assert_eq!(input.history[0], "item10");  // oldest dropped
+        assert_eq!(input.history[49], "item59");
+    }
+
+    #[test]
+    fn test_empty_commit_does_not_add_to_history() {
+        let mut input = InputState::new();
+        input.commit_to_history("");
+        assert!(input.history.is_empty());
+    }
+
+    #[test]
+    fn test_overlay_filtered_sessions_empty() {
+        let overlay = OverlayState::new(vec!["default".to_string()]);
+        let result = overlay.filtered_sessions();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_overlay_filtered_sessions_search() {
+        let mut overlay = OverlayState::new(vec!["default".to_string()]);
+        overlay.session_list = vec![
+            crate::session::SessionMeta { id: "1".to_string(), title: "Weight tracking".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
+            crate::session::SessionMeta { id: "2".to_string(), title: "Mood log".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
+            crate::session::SessionMeta { id: "3".to_string(), title: "Weight history".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
+        ];
+
+        // No filter -> all
+        assert_eq!(overlay.filtered_sessions().len(), 3);
+
+        // With filter
+        overlay.session_search = "weight".to_string();
+        let result = overlay.filtered_sessions();
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().all(|s| s.title.to_lowercase().contains("weight")));
+
+        overlay.session_search = "mood".to_string();
+        assert_eq!(overlay.filtered_sessions().len(), 1);
+
+        overlay.session_search = "nonexistent".to_string();
+        assert!(overlay.filtered_sessions().is_empty());
+    }
+
+    #[test]
+    fn test_overlay_filtered_sessions_case_insensitive() {
+        let mut overlay = OverlayState::new(vec!["default".to_string()]);
+        overlay.session_list = vec![
+            crate::session::SessionMeta { id: "1".to_string(), title: "Weight Tracking".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
+        ];
+        overlay.session_search = "WEIGHT".to_string();
+        assert_eq!(overlay.filtered_sessions().len(), 1);
     }
 }
