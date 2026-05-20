@@ -42,7 +42,7 @@ pub trait ClawTool: Send + Sync {
     /// (needed by IrsTool to generate the dynamic `tool.enum`).
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value;
     /// Execute this tool with the given arguments and execution context.
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, String>;
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError>;
 }
 
 // ── Tool registry ──
@@ -121,12 +121,12 @@ impl ToolRegistry {
     }
 
    /// Execute a tool by name.
-    pub fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, String> {
+    pub fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
         self.tools
             .iter()
             .find(|t| t.name() == name)
             .map(|t| t.execute(args, ctx))
-            .unwrap_or_else(|| Err(format!("未知工具: {}", name)))
+            .unwrap_or_else(|| Err(crate::error::ClawError::NotFound(format!("未知工具: {}", name))))
     }
 
     /// Check if a built-in tool exists.

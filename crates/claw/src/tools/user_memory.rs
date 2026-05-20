@@ -1,5 +1,6 @@
-use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
+use crate::error::ClawError;
+use crate::tools::{ClawTool, ToolContext};
 
 /// A built-in tool that allows the LLM to persist user information
 /// (name, interests, habits, preferences) to CrossSessionMemory.
@@ -40,7 +41,7 @@ impl ClawTool for UserMemoryTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let mut saved: Vec<String> = Vec::new();
 
         if let Some(name) = args
@@ -68,7 +69,7 @@ impl ClawTool for UserMemoryTool {
         }
 
         if saved.is_empty() {
-            return Err("没有需要保存的用户信息".to_string());
+            return Err(ClawError::Validation("没有需要保存的用户信息".to_string()));
         }
 
         Ok(format!("已保存用户信息:\n{}", saved.join("\n")))

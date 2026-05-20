@@ -1,3 +1,4 @@
+use crate::error::ClawError;
 use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -42,7 +43,7 @@ impl ClawTool for FileOpsTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let operation = args
             .get("operation")
             .and_then(|v| v.as_str())
@@ -55,17 +56,17 @@ impl ClawTool for FileOpsTool {
             .trim();
 
         if operation.is_empty() {
-            return Err("Please specify an operation: read, write, or list".to_string());
+            return Err(ClawError::Validation("Please specify an operation: read, write, or list".to_string()));
         }
         if path_str.is_empty() {
-            return Err("Please specify a file path".to_string());
+            return Err(ClawError::Validation("Please specify a file path".to_string()));
         }
 
         // Load config for allowed directories
         let cfg = crate::config::Config::load().map_err(|e| format!("加载配置失败: {}", e))?;
 
         if cfg.allowed_dirs.is_empty() {
-            return Err("文件操作未启用：没有配置允许的目录。请运行 `i-rs-claw config` 设置 allowed_dirs。".to_string());
+            return Err(ClawError::Validation("文件操作未启用：没有配置允许的目录。请运行 `i-rs-claw config` 设置 allowed_dirs。".to_string()));
         }
 
         // Resolve the path against the first allowed directory
@@ -86,10 +87,10 @@ impl ClawTool for FileOpsTool {
                 // File doesn't exist yet — canonicalize its parent
                 let parent = target.parent().unwrap_or(Path::new("/"));
                 parent.canonicalize().map_err(|e| {
-                    format!("无法访问路径 '{}': {}", target.display(), e)
+                    ClawError::Execution(format!("无法访问路径 '{}': {}", target.display(), e))
                 })?
             }
-            Err(e) => return Err(format!("无法访问路径 '{}': {}", target.display(), e)),
+            Err(e) => return Err(ClawError::Execution(format!("无法访问路径 '{}': {}", target.display(), e))),
         };
 
         let allowed = cfg
@@ -100,11 +101,11 @@ impl ClawTool for FileOpsTool {
             .any(|allowed_dir| canonical_target.starts_with(&allowed_dir));
 
         if !allowed {
-            return Err(format!(
+            return Err(ClawError::Validation(format!(
                 "权限不足：路径 '{}' 不在允许的目录内。允许的目录: {}",
                 canonical_target.display(),
                 cfg.allowed_dirs.join(", ")
-            ));
+            )));
         }
 
         match operation {
@@ -117,17 +118,17 @@ impl ClawTool for FileOpsTool {
                 op_write(&canonical_target, content)
             }
             "list" => op_list(&canonical_target),
-            other => Err(format!("不支持的操作: '{}'。支持: read, write, list", other)),
+            other => Err(ClawError::Validation(format!("不支持的操作: '{}'。支持: read, write, list", other))),
         }
     }
 }
 
-fn op_read(path: &Path) -> Result<String, String> {
+fn op_read(path: &Path) -> Result<String, ClawError> {
     if !path.exists() {
-        return Err(format!("文件不存在: {}", path.display()));
+        return Err(ClawError::NotFound(format!("文件不存在: {}", path.display())));
     }
     if !path.is_file() {
-        return Err(format!("不是文件: {}", path.display()));
+        return Err(ClawError::Validation(format!("不是文件: {}", path.display())));
     }
 
     let content = std::fs::read_to_string(path)
@@ -151,7 +152,7 @@ fn op_read(path: &Path) -> Result<String, String> {
     Ok(result)
 }
 
-fn op_write(path: &Path, content: &str) -> Result<String, String> {
+fn op_write(path: &Path, content: &str) -> Result<String, ClawError> {
     // Create parent directories if needed
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
@@ -177,12 +178,12 @@ fn op_write(path: &Path, content: &str) -> Result<String, String> {
     Ok(result)
 }
 
-fn op_list(path: &Path) -> Result<String, String> {
+fn op_list(path: &Path) -> Result<String, ClawError> {
     if !path.exists() {
-        return Err(format!("目录不存在: {}", path.display()));
+        return Err(ClawError::NotFound(format!("目录不存在: {}", path.display())));
     }
     if !path.is_dir() {
-        return Err(format!("不是目录: {}", path.display()));
+        return Err(ClawError::Validation(format!("不是目录: {}", path.display())));
     }
 
     let entries = std::fs::read_dir(path)

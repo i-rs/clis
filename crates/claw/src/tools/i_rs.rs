@@ -2,6 +2,7 @@ use serde_json::Value;
 use std::process::Command;
 use std::time::Duration;
 
+use crate::error::ClawError;
 use crate::tools::index;
 use crate::tools::ToolContext;
 
@@ -50,7 +51,7 @@ impl super::ClawTool for IrsTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
         let cmd_args: Vec<String> = args
@@ -68,7 +69,7 @@ impl super::ClawTool for IrsTool {
 }
 
 /// Execute `i-rs <tool> <command> [args...]` and return the output.
-fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) -> Result<String, String> {
+fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) -> Result<String, ClawError> {
     let mut all_args = Vec::with_capacity(args.len() + 1);
     all_args.push(cmd.to_string());
     all_args.extend_from_slice(args);
@@ -81,7 +82,7 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) ->
         .stderr(std::process::Stdio::piped())
         .current_dir(safe_cwd())
         .spawn()
-        .map_err(|e| format!("执行 i-rs {} {} 失败: {}", tool, cmd, e))?;
+        .map_err(|e| ClawError::Execution(format!("执行 i-rs {} {} 失败: {}", tool, cmd, e)))?;
 
     let start = std::time::Instant::now();
 
@@ -114,21 +115,21 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) ->
                     };
                     if combined.len() > max_output {
                         let preview: String = combined.chars().take(max_output).collect();
-                        return Err(format!("{}...
-[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, combined.len(), max_output));
+                        return Err(ClawError::Execution(format!("{}...
+[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, combined.len(), max_output)));
                     }
-                    return Err(combined);
+                    return Err(ClawError::Execution(combined));
                 }
             }
             Ok(None) => {
                 if start.elapsed() > Duration::from_secs(cli_timeout_secs) {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Err(format!("命令执行超时 ({}s): i-rs {} {}", cli_timeout_secs, tool, cmd));
+                    return Err(ClawError::Timeout(format!("命令执行超时 ({}s): i-rs {} {}", cli_timeout_secs, tool, cmd)));
                 }
                 std::thread::sleep(Duration::from_millis(50));
             }
-            Err(e) => return Err(format!("等待命令完成失败: {}", e)),
+            Err(e) => return Err(ClawError::Execution(format!("等待命令完成失败: {}", e))),
         }
     }
 }

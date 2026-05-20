@@ -1,6 +1,7 @@
+use serde_json::Value;
+use crate::error::ClawError;
 use crate::skill_store::SkillDefinition;
 use crate::tools::{ClawTool, ToolContext};
-use serde_json::Value;
 
 /// Wraps a user-defined skill as a callable tool.
 ///
@@ -58,7 +59,7 @@ impl ClawTool for SkillTool {
             .unwrap_or_else(default_schema)
     }
 
-    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         if self.content.is_empty() {
             Ok("技能已激活，但未包含具体指令内容。".to_string())
         } else {

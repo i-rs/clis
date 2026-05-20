@@ -6,6 +6,7 @@ mod convstore;
 mod core;
 #[cfg(feature = "dashboard")]
 mod dashboard;
+mod error;
 mod gateway;
 mod llm;
 mod mcp;

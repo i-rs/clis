@@ -1,3 +1,4 @@
+use crate::error::ClawError;
 use crate::semantic::SemanticSearch;
 use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
@@ -44,7 +45,7 @@ impl ClawTool for SemanticSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
@@ -57,12 +58,12 @@ impl ClawTool for SemanticSearchTool {
             .clamp(1, 20) as usize;
 
         if query.is_empty() {
-            return Err("Please provide a search query".to_string());
+            return Err(ClawError::Validation("Please provide a search query".to_string()));
         }
 
         let claw_dir = dirs::home_dir()
             .map(|h| h.join(".i-rs-claw").join("claw"))
-            .ok_or_else(|| "Cannot determine home directory".to_string())?;
+            .ok_or_else(|| ClawError::NotFound("Cannot determine home directory".to_string()))?;
 
         let searcher = SemanticSearch::new(claw_dir);
         let results = searcher.search(query, max_results);

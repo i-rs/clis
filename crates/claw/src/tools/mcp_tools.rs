@@ -1,6 +1,7 @@
+use serde_json::Value;
+use crate::error::ClawError;
 use crate::mcp::{McpClient, McpToolDefinition};
 use crate::tools::{ClawTool, ToolContext};
-use serde_json::Value;
 
 /// Convert an MCP tool definition to an OpenAI-compatible tool schema.
 pub fn mcp_schema_to_openai(tool_def: &McpToolDefinition) -> Value {
@@ -61,7 +62,7 @@ impl ClawTool for McpToolWrapper {
         adapted
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let result = self.client.call_tool(&self.definition.name, args)?;
         Ok(result)
     }

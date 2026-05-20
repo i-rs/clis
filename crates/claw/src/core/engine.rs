@@ -209,7 +209,7 @@ pub(crate) fn execute_tool_call(
     let registry = crate::tools::ToolRegistry::with_skills(skills);
     if registry.tool_exists(name) {
         // Tool found — let it execute; propagate real CLI error (not "unknown tool")
-        return registry.execute(name, args, ctx).unwrap_or_else(|e| e);
+        return registry.execute(name, args, ctx).unwrap_or_else(|e| e.to_string());
     }
 
     // Try MCP-discovered tools (from the registry parameter)
@@ -217,8 +217,7 @@ pub(crate) fn execute_tool_call(
         for (client_idx, tool_def) in &mcp.tools {
             if tool_def.name == name
                 && let Some(client) = mcp.clients.get(*client_idx) {
-                    return client.call_tool(name, args)
-                        .unwrap_or_else(|e| format!("MCP 错误: {}", e));
+                    return client.call_tool(name, args).unwrap_or_else(|e| format!("MCP 错误: {}", e));
                 }
         }
     }

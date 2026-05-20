@@ -2,6 +2,7 @@
 //!
 //! Wraps `rmcp` (Rust MCP SDK) behind the existing public API for backward compatibility.
 //! Provides McpServerConfig, McpClient, McpToolDefinition, and McpRegistry.
+use crate::error::ClawError;
 
 use rmcp::{
     ServiceExt,
@@ -170,10 +171,10 @@ impl McpClient {
     }
 
     /// Call a tool on this MCP server.
-    pub fn call_tool(&self, tool_name: &str, args: &Value) -> Result<String, String> {
+    pub fn call_tool(&self, tool_name: &str, args: &Value) -> Result<String, ClawError> {
         let json_map = args
             .as_object()
-            .ok_or_else(|| "MCP 工具参数必须是 JSON 对象".to_string())?;
+            .ok_or_else(|| ClawError::Validation("MCP 工具参数必须是 JSON 对象".to_string()))?;
 
         let params = CallToolRequestParams::new(tool_name.to_string())
             .with_arguments(json_map.clone());
@@ -181,7 +182,7 @@ impl McpClient {
         let result: CallToolResult = self
             .rt
             .block_on(self.service.call_tool(params))
-            .map_err(|e| format!("MCP 错误: {}", mcp_service_err(e)))?;
+            .map_err(|e| ClawError::Mcp(format!("MCP 错误: {}", mcp_service_err(e))))?;
 
         // Extract text from content items
         let text_parts: Vec<String> = result

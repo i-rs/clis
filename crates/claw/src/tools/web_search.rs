@@ -1,3 +1,4 @@
+use crate::error::ClawError;
 use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 
@@ -33,14 +34,14 @@ impl ClawTool for WebSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
             .unwrap_or("")
             .trim();
         if query.is_empty() {
-            return Err("Please provide a search query".to_string());
+            return Err(ClawError::Validation("Please provide a search query".to_string()));
         }
 
         // Load config to check for custom search settings
@@ -55,7 +56,7 @@ impl ClawTool for WebSearchTool {
 }
 
 /// Search using DuckDuckGo Instant Answer API (free, no API key).
-fn search_duckduckgo(query: &str) -> Result<String, String> {
+fn search_duckduckgo(query: &str) -> Result<String, ClawError> {
     let url = format!(
         "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
         urlencode(query)
@@ -164,7 +165,7 @@ fn search_duckduckgo(query: &str) -> Result<String, String> {
 /// Search using a custom search API endpoint.
 /// The URL should accept query parameter `?q=QUERY`.
 /// If api_key is set, adds `Authorization: Bearer <key>` header.
-fn search_custom(base_url: &str, api_key: &Option<String>, query: &str) -> Result<String, String> {
+fn search_custom(base_url: &str, api_key: &Option<String>, query: &str) -> Result<String, ClawError> {
     let separator = if base_url.contains('?') { "&" } else { "?" };
     let url = format!("{}{}q={}", base_url, separator, urlencode(query));
 

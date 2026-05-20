@@ -1,3 +1,4 @@
+use crate::error::ClawError;
 use serde_json::Value;
 
 use crate::tools::index;
@@ -28,7 +29,7 @@ impl super::ClawTool for SearchToolsTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args.get("query").and_then(|q| q.as_str()).unwrap_or("");
         Ok(index::search(query))
     }

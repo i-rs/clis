@@ -1,3 +1,4 @@
+use crate::error::ClawError;
 use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 use std::path::PathBuf;
@@ -27,12 +28,12 @@ impl ClawTool for VisionTool {
         })
     }
 
-    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         read_clipboard_image_text()
     }
 }
 
-fn read_clipboard_image_text() -> Result<String, String> {
+fn read_clipboard_image_text() -> Result<String, ClawError> {
     // Try multiple OCR methods in order of preference
 
     // Method 1: macOS Shortcuts "Extract Text from Image"
@@ -50,11 +51,11 @@ fn read_clipboard_image_text() -> Result<String, String> {
     // Method 3: Check if clipboard has image at all
     let has_image = clipboard_has_image();
     if has_image {
-        Err("剪贴板中有图片，但无法提取文字。请尝试：
+        Err(ClawError::Execution("剪贴板中有图片，但无法提取文字。请尝试：
 1. 安装 'Extract Text from Image' Shortcut
-2. 或使用第三方 OCR 工具如 TextSniper".to_string())
+2. 或使用第三方 OCR 工具如 TextSniper".to_string()))
     } else {
-        Err("剪贴板中没有图片。请先复制一张图片到剪贴板（截图 Cmd+Shift+4 或复制图片）".to_string())
+        Err(ClawError::Execution("剪贴板中没有图片。请先复制一张图片到剪贴板（截图 Cmd+Shift+4 或复制图片）".to_string()))
     }
 }
 
@@ -81,7 +82,7 @@ end try
 }
 
 /// OCR via macOS Shortcuts "Extract Text from Image" if installed.
-fn ocr_via_shortcuts() -> Result<String, String> {
+fn ocr_via_shortcuts() -> Result<String, ClawError> {
     // Run the shortcut - if it exists, it will OCR the clipboard image
     let temp_png = temp_path("vision_clipboard.png");
 
@@ -102,7 +103,7 @@ end try"#,
         .output();
 
     if save_result.is_err() {
-        return Err("无法保存剪贴板图片".to_string());
+        return Err(ClawError::Execution("无法保存剪贴板图片".to_string()));
     }
 
     // Try the "Extract Text from Image" shortcut
@@ -121,12 +122,12 @@ end try"#,
 
     // Cleanup
     let _ = std::fs::remove_file(&temp_png);
-    Err("Shortcuts OCR 返回空结果".to_string())
+    Err(ClawError::Execution("Shortcuts OCR 返回空结果".to_string()))
 }
 
 /// OCR via osascript using Apple's Vision framework (VNVNRequest).
 /// This uses a compiled Swift snippet approach.
-fn ocr_via_osascript() -> Result<String, String> {
+fn ocr_via_osascript() -> Result<String, ClawError> {
     let temp_png = temp_path("vision_ocr.png");
 
     // Save clipboard image to temp file using sips
@@ -144,7 +145,7 @@ end try"#,
         .output();
 
     if save_result.is_err() {
-        return Err("无法保存剪贴板图片".to_string());
+        return Err(ClawError::Execution("无法保存剪贴板图片".to_string()));
     }
 
     // Use sips to convert clipboard to temp file
@@ -204,7 +205,7 @@ if let text = extractText() {
     let swift_path = temp_path("vision_ocr.swift");
     if std::fs::write(&swift_path, swift_code).is_err() {
         let _ = std::fs::remove_file(&temp_png);
-        return Err("无法创建 OCR 临时脚本".to_string());
+        return Err(ClawError::Execution("无法创建 OCR 临时脚本".to_string()));
     }
 
     let output = Command::new("swift")
@@ -227,12 +228,12 @@ if let text = extractText() {
         } else if !stderr.trim().is_empty() && !stderr.contains("ERROR:") {
             stderr
         } else {
-            return Err(format!("Swift OCR 错误: {}", stderr));
+            return Err(ClawError::Execution(format!("Swift OCR 错误: {}", stderr)));
         };
         Ok(result.trim().to_string())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("Swift OCR 失败: {}", stderr))
+        Err(ClawError::Execution(format!("Swift OCR 失败: {}", stderr)))
     }
 }
 

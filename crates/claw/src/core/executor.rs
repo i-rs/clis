@@ -102,8 +102,7 @@ impl ToolExecutor {
                 let result = timeout(timeout_dur, task::spawn_blocking(move || {
                     let registry = crate::tools::ToolRegistry::new();
                     if registry.tool_exists(&name_for_closure) {
-                        registry.execute(&name_for_closure, &args_clone, &ctx_clone)
-                            .unwrap_or_else(|e| e)
+                        registry.execute(&name_for_closure, &args_clone, &ctx_clone).unwrap_or_else(|e| e.to_string())
                     } else {
                         // Try MCP
                         for (client_idx, tool_def) in &ctx_clone.mcp.tools {

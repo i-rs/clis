@@ -1,3 +1,4 @@
+use crate::error::ClawError;
 use crate::llm::LlmEvent;
 use crate::provider::create_provider_for;
 use crate::tools::{ClawTool, ToolContext};
@@ -42,16 +43,16 @@ impl ClawTool for DelegateTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let agent_id = args
             .get("agent_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| "缺少必要参数: agent_id".to_string())?;
+            .ok_or_else(|| ClawError::Validation("缺少必要参数: agent_id".to_string()))?;
 
         let task = args
             .get("task")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| "缺少必要参数: task".to_string())?;
+            .ok_or_else(|| ClawError::Validation("缺少必要参数: task".to_string()))?;
 
         let task_context = args
             .get("context")
@@ -95,13 +96,13 @@ impl ClawTool for DelegateTool {
         );
 
         // Run the LLM call on the existing tokio runtime
-        let result: Result<String, String> = tokio::runtime::Handle::current().block_on(async {
+        let result: Result<String, ClawError> = tokio::runtime::Handle::current().block_on(async {
             let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
             provider
                 .stream_chat(&messages, &[], &tx)
                 .await
-                .map_err(|e| format!("子智能体调用失败: {}", e))?;
+                .map_err(|e| ClawError::Execution(format!("子智能体调用失败: {}", e)))?;
 
             // Drop sender so rx.recv() will eventually return None
             drop(tx);
@@ -119,9 +120,9 @@ impl ClawTool for DelegateTool {
             }
 
             if text.is_empty() && !last_error.is_empty() {
-                Err(last_error)
+                Err(ClawError::Execution(last_error))
             } else if text.is_empty() {
-                Err("子智能体未返回任何内容".to_string())
+                Err(ClawError::Execution("子智能体未返回任何内容".to_string()))
             } else {
                 Ok(text)
             }

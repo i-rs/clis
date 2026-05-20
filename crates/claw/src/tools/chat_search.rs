@@ -1,5 +1,6 @@
-use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
+use crate::error::ClawError;
+use crate::tools::{ClawTool, ToolContext};
 
 /// Built-in tool that searches past conversation sessions by keyword.
 ///
@@ -33,19 +34,19 @@ impl ClawTool for ChatSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
             .unwrap_or("")
             .trim();
         if query.is_empty() {
-            return Err("Please provide a search query".to_string());
+            return Err(ClawError::Validation("Please provide a search query".to_string()));
         }
 
         let claw_dir = dirs::home_dir()
             .map(|h| h.join(".i-rs-claw").join("claw"))
-            .ok_or_else(|| "Cannot determine home directory".to_string())?;
+            .ok_or_else(|| ClawError::NotFound("Cannot determine home directory".to_string()))?;
 
         let store = crate::convstore::ConvStore::new(claw_dir);
         let results = store.search(query, 10);
