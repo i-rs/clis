@@ -1,5 +1,4 @@
 use crate::app;
-use crate::config::Config;
 use crate::core;
 use crate::llm::LlmEvent;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
@@ -7,183 +6,11 @@ use ratatui::backend::CrosstermBackend;
 use std::io;
 use std::time::Instant;
 use tokio::sync::mpsc;
-use owo_colors::OwoColorize;
 
-// ── Helpers ──
+use super::clipboard;
+use super::reminders;
 
-/// Serialize app messages to JSON and persist them for a session.
-/// Used in multiple places (chat loop, new session, agent switch, session switch).
-fn save_session_messages(
-    session_mgr: &crate::session::SessionManager,
-    session_id: &str,
-    messages: &[crate::app::Message],
-    api_messages: Option<&[serde_json::Value]>,
-) {
-    let records: Vec<serde_json::Value> = messages
-        .iter()
-        .map(|m| match m {
-            crate::app::Message::User { text } => {
-                serde_json::json!({"type": "user", "text": text})
-            }
-            crate::app::Message::Assistant { text } => {
-                serde_json::json!({"type": "assistant", "text": text})
-            }
-            crate::app::Message::ToolCall {
-                name,
-                args,
-                result,
-                step,
-                total_steps,
-            } => serde_json::json!({
-                "type": "tool_call",
-                "name": name,
-                "args": args,
-                "result": result,
-                "step": step,
-                "total_steps": total_steps,
-            }),
-            crate::app::Message::Error { text } => {
-                serde_json::json!({"type": "error", "text": text})
-            }
-        })
-        .collect();
-    session_mgr.save_all_messages(session_id, &records);
-    if let Some(msgs) = api_messages {
-        session_mgr.save_api_messages(session_id, msgs);
-    }
-}
-
-// =============================================
-// TUI subcommand
-// =============================================
-
-pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
-    let mut config = Config::load()?;
-
-    // Discover plugins and merge into MCP config BEFORE creating AppCore
-    // so that MCP registries are initialized with plugin configs
-    if config.plugins_auto_discover {
-        let plugin_mgr = crate::plugin::PluginManager::new();
-        let mut plugin_configs = plugin_mgr.to_mcp_configs();
-        // Filter out plugins that are disabled in config
-        if !config.disabled_plugins.is_empty() {
-            plugin_configs.retain(|pc| {
-                let plugin_name = pc.name.strip_prefix("plugin:").unwrap_or(&pc.name);
-                !config.disabled_plugins.contains(&plugin_name.to_string())
-            });
-        }
-        if !plugin_configs.is_empty() {
-            config.mcp_servers.extend(plugin_configs);
-        }
-    }
-
-    // Setup terminal
-    crossterm::terminal::enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
-    let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout))?;
-
-    let rt = tokio::runtime::Runtime::new()?;
-    let (llm_tx, mut llm_rx) = mpsc::unbounded_channel::<LlmEvent>();
-
-    let mut app = app::App::new(config);
-
-    // Initialize AppCore (session manager, memory, tool cache, skill store)
-    let mut app_core = crate::core::AppCore::new(app.config.clone())?;
-
-    // If a specific session ID was requested, try to switch to it
-    if let Some(sid) = session_id
-        && !app_core.session_mgr.switch_to(sid) {
-            eprintln!("⚠ 未找到会话: {}", sid);
-        }
-
-    // Ensure at least one session exists
-    if app_core.session_mgr.current_id().is_none() {
-        app_core.session_mgr.create_session();
-    }
-
-    // Analyze cross-session tool usage from all sessions
-    let agent_id = app.current_agent.clone();
-    app_core.agent_store.memory_for_mut(&agent_id).analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
-
-    // Load messages from current session
-    let session_id = app_core.session_mgr.current_id()
-        .ok_or_else(|| anyhow::anyhow!("无当前会话，无法加载消息"))?
-        .to_string();
-    let loaded = app_core.session_mgr.load_app_messages(&session_id, 50);
-    app.messages = loaded;
-    app.sync_message_timestamps();
-
-    // Check for due reminders at startup
-    app.reminder_text = check_reminders();
-    if app.reminder_text.is_some() {
-        notify_macos("i-rs-claw 提醒", "你有即将到期或已过期的提醒事项");
-    }
-
-    if app.messages.is_empty() {
-        let onboarding = !app_core.agent_store.memory_for(&app.current_agent).has_user_profile();
-        if onboarding {
-            app.messages.push(app::Message::Assistant {
-                text: concat!(
-                    "你好！我是 i-rs-claw，你的个人数据智能助理 🎉\n\n",
-                    "初次见面，我想更好地了解你！\n",
-                    "请问我怎么称呼你呢？你平时有什么兴趣爱好？\n",
-                    "比如你喜欢跑步、健身、读书、看电影，还是有什么特别的日常生活习惯？\n\n",
-                    "告诉我这些，我可以更贴心地帮你管理数据 😊",
-                )
-                .to_string(),
-            });
-            app.message_timestamps.push(chrono::Local::now().naive_local());
-        } else {
-            app.messages.push(app::Message::Assistant {
-                text: "你好！我是 i-rs-claw，你的个人数据智能助理。\
-                       \n我可以帮你管理健康、财务、任务、媒体等个人信息。\
-                       \n试试说：\"记录体重75kg\" 或 \"最近跑步情况如何？\""
-                    .to_string(),
-            });
-            app.message_timestamps.push(chrono::Local::now().naive_local());
-        }
-    }
-
-    let result = main_loop(
-        &mut terminal,
-        &rt,
-        &mut app,
-        &mut app_core,
-        &llm_tx,
-        &mut llm_rx,
-    );
-
-    // Restore terminal
-    crossterm::terminal::disable_raw_mode()?;
-    crossterm::execute!(
-        io::stdout(),
-        crossterm::terminal::LeaveAlternateScreen,
-        crossterm::event::DisableMouseCapture
-    )?;
-
-    // Print styled re-entry command and session summary
-    let msg_count = app.messages.len();
-    let tool_count = app.tool_call_count;
-    let token_display = app.token_usage
-        .as_ref()
-        .map(|u| format!(" · {} tokens", u.prompt_tokens + u.completion_tokens))
-        .unwrap_or_default();
-
-    println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
-    println!("{}", format!("  📊 {} 条消息 · {} 次工具调用{}", msg_count, tool_count, token_display).dimmed());
-    if let Some(sid) = app_core.session_mgr.current_id() {
-        println!("{} {}", "↻ 重新进入:".yellow(), format!("i-rs-claw tui --session {}", sid).cyan().bold());
-    }
-
-    if let Err(e) = &result {
-        eprintln!("{} {}", "✗ 错误:".red().bold(), e.to_string().red());
-    }
-
-    result
-}
-
-fn main_loop(
+pub fn main_loop(
     terminal: &mut ratatui::Terminal<CrosstermBackend<io::Stdout>>,
     rt: &tokio::runtime::Runtime,
     app: &mut app::App,
@@ -359,7 +186,7 @@ fn main_loop(
                             break;
                         }
                     };
-                    save_session_messages(
+                    clipboard::save_session_messages(
                         &app_core.session_mgr,
                         &session_id,
                         &app.messages,
@@ -392,9 +219,9 @@ fn main_loop(
         {
             let elapsed = last_reminder_check.elapsed().as_secs();
             if elapsed >= REMINDER_INTERVAL_SECS && !app.is_processing() {
-                let h = rt.spawn_blocking(check_reminders);
-                if let Ok(Some(reminders)) = rt.block_on(h) {
-                    app.reminder_text = Some(reminders);
+                let h = rt.spawn_blocking(reminders::check_reminders);
+                if let Ok(Some(reminder_text)) = rt.block_on(h) {
+                    app.reminder_text = Some(reminder_text);
                 }
                 last_reminder_check = Instant::now();
             }
@@ -427,7 +254,7 @@ fn main_loop(
                                 })
                         };
                         if let Some(content) = content {
-                            if copy_to_clipboard(&content) {
+                            if clipboard::copy_to_clipboard(&content) {
                                 app.copy_feedback = Some("✓ 已复制".to_string());
                             } else {
                                 app.copy_feedback = Some("✗ 复制失败".to_string());
@@ -498,7 +325,7 @@ fn main_loop(
                         if let Some(old_id) =
                             app_core.session_mgr.current_id().map(|id| id.to_string())
                         {
-                            save_session_messages(
+                            clipboard::save_session_messages(
                                 &app_core.session_mgr,
                                 &old_id,
                                 &app.messages,
@@ -541,7 +368,7 @@ fn main_loop(
                             && *agent_id != app.current_agent {
                                 // Save current session messages
                                 if let Some(old_id) = app_core.session_mgr.current_id().map(|id| id.to_string()) {
-                                    save_session_messages(
+                                    clipboard::save_session_messages(
                                         &app_core.session_mgr,
                                         &old_id,
                                         &app.messages,
@@ -810,7 +637,7 @@ fn main_loop(
                                     .current_id()
                                     .unwrap_or_default()
                                     .to_string();
-                                    save_session_messages(
+                                    clipboard::save_session_messages(
                                         &app_core.session_mgr,
                                         &old_id,
                                         &app.messages,
@@ -957,129 +784,4 @@ fn main_loop(
     }
 
     Ok(())
-}
-
-/// Check for due/overdue reminders via `i-rs remind list --json`.
-/// Returns a formatted string listing all due reminders, or None if none found.
-fn check_reminders() -> Option<String> {
-    let output = std::process::Command::new("i-rs")
-        .arg("remind")
-        .arg("list")
-        .arg("--json")
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value = serde_json::from_str(stdout.as_ref()).ok()?;
-
-    let items = parsed.get("data")?.as_array()?;
-
-    let due: Vec<String> = items
-        .iter()
-        .filter(|item| {
-            let is_done = item
-                .get("is_done")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-            if is_done {
-                return false;
-            }
-            let days = item
-                .get("days_until_event")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(1);
-            days <= 0
-        })
-        .map(|item| {
-            let name = item
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("未知");
-            let title = item
-                .get("title")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty());
-            let _date = item
-                .get("event_date")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let days = item
-                .get("days_until_event")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-
-            match title {
-                Some(t) => {
-                    if days == 0 {
-                        format!("  - {}「{}」（今天到期）", t, name)
-                    } else {
-                        format!("  - {}「{}」（已过期 {} 天）", t, name, days.abs())
-                    }
-                }
-                None => {
-                    if days == 0 {
-                        format!("  - {}（今天到期）", name)
-                    } else {
-                        format!("  - {}（已过期 {} 天）", name, days.abs())
-                    }
-                }
-            }
-        })
-        .collect();
-
-    if due.is_empty() {
-        return None;
-    }
-
-    notify_macos("i-rs-claw 提醒", &format!("你有 {} 个待处理提醒", due.len()));
-    Some(due.join("\n"))
-}
-
-/// Send a macOS notification via osascript.
-fn notify_macos(title: &str, message: &str) {
-    let _ = std::process::Command::new("osascript")
-        .args(["-e", &format!(
-            r###"display notification "{}" with title "{}""###,
-            message, title
-        )])
-        .output();
-}
-
-/// Copy text to system clipboard using platform-specific command.
-fn copy_to_clipboard(text: &str) -> bool {
-    let cmd = if cfg!(target_os = "macos") {
-        ("pbcopy", &[] as &[&str])
-    } else if cfg!(target_os = "linux") {
-        // Prefer wl-copy (Wayland), fallback to xclip (X11)
-        if std::process::Command::new("wl-copy").output().is_ok() {
-            ("wl-copy", &[] as &[&str])
-        } else {
-            ("xclip", &["-selection", "clipboard"] as &[&str])
-        }
-    } else if cfg!(target_os = "windows") {
-        ("clip", &[] as &[&str])
-    } else {
-        return false;
-    };
-
-    std::process::Command::new(cmd.0)
-        .args(cmd.1)
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-        .and_then(|mut child| {
-            use std::io::Write;
-            child
-                .stdin
-                .take()
-                .and_then(|mut stdin| {
-                    stdin.write_all(text.as_bytes()).ok()
-                });
-            child.wait_with_output()
-        })
-        .map(|output| output.status.success())
-        .unwrap_or(false)
 }
