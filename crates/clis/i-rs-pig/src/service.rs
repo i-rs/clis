@@ -57,7 +57,7 @@ pub fn update_pig(
     store: &mut PigStore,
     id: &str,
     food_name: Option<String>,
-    description: Option<Option<String>>,
+    description: Option<String>,
     tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<PigEntry> {
@@ -73,7 +73,7 @@ pub fn update_pig(
         entry.food_name = f;
     }
     if let Some(d) = description {
-        entry.description = d;
+        entry.description = Some(d);
     }
     if let Some(t) = tags {
         entry.tags = t;
@@ -89,20 +89,15 @@ pub fn update_pig(
 pub fn delete_pig(store: &mut PigStore, id: &str) -> Result<()> {
     let short_id = if id.len() >= 8 { &id[..8] } else { id };
 
-    if store
+    let entries: Vec<String> = store
         .entries
         .iter()
-        .any(|(_, e)| e.id.starts_with(short_id))
-    {
-        let key = store
-            .entries
-            .iter()
-            .find(|(_, e)| e.id.starts_with(short_id))
-            .map(|(k, _)| k.clone())
-            .unwrap();
-        store.remove_entry(&key);
-        Ok(())
-    } else {
-        anyhow::bail!("Record '{id}' not found")
+        .filter(|(_, e)| e.id.starts_with(short_id))
+        .map(|(k, _)| k.clone())
+        .collect();
+    if entries.is_empty() {
+        anyhow::bail!("Record '{id}' not found");
     }
+    store.remove_entry(&entries[0]);
+    Ok(())
 }

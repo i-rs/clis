@@ -52,7 +52,7 @@ enum Commands {
         #[arg(short = 'f', long)]
         food_name: Option<String>,
         #[arg(short = 'd', long)]
-        description: Option<Option<String>>,
+        description: Option<String>,
         #[arg(short, long)]
         tag: Option<Vec<String>>,
         #[arg(short, long)]

@@ -8,7 +8,7 @@ use owo_colors::OwoColorize;
 pub fn handle_update(
     id: String,
     food_name: Option<String>,
-    description: Option<Option<String>>,
+    description: Option<String>,
     tag: Option<Vec<String>>,
     remark: Option<Vec<String>>,
     format: OutputFormat,
