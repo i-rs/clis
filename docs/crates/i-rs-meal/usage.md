@@ -34,15 +34,17 @@ i-rs-meal list
 
 Options:
 - `--date <DATE>` - Filter by date
-- `-t, --tag <TAG>` - Filter by tag
 
 ### get
 
 Get meal details.
 
 ```bash
-i-rs-meal get <ID>
+i-rs-meal get <ID> [OPTIONS]
 ```
+
+Options:
+- `--date <DATE>` - Filter by specific date
 
 ### delete
 

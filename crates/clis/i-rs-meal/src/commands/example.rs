@@ -6,9 +6,9 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Add meals:".bold().green());
-    println!("  i-rs-meal add breakfast \" oatmeal, milk\" 2024-01-15 --calories 300");
-    println!("  i-rs-meal add lunch \" rice, chicken\" 2024-01-15 --tag work");
-    println!("  i-rs-meal add dinner \" salad, fish\" 2024-01-15");
+    println!("  i-rs-meal add breakfast --food \"oatmeal, milk\" --calories 300");
+    println!("  i-rs-meal add lunch --food \"rice, chicken\" --tag work");
+    println!("  i-rs-meal add dinner --food \"salad, fish\"");
     println!();
 
     println!("{}", "List meals:".bold().green());
@@ -21,7 +21,7 @@ pub fn handle_example() {
     println!();
 
     println!("{}", "Update meal:".bold().green());
-    println!("  i-rs-meal update abc12345 --food-items \"New food\"");
+    println!("  i-rs-meal update abc12345 --food \"New food\"");
     println!("  i-rs-meal update abc12345 --calories 500");
     println!();
 

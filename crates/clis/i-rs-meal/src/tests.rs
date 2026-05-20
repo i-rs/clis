@@ -23,7 +23,7 @@ mod tests {
         let cmd = Commands::Add {
             meal_type: "breakfast".to_string(),
             food_items: "test-food".to_string(),
-            date: "2024-01-15".to_string(),
+            date: Some("2024-01-15".to_string()),
             calories: None,
             tag: vec![],
             remark: vec![],
@@ -34,7 +34,7 @@ mod tests {
         let cmd = Commands::Add {
             meal_type: "lunch".to_string(),
             food_items: "test-food-2".to_string(),
-            date: "2024-01-16".to_string(),
+            date: Some("2024-01-16".to_string()),
             calories: None,
             tag: vec![],
             remark: vec![],

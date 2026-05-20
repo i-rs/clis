@@ -28,10 +28,10 @@ enum Commands {
     Add {
         #[arg(value_name = "TYPE")]
         meal_type: String,
-        #[arg(value_name = "FOOD")]
+        #[arg(short = 'f', long = "food", value_name = "FOOD")]
         food_items: String,
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(short = 'D', long = "date", value_name = "DATE")]
+        date: Option<String>,
         #[arg(short, long)]
         calories: Option<i32>,
         #[arg(short, long)]
@@ -53,9 +53,9 @@ enum Commands {
     Update {
         #[arg(value_name = "ID")]
         id: String,
-        #[arg(short = 't', long)]
+        #[arg(long)]
         meal_type: Option<String>,
-        #[arg(short = 'f', long)]
+        #[arg(short = 'f', long = "food")]
         food_items: Option<String>,
         #[arg(short = 'c', long)]
         calories: Option<Option<i32>>,

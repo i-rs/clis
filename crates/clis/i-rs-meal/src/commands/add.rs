@@ -9,7 +9,7 @@ use owo_colors::OwoColorize;
 pub fn handle_add(
     meal_type: String,
     food_items: String,
-    date: String,
+    date: Option<String>,
     calories: Option<i32>,
     tag: Vec<String>,
     remark: Vec<String>,
@@ -17,7 +17,10 @@ pub fn handle_add(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let parsed_date = parse_date(&date)?;
+    let date_str = date.unwrap_or_else(|| {
+        chrono::Utc::now().format("%Y-%m-%d").to_string()
+    });
+    let parsed_date = parse_date(&date_str)?;
 
     let entry = service::add_meal(
         &mut store,
