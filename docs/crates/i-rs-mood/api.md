@@ -17,9 +17,9 @@ i-rs-api
 | GET | `/mood` | 列出心情记录 |
 | POST | `/mood` | 添加心情记录 |
 | GET | `/mood/stats` | 统计信息 |
-| GET | `/mood/{date}` | 获取某天记录 |
-| PATCH | `/mood/{date}` | 更新某天记录 |
-| DELETE | `/mood/{date}` | 删除某天记录 |
+| GET | `/mood/{id}` | 获取某条记录 |
+| PATCH | `/mood/{id}` | 更新某条记录 |
+| DELETE | `/mood/{id}` | 删除某条记录 |
 
 ## 全局响应格式
 
@@ -57,7 +57,7 @@ i-rs-api
   "success": false,
   "error": {
     "code": "NOT_FOUND",
-    "message": "Mood '2026-01-15' not found"
+    "message": "Mood 'abc12345' not found"
   },
   "meta": {
     "timestamp": "2026-01-15T10:30:00Z",
@@ -68,7 +68,6 @@ i-rs-api
 
 错误码：
 - `NOT_FOUND` (404) — 条目不存在
-- `CONFLICT` (409) — 条目已存在
 - `BAD_REQUEST` (400) — 参数无效
 - `SERVER_ERROR` (500) — 服务端错误
 
@@ -93,7 +92,8 @@ Content-Type: application/json
 {
   "mood": "happy",
   "note": "Got a promotion!",
-  "tag": ["work", "positive"]
+  "tag": ["work", "positive"],
+  "date": "2025-01-15"
 }
 ```
 
@@ -101,6 +101,7 @@ Content-Type: application/json
 - `mood` (必填) — 心情标签 (如 happy, sad, anxious, calm)
 - `note` (可选) — 心情备注
 - `tag` (可选) — 标签数组
+- `date` (可选) — 日期 YYYY-MM-DD，不传则使用当天
 
 ### 统计信息
 
@@ -124,16 +125,16 @@ GET /mood/stats
 ### 获取记录
 
 ```
-GET /mood/{date}
+GET /mood/{id}
 ```
 
 路径参数：
-- `date` — 日期，格式 `YYYY-MM-DD`
+- `id` — 记录 ID（UUID 短前缀）
 
 ### 更新记录
 
 ```
-PATCH /mood/{date}
+PATCH /mood/{id}
 Content-Type: application/json
 
 {
@@ -142,7 +143,7 @@ Content-Type: application/json
 ```
 
 路径参数：
-- `date` — 日期，格式 `YYYY-MM-DD`
+- `id` — 记录 ID（UUID 短前缀）
 
 请求体（所有字段可选）：
 - `mood` — 更新心情
@@ -152,8 +153,8 @@ Content-Type: application/json
 ### 删除记录
 
 ```
-DELETE /mood/{date}
+DELETE /mood/{id}
 ```
 
 路径参数：
-- `date` — 日期，格式 `YYYY-MM-DD`
+- `id` — 记录 ID（UUID 短前缀）

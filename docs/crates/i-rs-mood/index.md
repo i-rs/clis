@@ -10,13 +10,13 @@ i-rs-mood helps you track your emotional well-being over time. Record daily mood
 
 ```bash
 # Record today's mood
-i-rs-mood add 2025-01-15 good
+i-rs-mood add good
 
-# Add with emoji
-i-rs-mood add 2025-01-16 😊 --tag weekend
+# Add with emoji for a specific date
+i-rs-mood add 😊 --date 2025-01-16 --tag weekend
 
 # Add with tags and notes
-i-rs-mood add 2025-01-17 great --tag work --content "Project completed!"
+i-rs-mood add great --tag work --content "Project completed!" --date 2025-01-17
 
 # List all records
 i-rs-mood list
@@ -24,11 +24,14 @@ i-rs-mood list
 # List last 7 days with calendar
 i-rs-mood list --days 7 --calendar
 
+# Get a record by id
+i-rs-mood get abc12345
+
 # Update a record
-i-rs-mood update 2025-01-15 --mood okay
+i-rs-mood update abc12345 --mood okay
 
 # Delete a record
-i-rs-mood delete 2025-01-15
+i-rs-mood delete abc12345
 ```
 
 ## Installation
