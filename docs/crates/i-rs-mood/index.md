@@ -15,8 +15,8 @@ i-rs-mood add good
 # Add with emoji for a specific date
 i-rs-mood add 😊 --date 2025-01-16 --tag weekend
 
-# Add with tags and notes
-i-rs-mood add great --tag work --content "Project completed!" --date 2025-01-17
+# Add with tags and remarks
+i-rs-mood add great --tag work --remark "Project completed!" --date 2025-01-17
 
 # List all records
 i-rs-mood list
@@ -52,9 +52,9 @@ brew install i-rs/homebrew-tap/i-rs-mood
 
 ## Features
 
-- **Mood Recording**: 5-level mood tracking (Great, Good, Okay, Bad, Terrible)
-- **Multiple Input Formats**: Use numbers (1-5), words, or emoji
-- **Tags & Notes**: Add context to your mood entries
+- **Mood Recording**: 7-level mood tracking (Amazing, Great, Good, Okay, Poor, Bad, Terrible)
+- **Multiple Input Formats**: Use numbers (1-7), words, or emoji
+- **Tags & Remarks**: Add context to your mood entries
 - **Calendar View**: Visual mood calendar
 - **Statistics**: Best, worst, and average mood tracking
 
@@ -62,9 +62,11 @@ brew install i-rs/homebrew-tap/i-rs-mood
 
 | Level | Word | Emoji |
 |-------|------|-------|
-| 5 | Great | 😊 |
-| 4 | Good | 🙂 |
-| 3 | Okay | 😐 |
+| 7 | Amazing | 🤩 |
+| 6 | Great | 😊 |
+| 5 | Good | 🙂 |
+| 4 | Okay | 😐 |
+| 3 | Poor | 😕 |
 | 2 | Bad | 😔 |
 | 1 | Terrible | 😢 |
 

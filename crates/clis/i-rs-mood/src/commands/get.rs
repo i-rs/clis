@@ -42,13 +42,6 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         );
     }
 
-    if !record.content.is_empty() {
-        println!("\n{}:", "Content".bold());
-        for line in &record.content {
-            println!("  {line}");
-        }
-    }
-
     if !record.remark.is_empty() {
         println!(
             "{:16} {}",

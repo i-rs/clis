@@ -26,8 +26,7 @@ mod tests {
         let record = crate::service::add_mood(
             &mut store,
             "2024-01-15".to_string(),
-            "5".to_string(),
-            vec![],
+            "7".to_string(),
             vec![],
             vec![],
         )
@@ -37,16 +36,13 @@ mod tests {
         let record2 = crate::service::add_mood(
             &mut store,
             "2024-01-16".to_string(),
-            "4".to_string(),
-            vec![],
+            "6".to_string(),
             vec![],
             vec![],
         )
         .unwrap();
         let id2 = record2.id.clone();
         crate::storage::save_store(&store).unwrap();
-
-        // List
         let cmd = Commands::List {
             days: None,
             calendar: false,
@@ -65,7 +61,6 @@ mod tests {
             date: None,
             mood: None,
             tag: None,
-            content: None,
             remark: None,
         };
         assert!(run(update_cmd, crate::presentation::OutputFormat::Table).is_ok());

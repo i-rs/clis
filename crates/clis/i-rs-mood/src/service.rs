@@ -37,7 +37,6 @@ pub fn add_mood(
     date_str: String,
     mood: String,
     tags: Vec<String>,
-    content: Vec<String>,
     remark: Vec<String>,
 ) -> Result<MoodRecord> {
     let date = parse_date(&date_str)?;
@@ -48,7 +47,6 @@ pub fn add_mood(
         date,
         mood: mood_parsed,
         tags,
-        content,
         remark,
         created_at: now,
         updated_at: now,
@@ -65,7 +63,6 @@ pub fn update_mood(
     date: Option<String>,
     mood: Option<String>,
     tags: Option<Vec<String>>,
-    content: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<MoodRecord> {
     let key = store
@@ -88,9 +85,6 @@ pub fn update_mood(
     }
     if let Some(t) = tags {
         record.tags = t;
-    }
-    if let Some(c) = content {
-        record.content = c;
     }
     if let Some(r) = remark {
         record.remark = r;
@@ -123,9 +117,11 @@ pub fn mood_stats(store: &MoodStore) -> Result<Option<(Mood, Mood, f64)>> {
 
 fn parse_mood_str(s: &str) -> Mood {
     match s.to_lowercase().as_str() {
-        "5" | "great" | "😊" => Mood::Great,
-        "4" | "good" | "🙂" => Mood::Good,
-        "3" | "okay" | "😐" => Mood::Okay,
+        "7" | "amazing" | "🤩" => Mood::Amazing,
+        "6" | "great" | "😊" => Mood::Great,
+        "5" | "good" | "🙂" => Mood::Good,
+        "4" | "okay" | "😐" => Mood::Okay,
+        "3" | "poor" | "😕" => Mood::Poor,
         "2" | "bad" | "😔" => Mood::Bad,
         "1" | "terrible" | "😢" => Mood::Terrible,
         _ => Mood::Okay,

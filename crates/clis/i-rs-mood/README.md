@@ -4,8 +4,8 @@ Mood tracking CLI tool for recording and visualizing your daily mood.
 
 ## Features
 
-- Record daily mood (5 levels: Great, Good, Okay, Bad, Terrible)
-- Support multiple input formats (number, word, emoji)
+- Record daily mood (7 levels: Amazing, Great, Good, Okay, Poor, Bad, Terrible)
+- Number and word support
 - View mood history with statistics
 - Mood calendar visualization
 - Tag and note support
@@ -22,9 +22,11 @@ brew install i-rs/homebrew-tap/i-rs-mood
 
 | Level | Word | Emoji |
 |-------|------|-------|
-| 5 | Great | 😊 |
-| 4 | Good | 🙂 |
-| 3 | Okay | 😐 |
+| 7 | Amazing | 🤩 |
+| 6 | Great | 😊 |
+| 5 | Good | 🙂 |
+| 4 | Okay | 😐 |
+| 3 | Poor | 😕 |
 | 2 | Bad | 😔 |
 | 1 | Terrible | 😢 |
 

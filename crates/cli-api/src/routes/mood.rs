@@ -45,7 +45,6 @@ pub fn router() -> Router<Arc<AppState>> {
 #[derive(Debug, Deserialize)]
 pub struct AddMoodRequest {
     pub mood: String,
-    pub note: Option<String>,
     pub tag: Option<Vec<String>>,
     pub remark: Option<Vec<String>>,
     pub date: Option<String>,
@@ -73,11 +72,10 @@ async fn add_mood(
 ) -> ApiResult<Json<serde_json::Value>> {
     let date = req.date.unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
     let mood = req.mood;
-    let content = req.note.map(|n| vec![n]).unwrap_or_default();
     let tags = req.tag.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
     let record = state.mood.write(|store| {
-        i_rs_mood::service::add_mood(&mut *store, date, mood, tags, content, remark)
+        i_rs_mood::service::add_mood(&mut *store, date, mood, tags, remark)
             .map_err(ApiError::from)
     })?;
     Ok(ok_json(record))
@@ -111,7 +109,7 @@ async fn mood_stats(State(state): State<Arc<AppState>>) -> ApiResult<Json<serde_
         Some((min, max, avg)) => Ok(ok_json(serde_json::json!({
             "best": min.label(),
             "worst": max.label(),
-            "average": format!("{:.1}/5", avg),
+            "average": format!("{:.1}/7", avg),
         }))),
         None => Ok(ok_json(serde_json::json!({ "message": "No mood records" }))),
     }

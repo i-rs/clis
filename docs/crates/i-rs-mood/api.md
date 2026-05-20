@@ -90,17 +90,16 @@ POST /mood
 Content-Type: application/json
 
 {
-  "mood": "happy",
-  "note": "Got a promotion!",
+  "mood": "great",
   "tag": ["work", "positive"],
   "date": "2025-01-15"
 }
 ```
 
 请求体：
-- `mood` (必填) — 心情标签 (如 happy, sad, anxious, calm)
-- `note` (可选) — 心情备注
+- `mood` (必填) — 心情 (数字/文字/emoji)
 - `tag` (可选) — 标签数组
+- `remark` (可选) — 备注数组
 - `date` (可选) — 日期 YYYY-MM-DD，不传则使用当天
 
 ### 统计信息
@@ -117,7 +116,7 @@ GET /mood/stats
   "data": {
     "best": "happy",
     "worst": "anxious",
-    "average": "3.5/5"
+    "average": "3.5/7"
   }
 }
 ```
@@ -147,7 +146,7 @@ Content-Type: application/json
 
 请求体（所有字段可选）：
 - `mood` — 更新心情
-- `note` — 更新备注
+- `remark` — 更新备注
 - `tag` — 替换标签
 
 ### 删除记录

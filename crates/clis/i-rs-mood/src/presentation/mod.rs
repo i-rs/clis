@@ -20,5 +20,5 @@ pub fn print_mood_calendar(records: &[&MoodRecord], days: usize) {
         current += chrono::Duration::days(1);
     }
     println!();
-    println!("\nLegend: 😊 Great  🙂 Good  😐 Okay  😔 Bad  😢 Terrible");
+    println!("\nLegend: 🤩 Amazing  😊 Great  🙂 Good  😐 Okay  😕 Poor  😔 Bad  😢 Terrible");
 }

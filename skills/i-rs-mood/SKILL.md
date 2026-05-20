@@ -18,9 +18,11 @@ Mood tracking CLI tool for recording and visualizing daily mood.
 
 | Input | Emoji | Label |
 |-------|-------|-------|
-| 5, great, 😊 | 😊 | Great |
-| 4, good, 🙂 | 🙂 | Good |
-| 3, okay/ok, 😐 | 😐 | Okay |
+| 7, amazing, 🤩 | 🤩 | Amazing |
+| 6, great, 😊 | 😊 | Great |
+| 5, good, 🙂 | 🙂 | Good |
+| 4, okay/ok, 😐 | 😐 | Okay |
+| 3, poor, 😕 | 😕 | Poor |
 | 2, bad, 😔 | 😔 | Bad |
 | 1, terrible, 😢 | 😢 | Terrible |
 
@@ -40,7 +42,6 @@ Arguments:
 Options:
 - `-D, --date <DATE>` - Date in YYYY-MM-DD format (default: today)
 - `-t, --tag <TAG>` - Tags (can be repeated)
-- `-c, --content <CONTENT>` - Content/notes (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### list
@@ -75,7 +76,6 @@ Options:
 - `-D, --date <DATE>` - New date
 - `-m, --mood <MOOD>` - New mood level
 - `-t, --tag <TAG>` - New tags
-- `-c, --content <CONTENT>` - New content
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### delete
@@ -119,7 +119,7 @@ i-rs-mood skill [summary|content|raw]
 i-rs-mood add good [OPTIONS]
 
 # Record mood for a specific date
-i-rs-mood add 😊 --date 2025-01-16 --tag weekend --content "Great day"
+i-rs-mood add 😊 --date 2025-01-16 --tag weekend --remark "Great day"
 
 # List all records
 i-rs-mood list [OPTIONS]

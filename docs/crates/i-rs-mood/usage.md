@@ -28,7 +28,6 @@ Arguments:
 Options:
 - `-D, --date <DATE>` - Date in YYYY-MM-DD format (default: today)
 - `-t, --tag <TAG>` - Tags (can be repeated)
-- `-c, --content <CONTENT>` - Content/notes (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### list
@@ -63,7 +62,6 @@ Options:
 - `-D, --date <DATE>` - New date
 - `-m, --mood <MOOD>` - New mood level
 - `-t, --tag <TAG>` - New tags
-- `-c, --content <CONTENT>` - New content
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### delete
@@ -78,16 +76,18 @@ i-rs-mood delete <ID>
 
 | Number | Word | Emoji | Description |
 |--------|------|-------|-------------|
-| 5 | great | 😊 | Excellent mood |
-| 4 | good | 🙂 | Positive mood |
-| 3 | okay/ok | 😐 | Neutral mood |
+| 7 | amazing | 🤩 | Excellent mood |
+| 6 | great | 😊 | Great mood |
+| 5 | good | 🙂 | Positive mood |
+| 4 | okay/ok | 😐 | Neutral mood |
+| 3 | poor | 😕 | Low mood |
 | 2 | bad | 😔 | Negative mood |
 | 1 | terrible | 😢 | Very negative mood |
 
 All input formats are accepted:
-- Numbers: `1`, `2`, `3`, `4`, `5`
-- Words: `great`, `good`, `okay`, `bad`, `terrible`
-- Emoji: `😊`, `🙂`, `😐`, `😔`, `😢`
+- Numbers: `1`, `2`, `3`, `4`, `5`, `6`, `7`
+- Words: `amazing`, `great`, `good`, `okay`, `poor`, `bad`, `terrible`
+- Emoji: `🤩`, `😊`, `🙂`, `😐`, `😕`, `😔`, `😢`
 
 ## Examples
 
@@ -101,7 +101,7 @@ i-rs-mood add good
 i-rs-mood add 😊 --date 2025-01-16
 
 # Record with number
-i-rs-mood add 3 --date 2025-01-17
+i-rs-mood add 4 --date 2025-01-17
 ```
 
 ### With Tags
@@ -114,14 +114,14 @@ i-rs-mood add good --tag work --date 2025-01-18
 i-rs-mood add great --tag weekend --tag family --tag exercise --date 2025-01-19
 ```
 
-### With Notes
+### With Remarks
 
 ```bash
-# Single note
-i-rs-mood add okay --content "Monday blues" --date 2025-01-20
+# Single remark
+i-rs-mood add okay --remark "Monday blues" --date 2025-01-20
 
-# Multiple notes
-i-rs-mood add good --content "Project completed" --content "Feeling accomplished" --date 2025-01-21
+# Multiple remarks
+i-rs-mood add good --remark "Project completed" --remark "Feeling accomplished" --date 2025-01-21
 ```
 
 ### data

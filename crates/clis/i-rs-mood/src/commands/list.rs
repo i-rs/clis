@@ -54,7 +54,7 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
             max_mood,
             max_mood.label()
         );
-        println!("  {:12} {:.1}/5", "Average:".dimmed(), avg);
+        println!("  {:12} {:.1}/7", "Average:".dimmed(), avg);
     }
 
     if calendar {
