@@ -74,7 +74,7 @@ pub struct McpToolDefinition {
 ///
 /// Thread-safe via internal Arc. Automatically handles the full MCP lifecycle:
 /// initialize handshake, initialized notification, and graceful shutdown.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct McpClient {
     pub name: String,
     rt: Arc<tokio::runtime::Runtime>,
@@ -221,7 +221,7 @@ fn mcp_service_err(e: ServiceError) -> String {
 // ── McpRegistry ──
 
 /// Registry managing all MCP server connections.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct McpRegistry {
     /// All connected MCP clients.
     pub clients: Vec<McpClient>,

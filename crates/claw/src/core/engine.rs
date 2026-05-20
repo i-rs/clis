@@ -94,6 +94,7 @@ pub(crate) fn build_system_prompt(
 /// and only append the new user message.
 /// If `system_prompt_override` is provided, it replaces the default system prompt.
 #[allow(clippy::too_many_arguments)]
+#[tracing::instrument(skip(app_messages, saved_api_messages, tool_frequency, tool_index, hot_tools, skills, user_memory, user_profile, reminder_text, system_prompt_override))]
 pub fn build_messages(
     app_messages: &[crate::app::Message],
     user_text: &str,
@@ -198,6 +199,7 @@ pub fn build_messages(
 
 /// Execute a parsed tool call and return the result.
 /// Tries built-in tools first, then falls back to MCP-discovered tools.
+#[tracing::instrument(skip(args, skills, ctx))]
 pub(crate) fn execute_tool_call(
     name: &str,
     args: &Value,
@@ -390,6 +392,7 @@ pub fn compress_api_messages(
 }
 
 /// Main chat loop: stream, handle tool calls, continue until done
+#[tracing::instrument(skip(provider, config, messages, tx, mcp, skills))]
 pub async fn chat_loop(
     provider: Box<dyn LlmProvider>,
     config: Config,

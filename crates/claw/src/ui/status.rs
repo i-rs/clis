@@ -116,14 +116,12 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             "Ctrl+N  ",
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
-        if !app.show_sidebar {
-            if !app.http_logs.is_empty() {
+        if !app.show_sidebar && !app.http_logs.is_empty() {
                 spans.push(Span::styled(
                     "Ctrl+R  ",
                     Style::default().fg(Color::Rgb(140, 140, 160)),
                 ));
             }
-        }
         spans.push(Span::styled(
             "Ctrl+L  ",
             Style::default().fg(Color::Rgb(140, 140, 160)),

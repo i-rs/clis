@@ -19,6 +19,16 @@ pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
     ));
 
     std::fs::write(&tmp_path, content.as_bytes())?;
+
+    // Set restrictive permissions (0600) on the temp file before renaming
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&tmp_path)?.permissions();
+        perms.set_mode(0o600);
+        std::fs::set_permissions(&tmp_path, perms)?;
+    }
+
     std::fs::rename(&tmp_path, path)?;
     Ok(())
 }

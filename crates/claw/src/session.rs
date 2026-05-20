@@ -208,23 +208,6 @@ impl SessionManager {
     }
 
     #[allow(dead_code)]
-    pub fn save_plan(&self, id: &str, plan: &crate::core::orchestrator::Plan) {
-        let path = self.plan_path(id);
-        if let Ok(content) = serde_json::to_string(plan) {
-            let _ = atomic_write(&path, &content);
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn load_plan(&self, id: &str) -> Option<crate::core::orchestrator::Plan> {
-        let path = self.plan_path(id);
-        if !path.exists() { return None; }
-        if let Ok(content) = std::fs::read_to_string(&path)
-            && let Ok(plan) = serde_json::from_str(&content) { return Some(plan); }
-        None
-    }
-
-    #[allow(dead_code)]
     pub fn search_sessions(&self, query: &str) -> Vec<&SessionMeta> {
         if query.is_empty() { return self.sessions.iter().collect(); }
         let q = query.to_lowercase();
@@ -353,8 +336,6 @@ impl SessionManager {
     fn messages_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}.jsonl", id)) }
     fn api_cache_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_api.json", id)) }
     fn plan_steps_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_plan.json", id)) }
-    #[allow(dead_code)]
-    fn plan_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_orchestrator_plan.json", id)) }
     fn index_path(claw_dir: &Path) -> PathBuf { claw_dir.join("index.json") }
     
     fn load_index(claw_dir: &Path) -> Vec<SessionMeta> {

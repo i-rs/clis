@@ -129,24 +129,24 @@ impl WeChatAdapter {
                                 self.typing_tickets.lock().unwrap().insert(user_id.to_string(), ticket.clone());
                                 Some(ticket)
                             } else {
-                                eprintln!("[Gateway/WeChat] getConfig ({}): no typing_ticket in {}",
+                                tracing::info!("[Gateway/WeChat] getConfig ({}): no typing_ticket in {}",
                                     status, raw);
                                 None
                             }
                         } else {
-                            eprintln!("[Gateway/WeChat] getConfig ({}): parse error: {}",
+                            tracing::info!("[Gateway/WeChat] getConfig ({}): parse error: {}",
                                 status, raw);
                             None
                         }
                     }
                     Err(e) => {
-                        eprintln!("[Gateway/WeChat] getConfig read body error: {}", e);
+                        tracing::info!("[Gateway/WeChat] getConfig read body error: {}", e);
                         None
                     }
                 }
             }
             Err(e) => {
-                eprintln!("[Gateway/WeChat] getConfig HTTP error: {}", e);
+                tracing::info!("[Gateway/WeChat] getConfig HTTP error: {}", e);
                 None
             }
         }
@@ -157,7 +157,7 @@ impl WeChatAdapter {
         let client = &self.client;
 
         // Step 1: Get QR code
-        eprintln!("[Gateway/WeChat] Requesting QR code for login...");
+        tracing::info!("[Gateway/WeChat] Requesting QR code for login...");
         let qr_resp: serde_json::Value = client
             .get(format!("{}/ilink/bot/get_bot_qrcode?bot_type=3", WECHAT_API_BASE))
             .send()
@@ -176,12 +176,12 @@ impl WeChatAdapter {
             .unwrap_or("(no image)");
 
         // Step 2: Display QR to user
-        eprintln!("[Gateway/WeChat] ================================================");
-        eprintln!("[Gateway/WeChat]  Scan the QR code with WeChat to log in");
-        eprintln!("[Gateway/WeChat]  Open this link in your browser and scan:");
-        eprintln!("[Gateway/WeChat]  {}", qrcode_img);
-        eprintln!("[Gateway/WeChat] ================================================");
-        eprintln!("[Gateway/WeChat] Waiting for QR scan...");
+        tracing::info!("[Gateway/WeChat] ================================================");
+        tracing::info!("[Gateway/WeChat]  Scan the QR code with WeChat to log in");
+        tracing::info!("[Gateway/WeChat]  Open this link in your browser and scan:");
+        tracing::info!("[Gateway/WeChat]  {}", qrcode_img);
+        tracing::info!("[Gateway/WeChat] ================================================");
+        tracing::info!("[Gateway/WeChat] Waiting for QR scan...");
 
         // Step 3: Poll until scan confirmed
         loop {
@@ -209,7 +209,7 @@ impl WeChatAdapter {
                     .to_string();
                 let creds = WeChatCredentials { bot_token, base_url };
                 self.save_credentials(&creds);
-                eprintln!("[Gateway/WeChat] Login confirmed. Starting message polling.");
+                tracing::info!("[Gateway/WeChat] Login confirmed. Starting message polling.");
                 return Ok(creds);
             }
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -230,7 +230,7 @@ impl PlatformAdapter for WeChatAdapter {
         // QR login (lazy: on first start, or load saved credentials)
         let credentials = match self.load_credentials() {
             Some(c) => {
-                eprintln!("[Gateway/WeChat] Loaded saved credentials.");
+                tracing::info!("[Gateway/WeChat] Loaded saved credentials.");
                 c
             }
             None => match self.qr_login().await {
@@ -312,7 +312,7 @@ impl PlatformAdapter for WeChatAdapter {
                                             continue;
                                         }
 
-                                        eprintln!(
+                                        tracing::info!(
                                             "[Gateway/WeChat] Msg from {}: {}",
                                             from_user_id, text
                                         );
@@ -323,12 +323,12 @@ impl PlatformAdapter for WeChatAdapter {
                                                 from_user_id.clone(),
                                                 token.to_string(),
                                             );
-                                            eprintln!(
+                                            tracing::info!(
                                                 "[Gateway/WeChat] Stored context_token for {}",
                                                 from_user_id
                                             );
                                         } else {
-                                            eprintln!(
+                                            tracing::warn!(
                                                 "[Gateway/WeChat] No context_token for msg from {}",
                                                 from_user_id
                                             );
@@ -377,7 +377,7 @@ impl PlatformAdapter for WeChatAdapter {
         let credentials = match self.credentials.lock().unwrap().clone() {
             Some(c) => c,
             None => {
-                eprintln!("[Gateway/WeChat] No credentials to send message");
+                tracing::warn!("[Gateway/WeChat] No credentials to send message");
                 return;
             }
         };
@@ -409,7 +409,7 @@ impl PlatformAdapter for WeChatAdapter {
             body["msg"]["context_token"] = serde_json::Value::String(token.clone());
         }
 
-        eprintln!(
+        tracing::info!(
             "[Gateway/WeChat] send_message to_user={} has_token={} uin_len={} text_len={}",
             chat_id,
             context_token.is_some(),
@@ -432,13 +432,13 @@ impl PlatformAdapter for WeChatAdapter {
                 let status = resp.status();
                 match resp.text().await {
                     Ok(response_body) => {
-                        eprintln!(
+                        tracing::info!(
                             "[Gateway/WeChat] send_message ({}): {}",
                             status, response_body
                         );
                     }
                     Err(e) => {
-                        eprintln!(
+                        tracing::error!(
                             "[Gateway/WeChat] send_message ({}) but read body failed: {}",
                             status, e
                         );
@@ -446,7 +446,7 @@ impl PlatformAdapter for WeChatAdapter {
                 }
             }
             Err(e) => {
-                eprintln!("[Gateway/WeChat] send_message HTTP error: {}", e);
+                tracing::error!("[Gateway/WeChat] send_message HTTP error: {}", e);
             }
         }
     }
@@ -484,14 +484,14 @@ impl PlatformAdapter for WeChatAdapter {
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let raw = resp.text().await.unwrap_or_default();
-                    eprintln!(
+                    tracing::warn!(
                         "[Gateway/WeChat] send_typing ({}): {}",
                         status, raw
                     );
                 }
             }
             Err(e) => {
-                eprintln!("[Gateway/WeChat] send_typing HTTP error: {}", e);
+                tracing::error!("[Gateway/WeChat] send_typing HTTP error: {}", e);
             }
         }
     }

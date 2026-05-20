@@ -88,11 +88,10 @@ pub(super) fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'s
     let val = match serde_json::from_str::<serde_json::Value>(result) {
         Ok(v) => {
             // Check if this is a CLI command result (starts with ⌘ or contains ansi codes)
-            if let Some(arr) = v.as_array() {
-                if arr.first().and_then(|v| v.as_str()).is_some_and(|s| s.trim().starts_with('\u{2318}'))
-                {
-                    return (Vec::new(), false);
-                }
+            if let Some(arr) = v.as_array()
+                && arr.first().and_then(|v| v.as_str()).is_some_and(|s| s.trim().starts_with('\u{2318}'))
+            {
+                return (Vec::new(), false);
             }
             v
         }

@@ -27,7 +27,7 @@ impl TelegramAdapter {
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap_or_else(|e| {
-                eprintln!("[Gateway/Telegram] 创建 HTTP 客户端失败: {}", e);
+                tracing::error!("[Gateway/Telegram] 创建 HTTP 客户端失败: {}", e);
                 reqwest::Client::new()
             });
         Self {

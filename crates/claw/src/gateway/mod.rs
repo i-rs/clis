@@ -197,6 +197,7 @@ impl GatewayServer {
     /// Each {platform}:{chat_id} pair gets its own session for conversation continuity.
     /// Uses `AppCore::build_messages()` and `engine::chat_loop()` for multi-round
     /// streaming with tool call execution.
+    #[tracing::instrument(skip(core))]
     async fn process_message(
         core: &Arc<Mutex<crate::core::AppCore>>,
         platform: &str,

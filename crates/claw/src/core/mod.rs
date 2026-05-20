@@ -1,7 +1,5 @@
 pub mod context;
 pub mod engine;
-pub mod executor;
-pub mod orchestrator;
 
 use crate::app::Message;
 use crate::config::Config;
@@ -198,6 +196,7 @@ impl AppCore {
     }
 
     /// Build the API message list for a specific agent.
+    #[tracing::instrument(skip(self, app_messages, saved_api_messages, reminder_text))]
     pub fn build_messages_for(
         &self,
         app_messages: &[Message],

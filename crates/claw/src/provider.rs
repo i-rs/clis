@@ -70,6 +70,7 @@ pub trait LlmProvider: Send + Sync {
 ///
 /// Returns `Ok(response)` on success or when retries exhausted on HTTP errors.
 /// Returns `Err(...)` when retries exhausted on network errors.
+#[tracing::instrument(skip(client, body, headers))]
 async fn send_with_retry(
     max_attempts: u32,
     client: &reqwest::Client,
