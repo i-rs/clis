@@ -1,42 +1,15 @@
-use crate::presentation::{OutputFormat, output_error, output_item};
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
-pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
+pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
     let store = crate::storage::load_store()?;
-    let record = match crate::service::get_mood(&store, &date) {
-        Ok(r) => r,
-        Err(e) => {
-            if format.is_json() {
-                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
-            }
-            return Err(e);
-        }
-    };
+    let record = crate::service::get_mood(&store, &id)?;
 
     if format.is_json() {
-        #[derive(serde::Serialize)]
-        struct GetOutput {
-            date: String,
-            mood: String,
-            tags: Vec<String>,
-            content: Vec<String>,
-            remark: Vec<String>,
-            created_at: String,
-            updated_at: String,
-        }
-
-        let output = GetOutput {
-            date: record.date.format("%Y-%m-%d").to_string(),
-            mood: record.mood.label().to_string(),
-            tags: record.tags.clone(),
-            content: record.content.clone(),
-            remark: record.remark.clone(),
-            created_at: record.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            updated_at: record.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-        };
-
+        let output = ListItem::from(&record);
         println!("{}", output_item(&output, format));
         return Ok(());
     }
@@ -44,7 +17,7 @@ pub fn handle_get(date: String, format: OutputFormat) -> Result<()> {
     let style = OwoStyle::new().bold();
     println!(
         "{}",
-        format!("Mood: {}", record.date.format("%Y-%m-%d"))
+        format!("Mood: {} ({})", record.date.format("%Y-%m-%d"), id.dimmed())
             .bold()
             .cyan()
     );

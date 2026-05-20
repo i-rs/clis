@@ -5,31 +5,33 @@ use i_rs_core::parse_date;
 
 /// List mood records, optionally filtered by recent days.
 pub fn list_moods(store: &MoodStore, days: Option<usize>) -> Result<Vec<MoodRecord>> {
-    let records: Vec<MoodRecord> = if let Some(d) = days {
+    let mut records: Vec<MoodRecord> = if let Some(d) = days {
         let cutoff = Utc::now().date_naive() - chrono::Duration::days(d as i64);
         store
-            .records
+            .entries
             .values()
             .filter(|r| r.date >= cutoff)
             .cloned()
             .collect()
     } else {
-        store.records.values().cloned().collect()
+        store.entries.values().cloned().collect()
     };
+    records.sort_by_key(|r| r.date);
     Ok(records)
 }
 
-/// Get a single mood record by date string.
-pub fn get_mood(store: &MoodStore, date_str: &str) -> Result<MoodRecord> {
-    let date = parse_date(date_str)?;
-    store
-        .records
-        .get(&date)
-        .cloned()
-        .with_context(|| format!("No mood record found for {date}"))
+/// Get a single mood record by id prefix (UUID).
+pub fn get_mood(store: &MoodStore, id: &str) -> Result<MoodRecord> {
+    let entry = store
+        .entries
+        .iter()
+        .find(|(k, _)| k.starts_with(id))
+        .map(|(_, v)| v)
+        .with_context(|| format!("No mood record found for id '{id}'"))?;
+    Ok(entry.clone())
 }
 
-/// Add a mood record.
+/// Add a mood record with auto-generated UUID.
 pub fn add_mood(
     store: &mut MoodStore,
     date_str: String,
@@ -39,14 +41,10 @@ pub fn add_mood(
     remark: Vec<String>,
 ) -> Result<MoodRecord> {
     let date = parse_date(&date_str)?;
-
-    if store.records.contains_key(&date) {
-        anyhow::bail!("Mood record for {date} already exists");
-    }
-
     let mood_parsed = parse_mood_str(&mood);
     let now = Utc::now();
     let record = MoodRecord {
+        id: uuid::Uuid::new_v4().to_string(),
         date,
         mood: mood_parsed,
         tags,
@@ -60,22 +58,31 @@ pub fn add_mood(
     Ok(record)
 }
 
-/// Update a mood record.
+/// Update a mood record by id prefix.
 pub fn update_mood(
     store: &mut MoodStore,
-    date_str: String,
+    id: String,
+    date: Option<String>,
     mood: Option<String>,
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
     remark: Option<Vec<String>>,
 ) -> Result<MoodRecord> {
-    let date = parse_date(&date_str)?;
+    let key = store
+        .entries
+        .iter()
+        .find(|(k, _)| k.starts_with(&id))
+        .map(|(k, _)| k.clone())
+        .with_context(|| format!("No mood record found for id '{id}'"))?;
 
     let record = store
-        .records
-        .get_mut(&date)
-        .with_context(|| format!("No mood record found for {date}"))?;
+        .entries
+        .get_mut(&key)
+        .context("Unexpected: key not found after find")?;
 
+    if let Some(d) = date {
+        record.date = parse_date(&d)?;
+    }
     if let Some(ref m) = mood {
         record.mood = parse_mood_str(m);
     }
@@ -90,19 +97,22 @@ pub fn update_mood(
     }
     record.updated_at = Utc::now();
 
-    let updated = record.clone();
-    Ok(updated)
+    Ok(record.clone())
 }
 
-/// Delete a mood record by date string.
-pub fn delete_mood(store: &mut MoodStore, date_str: String) -> Result<()> {
-    let date = parse_date(&date_str)?;
-
-    if store.remove_entry(&date).is_none() {
-        anyhow::bail!("No mood record found for {date}");
-    }
-
-    Ok(())
+/// Delete a mood record by id prefix.
+pub fn delete_mood(store: &mut MoodStore, id: String) -> Result<MoodRecord> {
+    let key = store
+        .entries
+        .iter()
+        .find(|(k, _)| k.starts_with(&id))
+        .map(|(k, _)| k.clone())
+        .with_context(|| format!("No mood record found for id '{id}'"))?;
+    let record = store
+        .entries
+        .remove(&key)
+        .context("Unexpected: entry vanished after find")?;
+    Ok(record)
 }
 
 /// Calculate mood statistics.

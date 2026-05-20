@@ -1,7 +1,6 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use tabled::Tabled;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -54,6 +53,8 @@ impl std::fmt::Display for Mood {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoodRecord {
+    #[serde(default)]
+    pub id: String,
     pub date: NaiveDate,
     pub mood: Mood,
     #[serde(default)]
@@ -70,35 +71,36 @@ pub struct MoodRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MoodStore {
-    pub records: BTreeMap<NaiveDate, MoodRecord>,
+    pub entries: BTreeMap<String, MoodRecord>,
 }
 
 impl MoodStore {
     pub fn add_entry(&mut self, record: MoodRecord) {
-        self.records.insert(record.date, record);
-    }
-
-    pub fn remove_entry(&mut self, date: &NaiveDate) -> Option<MoodRecord> {
-        self.records.remove(date)
+        self.entries.insert(record.id.clone(), record);
     }
 
     #[allow(dead_code)]
-    pub fn get_entry(&self, date: &NaiveDate) -> Option<&MoodRecord> {
-        self.records.get(date)
+    pub fn remove_entry(&mut self, id: &str) -> Option<MoodRecord> {
+        self.entries.remove(id)
     }
 
     #[allow(dead_code)]
-    pub fn get_entry_mut(&mut self, date: &NaiveDate) -> Option<&mut MoodRecord> {
-        self.records.get_mut(date)
+    pub fn get_entry(&self, id: &str) -> Option<&MoodRecord> {
+        self.entries.get(id)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_entry_mut(&mut self, id: &str) -> Option<&mut MoodRecord> {
+        self.entries.get_mut(id)
     }
 
     pub fn mood_stats(&self) -> Option<(Mood, Mood, f64)> {
-        if self.records.is_empty() {
+        if self.entries.is_empty() {
             return None;
         }
 
         let moods: Vec<u8> = self
-            .records
+            .entries
             .values()
             .map(|r| match r.mood {
                 Mood::Great => 5,
@@ -109,8 +111,8 @@ impl MoodStore {
             })
             .collect();
 
-        let min_level = *moods.iter().min().expect("non-empty records checked above");
-        let max_level = *moods.iter().max().expect("non-empty records checked above");
+        let min_level = *moods.iter().min().expect("non-empty entries checked above");
+        let max_level = *moods.iter().max().expect("non-empty entries checked above");
         let avg = f64::from(moods.iter().sum::<u8>()) / moods.len() as f64;
 
         let min_mood = Mood::from_level(min_level).expect("levels always 1-5 from mood_stats");
@@ -120,23 +122,26 @@ impl MoodStore {
     }
 }
 
-#[derive(Tabled)]
+#[derive(Debug, Clone, Serialize, tabled::Tabled)]
 pub struct MoodRow {
+    #[tabled(rename = "ID")]
+    pub id: String,
     #[tabled(rename = "DATE")]
-    date: String,
+    pub date: String,
     #[tabled(rename = "MOOD")]
-    mood: String,
+    pub mood: String,
     #[tabled(rename = "TAGS")]
-    tags: String,
+    pub tags: String,
     #[tabled(rename = "CONTENT")]
-    content: String,
+    pub content: String,
     #[tabled(rename = "REMARK")]
-    remark: String,
+    pub remark: String,
 }
 
 impl MoodRow {
     pub fn from_record(record: &MoodRecord) -> Self {
         Self {
+            id: record.id[..8].to_string(),
             date: record.date.format("%Y-%m-%d").to_string(),
             mood: format!("{} {}", record.mood, record.mood.label()),
             tags: if record.tags.is_empty() {
@@ -154,6 +159,35 @@ impl MoodRow {
             } else {
                 record.remark.join(", ")
             },
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ListItem {
+    pub id: String,
+    pub date: String,
+    pub mood: String,
+    pub mood_label: String,
+    pub tags: Vec<String>,
+    pub content: Vec<String>,
+    pub remark: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl From<&MoodRecord> for ListItem {
+    fn from(r: &MoodRecord) -> Self {
+        Self {
+            id: r.id.clone(),
+            date: r.date.format("%Y-%m-%d").to_string(),
+            mood: r.mood.to_string(),
+            mood_label: r.mood.label().to_string(),
+            tags: r.tags.clone(),
+            content: r.content.clone(),
+            remark: r.remark.clone(),
+            created_at: r.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: r.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         }
     }
 }

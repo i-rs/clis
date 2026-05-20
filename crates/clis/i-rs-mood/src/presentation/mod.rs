@@ -1,18 +1,7 @@
-use crate::models::{MoodRecord, MoodRow};
-pub use i_rs_core::presentation::output::{output_error, output_item, output_list};
-pub use i_rs_core::presentation::{OutputFormat, print_success, print_warning};
-use owo_colors::OwoColorize;
-pub fn format_table(records: &[&MoodRecord]) -> String {
-    let rows: Vec<MoodRow> = records.iter().map(|r| MoodRow::from_record(r)).collect();
-    i_rs_core::render_table(&rows)
-}
-pub fn print_record_count(count: usize) {
-    println!(
-        "\n{} {} records",
-        "Total:".dimmed(),
-        count.to_string().cyan()
-    );
-}
+use crate::models::MoodRecord;
+
+i_rs_core::presentation!(MoodRow, "moods", print_warning);
+
 pub fn print_mood_calendar(records: &[&MoodRecord], days: usize) {
     println!("\n{}", "Mood Calendar:".bold().cyan());
     println!("{}", "─".repeat(40).dimmed());

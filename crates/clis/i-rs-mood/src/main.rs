@@ -24,12 +24,12 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Add a new entry
+    /// Add a new mood entry
     Add {
-        #[arg(value_name = "DATE")]
-        date: String,
         #[arg(value_name = "MOOD")]
         mood: String,
+        #[arg(short = 'D', long = "date", value_name = "DATE")]
+        date: Option<String>,
         #[arg(short, long)]
         tag: Vec<String>,
         #[arg(short, long)]
@@ -39,8 +39,8 @@ enum Commands {
     },
     /// Delete an entry
     Delete {
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(value_name = "ID")]
+        id: String,
     },
     /// List all entries
     List {
@@ -51,8 +51,10 @@ enum Commands {
     },
     /// Update an entry
     Update {
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(value_name = "ID")]
+        id: String,
+        #[arg(short = 'D', long = "date", value_name = "DATE")]
+        date: Option<String>,
         #[arg(short = 'm', long)]
         mood: Option<String>,
         #[arg(short, long)]
@@ -64,8 +66,8 @@ enum Commands {
     },
     /// Get an entry by id
     Get {
-        #[arg(value_name = "DATE")]
-        date: String,
+        #[arg(value_name = "ID")]
+        id: String,
     },
     /// Show usage examples
     Example {},
@@ -89,31 +91,32 @@ fn main() {
 fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
     match command {
         Commands::Add {
-            date,
             mood,
+            date,
             tag,
             content,
             remark,
         } => {
-            handle_add(date, mood, tag, content, remark, format)?;
+            handle_add(mood, date, tag, content, remark, format)?;
         }
-        Commands::Delete { date } => {
-            handle_delete(date, format)?;
+        Commands::Delete { id } => {
+            handle_delete(id, format)?;
         }
         Commands::List { days, calendar } => {
             handle_list(days, calendar, format)?;
         }
         Commands::Update {
+            id,
             date,
             mood,
             tag,
             content,
             remark,
         } => {
-            handle_update(date, mood, tag, content, remark, format)?;
+            handle_update(id, date, mood, tag, content, remark, format)?;
         }
-        Commands::Get { date } => {
-            handle_get(date, format)?;
+        Commands::Get { id } => {
+            handle_get(id, format)?;
         }
         Commands::Example {} => {
             handle_example();

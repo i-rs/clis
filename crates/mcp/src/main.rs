@@ -326,7 +326,7 @@ make_mcp_tools! {
     (kv,          i_rs_kv::models::KvStore,              i_rs_kv::models::KvEntry,              entries, s),
     (ledger,      i_rs_ledger::models::LedgerStore,      i_rs_ledger::models::LedgerEntry,      entries, s),
     (meal,        i_rs_meal::models::MealStore,          i_rs_meal::models::MealEntry,          entries, s),
-    (mood,        i_rs_mood::models::MoodStore,          i_rs_mood::models::MoodRecord,         records, d),
+    (mood,        i_rs_mood::models::MoodStore,          i_rs_mood::models::MoodRecord,         entries, s),
     (movie,       i_rs_movie::models::MovieStore,        i_rs_movie::models::Movie,             movies, s),
     (note,        i_rs_note::models::NoteStore,          i_rs_note::models::Note,               notes, s),
     (password,    i_rs_password::models::PasswordStore,  i_rs_password::models::PasswordEntry,   entries, s),

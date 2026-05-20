@@ -1,6 +1,6 @@
-use crate::models::MoodRecord;
+use crate::models::{ListItem, MoodRecord, MoodRow};
 use crate::presentation::{
-    OutputFormat, format_table, output_list, print_mood_calendar, print_record_count, print_warning,
+    OutputFormat, format_table, output_list, print_mood_calendar, print_entry_count, print_warning,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -24,26 +24,7 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
     }
 
     if format.is_json() {
-        #[derive(serde::Serialize, Clone)]
-        struct ListItem {
-            date: String,
-            mood: String,
-            mood_label: String,
-            tags: Vec<String>,
-            content: Vec<String>,
-        }
-
-        let items: Vec<ListItem> = records_ref
-            .iter()
-            .map(|r| ListItem {
-                date: r.date.format("%Y-%m-%d").to_string(),
-                mood: r.mood.to_string(),
-                mood_label: r.mood.label().to_string(),
-                tags: r.tags.clone(),
-                content: r.content.clone(),
-            })
-            .collect();
-
+        let items: Vec<ListItem> = records_ref.iter().map(|r| ListItem::from(*r)).collect();
         let filter = days.map(|d| format!("last {d} days"));
         println!(
             "{}",
@@ -52,10 +33,11 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
         return Ok(());
     }
 
-    let table = format_table(&records_ref);
+    let rows: Vec<MoodRow> = records_ref.iter().map(|r| MoodRow::from_record(r)).collect();
+    let table = format_table(&rows);
     println!("\n{table}");
 
-    print_record_count(records_ref.len());
+    print_entry_count(records_ref.len());
 
     // Stats from the already-loaded store
     if let Some((min_mood, max_mood, avg)) = store.mood_stats() {

@@ -78,6 +78,8 @@ impl MealStore {
 pub struct MealRow {
     #[tabled(rename = "ID")]
     id: String,
+    #[tabled(rename = "DATE")]
+    date: String,
     #[tabled(rename = "TYPE")]
     meal_type: String,
     #[tabled(rename = "FOOD")]
@@ -92,6 +94,7 @@ impl MealRow {
     pub fn from_entry(entry: &MealEntry) -> Self {
         Self {
             id: entry.id[..8].to_string(),
+            date: entry.date.format("%Y-%m-%d").to_string(),
             meal_type: entry.meal_type.clone(),
             food_items: entry.food_items.clone(),
             calories: entry
