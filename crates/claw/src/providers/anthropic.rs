@@ -1,417 +1,11 @@
 use crate::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
+use crate::providers::sse::send_with_retry;
+use crate::providers::{LlmProvider, ProviderKind};
 use crate::stats::TokenRecord;
 use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Instant;
 use tokio::sync::mpsc::UnboundedSender;
-
-// ── Provider Kind ──
-
-/// Provider identifier used in configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProviderKind {
-    OpenAI,
-    Anthropic,
-    Ollama,
-}
-
-impl ProviderKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ProviderKind::OpenAI => "openai",
-            ProviderKind::Anthropic => "anthropic",
-            ProviderKind::Ollama => "ollama",
-        }
-    }
-
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "anthropic" => ProviderKind::Anthropic,
-            "ollama" => ProviderKind::Ollama,
-            _ => ProviderKind::OpenAI,
-        }
-    }
-
-    pub fn all() -> Vec<ProviderKind> {
-        vec![ProviderKind::OpenAI, ProviderKind::Anthropic, ProviderKind::Ollama]
-    }
-}
-
-// ── Abstract Trait ──
-
-/// Abstract LLM provider that handles API-specific streaming logic.
-/// Each provider converts the internal OpenAI-format messages
-/// to its own API format internally.
-#[async_trait::async_trait]
-#[allow(dead_code)]
-pub trait LlmProvider: Send + Sync {
-    fn kind(&self) -> ProviderKind;
-    fn model(&self) -> &str;
-
-    /// Stream a chat completion, emitting events to `tx`.
-    /// `messages` are in OpenAI-compatible format (role/content/tool_calls).
-    /// `tool_schemas` are in OpenAI-compatible format.
-    async fn stream_chat(
-        &self,
-        messages: &[Value],
-        tool_schemas: &[Value],
-        tx: &UnboundedSender<LlmEvent>,
-    ) -> anyhow::Result<StreamResult>;
-}
-
-// ── Shared retry helper ──
-
-/// Send an HTTP POST request with exponential backoff retry.
-///
-/// Retry policy:
-/// - 429 Too Many Requests: wait `attempt * 1000 + 500` ms
-/// - 5xx Server Error: wait `attempt * 2000` ms
-/// - Network errors: wait `attempt * 1000` ms
-/// - Max `max_attempts` attempts
-///
-/// Returns `Ok(response)` on success or when retries exhausted on HTTP errors.
-/// Returns `Err(...)` when retries exhausted on network errors.
-#[tracing::instrument(skip(client, body, headers))]
-async fn send_with_retry(
-    max_attempts: u32,
-    client: &reqwest::Client,
-    url: &str,
-    body: &serde_json::Value,
-    headers: &[(String, String)],
-) -> anyhow::Result<reqwest::Response> {
-    let mut attempt = 0u32;
-    loop {
-        attempt += 1;
-        let mut req = client.post(url).json(body);
-        for (key, value) in headers {
-            req = req.header(key.as_str(), value.as_str());
-        }
-        match req.send().await {
-            Ok(r) if r.status().as_u16() == 429 => {
-                let wait_ms = (attempt as u64) * 1000 + 500;
-                tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-                if attempt < max_attempts { continue; }
-                return Ok(r);
-            }
-            Ok(r) if r.status().is_server_error() => {
-                let wait_ms = (attempt as u64) * 2000;
-                tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-                if attempt < max_attempts { continue; }
-                return Ok(r);
-            }
-            Ok(r) => return Ok(r),
-            Err(e) => {
-                if attempt < max_attempts {
-                    let wait_ms = (attempt as u64) * 1000;
-                    tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-                    continue;
-                }
-                return Err(anyhow::anyhow!("API 请求失败 (重试{}次): {}", attempt, e));
-            }
-        }
-    }
-}
-
-// =============================================
-// Shared OpenAI-compatible streaming
-// =============================================
-
-/// Internal streaming logic shared by OpenAI-compatible providers
-/// (OpenAI, Ollama, and any other OpenAI-format endpoints).
-async fn openai_stream_chat_impl(
-    client: &reqwest::Client,
-    url: &str,
-    api_key: Option<&str>,
-    model: &str,
-    provider_kind: &str,
-    messages: &[Value],
-    tool_schemas: &[Value],
-    tx: &UnboundedSender<LlmEvent>,
-) -> anyhow::Result<StreamResult> {
-    let start = Instant::now();
-    let mut body = serde_json::json!({
-        "model": model,
-        "messages": messages,
-        "stream": true,
-        "stream_options": { "include_usage": true },
-    });
-
-    if !tool_schemas.is_empty() {
-        body["tools"] = Value::Array(tool_schemas.to_vec());
-        body["parallel_tool_calls"] = serde_json::Value::Bool(true);
-    }
-
-    let body_json = serde_json::to_string(&body).unwrap_or_default();
-
-    let headers: Vec<(String, String)> = if let Some(key) = api_key {
-        vec![
-            ("Authorization".to_string(), format!("Bearer {}", key)),
-            ("HTTP-Referer".to_string(), "https://github.com/i-rs/clis".to_string()),
-            ("X-Title".to_string(), "i-rs-claw".to_string()),
-        ]
-    } else {
-        Vec::new()
-    };
-    let response = send_with_retry(3, client, url, &body, &headers).await?;
-
-    let status = response.status().as_u16();
-
-    if response.status().is_success() {
-        let mut stream = response.bytes_stream();
-        let mut buf = String::new();
-        let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
-        let mut reasoning_buf = String::new();
-        let mut content_buf = String::new();
-        let mut usage: Option<TokenUsage> = None;
-
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
-            buf.push_str(&String::from_utf8_lossy(&chunk));
-
-            // Process complete SSE lines
-            while let Some(pos) = buf.find('\n') {
-                let line = buf[..pos].trim().to_string();
-                buf = buf[pos + 1..].to_string();
-
-                if line.is_empty() {
-                    continue;
-                }
-
-                if let Some(data) = line.strip_prefix("data: ") {
-                    if data.trim() == "[DONE]" {
-                        continue;
-                    }
-
-                    if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
-                        // Usage data (final chunk with include_usage)
-                        if let Some(usage_data) = parsed.get("usage")
-                            && !usage_data.is_null() {
-                                usage = Some(TokenUsage {
-                                    prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
-                                    completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
-                                    total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
-                                });
-                            }
-
-                        if let Some(choices) = parsed["choices"].as_array()
-                            && let Some(choice) = choices.first()
-                                && let Some(delta) = choice.get("delta") {
-                                    // Accumulate reasoning_content (DeepSeek)
-                                    if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
-                                        reasoning_buf.push_str(rc);
-                                        let _ = tx.send(LlmEvent::Reasoning(rc.to_string()));
-                                    }
-
-                                    // Text content
-                                    if let Some(text) = delta.get("content").and_then(|c| c.as_str())
-                                        && !text.is_empty() {
-                                            content_buf.push_str(text);
-                                            let _ = tx.send(LlmEvent::Token(text.to_string()));
-                                        }
-
-                                    // Tool calls (streaming delta)
-                                    if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
-                                        for tc in tcs {
-                                            let idx = tc
-                                                .get("index")
-                                                .and_then(|i| i.as_i64())
-                                                .unwrap_or(0)
-                                                as usize;
-                                            if idx >= tool_calls.len() {
-                                                tool_calls.resize(idx + 1, ToolCallAcc::default());
-                                            }
-                                            if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
-                                                tool_calls[idx].id = id.to_string();
-                                            }
-                                            if let Some(func) = tc.get("function") {
-                                                if let Some(name) = func.get("name").and_then(|n| n.as_str()) {
-                                                    tool_calls[idx].name = name.to_string();
-                                                }
-                                                if let Some(args) = func.get("arguments").and_then(|a| a.as_str()) {
-                                                    tool_calls[idx].arguments.push_str(args);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                    }
-                }
-            }
-        }
-
-        let duration_ms = start.elapsed().as_millis() as u64;
-        let prompt_tokens = usage.map(|u| u.prompt_tokens).unwrap_or(0);
-        let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
-        let has_tool_calls = !tool_calls.is_empty()
-            && tool_calls.iter().any(|tc| !tc.id.is_empty());
-        let tool_call_count = if has_tool_calls { tool_calls.len() as u32 } else { 0 };
-
-        // Emit usage record for statistics
-        let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
-            id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Local::now().timestamp(),
-            agent_id: "default".to_string(),
-            model: model.to_string(),
-            provider: provider_kind.to_string(),
-            prompt_tokens,
-            completion_tokens,
-            total_tokens: prompt_tokens + completion_tokens,
-            has_tool_calls,
-            tool_call_count,
-            react_rounds: 0, // Will be updated by chat_loop if needed
-            success: true,
-            latency_ms: duration_ms,
-            estimated_cost_usd: 0.0, // Estimated by StatsManager on consumption
-        }));
-
-        let _ = tx.send(LlmEvent::HttpLog {
-            status,
-            duration_ms,
-            model: model.to_string(),
-            prompt_tokens,
-            completion_tokens,
-            error: None,
-            request_body: body_json.clone(),
-        });
-
-        if has_tool_calls {
-            let mut parsed = Vec::new();
-            for tc in &tool_calls {
-                let args: Value =
-                    serde_json::from_str(&tc.arguments).unwrap_or(serde_json::json!({}));
-                parsed.push((
-                    ToolCallAcc {
-                        id: tc.id.clone(),
-                        name: tc.name.clone(),
-                        arguments: tc.arguments.clone(),
-                    },
-                    args,
-                ));
-            }
-            return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
-        }
-
-        Ok(StreamResult::Text(usage, content_buf))
-    } else {
-        let text = response.text().await.unwrap_or_default();
-        let duration_ms = start.elapsed().as_millis() as u64;
-        let _ = tx.send(LlmEvent::HttpLog {
-            status,
-            duration_ms,
-            model: model.to_string(),
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            error: Some(format!("HTTP {}: {}", status, text)),
-            request_body: body_json.clone(),
-        });
-        Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text))
-    }
-}
-
-// =============================================
-// OpenAI Provider
-// =============================================
-
-pub struct OpenaiProvider {
-    client: reqwest::Client,
-    api_key: String,
-    base_url: String,
-    model: String,
-}
-
-impl OpenaiProvider {
-    pub fn new(client: reqwest::Client, api_key: String, base_url: String, model: String) -> Self {
-        Self { client, api_key, base_url, model }
-    }
-}
-
-#[async_trait::async_trait]
-impl LlmProvider for OpenaiProvider {
-    fn kind(&self) -> ProviderKind {
-        ProviderKind::OpenAI
-    }
-
-    fn model(&self) -> &str {
-        &self.model
-    }
-
-    #[tracing::instrument(skip(self, messages, tool_schemas, tx))]
-    async fn stream_chat(
-        &self,
-        messages: &[Value],
-        tool_schemas: &[Value],
-        tx: &UnboundedSender<LlmEvent>,
-    ) -> anyhow::Result<StreamResult> {
-        let url = format!("{}/chat/completions", self.base_url);
-        openai_stream_chat_impl(
-            &self.client,
-            &url,
-            Some(&self.api_key),
-            &self.model,
-            "openai",
-            messages,
-            tool_schemas,
-            tx,
-        )
-        .await
-    }
-}
-
-// =============================================
-// Ollama Provider
-// =============================================
-
-pub struct OllamaProvider {
-    client: reqwest::Client,
-    base_url: String,
-    model: String,
-}
-
-impl OllamaProvider {
-    pub fn new(client: reqwest::Client, model: String) -> Self {
-        Self {
-            client,
-            base_url: "http://localhost:11434/v1".to_string(),
-            model,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn with_url(client: reqwest::Client, base_url: String, model: String) -> Self {
-        Self { client, base_url, model }
-    }
-}
-
-#[async_trait::async_trait]
-impl LlmProvider for OllamaProvider {
-    fn kind(&self) -> ProviderKind {
-        ProviderKind::Ollama
-    }
-
-    fn model(&self) -> &str {
-        &self.model
-    }
-
-    async fn stream_chat(
-        &self,
-        messages: &[Value],
-        tool_schemas: &[Value],
-        tx: &UnboundedSender<LlmEvent>,
-    ) -> anyhow::Result<StreamResult> {
-        let url = format!("{}/chat/completions", self.base_url);
-        openai_stream_chat_impl(
-            &self.client,
-            &url,
-            None::<&str>,
-            &self.model,
-            "ollama",
-            messages,
-            tool_schemas,
-            tx,
-        )
-        .await
-    }
-}
 
 // =============================================
 // Anthropic Provider
@@ -531,9 +125,37 @@ fn openai_to_anthropic_tools(tool_schemas: &[Value]) -> Vec<Value> {
         .collect()
 }
 
+/// Internal event types for Anthropic SSE stream parsing.
+#[derive(Debug)]
+pub(crate) enum AnthropicEvent {
+    MessageStart {
+        usage: Option<TokenUsage>,
+    },
+    ContentBlockStart {
+        index: usize,
+        block_type: String,
+        tool_use_id: Option<String>,
+        tool_use_name: Option<String>,
+    },
+    ContentBlockDelta {
+        index: usize,
+        text: Option<String>,
+        partial_json: Option<String>,
+    },
+    ContentBlockStop {
+        index: usize,
+    },
+    MessageDelta {
+        stop_reason: String,
+        usage: Option<TokenUsage>,
+    },
+    MessageStop,
+    Ping,
+}
+
 impl AnthropicProvider {
     /// SSE event line → typed event for the Anthropic stream.
-    fn parse_anthropic_event(
+    pub(crate) fn parse_anthropic_event(
         event_type: &str,
         data: &str,
     ) -> Option<AnthropicEvent> {
@@ -616,35 +238,6 @@ impl AnthropicProvider {
     }
 }
 
-/// Internal event types for Anthropic SSE stream parsing.
-#[allow(dead_code)]
-#[derive(Debug)]
-enum AnthropicEvent {
-    MessageStart {
-        usage: Option<TokenUsage>,
-    },
-    ContentBlockStart {
-        index: usize,
-        block_type: String,
-        tool_use_id: Option<String>,
-        tool_use_name: Option<String>,
-    },
-    ContentBlockDelta {
-        index: usize,
-        text: Option<String>,
-        partial_json: Option<String>,
-    },
-    ContentBlockStop {
-        index: usize,
-    },
-    MessageDelta {
-        stop_reason: String,
-        usage: Option<TokenUsage>,
-    },
-    MessageStop,
-    Ping,
-}
-
 #[async_trait::async_trait]
 impl LlmProvider for AnthropicProvider {
     fn kind(&self) -> ProviderKind {
@@ -713,8 +306,6 @@ impl LlmProvider for AnthropicProvider {
         let mut current_event_type = String::new();
 
         // Track content blocks by index
-        // For text blocks: store accumulated text
-        // For tool_use blocks: store ToolCallAcc
         #[derive(Default, Clone)]
         struct ContentBlock {
             block_type: String,
@@ -789,9 +380,7 @@ impl LlmProvider for AnthropicProvider {
                                     content_blocks[index].partial_json.push_str(&pj);
                                 }
                             }
-                            AnthropicEvent::ContentBlockStop { .. } => {
-                                // Content block complete — nothing special needed
-                            }
+                            AnthropicEvent::ContentBlockStop { .. } => {}
                             AnthropicEvent::MessageDelta {
                                 stop_reason,
                                 usage,
@@ -809,9 +398,7 @@ impl LlmProvider for AnthropicProvider {
                                     });
                                 }
                             }
-                            AnthropicEvent::MessageStop => {
-                                // Stream complete
-                            }
+                            AnthropicEvent::MessageStop => {}
                             AnthropicEvent::Ping => {}
                         }
                     }
@@ -860,7 +447,6 @@ impl LlmProvider for AnthropicProvider {
 
         // Determine result type based on stop reason
         if has_tool_calls {
-            // Extract tool_use blocks
             let mut parsed = Vec::new();
             for block in &content_blocks {
                 if block.block_type == "tool_use" {
@@ -878,7 +464,6 @@ impl LlmProvider for AnthropicProvider {
             }
             Ok(StreamResult::ToolCalls(parsed, String::new()))
         } else {
-            // Accumulate all text content blocks
             let text: String = content_blocks
                 .iter()
                 .map(|b| b.text.clone())
@@ -889,201 +474,10 @@ impl LlmProvider for AnthropicProvider {
     }
 }
 
-// =============================================
-// Factory
-// =============================================
-
-/// Create the appropriate provider based on configuration.
-pub fn create_provider(config: &crate::config::Config) -> Box<dyn LlmProvider> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
-    match ProviderKind::from_str(&config.provider) {
-        ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
-            client.clone(),
-            config.api_key.clone(),
-            config.base_url.clone(),
-            config.model.clone(),
-        )),
-        ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
-            client.clone(),
-            config.api_key.clone(),
-            config.base_url.clone(),
-            config.model.clone(),
-        )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client, config.model.clone())),
-    }
-}
-
-/// Create a provider from a resolved agent config.
-pub fn create_provider_for(
-    provider_type: &str,
-    api_key: &str,
-    base_url: &str,
-    model: &str,
-) -> Box<dyn LlmProvider> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
-    match ProviderKind::from_str(provider_type) {
-        ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
-            client.clone(),
-            api_key.to_string(),
-            base_url.to_string(),
-            model.to_string(),
-        )),
-        ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
-            client.clone(),
-            api_key.to_string(),
-            base_url.to_string(),
-            model.to_string(),
-        )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client, model.to_string())),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers;
     use serde_json::json;
-
-    // ── OpenAI SSE 解析测试 ──
-
-    #[test]
-    fn test_parse_empty_sse() {
-        let (events, usage) = test_helpers::parse_openai_sse("");
-        assert!(events.is_empty(), "空流不应产生事件");
-        assert!(usage.is_none(), "空流不应有 usage");
-    }
-
-    #[test]
-    fn test_parse_text_token() {
-        let sse = r#"data: {"choices":[{"index":0,"delta":{"content":"hello"}}]}
-
-"#;
-        let (events, _) = test_helpers::parse_openai_sse(sse);
-        assert_eq!(events.len(), 1);
-        assert!(
-            matches!(&events[0], LlmEvent::Token(t) if t == "hello"),
-            "预期 Token(hello)，得到 {:?}",
-            events[0]
-        );
-    }
-
-    #[test]
-    fn test_parse_multiple_tokens() {
-        let sse = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello \"}}]}\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"World\"}}]}\n\ndata: [DONE]\n\n";
-        let (events, _) = test_helpers::parse_openai_sse(sse);
-        assert_eq!(events.len(), 2);
-        assert!(
-            matches!(&events[0], LlmEvent::Token(t) if t == "Hello "),
-            "预期 Token(Hello )，得到 {:?}",
-            events[0]
-        );
-        assert!(
-            matches!(&events[1], LlmEvent::Token(t) if t == "World"),
-            "预期 Token(World)，得到 {:?}",
-            events[1]
-        );
-    }
-
-    #[test]
-    fn test_parse_tool_calls() {
-        let sse = r#"data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_weather","arguments":""}}]}}]}
-
-data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":\"Beijing\"}"}}]}}]}
-
-data: [DONE]
-
-"#;
-        let (events, _) = test_helpers::parse_openai_sse(sse);
-        // 工具调用自身的 delta 不产生 Token/Reasoning/Error 事件
-        assert!(
-            events.is_empty(),
-            "纯粹的 tool_calls delta 不应产生认知事件，得到 {:?}",
-            events
-        );
-    }
-
-    #[test]
-    fn test_parse_tool_call_streaming() {
-        // 模拟流式 tool_calls 分块：多个 delta chunk 累积 arguments
-        let chunk1 = r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_abc","type":"function","function":{"name":"search","arguments":""}}]}}]}"#;
-        let chunk2 = r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"query\":\""}}]}}]}"#;
-        let chunk3 = r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Rust\"}"}}]}}]}"#;
-        let sse = format!(
-            "data: {}\n\ndata: {}\n\ndata: {}\n\ndata: [DONE]\n\n",
-            chunk1, chunk2, chunk3
-        );
-        let (events, _) = test_helpers::parse_openai_sse(&sse);
-        assert!(
-            events.is_empty(),
-            "tool_calls 流式 delta 不应产生认知事件"
-        );
-    }
-
-    #[test]
-    fn test_parse_reasoning_content() {
-        let sse = r#"data: {"choices":[{"index":0,"delta":{"reasoning_content":"Let me think..."}}]}
-
-data: {"choices":[{"index":0,"delta":{"content":"answer"}}]}
-
-"#;
-        let (events, _) = test_helpers::parse_openai_sse(sse);
-        assert_eq!(events.len(), 2);
-        assert!(
-            matches!(&events[0], LlmEvent::Reasoning(r) if r == "Let me think..."),
-            "预期 Reasoning，得到 {:?}",
-            events[0]
-        );
-        assert!(
-            matches!(&events[1], LlmEvent::Token(t) if t == "answer"),
-            "预期 Token(answer)，得到 {:?}",
-            events[1]
-        );
-    }
-
-    #[test]
-    fn test_parse_usage() {
-        let sse = r#"data: {"choices":[{"index":0,"delta":{"content":"hello"}}]}
-
-data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
-
-data: [DONE]
-
-"#;
-        let (events, usage) = test_helpers::parse_openai_sse(sse);
-        assert_eq!(events.len(), 1, "usage chunk 不产生 Token 事件");
-        let u = usage.expect("应解析出 usage");
-        assert_eq!(u.prompt_tokens, 10);
-        assert_eq!(u.completion_tokens, 5);
-        assert_eq!(u.total_tokens, 15);
-    }
-
-    #[test]
-    fn test_parse_done_signal() {
-        let sse = "data: [DONE]\n\n";
-        let (events, usage) = test_helpers::parse_openai_sse(sse);
-        assert!(events.is_empty(), "[DONE] 不产生事件");
-        assert!(usage.is_none());
-    }
-
-    #[test]
-    fn test_parse_mixed_token_and_done() {
-        let sse = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n";
-        let (events, _) = test_helpers::parse_openai_sse(sse);
-        assert_eq!(events.len(), 1);
-        assert!(
-            matches!(&events[0], LlmEvent::Token(t) if t == "hi"),
-            "预期 Token(hi)，得到 {:?}",
-            events[0]
-        );
-    }
-
-    // ── Anthropic 事件解析测试 ──
 
     #[test]
     fn test_parse_anthropic_content_block_start() {
@@ -1231,48 +625,6 @@ data: [DONE]
         );
     }
 
-    // ── Provider 工厂路由测试 ──
-
-    #[test]
-    fn test_provider_kind_from_str_openai() {
-        assert_eq!(ProviderKind::from_str("openai"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str("OpenAI"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str("OPENAI"), ProviderKind::OpenAI);
-    }
-
-    #[test]
-    fn test_provider_kind_from_str_anthropic() {
-        assert_eq!(ProviderKind::from_str("anthropic"), ProviderKind::Anthropic);
-    }
-
-    #[test]
-    fn test_provider_kind_from_str_ollama() {
-        assert_eq!(ProviderKind::from_str("ollama"), ProviderKind::Ollama);
-    }
-
-    #[test]
-    fn test_provider_kind_from_str_unknown_defaults_to_openai() {
-        assert_eq!(ProviderKind::from_str("unknown"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str("zhipu"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str(""), ProviderKind::OpenAI);
-    }
-
-    #[test]
-    fn test_provider_kind_as_str() {
-        assert_eq!(ProviderKind::OpenAI.as_str(), "openai");
-        assert_eq!(ProviderKind::Anthropic.as_str(), "anthropic");
-        assert_eq!(ProviderKind::Ollama.as_str(), "ollama");
-    }
-
-    #[test]
-    fn test_provider_kind_all() {
-        let all = ProviderKind::all();
-        assert_eq!(all.len(), 3);
-        assert!(all.contains(&ProviderKind::OpenAI));
-        assert!(all.contains(&ProviderKind::Anthropic));
-        assert!(all.contains(&ProviderKind::Ollama));
-    }
-
     // ── openai_to_anthropic 消息转换测试 ──
 
     #[test]
@@ -1298,7 +650,6 @@ data: [DONE]
         let (system, anthro) = openai_to_anthropic_messages(&msgs);
         assert!(system.is_none());
         assert_eq!(anthro.len(), 2, "应有两个消息: assistant + tool_result");
-        // tool_result 被包装为 user content block
         assert_eq!(anthro[1]["role"], "user");
         assert_eq!(anthro[1]["content"][0]["type"], "tool_result");
         assert_eq!(anthro[1]["content"][0]["tool_use_id"], "call_1");
@@ -1326,4 +677,3 @@ data: [DONE]
         assert!(anthro_tools[0].get("input_schema").is_some());
     }
 }
-

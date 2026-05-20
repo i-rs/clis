@@ -12,7 +12,7 @@ mod llm;
 mod mcp;
 mod plugin;
 mod memory;
-mod provider;
+mod providers;
 mod router;
 mod semantic;
 mod session;

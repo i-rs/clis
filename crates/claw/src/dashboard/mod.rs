@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::net::SocketAddr;
+use tokio::sync::Mutex;
 
 use owo_colors::OwoColorize;
 

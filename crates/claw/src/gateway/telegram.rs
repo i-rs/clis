@@ -1,6 +1,6 @@
 use crate::gateway::{GatewayEvent, PlatformAdapter};
 use async_trait::async_trait;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 
 const TELEGRAM_API_BASE: &str = "https://api.telegram.org/bot";
@@ -104,7 +104,7 @@ impl PlatformAdapter for TelegramAdapter {
             }
         });
 
-        *self.task_handle.lock().unwrap() = Some(handle);
+        *self.task_handle.lock().await = Some(handle);
     }
 
     async fn send_message(&self, chat_id: &str, text: &str) {
@@ -118,7 +118,7 @@ impl PlatformAdapter for TelegramAdapter {
     }
 
     async fn stop(&self) {
-        if let Some(handle) = self.task_handle.lock().unwrap().take() {
+        if let Some(handle) = self.task_handle.lock().await.take() {
             handle.abort();
         }
     }

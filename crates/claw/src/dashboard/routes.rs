@@ -16,13 +16,9 @@ use tokio::sync::mpsc;
 /// Lock the core mutex safely, returning early with an error on poison.
 /// Use this in handler functions that return `Json<ApiResponse<...>>`.
 macro_rules! lock_core {
-    ($state:expr) => {{
-        let guard = $state.core.lock();
-        match guard {
-            Ok(g) => g,
-            Err(_) => return ApiResponse::err("内部错误: 状态锁已损坏"),
-        }
-    }};
+    ($state:expr) => {
+        $state.core.lock().await
+    };
 }
 
 // ── Response helpers ──
@@ -193,7 +189,7 @@ fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent
 
 /// Run the multi-round dashboard chat loop and save results.
 async fn dashboard_chat_loop(
-    provider: Box<dyn crate::provider::LlmProvider>,
+    provider: Box<dyn crate::providers::LlmProvider>,
     mut msgs: Vec<Value>,
     tx: mpsc::UnboundedSender<LlmEvent>,
     state: AppState,
@@ -206,10 +202,7 @@ async fn dashboard_chat_loop(
 
     // Build ToolContext for tool execution
     let tool_ctx = {
-        let Ok(core) = state.core.lock() else {
-            tracing::error!("Dashboard: 状态锁已损坏");
-            return;
-        };
+        let core = state.core.lock().await;
         crate::tools::ToolContext {
             config: core.config.clone(),
             mcp: mcp.clone(),
@@ -262,13 +255,7 @@ async fn dashboard_chat_loop(
                 let _ = tx.send(LlmEvent::Done(Arc::new(msgs.clone()), usage));
 
                 // Save to session
-                let mut core = match state.core.lock() {
-                    Ok(c) => c,
-                    Err(_) => {
-                        tracing::error!("Dashboard: 状态锁已损坏");
-                        break;
-                    }
-                };
+                let mut core = state.core.lock().await;
                 core.session_mgr.append_message("assistant", &text, None);
                 core.session_mgr.save_api_messages(&session_id, &msgs);
                 break;
@@ -323,13 +310,7 @@ async fn dashboard_chat_loop(
     }
 
     // Attempt to sync app messages to JSONL after the full loop
-    let core = match state.core.lock() {
-        Ok(c) => c,
-        Err(_) => {
-            tracing::error!("Dashboard: 状态锁已损坏");
-            return;
-        }
-    };
+    let core = state.core.lock().await;
     if let Some(api_msgs) = core.session_mgr.load_api_messages(&session_id) {
         // Convert API msgs to JSONL records, preserving tool call info
         let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
@@ -408,10 +389,7 @@ pub async fn chat_stream(
     Path(session_id): Path<String>,
 ) -> axum::response::Response {
     let (msgs, provider, sid, enabled_tools, mcp, skills) = {
-        let mut core = match state.core.lock() {
-            Ok(guard) => guard,
-            Err(_) => return ApiResponse::<()>::err("内部错误: 状态锁已损坏").into_response(),
-        };
+        let mut core = state.core.lock().await;
         core.session_mgr.switch_to(&session_id);
 
         // Read agent_id from session meta, defaulting to "default"
@@ -423,7 +401,7 @@ pub async fn chat_stream(
 
         let msgs = build_dashboard_messages(&core, &session_id, &agent_id);
         let resolved = core.config.agent_config(&agent_id);
-        let provider = crate::provider::create_provider_for(
+        let provider = crate::providers::create_provider_for(
             &resolved.provider,
             &resolved.api_key,
             &resolved.base_url,

@@ -26,7 +26,7 @@ pub fn run_config() -> anyhow::Result<()> {
     };
 
     // ── Provider Selection ──
-    let provider_names: Vec<&str> = crate::provider::ProviderKind::all()
+    let provider_names: Vec<&str> = crate::providers::ProviderKind::all()
         .iter()
         .map(|p| p.as_str())
         .collect();
@@ -408,7 +408,7 @@ pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
 
 pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
-    let provider = crate::provider::create_provider(&config);
+    let provider = crate::providers::create_provider(&config);
 
     let msgs = vec![
         serde_json::json!({
@@ -460,7 +460,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(std::sync::Mutex::new(
+    let core = std::sync::Arc::new(tokio::sync::Mutex::new(
         crate::core::AppCore::new(config.clone())?,
     ));
 

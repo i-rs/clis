@@ -24,12 +24,12 @@ fn serve_embedded(path: &str) -> Response {
             Response::builder()
                 .header(header::CONTENT_TYPE, mime.as_ref())
                 .body(body)
-                .unwrap()
+                .expect("Assets response builder never fails with valid body")
         }
         None => Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(Body::empty())
-            .unwrap(),
+            .expect("Assets 404 response builder never fails"),
     }
 }
 
@@ -57,7 +57,7 @@ pub async fn serve_assets(Path(path): Path<String>) -> Response {
             Response::builder()
                 .header(header::CONTENT_TYPE, mime.as_ref())
                 .body(body)
-                .unwrap()
+                .expect("Assets response builder never fails with valid body")
         }
         None => {
             // SPA fallback: serve index.html for unknown paths

@@ -7,7 +7,7 @@
 
 use crate::config::Config;
 use crate::llm::{LlmEvent, StreamResult, TokenUsage};
-use crate::provider::ProviderKind;
+use crate::providers::ProviderKind;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -67,7 +67,7 @@ impl MockProvider {
 }
 
 #[async_trait::async_trait]
-impl crate::provider::LlmProvider for MockProvider {
+impl crate::providers::LlmProvider for MockProvider {
     fn kind(&self) -> ProviderKind {
         self.kind
     }

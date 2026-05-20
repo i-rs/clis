@@ -4,7 +4,8 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 
 const WECHAT_API_BASE: &str = "https://ilinkai.weixin.qq.com";
@@ -93,12 +94,12 @@ impl WeChatAdapter {
     /// Fetch and cache the typing_ticket from getConfig endpoint.
     async fn get_typing_ticket(&self, user_id: &str) -> Option<String> {
         // Return cached ticket if available for this user
-        if let Some(ticket) = self.typing_tickets.lock().unwrap().get(user_id).cloned() {
+        if let Some(ticket) = self.typing_tickets.lock().await.get(user_id).cloned() {
             return Some(ticket);
         }
 
         // Need credentials to make the request
-        let bot_token = self.credentials.lock().unwrap().clone()?.bot_token;
+        let bot_token = self.credentials.lock().await.clone()?.bot_token;
 
         let url = format!("{}/ilink/bot/getconfig", WECHAT_API_BASE);
         let uin = make_x_wechat_uin();
@@ -126,7 +127,7 @@ impl WeChatAdapter {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&raw) {
                             if let Some(ticket) = json["typing_ticket"].as_str() {
                                 let ticket = ticket.to_string();
-                                self.typing_tickets.lock().unwrap().insert(user_id.to_string(), ticket.clone());
+                                self.typing_tickets.lock().await.insert(user_id.to_string(), ticket.clone());
                                 Some(ticket)
                             } else {
                                 tracing::info!("[Gateway/WeChat] getConfig ({}): no typing_ticket in {}",
@@ -247,7 +248,7 @@ impl PlatformAdapter for WeChatAdapter {
 
         // Set credentials for send_message to use
         {
-            *self.credentials.lock().unwrap() = Some(credentials.clone());
+            *self.credentials.lock().await = Some(credentials.clone());
         }
 
         let bot_token = credentials.bot_token;
@@ -319,7 +320,7 @@ impl PlatformAdapter for WeChatAdapter {
 
                                         // Store context_token for reply mapping
                                         if let Some(token) = msg["context_token"].as_str() {
-                                            reply_tokens.lock().unwrap().insert(
+                                            reply_tokens.lock().await.insert(
                                                 from_user_id.clone(),
                                                 token.to_string(),
                                             );
@@ -370,11 +371,11 @@ impl PlatformAdapter for WeChatAdapter {
             }
         });
 
-        *self.task_handle.lock().unwrap() = Some(handle);
+        *self.task_handle.lock().await = Some(handle);
     }
 
     async fn send_message(&self, chat_id: &str, text: &str) {
-        let credentials = match self.credentials.lock().unwrap().clone() {
+        let credentials = match self.credentials.lock().await.clone() {
             Some(c) => c,
             None => {
                 tracing::warn!("[Gateway/WeChat] No credentials to send message");
@@ -383,7 +384,7 @@ impl PlatformAdapter for WeChatAdapter {
         };
 
         // Look up context_token for this conversation
-        let context_token = self.reply_tokens.lock().unwrap().get(chat_id).cloned();
+        let context_token = self.reply_tokens.lock().await.get(chat_id).cloned();
 
         let url = format!("{}/ilink/bot/sendmessage", WECHAT_API_BASE);
         let uin = make_x_wechat_uin();
@@ -456,7 +457,7 @@ impl PlatformAdapter for WeChatAdapter {
             return;
         };
 
-        let Some(credentials) = self.credentials.lock().unwrap().clone() else {
+        let Some(credentials) = self.credentials.lock().await.clone() else {
             return;
         };
 
@@ -497,7 +498,7 @@ impl PlatformAdapter for WeChatAdapter {
     }
 
     async fn stop(&self) {
-        if let Some(handle) = self.task_handle.lock().unwrap().take() {
+        if let Some(handle) = self.task_handle.lock().await.take() {
             handle.abort();
         }
     }

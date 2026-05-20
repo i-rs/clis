@@ -282,7 +282,7 @@ impl AppCore {
         let resolved = self.config.agent_config(agent_id);
 
         // Create provider for this agent config
-        let provider = crate::provider::create_provider_for(
+        let provider = crate::providers::create_provider_for(
             &resolved.provider,
             &resolved.api_key,
             &resolved.base_url,

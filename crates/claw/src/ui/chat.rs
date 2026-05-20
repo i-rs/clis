@@ -403,8 +403,7 @@ fn message_line_count(
                 }
             // result lines — use cached format_json_result for accurate counting
             if !result.is_empty() {
-                format_cache.entry(msg_index).or_insert_with(|| utils::format_json_result(result, text_width).0);
-                let cached = format_cache.get(&msg_index).unwrap();
+                let cached = format_cache.entry(msg_index).or_insert_with(|| utils::format_json_result(result, text_width).0);
                 lines += cached.len();
             }
             lines

@@ -1,6 +1,6 @@
 use crate::error::ClawError;
 use crate::llm::LlmEvent;
-use crate::provider::create_provider_for;
+use crate::providers::create_provider_for;
 use crate::tools::{ClawTool, ToolContext};
 use serde_json::Value;
 

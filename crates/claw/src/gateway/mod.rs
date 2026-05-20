@@ -4,8 +4,9 @@ pub mod telegram;
 pub mod wechat;
 
 use async_trait::async_trait;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::signal::unix::{signal, SignalKind};
 
@@ -210,13 +211,7 @@ impl GatewayServer {
 
         // Build messages with session context (lock held briefly)
         let (session_id, msgs, config, mcp) = {
-            let mut core = match core.lock() {
-                Ok(guard) => guard,
-                Err(poisoned) => {
-                    tracing::warn!("[Gateway] Mutex poisoned, recovering");
-                    poisoned.into_inner()
-                }
-            };
+            let mut core = core.lock().await;
             let session_id = format!("gateway:{}:{}", platform, chat_id);
 
             // Find existing gateway session by title, since session IDs are UUIDs
@@ -249,7 +244,7 @@ impl GatewayServer {
 
         // Spawn the multi-round chat loop (no lock held during streaming)
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let provider = crate::provider::create_provider_for(
+        let provider = crate::providers::create_provider_for(
             &config.provider,
             &config.api_key,
             &config.base_url,
@@ -270,13 +265,7 @@ impl GatewayServer {
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _) => {
                     // Lock again only for persistence
-                    let mut core = match core.lock() {
-                        Ok(guard) => guard,
-                        Err(poisoned) => {
-                            tracing::warn!("[Gateway] Mutex poisoned, recovering");
-                            poisoned.into_inner()
-                        }
-                    };
+                    let mut core = core.lock().await;
                     core.session_mgr
                         .save_api_messages(&session_id, &api_msgs);
                     core.session_mgr.append_message("user", &text_owned, None);
