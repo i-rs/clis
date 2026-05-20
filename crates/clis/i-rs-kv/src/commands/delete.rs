@@ -1,21 +1,20 @@
-use crate::presentation::{OutputFormat, print_success};
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item, print_success};
 use anyhow::Result;
-use owo_colors::OwoColorize;
 
 pub fn handle_delete(key: String, format: OutputFormat) -> Result<()> {
     let mut store = crate::storage::load_store()?;
+
+    let entry = crate::service::get_kv(&store, &key)?;
     crate::service::delete_kv(&mut store, &key)?;
     crate::storage::save_store(&store)?;
 
     if format.is_json() {
-        println!(
-            "{}",
-            serde_json::json!({"success": true, "message": format!("Key '{}' deleted", key)})
-        );
+        let output = ListItem::from(&entry);
+        println!("{}", output_item(&output, format));
         return Ok(());
     }
 
-    print_success(&format!("✓ Key '{}' deleted successfully", key.green()));
-
+    print_success(&format!("✓ Key '{}' deleted successfully", key));
     Ok(())
 }

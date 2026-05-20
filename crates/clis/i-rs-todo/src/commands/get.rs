@@ -1,45 +1,15 @@
-use crate::models::Priority;
-use crate::presentation::{OutputFormat, output_error, output_item, print_header};
+use crate::models::{ListItem, Priority};
+use crate::presentation::{OutputFormat, output_item, print_header};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(name: String, format: OutputFormat) -> Result<()> {
     let store = crate::storage::load_store()?;
-    let todo = match crate::service::get_todo(&store, &name) {
-        Ok(t) => t,
-        Err(e) => {
-            if format.is_json() {
-                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
-            }
-            return Err(e);
-        }
-    };
+    let todo = crate::service::get_todo(&store, &name)?;
 
     if format.is_json() {
-        #[derive(serde::Serialize)]
-        struct GetOutput {
-            name: String,
-            title: Option<String>,
-            priority: String,
-            is_done: bool,
-            tags: Vec<String>,
-            content: Vec<String>,
-            created_at: String,
-            updated_at: String,
-        }
-
-        let output = GetOutput {
-            name: todo.name.clone(),
-            title: todo.title.clone(),
-            priority: todo.priority.label().to_string(),
-            is_done: todo.is_done,
-            tags: todo.tags.clone(),
-            content: todo.content.clone(),
-            created_at: todo.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            updated_at: todo.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-        };
-
+        let output = ListItem::from(&todo);
         println!("{}", output_item(&output, format));
         return Ok(());
     }

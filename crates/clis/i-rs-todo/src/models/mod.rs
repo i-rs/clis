@@ -149,3 +149,30 @@ impl TodoRow {
         }
     }
 }
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ListItem {
+    pub name: String,
+    pub title: Option<String>,
+    pub priority: String,
+    pub is_done: bool,
+    pub tags: Vec<String>,
+    pub content: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl From<&Todo> for ListItem {
+    fn from(todo: &Todo) -> Self {
+        Self {
+            name: todo.name.clone(),
+            title: todo.title.clone(),
+            priority: todo.priority.label().to_string(),
+            is_done: todo.is_done,
+            tags: todo.tags.clone(),
+            content: todo.content.clone(),
+            created_at: todo.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: todo.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        }
+    }
+}

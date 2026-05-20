@@ -1,6 +1,6 @@
+use crate::models::ListItem;
 use crate::presentation::{OutputFormat, output_item, print_success};
 use anyhow::Result;
-use owo_colors::OwoColorize;
 
 pub fn handle_update(
     name: String,
@@ -15,27 +15,11 @@ pub fn handle_update(
     crate::storage::save_store(&store)?;
 
     if format.is_json() {
-        #[derive(serde::Serialize)]
-        struct UpdateOutput {
-            name: String,
-            title: Option<String>,
-            priority: String,
-            is_done: bool,
-            tags: Vec<String>,
-            content: Vec<String>,
-        }
-        let output = UpdateOutput {
-            name: todo.name.clone(),
-            title: todo.title.clone(),
-            priority: todo.priority.label().to_string(),
-            is_done: todo.is_done,
-            tags: todo.tags.clone(),
-            content: todo.content.clone(),
-        };
+        let output = ListItem::from(&todo);
         println!("{}", output_item(&output, format));
         return Ok(());
     }
 
-    print_success(&format!("✓ Todo '{}' updated", name.green()));
+    print_success(&format!("✓ Todo '{}' updated", name));
     Ok(())
 }

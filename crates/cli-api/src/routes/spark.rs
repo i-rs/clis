@@ -10,15 +10,22 @@ use serde::Deserialize;
 use crate::AppState;
 use crate::api::{ok_json, ok_json_list, ok_json_message};
 use crate::response::{ApiError, ApiResult};
+
 async fn update_spark(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let entry = state.spark.write(|store| -> Result<_, ApiError> {
+        let key = store
+            .entries
+            .iter()
+            .find(|(k, _)| k.starts_with(&id))
+            .map(|(k, _)| k.clone())
+            .ok_or_else(|| ApiError::NotFound(format!("Spark '{id}' not found")))?;
         let entry = store
             .entries
-            .get_mut(&id)
+            .get_mut(&key)
             .ok_or_else(|| ApiError::NotFound(format!("Spark '{id}' not found")))?;
         crate::update::merge_entry(entry, &body).map_err(ApiError::BadRequest)?;
         Ok(entry.clone())
@@ -72,8 +79,9 @@ async fn get_spark(
     let entry = state.spark.read(|store| {
         store
             .entries
-            .get(&id)
-            .cloned()
+            .iter()
+            .find(|(k, _)| k.starts_with(&id))
+            .map(|(_, v)| v.clone())
             .ok_or_else(|| ApiError::NotFound(format!("Spark '{id}' not found")))
     })?;
     Ok(ok_json(entry))
@@ -83,10 +91,14 @@ async fn delete_spark(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    state.spark.write(|store| {
-        if store.entries.remove(&id).is_none() {
-            return Err(ApiError::NotFound(format!("Spark '{id}' not found")));
-        }
+    state.spark.write(|store| -> Result<(), ApiError> {
+        let key = store
+            .entries
+            .iter()
+            .find(|(k, _)| k.starts_with(&id))
+            .map(|(k, _)| k.clone())
+            .ok_or_else(|| ApiError::NotFound(format!("Spark '{id}' not found")))?;
+        store.entries.remove(&key);
         Ok(())
     })?;
     Ok(ok_json_message())

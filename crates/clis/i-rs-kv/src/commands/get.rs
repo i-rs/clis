@@ -1,22 +1,15 @@
-use crate::presentation::{OutputFormat, output_error, output_item, print_header};
+use crate::models::ListItem;
+use crate::presentation::{OutputFormat, output_item, print_header};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use owo_colors::Style as OwoStyle;
 
 pub fn handle_get(key: String, format: OutputFormat) -> Result<()> {
     let store = crate::storage::load_store()?;
-    let entry = match crate::service::get_kv(&store, &key) {
-        Ok(e) => e,
-        Err(e) => {
-            if format.is_json() {
-                println!("{}", output_error(&e.to_string(), "NOT_FOUND", format));
-            }
-            return Err(e);
-        }
-    };
+    let entry = crate::service::get_kv(&store, &key)?;
 
     if format.is_json() {
-        let output = crate::models::ListItem::from(&entry);
+        let output = ListItem::from(&entry);
         println!("{}", output_item(&output, format));
         return Ok(());
     }

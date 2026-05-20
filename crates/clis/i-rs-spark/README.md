@@ -31,6 +31,19 @@ i-rs-spark list
 i-rs-spark get abc12345
 ```
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `add <CONTENT> [--source] [--tag] [--remark]` | Capture inspiration |
+| `get <ID>` | Get spark details |
+| `list [--tag]` | List all sparks |
+| `update <ID> [--content] [--source] [--tag] [--remark]` | Update a spark |
+| `delete <ID>` | Delete a spark |
+| `data {export|import|clear}` | Manage stored data |
+| `example` | Show usage examples |
+| `skill [sub]` | Show skill information |
+
 ## Data Storage
 
 Configuration is stored locally at:

@@ -1,6 +1,5 @@
-use crate::presentation::{
-    OutputFormat, format_table, output_list, print_todo_count, print_warning,
-};
+use crate::models::{ListItem, TodoRow};
+use crate::presentation::{OutputFormat, format_table, output_list, print_todo_count};
 use anyhow::Result;
 
 pub fn handle_list(
@@ -14,48 +13,12 @@ pub fn handle_list(
     let todos = crate::service::list_todos(&store, pending, done, tag.clone())?;
 
     if todos.is_empty() {
-        if format.is_json() {
-            let filter = tag.or_else(|| {
-                if pending {
-                    Some("pending".to_string())
-                } else if done {
-                    Some("done".to_string())
-                } else {
-                    None
-                }
-            });
-            println!(
-                "{}",
-                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
-            );
-        } else {
-            print_warning("No todos found.");
-        }
+        i_rs_core::handle_empty!(todos, format, tag.as_deref(), "No todos found.");
         return Ok(());
     }
 
     if format.is_json() {
-        #[derive(serde::Serialize, Clone)]
-        struct ListItem {
-            name: String,
-            title: Option<String>,
-            priority: String,
-            is_done: bool,
-            tags: Vec<String>,
-            content: Vec<String>,
-        }
-
-        let items: Vec<ListItem> = todos
-            .iter()
-            .map(|t| ListItem {
-                name: t.name.clone(),
-                title: t.title.clone(),
-                priority: t.priority.label().to_string(),
-                is_done: t.is_done,
-                tags: t.tags.clone(),
-                content: t.content.clone(),
-            })
-            .collect();
+        let items: Vec<ListItem> = todos.iter().map(|t| ListItem::from(t)).collect();
 
         let filter = tag.or_else(|| {
             if pending {
@@ -74,8 +37,8 @@ pub fn handle_list(
         return Ok(());
     }
 
-    let refs: Vec<&crate::models::Todo> = todos.iter().collect();
-    let table = format_table(&refs);
+    let rows: Vec<TodoRow> = todos.iter().map(|t| TodoRow::from_todo(t)).collect();
+    let table = format_table(&rows);
     println!("\n{table}");
 
     // Count from the already-loaded store

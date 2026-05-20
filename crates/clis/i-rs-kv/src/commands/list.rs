@@ -9,12 +9,11 @@ pub fn handle_list(
 ) -> Result<()> {
     let store = crate::storage::load_store()?;
     let entries = crate::service::list_kv(&store, tag.clone(), pattern.as_deref())?;
-    let entries_ref: Vec<&crate::models::KvEntry> = entries.iter().collect();
 
-    i_rs_core::handle_empty!(entries_ref, format, tag.as_deref(), "No entries found.");
+    i_rs_core::handle_empty!(entries, format, tag.as_deref(), "No entries found.");
 
     if format.is_json() {
-        let items: Vec<ListItem> = entries_ref.iter().map(|e| ListItem::from(*e)).collect();
+        let items: Vec<ListItem> = entries.iter().map(ListItem::from).collect();
         println!(
             "{}",
             output_list(&items, items.len(), tag.as_deref(), format)
@@ -22,11 +21,11 @@ pub fn handle_list(
         return Ok(());
     }
 
-    let rows: Vec<KvRow> = entries_ref.iter().map(|e| KvRow::from_entry(e)).collect();
+    let rows: Vec<KvRow> = entries.iter().map(KvRow::from_entry).collect();
     let table = format_table(&rows);
     println!("\n{table}");
 
-    print_entry_count(entries_ref.len());
+    print_entry_count(entries.len());
 
     Ok(())
 }

@@ -1,11 +1,5 @@
-use crate::models::{Todo, TodoRow};
-pub use i_rs_core::presentation::output::{output_error, output_item, output_list};
-pub use i_rs_core::presentation::{OutputFormat, print_header, print_success, print_warning};
-use owo_colors::OwoColorize;
-pub fn format_table(todos: &[&Todo]) -> String {
-    let rows: Vec<TodoRow> = todos.iter().map(|t| TodoRow::from_todo(t)).collect();
-    i_rs_core::render_table(&rows)
-}
+i_rs_core::presentation!(TodoRow, "todos");
+
 pub fn print_todo_count(pending: usize, done: usize) {
     println!(
         "\n{} {} pending, {} {} done",

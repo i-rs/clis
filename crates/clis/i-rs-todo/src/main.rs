@@ -108,7 +108,7 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             handle_delete(name, format)?;
         }
         Commands::Done { name } => {
-            handle_done(name)?;
+            handle_done(name, format)?;
         }
         Commands::List { pending, done, tag } => {
             handle_list(false, pending, done, tag, format)?;
