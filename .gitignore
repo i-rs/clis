@@ -10,7 +10,7 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 
 /.sisyphus
-
+/.omo
 # Chrome Extension build artifacts
 extensions/**/*.zip
 extensions/**/dist/
