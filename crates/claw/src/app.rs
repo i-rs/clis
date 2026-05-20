@@ -71,7 +71,7 @@ pub struct App {
     /// Cursor position within input (byte index)
     pub input_cursor: usize,
     /// How many lines the user has scrolled up from the bottom (0 = bottom)
-    pub scroll_offset: usize,
+    pub scroll_lines: usize,
     /// Whether the HTTP debug sidebar is shown
     pub show_sidebar: bool,
     /// HTTP request logs (newest first)
@@ -145,7 +145,7 @@ impl App {
 
             input_history: Vec::new(),
             input_history_index: None,
-            scroll_offset: 0,
+            scroll_lines: 0,
             show_sidebar: false,
             http_logs: Vec::new(),
             sidebar_selected: 0,
@@ -183,7 +183,7 @@ impl App {
             .push(Message::User { text: text.to_string() });
         self.message_timestamps.push(chrono::Local::now().naive_local());
         self.state = AppState::Processing;
-        self.scroll_offset = 0;
+        self.scroll_lines = 0;
         self.plan_steps.clear(); // Clear plan from previous turn
     }
 
@@ -251,7 +251,7 @@ impl App {
             }
         }
         self.input_history_index = None;
-        self.scroll_offset = 0;
+        self.scroll_lines = 0;
     }
 
     /// Navigate up in input history: restore previous input.
@@ -290,16 +290,14 @@ impl App {
     // Message scroll
     // =============================================
 
-    /// Scroll messages up (toward older messages).
+    /// Scroll messages up (toward older messages) by ~3 lines.
     pub fn scroll_up(&mut self) {
-        if self.scroll_offset < self.messages.len() {
-            self.scroll_offset += 1;
-        }
+        self.scroll_lines += 3;
     }
 
-    /// Scroll messages down (toward newer messages).
+    /// Scroll messages down (toward newer messages) by ~3 lines.
     pub fn scroll_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+        self.scroll_lines = self.scroll_lines.saturating_sub(3);
     }
 
     /// Update the real-time status text (shown in status bar)

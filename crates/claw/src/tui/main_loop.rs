@@ -552,11 +552,11 @@ pub fn main_loop(
                         if let Some(idx) = app.selected_message
                             && idx + 1 < app.messages.len() {
                                 app.selected_message = Some(idx + 1);
-                                // Auto-scroll if newly selected message is not visible
-                                let n = app.messages.len();
-                                let max_visible = n.saturating_sub(1).saturating_sub(app.scroll_offset);
-                                if idx + 1 > max_visible {
-                                    app.scroll_offset = n.saturating_sub(1).saturating_sub(idx + 1);
+                                // Auto-scroll if newly selected message is not visible.
+                                // Simple approach: scroll to bottom to reveal it.
+                                let bottom_is_newer_rev = app.messages.len().saturating_sub(1) - (idx + 1);
+                                if bottom_is_newer_rev > 0 && app.scroll_lines > 0 {
+                                    app.scroll_lines = 0;
                                 }
                             }
                     }

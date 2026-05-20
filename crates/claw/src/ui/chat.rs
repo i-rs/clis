@@ -17,17 +17,15 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     // Subtract 1 line for the top border
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Pre-compute formatted ToolCall result lines — used by both line counting and rendering
+    // Pre-compute formatted lines — used by both line counting and rendering
+    // Key: msg_index, Value: rendered body lines (ToolCall format_json_result or Assistant render_markdown)
     let mut format_cache: std::collections::HashMap<usize, Vec<Line<'static>>> =
         std::collections::HashMap::new();
 
-    // Two-pass approach to ensure NEWEST messages are always fully visible:
-    // Pass 1: compute heights for all visible (non-skipped) messages
+    // ── Pass 1: Compute heights for ALL messages ──
+    // heights[0] = newest message height, heights[n-1] = oldest
     let mut heights: Vec<usize> = Vec::with_capacity(app.messages.len());
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
-        if rev_idx < app.scroll_offset {
-            continue;
-        }
         let msg_index = app.messages.len() - 1 - rev_idx;
         heights.push(message_line_count(
             app,
@@ -37,13 +35,24 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             &mut format_cache,
         ));
     }
-    // heights[0] = newest visible, heights[n-1] = oldest visible
 
-    // Pass 2: determine how many fit from the NEWEST side
-    let total = heights.len();
+    // ── Determine skip count from line-level scroll ──
+    // Walk from newest (index 0), accumulate line heights until we exceed scroll_lines
+    let mut skipped_lines = 0usize;
+    let mut msg_skip_count = 0usize; // how many messages to skip from bottom
+    for (i, &h) in heights.iter().enumerate() {
+        if skipped_lines + h <= app.scroll_lines {
+            skipped_lines += h;
+            msg_skip_count = i + 1;
+        } else {
+            break;
+        }
+    }
+
+    // ── Pass 2: From msg_skip_count, fill viewport ──
     let mut remaining = area_lines;
-    let mut end_idx = 0usize; // exclusive index in heights
-    for &h in heights.iter() {
+    let mut end_idx = msg_skip_count; // exclusive index in heights
+    for &h in heights[msg_skip_count..].iter() {
         if h <= remaining {
             remaining -= h;
             end_idx += 1;
@@ -51,19 +60,18 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             break;
         }
     }
-    // If even the first message doesn't fit, force show at least it
-    if end_idx == 0 && total > 0 {
-        end_idx = 1;
+    // If even the first visible message doesn't fit, force show at least it
+    if end_idx == msg_skip_count && end_idx < heights.len() {
+        end_idx = msg_skip_count + 1;
     }
 
-    // Pass 3: build items newest-to-oldest, then reverse for chronological order
+    // ── Pass 3: Build items newest-to-oldest, then reverse for chronological order ──
     let mut items: Vec<ListItem> = Vec::new();
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
-        if rev_idx < app.scroll_offset {
+        if rev_idx < msg_skip_count {
             continue;
         }
-        let array_idx = rev_idx - app.scroll_offset; // index in heights
-        if array_idx >= end_idx {
+        if rev_idx >= end_idx {
             continue; // too old, clipped from top
         }
         let msg_index = app.messages.len() - 1 - rev_idx;
@@ -71,9 +79,9 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     }
     items.reverse();
 
-    // Show an indicator when scrolled up
-    let at_bottom = app.scroll_offset == 0;
-    let hidden_extra = total.saturating_sub(end_idx); // extra hidden by area, not by scroll
+    // ── Bottom indicator ──
+    let at_bottom = app.scroll_lines == 0;
+    let hidden_extra = heights.len().saturating_sub(end_idx); // extra hidden by area, not by scroll
 
     let mut block = ratatui::widgets::Block::default()
         .borders(ratatui::widgets::Borders::TOP)
@@ -83,7 +91,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             Color::Rgb(100, 120, 200)
         }));
 
-    let total_hidden = app.scroll_offset + hidden_extra;
+    let total_hidden = msg_skip_count + hidden_extra;
     if total_hidden > 0 && !items.is_empty() {
         block = block.title(format!(" ▲ {} 条历史消息 ", total_hidden));
         block = block.title_alignment(ratatui::layout::Alignment::Center);
@@ -354,8 +362,21 @@ fn message_line_count(
             1 + 1 + 1
         }
         Message::Assistant { text } => {
-            // header + wrapped lines + trailing blank
-            1 + wrapped_line_count(text, text_width) + 1
+            // Use SAME rendering logic as build_message_item for accurate count
+            // Pre-render and cache so Pass 3 can reuse
+            let header_lines = 1;
+            let trailing = 1;
+            let body_lines = {
+                let md_lines = format_cache
+                    .entry(msg_index)
+                    .or_insert_with(|| render_markdown(text, text_width.saturating_sub(3)));
+                if !is_markdown(text) || md_lines.is_empty() {
+                    wrapped_line_count(text, text_width)
+                } else {
+                    md_lines.len()
+                }
+            };
+            header_lines + body_lines + trailing
         }
         Message::ToolCall {
             name,
@@ -616,7 +637,11 @@ fn build_message_item(
                     Style::default().fg(Color::DarkGray),
                 )));
             } else {
-                let md_lines = render_markdown(text, text_width.saturating_sub(3));
+                // Use cached rendering from Pass 1 if available
+                let md_lines = format_cache
+                    .get(&msg_index)
+                    .cloned()
+                    .unwrap_or_else(|| render_markdown(text, text_width.saturating_sub(3)));
                 if !is_markdown(text) || md_lines.is_empty() {
                     // Fallback to simple wrapping for plain text
                     for wrapped in utils::wrap_text(text, text_width) {
