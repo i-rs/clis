@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::llm::{LlmEvent, StreamResult, ToolCallAcc};
 use crate::mcp::McpRegistry;
 use crate::provider::LlmProvider;
+use crate::skill_store::SkillDefinition;
 use crate::utils;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -198,11 +199,12 @@ pub fn build_messages(
 pub(crate) fn execute_tool_call(
     name: &str,
     args: &Value,
+    skills: &[SkillDefinition],
     mcp: Option<&McpRegistry>,
     ctx: &crate::tools::ToolContext,
 ) -> String {
-    // Try built-in tools first
-    let registry = crate::tools::ToolRegistry::new();
+    // Try built-in tools first (including skill tools)
+    let registry = crate::tools::ToolRegistry::with_skills(skills);
     if registry.tool_exists(name) {
         // Tool found — let it execute; propagate real CLI error (not "unknown tool")
         return registry.execute(name, args, ctx).unwrap_or_else(|e| e);
@@ -395,13 +397,14 @@ pub async fn chat_loop(
     messages: Vec<Value>,
     tx: mpsc::UnboundedSender<LlmEvent>,
     mcp: McpRegistry,
+    skills: Vec<SkillDefinition>,
 ) {
     let enabled = if config.enabled_tools.is_empty() {
         None
     } else {
         Some(&config.enabled_tools)
     };
-    let mut tool_schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
+    let mut tool_schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(enabled);
     // Append MCP tool schemas if available
     for (client_idx, tool_def) in &mcp.tools {
         if let Some(_client) = mcp.clients.get(*client_idx) {
@@ -477,10 +480,12 @@ pub async fn chat_loop(
                     let args_for_blocking = args.clone();
                     let mcp_for_exec = mcp.clone();
                     let ctx_for_spawn = tool_ctx.clone();
+                    let skills_for_spawn = skills.clone();
                     handles.push(tokio::spawn(async move {
                         let ctx_for_blocking = ctx_for_spawn;
+                        let skills_for_blocking = skills_for_spawn;
                         let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec), &ctx_for_blocking)
+                            execute_tool_call(&tc_name, &args_for_blocking, &skills_for_blocking, Some(&mcp_for_exec), &ctx_for_blocking)
                         })
                         .await
                         .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));

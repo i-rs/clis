@@ -540,6 +540,12 @@ body {
   font-size: 14px;
 }
 
+.skill-desc {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
 .skill-toggle {
   font-size: 10px;
   color: var(--text-muted);

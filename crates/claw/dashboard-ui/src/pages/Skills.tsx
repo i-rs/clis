@@ -53,7 +53,12 @@ export default function SkillsPage() {
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(skill.name) }}
                 >
-                  <span className="skill-name">{skill.name}</span>
+                  <span className="skill-name">
+                      {skill.name}
+                      {skill.description && skill.description !== skill.name ? (
+                        <span className="skill-desc"> — {skill.description}</span>
+                      ) : null}
+                    </span>
                   <span className={`skill-toggle ${expanded.has(skill.name) ? 'expanded' : ''}`}>
                     {expanded.has(skill.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </span>

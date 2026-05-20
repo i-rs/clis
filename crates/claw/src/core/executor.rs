@@ -64,7 +64,7 @@ impl ToolExecutor {
                 std::thread::sleep(delay);
             }
 
-            match crate::core::engine::execute_tool_call(name, args, Some(&ctx.mcp), ctx) {
+            match crate::core::engine::execute_tool_call(name, args, &[], Some(&ctx.mcp), ctx) {
                 result if result.starts_with("错误:") => {
                     last_error = result;
                 }

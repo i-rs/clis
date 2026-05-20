@@ -29,6 +29,8 @@ export interface PluginInfo {
 
 export interface SkillInfo {
   name: string
+  description: string
+  parameters: Record<string, unknown> | null
   content: string
 }
 

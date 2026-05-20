@@ -804,6 +804,84 @@ pub fn run_mcp_disable(name: &str) -> anyhow::Result<()> {
 }
 
 // =============================================
+// Skill subcommand
+// =============================================
+
+pub fn run_skill_list() -> anyhow::Result<()> {
+    let store = skill_store();
+    let skills = store.list_skills();
+    if skills.is_empty() {
+        println!("暂无安装的技能");
+        return Ok(());
+    }
+    println!("已安装的技能 ({} 个):\n", skills.len());
+    for s in &skills {
+        // Parse frontmatter to show description
+        let desc = crate::skill_store::parse_frontmatter(&s.content)
+            .0
+            .and_then(|t| t.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .unwrap_or_default();
+        if !desc.is_empty() {
+            println!("  {:<20} — {}", s.name, desc);
+        } else {
+            println!("  {:<20}", s.name);
+        }
+    }
+    Ok(())
+}
+
+pub fn run_skill_install(name: &str) -> anyhow::Result<()> {
+    let store = skill_store();
+    let template = crate::skill_store::SkillStore::skill_template(name);
+    store.install(name, &template)?;
+    println!("✓ 已创建技能 '{}'", name);
+    println!("  编辑文件: {:?}", store.path().join(format!("{}.md", name)));
+    Ok(())
+}
+
+pub fn run_skill_remove(name: &str) -> anyhow::Result<()> {
+    let store = skill_store();
+    if store.get_skill(name).is_none() {
+        println!("技能 '{}' 未找到", name);
+        return Ok(());
+    }
+    store.remove(name)?;
+    println!("✓ 已删除技能 '{}'", name);
+    Ok(())
+}
+
+pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
+    let store = skill_store();
+    match store.get_skill(name) {
+        Some(def) => {
+            println!("技能: {}", def.name);
+            println!("  描述: {}", def.description);
+            if let Some(ref params) = def.parameters {
+                println!("  参数: {}", serde_json::to_string_pretty(params).unwrap_or_default());
+            } else {
+                println!("  类型: 指令技能");
+            }
+            println!("  内容:");
+            for line in def.content.lines() {
+                println!("    {}", line);
+            }
+        }
+        None => {
+            println!("技能 '{}' 未找到", name);
+        }
+    }
+    Ok(())
+}
+
+fn skill_store() -> crate::skill_store::SkillStore {
+    let claw_dir = dirs::home_dir()
+        .expect("无法获取用户主目录")
+        .join(".i-rs-claw")
+        .join("claw");
+    crate::skill_store::SkillStore::for_agent(&claw_dir, "default")
+}
+
+// =============================================
 // Helpers
 // =============================================
 

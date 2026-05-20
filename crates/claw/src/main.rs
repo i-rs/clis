@@ -83,6 +83,21 @@ enum Command {
         #[arg(long)]
         disable: Option<String>,
     },
+    /// List and manage skills
+    Skill {
+        /// List all installed skills
+        #[arg(long)]
+        list: bool,
+        /// Create a new skill from template
+        #[arg(long)]
+        install: Option<String>,
+        /// Remove a skill
+        #[arg(long)]
+        remove: Option<String>,
+        /// Show skill details
+        #[arg(long)]
+        info: Option<String>,
+    },
     /// List and manage MCP servers
     Mcp {
         /// List all configured MCP servers
@@ -140,6 +155,23 @@ fn main() -> anyhow::Result<()> {
             ..
         } => cli::run_plugin_disable(&name),
         Command::Plugin { .. } => cli::run_plugin_list(),
+        Command::Skill {
+            list: true,
+            ..
+        } => cli::run_skill_list(),
+        Command::Skill {
+            install: Some(name),
+            ..
+        } => cli::run_skill_install(&name),
+        Command::Skill {
+            remove: Some(name),
+            ..
+        } => cli::run_skill_remove(&name),
+        Command::Skill {
+            info: Some(name),
+            ..
+        } => cli::run_skill_info(&name),
+        Command::Skill { .. } => cli::run_skill_list(),
         Command::Mcp {
             list: true,
             ..

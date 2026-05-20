@@ -7,10 +7,12 @@ pub mod index;
 pub mod mcp_tools;
 pub mod search_tools;
 pub mod semantic_search;
+pub mod skill_tool;
 pub mod user_memory;
 pub mod vision_tool;
 pub mod web_search;
 
+use crate::skill_store::SkillDefinition;
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -70,6 +72,16 @@ impl ToolRegistry {
                 Box::new(web_search::WebSearchTool),
             ],
         }
+    }
+
+    /// Create registry with built-in tools + skill tools from SkillStore.
+    pub fn with_skills(skills: &[SkillDefinition]) -> Self {
+        let mut reg = Self::new();
+        for skill in skills {
+            reg.tools
+                .push(Box::new(skill_tool::SkillTool::new(skill.clone())));
+        }
+        reg
     }
 
     /// Create registry with additional MCP-discovered tools.

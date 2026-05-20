@@ -186,6 +186,7 @@ async fn dashboard_chat_loop(
     session_id: String,
     enabled_tools: Option<std::collections::HashSet<String>>,
     mcp: McpRegistry,
+    skills: Vec<crate::skill_store::SkillDefinition>,
 ) {
     use crate::core::engine::execute_tool_call;
     use crate::utils::smart_truncate;
@@ -206,7 +207,7 @@ async fn dashboard_chat_loop(
         } else {
             enabled_tools.as_ref()
         };
-        let mut schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
+        let mut schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(enabled);
         // Append MCP tool schemas if available
         for (client_idx, tool_def) in &mcp.tools {
             if let Some(_client) = mcp.clients.get(*client_idx) {
@@ -285,9 +286,11 @@ async fn dashboard_chat_loop(
                     let args_for_blocking = args.clone();
                     let mcp_for_exec = mcp.clone();
                     let ctx_for_spawn = tool_ctx.clone();
+                    let skills_for_spawn = skills.clone();
                     handles.push(tokio::spawn(async move {
+                        let skills_for_blocking = skills_for_spawn;
                         let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking, Some(&mcp_for_exec), &ctx_for_spawn)
+                            execute_tool_call(&tc_name, &args_for_blocking, &skills_for_blocking, Some(&mcp_for_exec), &ctx_for_spawn)
                         })
                         .await
                         .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));
@@ -407,7 +410,7 @@ pub async fn chat_stream(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> impl IntoResponse {
-    let (msgs, provider, sid, enabled_tools, mcp) = {
+    let (msgs, provider, sid, enabled_tools, mcp, skills) = {
         let mut core = state.core.lock().unwrap();
         core.session_mgr.switch_to(&session_id);
 
@@ -428,8 +431,9 @@ pub async fn chat_stream(
         );
         let enabled_tools = Some(resolved.enabled_tools.clone());
         let mcp = core.agent_store.mcp_registry_for(&agent_id).clone();
+        let skills = core.agent_store.skill_store_for(&agent_id).executable_skills();
 
-        (msgs, provider, session_id.clone(), enabled_tools, mcp)
+        (msgs, provider, session_id.clone(), enabled_tools, mcp, skills)
     };
 
     let (tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
@@ -438,7 +442,7 @@ pub async fn chat_stream(
     let loop_sid = sid.clone();
 
     tokio::spawn(async move {
-        dashboard_chat_loop(provider, msgs, tx, loop_state, loop_sid, enabled_tools, mcp).await;
+        dashboard_chat_loop(provider, msgs, tx, loop_state, loop_sid, enabled_tools, mcp, skills).await;
     });
 
     let stream = futures_util::stream::unfold(Some(rx), |rx_opt| async move {
@@ -876,11 +880,26 @@ pub async fn list_plugins(
     ApiResponse::ok(plugins)
 }
 
-/// List user-defined skills.
+/// List user-defined skills with parsed metadata.
 pub async fn list_skills(
     State(state): State<AppState>,
-) -> Json<ApiResponse<Vec<crate::skill_store::SkillEntry>>> {
+) -> Json<ApiResponse<Vec<crate::skill_store::SkillDefinition>>> {
     let core = state.core.lock().unwrap();
-    let skills = core.agent_store.skill_store_for("default").list_skills();
+    let store = core.agent_store.skill_store_for("default");
+    let entries = store.list_skills();
+    let skills: Vec<crate::skill_store::SkillDefinition> = entries
+        .iter()
+        .map(|e| crate::skill_store::SkillDefinition {
+            name: e.name.clone(),
+            description: crate::skill_store::parse_frontmatter(&e.content)
+                .0
+                .and_then(|t| t.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                .unwrap_or_else(|| e.name.clone()),
+            parameters: crate::skill_store::parse_frontmatter(&e.content)
+                .0
+                .and_then(|t| t.get("parameters").and_then(|v| serde_json::to_value(v).ok())),
+            content: crate::skill_store::parse_frontmatter(&e.content).1.to_string(),
+        })
+        .collect();
     ApiResponse::ok(skills)
 }

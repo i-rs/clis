@@ -57,6 +57,7 @@ pub struct McpServerConfig {
 #[derive(Debug, Clone)]
 pub struct McpToolDefinition {
     /// Name of the MCP server that provides this tool.
+    #[allow(dead_code)]
     pub server_name: String,
     /// Tool name as defined by the MCP server.
     pub name: String,

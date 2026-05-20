@@ -271,8 +271,11 @@ impl AppCore {
         // Clone the agent's MCP registry (cheap: Arc inside)
         let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
 
+        // Load executable skills as callable tools
+        let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
+
         rt.spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp).await;
+            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills).await;
         });
     }
 
