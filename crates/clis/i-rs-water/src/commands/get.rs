@@ -55,6 +55,16 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
             .to_string()
             .dimmed()
     );
+    println!(
+        "{:16} {}",
+        "Created:".style(style),
+        entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+    );
+    println!(
+        "{:16} {}",
+        "Updated:".style(style),
+        entry.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+    );
 
     Ok(())
 }

@@ -46,6 +46,7 @@ pub fn add_pig(
         remark,
         happened_at: now,
         created_at: now,
+        updated_at: now,
     };
 
     store.add_entry(entry.clone());
@@ -81,6 +82,8 @@ pub fn update_pig(
     if let Some(r) = remark {
         entry.remark = r;
     }
+
+    entry.updated_at = Utc::now();
 
     Ok(entry.clone())
 }

@@ -62,9 +62,11 @@ pub(crate) fn build_system_prompt(
     let now = chrono::Local::now();
     let today = now.format("%Y-%m-%d").to_string();
     let weekday = now.format("%A").to_string();
+    let time_str = now.format("%H:%M").to_string();
     prompt = prompt
         .replace("{current_date}", &today)
-        .replace("{current_weekday}", &weekday);
+        .replace("{current_weekday}", &weekday)
+        .replace("{current_time}", &time_str);
 
     let plan_mode = if plan_then_execute { PLAN_THEN_EXECUTE_PROMPT } else { REACT_PROMPT };
     prompt = prompt.replace("{{PLAN_MODE}}", plan_mode);

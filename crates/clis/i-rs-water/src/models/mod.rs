@@ -15,6 +15,8 @@ pub struct WaterEntry {
     pub drank_at: DateTime<Utc>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[allow(dead_code)]
@@ -29,6 +31,7 @@ impl WaterEntry {
             remark,
             drank_at: now,
             created_at: now,
+            updated_at: now,
         }
     }
 }
@@ -68,6 +71,8 @@ pub struct WaterRow {
     id: String,
     #[tabled(rename = "AMOUNT")]
     amount: String,
+    #[tabled(rename = "UNIT")]
+    unit: String,
     #[tabled(rename = "TIME")]
     drank_at: String,
     #[tabled(rename = "TAGS")]
@@ -78,7 +83,8 @@ impl WaterRow {
     pub fn from_entry(entry: &WaterEntry) -> Self {
         Self {
             id: entry.id[..8].to_string(),
-            amount: format!("{} ml", entry.amount_ml),
+            amount: entry.amount_ml.to_string(),
+            unit: "ml".to_string(),
             drank_at: entry.drank_at.format("%H:%M").to_string(),
             tags: if entry.tags.is_empty() {
                 "-".to_string()
@@ -93,9 +99,12 @@ impl WaterRow {
 pub struct ListItem {
     pub id: String,
     pub amount_ml: i32,
+    pub unit: String,
     pub tags: Vec<String>,
     pub remark: Vec<String>,
     pub drank_at: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl From<&WaterEntry> for ListItem {
@@ -103,9 +112,12 @@ impl From<&WaterEntry> for ListItem {
         Self {
             id: entry.id.clone(),
             amount_ml: entry.amount_ml,
+            unit: "ml".to_string(),
             tags: entry.tags.clone(),
             remark: entry.remark.clone(),
             drank_at: entry.drank_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            created_at: entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: entry.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         }
     }
 }

@@ -40,6 +40,7 @@ pub fn add_water(
         remark,
         drank_at: now,
         created_at: now,
+        updated_at: now,
     };
     store.add_entry(entry.clone());
     Ok(entry)
@@ -66,6 +67,8 @@ pub fn update_water(
     if let Some(r) = remark {
         entry.remark = r;
     }
+
+    entry.updated_at = Utc::now();
 
     Ok(entry.clone())
 }

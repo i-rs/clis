@@ -49,12 +49,15 @@ pub fn add_weight(
         None => Utc::now().date_naive(),
     };
 
+    let now = Utc::now();
     let record = WeightRecord {
         id: uuid::Uuid::new_v4().to_string(),
         date,
         weight,
         tags,
         remark,
+        created_at: now,
+        updated_at: now,
     };
 
     store.add_entry(record.clone());
@@ -85,6 +88,7 @@ pub fn update_weight(
     if let Some(r) = remark {
         record.remark = r;
     }
+    record.updated_at = Utc::now();
 
     let updated = record.clone();
     Ok(updated)

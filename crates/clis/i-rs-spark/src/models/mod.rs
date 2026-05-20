@@ -14,6 +14,8 @@ pub struct SparkEntry {
     pub remark: Vec<String>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[allow(dead_code)]
@@ -33,6 +35,7 @@ impl SparkEntry {
             tags,
             remark,
             created_at: now,
+            updated_at: now,
         }
     }
 }
@@ -96,6 +99,7 @@ pub struct ListItem {
     pub tags: Vec<String>,
     pub remark: Vec<String>,
     pub created_at: String,
+    pub updated_at: String,
 }
 
 impl From<&SparkEntry> for ListItem {
@@ -107,6 +111,7 @@ impl From<&SparkEntry> for ListItem {
             tags: entry.tags.clone(),
             remark: entry.remark.clone(),
             created_at: entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: entry.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         }
     }
 }

@@ -15,6 +15,8 @@ pub struct SitEntry {
     pub remark: Vec<String>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[allow(dead_code)]
@@ -36,6 +38,7 @@ impl SitEntry {
             tags,
             remark,
             created_at: now,
+            updated_at: now,
         }
     }
 }
@@ -96,6 +99,8 @@ pub struct ListItem {
     pub ended_at: String,
     pub tags: Vec<String>,
     pub remark: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl From<&SitEntry> for ListItem {
@@ -107,6 +112,8 @@ impl From<&SitEntry> for ListItem {
             ended_at: entry.ended_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             tags: entry.tags.clone(),
             remark: entry.remark.clone(),
+            created_at: entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: entry.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         }
     }
 }

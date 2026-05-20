@@ -45,6 +45,7 @@ pub fn add_spark(
         tags,
         remark,
         created_at: now,
+        updated_at: now,
     };
 
     store.add_entry(entry.clone());
@@ -80,6 +81,8 @@ pub fn update_spark(
     if let Some(r) = remark {
         entry.remark = r;
     }
+
+    entry.updated_at = Utc::now();
 
     Ok(entry.clone())
 }

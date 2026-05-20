@@ -46,6 +46,7 @@ pub fn add_sit(
         tags,
         remark,
         created_at: now,
+        updated_at: now,
     };
 
     store.add_entry(entry.clone());
@@ -80,6 +81,8 @@ pub fn update_sit(
     if let Some(r) = remark {
         entry.remark = r;
     }
+
+    entry.updated_at = Utc::now();
 
     Ok(entry.clone())
 }

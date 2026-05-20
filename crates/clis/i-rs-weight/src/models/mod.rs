@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tabled::Tabled;
@@ -12,6 +12,10 @@ pub struct WeightRecord {
     pub tags: Vec<String>,
     #[serde(default)]
     pub remark: Vec<String>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub created_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -45,6 +49,8 @@ pub struct ListItem {
     pub weight: f64,
     pub tags: Vec<String>,
     pub remark: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl From<&WeightRecord> for ListItem {
@@ -55,6 +61,8 @@ impl From<&WeightRecord> for ListItem {
             weight: record.weight,
             tags: record.tags.clone(),
             remark: record.remark.clone(),
+            created_at: record.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: record.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         }
     }
 }
@@ -78,7 +86,7 @@ impl WeightRow {
         Self {
             id: record.id[..8].to_string(),
             date: record.date.format("%Y-%m-%d").to_string(),
-            weight: format!("{:.1}", record.weight),
+            weight: format!("{:.1} kg", record.weight),
             tags: if record.tags.is_empty() {
                 "-".to_string()
             } else {

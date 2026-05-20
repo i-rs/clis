@@ -16,6 +16,8 @@ pub struct PigEntry {
     pub happened_at: DateTime<Utc>,
     #[serde(with = "chrono::serde::ts_seconds")]
     pub created_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[allow(dead_code)]
@@ -36,6 +38,7 @@ impl PigEntry {
             remark,
             happened_at: now,
             created_at: now,
+            updated_at: now,
         }
     }
 }
@@ -107,6 +110,7 @@ pub struct ListItem {
     pub remark: Vec<String>,
     pub happened_at: String,
     pub created_at: String,
+    pub updated_at: String,
 }
 
 impl From<&PigEntry> for ListItem {
@@ -119,6 +123,7 @@ impl From<&PigEntry> for ListItem {
             remark: entry.remark.clone(),
             happened_at: entry.happened_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             created_at: entry.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            updated_at: entry.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
         }
     }
 }

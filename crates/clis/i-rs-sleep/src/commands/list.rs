@@ -12,7 +12,11 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> anyhow::Result<
 
     if format.is_json() {
         let items: Vec<ListItem> = entries.iter().map(ListItem::from).collect();
-        output_list(&items, items.len(), tag.as_deref(), format);
+        println!(
+            "{}",
+            output_list(&items, items.len(), tag.as_deref(), format)
+        );
+        return Ok(());
     } else {
         let rows: Vec<SleepRow> = entries.iter().map(SleepRow::from_record).collect();
         println!("{}", format_table(&rows));
