@@ -130,7 +130,7 @@ fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent
         let memory = core.agent_store.memory_for(agent_id);
         let tool_cache = core.agent_store.tool_cache_for(agent_id);
         let skill_store = core.agent_store.skill_store_for(agent_id);
-        crate::core::engine::build_system_prompt(
+        crate::core::engine::builder::build_system_prompt(
             &crate::tools::format_index(enabled),
             &memory.format_hot_tools(tool_cache),
             &skill_store.format_skills(),

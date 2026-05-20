@@ -51,6 +51,7 @@ impl ProviderKind {
 /// Each provider converts the internal OpenAI-format messages
 /// to its own API format internally.
 #[async_trait::async_trait]
+#[allow(dead_code)]
 pub trait LlmProvider: Send + Sync {
     fn kind(&self) -> ProviderKind;
     fn model(&self) -> &str;

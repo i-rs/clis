@@ -1,4 +1,4 @@
-mod builder;
+pub(crate) mod builder;
 mod execution;
 
 pub(crate) use builder::{

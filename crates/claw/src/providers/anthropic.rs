@@ -143,6 +143,7 @@ pub(crate) enum AnthropicEvent {
         partial_json: Option<String>,
     },
     ContentBlockStop {
+        #[allow(dead_code)]
         index: usize,
     },
     MessageDelta {
