@@ -292,41 +292,38 @@ pub fn run_tools() -> anyhow::Result<()> {
                 );
             })?;
 
-            match event::read()? {
-                Event::Key(key) => match key.code {
-                    KeyCode::Up => selection = selection.saturating_sub(1),
-                    KeyCode::Down if selection + 1 < total => selection += 1,
-                    KeyCode::Char(' ') => {
-                        dirty = true;
-                        let name = all_tools[selection];
-                        if cfg.enabled_tools.is_empty() {
-                            cfg.enabled_tools =
-                                all_tools.iter().map(|s| s.to_string()).collect();
-                        }
-                        if cfg.enabled_tools.contains(name) {
-                            cfg.enabled_tools.remove(name);
-                        } else {
-                            cfg.enabled_tools.insert(name.to_string());
-                        }
-                    }
-                    KeyCode::Char('a') | KeyCode::Char('A') => {
-                        dirty = true;
+            if let Event::Key(key) = event::read()? { match key.code {
+                KeyCode::Up => selection = selection.saturating_sub(1),
+                KeyCode::Down if selection + 1 < total => selection += 1,
+                KeyCode::Char(' ') => {
+                    dirty = true;
+                    let name = all_tools[selection];
+                    if cfg.enabled_tools.is_empty() {
                         cfg.enabled_tools =
                             all_tools.iter().map(|s| s.to_string()).collect();
                     }
-                    KeyCode::Char('n') | KeyCode::Char('N') => {
-                        dirty = true;
-                        cfg.enabled_tools.clear();
+                    if cfg.enabled_tools.contains(name) {
+                        cfg.enabled_tools.remove(name);
+                    } else {
+                        cfg.enabled_tools.insert(name.to_string());
                     }
-                    KeyCode::Enter => break Ok(()),
-                    KeyCode::Esc | KeyCode::Char('q') => {
-                        dirty = false;
-                        break Ok(());
-                    }
-                    _ => {}
-                },
+                }
+                KeyCode::Char('a') | KeyCode::Char('A') => {
+                    dirty = true;
+                    cfg.enabled_tools =
+                        all_tools.iter().map(|s| s.to_string()).collect();
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') => {
+                    dirty = true;
+                    cfg.enabled_tools.clear();
+                }
+                KeyCode::Enter => break Ok(()),
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    dirty = false;
+                    break Ok(());
+                }
                 _ => {}
-            }
+            } }
         }
     })();
 
@@ -507,11 +504,11 @@ pub fn run_gateway() -> anyhow::Result<()> {
         println!("ℹ No gateway adapters enabled. Configure them in config.toml:");
         println!("  [gateway]");
         println!("  enabled = true");
-        println!("");
+        println!();
         println!("  [gateway.telegram]");
         println!("  enabled = true");
         println!("  token = \"your-bot-token\"");
-        println!("");
+        println!();
         println!("  [gateway.wechat]");
         println!("  enabled = true");
         println!("  # Credentials obtained via QR login on first run");
@@ -540,7 +537,7 @@ pub fn run_dashboard() -> anyhow::Result<()> {
         let plugin_configs = plugin_mgr.to_mcp_configs();
         if !plugin_configs.is_empty() {
             // Plugin configs are already merged into mcp_servers at init
-            eprintln!("  {} plugins discovered", plugin_configs.len(),);
+            tracing::info!("{} plugins discovered", plugin_configs.len(),);
         }
     }
 
@@ -903,8 +900,8 @@ fn parse_mcp_server(input: &str) -> Option<crate::mcp::McpServerConfig> {
     if name.is_empty() || command.is_empty() {
         return None;
     }
-    let args = parts.get(2).map(|s| s.trim().split_whitespace().map(|a| a.to_string()).collect());
-    let env = parts.get(3).map(|s| s.trim().split_whitespace().map(|e| e.to_string()).collect());
+    let args = parts.get(2).map(|s| s.split_whitespace().map(|a| a.to_string()).collect());
+    let env = parts.get(3).map(|s| s.split_whitespace().map(|e| e.to_string()).collect());
     Some(crate::mcp::McpServerConfig {
         name,
         transport_type: "stdio".to_string(),

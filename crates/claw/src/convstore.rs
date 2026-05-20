@@ -149,11 +149,10 @@ impl ConvStore {
         if !path.exists() {
             return Vec::new();
         }
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(sessions) = serde_json::from_str(&content) {
+        if let Ok(content) = std::fs::read_to_string(&path)
+            && let Ok(sessions) = serde_json::from_str(&content) {
                 return sessions;
             }
-        }
         Vec::new()
     }
 }

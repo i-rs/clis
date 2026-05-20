@@ -91,7 +91,7 @@ impl ToolExecutor {
         let mut handles = Vec::new();
         let _total = calls.len();
 
-        for (_step, (tc, args)) in calls.into_iter().enumerate() {
+        for (tc, args) in calls.into_iter() {
             let name = tc.name.clone();
             let name_for_closure = name.clone();
             let args_clone = args.clone();
@@ -107,12 +107,11 @@ impl ToolExecutor {
                     } else {
                         // Try MCP
                         for (client_idx, tool_def) in &ctx_clone.mcp.tools {
-                            if tool_def.name == name_for_closure {
-                                if let Some(client) = ctx_clone.mcp.clients.get(*client_idx) {
+                            if tool_def.name == name_for_closure
+                                && let Some(client) = ctx_clone.mcp.clients.get(*client_idx) {
                                     return client.call_tool(&name_for_closure, &args_clone)
                                         .unwrap_or_else(|e| format!("MCP 错误: {}", e));
                                 }
-                            }
                         }
                         format!("错误: 未知工具 {}", name_for_closure)
                     }

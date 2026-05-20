@@ -1,11 +1,11 @@
-/// Lightweight semantic search for conversation history.
-///
-/// Provides TF-IDF-like relevance ranking over message text, with optional
-/// remote embedding API support for deeper semantic matching.
-///
-/// Usage:
-///   let searcher = SemanticSearch::new(&claw_dir);
-///   let results = searcher.search("running weight last week", 5)?;
+//! Lightweight semantic search for conversation history.
+//!
+//! Provides TF-IDF-like relevance ranking over message text, with optional
+//! remote embedding API support for deeper semantic matching.
+//!
+//! Usage:
+//!   let searcher = SemanticSearch::new(&claw_dir);
+//!   let results = searcher.search("running weight last week", 5)?;
 
 use crate::convstore::{ConvStore, SearchResult};
 use serde::{Deserialize, Serialize};
@@ -311,7 +311,7 @@ impl SemanticSearch {
         }
         indexed
             .into_iter()
-            .filter_map(|(entry, score)| {
+            .map(|(entry, score)| {
                 // Build a ScoredResult from the indexed entry
                 let result = SearchResult {
                     session_id: entry.session_id,
@@ -326,7 +326,7 @@ impl SemanticSearch {
                     score, // Use embedding score directly
                     result,
                 };
-                Some((scored, score))
+                (scored, score)
             })
             .collect()
     }
@@ -445,7 +445,6 @@ fn is_stop_word(word: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_tokenize() {

@@ -72,7 +72,7 @@ impl ClawTool for ChartTool {
         let tool = args
             .get("tool")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| "缺少必要参数: tool")?;
+            .ok_or("缺少必要参数: tool")?;
         let command = args
             .get("command")
             .and_then(|v| v.as_str())
@@ -93,14 +93,12 @@ impl ClawTool for ChartTool {
             .get("width")
             .and_then(|v| v.as_u64())
             .unwrap_or(40)
-            .min(80)
-            .max(20) as usize;
+            .clamp(20, 80) as usize;
         let height = args
             .get("height")
             .and_then(|v| v.as_u64())
             .unwrap_or(10)
-            .min(20)
-            .max(5) as usize;
+            .clamp(5, 20) as usize;
         let extra_args = args
             .get("extra_args")
             .and_then(|v| v.as_str())
@@ -255,11 +253,10 @@ fn parse_numeric(obj: &serde_json::Map<String, Value>, field: &str) -> Option<f6
         if let Some(n) = v.as_i64() {
             return Some(n as f64);
         }
-        if let Some(s) = v.as_str() {
-            if let Ok(n) = s.parse::<f64>() {
+        if let Some(s) = v.as_str()
+            && let Ok(n) = s.parse::<f64>() {
                 return Some(n);
             }
-        }
     }
 
     // Try common numeric field names
@@ -294,9 +291,9 @@ fn generate_bar_chart(data: &[DataPoint], width: usize, height: usize) -> String
         .max(1.0);
 
     let chart_width = width.min(80);
-    let chart_height = height.min(20).max(5);
+    let chart_height = height.clamp(5, 20);
     let bar_width = (chart_width.saturating_sub(6)).max(5) / data.len().max(1);
-    let bar_width = bar_width.max(1).min(10);
+    let bar_width = bar_width.clamp(1, 10);
 
     let mut output = String::new();
     output.push_str(&format!(
@@ -383,7 +380,7 @@ fn generate_line_chart(data: &[DataPoint], width: usize, height: usize) -> Strin
         .min(0.0);
     let range = (max_val - min_val).max(1.0);
 
-    let chart_height = height.min(20).max(5);
+    let chart_height = height.clamp(5, 20);
     let chart_width = width.min(80);
 
     let mut output = String::new();

@@ -54,8 +54,7 @@ impl ClawTool for SemanticSearchTool {
             .get("max_results")
             .and_then(|v| v.as_u64())
             .unwrap_or(5)
-            .min(20)
-            .max(1) as usize;
+            .clamp(1, 20) as usize;
 
         if query.is_empty() {
             return Err("Please provide a search query".to_string());

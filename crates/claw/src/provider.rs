@@ -181,19 +181,18 @@ async fn openai_stream_chat_impl(
 
                     if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
                         // Usage data (final chunk with include_usage)
-                        if let Some(usage_data) = parsed.get("usage") {
-                            if !usage_data.is_null() {
+                        if let Some(usage_data) = parsed.get("usage")
+                            && !usage_data.is_null() {
                                 usage = Some(TokenUsage {
                                     prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
                                     completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
                                     total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
                                 });
                             }
-                        }
 
-                        if let Some(choices) = parsed["choices"].as_array() {
-                            if let Some(choice) = choices.first() {
-                                if let Some(delta) = choice.get("delta") {
+                        if let Some(choices) = parsed["choices"].as_array()
+                            && let Some(choice) = choices.first()
+                                && let Some(delta) = choice.get("delta") {
                                     // Accumulate reasoning_content (DeepSeek)
                                     if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
                                         reasoning_buf.push_str(rc);
@@ -201,12 +200,11 @@ async fn openai_stream_chat_impl(
                                     }
 
                                     // Text content
-                                    if let Some(text) = delta.get("content").and_then(|c| c.as_str()) {
-                                        if !text.is_empty() {
+                                    if let Some(text) = delta.get("content").and_then(|c| c.as_str())
+                                        && !text.is_empty() {
                                             content_buf.push_str(text);
                                             let _ = tx.send(LlmEvent::Token(text.to_string()));
                                         }
-                                    }
 
                                     // Tool calls (streaming delta)
                                     if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
@@ -233,8 +231,6 @@ async fn openai_stream_chat_impl(
                                         }
                                     }
                                 }
-                            }
-                        }
                     }
                 }
             }
@@ -272,7 +268,7 @@ async fn openai_stream_chat_impl(
             return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
         }
 
-        return Ok(StreamResult::Text(usage, content_buf));
+        Ok(StreamResult::Text(usage, content_buf))
     } else {
         let text = response.text().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as u64;
@@ -285,7 +281,7 @@ async fn openai_stream_chat_impl(
             error: Some(format!("HTTP {}: {}", status, text)),
             request_body: body_json.clone(),
         });
-        return Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text));
+        Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text))
     }
 }
 
@@ -320,6 +316,7 @@ impl LlmProvider for OpenaiProvider {
         &self.model
     }
 
+    #[tracing::instrument(skip(self, messages, tool_schemas, tx))]
     async fn stream_chat(
         &self,
         messages: &[Value],
@@ -457,14 +454,13 @@ fn openai_to_anthropic_messages(messages: &[Value]) -> (Option<String>, Vec<Valu
                 flush_user(&mut user_blocks, &mut anthro_msgs);
                 let mut blocks = Vec::new();
                 // Text content
-                if let Some(text) = msg["content"].as_str() {
-                    if !text.is_empty() && text != "null" {
+                if let Some(text) = msg["content"].as_str()
+                    && !text.is_empty() && text != "null" {
                         blocks.push(serde_json::json!({
                             "type": "text",
                             "text": text
                         }));
                     }
-                }
                 // Tool use content blocks
                 if let Some(tcs) = msg["tool_calls"].as_array() {
                     for tc in tcs {
@@ -535,14 +531,12 @@ impl AnthropicProvider {
         match event_type {
             "message_start" => {
                 let msg = parsed.get("message")?;
-                let usage = msg.get("usage").and_then(|u| {
-                    Some(TokenUsage {
+                let usage = msg.get("usage").map(|u| TokenUsage {
                         prompt_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32,
                         completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
                         total_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32
                             + u["output_tokens"].as_u64().unwrap_or(0) as u32,
-                    })
-                });
+                    });
                 Some(AnthropicEvent::MessageStart { usage })
             }
             "content_block_start" => {
@@ -598,13 +592,11 @@ impl AnthropicProvider {
             "message_delta" => {
                 let delta = parsed.get("delta")?;
                 let stop_reason = delta["stop_reason"].as_str().unwrap_or("").to_string();
-                let usage = parsed.get("usage").and_then(|u| {
-                    Some(TokenUsage {
+                let usage = parsed.get("usage").map(|u| TokenUsage {
                         prompt_tokens: 0, // Only shown in message_start
                         completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
                         total_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
-                    })
-                });
+                    });
                 Some(AnthropicEvent::MessageDelta { stop_reason, usage })
             }
             "message_stop" => Some(AnthropicEvent::MessageStop),
@@ -652,6 +644,7 @@ impl LlmProvider for AnthropicProvider {
         &self.model
     }
 
+    #[tracing::instrument(skip(self, messages, tool_schemas, tx))]
     async fn stream_chat(
         &self,
         messages: &[Value],

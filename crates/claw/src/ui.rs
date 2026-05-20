@@ -102,8 +102,8 @@ pub fn render(f: &mut Frame, app: &App) {
     }
 
     // Request body overlay (rendered on top of everything)
-    if let Some(idx) = app.sidebar_body_idx {
-        if let Some(log) = app.http_logs.get(idx) {
+    if let Some(idx) = app.sidebar_body_idx
+        && let Some(log) = app.http_logs.get(idx) {
             render_request_body(
                 f,
                 area,
@@ -113,7 +113,6 @@ pub fn render(f: &mut Frame, app: &App) {
                 app.sidebar_body_scroll,
             );
         }
-    }
 }
 
 fn render_title(f: &mut Frame, area: Rect, app: &App) {
@@ -154,7 +153,7 @@ fn render_title(f: &mut Frame, area: Rect, app: &App) {
     let model_width = unicode_width::UnicodeWidthStr::width(model_text_ref);
     let padding = (area.width as usize).saturating_sub(
         spans.iter().map(|s| {
-            let content: &str = &*s.content;
+            let content: &str = &s.content;
             unicode_width::UnicodeWidthStr::width(content)
         }).sum::<usize>()
         + model_width
@@ -359,7 +358,7 @@ fn render_processing(f: &mut Frame, area: Rect, app: &App) {
 fn input_height(input: &str) -> u16 {
     let content_lines = input.lines().count().max(1);
     // content lines + hint line + top/bottom borders
-    (content_lines + 1 + 2).max(3).min(20) as u16
+    (content_lines + 1 + 2).clamp(3, 20) as u16
 }
 
 /// Return the input hint line showing available shortcuts.
@@ -501,7 +500,7 @@ fn render_status(f: &mut Frame, area: Rect, app: &App) {
     } else {
         // Idle state — green dot + bold
         spans.push(Span::styled(
-            format!(" ● 就绪 "),
+            " ● 就绪 ".to_string(),
             Style::default().fg(app.config.theme.secondary()).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
@@ -893,7 +892,7 @@ fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     let popup_x = area.x + 2;
     let popup_y = area.bottom().saturating_sub(
         1  // status bar
-        + input_height(&app.input) as u16
+        + input_height(&app.input)
         + 1  // processing
         + popup_height
         + 2
@@ -1660,29 +1659,22 @@ fn message_line_count(
             if !app.tool_call_expanded.contains(&msg_index) {
                 let mut lines = 1; // header
                 // optional explanation line
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
-                    if name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
+                    && name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
                         lines += 1;
                     }
-                }
                 return lines;
             }
 
             let mut lines = 1; // header
             // optional explanation line
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
-                if name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
+                && name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
                     lines += 1;
                 }
-            }
             // result lines — use cached format_json_result for accurate counting
             if !result.is_empty() {
-                if !format_cache.contains_key(&msg_index) {
-                    format_cache.insert(
-                        msg_index,
-                        format_json_result(result, text_width).0,
-                    );
-                }
+                format_cache.entry(msg_index).or_insert_with(|| format_json_result(result, text_width).0);
                 let cached = format_cache.get(&msg_index).unwrap();
                 lines += cached.len();
             }
@@ -1708,7 +1700,7 @@ fn wrapped_line_count(text: &str, max_width: usize) -> usize {
             if w == 0 {
                 1
             } else {
-                (w + max_width - 1) / max_width
+                w.div_ceil(max_width)
             }
         })
         .sum()
@@ -1742,12 +1734,11 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
         fn new() -> Self { Self { spans: Vec::new(), width: 0 } }
         fn add(&mut self, text: &str, style: Style) {
             self.width += unicode_width::UnicodeWidthStr::width(text);
-            if let Some(last) = self.spans.last_mut() {
-                if last.1 == style {
+            if let Some(last) = self.spans.last_mut()
+                && last.1 == style {
                     last.0.push_str(text);
                     return;
                 }
-            }
             self.spans.push((text.to_string(), style));
         }
         fn flush(&mut self, out: &mut Vec<Line<'static>>, max_width: usize) {
@@ -2027,8 +2018,8 @@ fn build_message_item(
                 )));
             }
 
-            if is_expanded && !result.is_empty() {
-                if let Some(cached_lines) = format_cache.get(&msg_index) {
+            if is_expanded && !result.is_empty()
+                && let Some(cached_lines) = format_cache.get(&msg_index) {
                     if !cached_lines.is_empty() {
                         lines.extend(cached_lines.clone());
                     } else if has_ansi(result) {
@@ -2044,7 +2035,6 @@ fn build_message_item(
                         }
                     }
                 }
-            }
 
             let bg = if is_selected { Color::Rgb(25, 25, 35) } else { Color::Rgb(10, 10, 16) };
             ListItem::new(lines).style(Style::default().bg(bg))

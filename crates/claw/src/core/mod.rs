@@ -13,7 +13,7 @@ use crate::skill_store::SkillStore;
 use crate::tool_cache::ToolDocCache;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 use tokio::sync::mpsc;
 
 /// Central storage for per-agent runtime data.
@@ -26,7 +26,7 @@ pub struct AgentRuntimeStore {
 }
 
 impl AgentRuntimeStore {
-    pub fn new(config: &Config, claw_dir: &PathBuf) -> Self {
+    pub fn new(config: &Config, claw_dir: &Path) -> Self {
         let agent_ids = config.all_agent_ids();
         let mut store = Self {
             memories: HashMap::new(),
@@ -87,7 +87,7 @@ impl AgentRuntimeStore {
     /// Initialize runtime data for a new agent.
     /// Called after adding an agent to config.
     #[allow(dead_code)]
-    pub fn add_agent(&mut self, config: &Config, claw_dir: &PathBuf, agent_id: &str) {
+    pub fn add_agent(&mut self, config: &Config, claw_dir: &Path, agent_id: &str) {
         let resolved = config.agent_config(agent_id);
         self.memories.insert(agent_id.to_string(), CrossSessionMemory::for_agent(claw_dir, agent_id));
         self.tool_caches.insert(agent_id.to_string(), ToolDocCache::for_agent(claw_dir, agent_id));
@@ -146,7 +146,7 @@ impl AppCore {
 
     /// Migrate legacy data files (memory.json, skills/, etc.) to agents/default/
     /// on first run after upgrade.
-    fn migrate_legacy_data(claw_dir: &PathBuf) {
+    fn migrate_legacy_data(claw_dir: &Path) {
         let default_dir = claw_dir.join("agents").join("default");
         let default_memory = default_dir.join("memory.json");
         let legacy_memory = claw_dir.join("memory.json");

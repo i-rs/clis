@@ -350,11 +350,10 @@ impl App {
     pub fn add_error(&mut self, text: &str) {
         self.current_reasoning.clear();
         // Remove trailing empty assistant message (from NewRound before error)
-        if let Some(Message::Assistant { text }) = self.messages.last() {
-            if text.is_empty() {
+        if let Some(Message::Assistant { text }) = self.messages.last()
+            && text.is_empty() {
                 self.messages.pop();
             }
-        }
         self.messages
             .push(Message::Error { text: text.to_string() });
         // Reset API messages so the next request rebuilds from scratch
@@ -367,11 +366,10 @@ impl App {
     pub fn finish_processing(&mut self, api_messages: Option<Vec<Value>>) {
         self.current_reasoning.clear();
         // Remove trailing empty assistant message
-        if let Some(Message::Assistant { text }) = self.messages.last() {
-            if text.is_empty() {
+        if let Some(Message::Assistant { text }) = self.messages.last()
+            && text.is_empty() {
                 self.messages.pop();
             }
-        }
         self.api_messages = api_messages;
         self.state = AppState::Idle;
         self.status_text.clear();
@@ -394,7 +392,7 @@ impl App {
                     .strip_prefix(|c: char| c.is_ascii_digit())
                     .and_then(|s| s.strip_prefix(". "))
                 {
-                    let clean = rest.trim_end_matches(|c: char| c == '.' || c == '，' || c == ',');
+                    let clean = rest.trim_end_matches(['.', '，', ',']);
                     if !clean.is_empty() {
                         self.plan_steps.push(PlanStep {
                             description: clean.to_string(),

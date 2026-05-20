@@ -36,18 +36,16 @@ fn read_clipboard_image_text() -> Result<String, String> {
     // Try multiple OCR methods in order of preference
 
     // Method 1: macOS Shortcuts "Extract Text from Image"
-    if let Ok(text) = ocr_via_shortcuts() {
-        if !text.trim().is_empty() {
+    if let Ok(text) = ocr_via_shortcuts()
+        && !text.trim().is_empty() {
             return Ok(format!("从剪贴板图片中识别的文字:\n\n{}", text.trim()));
         }
-    }
 
     // Method 2: osascript with Apple Vision Framework
-    if let Ok(text) = ocr_via_osascript() {
-        if !text.trim().is_empty() {
+    if let Ok(text) = ocr_via_osascript()
+        && !text.trim().is_empty() {
             return Ok(format!("从剪贴板图片中识别的文字:\n\n{}", text.trim()));
         }
-    }
 
     // Method 3: Check if clipboard has image at all
     let has_image = clipboard_has_image();

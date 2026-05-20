@@ -1,7 +1,7 @@
 use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Cross-session memory that tracks tool usage patterns and user preferences.
 ///
@@ -34,7 +34,7 @@ impl CrossSessionMemory {
     /// Create memory for a specific agent.
     /// "default" agent reads from legacy `memory.json`; others from
     /// `claw_dir/agents/{agent_id}/memory.json`.
-    pub fn for_agent(claw_dir: &PathBuf, agent_id: &str) -> Self {
+    pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
         let path = if agent_id == "default" {
             claw_dir.join("memory.json")
         } else {
@@ -85,7 +85,7 @@ impl CrossSessionMemory {
             .iter()
             .map(|(k, v)| (k.clone(), *v))
             .collect();
-        tools.sort_by(|a, b| b.1.cmp(&a.1));
+        tools.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
         self.hot_tools = tools.into_iter().map(|(t, _)| t).take(5).collect();
     }
 
@@ -98,11 +98,10 @@ impl CrossSessionMemory {
         for meta in sessions {
             let records = session_mgr.load_messages(&meta.id, 1000);
             for record in &records {
-                if record.get("type").and_then(|t| t.as_str()) == Some("tool_call") {
-                    if let Some(name) = record.get("name").and_then(|n| n.as_str()) {
+                if record.get("type").and_then(|t| t.as_str()) == Some("tool_call")
+                    && let Some(name) = record.get("name").and_then(|n| n.as_str()) {
                         *self.tool_frequency.entry(name.to_string()).or_insert(0) += 1;
                     }
-                }
             }
         }
         self.update_hot_tools();
@@ -220,12 +219,11 @@ impl CrossSessionMemory {
     }
 
     fn load(path: &PathBuf) -> Self {
-        if let Ok(content) = std::fs::read_to_string(path) {
-            if let Ok(mut mem) = serde_json::from_str::<Self>(&content) {
+        if let Ok(content) = std::fs::read_to_string(path)
+            && let Ok(mut mem) = serde_json::from_str::<Self>(&content) {
                 mem.path = path.clone();
                 return mem;
             }
-        }
         Self {
             tool_frequency: HashMap::new(),
             hot_tools: Vec::new(),

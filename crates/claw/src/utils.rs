@@ -41,13 +41,11 @@ pub fn smart_truncate(s: &str, max_chars: usize) -> String {
     if trimmed.starts_with('{') || trimmed.starts_with('[') || trimmed.starts_with('"') {
         // Try to parse as JSON, truncate at the last complete value within limit
         let truncated: String = stripped.chars().take(max_chars).collect();
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&truncated) {
-            if let Ok(s) = serde_json::to_string(&v) {
-                if s.len() < stripped.len() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&truncated)
+            && let Ok(s) = serde_json::to_string(&v)
+                && s.len() < stripped.len() {
                     return format!("{}...(truncated)", s);
                 }
-            }
-        }
         // Fallback: try to find last complete object by counting braces
         if let Some(complete) = find_json_prefix(&truncated) {
             return format!("{}...(truncated)", complete);
@@ -66,7 +64,7 @@ fn strip_ansi(s: &str) -> String {
     while let Some(c) = chars.next() {
         if c == '\x1b' {
             // Skip until the letter that terminates the escape sequence
-            while let Some(esc) = chars.next() {
+            for esc in chars.by_ref() {
                 if esc.is_ascii_alphabetic() || esc == '~' {
                     break;
                 }

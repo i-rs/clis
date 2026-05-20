@@ -2,7 +2,6 @@ use crate::app;
 use crate::config::Config;
 use crate::core;
 use crate::llm::LlmEvent;
-use chrono;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::backend::CrosstermBackend;
 use std::io;
@@ -93,11 +92,10 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     let mut app_core = crate::core::AppCore::new(app.config.clone())?;
 
     // If a specific session ID was requested, try to switch to it
-    if let Some(sid) = session_id {
-        if !app_core.session_mgr.switch_to(sid) {
+    if let Some(sid) = session_id
+        && !app_core.session_mgr.switch_to(sid) {
             eprintln!("⚠ 未找到会话: {}", sid);
         }
-    }
 
     // Ensure at least one session exists
     if app_core.session_mgr.current_id().is_none() {
@@ -235,11 +233,10 @@ fn main_loop(
                 LlmEvent::Status(text) => {
                     app.set_status(&text);
                     // Track session state transitions
-                    if text.starts_with("⚡") || text.contains("并行执行") {
-                        if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
+                    if (text.starts_with("⚡") || text.contains("并行执行"))
+                        && let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
                             app_core.session_mgr.mark_waiting_for_tool(&sid);
                         }
-                    }
                 }
                 LlmEvent::ToolExecuted {
                     name,
@@ -259,8 +256,8 @@ fn main_loop(
                     }
 
                     // Save user information from update_user_memory tool
-                    if name == "update_user_memory" {
-                        if let Ok(parsed) =
+                    if name == "update_user_memory"
+                        && let Ok(parsed) =
                             serde_json::from_str::<serde_json::Value>(&args)
                         {
                             if let Some(user_name) = parsed
@@ -294,20 +291,17 @@ fn main_loop(
                                 }
                             }
                         }
-                    }
 
                     // Record tool usage for cross-session memory
                     let agent_id = app.current_agent.clone();
                     if name == "i_rs" {
                         if let Ok(parsed) =
                             serde_json::from_str::<serde_json::Value>(&args)
-                        {
-                            if let Some(tool) =
+                            && let Some(tool) =
                                 parsed.get("tool").and_then(|t| t.as_str())
                             {
                                 app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(tool);
                             }
-                        }
                     } else {
                         app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(&name);
                     }
@@ -351,17 +345,16 @@ fn main_loop(
                     }
 
                     // Clear persisted plan on completion (if Plan-then-Execute mode)
-                    if app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute {
-                        if let Some(sid) = app_core.session_mgr.current_id() {
+                    if app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
+                        && let Some(sid) = app_core.session_mgr.current_id() {
                             app_core.session_mgr.save_plan_steps(sid, &[]);
                         }
-                    }
 
                     // Persist conversation to session
                     let session_id = match app_core.session_mgr.current_id() {
                         Some(id) => id.to_string(),
                         None => {
-                            eprintln!("⚠ 未找到当前会话，跳过持久化");
+                            tracing::warn!("未找到当前会话，跳过持久化");
                             app.finish_processing(None);
                             break;
                         }
@@ -378,8 +371,8 @@ fn main_loop(
                         .current_session()
                         .map(|s| s.title == "新对话" || s.title.is_empty())
                         .unwrap_or(false);
-                    if needs_rename {
-                        if let Some(first_user) = app.messages.iter().find_map(|m| {
+                    if needs_rename
+                        && let Some(first_user) = app.messages.iter().find_map(|m| {
                             if let crate::app::Message::User { text } = m {
                                 Some(text.clone())
                             } else {
@@ -388,7 +381,6 @@ fn main_loop(
                         }) {
                             app_core.session_mgr.rename_session(&session_id, &first_user);
                         }
-                    }
 
                     // Flush pending memory writes (tool frequency, user info, etc.)
                     app_core.agent_store.memory_for_mut(&app.current_agent).flush();
@@ -445,8 +437,8 @@ fn main_loop(
                         }
                     }
                     // Ctrl+S: Toggle message selection mode
-                    KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
-                        if !app.messages.is_empty() {
+                    KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL
+                        && !app.messages.is_empty() => {
                             app.selection_mode = !app.selection_mode;
                             app.selected_message = if app.selection_mode {
                                 Some(app.messages.len().saturating_sub(1))
@@ -454,7 +446,6 @@ fn main_loop(
                                 None
                             };
                         }
-                    }
                     // Ctrl+H: show keyboard shortcut help panel
                     KeyCode::Char('h') if key.modifiers == KeyModifiers::CONTROL => {
                         app.show_help = !app.show_help;
@@ -546,8 +537,8 @@ fn main_loop(
                     // Agent picker: Enter to switch
                     KeyCode::Enter if app.show_agent_picker => {
                         let agent_id = app.agent_list.get(app.agent_picker_index).cloned();
-                        if let Some(ref agent_id) = agent_id {
-                            if *agent_id != app.current_agent {
+                        if let Some(ref agent_id) = agent_id
+                            && *agent_id != app.current_agent {
                                 // Save current session messages
                                 if let Some(old_id) = app_core.session_mgr.current_id().map(|id| id.to_string()) {
                                     save_session_messages(
@@ -570,7 +561,6 @@ fn main_loop(
                                 app_core.agent_store.memory_for_mut(agent_id)
                                     .analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
                             }
-                        }
                         app.show_agent_picker = false;
                     }
                     // Agent picker: Up/Down
@@ -634,7 +624,7 @@ fn main_loop(
                             let id = meta.id.clone();
                             let is_current = app_core.session_mgr
                                 .current_id()
-                                .map(|cid| cid == &id)
+                                .map(|cid| cid == id)
                                 .unwrap_or(false);
                             app_core.session_mgr.delete_session(&id);
                             app.session_confirm_delete = false;
@@ -677,12 +667,10 @@ fn main_loop(
                         }
                     }
                     KeyCode::Enter
-                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_none() =>
-                    {
-                        if !app.http_logs.is_empty() {
+                        if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_none()
+                        && !app.http_logs.is_empty() => {
                             app.sidebar_body_idx = Some(app.sidebar_selected);
                         }
-                    }
                     // Body overlay Up/Down (scroll within the JSON)
                     KeyCode::Up
                         if !app.show_session_list && app.show_sidebar && app.sidebar_body_idx.is_some() =>
@@ -699,15 +687,14 @@ fn main_loop(
                         app.session_list_index =
                             app.session_list_index.saturating_sub(1);
                     }
-                    KeyCode::Down if app.show_session_list => {
+                    KeyCode::Down if app.show_session_list
                         // In search mode, don't change selection index
-                        if !app.session_search_mode {
+                        && !app.session_search_mode => {
                             let max = app.session_list.len().saturating_sub(1);
                             if app.session_list_index < max {
                                 app.session_list_index += 1;
                             }
                         }
-                    }
                     KeyCode::Char('/') if app.show_session_list && !app.session_search_mode => {
                         // Enter search mode
                         app.session_search_mode = true;
@@ -724,15 +711,14 @@ fn main_loop(
                     }
                     // Selection mode: navigate messages (Up=older, Down=newer)
                     KeyCode::Up if app.selection_mode => {
-                        if let Some(idx) = app.selected_message {
-                            if idx > 0 {
+                        if let Some(idx) = app.selected_message
+                            && idx > 0 {
                                 app.selected_message = Some(idx - 1);
                             }
-                        }
                     }
                     KeyCode::Down if app.selection_mode => {
-                        if let Some(idx) = app.selected_message {
-                            if idx + 1 < app.messages.len() {
+                        if let Some(idx) = app.selected_message
+                            && idx + 1 < app.messages.len() {
                                 app.selected_message = Some(idx + 1);
                                 // Auto-scroll if newly selected message is not visible
                                 let n = app.messages.len();
@@ -741,17 +727,14 @@ fn main_loop(
                                     app.scroll_offset = n.saturating_sub(1).saturating_sub(idx + 1);
                                 }
                             }
-                        }
                     }
                     // Selection mode: Space toggles tool call expansion
                     KeyCode::Char(' ') if app.selection_mode => {
-                        if let Some(idx) = app.selected_message {
-                            if matches!(app.messages.get(idx), Some(crate::app::Message::ToolCall { .. })) {
-                                if !app.tool_call_expanded.remove(&idx) {
+                        if let Some(idx) = app.selected_message
+                            && matches!(app.messages.get(idx), Some(crate::app::Message::ToolCall { .. }))
+                                && !app.tool_call_expanded.remove(&idx) {
                                     app.tool_call_expanded.insert(idx);
                                 }
-                            }
-                        }
                     }
                     KeyCode::Up
                         if !app.show_session_list && !app.show_sidebar && !app.is_processing() && !app.selection_mode =>
@@ -820,7 +803,7 @@ fn main_loop(
                             let new_id = meta.id.clone();
                             let is_current = app_core.session_mgr
                                 .current_id()
-                                .map(|id| id == &new_id)
+                                .map(|id| id == new_id)
                                 .unwrap_or(false);
                             if !is_current {
                                 let old_id = app_core.session_mgr
@@ -878,8 +861,8 @@ fn main_loop(
                             app_core.spawn_chat_for(rt, llm_tx.clone(), msgs, &app.current_agent);
                         }
                     }
-                    KeyCode::Backspace => {
-                        if !app.input.is_empty() {
+                    KeyCode::Backspace
+                        if !app.input.is_empty() => {
                             app.delete_before_cursor();
                             // Clear tab completions on edit
                             if !app.tab_completions.is_empty() {
@@ -887,7 +870,6 @@ fn main_loop(
                                 app.tab_completion_index = 0;
                             }
                         }
-                    }
                     KeyCode::Left => {
                         app.move_cursor_left();
                     }
@@ -900,8 +882,8 @@ fn main_loop(
                     KeyCode::End => {
                         app.move_cursor_end();
                     }
-                    KeyCode::Tab => {
-                        if !app.is_processing() && !app.input.is_empty() {
+                    KeyCode::Tab
+                        if !app.is_processing() && !app.input.is_empty() => {
                             let completions = crate::completion::get_completions(&app.input, app.input_cursor);
                             if !completions.is_empty() {
                                 if app.tab_completions.is_empty() {
@@ -921,10 +903,9 @@ fn main_loop(
                                 app.input_cursor = word_start + selected.len() + 1;
                             }
                         }
-                    }
-                    KeyCode::BackTab => {
+                    KeyCode::BackTab
                         // Shift+Tab: cycle backward
-                        if !app.is_processing() && !app.tab_completions.is_empty() {
+                        if !app.is_processing() && !app.tab_completions.is_empty() => {
                             let len = app.tab_completions.len();
                             app.tab_completion_index = if app.tab_completion_index == 0 {
                                 len.saturating_sub(1)
@@ -938,9 +919,8 @@ fn main_loop(
                             app.input = format!("{}{} {}", &before[..word_start], selected, after);
                             app.input_cursor = word_start + selected.len() + 1;
                         }
-                    }
-                    KeyCode::Char(c) => {
-                        if !app.is_processing() {
+                    KeyCode::Char(c)
+                        if !app.is_processing() => {
                             // Clear tab completions when user types
                             if !app.tab_completions.is_empty() {
                                 app.tab_completions.clear();
@@ -948,7 +928,6 @@ fn main_loop(
                             }
                             app.insert_char(c);
                         }
-                    }
                     _ => {}
                 },
                 Event::Mouse(mouse) => {

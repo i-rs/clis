@@ -211,7 +211,7 @@ fn mcp_service_err(e: ServiceError) -> String {
     match e {
         ServiceError::UnexpectedResponse => "意外的服务器响应格式".to_string(),
         ServiceError::TransportClosed => {
-            format!("MCP 连接已关闭")
+            "MCP 连接已关闭".to_string()
         }
         other => format!("{}", other),
     }
@@ -260,20 +260,20 @@ impl McpRegistry {
                 "stdio" => match McpClient::connect(server) {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("⚠ MCP 连接失败 '{}': {}", server.name, e);
+                        tracing::warn!("MCP 连接失败 '{}': {}", server.name, e);
                         continue;
                     }
                 },
                 "sse" => match McpClient::connect_sse(server) {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("⚠ MCP SSE 连接失败 '{}': {}", server.name, e);
+                        tracing::warn!("MCP SSE 连接失败 '{}': {}", server.name, e);
                         continue;
                     }
                 },
                 other => {
-                    eprintln!(
-                        "⚠ MCP 警告: '{}' 使用了不支持的传输方式 '{}'，已跳过",
+                    tracing::warn!(
+                        "MCP 警告: '{}' 使用了不支持的传输方式 '{}'，已跳过",
                         server.name, other
                     );
                     continue;
@@ -292,14 +292,14 @@ impl McpRegistry {
                     clients.push(client);
                 }
                 Err(e) => {
-                    eprintln!("⚠ MCP 工具发现失败 '{}': {}", server.name, e);
+                    tracing::warn!("MCP 工具发现失败 '{}': {}", server.name, e);
                 }
             }
         }
 
         if !clients.is_empty() {
-            eprintln!(
-                "✓ MCP: {} 个服务器已连接, {} 个工具已发现",
+            tracing::info!(
+                "MCP: {} 个服务器已连接, {} 个工具已发现",
                 clients.len(),
                 tools.len()
             );

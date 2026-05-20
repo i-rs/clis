@@ -93,6 +93,7 @@ pub(crate) fn build_system_prompt(
 /// If `saved_api_messages` exists, reuse them as base (preserving tool call context)
 /// and only append the new user message.
 /// If `system_prompt_override` is provided, it replaces the default system prompt.
+#[allow(clippy::too_many_arguments)]
 pub fn build_messages(
     app_messages: &[crate::app::Message],
     user_text: &str,
@@ -115,7 +116,7 @@ pub fn build_messages(
             && msgs[1]
                 .get("content")
                 .and_then(|c| c.as_str())
-                .map_or(false, |c| c.starts_with(REMINDER_PREFIX))
+                .is_some_and(|c| c.starts_with(REMINDER_PREFIX))
         {
             msgs.remove(1);
         }
@@ -214,12 +215,11 @@ pub(crate) fn execute_tool_call(
     // Try MCP-discovered tools (from the registry parameter)
     if let Some(mcp) = mcp {
         for (client_idx, tool_def) in &mcp.tools {
-            if tool_def.name == name {
-                if let Some(client) = mcp.clients.get(*client_idx) {
+            if tool_def.name == name
+                && let Some(client) = mcp.clients.get(*client_idx) {
                     return client.call_tool(name, args)
                         .unwrap_or_else(|e| format!("MCP 错误: {}", e));
                 }
-            }
         }
     }
 
@@ -285,7 +285,7 @@ fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize
         let recency = max_recency - pos;
         (freq * 10 + recency, pos)
     }).collect();
-    scored.sort_by(|a, b| b.0.cmp(&a.0));
+    scored.sort_by_key(|&(score, _)| std::cmp::Reverse(score));
     scored.into_iter().map(|(_, pos)| pos).collect()
 }
 
@@ -320,8 +320,7 @@ pub fn smart_compress(
     preserve.insert(0); // system message
 
     // Keep top-scoring teach pairs
-    for rank in 0..max_teach_docs.min(sorted_ranks.len()) {
-        let pos = sorted_ranks[rank];
+    for &pos in sorted_ranks.iter().take(max_teach_docs) {
         preserve.insert(teach_pairs[pos].assist_idx);
         preserve.insert(teach_pairs[pos].result_idx);
     }
@@ -367,13 +366,13 @@ pub fn smart_compress(
 
     // Build compressed message list
     let mut new_msgs: Vec<Value> = Vec::with_capacity(preserve.len());
-    for idx in 0..recent_start {
+    for (idx, msg) in msgs[..recent_start].iter().enumerate() {
         if preserve.contains(&idx) {
-            new_msgs.push(msgs[idx].clone());
+            new_msgs.push(msg.clone());
         }
     }
-    for idx in recent_start..msgs.len() {
-        new_msgs.push(msgs[idx].clone());
+    for msg in msgs[recent_start..].iter() {
+        new_msgs.push(msg.clone());
     }
 
     *msgs = new_msgs;
@@ -482,7 +481,7 @@ pub async fn chat_loop(
                     let mcp_for_exec = mcp.clone();
                     let ctx_for_spawn = tool_ctx.clone();
                     let skills_for_spawn = skills.clone();
-                    let timeout_dur = std::time::Duration::from_secs(config.cli_timeout_secs.max(10) as u64);
+                    let timeout_dur = std::time::Duration::from_secs(config.cli_timeout_secs.max(10));
                     handles.push(tokio::spawn(async move {
                         let ctx_for_blocking = ctx_for_spawn;
                         let skills_for_blocking = skills_for_spawn;

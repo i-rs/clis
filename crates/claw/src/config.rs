@@ -391,11 +391,10 @@ impl Config {
         }
 
         // Override API key from environment variable if set
-        if let Ok(env_key) = std::env::var("I_RS_CLAW_API_KEY") {
-            if !env_key.is_empty() {
+        if let Ok(env_key) = std::env::var("I_RS_CLAW_API_KEY")
+            && !env_key.is_empty() {
                 config.api_key = env_key;
             }
-        }
 
         // Validate config
         if config.provider != "ollama" && config.api_key.is_empty() {
@@ -404,7 +403,7 @@ impl Config {
 
         // Print non-fatal validation warnings
         for warning in config.validate() {
-            eprintln!("⚠ {}", warning);
+            tracing::warn!("{}", warning);
         }
 
         Ok(config)

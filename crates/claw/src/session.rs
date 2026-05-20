@@ -1,6 +1,6 @@
 use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Lifecycle state of a conversation session.
@@ -202,9 +202,8 @@ impl SessionManager {
     pub fn load_plan_steps(&self, id: &str) -> Vec<crate::app::PlanStep> {
         let path = self.plan_steps_path(id);
         if !path.exists() { return Vec::new(); }
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(steps) = serde_json::from_str(&content) { return steps; }
-        }
+        if let Ok(content) = std::fs::read_to_string(&path)
+            && let Ok(steps) = serde_json::from_str(&content) { return steps; }
         Vec::new()
     }
 
@@ -220,9 +219,8 @@ impl SessionManager {
     pub fn load_plan(&self, id: &str) -> Option<crate::core::orchestrator::Plan> {
         let path = self.plan_path(id);
         if !path.exists() { return None; }
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(plan) = serde_json::from_str(&content) { return Some(plan); }
-        }
+        if let Ok(content) = std::fs::read_to_string(&path)
+            && let Ok(plan) = serde_json::from_str(&content) { return Some(plan); }
         None
     }
 
@@ -275,13 +273,11 @@ impl SessionManager {
     pub fn append_message(&mut self, role: &str, content: &str, extra: Option<serde_json::Value>) {
         let session_id = match self.ensure_current_session() { Some(id) => id, None => return };
         let mut entry = serde_json::json!({"type": role, "text": content});
-        if let Some(extra) = extra {
-            if let Some(obj) = entry.as_object_mut() {
-                if let Some(extra_obj) = extra.as_object() {
+        if let Some(extra) = extra
+            && let Some(obj) = entry.as_object_mut()
+                && let Some(extra_obj) = extra.as_object() {
                     for (k, v) in extra_obj { obj.insert(k.clone(), v.clone()); }
                 }
-            }
-        }
         let path = self.messages_path(&session_id);
         if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
         let line = serde_json::to_string(&entry).unwrap_or_default();
@@ -359,15 +355,13 @@ impl SessionManager {
     fn plan_steps_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_plan.json", id)) }
     #[allow(dead_code)]
     fn plan_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_orchestrator_plan.json", id)) }
-    fn index_path(claw_dir: &PathBuf) -> PathBuf { claw_dir.join("index.json") }
-
-    fn load_index(claw_dir: &PathBuf) -> Vec<SessionMeta> {
+    fn index_path(claw_dir: &Path) -> PathBuf { claw_dir.join("index.json") }
+    
+    fn load_index(claw_dir: &Path) -> Vec<SessionMeta> {
         let path = Self::index_path(claw_dir);
-        if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(sessions) = serde_json::from_str(&content) { return sessions; }
-            }
-        }
+        if path.exists()
+            && let Ok(content) = std::fs::read_to_string(&path)
+                && let Ok(sessions) = serde_json::from_str(&content) { return sessions; }
         Vec::new()
     }
 

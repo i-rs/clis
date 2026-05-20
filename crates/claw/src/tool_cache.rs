@@ -1,6 +1,6 @@
 use crate::utils::atomic_write;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Cached tool documentation for multi-layer system prompt assembly.
 ///
@@ -21,9 +21,9 @@ impl ToolDocCache {
     /// Create tool cache for a specific agent.
     /// "default" uses legacy global cache dir; others use
     /// `claw_dir/agents/{agent_id}/`.
-    pub fn for_agent(cache_dir: &PathBuf, agent_id: &str) -> Self {
+    pub fn for_agent(cache_dir: &Path, agent_id: &str) -> Self {
         let dir = if agent_id == "default" {
-            cache_dir.clone()
+            cache_dir.to_path_buf()
         } else {
             cache_dir.join("agents").join(agent_id)
         };
@@ -96,30 +96,27 @@ impl ToolDocCache {
     /// Prefetch teaching docs for a set of tools and cache them.
     pub fn prefetch(&mut self, tools: &[String]) {
         for tool in tools {
-            if !self.hot_docs.contains_key(tool) {
-                if let Some(doc) = Self::fetch_teach_doc(tool) {
+            if !self.hot_docs.contains_key(tool)
+                && let Some(doc) = Self::fetch_teach_doc(tool) {
                     self.hot_docs.insert(tool.clone(), doc);
                 }
-            }
         }
         self.save_hot_docs();
     }
 
     // --- Disk cache ---
 
-    fn cache_path(cache_dir: &PathBuf) -> PathBuf {
+    fn cache_path(cache_dir: &Path) -> PathBuf {
         cache_dir.join("hot_docs_cache.json")
     }
 
-    fn load_hot_docs(cache_dir: &PathBuf) -> HashMap<String, String> {
+    fn load_hot_docs(cache_dir: &Path) -> HashMap<String, String> {
         let path = Self::cache_path(cache_dir);
-        if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(map) = serde_json::from_str(&content) {
+        if path.exists()
+            && let Ok(content) = std::fs::read_to_string(&path)
+                && let Ok(map) = serde_json::from_str(&content) {
                     return map;
                 }
-            }
-        }
         HashMap::new()
     }
 

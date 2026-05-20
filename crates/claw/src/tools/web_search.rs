@@ -47,7 +47,7 @@ impl ClawTool for WebSearchTool {
         let cfg = crate::config::Config::load().map_err(|e| format!("加载配置失败: {}", e))?;
 
         if let Some(custom_url) = &cfg.search_base_url {
-            search_custom(&custom_url, &cfg.search_api_key, query)
+            search_custom(custom_url, &cfg.search_api_key, query)
         } else {
             search_duckduckgo(query)
         }
@@ -71,26 +71,22 @@ fn search_duckduckgo(query: &str) -> Result<String, String> {
     let mut output = String::new();
 
     // Abstract
-    if let Some(abstract_text) = data.get("AbstractText").and_then(|v| v.as_str()) {
-        if !abstract_text.is_empty() {
+    if let Some(abstract_text) = data.get("AbstractText").and_then(|v| v.as_str())
+        && !abstract_text.is_empty() {
             output.push_str(&format!("📝 摘要: {}\n", abstract_text));
-            if let Some(src) = data.get("AbstractSource").and_then(|v| v.as_str()) {
-                if !src.is_empty() {
-                    if let Some(url) = data.get("AbstractURL").and_then(|v| v.as_str()) {
+            if let Some(src) = data.get("AbstractSource").and_then(|v| v.as_str())
+                && !src.is_empty()
+                    && let Some(url) = data.get("AbstractURL").and_then(|v| v.as_str()) {
                         output.push_str(&format!("   来源: {} ({})\n", src, url));
                     }
-                }
-            }
             output.push('\n');
         }
-    }
 
     // Direct answer
-    if let Some(answer) = data.get("Answer").and_then(|v| v.as_str()) {
-        if !answer.is_empty() {
+    if let Some(answer) = data.get("Answer").and_then(|v| v.as_str())
+        && !answer.is_empty() {
             output.push_str(&format!("✅ 答案: {}\n\n", answer));
         }
-    }
 
     // Related topics (these contain the actual search results)
     if let Some(topics) = data.get("RelatedTopics").and_then(|v| v.as_array()) {
@@ -175,11 +171,10 @@ fn search_custom(base_url: &str, api_key: &Option<String>, query: &str) -> Resul
     let client = reqwest::blocking::Client::new();
     let mut req = client.get(&url);
 
-    if let Some(key) = api_key {
-        if !key.is_empty() {
+    if let Some(key) = api_key
+        && !key.is_empty() {
             req = req.header("Authorization", format!("Bearer {}", key));
         }
-    }
 
     let resp = req
         .send()
@@ -227,21 +222,19 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
             output.push_str(&format!("{}• {}\n", prefix, title));
 
             for sk in &snippet_keys {
-                if let Some(snippet) = data.get(*sk).and_then(|v| v.as_str()) {
-                    if !snippet.is_empty() {
+                if let Some(snippet) = data.get(*sk).and_then(|v| v.as_str())
+                    && !snippet.is_empty() {
                         output.push_str(&format!("{}  {}\n", prefix, snippet));
                         break;
                     }
-                }
             }
 
             for uk in &url_keys {
-                if let Some(url) = data.get(*uk).and_then(|v| v.as_str()) {
-                    if !url.is_empty() {
+                if let Some(url) = data.get(*uk).and_then(|v| v.as_str())
+                    && !url.is_empty() {
                         output.push_str(&format!("{}  {}\n", prefix, url));
                         break;
                     }
-                }
             }
 
             output.push('\n');

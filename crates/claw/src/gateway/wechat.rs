@@ -54,7 +54,7 @@ impl WeChatAdapter {
             .timeout(std::time::Duration::from_secs(60))
             .build()
             .unwrap_or_else(|e| {
-                eprintln!("[Gateway/WeChat] 创建 HTTP 客户端失败: {}", e);
+                tracing::error!("[Gateway/WeChat] 创建 HTTP 客户端失败: {}", e);
                 reqwest::Client::new()
             });
         let credentials_path = dirs::home_dir()

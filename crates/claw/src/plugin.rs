@@ -3,7 +3,7 @@
 use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // ── Plugin Manifest ──
 
@@ -65,19 +65,17 @@ struct PluginState {
 
 impl PluginState {
     fn load(path: &PathBuf) -> Self {
-        if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(path) {
-                if let Ok(state) = serde_json::from_str(&content) {
+        if path.exists()
+            && let Ok(content) = std::fs::read_to_string(path)
+                && let Ok(state) = serde_json::from_str(&content) {
                     return state;
                 }
-            }
-        }
         Self {
             plugins: HashMap::new(),
         }
     }
 
-    fn save(&self, path: &PathBuf) {
+    fn save(&self, path: &Path) {
         if let Ok(content) = serde_json::to_string_pretty(self) {
             let _ = atomic_write(path, &content);
         }
@@ -162,16 +160,16 @@ impl PluginManager {
                                 if manifest.plugin.name == dir_name {
                                     manifests.push(manifest);
                                 } else {
-                                    eprintln!(
-                                        "⚠ 插件目录名 '{}' 与 manifest 中的名称 '{}' 不匹配",
+                                    tracing::warn!(
+                                        "插件目录名 '{}' 与 manifest 中的名称 '{}' 不匹配",
                                         dir_name, manifest.plugin.name
                                     );
                                 }
                             }
                         }
                         Err(e) => {
-                            eprintln!(
-                                "⚠ 解析插件 manifest 失败 '{}': {}",
+                            tracing::warn!(
+                                "解析插件 manifest 失败 '{}': {}",
                                 manifest_path.display(),
                                 e
                             );
@@ -179,7 +177,7 @@ impl PluginManager {
                     }
                 }
                 Err(e) => {
-                    eprintln!("⚠ 读取插件 manifest 失败 '{}': {}", manifest_path.display(), e);
+                    tracing::warn!("读取插件 manifest 失败 '{}': {}", manifest_path.display(), e);
                 }
             }
         }

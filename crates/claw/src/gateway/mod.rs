@@ -112,7 +112,7 @@ impl GatewayServer {
         let mut sigint = match signal(SignalKind::interrupt()) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[Gateway] 无法设置信号处理器: {}", e);
+                tracing::error!("[Gateway] 无法设置信号处理器: {}", e);
                 return;
             }
         };
@@ -121,7 +121,7 @@ impl GatewayServer {
         loop {
             tokio::select! {
                 _ = sigint.recv() => {
-                    eprintln!("\n[Gateway] 收到中断信号，正在优雅关闭...");
+                    tracing::info!("[Gateway] 收到中断信号，正在优雅关闭...");
                     break;
                 }
                 event = event_rx.recv() => {
@@ -137,7 +137,7 @@ impl GatewayServer {
         for adapter in &self.adapters {
             adapter.stop().await;
         }
-        eprintln!("[Gateway] 已关闭");
+        tracing::info!("[Gateway] 已关闭");
     }
 
     /// Handle a single gateway event (message or error).
@@ -187,7 +187,7 @@ impl GatewayServer {
                 }
             }
             GatewayEvent::Error { platform, error } => {
-                eprintln!("[Gateway/{}] Error: {}", platform, error);
+                tracing::error!("[Gateway/{}] Error: {}", platform, error);
             }
         }
     }
@@ -212,7 +212,7 @@ impl GatewayServer {
             let mut core = match core.lock() {
                 Ok(guard) => guard,
                 Err(poisoned) => {
-                    eprintln!("[Gateway] Mutex poisoned, recovering");
+                    tracing::warn!("[Gateway] Mutex poisoned, recovering");
                     poisoned.into_inner()
                 }
             };
@@ -272,7 +272,7 @@ impl GatewayServer {
                     let mut core = match core.lock() {
                         Ok(guard) => guard,
                         Err(poisoned) => {
-                            eprintln!("[Gateway] Mutex poisoned, recovering");
+                            tracing::warn!("[Gateway] Mutex poisoned, recovering");
                             poisoned.into_inner()
                         }
                     };

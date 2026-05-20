@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A single skill entry with name and content (simplified version).
 #[derive(Debug, Clone, serde::Serialize)]
@@ -43,11 +43,7 @@ pub(crate) fn parse_frontmatter(content: &str) -> (Option<toml::Value>, &str) {
     }
 
     // Find the closing ---
-    let after_opener = if content.starts_with("---\r\n") {
-        &content[5..]
-    } else {
-        &content[4..]
-    };
+    let after_opener = content.strip_prefix("---\r\n").unwrap_or(&content[4..]);
 
     if let Some(end_pos) = after_opener.find("\n---")
         .or_else(|| after_opener.find("\r\n---"))
@@ -113,7 +109,7 @@ impl SkillStore {
     /// Create skill store for a specific agent.
     /// "default" reads from legacy `claw_dir/skills`; others from
     /// `claw_dir/agents/{agent_id}/skills`.
-    pub fn for_agent(claw_dir: &PathBuf, agent_id: &str) -> Self {
+    pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
         let skills_dir = if agent_id == "default" {
             claw_dir.join("skills")
         } else {
@@ -345,11 +341,11 @@ mod tests {
             "\n",
             "当用户请求输出时使用 Markdown 格式。\n",
         );
-        eprintln!("DEBUG content repr: {:?}", content);
-        eprintln!("DEBUG starts_with: {}", content.starts_with("---\n"));
+        tracing::debug!("content repr: {:?}", content);
+        tracing::debug!("starts_with: {}", content.starts_with("---\n"));
         let (fm, body) = parse_frontmatter(content);
-        eprintln!("DEBUG fm: {:?}", fm);
-        eprintln!("DEBUG body starts: {:?}", body.chars().take(30).collect::<String>());
+        tracing::debug!("fm: {:?}", fm);
+        tracing::debug!("body starts: {:?}", body.chars().take(30).collect::<String>());
         assert!(fm.is_some(), "should parse frontmatter");
         let t = fm.unwrap();
         assert_eq!(t.get("description").and_then(|v| v.as_str()), Some("格式化偏好"));
