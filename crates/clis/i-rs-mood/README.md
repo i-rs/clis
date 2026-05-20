@@ -44,8 +44,8 @@ i-rs-mood list --days 7 --calendar
 ## Data Storage
 
 Configuration is stored locally at:
-- macOS: `~/.config/i-rs/moods.json`
-- Linux: `~/.config/i-rs/moods.json`
+- macOS: `~/.config/i-rs/mood.json`
+- Linux: `~/.config/i-rs/mood.json`
 - Windows: `~\AppData\Roaming\i-rs\config.json`
 
 ## License

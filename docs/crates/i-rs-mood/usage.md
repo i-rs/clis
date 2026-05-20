@@ -29,6 +29,7 @@ Arguments:
 Options:
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-c, --content <CONTENT>` - Content/notes (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### list
 
@@ -42,6 +43,14 @@ Options:
 - `-d, --days <DAYS>` - Show records from last N days
 - `-c, --calendar` - Show mood calendar
 
+### get
+
+Get a mood record.
+
+```bash
+i-rs-mood get <DATE>
+```
+
 ### update
 
 Update a mood record.
@@ -54,6 +63,7 @@ Options:
 - `-m, --mood <MOOD>` - New mood level
 - `-t, --tag <TAG>` - New tags
 - `-c, --content <CONTENT>` - New content
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### delete
 
@@ -144,8 +154,8 @@ i-rs-mood skill [summary|content|raw]
 
 ## Data Storage
 
-- macOS: `~/.config/i-rs/moods.json`
-- Linux: `~/.config/i-rs/moods.json`
+- macOS: `~/.config/i-rs/mood.json`
+- Linux: `~/.config/i-rs/mood.json`
 - Windows: `~\AppData\Roaming\i-rs\mood.json`
 
 ## Environment Variables

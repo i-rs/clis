@@ -34,6 +34,8 @@ enum Commands {
         tag: Vec<String>,
         #[arg(short, long)]
         content: Vec<String>,
+        #[arg(short, long)]
+        remark: Vec<String>,
     },
     /// Delete an entry
     Delete {
@@ -57,6 +59,8 @@ enum Commands {
         tag: Option<Vec<String>>,
         #[arg(short, long)]
         content: Option<Vec<String>>,
+        #[arg(short, long)]
+        remark: Option<Vec<String>>,
     },
     /// Get an entry by id
     Get {
@@ -89,8 +93,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             mood,
             tag,
             content,
+            remark,
         } => {
-            handle_add(date, mood, tag, content, format)?;
+            handle_add(date, mood, tag, content, remark, format)?;
         }
         Commands::Delete { date } => {
             handle_delete(date, format)?;
@@ -103,8 +108,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             mood,
             tag,
             content,
+            remark,
         } => {
-            handle_update(date, mood, tag, content, format)?;
+            handle_update(date, mood, tag, content, remark, format)?;
         }
         Commands::Get { date } => {
             handle_get(date, format)?;

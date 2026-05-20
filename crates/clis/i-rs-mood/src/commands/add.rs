@@ -7,10 +7,11 @@ pub fn handle_add(
     mood: String,
     tag: Vec<String>,
     content: Vec<String>,
+    remark: Vec<String>,
     format: OutputFormat,
 ) -> Result<()> {
     let mut store = crate::storage::load_store()?;
-    let record = crate::service::add_mood(&mut store, date, mood.clone(), tag, content)?;
+    let record = crate::service::add_mood(&mut store, date, mood.clone(), tag, content, remark)?;
     crate::storage::save_store(&store)?;
 
     if format.is_json() {
@@ -21,6 +22,7 @@ pub fn handle_add(
             mood_label: String,
             tags: Vec<String>,
             content: Vec<String>,
+            remark: Vec<String>,
         }
         let output = AddOutput {
             date: record.date.format("%Y-%m-%d").to_string(),
@@ -28,6 +30,7 @@ pub fn handle_add(
             mood_label: record.mood.label().to_string(),
             tags: record.tags.clone(),
             content: record.content.clone(),
+            remark: record.remark.clone(),
         };
         println!("{}", output_item(&output, format));
         return Ok(());

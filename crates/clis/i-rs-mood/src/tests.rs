@@ -25,6 +25,7 @@ mod tests {
             mood: "test-mood".to_string(),
             tag: vec![],
             content: vec![],
+            remark: vec![],
         };
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
         let cmd = Cli::try_parse_from(["i-rs-mood", "list"]).unwrap().command;
@@ -34,6 +35,7 @@ mod tests {
             mood: "test-mood".to_string(),
             tag: vec![],
             content: vec![],
+            remark: vec![],
         };
         run(cmd, crate::presentation::OutputFormat::Table).unwrap();
         let get_cmd = Commands::Get {
@@ -45,6 +47,7 @@ mod tests {
             mood: None,
             tag: None,
             content: None,
+            remark: None,
         };
         assert!(run(update_cmd, crate::presentation::OutputFormat::Table).is_ok());
         let del_cmd = Commands::Delete {

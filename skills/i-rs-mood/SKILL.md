@@ -9,7 +9,7 @@ Mood tracking CLI tool for recording and visualizing daily mood.
 
 ## Storage
 
-- Config: `~/.config/i-rs/moods.json`
+- Config: `~/.config/i-rs/mood.json`
 
 ## Global Flags
 
@@ -37,6 +37,7 @@ i-rs-mood add <DATE> <MOOD> [OPTIONS]
 Options:
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-c, --content <CONTENT>` - Content/notes (can be repeated)
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### list
 
@@ -50,6 +51,14 @@ Options:
 - `-d, --days <DAYS>` - Show records from last N days
 - `-c, --calendar` - Show mood calendar
 
+### get
+
+Get a mood record.
+
+```bash
+i-rs-mood get <DATE>
+```
+
 ### update
 
 Update a mood record.
@@ -62,6 +71,7 @@ Options:
 - `-m, --mood <MOOD>` - New mood level
 - `-t, --tag <TAG>` - New tags
 - `-c, --content <CONTENT>` - New content
+- `-r, --remark <REMARK>` - Remarks (can be repeated)
 
 ### delete
 

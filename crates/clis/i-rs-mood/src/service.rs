@@ -36,6 +36,7 @@ pub fn add_mood(
     mood: String,
     tags: Vec<String>,
     content: Vec<String>,
+    remark: Vec<String>,
 ) -> Result<MoodRecord> {
     let date = parse_date(&date_str)?;
 
@@ -50,7 +51,7 @@ pub fn add_mood(
         mood: mood_parsed,
         tags,
         content,
-        remark: Vec::new(),
+        remark,
         created_at: now,
         updated_at: now,
     };
@@ -66,6 +67,7 @@ pub fn update_mood(
     mood: Option<String>,
     tags: Option<Vec<String>>,
     content: Option<Vec<String>>,
+    remark: Option<Vec<String>>,
 ) -> Result<MoodRecord> {
     let date = parse_date(&date_str)?;
 
@@ -82,6 +84,9 @@ pub fn update_mood(
     }
     if let Some(c) = content {
         record.content = c;
+    }
+    if let Some(r) = remark {
+        record.remark = r;
     }
     record.updated_at = Utc::now();
 
