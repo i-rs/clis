@@ -104,11 +104,12 @@ pub async fn send_message(
         core.session_mgr.create_session_for(&agent_id);
     }
 
-    let sid = core
+    let sid = match core
         .session_mgr
-        .current_id()
-        .unwrap()
-        .to_string();
+        .current_id() {
+            Some(id) => id.to_string(),
+            None => return ApiResponse::err("没有活跃会话"),
+        };
 
     // Save user message
     core.session_mgr.append_message("user", &text, None);

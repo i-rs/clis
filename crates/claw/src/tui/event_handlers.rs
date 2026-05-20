@@ -503,9 +503,8 @@ impl<'a> KeyEventHandler<'a> {
             } else {
                 self.app.overlay.session_rename_buf.clear();
             }
-            // NOTE: original code used `break` here (quit the TUI loop).
-            // Preserving exact behaviour.
-            return Action::Quit;
+            // NOTE: 原代码这里 break 会退出整个 TUI（原有 bug），改为 Continue
+            return Action::Continue;
         }
 
         // Switch to selected session
