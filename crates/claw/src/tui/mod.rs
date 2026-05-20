@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 use owo_colors::OwoColorize;
 
 mod clipboard;
+mod event_handlers;
 mod main_loop;
 mod reminders;
 

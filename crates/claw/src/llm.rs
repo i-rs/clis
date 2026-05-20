@@ -49,10 +49,10 @@ pub enum LlmEvent {
 }
 
 #[derive(Default, Clone)]
-pub(crate) struct ToolCallAcc {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) arguments: String,
+pub struct ToolCallAcc {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
 }
 
 pub(crate) enum StreamResult {

@@ -149,15 +149,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
     // Filter sessions by search text
-    let q = app.overlay.session_search.to_lowercase();
-    let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
-        app.overlay.session_list.iter().collect()
-    } else {
-        app.overlay.session_list
-            .iter()
-            .filter(|s| s.title.to_lowercase().contains(&q))
-            .collect()
-    };
+    let filtered = app.overlay.filtered_sessions();
 
     let empty = filtered.is_empty();
     let theme_primary = app.config.theme.primary();
@@ -199,7 +191,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
 
     if empty {
         items.push(ListItem::new(vec![Line::from(Span::styled(
-            if q.is_empty() {
+            if app.overlay.session_search.is_empty() {
                 " 暂无会话"
             } else {
                 " 未找到匹配会话"

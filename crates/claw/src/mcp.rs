@@ -82,6 +82,9 @@ pub struct McpClient {
     pub name: String,
     rt: Arc<tokio::runtime::Runtime>,
     service: Arc<RunningService<RoleClient, ()>>,
+    /// Stored server config for reconnection.
+    #[allow(dead_code)]
+    config: McpServerConfig,
 }
 
 impl Drop for McpClient {
@@ -121,6 +124,7 @@ impl McpClient {
             name: config.name.clone(),
             rt: rt.clone(),
             service: Arc::new(service),
+            config: config.clone(),
         })
     }
 
@@ -143,6 +147,7 @@ impl McpClient {
             name: config.name.clone(),
             rt: rt.clone(),
             service: Arc::new(service),
+            config: config.clone(),
         })
     }
 
@@ -150,6 +155,26 @@ impl McpClient {
     /// Kept for API compatibility — this is a no-op.
     pub fn initialize(&self) -> Result<(), String> {
         Ok(())
+    }
+
+    /// Health check: try to list tools.
+    /// Returns `true` if the MCP server is responsive, `false` otherwise.
+    #[allow(dead_code)]
+    pub fn health_check(&self) -> bool {
+        self.rt
+            .block_on(self.service.list_all_tools())
+            .is_ok()
+    }
+
+    /// Attempt to reconnect this MCP client using the stored config.
+    /// Returns `Ok(new_client)` on success, `Err(e)` if reconnection fails.
+    #[allow(dead_code)]
+    pub fn reconnect(&self) -> Result<McpClient, String> {
+        match self.config.transport_type.as_str() {
+            "stdio" => McpClient::connect(&self.config, &self.rt),
+            "sse" => McpClient::connect_sse(&self.config, &self.rt),
+            other => Err(format!("不支持的传输方式 '{}'", other)),
+        }
     }
 
     /// Discover tools from this MCP server.
@@ -236,6 +261,9 @@ pub struct McpRegistry {
     /// Shared tokio runtime for all MCP connections.
     #[allow(dead_code)]
     rt: Arc<tokio::runtime::Runtime>,
+    /// Original server configs for reconnection.
+    #[allow(dead_code)]
+    server_configs: Vec<McpServerConfig>,
 }
 
 impl McpRegistry {
@@ -317,7 +345,7 @@ impl McpRegistry {
             );
         }
 
-        Self { clients, tools, rt }
+        Self { clients, tools, rt, server_configs: servers.to_vec() }
     }
 
     /// Get the number of discovered MCP tools.
@@ -330,5 +358,59 @@ impl McpRegistry {
     #[allow(dead_code)]
     pub fn has_tools(&self) -> bool {
         !self.tools.is_empty()
+    }
+
+    /// Check health of all MCP clients and attempt to reconnect failed ones.
+    /// Returns the number of successfully reconnected clients.
+    #[allow(dead_code)]
+    pub fn health_check_and_reconnect(&mut self) -> usize {
+        let mut reconnected = 0;
+        let mut failed_indices: Vec<usize> = Vec::new();
+
+        for (i, client) in self.clients.iter().enumerate() {
+            if !client.health_check() {
+                tracing::warn!("MCP 客户端 '{}' 连接断开, 尝试重连...", client.name);
+                failed_indices.push(i);
+            }
+        }
+
+        for &idx in failed_indices.iter().rev() {
+            let old_client = &self.clients[idx];
+            match old_client.reconnect() {
+                Ok(new_client) => {
+                    tracing::info!("MCP 客户端 '{}' 重连成功", new_client.name);
+                    match new_client.list_tools() {
+                        Ok(new_tools) => {
+                            self.tools.retain(|(ci, _)| *ci != idx);
+                            for (ci, _) in &mut self.tools {
+                                if *ci > idx {
+                                    *ci -= 1;
+                                }
+                            }
+                            let new_idx = idx;
+                            for td in new_tools {
+                                self.tools.push((new_idx, td));
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("MCP 重连后工具发现失败 '{}': {}", new_client.name, e);
+                        }
+                    }
+                    self.clients[idx] = new_client;
+                    reconnected += 1;
+                }
+                Err(e) => {
+                    tracing::warn!("MCP 客户端 '{}' 重连失败: {}", old_client.name, e);
+                }
+            }
+        }
+
+        reconnected
+    }
+
+    /// Get the number of connected MCP clients.
+    #[allow(dead_code)]
+    pub fn client_count(&self) -> usize {
+        self.clients.len()
     }
 }

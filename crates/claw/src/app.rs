@@ -171,6 +171,21 @@ pub struct OverlayState {
 }
 
 impl OverlayState {
+    /// Return the session list filtered by the current search query.
+    /// Clones session metadata so the caller can freely mutate overlay state.
+    pub fn filtered_sessions(&self) -> Vec<crate::session::SessionMeta> {
+        let q = self.session_search.to_lowercase();
+        if q.is_empty() {
+            self.session_list.clone()
+        } else {
+            self.session_list
+                .iter()
+                .filter(|s| s.title.to_lowercase().contains(&q))
+                .cloned()
+                .collect()
+        }
+    }
+
     pub fn new(agent_list: Vec<String>) -> Self {
         Self {
             show_session_list: false,

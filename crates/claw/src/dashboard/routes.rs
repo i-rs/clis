@@ -201,7 +201,6 @@ async fn dashboard_chat_loop(
     mcp: McpRegistry,
     skills: Vec<crate::skill_store::SkillDefinition>,
 ) {
-    use crate::core::engine::execute_tool_call;
     use crate::utils::smart_truncate;
 
     // Build ToolContext for tool execution
