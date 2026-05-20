@@ -92,16 +92,31 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             format!("💬 {} ", app.messages.len()),
             Style::default().fg(app.config.theme.primary()),
         ));
-        // Token usage
-        if let Some(usage) = &app.token_usage {
+        // Today's token usage summary
+        if app.today_stats.requests > 0 {
             spans.push(Span::styled(
                 "│ ",
                 Style::default().fg(app.config.theme.dim_text()),
             ));
-            spans.push(Span::styled(
-                format!("tok: {}p+{}c ", usage.prompt_tokens, usage.completion_tokens),
-                Style::default().fg(app.config.theme.accent()),
-            ));
+            let cost = app.today_stats.cost_usd;
+            if cost > 0.001 {
+                spans.push(Span::styled(
+                    format!("今日: {}次 {:>4}K ${:.2} ",
+                        app.today_stats.requests,
+                        app.today_stats.tokens / 1000,
+                        cost,
+                    ),
+                    Style::default().fg(app.config.theme.accent()),
+                ));
+            } else {
+                spans.push(Span::styled(
+                    format!("今日: {}次 {:>4}K ",
+                        app.today_stats.requests,
+                        app.today_stats.tokens / 1000,
+                    ),
+                    Style::default().fg(app.config.theme.accent()),
+                ));
+            }
         }
         // Keybindings (right side)
         spans.push(Span::styled(

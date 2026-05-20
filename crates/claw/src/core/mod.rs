@@ -118,6 +118,8 @@ pub struct AppCore {
     pub session_mgr: SessionManager,
     /// Per-agent runtime data (memory, tool cache, skills, MCP).
     pub agent_store: AgentRuntimeStore,
+    /// Token usage statistics manager.
+    pub stats_manager: crate::stats::StatsManager,
 }
 
 impl AppCore {
@@ -134,11 +136,13 @@ impl AppCore {
 
         let session_mgr = SessionManager::new(claw_dir.clone());
         let agent_store = AgentRuntimeStore::new(&config, &claw_dir);
+        let stats_manager = crate::stats::StatsManager::new(&claw_dir, &config.stats);
 
         Ok(Self {
             config,
             session_mgr,
             agent_store,
+            stats_manager,
         })
     }
 

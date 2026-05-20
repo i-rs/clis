@@ -17,6 +17,7 @@ mod router;
 mod semantic;
 mod session;
 mod skill_store;
+mod stats;
 mod tool_cache;
 mod theme;
 mod tools;
@@ -98,6 +99,15 @@ enum Command {
         /// Show skill details
         #[arg(long)]
         info: Option<String>,
+    },
+    /// Show token usage statistics
+    Stats {
+        /// Time period: today (default), 7d, 30d, all
+        #[arg(long, default_value = "today")]
+        period: String,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// List and manage MCP servers
     Mcp {
@@ -182,6 +192,7 @@ fn main() -> anyhow::Result<()> {
             ..
         } => cli::run_skill_info(&name),
         Command::Skill { .. } => cli::run_skill_list(),
+        Command::Stats { period, json } => cli::run_stats(&period, json),
         Command::Mcp {
             list: true,
             ..

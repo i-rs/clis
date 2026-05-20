@@ -1,3 +1,4 @@
+use crate::stats::TokenRecord;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -42,6 +43,8 @@ pub enum LlmEvent {
         error: Option<String>,
         request_body: String,
     },
+    /// Token usage record for statistics persistence
+    UsageRecord(TokenRecord),
 }
 
 #[derive(Default, Clone)]

@@ -1,7 +1,8 @@
 # Token 用量统计 — 设计方案
 
-> 状态: Draft  
+> 状态: Phase 1 Complete / Phase 2&3 In Progress  
 > 日期: 2026-05-20  
+> 更新: 2026-05-20 — 完成 stats 模块、CLI stats 命令、数据保留清理、配置集成  
 > 范围: i-rs-claw  
 
 ---
@@ -180,7 +181,7 @@ impl ModelPricing {
 与现有 session 消息存储 (`*.jsonl`) 保持一致：
 
 ```
-~/.i-rs-claw/stats/
+~/.i-rs-claw/claw/stats/
 └── usage.jsonl
 ```
 
@@ -200,13 +201,14 @@ impl ModelPricing {
 ### 3.2 写入策略
 
 ```
-LlmEvent::Done(usage) → stats_collector.record(record) → 内存缓冲 → 批量刷盘
+LlmEvent::UsageRecord(record) → provider.rs 发送 → main_loop 消费 → stats_manager.record() → 内存缓冲 → 批量刷盘
 ```
 
-- **内存缓冲**: 最多缓存 50 条或 30 秒
-- **批量刷盘**: 一次性写入 JSONL，避免频繁 I/O
-- **优雅关闭**: 应用退出时强制 flush
-- **原子写入**: 复用现有 `atomic_write` 模式（先写 `.tmp` 再 `rename`）
+- **记录点**: 在 provider.rs 的 OpenAI/Anthropic stream 结束时发送 `UsageRecord`，而非在 chat_loop 中
+- **内存缓冲**: 最多缓存 50 条后自动刷盘
+- **优雅关闭**: 应用退出时在 tui/mod.rs 中主动 flush
+- **无需 Tokio Channel**: 使用 `Mutex<Vec<TokenRecord>>` 同步缓冲（record 操作 <1μs，无需异步）
+- **原子写入**: 使用 `std::fs::rename` 先写 `.tmp` 再重命名
 
 ### 3.3 读取策略
 
@@ -218,51 +220,42 @@ LlmEvent::Done(usage) → stats_collector.record(record) → 内存缓冲 → �
 
 ## 4. 模块设计
 
-### 4.1 新增文件
+### 4.1 新增文件 (实际)
 
 ```
 crates/claw/src/stats/
-├── mod.rs          — 模块入口 + StatsManager 结构体
-├── collector.rs    — 异步收集器 (mpsc channel + 批量写入)
+├── mod.rs          — 模块入口 + StatsManager 结构体 + 数据模型
 ├── pricing.rs      — 模型定价表 + 成本估算
 ├── aggregator.rs   — 聚合逻辑 (TokenRecord → TokenStats)
-└── store.rs        — JSONL 读写 + 索引管理
+└── store.rs        — JSONL 读写 + 索引管理 + 过期清理
 ```
 
-### 4.2 StatsManager — 核心结构体
+> 注意：设计中的 `collector.rs` 未单独创建。采用了更简单的同步 `Mutex<Vec>` 缓冲方案替代异步 mpsc channel，省去一个文件。
+
+### 4.2 StatsManager — 核心结构体 (实际)
 
 ```rust
 pub struct StatsManager {
-    /// 写入通道 (collector 从此接收记录)
-    tx: mpsc::UnboundedSender<TokenRecord>,
     /// 存储路径
     store_path: PathBuf,
     /// 定价表
     pricing: ModelPricingTable,
+    /// 内存缓冲 (同步 Mutex)
+    buffer: Mutex<Vec<TokenRecord>>,
+    /// 自动刷盘阈值
+    flush_threshold: usize,
 }
 
 impl StatsManager {
-    /// 创建 StatsManager 并启动后台写入任务
-    pub fn new(claw_dir: &PathBuf) -> Self;
-    
-    /// 记录一次 LLM 请求的 token 用量
-    pub fn record(&self, record: TokenRecord);
-    
-    /// 查询聚合统计
-    pub fn query(&self, period: StatsPeriod) -> TokenStats;
-    
-    /// 按模型查询统计
-    pub fn by_model(&self, period: StatsPeriod) -> Vec<ModelStats>;
-    
-    /// 按 Agent 查询统计
-    pub fn by_agent(&self, period: StatsPeriod) -> Vec<AgentStats>;
-    
-    /// 获取时间序列数据
-    pub fn daily_series(&self, period: StatsPeriod) -> Vec<DailyStats>;
-    
-    /// 获取今日摘要 (用于状态栏快速显示)
-    pub fn today_summary(&self) -> TodaySummary;
+    pub fn new(claw_dir: &Path, config: &StatsConfig) -> Self;
+    pub fn record(&self, record: TokenRecord);      // 推送缓冲，达阈值自动刷盘
+    pub fn flush(&self);                             // 强制刷盘
+    pub fn today_summary(&self) -> TodaySummary;     // 今日摘要
+    pub fn query(&self, period: StatsPeriod) -> TokenStats;  // 聚合查询
+    pub fn estimate_cost(&self, model: &str, prompt_tokens: u32, completion_tokens: u32) -> f64;
+    pub fn cleanup(&self, keep_days: u32);           // 过期数据清理
 }
+```
 
 pub struct TodaySummary {
     pub requests: u32,
@@ -271,76 +264,39 @@ pub struct TodaySummary {
 }
 ```
 
-### 4.3 Collector — 后台写入
+### 4.3 收集器（实际实现）
+
+未使用独立的 `collector.rs`。实现采用 `Mutex<Vec<TokenRecord>>` 同步缓冲 + 阈值自动刷盘：
 
 ```rust
-// 运行在 tokio::spawn 中的后台任务
-async fn collector_worker(
-    mut rx: mpsc::UnboundedReceiver<TokenRecord>,
-    store_path: PathBuf,
-) {
-    let mut buffer: Vec<TokenRecord> = Vec::with_capacity(50);
-    let mut last_flush = Instant::now();
-    const FLUSH_INTERVAL: Duration = Duration::from_secs(30);
-    const FLUSH_THRESHOLD: usize = 50;
-    
-    loop {
-        let timeout = tokio::time::sleep(FLUSH_INTERVAL);
-        tokio::select! {
-            maybe_record = rx.recv() => {
-                match maybe_record {
-                    Some(record) => {
-                        buffer.push(record);
-                        if buffer.len() >= FLUSH_THRESHOLD {
-                            flush(&mut buffer, &store_path).await;
-                            last_flush = Instant::now();
-                        }
-                    }
-                    None => break, // 通道关闭，退出
-                }
-            }
-            _ = timeout => {
-                if !buffer.is_empty() {
-                    flush(&mut buffer, &store_path).await;
-                    last_flush = Instant::now();
-                }
-            }
-        }
-    }
-    
-    // 退出前强制 flush
-    if !buffer.is_empty() {
-        flush(&mut buffer, &store_path).await;
+// StatsManager::record() — 调用方无需关心异步
+pub fn record(&self, record: TokenRecord) {
+    let mut buffer = self.buffer.lock().unwrap();
+    buffer.push(record);
+    if buffer.len() >= self.flush_threshold {
+        let records = std::mem::take(&mut *buffer);
+        store::append_records(&self.store_path, &records).ok();
     }
 }
 ```
 
-### 4.4 Aggregator — 聚合逻辑
+**选择同步方案的理由**:
+- `record()` 操作 <1μs，即使同步也不阻塞主循环
+- 省去 tokio channel 的复杂度和文件数量
+- 50 条批量刷盘约 5ms，在 TUI 消息处理间隙完成
+
+### 4.4 Aggregator — 聚合逻辑 (实际)
+
+采用函数式风格而非 trait 结构体，更简洁：
 
 ```rust
-pub struct Aggregator<'a> {
-    records: &'a [TokenRecord],
-    pricing: &'a ModelPricingTable,
-}
-
-impl<'a> Aggregator<'a> {
-    pub fn new(records: &'a [TokenRecord], pricing: &'a ModelPricingTable) -> Self;
-    
-    /// 按时间范围过滤
-    pub fn filter_period(&self, period: &StatsPeriod) -> Vec<&TokenRecord>;
-    
-    /// 生成完整统计
-    pub fn aggregate(&self, period: StatsPeriod) -> TokenStats;
-    
-    /// 按模型分组聚合
-    pub fn group_by_model(&self, records: &[&TokenRecord]) -> Vec<ModelStats>;
-    
-    /// 按 Agent 分组聚合
-    pub fn group_by_agent(&self, records: &[&TokenRecord]) -> Vec<AgentStats>;
-    
-    /// 按天分组聚合
-    pub fn group_by_day(&self, records: &[&TokenRecord]) -> Vec<DailyStats>;
-}
+// 自由函数，无需构造 Aggregator 实例
+pub fn aggregate(records: &[TokenRecord], pricing: &ModelPricingTable) -> TokenStats;
+pub fn filter_by_period<'a>(records: &'a [TokenRecord], period: &StatsPeriod) -> Vec<&'a TokenRecord>;
+pub fn group_by_model(records: &[TokenRecord], pricing: &ModelPricingTable) -> Vec<ModelStats>;
+pub fn group_by_agent(records: &[TokenRecord], pricing: &ModelPricingTable) -> Vec<AgentStats>;
+pub fn group_by_day(records: &[TokenRecord], pricing: &ModelPricingTable) -> Vec<DailyStats>;
+pub fn today_summary(records: &[TokenRecord]) -> TodaySummary;
 ```
 
 ---
@@ -474,52 +430,97 @@ GET /api/stats/daily     — 时间序列数据（用于图表）
 # ~/.i-rs-claw/config.toml
 
 [stats]
-# 是否启用 token 统计 (默认启用)
-enabled = true
+enabled = true                                   # 是否启用统计 (默认 true)
+keep_days = 90                                   # 保留天数 (0 = 永久保留)
 
-# 自定义模型定价 (覆盖内置定价表)
+# 自定义模型定价 (覆盖内置定价表), 见 config.example.toml
 # 格式: "模型名" = { input = 每百万输入价格, output = 每百万输出价格 }
 [stats.pricing]
-"gpt-4o-mini" = { input = 0.15, output = 0.60 }
-"gpt-4o" = { input = 2.50, output = 10.00 }
-"claude-sonnet-4-20250514" = { input = 3.00, output = 15.00 }
-
-# 统计保留天数 (0 = 无限期)
-[stats.retention]
-keep_days = 90
+# "gpt-4o-mini" = { input = 0.15, output = 0.60 }
+# "gpt-4o" = { input = 2.50, output = 10.00 }
 ```
+
+### CLI stats 命令 (Phase 3 前置)
+
+已新增 `i-rs-claw stats` 子命令，支持终端查看统计：
+
+```bash
+# 查看今日统计
+$ i-rs-claw stats
+
+# 近 7 天
+$ i-rs-claw stats --period 7d
+
+# 近 30 天
+$ i-rs-claw stats --period 30d
+
+# 全部历史
+$ i-rs-claw stats --period all
+
+# JSON 输出
+$ i-rs-claw stats --period 7d --json
+```
+
+输出示例：
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Token 用量统计 · 今日
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  请求次数:           12
+  输入 Token:       45231
+  输出 Token:       12340
+  总 Token:         57571
+  预估费用:         $0.0345
+  平均延迟:         1523ms
+  成功率:           100.0%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+按模型:
+  gpt-4o-mini                   10次      45231 tok  $0.0234
+  deepseek-chat                  2次      12340 tok  $0.0111
+```
+
+### 数据保留与清理 (Phase 1 补充)
+
+已实现自动清理 `StatsManager::cleanup()`：
+- 在 TUI 启动时调用，自动清理 `keep_days` 前的过期记录
+- 在 `i-rs-claw stats` 命令执行时也触发清理
+- 清理逻辑：读取 → 按 timestamp 过滤 → 写回新文件（先写 .tmp 再 rename 保证原子性）
 
 ---
 
-## 8. 实现阶段
+## 8. 实现阶段 (已更新)
 
-### Phase 1: 基础设施 (1-2 天)
-1. 创建 `stats/` 模块结构
-2. 实现 `TokenRecord` / `TokenStats` 数据模型
-3. 实现 `ModelPricing` 定价表
-4. 实现 `store.rs` JSONL 读写
+### Phase 1: 基础设施 — ✅ 完成
+1. ✅ 创建 `stats/` 模块结构 (mod.rs, pricing.rs, aggregator.rs, store.rs)
+2. ✅ 实现 `TokenRecord` / `TokenStats` 数据模型
+3. ✅ 实现 `ModelPricing` 定价表 (12 个内置模型 + 模糊前缀匹配)
+4. ✅ 实现 `store.rs` JSONL 读写
+5. ✅ 集成到 provider.rs (emit UsageRecord) 和 config.rs (StatsConfig)
+6. ✅ 数据保留清理 (prune_old_records)
 
-### Phase 2: 收集器 (1 天)
-5. 实现 `collector.rs` 后台写入
-6. 在 `chat_loop` 中集成记录逻辑
-7. 在 `AppCore` 中持有 `StatsManager`
-8. 优雅关闭时 flush
+### Phase 2: 收集器 — ✅ 完成（简化实现）
+7. ✅ 同步 Mutex 缓冲替代异步 collector
+8. ✅ 在 provider.rs 发送 UsageRecord (而非 chat_loop)
+9. ✅ 在 AppCore 中持有 StatsManager
+10. ✅ 优雅关闭时 flush
 
-### Phase 3: TUI 展示 (1-2 天)
-9. 状态栏显示今日摘要
-10. 新增用量面板 (Ctrl+U)
-11. 周期切换 (今天/7天/30天/全部)
-12. 按模型/Agent 分组展示
+### Phase 3: TUI 展示 — 🏗️ Partially Complete
+11. ✅ 状态栏显示今日摘要
+12. ✅ CLI stats 命令
+13. ❌ 用量面板 (Ctrl+U) — 待实现
+14. ❌ 周期切换 — 待实现
+15. ❌ 按模型/Agent 分组面板展示 — 待实现
 
-### Phase 4: Dashboard (1-2 天)
-13. 新增 `/api/stats` 端点
-14. Dashboard 前端用量面板
-15. 时间序列图表
+### Phase 4: Dashboard — ❌ Not Started
+16. ❌ 新增 `/api/stats` 端点
+17. ❌ Dashboard 前端用量面板
+18. ❌ 时间序列图表
 
-### Phase 5: 高级功能 (可选)
-16. 预算告警（日用量超过阈值时通知）
-17. 异常检测（token 突增告警）
-18. 导出功能（CSV/JSON）
+### Phase 5: 高级功能 — ❌ Not Started
+19. ❌ 预算告警
+20. ❌ 异常检测
+21. ❌ CSV/JSON 导出
 
 ---
 

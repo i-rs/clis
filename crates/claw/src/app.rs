@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::stats::TodaySummary;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -118,6 +119,9 @@ pub struct App {
     pub tool_call_expanded: std::collections::HashSet<usize>,
     /// Whether the keyboard shortcut help panel is shown
     pub show_help: bool,
+
+    /// Today's token usage summary (from StatsManager)
+    pub today_stats: TodaySummary,
 }
 
 impl App {
@@ -165,6 +169,7 @@ impl App {
             selection_mode: false,
             tool_call_expanded: std::collections::HashSet::new(),
             show_help: false,
+            today_stats: TodaySummary::default(),
         }
     }
 

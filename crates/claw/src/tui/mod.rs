@@ -41,8 +41,13 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     let mut app = app::App::new(config);
 
-    // Initialize AppCore (session manager, memory, tool cache, skill store)
+    // Initialize AppCore (session manager, memory, tool cache, skill store, stats)
     let mut app_core = crate::core::AppCore::new(app.config.clone())?;
+
+    // Clean up expired stats records on startup
+    if app.config.stats.enabled && app.config.stats.keep_days > 0 {
+        app_core.stats_manager.cleanup(app.config.stats.keep_days);
+    }
 
     // If a specific session ID was requested, try to switch to it
     if let Some(sid) = session_id
@@ -115,16 +120,21 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crossterm::event::DisableMouseCapture
     )?;
 
+    // Flush buffered token statistics before exit
+    app_core.stats_manager.flush();
+
     // Print styled re-entry command and session summary
     let msg_count = app.messages.len();
     let tool_count = app.tool_call_count;
-    let token_display = app.token_usage
-        .as_ref()
-        .map(|u| format!(" · {} tokens", u.prompt_tokens + u.completion_tokens))
-        .unwrap_or_default();
+    let stats = app_core.stats_manager.today_summary();
+    let stats_display = if stats.requests > 0 {
+        format!(" · 今日: {}次 · {} tok · ${:.4}", stats.requests, stats.tokens, stats.cost_usd)
+    } else {
+        String::new()
+    };
 
     println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
-    println!("{}", format!("  📊 {} 条消息 · {} 次工具调用{}", msg_count, tool_count, token_display).dimmed());
+    println!("{}", format!("  📊 {} 条消息 · {} 次工具调用{}", msg_count, tool_count, stats_display).dimmed());
     if let Some(sid) = app_core.session_mgr.current_id() {
         println!("{} {}", "↻ 重新进入:".yellow(), format!("i-rs-claw tui --session {}", sid).cyan().bold());
     }

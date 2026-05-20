@@ -77,6 +77,9 @@ pub struct Config {
     /// Custom color theme (loaded from theme.json, not serialized)
     #[serde(skip)]
     pub theme: crate::theme::Theme,
+    /// Token usage statistics configuration.
+    #[serde(default)]
+    pub stats: crate::stats::StatsConfig,
 }
 
 fn default_max_react_rounds() -> u32 { 20 }
@@ -356,6 +359,7 @@ impl Config {
             gateway: GatewayConfig::default(),
             dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),
+            stats: crate::stats::StatsConfig::default(),
         }
     }
 

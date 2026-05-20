@@ -1,4 +1,5 @@
 use crate::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
+use crate::stats::TokenRecord;
 use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Instant;
@@ -122,6 +123,7 @@ async fn openai_stream_chat_impl(
     url: &str,
     api_key: Option<&str>,
     model: &str,
+    provider_kind: &str,
     messages: &[Value],
     tool_schemas: &[Value],
     tx: &UnboundedSender<LlmEvent>,
@@ -240,6 +242,28 @@ async fn openai_stream_chat_impl(
         let duration_ms = start.elapsed().as_millis() as u64;
         let prompt_tokens = usage.map(|u| u.prompt_tokens).unwrap_or(0);
         let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
+        let has_tool_calls = !tool_calls.is_empty()
+            && tool_calls.iter().any(|tc| !tc.id.is_empty());
+        let tool_call_count = if has_tool_calls { tool_calls.len() as u32 } else { 0 };
+
+        // Emit usage record for statistics
+        let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Local::now().timestamp(),
+            agent_id: "default".to_string(),
+            model: model.to_string(),
+            provider: provider_kind.to_string(),
+            prompt_tokens,
+            completion_tokens,
+            total_tokens: prompt_tokens + completion_tokens,
+            has_tool_calls,
+            tool_call_count,
+            react_rounds: 0, // Will be updated by chat_loop if needed
+            success: true,
+            latency_ms: duration_ms,
+            estimated_cost_usd: 0.0, // Estimated by StatsManager on consumption
+        }));
+
         let _ = tx.send(LlmEvent::HttpLog {
             status,
             duration_ms,
@@ -250,9 +274,7 @@ async fn openai_stream_chat_impl(
             request_body: body_json.clone(),
         });
 
-        if !tool_calls.is_empty()
-            && tool_calls.iter().any(|tc| !tc.id.is_empty())
-        {
+        if has_tool_calls {
             let mut parsed = Vec::new();
             for tc in &tool_calls {
                 let args: Value =
@@ -330,6 +352,7 @@ impl LlmProvider for OpenaiProvider {
             &url,
             Some(&self.api_key),
             &self.model,
+            "openai",
             messages,
             tool_schemas,
             tx,
@@ -393,6 +416,7 @@ impl LlmProvider for OllamaProvider {
             &url,
             None::<&str>,
             &self.model,
+            "ollama",
             messages,
             tool_schemas,
             tx,
@@ -813,6 +837,31 @@ impl LlmProvider for AnthropicProvider {
         let usage = total_usage.as_ref();
         let prompt_tokens = usage.map(|u| u.prompt_tokens).unwrap_or(0);
         let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
+        let has_tool_calls = final_stop_reason == "tool_use";
+        let tool_call_count = if has_tool_calls {
+            content_blocks.iter().filter(|b| b.block_type == "tool_use").count() as u32
+        } else {
+            0
+        };
+
+        // Emit usage record for statistics
+        let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Local::now().timestamp(),
+            agent_id: "default".to_string(),
+            model: self.model.clone(),
+            provider: "anthropic".to_string(),
+            prompt_tokens,
+            completion_tokens,
+            total_tokens: prompt_tokens + completion_tokens,
+            has_tool_calls,
+            tool_call_count,
+            react_rounds: 0,
+            success: true,
+            latency_ms: duration_ms,
+            estimated_cost_usd: 0.0,
+        }));
+
         let _ = tx.send(LlmEvent::HttpLog {
             status,
             duration_ms,
@@ -824,7 +873,7 @@ impl LlmProvider for AnthropicProvider {
         });
 
         // Determine result type based on stop reason
-        if final_stop_reason == "tool_use" {
+        if has_tool_calls {
             // Extract tool_use blocks
             let mut parsed = Vec::new();
             for block in &content_blocks {

@@ -159,6 +159,11 @@ pub fn main_loop(
                         request_body,
                     });
                 }
+                LlmEvent::UsageRecord(record) => {
+                    app_core.stats_manager.record(record);
+                    // Refresh today's summary for status bar display
+                    app.today_stats = app_core.stats_manager.today_summary();
+                }
                 LlmEvent::Done(mut msgs, usage) => {
                     // Compress API messages to protect teach docs + fit context
                     app_core.compress_api_messages(&mut msgs, &app.current_agent);

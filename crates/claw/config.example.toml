@@ -146,3 +146,19 @@ execution_mode = "React"
 # enabled_tools = ["kv", "todo", "note", "remind", "project", "snippet"]
 # system_prompt = "你是一名编程助手…"
 # capabilities = ["代码审查", "脚本编写"]
+
+
+# ── Token 用量统计 ──────────────────────────────────────────────────────────
+#
+# [stats]
+# enabled = true                                   # 是否启用统计（默认 true）
+# keep_days = 90                                   # 保留天数（0 = 永久保留）
+#
+#   # 自定义模型定价 (USD / 1M tokens)
+#   # 内置支持: gpt-4o-mini, gpt-4o, claude-sonnet-4, claude-haiku-4,
+#   #           deepseek-chat, deepseek-reasoner 等常见模型
+#   # 未列出的模型按模糊前缀匹配，不匹配则按 $0 计费
+#   #
+#   [stats.pricing]
+#   # "my-custom-model" = { input = 1.0, output = 3.0 }
+#   # "gpt-4o" = { input = 2.0, output = 8.0 }

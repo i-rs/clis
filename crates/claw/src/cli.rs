@@ -870,6 +870,75 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+// =============================================
+// Stats subcommand
+// =============================================
+
+pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
+    let claw_data_dir = claw_dir().join("claw");
+    let cfg = crate::config::Config::load()?;
+    let stats_mgr = crate::stats::StatsManager::new(&claw_data_dir, &cfg.stats);
+
+    // Clean up expired records before querying
+    if cfg.stats.enabled && cfg.stats.keep_days > 0 {
+        stats_mgr.cleanup(cfg.stats.keep_days);
+    }
+
+    let stats_period = match period {
+        "7d" | "7days" => crate::stats::StatsPeriod::Last7Days,
+        "30d" | "30days" => crate::stats::StatsPeriod::Last30Days,
+        "all" => crate::stats::StatsPeriod::All,
+        _ => crate::stats::StatsPeriod::Today,
+    };
+
+    let result = stats_mgr.query(stats_period);
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&result)?);
+        return Ok(());
+    }
+
+    let period_label = match result.period {
+        crate::stats::StatsPeriod::Today => "今日",
+        crate::stats::StatsPeriod::Last7Days => "近 7 天",
+        crate::stats::StatsPeriod::Last30Days => "近 30 天",
+        crate::stats::StatsPeriod::All => "全部",
+        crate::stats::StatsPeriod::Custom { .. } => "自定义",
+    };
+
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("  Token 用量统计 · {}", period_label);
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("  请求次数:     {:>8}", result.total_requests);
+    println!("  输入 Token:   {:>8}", result.total_prompt_tokens);
+    println!("  输出 Token:   {:>8}", result.total_completion_tokens);
+    println!("  总 Token:     {:>8}", result.total_tokens);
+    if result.total_cost_usd > 0.001 {
+        println!("  预估费用:     ${:.4}", result.total_cost_usd);
+    }
+    println!("  平均延迟:     {:>8}ms", result.avg_latency_ms as u64);
+    println!("  成功率:       {:>7}%", (result.success_rate * 100.0).round() / 100.0);
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    if !result.by_model.is_empty() {
+        println!("\n按模型:");
+        for m in &result.by_model {
+            println!("  {:<30} {:>4}次 {:>8} tok  ${:.4}",
+                m.model, m.request_count, m.total_tokens, m.total_cost_usd);
+        }
+    }
+
+    if !result.by_agent.is_empty() {
+        println!("\n按 Agent:");
+        for a in &result.by_agent {
+            println!("  {:<30} {:>4}次 {:>8} tok  ${:.4}",
+                a.agent_id, a.request_count, a.total_tokens, a.total_cost_usd);
+        }
+    }
+
+    Ok(())
+}
+
 fn skill_store() -> crate::skill_store::SkillStore {
     let claw_dir = dirs::home_dir()
         .expect("无法获取用户主目录")
