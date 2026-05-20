@@ -231,6 +231,7 @@ impl AppCore {
             reminder_text,
             resolved.system_prompt.as_deref(),
             self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+            self.config.max_conversation_turns,
         )
     }
 

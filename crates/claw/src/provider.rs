@@ -58,6 +58,58 @@ pub trait LlmProvider: Send + Sync {
     ) -> anyhow::Result<StreamResult>;
 }
 
+// ── Shared retry helper ──
+
+/// Send an HTTP POST request with exponential backoff retry.
+///
+/// Retry policy:
+/// - 429 Too Many Requests: wait `attempt * 1000 + 500` ms
+/// - 5xx Server Error: wait `attempt * 2000` ms
+/// - Network errors: wait `attempt * 1000` ms
+/// - Max `max_attempts` attempts
+///
+/// Returns `Ok(response)` on success or when retries exhausted on HTTP errors.
+/// Returns `Err(...)` when retries exhausted on network errors.
+async fn send_with_retry(
+    max_attempts: u32,
+    client: &reqwest::Client,
+    url: &str,
+    body: &serde_json::Value,
+    headers: &[(String, String)],
+) -> anyhow::Result<reqwest::Response> {
+    let mut attempt = 0u32;
+    loop {
+        attempt += 1;
+        let mut req = client.post(url).json(body);
+        for (key, value) in headers {
+            req = req.header(key.as_str(), value.as_str());
+        }
+        match req.send().await {
+            Ok(r) if r.status().as_u16() == 429 => {
+                let wait_ms = (attempt as u64) * 1000 + 500;
+                tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
+                if attempt < max_attempts { continue; }
+                return Ok(r);
+            }
+            Ok(r) if r.status().is_server_error() => {
+                let wait_ms = (attempt as u64) * 2000;
+                tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
+                if attempt < max_attempts { continue; }
+                return Ok(r);
+            }
+            Ok(r) => return Ok(r),
+            Err(e) => {
+                if attempt < max_attempts {
+                    let wait_ms = (attempt as u64) * 1000;
+                    tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
+                    continue;
+                }
+                return Err(anyhow::anyhow!("API 请求失败 (重试{}次): {}", attempt, e));
+            }
+        }
+    }
+}
+
 // =============================================
 // Shared OpenAI-compatible streaming
 // =============================================
@@ -88,19 +140,16 @@ async fn openai_stream_chat_impl(
 
     let body_json = serde_json::to_string(&body).unwrap_or_default();
 
-    let mut request = client.post(url).json(&body);
-
-    if let Some(key) = api_key {
-        request = request
-            .header("Authorization", format!("Bearer {}", key))
-            .header("HTTP-Referer", "https://github.com/i-rs/clis")
-            .header("X-Title", "i-rs-claw");
-    }
-
-    let response = request
-        .send()
-        .await
-        .map_err(|e| anyhow::anyhow!("API 请求失败: {}", e))?;
+    let headers: Vec<(String, String)> = if let Some(key) = api_key {
+        vec![
+            ("Authorization".to_string(), format!("Bearer {}", key)),
+            ("HTTP-Referer".to_string(), "https://github.com/i-rs/clis".to_string()),
+            ("X-Title".to_string(), "i-rs-claw".to_string()),
+        ]
+    } else {
+        Vec::new()
+    };
+    let response = send_with_retry(3, client, url, &body, &headers).await?;
 
     let status = response.status().as_u16();
 
@@ -631,15 +680,11 @@ impl LlmProvider for AnthropicProvider {
 
         let body_json = serde_json::to_string(&body).unwrap_or_default();
 
-        let response = self
-            .client
-            .post("https://api.anthropic.com/v1/messages")
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| anyhow::anyhow!("Anthropic API 请求失败: {}", e))?;
+        let headers = vec![
+            ("x-api-key".to_string(), self.api_key.clone()),
+            ("anthropic-version".to_string(), "2023-06-01".to_string()),
+        ];
+        let response = send_with_retry(3, &self.client, "https://api.anthropic.com/v1/messages", &body, &headers).await?;
 
         let status = response.status().as_u16();
 

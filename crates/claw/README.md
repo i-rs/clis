@@ -34,20 +34,38 @@ The binary will be at `target/release/i-rs-claw`.
 Create `~/.i-rs-claw/config.toml`:
 
 ```toml
-[config]
-api_key = "sk-..."                          # Required: LLM API key
-base_url = "https://api.openai.com/v1"      # Optional: defaults to OpenAI
-model = "gpt-4o-mini"                       # Optional: defaults to gpt-4o-mini
+provider = "openai"                   # "openai" | "anthropic" | "ollama"
+api_key = "sk-..."                     # Required (except Ollama)
+base_url = "https://api.openai.com/v1" # API 端点地址
+model = "gpt-4o-mini"                  # 模型名称
 ```
 
-Supports any OpenAI-compatible API (OpenAI, OpenRouter, DeepSeek, etc.):
+支持任何兼容 OpenAI API 的第三方服务（DeepSeek、OpenRouter、Groq 等）：
 
 ```toml
-[config]
+provider = "openai"
 api_key = "sk-..."
 base_url = "https://openrouter.ai/api/v1"
 model = "deepseek/deepseek-chat"
 ```
+
+高级调优参数（按需添加）：
+
+```toml
+# 引擎参数
+# max_react_rounds = 20        # 最大 ReAct 轮数
+# max_tool_retries = 2         # 工具重试次数
+# cli_timeout_secs = 30        # CLI 超时秒数
+# max_conversation_turns = 8   # 上下文保留轮数
+
+# 工具限制
+# enabled_tools = ["kv", "weight", "water", "sleep"]
+
+# 文件操作权限
+# allowed_dirs = ["~/Documents", "~/Downloads"]
+```
+
+完整示例配置见 [config.example.toml](config.example.toml)。
 
 ## Usage
 

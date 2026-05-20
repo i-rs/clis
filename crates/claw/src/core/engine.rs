@@ -106,6 +106,7 @@ pub fn build_messages(
     reminder_text: Option<&str>,
     system_prompt_override: Option<&str>,
     plan_then_execute: bool,
+    max_conversation_turns: usize,
 ) -> Vec<Value> {
     // Helper: remove stale reminder system message at index 1 if present
     let remove_reminder_msg = |msgs: &mut Vec<Value>| {
@@ -155,7 +156,7 @@ pub fn build_messages(
         }
 
         // Smart compress: preserve skill teach docs + recent conversation context
-        smart_compress(&mut msgs, tool_frequency, 5, 15);
+        smart_compress(&mut msgs, tool_frequency, 5, max_conversation_turns);
         return msgs;
     }
 
@@ -174,8 +175,8 @@ pub fn build_messages(
         inject_reminder(&mut msgs, rt);
     }
 
-    // Keep last ~8 display messages for context
-    let max_turns = 8;
+    // Keep last N display messages for context
+    let max_turns = max_conversation_turns;
     let start = app_messages.len().saturating_sub(max_turns);
 
     for msg in &app_messages[start..] {
@@ -418,14 +419,14 @@ pub async fn chat_loop(
         mcp: mcp.clone(),
     };
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
-    const MAX_RETRIES: u32 = 2;
-    const MAX_ROUNDS: u32 = 20;
+    let max_retries = config.max_tool_retries;
+    let max_rounds = config.max_react_rounds;
     let mut round_count = 0u32;
 
     loop {
         round_count += 1;
-        if round_count > MAX_ROUNDS {
-            let _ = tx.send(LlmEvent::Error("已达最大执行轮数限制 (20)，已停止循环。".to_string()));
+        if round_count > max_rounds {
+            let _ = tx.send(LlmEvent::Error(format!("已达最大执行轮数限制 ({}), 已停止循环。", max_rounds)));
             break;
         }
         let _ = tx.send(LlmEvent::NewRound);
@@ -481,14 +482,17 @@ pub async fn chat_loop(
                     let mcp_for_exec = mcp.clone();
                     let ctx_for_spawn = tool_ctx.clone();
                     let skills_for_spawn = skills.clone();
+                    let timeout_dur = std::time::Duration::from_secs(config.cli_timeout_secs.max(10) as u64);
                     handles.push(tokio::spawn(async move {
                         let ctx_for_blocking = ctx_for_spawn;
                         let skills_for_blocking = skills_for_spawn;
-                        let result = tokio::task::spawn_blocking(move || {
+                        let result = match tokio::time::timeout(timeout_dur, tokio::task::spawn_blocking(move || {
                             execute_tool_call(&tc_name, &args_for_blocking, &skills_for_blocking, Some(&mcp_for_exec), &ctx_for_blocking)
-                        })
-                        .await
-                        .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));
+                        })).await {
+                            Ok(Ok(r)) => r,
+                            Ok(Err(e)) => format!("错误: 内部错误: {}", e),
+                            Err(_) => format!("错误: 工具执行超时 (>{:?})", timeout_dur),
+                        };
 
                         let _ = tx.send(LlmEvent::ToolExecuted {
                             name: tc.name.clone(),
@@ -516,7 +520,7 @@ pub async fn chat_loop(
                     if result.starts_with("错误:") {
                         let count = retry_counts.entry(tc.id.clone()).or_insert(0);
                         *count += 1;
-                        if *count <= MAX_RETRIES {
+                        if *count <= max_retries {
                             should_retry = true;
                         }
                     }
@@ -544,7 +548,7 @@ pub async fn chat_loop(
                                      2. 是否需要换一种方式完成用户请求？\n\
                                      3. 是否不需要这个工具，用其他方式回答用户？\n\
                                      错误信息：{}",
-                                    tc.name, MAX_RETRIES, result
+                                    tc.name, max_retries, result
                                 ),
                             }));
                         }

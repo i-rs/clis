@@ -5,8 +5,11 @@ use std::time::Duration;
 use crate::tools::index;
 use crate::tools::ToolContext;
 
-/// CLI execution timeout.
-const CLI_TIMEOUT: Duration = Duration::from_secs(30);
+/// Safe working directory for CLI subprocesses.
+/// Prevents tools from being affected by the caller's CWD.
+fn safe_cwd() -> std::path::PathBuf {
+    std::env::temp_dir()
+}
 
 /// Built-in tool that executes `i-rs <tool> <command>` CLI commands.
 pub struct IrsTool;
@@ -47,7 +50,7 @@ impl super::ClawTool for IrsTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, String> {
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, String> {
         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
         let cmd_args: Vec<String> = args
@@ -60,12 +63,12 @@ impl super::ClawTool for IrsTool {
             })
             .unwrap_or_default();
 
-        execute_cli(tool, cmd, &cmd_args)
+        execute_cli(tool, cmd, &cmd_args, ctx.config.cli_timeout_secs)
     }
 }
 
 /// Execute `i-rs <tool> <command> [args...]` and return the output.
-fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String> {
+fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) -> Result<String, String> {
     let mut all_args = Vec::with_capacity(args.len() + 1);
     all_args.push(cmd.to_string());
     all_args.extend_from_slice(args);
@@ -73,8 +76,10 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String>
     let mut child = Command::new("i-rs")
         .arg(tool)
         .args(&all_args)
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
+        .current_dir(safe_cwd())
         .spawn()
         .map_err(|e| format!("执行 i-rs {} {} 失败: {}", tool, cmd, e))?;
 
@@ -86,11 +91,16 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String>
                 let output = child.wait_with_output()
                     .map_err(|e| format!("读取命令输出失败: {}", e))?;
 
+                let max_output = 10_000;
                 if status.success() {
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     let trimmed = stdout.trim();
                     if trimmed.is_empty() {
                         return Ok(r#"{"success":true}"#.to_string());
+                    } else if trimmed.len() > max_output {
+                        let preview: String = trimmed.chars().take(max_output).collect();
+                        return Ok(format!("{}...
+[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, trimmed.len(), max_output));
                     } else {
                         return Ok(trimmed.to_string());
                     }
@@ -102,14 +112,19 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String]) -> Result<String, String>
                     } else {
                         stderr.trim().to_string()
                     };
+                    if combined.len() > max_output {
+                        let preview: String = combined.chars().take(max_output).collect();
+                        return Err(format!("{}...
+[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, combined.len(), max_output));
+                    }
                     return Err(combined);
                 }
             }
             Ok(None) => {
-                if start.elapsed() > CLI_TIMEOUT {
+                if start.elapsed() > Duration::from_secs(cli_timeout_secs) {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Err(format!("命令执行超时 (30s): i-rs {} {}", tool, cmd));
+                    return Err(format!("命令执行超时 ({}s): i-rs {} {}", cli_timeout_secs, tool, cmd));
                 }
                 std::thread::sleep(Duration::from_millis(50));
             }

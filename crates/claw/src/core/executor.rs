@@ -1,5 +1,9 @@
 #![allow(dead_code)]
 
+// TODO: 此文件的功能已被 engine.rs 中的 chat_loop 内联实现替代
+// (超时控制 + 重试 + 配置化均已移入 engine.rs 与 config.rs)
+// 保留此文件供参考，后续重构时可移除。
+
 use crate::llm::ToolCallAcc;
 use crate::tools::ToolContext;
 use serde_json::Value;

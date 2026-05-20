@@ -94,12 +94,8 @@ impl ClawTool for DelegateTool {
             &agent_config.model,
         );
 
-        // Create a temporary tokio runtime to run the async LLM call synchronously
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| format!("创建运行时失败: {}", e))?;
-
-        // Run the LLM call and collect tokens in a blocking context
-        let result: Result<String, String> = rt.block_on(async {
+        // Run the LLM call on the existing tokio runtime
+        let result: Result<String, String> = tokio::runtime::Handle::current().block_on(async {
             let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
             provider

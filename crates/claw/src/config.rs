@@ -58,6 +58,18 @@ pub struct Config {
     /// Accessible via delegate_task tool.
     #[serde(default)]
     pub sub_agents: HashMap<String, AgentConfig>,
+    /// Maximum ReAct loop rounds before stopping.
+    #[serde(default = "default_max_react_rounds")]
+    pub max_react_rounds: u32,
+    /// Maximum retries per tool call on error.
+    #[serde(default = "default_max_tool_retries")]
+    pub max_tool_retries: u32,
+    /// CLI subprocess execution timeout in seconds.
+    #[serde(default = "default_cli_timeout_secs")]
+    pub cli_timeout_secs: u64,
+    /// Number of recent conversation turns to preserve in context.
+    #[serde(default = "default_max_conversation_turns")]
+    pub max_conversation_turns: usize,
     /// Execution mode for multi-step tasks.
     /// Defaults to ReAct (no upfront planning).
     #[serde(default)]
@@ -66,6 +78,11 @@ pub struct Config {
     #[serde(skip)]
     pub theme: crate::theme::Theme,
 }
+
+fn default_max_react_rounds() -> u32 { 20 }
+fn default_max_tool_retries() -> u32 { 2 }
+fn default_cli_timeout_secs() -> u64 { 30 }
+fn default_max_conversation_turns() -> usize { 8 }
 
 fn default_true() -> bool {
     true
@@ -331,6 +348,10 @@ impl Config {
             disabled_plugins: Vec::new(),
             agents: HashMap::new(),
             sub_agents: HashMap::new(),
+            max_react_rounds: default_max_react_rounds(),
+            max_tool_retries: default_max_tool_retries(),
+            cli_timeout_secs: default_cli_timeout_secs(),
+            max_conversation_turns: default_max_conversation_turns(),
             execution_mode: ExecutionMode::default(),
             gateway: GatewayConfig::default(),
             dashboard: DashboardConfig::default(),

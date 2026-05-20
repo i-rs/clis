@@ -76,12 +76,22 @@ impl ClawTool for FileOpsTool {
             base.join(path_str)
         };
 
-        // Canonicalize the target and base to prevent path traversal attacks
-        let canonical_target = target.canonicalize().map_err(|e| {
-            format!("无法访问路径 '{}': {}", target.display(), e)
-        })?;
+        // Check that the target is within one of the allowed directories.
+        // Use canonicalize to resolve symlinks and prevent path traversal.
+        // For write operations on new files (where canonicalize fails),
+        // canonicalize the parent directory and verify the parent is allowed.
+        let canonical_target = match target.canonicalize() {
+            Ok(p) => p,
+            Err(_) if operation == "write" => {
+                // File doesn't exist yet — canonicalize its parent
+                let parent = target.parent().unwrap_or(Path::new("/"));
+                parent.canonicalize().map_err(|e| {
+                    format!("无法访问路径 '{}': {}", target.display(), e)
+                })?
+            }
+            Err(e) => return Err(format!("无法访问路径 '{}': {}", target.display(), e)),
+        };
 
-        // Check that the target is within one of the allowed directories
         let allowed = cfg
             .allowed_dirs
             .iter()

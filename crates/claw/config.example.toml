@@ -79,6 +79,22 @@ plugins_auto_discover = true
 execution_mode = "React"
 
 
+# ── 引擎调优参数 ──────────────────────────────────────────────────────────
+#
+# max_react_rounds:         单次对话最大 ReAct 循环轮数 (默认: 20)
+#                           当 LLM 持续调用工具时，达到此上限后停止
+# max_tool_retries:         单次工具调用最大重试次数 (默认: 2)
+#                           工具执行出错后的自动重试次数
+# cli_timeout_secs:         CLI 子命令执行超时秒数 (默认: 30)
+#                           超过此时间未完成的 CLI 调用将被终止
+# max_conversation_turns:   上下文保留的最近对话轮数 (默认: 8)
+#                           超出部分将被裁剪以控制 token 消耗
+# max_react_rounds = 20
+# max_tool_retries = 2
+# cli_timeout_secs = 30
+# max_conversation_turns = 8
+
+
 # ── Gateway（社交平台接入）──────────────────────────────────────────────────
 #
 # [gateway]
@@ -106,6 +122,8 @@ execution_mode = "React"
 # ── Agent 配置 ──────────────────────────────────────────────────────────────
 #
 # 每个 agent 可覆盖 provider/model/tools/system_prompt，未设字段继承顶层配置
+# agent 级别的 max_react_rounds/max_tool_retries/cli_timeout_secs
+# 等调优参数暂不支持按 agent 覆盖，全局生效
 #
 # [agents.analyst]
 # model = "gpt-4o"
