@@ -1,11 +1,12 @@
 use crate::config::Config;
-use crate::llm::{LlmEvent, StreamResult, ToolCallAcc};
+use crate::llm::{LlmEvent, StreamResult};
 use crate::mcp::McpRegistry;
 use crate::provider::LlmProvider;
 use crate::skill_store::SkillDefinition;
 use crate::utils;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 /// Prefix used to identify reminder system messages in the message list.
@@ -81,35 +82,39 @@ pub(crate) fn build_system_prompt(
     prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
 
     // Collapse 3+ consecutive newlines into 2 (one blank line)
-    // Ensures empty dynamic content doesn't leave gaps in the stable prefix
-    while prompt.contains("\n\n\n") {
-        prompt = prompt.replace("\n\n\n", "\n\n");
-    }
+    // Ensures empty dynamic content doesn't leave gaps in the stable prefix.
+    // Use a simple approach: handle 4+ first, then exactly 3, to avoid O(n²) while-loop.
+    prompt = prompt.replace("\n\n\n\n", "\n\n");
+    prompt = prompt.replace("\n\n\n", "\n\n");
 
     prompt
+}
+
+/// Parameters for building API-compatible message lists.
+///
+/// Consolidates the many parameters of `build_messages` into a single struct
+/// to improve readability and make the call site more maintainable.
+pub struct MessageBuildParams<'a> {
+    pub app_messages: &'a [crate::app::Message],
+    pub user_text: &'a str,
+    pub saved_api_messages: &'a Option<Vec<Value>>,
+    pub tool_frequency: &'a HashMap<String, usize>,
+    pub tool_index: &'a str,
+    pub hot_tools: &'a str,
+    pub skills: &'a str,
+    pub user_memory: &'a str,
+    pub user_profile: &'a str,
+    pub reminder_text: Option<&'a str>,
+    pub system_prompt_override: Option<&'a str>,
+    pub plan_then_execute: bool,
+    pub max_conversation_turns: usize,
 }
 
 /// Convert app messages to API-compatible message list.
 /// If `saved_api_messages` exists, reuse them as base (preserving tool call context)
 /// and only append the new user message.
 /// If `system_prompt_override` is provided, it replaces the default system prompt.
-#[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip(app_messages, saved_api_messages, tool_frequency, tool_index, hot_tools, skills, user_memory, user_profile, reminder_text, system_prompt_override))]
-pub fn build_messages(
-    app_messages: &[crate::app::Message],
-    user_text: &str,
-    saved_api_messages: &Option<Vec<Value>>,
-    tool_frequency: &HashMap<String, usize>,
-    tool_index: &str,
-    hot_tools: &str,
-    skills: &str,
-    user_memory: &str,
-    user_profile: &str,
-    reminder_text: Option<&str>,
-    system_prompt_override: Option<&str>,
-    plan_then_execute: bool,
-    max_conversation_turns: usize,
-) -> Vec<Value> {
+pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
     // Helper: remove stale reminder system message at index 1 if present
     let remove_reminder_msg = |msgs: &mut Vec<Value>| {
         if msgs.len() > 1
@@ -136,7 +141,7 @@ pub fn build_messages(
         }
     };
 
-    if let Some(prev_msgs) = saved_api_messages {
+    if let Some(prev_msgs) = params.saved_api_messages {
         // Reuse saved API messages (has full context including tool calls)
         let mut msgs = prev_msgs.clone();
         // Remove stale reminder message before injecting fresh one
@@ -150,22 +155,22 @@ pub fn build_messages(
         {
             msgs.pop();
         }
-        msgs.push(serde_json::json!({"role": "user", "content": user_text}));
+        msgs.push(serde_json::json!({"role": "user", "content": params.user_text}));
 
         // Inject fresh reminder
-        if let Some(rt) = reminder_text {
+        if let Some(rt) = params.reminder_text {
             inject_reminder(&mut msgs, rt);
         }
 
         // Smart compress: preserve skill teach docs + recent conversation context
-        smart_compress(&mut msgs, tool_frequency, 5, max_conversation_turns);
+        smart_compress(&mut msgs, params.tool_frequency, 5, params.max_conversation_turns);
         return msgs;
     }
 
     // First turn: build from scratch
-    let system_prompt = system_prompt_override
+    let system_prompt = params.system_prompt_override
         .map(|s| s.to_string())
-        .unwrap_or_else(|| build_system_prompt(tool_index, hot_tools, skills, user_memory, user_profile, plan_then_execute));
+        .unwrap_or_else(|| build_system_prompt(params.tool_index, params.hot_tools, params.skills, params.user_memory, params.user_profile, params.plan_then_execute));
 
     let mut msgs = vec![serde_json::json!({
         "role": "system",
@@ -173,15 +178,15 @@ pub fn build_messages(
     })];
 
     // Inject reminder right after system prompt
-    if let Some(rt) = reminder_text {
+    if let Some(rt) = params.reminder_text {
         inject_reminder(&mut msgs, rt);
     }
 
     // Keep last N display messages for context
-    let max_turns = max_conversation_turns;
-    let start = app_messages.len().saturating_sub(max_turns);
+    let max_turns = params.max_conversation_turns;
+    let start = params.app_messages.len().saturating_sub(max_turns);
 
-    for msg in &app_messages[start..] {
+    for msg in &params.app_messages[start..] {
         match msg {
             crate::app::Message::User { text } => {
                 msgs.push(serde_json::json!({"role": "user", "content": text}));
@@ -193,7 +198,7 @@ pub fn build_messages(
         }
     }
 
-    msgs.push(serde_json::json!({"role": "user", "content": user_text}));
+    msgs.push(serde_json::json!({"role": "user", "content": params.user_text}));
     msgs
 }
 
@@ -334,34 +339,24 @@ pub fn smart_compress(
 
     // Ensure tool_call + tool result pairs are kept together to prevent
     // orphaned tool messages ("role='tool' must follow tool_calls" error).
-    // Scan both directions: if a "tool" result is kept but its preceding
-    // tool_call was dropped, restore the tool_call; and vice versa.
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for idx in 0..msgs.len() {
-            let kept = preserve.contains(&idx);
-            if !kept {
-                continue;
-            }
-            // If this is a tool result, ensure preceding tool_call is kept
-            if msgs[idx].get("role").and_then(|r| r.as_str()) == Some("tool")
-                && idx > 0
-                && msgs[idx - 1].get("tool_calls").is_some()
-                && !preserve.contains(&(idx - 1))
-            {
-                preserve.insert(idx - 1);
-                changed = true;
-            }
-            // If this is a tool_call, ensure following tool result is kept
-            if msgs[idx].get("tool_calls").is_some()
-                && idx + 1 < msgs.len()
-                && msgs[idx + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
-                && !preserve.contains(&(idx + 1))
-            {
-                preserve.insert(idx + 1);
-                changed = true;
-            }
+    // Use a single forward + backward scan (O(n)) instead of an O(n²) while-loop.
+    // Forward: if a tool result is kept, ensure preceding tool_call is kept.
+    for idx in 1..msgs.len() {
+        if preserve.contains(&idx)
+            && msgs[idx].get("role").and_then(|r| r.as_str()) == Some("tool")
+            && msgs[idx - 1].get("tool_calls").is_some()
+        {
+            preserve.insert(idx - 1);
+        }
+    }
+    // Backward: if a tool_call is kept, ensure following tool result is kept.
+    for idx in (0..msgs.len().saturating_sub(1)).rev() {
+        if preserve.contains(&idx)
+            && msgs[idx].get("tool_calls").is_some()
+            && msgs[idx + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
+            && !preserve.contains(&(idx + 1))
+        {
+            preserve.insert(idx + 1);
         }
     }
 
@@ -424,6 +419,11 @@ pub async fn chat_loop(
     let max_rounds = config.max_react_rounds;
     let mut round_count = 0u32;
 
+    // Create shared ToolCallExecutor with configurable parameters
+    let executor = crate::core::executor::ToolCallExecutor::new(tool_ctx, mcp.clone(), skills.clone())
+        .with_timeout(config.cli_timeout_secs)
+        .with_truncation(200, 500);
+
     loop {
         round_count += 1;
         if round_count > max_rounds {
@@ -441,7 +441,7 @@ pub async fn chat_loop(
                         "content": text,
                     }));
                 }
-                let _ = tx.send(LlmEvent::Done(msgs.clone(), usage));
+                let _ = tx.send(LlmEvent::Done(Arc::new(msgs), usage));
                 break;
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
@@ -470,56 +470,17 @@ pub async fn chat_loop(
                 }
                 msgs.push(assistant_msg);
 
-                // Parallel execute all tool calls
+                // Parallel execute all tool calls via ToolCallExecutor
                 let total = calls.len();
                 let _ = tx.send(LlmEvent::Status(format!("⚡ 并行执行 {} 个工具...", total)));
 
-                let mut handles = Vec::new();
-                for (step, (tc, args)) in calls.into_iter().enumerate() {
-                    let tx = tx.clone();
-                    let tc_name = tc.name.clone();
-                    let args_str = serde_json::to_string(&args).unwrap_or_default();
-                    let args_for_blocking = args.clone();
-                    let mcp_for_exec = mcp.clone();
-                    let ctx_for_spawn = tool_ctx.clone();
-                    let skills_for_spawn = skills.clone();
-                    let timeout_dur = std::time::Duration::from_secs(config.cli_timeout_secs.max(10));
-                    handles.push(tokio::spawn(async move {
-                        let ctx_for_blocking = ctx_for_spawn;
-                        let skills_for_blocking = skills_for_spawn;
-                        let result = match tokio::time::timeout(timeout_dur, tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking, &skills_for_blocking, Some(&mcp_for_exec), &ctx_for_blocking)
-                        })).await {
-                            Ok(Ok(r)) => r,
-                            Ok(Err(e)) => format!("错误: 内部错误: {}", e),
-                            Err(_) => format!("错误: 工具执行超时 (>{:?})", timeout_dur),
-                        };
-
-                        let _ = tx.send(LlmEvent::ToolExecuted {
-                            name: tc.name.clone(),
-                            args: args_str,
-                            result: utils::smart_truncate(&result, 200),
-                            step,
-                            total_steps: total,
-                        });
-
-                        (tc, args, result)
-                    }));
-                }
-
-                // Collect all results in order
-                let mut all_results: Vec<(ToolCallAcc, Value, String)> = Vec::new();
-                for handle in handles {
-                    if let Ok(r) = handle.await {
-                        all_results.push(r);
-                    }
-                }
+                let all_results = executor.execute(calls, &tx).await;
 
                 // Check for errors and track retry counts
                 let mut should_retry = false;
-                for (tc, _, result) in &all_results {
-                    if result.starts_with("错误:") {
-                        let count = retry_counts.entry(tc.id.clone()).or_insert(0);
+                for result in &all_results {
+                    if result.result.starts_with("错误:") {
+                        let count = retry_counts.entry(result.call.id.clone()).or_insert(0);
                         *count += 1;
                         if *count <= max_retries {
                             should_retry = true;
@@ -529,8 +490,8 @@ pub async fn chat_loop(
 
                 if should_retry {
                     // Push all results so LLM sees what succeeded/failed
-                    for (tc, _args, result) in &all_results {
-                        msgs.push(serde_json::json!({ "role": "tool", "tool_call_id": tc.id, "content": utils::smart_truncate(result, 500) }));
+                    for result in &all_results {
+                        msgs.push(serde_json::json!({ "role": "tool", "tool_call_id": result.call.id, "content": utils::smart_truncate(&result.result, 500) }));
                     }
                     // Add retry guidance
                     msgs.push(serde_json::json!({
@@ -539,8 +500,8 @@ pub async fn chat_loop(
                     }));
                 } else {
                     // Add reflection for max-retries-exceeded errors, then push all results
-                    for (tc, _args, result) in &all_results {
-                        if result.starts_with("错误:") {
+                    for result in &all_results {
+                        if result.result.starts_with("错误:") {
                             msgs.push(serde_json::json!({
                                 "role": "system",
                                 "content": format!(
@@ -549,14 +510,14 @@ pub async fn chat_loop(
                                      2. 是否需要换一种方式完成用户请求？\n\
                                      3. 是否不需要这个工具，用其他方式回答用户？\n\
                                      错误信息：{}",
-                                    tc.name, max_retries, result
+                                    result.call.name, max_retries, result.result
                                 ),
                             }));
                         }
-                        let trimmed = utils::smart_truncate(result, 500);
+                        let trimmed = utils::smart_truncate(&result.result, 500);
                         msgs.push(serde_json::json!({
                             "role": "tool",
-                            "tool_call_id": tc.id,
+                            "tool_call_id": result.call.id,
                             "content": trimmed,
                         }));
                     }

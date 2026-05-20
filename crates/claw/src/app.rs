@@ -3,6 +3,7 @@ use crate::stats::TodaySummary;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
 
 /// A step in the LLM's execution plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +39,165 @@ pub enum Message {
     Error { text: String },
 }
 
+/// Input editing state (input text, cursor, history).
+#[derive(Clone)]
+pub struct InputState {
+    pub text: String,
+    pub cursor: usize,
+    pub history: Vec<String>,
+    pub history_index: Option<usize>,
+}
+
+impl InputState {
+    pub fn new() -> Self {
+        Self {
+            text: String::new(),
+            cursor: 0,
+            history: Vec::new(),
+            history_index: None,
+        }
+    }
+
+    pub fn insert_char(&mut self, c: char) {
+        self.text.insert(self.cursor, c);
+        self.cursor += c.len_utf8();
+    }
+
+    pub fn delete_before_cursor(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+        let prev = self.text[..self.cursor].char_indices().next_back();
+        if let Some((idx, _)) = prev {
+            self.text.drain(idx..self.cursor);
+            self.cursor = idx;
+        }
+    }
+
+    pub fn move_cursor_left(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+        let prev = self.text[..self.cursor].char_indices().next_back();
+        if let Some((idx, _)) = prev {
+            self.cursor = idx;
+        }
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        if self.cursor >= self.text.len() {
+            return;
+        }
+        let next = self.text[self.cursor..].char_indices().nth(1);
+        if let Some((offset, _)) = next {
+            self.cursor += offset;
+        } else {
+            self.cursor = self.text.len();
+        }
+    }
+
+    pub fn move_cursor_home(&mut self) {
+        self.cursor = 0;
+    }
+
+    pub fn move_cursor_end(&mut self) {
+        self.cursor = self.text.len();
+    }
+
+    pub fn commit_to_history(&mut self, text: &str) {
+        if text.is_empty() {
+            return;
+        }
+        if self.history.last().map(|s| s.as_str()) != Some(text) {
+            self.history.push(text.to_string());
+            if self.history.len() > 50 {
+                self.history.remove(0);
+            }
+        }
+        self.history_index = None;
+    }
+
+    pub fn navigate_up(&mut self) -> Option<String> {
+        if self.history.is_empty() {
+            return None;
+        }
+        let new_idx = match self.history_index {
+            Some(i) if i > 0 => i - 1,
+            None => self.history.len().saturating_sub(1),
+            _ => return None,
+        };
+        self.history_index = Some(new_idx);
+        Some(self.history[new_idx].clone())
+    }
+
+    pub fn navigate_down(&mut self) -> Option<String> {
+        match self.history_index {
+            Some(i) if i + 1 < self.history.len() => {
+                self.history_index = Some(i + 1);
+                Some(self.history[i + 1].clone())
+            }
+            Some(_) => {
+                self.history_index = None;
+                None
+            }
+            None => None,
+        }
+    }
+}
+
+/// UI overlay state (menus, selections, feedback).
+pub struct OverlayState {
+    pub show_session_list: bool,
+    pub session_list_index: usize,
+    pub session_list: Vec<crate::session::SessionMeta>,
+    pub session_search: String,
+    pub session_search_mode: bool,
+    pub session_rename_buf: String,
+    pub session_confirm_delete: bool,
+    pub show_sidebar: bool,
+    pub sidebar_selected: usize,
+    pub sidebar_body_idx: Option<usize>,
+    pub sidebar_body_scroll: usize,
+    pub show_agent_picker: bool,
+    pub agent_picker_index: usize,
+    pub agent_list: Vec<String>,
+    pub selection_mode: bool,
+    pub selected_message: Option<usize>,
+    pub tool_call_expanded: HashSet<usize>,
+    pub show_help: bool,
+    pub copy_feedback: Option<String>,
+    pub tab_completions: Vec<String>,
+    pub tab_completion_index: usize,
+}
+
+impl OverlayState {
+    pub fn new(agent_list: Vec<String>) -> Self {
+        Self {
+            show_session_list: false,
+            session_list_index: 0,
+            session_list: Vec::new(),
+            session_search: String::new(),
+            session_search_mode: false,
+            session_rename_buf: String::new(),
+            session_confirm_delete: false,
+            show_sidebar: false,
+            sidebar_selected: 0,
+            sidebar_body_idx: None,
+            sidebar_body_scroll: 0,
+            show_agent_picker: false,
+            agent_picker_index: 0,
+            agent_list,
+            selection_mode: false,
+            selected_message: None,
+            tool_call_expanded: HashSet::new(),
+            show_help: false,
+            copy_feedback: None,
+            tab_completions: Vec::new(),
+            tab_completion_index: 0,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub enum AppState {
     Idle,
@@ -47,7 +207,8 @@ pub enum AppState {
 pub struct App {
     pub messages: Vec<Message>,
     pub message_timestamps: Vec<NaiveDateTime>,
-    pub input: String,
+    pub input: InputState,
+    pub overlay: OverlayState,
     pub state: AppState,
     pub config: Config,
     pub tool_call_count: usize,
@@ -55,71 +216,20 @@ pub struct App {
     pub status_text: String,
     /// Full API message list preserved across turns (includes tool call context)
     pub api_messages: Option<Vec<Value>>,
-    /// Whether the session list overlay is shown
-    pub show_session_list: bool,
-    /// Currently selected index in session list
-    pub session_list_index: usize,
-    /// Cached session list for display
-    pub session_list: Vec<crate::session::SessionMeta>,
     /// Token usage from the last LLM response
     pub token_usage: Option<crate::llm::TokenUsage>,
-
-    /// Input history for up/down navigation (most recent last)
-    pub input_history: Vec<String>,
-    /// Current position in input history (None = fresh input)
-    pub input_history_index: Option<usize>,
-    /// Cursor position within input (byte index)
-    pub input_cursor: usize,
     /// How many lines the user has scrolled up from the bottom (0 = bottom)
     pub scroll_lines: usize,
-    /// Whether the HTTP debug sidebar is shown
-    pub show_sidebar: bool,
     /// HTTP request logs (newest first)
     pub http_logs: Vec<HttpLog>,
-    /// Selected index in the sidebar
-    pub sidebar_selected: usize,
-    /// If set, shows the full request body for this log entry
-    pub sidebar_body_idx: Option<usize>,
-    /// Scroll offset within the body overlay
-    pub sidebar_body_scroll: usize,
     /// Current reasoning text from LLM (DeepSeek chain-of-thought)
     pub current_reasoning: String,
     /// Proactive reminder text from i-rs remind (shown to LLM on next user message)
     pub reminder_text: Option<String>,
     /// Current execution plan steps (for plan-and-execute)
     pub plan_steps: Vec<PlanStep>,
-    /// Session list search/filter text
-    pub session_search: String,
-    /// Whether session search mode is active
-    pub session_search_mode: bool,
-    /// Tab completion candidates for the current input
-    pub tab_completions: Vec<String>,
-    /// Current index in tab completion cycle
-    pub tab_completion_index: usize,
-    /// Rename buffer when renaming a session
-    pub session_rename_buf: String,
-    /// Whether delete confirmation is shown
-    pub session_confirm_delete: bool,
-    /// Transient feedback text (e.g. "已复制"), cleared on next user interaction
-    pub copy_feedback: Option<String>,
     /// Current agent profile ID
     pub current_agent: String,
-    /// Whether the agent picker popup is shown
-    pub show_agent_picker: bool,
-    /// Selected index in the agent picker
-    pub agent_picker_index: usize,
-    /// Available agent IDs (cached from config)
-    pub agent_list: Vec<String>,
-
-    /// Index of the currently selected message (in selection mode)
-    pub selected_message: Option<usize>,
-    /// Whether message selection mode is active
-    pub selection_mode: bool,
-    /// Indices of tool call messages that are expanded
-    pub tool_call_expanded: std::collections::HashSet<usize>,
-    /// Whether the keyboard shortcut help panel is shown
-    pub show_help: bool,
-
     /// Today's token usage summary (from StatsManager)
     pub today_stats: TodaySummary,
 }
@@ -131,44 +241,20 @@ impl App {
         Self {
             messages: Vec::new(),
             message_timestamps: Vec::new(),
-            input: String::new(),
-            input_cursor: 0,
+            input: InputState::new(),
+            overlay: OverlayState::new(agent_list),
             state: AppState::Idle,
             config,
             tool_call_count: 0,
             status_text: String::new(),
             api_messages: None,
-            show_session_list: false,
-            session_list_index: 0,
-            session_list: Vec::new(),
             token_usage: None,
-
-            input_history: Vec::new(),
-            input_history_index: None,
             scroll_lines: 0,
-            show_sidebar: false,
             http_logs: Vec::new(),
-            sidebar_selected: 0,
-            sidebar_body_idx: None,
-            sidebar_body_scroll: 0,
             current_reasoning: String::new(),
             reminder_text: None,
             plan_steps: Vec::new(),
-            session_search: String::new(),
-            session_search_mode: false,
-            tab_completions: Vec::new(),
-            tab_completion_index: 0,
-            session_rename_buf: String::new(),
-            session_confirm_delete: false,
-            copy_feedback: None,
             current_agent: "default".to_string(),
-            show_agent_picker: false,
-            agent_picker_index: 0,
-            agent_list,
-            selected_message: None,
-            selection_mode: false,
-            tool_call_expanded: std::collections::HashSet::new(),
-            show_help: false,
             today_stats: TodaySummary::default(),
         }
     }
@@ -178,7 +264,7 @@ impl App {
     }
 
     pub fn add_user_message(&mut self, text: &str) {
-        self.copy_feedback.take();
+        self.overlay.copy_feedback.take();
         self.messages
             .push(Message::User { text: text.to_string() });
         self.message_timestamps.push(chrono::Local::now().naive_local());
@@ -191,99 +277,51 @@ impl App {
 
     /// Insert a character at the cursor position.
     pub fn insert_char(&mut self, c: char) {
-        self.copy_feedback.take();
-        self.input.insert(self.input_cursor, c);
-        self.input_cursor += c.len_utf8();
+        self.overlay.copy_feedback.take();
+        self.input.insert_char(c);
     }
 
     /// Delete the character before the cursor (Backspace).
     pub fn delete_before_cursor(&mut self) {
-        if self.input_cursor == 0 {
-            return;
-        }
-        let prev = self.input[..self.input_cursor].char_indices().next_back();
-        if let Some((idx, _)) = prev {
-            self.input.drain(idx..self.input_cursor);
-            self.input_cursor = idx;
-        }
+        self.input.delete_before_cursor();
     }
 
     pub fn move_cursor_left(&mut self) {
-        if self.input_cursor == 0 {
-            return;
-        }
-        let prev = self.input[..self.input_cursor].char_indices().next_back();
-        if let Some((idx, _)) = prev {
-            self.input_cursor = idx;
-        }
+        self.input.move_cursor_left();
     }
 
     pub fn move_cursor_right(&mut self) {
-        if self.input_cursor >= self.input.len() {
-            return;
-        }
-        let next = self.input[self.input_cursor..].char_indices().nth(1);
-        if let Some((offset, _)) = next {
-            self.input_cursor += offset;
-        } else {
-            self.input_cursor = self.input.len();
-        }
+        self.input.move_cursor_right();
     }
 
+    #[allow(dead_code)]
     pub fn move_cursor_home(&mut self) {
-        self.input_cursor = 0;
+        self.input.move_cursor_home();
     }
 
+    #[allow(dead_code)]
     pub fn move_cursor_end(&mut self) {
-        self.input_cursor = self.input.len();
+        self.input.move_cursor_end();
     }
 
     /// Push text into input history (max 50 entries), reset history index.
     pub fn commit_input_to_history(&mut self, text: &str) {
-        if text.is_empty() {
-            return;
-        }
-        // Avoid duplicating consecutive identical inputs
-        if self.input_history.last().map(|s| s.as_str()) != Some(text) {
-            self.input_history.push(text.to_string());
-            if self.input_history.len() > 50 {
-                self.input_history.remove(0);
-            }
-        }
-        self.input_history_index = None;
+        self.input.commit_to_history(text);
         self.scroll_lines = 0;
     }
 
     /// Navigate up in input history: restore previous input.
     /// Returns the text to put in `input`, or None if already at start.
+    #[allow(dead_code)]
     pub fn navigate_history_up(&mut self) -> Option<String> {
-        if self.input_history.is_empty() {
-            return None;
-        }
-        let new_idx = match self.input_history_index {
-            Some(i) if i > 0 => i - 1,
-            None => self.input_history.len().saturating_sub(1),
-            _ => return None,
-        };
-        self.input_history_index = Some(new_idx);
-        Some(self.input_history[new_idx].clone())
+        self.input.navigate_up()
     }
 
     /// Navigate down in input history: go to next input, or clear if at end.
     /// Returns Some(text) to put in `input`, or None to clear.
+    #[allow(dead_code)]
     pub fn navigate_history_down(&mut self) -> Option<String> {
-        match self.input_history_index {
-            Some(i) if i + 1 < self.input_history.len() => {
-                self.input_history_index = Some(i + 1);
-                Some(self.input_history[i + 1].clone())
-            }
-            Some(_) => {
-                // Reached end of history, clear
-                self.input_history_index = None;
-                None
-            }
-            None => None,
-        }
+        self.input.navigate_down()
     }
 
     // =============================================
@@ -425,21 +463,18 @@ impl App {
         self.tool_call_count = 0;
         self.status_text.clear();
         self.token_usage = None;
-        self.input.clear();
-        self.input_cursor = 0;
-        self.input_history.clear();
-        self.input_history_index = None;
-        self.show_sidebar = false;
+        self.input = InputState::new();
+        self.overlay.show_sidebar = false;
         self.http_logs.clear();
-        self.sidebar_selected = 0;
-        self.sidebar_body_idx = None;
-        self.sidebar_body_scroll = 0;
+        self.overlay.sidebar_selected = 0;
+        self.overlay.sidebar_body_idx = None;
+        self.overlay.sidebar_body_scroll = 0;
         self.plan_steps.clear();
-        self.session_search.clear();
-        self.session_search_mode = false;
-        self.selected_message = None;
-        self.selection_mode = false;
-        self.tool_call_expanded.clear();
+        self.overlay.session_search.clear();
+        self.overlay.session_search_mode = false;
+        self.overlay.selected_message = None;
+        self.overlay.selection_mode = false;
+        self.overlay.tool_call_expanded.clear();
     }
 
     /// Ensure message_timestamps is in sync with messages after loading from session

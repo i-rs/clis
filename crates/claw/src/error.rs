@@ -61,3 +61,9 @@ impl From<std::io::Error> for ClawError {
         ClawError::Execution(format!("IO 错误: {}", e))
     }
 }
+
+impl From<anyhow::Error> for ClawError {
+    fn from(e: anyhow::Error) -> Self {
+        ClawError::Execution(format!("{}", e))
+    }
+}

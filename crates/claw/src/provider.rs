@@ -320,11 +320,7 @@ pub struct OpenaiProvider {
 }
 
 impl OpenaiProvider {
-    pub fn new(api_key: String, base_url: String, model: String) -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+    pub fn new(client: reqwest::Client, api_key: String, base_url: String, model: String) -> Self {
         Self { client, api_key, base_url, model }
     }
 }
@@ -372,11 +368,7 @@ pub struct OllamaProvider {
 }
 
 impl OllamaProvider {
-    pub fn new(model: String) -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+    pub fn new(client: reqwest::Client, model: String) -> Self {
         Self {
             client,
             base_url: "http://localhost:11434/v1".to_string(),
@@ -385,11 +377,7 @@ impl OllamaProvider {
     }
 
     #[allow(dead_code)]
-    pub fn with_url(base_url: String, model: String) -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+    pub fn with_url(client: reqwest::Client, base_url: String, model: String) -> Self {
         Self { client, base_url, model }
     }
 }
@@ -432,16 +420,13 @@ impl LlmProvider for OllamaProvider {
 pub struct AnthropicProvider {
     client: reqwest::Client,
     api_key: String,
+    base_url: String,
     model: String,
 }
 
 impl AnthropicProvider {
-    pub fn new(api_key: String, model: String) -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
-        Self { client, api_key, model }
+    pub fn new(client: reqwest::Client, api_key: String, base_url: String, model: String) -> Self {
+        Self { client, api_key, base_url, model }
     }
 }
 
@@ -702,7 +687,7 @@ impl LlmProvider for AnthropicProvider {
             ("x-api-key".to_string(), self.api_key.clone()),
             ("anthropic-version".to_string(), "2023-06-01".to_string()),
         ];
-        let response = send_with_retry(3, &self.client, "https://api.anthropic.com/v1/messages", &body, &headers).await?;
+        let response = send_with_retry(3, &self.client, &format!("{}/messages", self.base_url), &body, &headers).await?;
 
         let status = response.status().as_u16();
 
@@ -909,17 +894,24 @@ impl LlmProvider for AnthropicProvider {
 
 /// Create the appropriate provider based on configuration.
 pub fn create_provider(config: &crate::config::Config) -> Box<dyn LlmProvider> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     match ProviderKind::from_str(&config.provider) {
         ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
+            client.clone(),
             config.api_key.clone(),
             config.base_url.clone(),
             config.model.clone(),
         )),
         ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
+            client.clone(),
             config.api_key.clone(),
+            config.base_url.clone(),
             config.model.clone(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(config.model.clone())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(client, config.model.clone())),
     }
 }
 
@@ -930,16 +922,23 @@ pub fn create_provider_for(
     base_url: &str,
     model: &str,
 ) -> Box<dyn LlmProvider> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     match ProviderKind::from_str(provider_type) {
         ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
+            client.clone(),
             api_key.to_string(),
             base_url.to_string(),
             model.to_string(),
         )),
         ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
+            client.clone(),
             api_key.to_string(),
+            base_url.to_string(),
             model.to_string(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(model.to_string())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(client, model.to_string())),
     }
 }

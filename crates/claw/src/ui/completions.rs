@@ -10,17 +10,17 @@ use crate::app::App;
 use super::input;
 
 pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
-    if app.tab_completions.is_empty() {
+    if app.overlay.tab_completions.is_empty() {
         return;
     }
 
-    let count = app.tab_completions.len();
+    let count = app.overlay.tab_completions.len();
     let popup_height = (count as u16).min(12).saturating_add(2); // header + footer
     let popup_width = (area.width as f32 * 0.45) as u16;
     let popup_x = area.x + 2;
     let popup_y = area.bottom().saturating_sub(
         1  // status bar
-        + input::input_height(&app.input)
+        + input::input_height(&app.input.text)
         + 1  // processing
         + popup_height
         + 2
@@ -28,7 +28,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
 
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    let idx = app.tab_completion_index;
+    let idx = app.overlay.tab_completion_index;
     let theme_primary = app.config.theme.primary();
 
     let mut items: Vec<ListItem> = Vec::new();
@@ -47,7 +47,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(Color::DarkGray),
     ))]));
 
-    for (i, completion) in app.tab_completions.iter().enumerate() {
+    for (i, completion) in app.overlay.tab_completions.iter().enumerate() {
         if i >= 12 {
             let remaining = count - 12;
             items.push(ListItem::new(vec![Line::from(Span::styled(

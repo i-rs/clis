@@ -45,7 +45,7 @@ pub fn render(f: &mut Frame, app: &App) {
 
     constraints.extend(vec![
         Constraint::Length(processing_height),
-        Constraint::Length(input::input_height(&app.input)),
+        Constraint::Length(input::input_height(&app.input.text)),
         Constraint::Length(1),
     ]);
 
@@ -57,7 +57,7 @@ pub fn render(f: &mut Frame, app: &App) {
     let mut idx = 0;
     title::render_title(f, layout[idx], app);
     idx += 1;
-    if app.show_sidebar && !app.is_processing() {
+    if app.overlay.show_sidebar && !app.is_processing() {
         let chat_side = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -81,26 +81,26 @@ pub fn render(f: &mut Frame, app: &App) {
     idx += 1;
     status::render_status(f, layout[idx], app);
 
-    if app.show_session_list {
+    if app.overlay.show_session_list {
         panels::render_backdrop(f, area);
         sidebar::render_session_list(f, area, app);
     }
 
-    if app.show_agent_picker {
+    if app.overlay.show_agent_picker {
         panels::render_backdrop(f, area);
         sidebar::render_agent_picker(f, area, app);
     }
 
-    if app.show_help {
+    if app.overlay.show_help {
         panels::render_backdrop(f, area);
         panels::render_help_panel(f, area);
     }
 
-    if !app.tab_completions.is_empty() {
+    if !app.overlay.tab_completions.is_empty() {
         completions::render_completions(f, area, app);
     }
 
-    if let Some(idx) = app.sidebar_body_idx
+    if let Some(idx) = app.overlay.sidebar_body_idx
         && let Some(log) = app.http_logs.get(idx) {
             sidebar::render_request_body(
                 f,
@@ -108,7 +108,7 @@ pub fn render(f: &mut Frame, app: &App) {
                 &log.request_body,
                 idx,
                 app.http_logs.len(),
-                app.sidebar_body_scroll,
+                app.overlay.sidebar_body_scroll,
             );
         }
 }

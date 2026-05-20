@@ -10,7 +10,20 @@ use axum::{
 use serde::Serialize;
 use serde_json::Value;
 use std::convert::Infallible;
+use std::sync::Arc;
 use tokio::sync::mpsc;
+
+/// Lock the core mutex safely, returning early with an error on poison.
+/// Use this in handler functions that return `Json<ApiResponse<...>>`.
+macro_rules! lock_core {
+    ($state:expr) => {{
+        let guard = $state.core.lock();
+        match guard {
+            Ok(g) => g,
+            Err(_) => return ApiResponse::err("内部错误: 状态锁已损坏"),
+        }
+    }};
+}
 
 // ── Response helpers ──
 
@@ -48,7 +61,7 @@ pub async fn health() -> Json<ApiResponse<&'static str>> {
 
 /// Get current configuration (sanitized, no API keys).
 pub async fn get_config(State(state): State<AppState>) -> Json<ApiResponse<Value>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let sanitized = serde_json::json!({
         "provider": core.config.provider,
         "model": core.config.model,
@@ -78,7 +91,7 @@ pub async fn send_message(
         .unwrap_or("default")
         .to_string();
 
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
 
     // Create or get a session
     let session_id = core
@@ -193,12 +206,18 @@ async fn dashboard_chat_loop(
 
     // Build ToolContext for tool execution
     let tool_ctx = {
-        let core = state.core.lock().unwrap();
+        let Ok(core) = state.core.lock() else {
+            tracing::error!("Dashboard: 状态锁已损坏");
+            return;
+        };
         crate::tools::ToolContext {
             config: core.config.clone(),
             mcp: mcp.clone(),
         }
     };
+
+    // Create shared ToolCallExecutor
+    let executor = crate::core::executor::ToolCallExecutor::new(tool_ctx, mcp.clone(), skills.clone());
 
     // Build tool schemas (same as chat_stream did before spawning)
     let tool_schemas = {
@@ -240,10 +259,16 @@ async fn dashboard_chat_loop(
                         "content": text,
                     }));
                 }
-                let _ = tx.send(LlmEvent::Done(msgs.clone(), usage));
+                let _ = tx.send(LlmEvent::Done(Arc::new(msgs.clone()), usage));
 
                 // Save to session
-                let mut core = state.core.lock().unwrap();
+                let mut core = match state.core.lock() {
+                    Ok(c) => c,
+                    Err(_) => {
+                        tracing::error!("Dashboard: 状态锁已损坏");
+                        break;
+                    }
+                };
                 core.session_mgr.append_message("assistant", &text, None);
                 core.session_mgr.save_api_messages(&session_id, &msgs);
                 break;
@@ -274,52 +299,18 @@ async fn dashboard_chat_loop(
                 }
                 msgs.push(assistant_msg);
 
-                // Parallel execute all tool calls
+                // Parallel execute all tool calls via ToolCallExecutor
                 let total = calls.len();
                 let _ = tx.send(LlmEvent::Status(format!("⚡ 执行 {} 个工具...", total)));
 
-                let mut handles = Vec::new();
-                for (step, (tc, args)) in calls.into_iter().enumerate() {
-                    let tx = tx.clone();
-                    let tc_name = tc.name.clone();
-                    let args_str = serde_json::to_string(&args).unwrap_or_default();
-                    let args_for_blocking = args.clone();
-                    let mcp_for_exec = mcp.clone();
-                    let ctx_for_spawn = tool_ctx.clone();
-                    let skills_for_spawn = skills.clone();
-                    handles.push(tokio::spawn(async move {
-                        let skills_for_blocking = skills_for_spawn;
-                        let result = tokio::task::spawn_blocking(move || {
-                            execute_tool_call(&tc_name, &args_for_blocking, &skills_for_blocking, Some(&mcp_for_exec), &ctx_for_spawn)
-                        })
-                        .await
-                        .unwrap_or_else(|e| format!("错误: 内部错误: {}", e));
-
-                        let _ = tx.send(LlmEvent::ToolExecuted {
-                            name: tc.name.clone(),
-                            args: args_str,
-                            result: smart_truncate(&result, 200),
-                            step,
-                            total_steps: total,
-                        });
-
-                        (tc, args, result)
-                    }));
-                }
-
-                let mut all_results: Vec<(crate::llm::ToolCallAcc, Value, String)> = Vec::new();
-                for handle in handles {
-                    if let Ok(r) = handle.await {
-                        all_results.push(r);
-                    }
-                }
+                let all_results = executor.execute(calls, &tx).await;
 
                 // Push tool results to messages
-                for (tc, _args, result) in &all_results {
+                for result in &all_results {
                     msgs.push(serde_json::json!({
                         "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": smart_truncate(result, 500),
+                        "tool_call_id": result.call.id,
+                        "content": smart_truncate(&result.result, 500),
                     }));
                 }
                 // Continue loop: send tool results back to LLM
@@ -332,7 +323,13 @@ async fn dashboard_chat_loop(
     }
 
     // Attempt to sync app messages to JSONL after the full loop
-    let core = state.core.lock().unwrap();
+    let core = match state.core.lock() {
+        Ok(c) => c,
+        Err(_) => {
+            tracing::error!("Dashboard: 状态锁已损坏");
+            return;
+        }
+    };
     if let Some(api_msgs) = core.session_mgr.load_api_messages(&session_id) {
         // Convert API msgs to JSONL records, preserving tool call info
         let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
@@ -409,9 +406,12 @@ async fn dashboard_chat_loop(
 pub async fn chat_stream(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
     let (msgs, provider, sid, enabled_tools, mcp, skills) = {
-        let mut core = state.core.lock().unwrap();
+        let mut core = match state.core.lock() {
+            Ok(guard) => guard,
+            Err(_) => return ApiResponse::<()>::err("内部错误: 状态锁已损坏").into_response(),
+        };
         core.session_mgr.switch_to(&session_id);
 
         // Read agent_id from session meta, defaulting to "default"
@@ -501,14 +501,14 @@ pub async fn chat_stream(
     }
     });
 
-    Sse::new(stream)
+    Sse::new(stream).into_response()
 }
 
 /// Get current session info.
 pub async fn get_current_session(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Value>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let id = core.session_mgr.current_id().map(|s| s.to_string());
     match id {
         Some(ref sid) => {
@@ -557,7 +557,7 @@ pub async fn create_session(
         .and_then(|v| v.as_str())
         .unwrap_or("default");
 
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
     let id = core.session_mgr.create_session_for(agent_id);
     ApiResponse::ok(serde_json::json!({
         "id": id,
@@ -572,7 +572,7 @@ pub async fn switch_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
     if core.session_mgr.switch_to(&id) {
         let meta = core.session_mgr.session_meta(&id);
         ApiResponse::ok(serde_json::json!({
@@ -590,7 +590,7 @@ pub async fn switch_session(
 pub async fn list_sessions(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let sessions: Vec<Value> = core
         .session_mgr
         .sessions()
@@ -613,7 +613,7 @@ pub async fn get_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let messages = core.session_mgr.load_app_messages(&id, 100);
     let msgs: Vec<Value> = messages
         .iter()
@@ -646,7 +646,7 @@ pub async fn delete_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<&'static str>> {
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
     core.session_mgr.delete_session(&id);
     drop(core);
     ApiResponse::ok("deleted")
@@ -656,7 +656,7 @@ pub async fn delete_session(
 pub async fn get_agents(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let agent_ids = core.config.all_agent_ids();
     let agents: Vec<Value> = agent_ids
         .iter()
@@ -685,7 +685,7 @@ pub async fn get_agent_detail(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let resolved = core.config.agent_config(&id);
     let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
     ApiResponse::ok(serde_json::json!({
@@ -711,7 +711,7 @@ pub async fn update_agent(
         return ApiResponse::err("Cannot update the default agent");
     }
 
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
 
     // Get existing agent config
     let existing = match core.config.agents.get(&id) {
@@ -764,7 +764,7 @@ pub async fn create_agent(
         _ => return ApiResponse::err("Missing or invalid 'id' field"),
     };
 
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
 
     // Check if agent already exists
     if core.config.agents.contains_key(&agent_id) {
@@ -824,7 +824,7 @@ pub async fn delete_agent(
         return ApiResponse::err("Cannot delete the default agent");
     }
 
-    let mut core = state.core.lock().unwrap();
+    let mut core = lock_core!(state);
 
     // Remove from config
     if let Err(e) = core.config.remove_agent(&id) {
@@ -849,7 +849,7 @@ pub async fn delete_agent(
 pub async fn list_tools(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let enabled = if core.config.enabled_tools.is_empty() {
         None
     } else {
@@ -884,7 +884,7 @@ pub async fn list_plugins(
 pub async fn list_skills(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<crate::skill_store::SkillDefinition>>> {
-    let core = state.core.lock().unwrap();
+    let core = lock_core!(state);
     let store = core.agent_store.skill_store_for("default");
     let entries = store.list_skills();
     let skills: Vec<crate::skill_store::SkillDefinition> = entries

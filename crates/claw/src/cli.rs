@@ -10,6 +10,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::Terminal;
 use std::io::{self, Write};
+use std::sync::Arc;
 
 // =============================================
 // Interactive Config Wizard
@@ -732,7 +733,8 @@ pub fn run_mcp_check(name: &str) -> anyhow::Result<()> {
             }
 
             // Try to connect
-            match crate::mcp::McpClient::connect(server) {
+            let rt = Arc::new(tokio::runtime::Runtime::new()?);
+            match crate::mcp::McpClient::connect(server, &rt) {
                 Ok(client) => {
                     match client.initialize() {
                         Ok(()) => println!("  ✓ 初始化成功"),

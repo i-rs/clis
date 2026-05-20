@@ -385,7 +385,7 @@ fn message_line_count(
             ..
         } => {
             // Collapsed: only header + optional explanation
-            if !app.tool_call_expanded.contains(&msg_index) {
+            if !app.overlay.tool_call_expanded.contains(&msg_index) {
                 let mut lines = 1; // header
                 // optional explanation line
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
@@ -594,7 +594,7 @@ fn build_message_item(
     msg_index: usize,
     format_cache: &std::collections::HashMap<usize, Vec<Line<'static>>>,
 ) -> ListItem<'static> {
-    let is_selected = app.selection_mode && app.selected_message == Some(msg_index);
+    let is_selected = app.overlay.selection_mode && app.overlay.selected_message == Some(msg_index);
 
     match msg {
         Message::User { text } => {
@@ -672,7 +672,7 @@ fn build_message_item(
             total_steps,
         } => {
             let mut lines = Vec::new();
-            let is_expanded = app.tool_call_expanded.contains(&msg_index);
+            let is_expanded = app.overlay.tool_call_expanded.contains(&msg_index);
 
             // Build step prefix for multi-call progress
             let step_prefix = if *total_steps > 1 {

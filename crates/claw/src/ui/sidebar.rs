@@ -38,7 +38,7 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
             break;
         }
 
-        let is_selected = i == app.sidebar_selected;
+        let is_selected = i == app.overlay.sidebar_selected;
         let select_prefix = if is_selected { " ▶" } else { "  " };
         let select_fg = if is_selected {
             Color::Cyan
@@ -149,11 +149,11 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
     // Filter sessions by search text
-    let q = app.session_search.to_lowercase();
+    let q = app.overlay.session_search.to_lowercase();
     let filtered: Vec<&crate::session::SessionMeta> = if q.is_empty() {
-        app.session_list.iter().collect()
+        app.overlay.session_list.iter().collect()
     } else {
-        app.session_list
+        app.overlay.session_list
             .iter()
             .filter(|s| s.title.to_lowercase().contains(&q))
             .collect()
@@ -165,11 +165,11 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     let mut items: Vec<ListItem> = Vec::new();
 
     // Header with optional search bar
-    let search_display = if app.session_search_mode {
-        let search_line = if app.session_search.is_empty() {
+    let search_display = if app.overlay.session_search_mode {
+        let search_line = if app.overlay.session_search.is_empty() {
             " 🔍 输入搜索关键词…".to_string()
         } else {
-            format!(" 🔍 {}", app.session_search)
+            format!(" 🔍 {}", app.overlay.session_search)
         };
         items.push(ListItem::new(vec![
             Line::from(Span::styled(
@@ -208,7 +208,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         ))]));
     } else {
         for (i, session) in filtered.iter().enumerate() {
-            let selected = i == app.session_list_index;
+            let selected = i == app.overlay.session_list_index;
             let prefix = if selected { " ▶ " } else { "    " };
             let style = if selected {
                 Style::default()
@@ -238,7 +238,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     }
 
     // Rename input field
-    if !app.session_rename_buf.is_empty() {
+    if !app.overlay.session_rename_buf.is_empty() {
         items.push(ListItem::new(vec![Line::from(Span::styled(
             " ────────────────────────────────────────",
             Style::default().fg(Color::DarkGray),
@@ -251,7 +251,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
-                app.session_rename_buf.clone(),
+                app.overlay.session_rename_buf.clone(),
                 Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
@@ -262,7 +262,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
     }
 
     // Delete confirmation
-    if app.session_confirm_delete {
+    if app.overlay.session_confirm_delete {
         items.push(ListItem::new(vec![Line::from(Span::styled(
             " ────────────────────────────────────────",
             Style::default().fg(Color::DarkGray),
@@ -279,13 +279,13 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(Color::DarkGray),
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
-        if app.session_confirm_delete {
+        if app.overlay.session_confirm_delete {
             " 确认删除? (y/n)"
-        } else if !app.session_rename_buf.is_empty() {
+        } else if !app.overlay.session_rename_buf.is_empty() {
             " 输入新名称  Enter 确认  Esc 取消"
-        } else if empty && !app.session_search_mode {
+        } else if empty && !app.overlay.session_search_mode {
             " Ctrl+N 新建会话  Ctrl+L 关闭"
-        } else if app.session_search_mode {
+        } else if app.overlay.session_search_mode {
             " 输入搜索  Esc 关闭搜索  Enter 切换"
         } else {
             " ↑↓ 选择  Enter 切换  / 搜索  Ctrl+R 重命名  Ctrl+D 删除  Ctrl+N 新建  Ctrl+L 关闭"
@@ -305,7 +305,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
 /// Centered overlay showing the agent picker.
 pub(super) fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
     let popup_width = 40u16.min(area.width.saturating_sub(4));
-    let popup_height = (app.agent_list.len() as u16 + 3).min(area.height.saturating_sub(4));
+    let popup_height = (app.overlay.agent_list.len() as u16 + 3).min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
     let popup_y = (area.height - popup_height) / 2;
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
@@ -314,8 +314,8 @@ pub(super) fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
 
     let mut items: Vec<ListItem> = Vec::new();
 
-    for (i, agent_id) in app.agent_list.iter().enumerate() {
-        let is_selected = i == app.agent_picker_index;
+    for (i, agent_id) in app.overlay.agent_list.iter().enumerate() {
+        let is_selected = i == app.overlay.agent_picker_index;
         let is_current = *agent_id == app.current_agent;
         let prefix = if is_selected { " ▶ " } else { "    " };
         let suffix = if is_current { " ◀ 当前" } else { "" };

@@ -1,6 +1,7 @@
 use crate::stats::TokenRecord;
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct TokenUsage {
@@ -32,7 +33,7 @@ pub enum LlmEvent {
     /// An error occurred
     Error(String),
     /// All responses complete, carries final API message list and optional token usage
-    Done(Vec<Value>, Option<TokenUsage>),
+    Done(Arc<Vec<Value>>, Option<TokenUsage>),
     /// HTTP request log for debug sidebar
     HttpLog {
         status: u16,

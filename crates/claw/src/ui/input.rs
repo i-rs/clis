@@ -30,7 +30,7 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(if app.is_processing() {
             Color::DarkGray
-        } else if app.input.is_empty() {
+        } else if app.input.text.is_empty() {
             Color::Rgb(80, 80, 100)
         } else {
             Color::Cyan
@@ -40,10 +40,10 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
 
     let lines: Vec<Line> = if app.is_processing() {
         vec![Line::from(Span::styled(
-            format!("{}{}", prefix, app.input),
+            format!("{}{}", prefix, app.input.text),
             Style::default().fg(Color::DarkGray),
         ))]
-    } else if app.input.is_empty() {
+    } else if app.input.text.is_empty() {
         vec![
             Line::from(Span::styled(
                 format!("{}输入消息...", prefix),
@@ -55,7 +55,7 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
             )),
         ]
     } else {
-        let mut result: Vec<Line> = app.input.lines().enumerate().map(|(i, line)| {
+        let mut result: Vec<Line> = app.input.text.lines().enumerate().map(|(i, line)| {
             let p = if i == 0 { prefix } else { "  " };
             Line::from(Span::styled(
                 format!("{}{}", p, line),
@@ -74,8 +74,8 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(input_widget, area);
 
     // Set cursor position (only when not processing)
-    if !app.is_processing() && !app.input.is_empty() {
-        let input_before = &app.input[..app.input_cursor];
+    if !app.is_processing() && !app.input.text.is_empty() {
+        let input_before = &app.input.text[..app.input.cursor];
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
         let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);

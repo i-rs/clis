@@ -1,5 +1,6 @@
 pub mod context;
 pub mod engine;
+pub mod executor;
 
 use crate::app::Message;
 use crate::config::Config;
@@ -14,92 +15,104 @@ use std::collections::HashMap;
 use std::path::Path;
 use tokio::sync::mpsc;
 
+/// Runtime data for a single agent.
+pub struct AgentRuntime {
+    pub memory: CrossSessionMemory,
+    pub tool_cache: ToolDocCache,
+    pub skill_store: SkillStore,
+    pub mcp_registry: McpRegistry,
+}
+
+impl AgentRuntime {
+    fn new(config: &Config, claw_dir: &std::path::Path, agent_id: &str) -> Self {
+        let resolved = config.agent_config(agent_id);
+        Self {
+            memory: CrossSessionMemory::for_agent(claw_dir, agent_id),
+            tool_cache: ToolDocCache::for_agent(claw_dir, agent_id),
+            skill_store: SkillStore::for_agent(claw_dir, agent_id),
+            mcp_registry: McpRegistry::for_agent(&resolved, &config.mcp_servers),
+        }
+    }
+
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    fn refresh_mcp(&mut self, config: &Config, agent_id: &str) {
+        let resolved = config.agent_config(agent_id);
+        self.mcp_registry = McpRegistry::for_agent(&resolved, &config.mcp_servers);
+    }
+}
+
 /// Central storage for per-agent runtime data.
 /// Each agent gets its own memory, tool cache, skill store, and MCP registry.
 pub struct AgentRuntimeStore {
-    memories: HashMap<String, CrossSessionMemory>,
-    tool_caches: HashMap<String, ToolDocCache>,
-    skill_stores: HashMap<String, SkillStore>,
-    mcp_registries: HashMap<String, McpRegistry>,
+    runtimes: HashMap<String, AgentRuntime>,
 }
 
 impl AgentRuntimeStore {
-    pub fn new(config: &Config, claw_dir: &Path) -> Self {
+    pub fn new(config: &Config, claw_dir: &std::path::Path) -> Self {
         let agent_ids = config.all_agent_ids();
-        let mut store = Self {
-            memories: HashMap::new(),
-            tool_caches: HashMap::new(),
-            skill_stores: HashMap::new(),
-            mcp_registries: HashMap::new(),
-        };
+        let mut runtimes = HashMap::new();
         for id in &agent_ids {
-            store.memories.insert(id.clone(), CrossSessionMemory::for_agent(claw_dir, id));
-            store.tool_caches.insert(id.clone(), ToolDocCache::for_agent(claw_dir, id));
-            store.skill_stores.insert(id.clone(), SkillStore::for_agent(claw_dir, id));
-            let resolved = config.agent_config(id);
-            store.mcp_registries.insert(id.clone(), McpRegistry::for_agent(&resolved, &config.mcp_servers));
+            runtimes.insert(id.clone(), AgentRuntime::new(config, claw_dir, id));
         }
-        store
+        Self { runtimes }
     }
 
-    pub fn memory_for(&self, agent_id: &str) -> &CrossSessionMemory {
-        self.memories.get(agent_id).unwrap_or_else(|| {
-            self.memories.get("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
+    fn get(&self, agent_id: &str) -> &AgentRuntime {
+        self.runtimes.get(agent_id).unwrap_or_else(|| {
+            self.runtimes.get("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
         })
     }
 
-    pub fn memory_for_mut(&mut self, agent_id: &str) -> &mut CrossSessionMemory {
-        if self.memories.contains_key(agent_id) {
-            self.memories.get_mut(agent_id).expect("AgentRuntimeStore: agent just checked not found, this is a bug")
+    fn get_mut(&mut self, agent_id: &str) -> &mut AgentRuntime {
+        if self.runtimes.contains_key(agent_id) {
+            self.runtimes.get_mut(agent_id).expect("bug: agent just checked not found")
         } else {
-            self.memories.get_mut("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
+            self.runtimes.get_mut("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
         }
     }
 
+    pub fn memory_for(&self, agent_id: &str) -> &CrossSessionMemory {
+        &self.get(agent_id).memory
+    }
+
+    pub fn memory_for_mut(&mut self, agent_id: &str) -> &mut CrossSessionMemory {
+        &mut self.get_mut(agent_id).memory
+    }
+
     pub fn tool_cache_for(&self, agent_id: &str) -> &ToolDocCache {
-        self.tool_caches.get(agent_id).unwrap_or_else(|| &self.tool_caches["default"])
+        &self.get(agent_id).tool_cache
     }
 
     pub fn skill_store_for(&self, agent_id: &str) -> &SkillStore {
-        self.skill_stores.get(agent_id).unwrap_or_else(|| &self.skill_stores["default"])
+        &self.get(agent_id).skill_store
     }
 
     pub fn mcp_registry_for(&self, agent_id: &str) -> &McpRegistry {
-        self.mcp_registries.get(agent_id).unwrap_or_else(|| &self.mcp_registries["default"])
+        &self.get(agent_id).mcp_registry
     }
 
     /// Refresh MCP registries for all agents (e.g. after plugin discovery).
-    /// Re-loads MCP connections from current config.
     #[allow(dead_code)]
     pub fn refresh_mcp_registries(&mut self, config: &Config) {
-        let agent_ids: Vec<String> = self.mcp_registries.keys().cloned().collect();
+        let agent_ids: Vec<String> = self.runtimes.keys().cloned().collect();
         for id in agent_ids {
-            let resolved = config.agent_config(&id);
-            self.mcp_registries.insert(
-                id,
-                McpRegistry::for_agent(&resolved, &config.mcp_servers),
-            );
+            if let Some(runtime) = self.runtimes.get_mut(&id) {
+                runtime.refresh_mcp(config, &id);
+            }
         }
     }
 
     /// Initialize runtime data for a new agent.
-    /// Called after adding an agent to config.
     #[allow(dead_code)]
-    pub fn add_agent(&mut self, config: &Config, claw_dir: &Path, agent_id: &str) {
-        let resolved = config.agent_config(agent_id);
-        self.memories.insert(agent_id.to_string(), CrossSessionMemory::for_agent(claw_dir, agent_id));
-        self.tool_caches.insert(agent_id.to_string(), ToolDocCache::for_agent(claw_dir, agent_id));
-        self.skill_stores.insert(agent_id.to_string(), SkillStore::for_agent(claw_dir, agent_id));
-        self.mcp_registries.insert(agent_id.to_string(), McpRegistry::for_agent(&resolved, &config.mcp_servers));
+    pub fn add_agent(&mut self, config: &Config, claw_dir: &std::path::Path, agent_id: &str) {
+        self.runtimes.insert(agent_id.to_string(), AgentRuntime::new(config, claw_dir, agent_id));
     }
 
     /// Remove runtime data for an agent.
     #[allow(dead_code)]
     pub fn remove_agent(&mut self, agent_id: &str) {
-        self.memories.remove(agent_id);
-        self.tool_caches.remove(agent_id);
-        self.skill_stores.remove(agent_id);
-        self.mcp_registries.remove(agent_id);
+        self.runtimes.remove(agent_id);
     }
 }
 
@@ -219,23 +232,23 @@ impl AppCore {
 
         let memory = self.agent_store.memory_for(agent_id);
 
-        engine::build_messages(
+        engine::build_messages(engine::MessageBuildParams {
             app_messages,
             user_text,
             saved_api_messages,
-            memory.tool_frequency(),
-            &tool_index,
-            &self.agent_store.tool_cache_for(agent_id).format_hot_tools(
+            tool_frequency: memory.tool_frequency(),
+            tool_index: &tool_index,
+            hot_tools: &self.agent_store.tool_cache_for(agent_id).format_hot_tools(
                 &memory.tool_frequency().keys().cloned().collect::<Vec<_>>(),
             ),
-            &self.agent_store.skill_store_for(agent_id).format_skills(),
-            &memory.format_user_memory(),
-            &memory.format_user_profile(),
+            skills: &self.agent_store.skill_store_for(agent_id).format_skills(),
+            user_memory: &memory.format_user_memory(),
+            user_profile: &memory.format_user_profile(),
             reminder_text,
-            resolved.system_prompt.as_deref(),
-            self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
-            self.config.max_conversation_turns,
-        )
+            system_prompt_override: resolved.system_prompt.as_deref(),
+            plan_then_execute: self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+            max_conversation_turns: self.config.max_conversation_turns,
+        })
     }
 
     /// Spawn the LLM chat loop in a background task.

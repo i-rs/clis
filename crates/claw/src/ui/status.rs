@@ -11,7 +11,7 @@ use crate::app::App;
 pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let bg = if app.is_processing() {
         Color::Blue
-    } else if app.selection_mode {
+    } else if app.overlay.selection_mode {
         Color::Rgb(40, 30, 10)
     } else {
         app.config.theme.background()
@@ -27,7 +27,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let mut spans: Vec<Span> = Vec::new();
 
     // Copy feedback (transient, highest priority)
-    if let Some(fb) = &app.copy_feedback {
+    if let Some(fb) = &app.overlay.copy_feedback {
         spans.push(Span::styled(
             format!(" {} ", fb),
             Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
@@ -38,7 +38,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
     }
 
-    if app.selection_mode {
+    if app.overlay.selection_mode {
         // Selection mode indicator
         spans.push(Span::styled(
             " ● [选择模式] ".to_string(),
@@ -131,7 +131,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             "Ctrl+N  ",
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
-        if !app.show_sidebar && !app.http_logs.is_empty() {
+        if !app.overlay.show_sidebar && !app.http_logs.is_empty() {
                 spans.push(Span::styled(
                     "Ctrl+R  ",
                     Style::default().fg(Color::Rgb(140, 140, 160)),

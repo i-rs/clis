@@ -74,6 +74,9 @@ pub struct McpToolDefinition {
 ///
 /// Thread-safe via internal Arc. Automatically handles the full MCP lifecycle:
 /// initialize handshake, initialized notification, and graceful shutdown.
+///
+/// Uses a shared tokio runtime passed from McpRegistry to avoid per-connection
+/// runtime creation (see review C-4).
 #[derive(Debug, Clone)]
 pub struct McpClient {
     pub name: String,
@@ -81,19 +84,22 @@ pub struct McpClient {
     service: Arc<RunningService<RoleClient, ()>>,
 }
 
+impl Drop for McpClient {
+    fn drop(&mut self) {
+        // Graceful shutdown is handled by rmcp when RunningService is dropped.
+        // The shared runtime remains alive (owned by McpRegistry).
+    }
+}
+
 impl McpClient {
-    /// Connect to an MCP server via stdio subprocess.
-    pub fn connect(config: &McpServerConfig) -> Result<Self, String> {
+    /// Connect to an MCP server via stdio subprocess, using a shared tokio runtime.
+    pub fn connect(config: &McpServerConfig, rt: &Arc<tokio::runtime::Runtime>) -> Result<Self, String> {
         let command = config
             .command
             .as_deref()
             .ok_or_else(|| "MCP 服务器缺少 command 配置".to_string())?;
         let args = config.args.as_deref().unwrap_or(&[]);
         let env_vars = config.env.as_deref().unwrap_or(&[]);
-
-        // Create a tokio runtime for this connection
-        let rt =
-            tokio::runtime::Runtime::new().map_err(|e| format!("创建 MCP 运行时失败: {}", e))?;
 
         let service = rt.block_on(async {
             let mut cmd = Command::new(command);
@@ -113,20 +119,17 @@ impl McpClient {
 
         Ok(Self {
             name: config.name.clone(),
-            rt: Arc::new(rt),
+            rt: rt.clone(),
             service: Arc::new(service),
         })
     }
 
-    /// Connect to an MCP server via Streamable HTTP (SSE) transport.
-    pub fn connect_sse(config: &McpServerConfig) -> Result<Self, String> {
+    /// Connect to an MCP server via Streamable HTTP (SSE) transport, using a shared tokio runtime.
+    pub fn connect_sse(config: &McpServerConfig, rt: &Arc<tokio::runtime::Runtime>) -> Result<Self, String> {
         let url = config
             .url
             .as_deref()
             .ok_or_else(|| "SSE MCP 服务器缺少 url 配置".to_string())?;
-
-        let rt =
-            tokio::runtime::Runtime::new().map_err(|e| format!("创建 MCP 运行时失败: {}", e))?;
 
         let service = rt.block_on(async {
             let transport = StreamableHttpClientTransport::from_uri(url.to_string());
@@ -138,7 +141,7 @@ impl McpClient {
 
         Ok(Self {
             name: config.name.clone(),
-            rt: Arc::new(rt),
+            rt: rt.clone(),
             service: Arc::new(service),
         })
     }
@@ -221,12 +224,18 @@ fn mcp_service_err(e: ServiceError) -> String {
 // ── McpRegistry ──
 
 /// Registry managing all MCP server connections.
+///
+/// Creates a single shared tokio runtime for all connected MCP clients,
+/// eliminating the per-connection runtime anti-pattern (see review C-4).
 #[derive(Debug, Clone)]
 pub struct McpRegistry {
     /// All connected MCP clients.
     pub clients: Vec<McpClient>,
     /// All discovered tools (flattened across all servers).
     pub tools: Vec<(usize, McpToolDefinition)>, // (client_index, tool_def)
+    /// Shared tokio runtime for all MCP connections.
+    #[allow(dead_code)]
+    rt: Arc<tokio::runtime::Runtime>,
 }
 
 impl McpRegistry {
@@ -246,7 +255,12 @@ impl McpRegistry {
 
     /// Initialize MCP connections from config.
     /// Failed connections are logged but don't block startup.
+    /// All MCP clients share a single tokio runtime.
     pub fn new(servers: &[McpServerConfig]) -> Self {
+        let rt = Arc::new(
+            tokio::runtime::Runtime::new()
+                .expect("创建 MCP 共享运行时失败"),
+        );
         let mut clients = Vec::new();
         let mut tools = Vec::new();
 
@@ -258,14 +272,14 @@ impl McpRegistry {
 
             // Dispatch based on transport type
             let client = match server.transport_type.as_str() {
-                "stdio" => match McpClient::connect(server) {
+                "stdio" => match McpClient::connect(server, &rt) {
                     Ok(c) => c,
                     Err(e) => {
                         tracing::warn!("MCP 连接失败 '{}': {}", server.name, e);
                         continue;
                     }
                 },
-                "sse" => match McpClient::connect_sse(server) {
+                "sse" => match McpClient::connect_sse(server, &rt) {
                     Ok(c) => c,
                     Err(e) => {
                         tracing::warn!("MCP SSE 连接失败 '{}': {}", server.name, e);
@@ -280,9 +294,6 @@ impl McpRegistry {
                     continue;
                 }
             };
-
-            // Note: rmcp's serve() already handles initialize + initialized handshake.
-            // The initialize() call on the client is a no-op for API compatibility.
 
             match client.list_tools() {
                 Ok(tool_defs) => {
@@ -306,7 +317,7 @@ impl McpRegistry {
             );
         }
 
-        Self { clients, tools }
+        Self { clients, tools, rt }
     }
 
     /// Get the number of discovered MCP tools.
