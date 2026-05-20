@@ -129,3 +129,65 @@ pub fn search(query: &str) -> String {
 
     results.join("\n")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_tool_enabled_no_filter() {
+        assert!(is_tool_enabled("weight", None), "无过滤时所有工具应启用");
+        assert!(is_tool_enabled("anything", None));
+    }
+
+    #[test]
+    fn test_is_tool_enabled_empty_set() {
+        let set = HashSet::new();
+        assert!(
+            is_tool_enabled("weight", Some(&set)),
+            "空集合应表示启用所有工具"
+        );
+    }
+
+    #[test]
+    fn test_is_tool_enabled_in_set() {
+        let mut set = HashSet::new();
+        set.insert("weight".to_string());
+        assert!(is_tool_enabled("weight", Some(&set)));
+        assert!(!is_tool_enabled("mood", Some(&set)), "mood 不在启用集合中");
+    }
+
+    #[test]
+    fn test_search_found() {
+        let result = search("体重");
+        assert!(result.contains("weight"), "搜索'体重'应找到 weight");
+    }
+
+    #[test]
+    fn test_search_not_found() {
+        let result = search("zzz_nonexistent_zzz");
+        assert!(result.contains("没有找到"));
+    }
+
+    #[test]
+    fn test_format_index_all() {
+        let result = format_index(None);
+        assert!(result.contains("weight"));
+        assert!(result.contains("健康管理"));
+        assert!(result.contains("工具索引"));
+    }
+
+    #[test]
+    fn test_format_index_filtered() {
+        let mut set = HashSet::new();
+        set.insert("weight".to_string());
+        let result = format_index(Some(&set));
+        assert!(result.contains("weight"));
+        assert!(!result.contains("mood"), "mood 被过滤不应出现");
+    }
+
+    #[test]
+    fn test_too_index_const_entries() {
+        assert!(TOOL_INDEX.len() > 50, "应有至少 50 个工具索引条目");
+    }
+}

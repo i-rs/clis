@@ -24,12 +24,20 @@ pub struct AgentRuntime {
 }
 
 impl AgentRuntime {
-    fn new(config: &Config, claw_dir: &std::path::Path, agent_id: &str) -> Self {
+    fn new(
+        #[cfg_attr(test, allow(unused_variables))] config: &Config,
+        claw_dir: &std::path::Path,
+        agent_id: &str,
+    ) -> Self {
+        #[cfg(not(test))]
         let resolved = config.agent_config(agent_id);
         Self {
             memory: CrossSessionMemory::for_agent(claw_dir, agent_id),
             tool_cache: ToolDocCache::for_agent(claw_dir, agent_id),
             skill_store: SkillStore::for_agent(claw_dir, agent_id),
+            #[cfg(test)]
+            mcp_registry: crate::mcp::McpRegistry::empty_for_test(),
+            #[cfg(not(test))]
             mcp_registry: McpRegistry::for_agent(&resolved, &config.mcp_servers),
         }
     }
@@ -312,5 +320,118 @@ impl AppCore {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
         Ok(home.join(".i-rs-claw").join("claw"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_appcore_new() {
+        let (_config, _core) = crate::test_helpers::test_core();
+        // AppCore::new 成功创建 = 测试通过
+    }
+
+    #[test]
+    fn test_agent_runtime_store_init() {
+        let config = crate::test_helpers::test_config();
+        let dir = tempfile::tempdir().unwrap();
+        let store = AgentRuntimeStore::new(&config, dir.path());
+
+        // 默认应包含 "default" agent
+        let default_memory = store.memory_for("default");
+        let default_skills = store.skill_store_for("default");
+        // 不 panic 即通过
+        drop(default_memory);
+        drop(default_skills);
+    }
+
+    #[test]
+    fn test_build_messages_for_default() {
+        let (_config, core) = crate::test_helpers::test_core();
+        let msgs = core.build_messages(
+            &[],
+            "hello",
+            &None,
+            None,
+        );
+        assert!(msgs.len() >= 2, "至少应有 system + user 消息");
+        assert_eq!(msgs[0]["role"], "system");
+        assert_eq!(msgs.last().unwrap()["role"], "user");
+        assert_eq!(msgs.last().unwrap()["content"], "hello");
+    }
+
+    #[test]
+    fn test_build_messages_for_agent() {
+        let (_config, core) = crate::test_helpers::test_core();
+        let msgs = core.build_messages_for(
+            &[],
+            "test",
+            &None,
+            None,
+            "default",
+        );
+        assert!(msgs.len() >= 2);
+        assert_eq!(msgs[0]["role"], "system");
+        assert_eq!(msgs.last().unwrap()["role"], "user");
+    }
+
+    #[test]
+    fn test_spawn_chat_for() {
+        // 在独立线程创建 tokio runtime 避免嵌套
+        std::thread::spawn(|| {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let (_config, core) = crate::test_helpers::test_core();
+            let (tx, _rx) = mpsc::unbounded_channel();
+            let messages = vec![json!({"role": "user", "content": "hi"})];
+            // spawn_chat 不应 panic
+            core.spawn_chat(&rt, tx, messages);
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        })
+        .join()
+        .expect("spawn_chat_for 不应 panic");
+    }
+
+    #[test]
+    fn test_migrate_legacy_data() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("memory.json"), r#"{"key":"legacy"}"#).unwrap();
+
+        AppCore::migrate_legacy_data(dir.path());
+
+        let dest = dir.path().join("agents").join("default").join("memory.json");
+        assert!(dest.exists(), "旧版 memory.json 应被迁移到 agents/default/");
+        let content = std::fs::read_to_string(&dest).unwrap();
+        assert!(content.contains("legacy"), "迁移后内容应一致");
+    }
+
+    #[test]
+    fn test_migrate_legacy_data_noop_when_default_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let default_dir = dir.path().join("agents").join("default");
+        std::fs::create_dir_all(&default_dir).unwrap();
+        std::fs::write(default_dir.join("memory.json"), "new").unwrap();
+        std::fs::write(dir.path().join("memory.json"), "legacy").unwrap();
+
+        AppCore::migrate_legacy_data(dir.path());
+
+        let content = std::fs::read_to_string(default_dir.join("memory.json")).unwrap();
+        assert_eq!(content, "new", "已存在的 default 数据不应被覆盖");
+    }
+
+    #[test]
+    fn test_migrate_legacy_data_noop_when_no_legacy() {
+        let dir = tempfile::tempdir().unwrap();
+
+        AppCore::migrate_legacy_data(dir.path());
+
+        // 没有旧文件时不应创建目录
+        assert!(
+            !dir.path().join("agents").exists()
+                || dir.path().join("agents").read_dir().unwrap().next().is_none(),
+            "无旧数据时不应创建 agents 目录"
+        );
     }
 }

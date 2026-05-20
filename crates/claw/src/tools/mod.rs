@@ -134,3 +134,66 @@ impl ToolRegistry {
         self.tools.iter().any(|t| t.name() == name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_tool_exists_known() {
+        let reg = ToolRegistry::new();
+        assert!(reg.tool_exists("i_rs"), "i_rs 应为已知工具");
+        assert!(reg.tool_exists("web_search"), "web_search 应为已知工具");
+        assert!(reg.tool_exists("chart"), "chart 应为已知工具");
+    }
+
+    #[test]
+    fn test_tool_exists_unknown() {
+        let reg = ToolRegistry::new();
+        assert!(!reg.tool_exists("nonexistent"), "不存在的工具应返回 false");
+        assert!(!reg.tool_exists(""), "空字符串应返回 false");
+    }
+
+    #[test]
+    fn test_enabled_schemas_all() {
+        let reg = ToolRegistry::new();
+        let schemas = reg.enabled_schemas(None);
+        assert!(schemas.len() >= 5, "至少应有 5 个内置工具 schema");
+        for schema in &schemas {
+            assert_eq!(
+                schema["type"].as_str(),
+                Some("function"),
+                "每个 schema 应为 function 类型"
+            );
+            let func = &schema["function"];
+            assert!(func["name"].as_str().is_some(), "每个工具应有 name");
+            assert!(func["description"].as_str().is_some(), "每个工具应有 description");
+            assert!(func["parameters"].is_object(), "每个工具应有 parameters");
+        }
+    }
+
+    #[test]
+    fn test_tool_registry_with_skills() {
+        let skills = vec![crate::skill_store::SkillDefinition {
+            name: "test_skill".to_string(),
+            description: "A test skill".to_string(),
+            parameters: None,
+            content: "do something".to_string(),
+        }];
+        let reg = ToolRegistry::with_skills(&skills);
+        assert!(reg.tool_exists("skill_test_skill"), "skill 工具应被注册");
+        assert!(reg.tool_exists("i_rs"), "内置工具仍应存在");
+    }
+
+    #[test]
+    fn test_tool_execute_unknown() {
+        let reg = ToolRegistry::new();
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            mcp: crate::mcp::McpRegistry::empty_for_test(),
+        };
+        let result = reg.execute("不存在", &json!({}), &ctx);
+        assert!(result.is_err(), "未知工具应返回错误");
+    }
+}

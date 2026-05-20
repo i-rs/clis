@@ -67,3 +67,107 @@ impl ClawTool for SkillTool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skill_store::SkillDefinition;
+    use serde_json::json;
+
+    #[test]
+    fn test_skill_tool_name_prefix() {
+        let def = SkillDefinition {
+            name: "my_skill".to_string(),
+            description: String::new(),
+            parameters: None,
+            content: String::new(),
+        };
+        let tool = SkillTool::new(def);
+        assert_eq!(tool.name(), "skill_my_skill");
+    }
+
+    #[test]
+    fn test_skill_tool_description_fallback() {
+        let def = SkillDefinition {
+            name: "my_skill".to_string(),
+            description: String::new(),
+            parameters: None,
+            content: String::new(),
+        };
+        let tool = SkillTool::new(def);
+        assert_eq!(tool.description(), "my_skill");
+    }
+
+    #[test]
+    fn test_skill_tool_description_custom() {
+        let def = SkillDefinition {
+            name: "my_skill".to_string(),
+            description: "Custom desc".to_string(),
+            parameters: None,
+            content: String::new(),
+        };
+        let tool = SkillTool::new(def);
+        assert_eq!(tool.description(), "Custom desc");
+    }
+
+    #[test]
+    fn test_skill_tool_parameter_schema_default() {
+        let def = SkillDefinition {
+            name: "s".to_string(),
+            description: String::new(),
+            parameters: None,
+            content: String::new(),
+        };
+        let tool = SkillTool::new(def);
+        let schema = tool.parameter_schema(&[]);
+        assert_eq!(schema["type"], "object");
+        assert!(schema["properties"].is_object());
+    }
+
+    #[test]
+    fn test_skill_tool_parameter_schema_custom() {
+        let def = SkillDefinition {
+            name: "s".to_string(),
+            description: String::new(),
+            parameters: Some(json!({"type": "object", "properties": {"x": {"type": "string"}}})),
+            content: String::new(),
+        };
+        let tool = SkillTool::new(def);
+        let schema = tool.parameter_schema(&[]);
+        assert_eq!(schema["properties"]["x"]["type"], "string");
+    }
+
+    #[test]
+    fn test_skill_tool_execute_with_content() {
+        let def = SkillDefinition {
+            name: "s".to_string(),
+            description: String::new(),
+            parameters: None,
+            content: "Execute this instruction".to_string(),
+        };
+        let tool = SkillTool::new(def);
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            mcp: crate::mcp::McpRegistry::empty_for_test(),
+        };
+        let result = tool.execute(&json!({}), &ctx).unwrap();
+        assert_eq!(result, "Execute this instruction");
+    }
+
+    #[test]
+    fn test_skill_tool_execute_empty_content() {
+        let def = SkillDefinition {
+            name: "s".to_string(),
+            description: String::new(),
+            parameters: None,
+            content: String::new(),
+        };
+        let tool = SkillTool::new(def);
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            mcp: crate::mcp::McpRegistry::empty_for_test(),
+        };
+        let result = tool.execute(&json!({}), &ctx).unwrap();
+        assert!(result.contains("技能已激活"));
+    }
+}

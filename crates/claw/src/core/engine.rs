@@ -535,6 +535,7 @@ pub async fn chat_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::ProviderKind;
     use serde_json::json;
 
     // ── smart_compress tests ──
@@ -818,4 +819,160 @@ mod tests {
         assert_eq!(result[2]["content"], "a19");
         assert_eq!(result[3]["content"], "final");
     }
+
+    // ── chat_loop 测试 ──
+
+    /// 用于模拟始终返回 ToolCalls 的 provider
+    struct AlwaysToolCall;
+
+    #[async_trait::async_trait]
+    impl LlmProvider for AlwaysToolCall {
+        fn kind(&self) -> ProviderKind {
+            ProviderKind::OpenAI
+        }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        async fn stream_chat(
+            &self,
+            _msgs: &[Value],
+            _schemas: &[Value],
+            _tx: &mpsc::UnboundedSender<LlmEvent>,
+        ) -> anyhow::Result<StreamResult> {
+            Ok(StreamResult::ToolCalls(Vec::new(), String::new()))
+        }
+    }
+
+    #[tokio::test]
+    async fn test_chat_loop_single_turn_text() {
+        let provider: Box<dyn LlmProvider> = Box::new(
+            crate::test_helpers::MockProvider::new(vec![LlmEvent::Token("hello".to_string())]),
+        );
+        let config = crate::test_helpers::test_config();
+        let mcp = crate::mcp::McpRegistry::empty_for_test();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let messages = vec![json!({"role": "user", "content": "hi"})];
+
+        chat_loop(provider, config, messages, tx, mcp, vec![]).await;
+
+        let mut events = Vec::new();
+        while let Some(event) = rx.recv().await {
+            events.push(event);
+        }
+        assert!(
+            events.iter().any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
+            "应收到 Token 事件"
+        );
+        assert!(
+            events.iter().any(|e| matches!(e, LlmEvent::Done(..))),
+            "应收到 Done 事件"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_chat_loop_provider_error() {
+        let provider: Box<dyn LlmProvider> = Box::new(
+            crate::test_helpers::MockProvider::new(vec![])
+                .with_result(Err(anyhow::anyhow!("模拟错误"))),
+        );
+        let config = crate::test_helpers::test_config();
+        let mcp = crate::mcp::McpRegistry::empty_for_test();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let messages = vec![json!({"role": "user", "content": "hi"})];
+
+        chat_loop(provider, config, messages, tx, mcp, vec![]).await;
+
+        let mut events = Vec::new();
+        while let Some(event) = rx.recv().await {
+            events.push(event);
+        }
+        assert!(
+            events.iter().any(|e| matches!(e, LlmEvent::Error(msg) if msg.contains("模拟错误"))),
+            "应收到 Error 事件"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_chat_loop_max_rounds_exceeded() {
+        let mut config = crate::test_helpers::test_config();
+        config.max_react_rounds = 2;
+        let mcp = crate::mcp::McpRegistry::empty_for_test();
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let messages = vec![json!({"role": "user", "content": "do work"})];
+
+        chat_loop(Box::new(AlwaysToolCall), config, messages, tx, mcp, vec![]).await;
+
+        let mut events = Vec::new();
+        while let Some(event) = rx.recv().await {
+            events.push(event);
+        }
+        assert!(
+            events.iter().any(|e| matches!(e, LlmEvent::Error(_))),
+            "超出最大轮次后应收到 Error 事件"
+        );
+    }
+
+    #[test]
+    fn test_plan_then_execute_prompt() {
+        let prompt = build_system_prompt("", "", "", "", "", true);
+        assert!(
+            prompt.contains("Plan-then-Execute"),
+            "plan_then_execute=true 时系统提示词应包含 Plan-then-Execute 模式说明"
+        );
+        assert!(
+            prompt.contains("执行计划"),
+            "应包含'执行计划'关键词"
+        );
+    }
+
+    #[test]
+    fn test_react_prompt_default() {
+        let prompt = build_system_prompt("", "", "", "", "", false);
+        assert!(
+            prompt.contains("无需预先规划整个流程"),
+            "plan_then_execute=false 时系统提示词应包含 ReAct 模式说明"
+        );
+    }
+
+    #[test]
+    fn test_build_system_prompt_date_injection() {
+        let prompt = build_system_prompt("", "", "", "", "", false);
+        // 注入当前日期，验证格式
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        assert!(prompt.contains(&today), "应注入当前日期");
+        // {current_date} 占位符应已被替换
+        assert!(!prompt.contains("{current_date}"), "占位符应被替换");
+    }
+
+    #[test]
+    fn test_build_system_prompt_tool_index_injection() {
+        let prompt = build_system_prompt("★工具索引★", "", "", "", "", false);
+        assert!(prompt.contains("★工具索引★"), "应注入工具索引");
+        assert!(!prompt.contains("{{TOOL_INDEX}}"), "TOOL_INDEX 占位符应被替换");
+    }
+
+    #[test]
+    fn test_build_system_prompt_all_sections() {
+        let prompt = build_system_prompt(
+            "TOOLS",
+            "HOT_TOOLS",
+            "SKILLS",
+            "MEMORY",
+            "PROFILE",
+            false,
+        );
+        assert!(prompt.contains("TOOLS"), "应有工具索引");
+        assert!(prompt.contains("HOT_TOOLS"), "应有热门工具");
+        assert!(prompt.contains("SKILLS"), "应有技能");
+        assert!(prompt.contains("MEMORY"), "应有记忆");
+        assert!(prompt.contains("PROFILE"), "应有用户画像");
+        // 所有占位符应被替换
+        assert!(!prompt.contains("{{TOOL_INDEX}}"));
+        assert!(!prompt.contains("{{HOT_TOOLS}}"));
+        assert!(!prompt.contains("{{SKILLS}}"));
+        assert!(!prompt.contains("{{USER_MEMORY}}"));
+        assert!(!prompt.contains("{{USER_PROFILE}}"));
+        assert!(!prompt.contains("{{PLAN_MODE}}"));
+    }
 }
+

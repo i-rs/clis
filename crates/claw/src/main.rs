@@ -25,6 +25,10 @@ mod tui;
 mod ui;
 mod utils;
 
+#[cfg(test)]
+#[path = "test_helpers.rs"]
+pub(crate) mod test_helpers;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]

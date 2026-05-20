@@ -232,3 +232,123 @@ fn op_list(path: &Path) -> Result<String, ClawError> {
 
     Ok(result)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_op_write_and_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.txt");
+
+        op_write(&path, "hello world").unwrap();
+
+        let result = op_read(&path).unwrap();
+        assert!(result.contains("hello world"), "读取内容应匹配");
+        assert!(result.contains("test.txt"), "应包含文件名");
+    }
+
+    #[test]
+    fn test_op_read_nonexistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nonexistent.txt");
+
+        let err = op_read(&path).unwrap_err();
+        match err {
+            ClawError::NotFound(msg) => assert!(msg.contains("不存在")),
+            _ => panic!("应返回 NotFound 错误"),
+        }
+    }
+
+    #[test]
+    fn test_op_read_not_a_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = op_read(dir.path()).unwrap_err();
+        match err {
+            ClawError::Validation(msg) => assert!(msg.contains("不是文件")),
+            _ => panic!("应返回 Validation 错误"),
+        }
+    }
+
+    #[test]
+    fn test_op_write_creates_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sub").join("nested").join("file.txt");
+
+        op_write(&path, "nested content").unwrap();
+        assert!(path.exists(), "嵌套目录和文件应被创建");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "nested content");
+    }
+
+    #[test]
+    fn test_op_list_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "a").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "b").unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+
+        let result = op_list(dir.path()).unwrap();
+        assert!(result.contains("a.txt"), "应列出 a.txt");
+        assert!(result.contains("b.txt"), "应列出 b.txt");
+        assert!(result.contains("sub/"), "应列出子目录");
+    }
+
+    #[test]
+    fn test_op_list_nonexistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("nonexistent_dir");
+
+        let err = op_list(&path).unwrap_err();
+        match err {
+            ClawError::NotFound(msg) => assert!(msg.contains("不存在")),
+            _ => panic!("应返回 NotFound 错误"),
+        }
+    }
+
+    #[test]
+    fn test_op_list_empty_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = op_list(dir.path()).unwrap();
+        assert!(result.contains("空目录"), "空目录应提示");
+    }
+
+    #[test]
+    fn test_op_list_skips_hidden() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".hidden"), "secret").unwrap();
+        std::fs::write(dir.path().join("visible.txt"), "hello").unwrap();
+
+        let result = op_list(dir.path()).unwrap();
+        assert!(!result.contains(".hidden"), "隐藏文件不应列出");
+        assert!(result.contains("visible.txt"), "可见文件应列出");
+    }
+
+    #[test]
+    fn test_op_read_large_truncation() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("large.txt");
+        // 写入超过 5000 字符的内容
+        let long_content = "x".repeat(6000);
+        op_write(&path, &long_content).unwrap();
+
+        let result = op_read(&path).unwrap();
+        assert!(result.contains("仅显示前 5000"), "大文件应提示截断");
+        assert!(result.contains("6000"), "应显示总字符数");
+    }
+
+    #[test]
+    fn test_op_list_not_a_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("file.txt");
+        std::fs::write(&path, "content").unwrap();
+
+        let err = op_list(&path).unwrap_err();
+        match err {
+            ClawError::Validation(msg) => assert!(msg.contains("不是目录")),
+            _ => panic!("应返回 Validation 错误"),
+        }
+    }
+}

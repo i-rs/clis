@@ -618,6 +618,7 @@ impl AnthropicProvider {
 
 /// Internal event types for Anthropic SSE stream parsing.
 #[allow(dead_code)]
+#[derive(Debug)]
 enum AnthropicEvent {
     MessageStart {
         usage: Option<TokenUsage>,
@@ -942,3 +943,387 @@ pub fn create_provider_for(
         ProviderKind::Ollama => Box::new(OllamaProvider::new(client, model.to_string())),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers;
+    use serde_json::json;
+
+    // ── OpenAI SSE 解析测试 ──
+
+    #[test]
+    fn test_parse_empty_sse() {
+        let (events, usage) = test_helpers::parse_openai_sse("");
+        assert!(events.is_empty(), "空流不应产生事件");
+        assert!(usage.is_none(), "空流不应有 usage");
+    }
+
+    #[test]
+    fn test_parse_text_token() {
+        let sse = r#"data: {"choices":[{"index":0,"delta":{"content":"hello"}}]}
+
+"#;
+        let (events, _) = test_helpers::parse_openai_sse(sse);
+        assert_eq!(events.len(), 1);
+        assert!(
+            matches!(&events[0], LlmEvent::Token(t) if t == "hello"),
+            "预期 Token(hello)，得到 {:?}",
+            events[0]
+        );
+    }
+
+    #[test]
+    fn test_parse_multiple_tokens() {
+        let sse = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello \"}}]}\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"World\"}}]}\n\ndata: [DONE]\n\n";
+        let (events, _) = test_helpers::parse_openai_sse(sse);
+        assert_eq!(events.len(), 2);
+        assert!(
+            matches!(&events[0], LlmEvent::Token(t) if t == "Hello "),
+            "预期 Token(Hello )，得到 {:?}",
+            events[0]
+        );
+        assert!(
+            matches!(&events[1], LlmEvent::Token(t) if t == "World"),
+            "预期 Token(World)，得到 {:?}",
+            events[1]
+        );
+    }
+
+    #[test]
+    fn test_parse_tool_calls() {
+        let sse = r#"data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_weather","arguments":""}}]}}]}
+
+data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":\"Beijing\"}"}}]}}]}
+
+data: [DONE]
+
+"#;
+        let (events, _) = test_helpers::parse_openai_sse(sse);
+        // 工具调用自身的 delta 不产生 Token/Reasoning/Error 事件
+        assert!(
+            events.is_empty(),
+            "纯粹的 tool_calls delta 不应产生认知事件，得到 {:?}",
+            events
+        );
+    }
+
+    #[test]
+    fn test_parse_tool_call_streaming() {
+        // 模拟流式 tool_calls 分块：多个 delta chunk 累积 arguments
+        let chunk1 = r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_abc","type":"function","function":{"name":"search","arguments":""}}]}}]}"#;
+        let chunk2 = r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"query\":\""}}]}}]}"#;
+        let chunk3 = r#"{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Rust\"}"}}]}}]}"#;
+        let sse = format!(
+            "data: {}\n\ndata: {}\n\ndata: {}\n\ndata: [DONE]\n\n",
+            chunk1, chunk2, chunk3
+        );
+        let (events, _) = test_helpers::parse_openai_sse(&sse);
+        assert!(
+            events.is_empty(),
+            "tool_calls 流式 delta 不应产生认知事件"
+        );
+    }
+
+    #[test]
+    fn test_parse_reasoning_content() {
+        let sse = r#"data: {"choices":[{"index":0,"delta":{"reasoning_content":"Let me think..."}}]}
+
+data: {"choices":[{"index":0,"delta":{"content":"answer"}}]}
+
+"#;
+        let (events, _) = test_helpers::parse_openai_sse(sse);
+        assert_eq!(events.len(), 2);
+        assert!(
+            matches!(&events[0], LlmEvent::Reasoning(r) if r == "Let me think..."),
+            "预期 Reasoning，得到 {:?}",
+            events[0]
+        );
+        assert!(
+            matches!(&events[1], LlmEvent::Token(t) if t == "answer"),
+            "预期 Token(answer)，得到 {:?}",
+            events[1]
+        );
+    }
+
+    #[test]
+    fn test_parse_usage() {
+        let sse = r#"data: {"choices":[{"index":0,"delta":{"content":"hello"}}]}
+
+data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+
+data: [DONE]
+
+"#;
+        let (events, usage) = test_helpers::parse_openai_sse(sse);
+        assert_eq!(events.len(), 1, "usage chunk 不产生 Token 事件");
+        let u = usage.expect("应解析出 usage");
+        assert_eq!(u.prompt_tokens, 10);
+        assert_eq!(u.completion_tokens, 5);
+        assert_eq!(u.total_tokens, 15);
+    }
+
+    #[test]
+    fn test_parse_done_signal() {
+        let sse = "data: [DONE]\n\n";
+        let (events, usage) = test_helpers::parse_openai_sse(sse);
+        assert!(events.is_empty(), "[DONE] 不产生事件");
+        assert!(usage.is_none());
+    }
+
+    #[test]
+    fn test_parse_mixed_token_and_done() {
+        let sse = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n";
+        let (events, _) = test_helpers::parse_openai_sse(sse);
+        assert_eq!(events.len(), 1);
+        assert!(
+            matches!(&events[0], LlmEvent::Token(t) if t == "hi"),
+            "预期 Token(hi)，得到 {:?}",
+            events[0]
+        );
+    }
+
+    // ── Anthropic 事件解析测试 ──
+
+    #[test]
+    fn test_parse_anthropic_content_block_start() {
+        let event = AnthropicProvider::parse_anthropic_event(
+            "content_block_start",
+            r#"{"index":0,"content_block":{"type":"text"}}"#,
+        );
+        assert!(
+            matches!(
+                event,
+                Some(AnthropicEvent::ContentBlockStart {
+                    index: 0,
+                    ref block_type,
+                    tool_use_id: None,
+                    tool_use_name: None,
+                }) if block_type == "text"
+            ),
+            "预期 ContentBlockStart(text)，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_tool_use_start() {
+        let event = AnthropicProvider::parse_anthropic_event(
+            "content_block_start",
+            r#"{"index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"get_weather"}}"#,
+        );
+        assert!(
+            matches!(
+                event,
+                Some(AnthropicEvent::ContentBlockStart {
+                    index: 1,
+                    ref block_type,
+                    tool_use_id: Some(ref id),
+                    tool_use_name: Some(ref name),
+                }) if block_type == "tool_use" && id == "toolu_1" && name == "get_weather"
+            ),
+            "预期 ContentBlockStart(tool_use)，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_text_delta() {
+        let event = AnthropicProvider::parse_anthropic_event(
+            "content_block_delta",
+            r#"{"index":0,"delta":{"type":"text_delta","text":"Hello"}}"#,
+        );
+        assert!(
+            matches!(
+                event,
+                Some(AnthropicEvent::ContentBlockDelta {
+                    index: 0,
+                    text: Some(ref t),
+                    partial_json: None,
+                }) if t == "Hello"
+            ),
+            "预期 ContentBlockDelta(text=Hello)，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_input_json_delta() {
+        let event = AnthropicProvider::parse_anthropic_event(
+            "content_block_delta",
+            r#"{"index":0,"delta":{"type":"input_json_delta","partial_json":"{\"city\":\"Beijing\"}"}}"#,
+        );
+        assert!(
+            matches!(
+                event,
+                Some(AnthropicEvent::ContentBlockDelta {
+                    index: 0,
+                    text: None,
+                    partial_json: Some(ref pj),
+                }) if pj == r#"{"city":"Beijing"}"#
+            ),
+            "预期 ContentBlockDelta(partial_json)，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_message_start() {
+        let event = AnthropicProvider::parse_anthropic_event(
+            "message_start",
+            r#"{"message":{"usage":{"input_tokens":15,"output_tokens":3}}}"#,
+        );
+        assert!(
+            matches!(
+                event,
+                Some(AnthropicEvent::MessageStart { usage: Some(u) }) if u.prompt_tokens == 15 && u.completion_tokens == 3
+            ),
+            "预期 MessageStart(usage=15/3)，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_message_stop() {
+        let event = AnthropicProvider::parse_anthropic_event("message_stop", r#"{}"#);
+        assert!(
+            matches!(event, Some(AnthropicEvent::MessageStop)),
+            "预期 MessageStop，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_ping() {
+        let event = AnthropicProvider::parse_anthropic_event("ping", r#"{}"#);
+        assert!(
+            matches!(event, Some(AnthropicEvent::Ping)),
+            "预期 Ping，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_message_delta() {
+        let event = AnthropicProvider::parse_anthropic_event(
+            "message_delta",
+            r#"{"delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":42}}"#,
+        );
+        assert!(
+            matches!(
+                event,
+                Some(AnthropicEvent::MessageDelta {
+                    ref stop_reason,
+                    usage: Some(u),
+                }) if stop_reason == "tool_use" && u.completion_tokens == 42
+            ),
+            "预期 MessageDelta，得到 {:?}",
+            event
+        );
+    }
+
+    #[test]
+    fn test_parse_anthropic_unknown_event() {
+        let event = AnthropicProvider::parse_anthropic_event("unknown_event", r#"{}"#);
+        assert!(
+            matches!(event, None),
+            "未知事件类型应返回 None"
+        );
+    }
+
+    // ── Provider 工厂路由测试 ──
+
+    #[test]
+    fn test_provider_kind_from_str_openai() {
+        assert_eq!(ProviderKind::from_str("openai"), ProviderKind::OpenAI);
+        assert_eq!(ProviderKind::from_str("OpenAI"), ProviderKind::OpenAI);
+        assert_eq!(ProviderKind::from_str("OPENAI"), ProviderKind::OpenAI);
+    }
+
+    #[test]
+    fn test_provider_kind_from_str_anthropic() {
+        assert_eq!(ProviderKind::from_str("anthropic"), ProviderKind::Anthropic);
+    }
+
+    #[test]
+    fn test_provider_kind_from_str_ollama() {
+        assert_eq!(ProviderKind::from_str("ollama"), ProviderKind::Ollama);
+    }
+
+    #[test]
+    fn test_provider_kind_from_str_unknown_defaults_to_openai() {
+        assert_eq!(ProviderKind::from_str("unknown"), ProviderKind::OpenAI);
+        assert_eq!(ProviderKind::from_str("zhipu"), ProviderKind::OpenAI);
+        assert_eq!(ProviderKind::from_str(""), ProviderKind::OpenAI);
+    }
+
+    #[test]
+    fn test_provider_kind_as_str() {
+        assert_eq!(ProviderKind::OpenAI.as_str(), "openai");
+        assert_eq!(ProviderKind::Anthropic.as_str(), "anthropic");
+        assert_eq!(ProviderKind::Ollama.as_str(), "ollama");
+    }
+
+    #[test]
+    fn test_provider_kind_all() {
+        let all = ProviderKind::all();
+        assert_eq!(all.len(), 3);
+        assert!(all.contains(&ProviderKind::OpenAI));
+        assert!(all.contains(&ProviderKind::Anthropic));
+        assert!(all.contains(&ProviderKind::Ollama));
+    }
+
+    // ── openai_to_anthropic 消息转换测试 ──
+
+    #[test]
+    fn test_openai_to_anthropic_messages_with_system() {
+        let msgs = vec![
+            json!({"role": "system", "content": "You are a helpful assistant."}),
+            json!({"role": "user", "content": "Hello"}),
+        ];
+        let (system, anthro) = openai_to_anthropic_messages(&msgs);
+        assert_eq!(system.as_deref(), Some("You are a helpful assistant."));
+        assert_eq!(anthro.len(), 1);
+        assert_eq!(anthro[0]["role"], "user");
+        assert_eq!(anthro[0]["content"][0]["type"], "text");
+        assert_eq!(anthro[0]["content"][0]["text"], "Hello");
+    }
+
+    #[test]
+    fn test_openai_to_anthropic_tool_result() {
+        let msgs = vec![
+            json!({"role": "assistant", "content": "", "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}}]}),
+            json!({"role": "tool", "tool_call_id": "call_1", "content": "\"Sunny\""}),
+        ];
+        let (system, anthro) = openai_to_anthropic_messages(&msgs);
+        assert!(system.is_none());
+        assert_eq!(anthro.len(), 2, "应有两个消息: assistant + tool_result");
+        // tool_result 被包装为 user content block
+        assert_eq!(anthro[1]["role"], "user");
+        assert_eq!(anthro[1]["content"][0]["type"], "tool_result");
+        assert_eq!(anthro[1]["content"][0]["tool_use_id"], "call_1");
+    }
+
+    #[test]
+    fn test_openai_to_anthropic_tools_format() {
+        let schemas = vec![
+            json!({
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather info",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"city": {"type": "string"}}
+                    }
+                }
+            }),
+        ];
+        let anthro_tools = openai_to_anthropic_tools(&schemas);
+        assert_eq!(anthro_tools.len(), 1);
+        assert_eq!(anthro_tools[0]["name"], "get_weather");
+        assert_eq!(anthro_tools[0]["description"], "Get weather info");
+        assert!(anthro_tools[0].get("input_schema").is_some());
+    }
+}
+

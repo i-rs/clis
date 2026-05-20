@@ -3,6 +3,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
 
+
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct TokenUsage {
     pub prompt_tokens: u32,
@@ -10,7 +11,7 @@ pub struct TokenUsage {
     pub total_tokens: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LlmEvent {
     /// A text token from the streaming response
     Token(String),
@@ -55,6 +56,7 @@ pub struct ToolCallAcc {
     pub arguments: String,
 }
 
+#[derive(Clone)]
 pub(crate) enum StreamResult {
     Text(Option<TokenUsage>, String), // usage + accumulated text content
     ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content

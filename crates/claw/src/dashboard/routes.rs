@@ -903,3 +903,225 @@ pub async fn list_skills(
         .collect();
     ApiResponse::ok(skills)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 创建一个测试 AppState，必须在新线程中调用以避免嵌套 Runtime 问题。
+    fn new_test_state() -> AppState {
+        let (_cfg, core) = crate::test_helpers::test_core();
+        AppState::new(core)
+    }
+
+    /// 在独立线程中运行一个需要 AppState 的测试。
+    fn run_state_test<F>(name: &str, f: F)
+    where
+        F: FnOnce(tokio::runtime::Runtime, AppState) + Send + 'static,
+    {
+        let result = std::thread::Builder::new()
+            .name(name.to_string())
+            .spawn(move || {
+                let rt = tokio::runtime::Runtime::new()
+                    .expect("创建测试运行时失败");
+                let state = new_test_state();
+                f(rt, state);
+            })
+            .expect("生成测试线程失败")
+            .join();
+        if let Err(e) = result {
+            if let Some(msg) = e.downcast_ref::<&str>() {
+                panic!("测试 '{}' panic: {}", name, msg);
+            } else if let Some(msg) = e.downcast_ref::<String>() {
+                panic!("测试 '{}' panic: {}", name, msg);
+            } else {
+                panic!("测试 '{}' panic (unknown)", name);
+            }
+        }
+    }
+
+    // ── 无状态测试 ──
+
+    #[tokio::test]
+    async fn test_health_handler() {
+        let result = health().await;
+        assert!(result.success, "health 应返回 success");
+        assert_eq!(result.data, Some("OK"));
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn test_api_response_ok() {
+        let resp = ApiResponse::ok(serde_json::json!(["a", "b"]));
+        assert!(resp.success);
+        assert_eq!(resp.data, Some(serde_json::json!(["a", "b"])));
+        assert!(resp.error.is_none());
+    }
+
+    #[test]
+    fn test_api_response_err() {
+        let resp: Json<ApiResponse<()>> = ApiResponse::err("something went wrong");
+        assert!(!resp.success);
+        assert!(resp.data.is_none());
+        assert_eq!(resp.error, Some("something went wrong".to_string()));
+    }
+
+    // ── 状态相关测试（在独立线程中运行） ──
+
+    #[test]
+    fn test_get_config_returns_sanitized() {
+        run_state_test("test_get_config_returns_sanitized", |rt, state| {
+            let result = rt.block_on(get_config(State(state)));
+            assert!(result.success);
+            let data = result.0.data.unwrap();
+            assert_eq!(data["provider"], "openai");
+            assert_eq!(data["model"], "test-model");
+            // 不应泄露 api_key
+            assert!(data.get("api_key").is_none());
+        });
+    }
+
+    #[test]
+    fn test_get_current_session_no_session() {
+        run_state_test("test_get_current_session_no_session", |rt, state| {
+            let result = rt.block_on(get_current_session(State(state)));
+            assert!(result.success);
+            let data = result.0.data.unwrap();
+            assert!(data["id"].is_null(), "无会话时应返回 null id");
+        });
+    }
+
+    #[test]
+    fn test_create_session_returns_id() {
+        run_state_test("test_create_session_returns_id", |rt, state| {
+            let result = rt.block_on(create_session(
+                State(state),
+                Some(Json(serde_json::json!({"agent_id": "default"}))),
+            ));
+            assert!(result.success, "create_session 应成功");
+            let data = result.0.data.unwrap();
+            assert!(
+                data["id"].as_str().map(|s| !s.is_empty()).unwrap_or(false),
+                "应返回非空 id"
+            );
+            assert_eq!(data["agent_id"], "default");
+        });
+    }
+
+    #[test]
+    fn test_create_session_default_agent() {
+        run_state_test("test_create_session_default_agent", |rt, state| {
+            // 不传 agent_id，应默认为 "default"
+            let result = rt.block_on(create_session(State(state), None));
+            assert!(result.success);
+            let data = result.0.data.unwrap();
+            assert_eq!(data["agent_id"], "default");
+        });
+    }
+
+    #[test]
+    fn test_list_sessions_after_create() {
+        run_state_test("test_list_sessions_after_create", |rt, state| {
+            // 先创建一个会话
+            let _created = rt.block_on(create_session(
+                State(state.clone()),
+                Some(Json(serde_json::json!({"agent_id": "default"}))),
+            ));
+            // 然后列出会话
+            let result = rt.block_on(list_sessions(State(state)));
+            assert!(result.success);
+            let sessions = result.0.data.unwrap();
+            assert!(!sessions.is_empty(), "创建会话后列表不应为空");
+            assert_eq!(sessions[0]["agent_id"], "default");
+        });
+    }
+
+    #[test]
+    fn test_send_message_missing_body() {
+        run_state_test("test_send_message_missing_body", |rt, state| {
+            let result = rt.block_on(send_message(
+                State(state),
+                Json(serde_json::json!({})),
+            ));
+            assert!(!result.success, "缺少 message 时应返回错误");
+            assert_eq!(result.error, Some("Missing 'message' field".to_string()));
+        });
+    }
+
+    #[test]
+    fn test_send_message_valid() {
+        run_state_test("test_send_message_valid", |rt, state| {
+            let result = rt.block_on(send_message(
+                State(state),
+                Json(serde_json::json!({"message": "hello"})),
+            ));
+            assert!(result.success, "有效消息应返回 success");
+            let data = result.0.data.unwrap();
+            assert_eq!(data["status"], "processing");
+            assert!(!data["session_id"].as_str().unwrap_or("").is_empty(), "应返回非空 session_id");
+        });
+    }
+
+    #[test]
+    fn test_send_message_with_agent_id() {
+        run_state_test("test_send_message_with_agent_id", |rt, state| {
+            let result = rt.block_on(send_message(
+                State(state),
+                Json(serde_json::json!({"message": "hi", "agent_id": "default"})),
+            ));
+            assert!(result.success);
+            let data = result.0.data.unwrap();
+            assert_eq!(data["status"], "processing");
+        });
+    }
+
+    #[test]
+    fn test_list_tools_returns_schemas() {
+        run_state_test("test_list_tools_returns_schemas", |rt, state| {
+            let result = rt.block_on(list_tools(State(state)));
+            assert!(result.success);
+            let tools = result.0.data.unwrap();
+            assert!(!tools.is_empty(), "应返回至少一个工具");
+            // 每个 tool schema 应有 type/function 字段
+            let first = &tools[0];
+            assert_eq!(first["type"], "function");
+            assert!(first["function"]["name"].as_str().map(|s| !s.is_empty()).unwrap_or(false));
+        });
+    }
+
+    #[test]
+    fn test_get_agents_returns_default() {
+        run_state_test("test_get_agents_returns_default", |rt, state| {
+            let result = rt.block_on(get_agents(State(state)));
+            assert!(result.success);
+            let agents = result.0.data.unwrap();
+            assert!(!agents.is_empty(), "应返回至少 default agent");
+            let default = agents.iter().find(|a| a["id"] == "default");
+            assert!(default.is_some(), "应包含 default agent");
+        });
+    }
+
+    #[test]
+    fn test_get_agent_detail_default() {
+        run_state_test("test_get_agent_detail_default", |rt, state| {
+            let result = rt.block_on(get_agent_detail(
+                State(state),
+                Path("default".to_string()),
+            ));
+            assert!(result.success);
+            let detail = result.0.data.unwrap();
+            assert_eq!(detail["id"], "default");
+            assert_eq!(detail["provider"], "openai");
+        });
+    }
+
+    #[test]
+    fn test_list_skills_returns_list() {
+        run_state_test("test_list_skills_returns_list", |rt, state| {
+            let result = rt.block_on(list_skills(State(state)));
+            assert!(result.success);
+            // 新安装环境下技能列表可能为空，但至少不应 panic
+            let _skills = result.0.data.unwrap();
+        });
+    }
+}

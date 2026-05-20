@@ -279,3 +279,47 @@ fn urlencode(s: &str) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_urlencode_ascii() {
+        assert_eq!(urlencode("hello"), "hello");
+    }
+
+    #[test]
+    fn test_urlencode_spaces() {
+        assert_eq!(urlencode("hello world"), "hello+world");
+    }
+
+    #[test]
+    fn test_urlencode_special_chars() {
+        assert_eq!(urlencode("a&b=c"), "a%26b%3Dc");
+    }
+
+    #[test]
+    fn test_urlencode_unicode() {
+        assert_eq!(urlencode("中文"), "%E4%B8%AD%E6%96%87");
+    }
+
+    #[test]
+    fn test_urlencode_mixed() {
+        assert_eq!(
+            urlencode("hello 世界 & test"),
+            "hello+%E4%B8%96%E7%95%8C+%26+test"
+        );
+    }
+
+    #[test]
+    fn test_urlencode_empty() {
+        assert_eq!(urlencode(""), "");
+    }
+
+    #[test]
+    fn test_urlencode_safe_chars() {
+        // RFC 3986 unreserved characters: A-Z, a-z, 0-9, -, ., _, ~
+        assert_eq!(urlencode("abc123-._~"), "abc123-._~");
+    }
+}

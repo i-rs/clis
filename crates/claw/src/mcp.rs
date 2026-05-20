@@ -414,3 +414,144 @@ impl McpRegistry {
         self.clients.len()
     }
 }
+
+#[cfg(test)]
+impl McpRegistry {
+    /// Create an empty McpRegistry for testing without creating a tokio runtime on the current thread.
+    /// The tokio runtime is created on a separate OS thread to avoid nested runtime panics.
+    pub fn empty_for_test() -> Self {
+        static RT: std::sync::OnceLock<Arc<tokio::runtime::Runtime>> =
+            std::sync::OnceLock::new();
+        let rt = RT
+            .get_or_init(|| {
+                Arc::new(
+                    std::thread::spawn(|| {
+                        tokio::runtime::Runtime::new()
+                            .expect("创建 MCP 测试运行时失败")
+                    })
+                    .join()
+                    .expect("MCP 测试运行时线程崩溃"),
+                )
+            })
+            .clone();
+        Self {
+            clients: Vec::new(),
+            tools: Vec::new(),
+            rt,
+            server_configs: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tools::mcp_tools::mcp_schema_to_openai;
+    use serde_json::json;
+
+    #[test]
+    fn test_mcp_registry_new_empty() {
+        let registry = McpRegistry::new(&[]);
+        assert!(registry.clients.is_empty(), "空服务器列表不应创建客户端");
+        assert!(registry.tools.is_empty(), "空服务器列表不应发现工具");
+        assert_eq!(registry.tool_count(), 0);
+        assert!(!registry.has_tools());
+        assert_eq!(registry.client_count(), 0);
+    }
+
+    #[test]
+    fn test_mcp_registry_empty_for_test() {
+        let registry = McpRegistry::empty_for_test();
+        assert!(registry.clients.is_empty());
+        assert!(registry.tools.is_empty());
+        assert_eq!(registry.tool_count(), 0);
+        assert!(!registry.has_tools());
+        assert_eq!(registry.client_count(), 0);
+    }
+
+    #[test]
+    fn test_mcp_schema_conversion() {
+        let tool_def = McpToolDefinition {
+            server_name: "test-server".to_string(),
+            name: "get_weather".to_string(),
+            description: "获取天气信息".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "城市名"}
+                },
+                "required": ["city"]
+            }),
+        };
+
+        let schema = mcp_schema_to_openai(&tool_def);
+        assert_eq!(schema["type"], "function");
+        assert_eq!(schema["function"]["name"], "get_weather");
+        assert_eq!(schema["function"]["description"], "获取天气信息");
+        assert_eq!(schema["function"]["parameters"]["type"], "object");
+        assert_eq!(
+            schema["function"]["parameters"]["additionalProperties"],
+            json!(false)
+        );
+    }
+
+    #[test]
+    fn test_mcp_for_agent_empty() {
+        use std::collections::HashSet;
+        let agent_config = crate::config::ResolvedAgentConfig {
+            agent_id: "test".to_string(),
+            provider: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            base_url: "http://localhost:9999/v1".to_string(),
+            model: "test-model".to_string(),
+            enabled_tools: HashSet::new(),
+            system_prompt: None,
+            mcp_servers: Vec::new(),
+            allowed_dirs: Vec::new(),
+            capabilities: Vec::new(),
+        };
+        let global_servers: Vec<McpServerConfig> = Vec::new();
+        let registry = McpRegistry::for_agent(&agent_config, &global_servers);
+        assert!(registry.clients.is_empty(), "无 MCP 服务器时不应创建客户端");
+        assert!(registry.tools.is_empty());
+    }
+
+    #[test]
+    fn test_mcp_for_agent_with_global_servers() {
+        // 当 agent 自身没有 mcp_servers 时，应使用 global_servers（空列表）
+        use std::collections::HashSet;
+        let agent_config = crate::config::ResolvedAgentConfig {
+            agent_id: "test".to_string(),
+            provider: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            base_url: "http://localhost:9999/v1".to_string(),
+            model: "test-model".to_string(),
+            enabled_tools: HashSet::new(),
+            system_prompt: None,
+            mcp_servers: Vec::new(),
+            allowed_dirs: Vec::new(),
+            capabilities: Vec::new(),
+        };
+        // 构造一个带有 enabled=false 的服务器（跳过实际连接）
+        let disabled_server = McpServerConfig {
+            name: "skip-me".to_string(),
+            transport_type: "stdio".to_string(),
+            command: Some("nonexistent".to_string()),
+            args: None,
+            url: None,
+            env: None,
+            enabled: false,
+        };
+        let global_servers = vec![disabled_server];
+        let registry = McpRegistry::for_agent(&agent_config, &global_servers);
+        assert!(registry.clients.is_empty(), "disabled 服务器不应连接");
+        assert_eq!(registry.server_configs.len(), 1);
+    }
+
+    #[test]
+    fn test_mcp_tool_count_and_has_tools() {
+        let registry = McpRegistry::empty_for_test();
+        assert_eq!(registry.tool_count(), 0);
+        assert!(!registry.has_tools());
+    }
+}

@@ -45,3 +45,6 @@ dashboard = ["axum", "tower-http", "rust-embed", "mime_guess"]
 gateway-telegram = []
 gateway-wechat = []
 gateway-all = ["gateway-telegram", "gateway-wechat"]
+
+[dev-dependencies]
+tempfile = "3"

@@ -142,3 +142,35 @@ pub fn enabled_cli_tool_names(enabled: Option<&std::collections::HashSet<String>
         .filter(|t| index::is_tool_enabled(t, enabled))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_enabled_cli_tool_names_all() {
+        let names = enabled_cli_tool_names(None);
+        assert!(names.len() > 50, "无过滤应返回所有工具");
+        assert!(names.contains(&"weight"));
+        assert!(names.contains(&"mood"));
+    }
+
+    #[test]
+    fn test_enabled_cli_tool_names_filtered() {
+        let mut enabled = std::collections::HashSet::new();
+        enabled.insert("weight".to_string());
+        let names = enabled_cli_tool_names(Some(&enabled));
+        assert!(names.contains(&"weight"));
+        assert!(!names.contains(&"mood"), "mood 应在过滤后移除");
+    }
+
+    #[test]
+    fn test_enabled_cli_tool_names_empty_set_all() {
+        let enabled = std::collections::HashSet::new();
+        let names = enabled_cli_tool_names(Some(&enabled));
+        assert!(
+            names.len() > 50,
+            "空集合应用作'all enabled'语义，返回所有工具"
+        );
+    }
+}
