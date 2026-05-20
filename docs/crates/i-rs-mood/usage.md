@@ -19,14 +19,14 @@ brew install i-rs/homebrew-tap/i-rs-mood
 Add a mood record.
 
 ```bash
-i-rs-mood add <DATE> <MOOD> [OPTIONS]
+i-rs-mood add <MOOD> [OPTIONS]
 ```
 
 Arguments:
-- `DATE` - Date in YYYY-MM-DD format
 - `MOOD` - Mood level (see Mood Levels below)
 
 Options:
+- `-D, --date <DATE>` - Date in YYYY-MM-DD format (default: today)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-c, --content <CONTENT>` - Content/notes (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
@@ -45,21 +45,22 @@ Options:
 
 ### get
 
-Get a mood record.
+Get a mood record by id.
 
 ```bash
-i-rs-mood get <DATE>
+i-rs-mood get <ID>
 ```
 
 ### update
 
-Update a mood record.
+Update a mood record by id.
 
 ```bash
-i-rs-mood update <DATE> [OPTIONS]
+i-rs-mood update <ID> [OPTIONS]
 ```
 
 Options:
+- `-D, --date <DATE>` - New date
 - `-m, --mood <MOOD>` - New mood level
 - `-t, --tag <TAG>` - New tags
 - `-c, --content <CONTENT>` - New content
@@ -67,10 +68,10 @@ Options:
 
 ### delete
 
-Delete a mood record.
+Delete a mood record by id.
 
 ```bash
-i-rs-mood delete <DATE>
+i-rs-mood delete <ID>
 ```
 
 ## Mood Levels
@@ -93,34 +94,34 @@ All input formats are accepted:
 ### Basic Usage
 
 ```bash
-# Record today's mood (assuming today is 2025-01-15)
-i-rs-mood add 2025-01-15 good
+# Record today's mood
+i-rs-mood add good
 
-# Record with emoji
-i-rs-mood add 2025-01-16 😊
+# Record with emoji for a specific date
+i-rs-mood add 😊 --date 2025-01-16
 
 # Record with number
-i-rs-mood add 2025-01-17 3
+i-rs-mood add 3 --date 2025-01-17
 ```
 
 ### With Tags
 
 ```bash
 # Single tag
-i-rs-mood add 2025-01-18 good --tag work
+i-rs-mood add good --tag work --date 2025-01-18
 
 # Multiple tags
-i-rs-mood add 2025-01-19 great --tag weekend --tag family --tag exercise
+i-rs-mood add great --tag weekend --tag family --tag exercise --date 2025-01-19
 ```
 
 ### With Notes
 
 ```bash
 # Single note
-i-rs-mood add 2025-01-20 okay --content "Monday blues"
+i-rs-mood add okay --content "Monday blues" --date 2025-01-20
 
 # Multiple notes
-i-rs-mood add 2025-01-21 good --content "Project completed" --content "Feeling accomplished"
+i-rs-mood add good --content "Project completed" --content "Feeling accomplished" --date 2025-01-21
 ```
 
 ### data

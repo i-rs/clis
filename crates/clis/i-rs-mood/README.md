@@ -32,7 +32,10 @@ brew install i-rs/homebrew-tap/i-rs-mood
 
 ```bash
 # Record today's mood
-i-rs-mood add 2025-01-15 good
+i-rs-mood add good
+
+# Record mood for a specific date
+i-rs-mood add great --date 2025-01-15
 
 # List all mood records
 i-rs-mood list

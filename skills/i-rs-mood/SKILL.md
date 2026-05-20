@@ -31,10 +31,14 @@ Mood tracking CLI tool for recording and visualizing daily mood.
 Add a mood record.
 
 ```bash
-i-rs-mood add <DATE> <MOOD> [OPTIONS]
+i-rs-mood add <MOOD> [OPTIONS]
 ```
 
+Arguments:
+- `MOOD` - Mood level (see Mood Levels below)
+
 Options:
+- `-D, --date <DATE>` - Date in YYYY-MM-DD format (default: today)
 - `-t, --tag <TAG>` - Tags (can be repeated)
 - `-c, --content <CONTENT>` - Content/notes (can be repeated)
 - `-r, --remark <REMARK>` - Remarks (can be repeated)
@@ -53,21 +57,22 @@ Options:
 
 ### get
 
-Get a mood record.
+Get a mood record by id.
 
 ```bash
-i-rs-mood get <DATE>
+i-rs-mood get <ID>
 ```
 
 ### update
 
-Update a mood record.
+Update a mood record by id.
 
 ```bash
-i-rs-mood update <DATE>
+i-rs-mood update <ID> [OPTIONS]
 ```
 
 Options:
+- `-D, --date <DATE>` - New date
 - `-m, --mood <MOOD>` - New mood level
 - `-t, --tag <TAG>` - New tags
 - `-c, --content <CONTENT>` - New content
@@ -75,10 +80,10 @@ Options:
 
 ### delete
 
-Delete a mood record.
+Delete a mood record by id.
 
 ```bash
-i-rs-mood delete <DATE>
+i-rs-mood delete <ID>
 ```
 
 ### data
@@ -111,10 +116,10 @@ i-rs-mood skill [summary|content|raw]
 
 ```bash
 # Record today's mood
-i-rs-mood add 2025-01-15 good [OPTIONS]
+i-rs-mood add good [OPTIONS]
 
-# Record with emoji
-i-rs-mood add 2025-01-16 😊 --tag weekend --content "Great day" [OPTIONS]
+# Record mood for a specific date
+i-rs-mood add 😊 --date 2025-01-16 --tag weekend --content "Great day"
 
 # List all records
 i-rs-mood list [OPTIONS]
@@ -122,9 +127,12 @@ i-rs-mood list [OPTIONS]
 # List last 7 days with calendar
 i-rs-mood list --days 7 --calendar
 
+# Get record by id
+i-rs-mood get abc12345
+
 # Update mood
-i-rs-mood update 2025-01-15 --mood okay
+i-rs-mood update abc12345 --mood okay
 
 # Delete record
-i-rs-mood delete 2025-01-15
+i-rs-mood delete abc12345
 ```
