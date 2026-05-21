@@ -91,6 +91,16 @@ struct ContentView: View {
                 .help("New Chat")
                 .disabled(service.connectionState != .connected)
             }
+
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .help("Settings")
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 
@@ -116,16 +126,6 @@ struct ContentView: View {
                 }
 
                 Spacer()
-
-                Button {
-                    showingSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Settings")
             }
             .padding(.vertical, 2)
         } header: {
