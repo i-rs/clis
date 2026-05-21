@@ -111,6 +111,11 @@ pub fn render(f: &mut Frame, app: &App) {
         panels::render_agent_list_panel(f, area, app);
     }
 
+    if app.overlay.show_stats_history {
+        panels::render_backdrop(f, area);
+        panels::render_stats_history_panel(f, area, app);
+    }
+
     if !app.overlay.tab_completions.is_empty() {
         completions::render_completions(f, area, app);
     }

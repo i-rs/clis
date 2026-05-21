@@ -168,6 +168,7 @@ pub struct OverlayState {
     pub show_config: bool,
     pub show_tool_list: bool,
     pub show_agent_list: bool,
+    pub show_stats_history: bool,
     pub copy_feedback: Option<String>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
@@ -212,6 +213,7 @@ impl OverlayState {
             show_config: false,
             show_tool_list: false,
             show_agent_list: false,
+            show_stats_history: false,
             copy_feedback: None,
             tab_completions: Vec::new(),
             tab_completion_index: 0,
@@ -251,8 +253,8 @@ pub struct App {
     pub plan_steps: Vec<PlanStep>,
     /// Current agent profile ID
     pub current_agent: String,
-    /// Today's token usage summary (from StatsManager)
     pub today_stats: TodaySummary,
+    pub stats_history: Vec<crate::stats::DailyStats>,
 }
 
 impl App {
@@ -277,6 +279,7 @@ impl App {
             plan_steps: Vec::new(),
             current_agent: "default".to_string(),
             today_stats: TodaySummary::default(),
+            stats_history: Vec::new(),
         }
     }
 

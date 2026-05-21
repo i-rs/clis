@@ -265,6 +265,12 @@ impl StatsManager {
         aggregator::today_summary(&records)
     }
 
+    pub fn daily_history(&self, days: u32) -> Vec<DailyStats> {
+        let stats = self.query(StatsPeriod::Last30Days);
+        let cutoff = days as usize;
+        stats.daily_series.into_iter().take(cutoff).collect()
+    }
+
     /// Query aggregated stats for a time period.
     #[allow(dead_code)]
     pub fn query(&self, period: StatsPeriod) -> TokenStats {

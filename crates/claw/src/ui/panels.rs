@@ -121,6 +121,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
         ("Ctrl+L", "会话列表"),
         ("Ctrl+T", "查看可用工具"),
         ("Ctrl+A", "Agent 管理"),
+        ("Ctrl+U", "Token 用量"),
         ("Ctrl+Shift+C", "复制当前消息"),
         ("Alt+Enter", "输入换行"),
         ("Fn", "语音输入 (macOS)"),
@@ -339,6 +340,74 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
     let list = List::new(lines).block(
         Block::default()
             .title(" 👤 Agent 管理 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
+pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
+    let popup_width = 55u16.min(area.width.saturating_sub(4));
+    let popup_height = 16u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    lines.push(Line::from(vec![
+        Span::styled("  今日: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} 请求 | {}K tokens", app.today_stats.requests, app.today_stats.tokens / 1000),
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    if app.today_stats.cost_usd > 0.001 {
+        lines.push(Line::from(vec![
+            Span::styled("  费用: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("${:.4}", app.today_stats.cost_usd),
+                Style::default().fg(Color::Green),
+            ),
+        ]));
+    }
+    lines.push(Line::from(vec![Span::raw("")]));
+
+    if app.stats_history.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            "  (暂无历史数据)",
+            Style::default().fg(Color::DarkGray),
+        )]));
+    } else {
+        let max_tokens = app.stats_history.iter().map(|d| d.total_tokens).max().unwrap_or(1);
+        let bar_width = (popup_width as usize).saturating_sub(22);
+
+        for day in &app.stats_history {
+            let token_k = day.total_tokens / 1000;
+            let bar_len = if max_tokens > 0 {
+                ((day.total_tokens as f64 / max_tokens as f64) * bar_width as f64) as usize
+            } else {
+                0
+            };
+            let bar = "█".repeat(bar_len.max(1));
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("  {:>5}  ", day.date),
+                    Style::default().fg(Color::Rgb(180, 180, 120)),
+                ),
+                Span::styled(bar, Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!(" {:>3}K", token_k),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+        }
+    }
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" 📊 Token 用量 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)),

@@ -244,6 +244,9 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Esc if self.app.overlay.show_agent_list => {
                 self.app.overlay.show_agent_list = false;
             }
+            KeyCode::Esc if self.app.overlay.show_stats_history => {
+                self.app.overlay.show_stats_history = false;
+            }
             KeyCode::Esc if self.app.overlay.show_config => {
                 self.app.overlay.show_config = false;
             }
@@ -330,6 +333,18 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.overlay.show_help = false;
                     self.app.overlay.show_config = false;
                     self.app.overlay.show_tool_list = false;
+                    self.app.overlay.show_stats_history = false;
+                }
+            }
+
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.overlay.show_stats_history = !self.app.overlay.show_stats_history;
+                if self.app.overlay.show_stats_history {
+                    self.app.overlay.show_help = false;
+                    self.app.overlay.show_config = false;
+                    self.app.overlay.show_tool_list = false;
+                    self.app.overlay.show_agent_list = false;
+                    self.app.stats_history = self.app_core.stats_manager.daily_history(7);
                 }
             }
 
