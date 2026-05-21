@@ -2,7 +2,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, Paragraph},
+    widgets::{Block, Borders, Clear, List, Paragraph},
     Frame,
 };
 
@@ -493,9 +493,10 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
 }
 
 pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
-    f.render_widget(
-        Block::default()
-            .style(Style::default().bg(Color::Rgb(20, 20, 30))),
-        area,
-    );
+    f.render_widget(Clear, area);
+    let fill = " ".repeat(area.width as usize);
+    let lines: Vec<Line> = (0..area.height)
+        .map(|_| Line::from(Span::styled(&fill, Style::default().bg(Color::Rgb(10, 10, 20)))))
+        .collect();
+    f.render_widget(Paragraph::new(lines), area);
 }
