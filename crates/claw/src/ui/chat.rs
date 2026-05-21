@@ -82,9 +82,9 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     let mut block = ratatui::widgets::Block::default()
         .borders(ratatui::widgets::Borders::TOP)
         .border_style(Style::default().fg(if at_bottom && hidden_extra == 0 {
-            Color::DarkGray
+            app.config.theme.dim_text()
         } else {
-            Color::Rgb(100, 120, 200)
+            app.config.theme.primary()
         }));
 
     let total_hidden = msg_skip_count + hidden_extra;
@@ -629,14 +629,14 @@ fn build_message_lines(
                 Line::from(Span::styled(
                     format!("  You:{}", ts_label),
                     Style::default()
-                        .fg(Color::Green)
+                        .fg(app.config.theme.secondary())
                         .add_modifier(Modifier::BOLD),
                 )),
             ];
             for wrapped in utils::wrap_text(text, text_width) {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", wrapped),
-                    Style::default().fg(Color::White),
+                    Style::default().fg(app.config.theme.text()),
                 )));
             }
             lines.push(Line::from(Span::raw("")));
@@ -650,13 +650,13 @@ fn build_message_lines(
             let mut lines = vec![Line::from(Span::styled(
                 format!("  Claw:{}", ts_label),
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(app.config.theme.primary())
                     .add_modifier(Modifier::BOLD),
             ))];
             if text.is_empty() {
                 lines.push(Line::from(Span::styled(
                     "   ...",
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(app.config.theme.dim_text()),
                 )));
             } else {
                 // Use cached rendering from Pass 1 if available
@@ -669,7 +669,7 @@ fn build_message_lines(
                     for wrapped in utils::wrap_text(text, text_width) {
                         lines.push(Line::from(Span::styled(
                             format!("   {}", wrapped),
-                            Style::default().fg(Color::White),
+                            Style::default().fg(app.config.theme.text()),
                         )));
                     }
                 } else {
@@ -738,14 +738,14 @@ fn build_message_lines(
             lines.push(Line::from(Span::styled(
                 format!("{}{}{}", header, indicator, ts_label),
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(app.config.theme.accent())
                     .add_modifier(Modifier::BOLD),
             )));
 
             if let Some(exp) = &detail {
                 lines.push(Line::from(Span::styled(
                     format!("   └─ {}", exp),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(app.config.theme.dim_text()),
                 )));
             }
 
@@ -761,7 +761,7 @@ fn build_message_lines(
                         for wrapped in utils::wrap_text(result, text_width.saturating_sub(3)) {
                             lines.push(Line::from(Span::styled(
                                 format!("   {}", wrapped),
-                                Style::default().fg(Color::White),
+                                Style::default().fg(app.config.theme.text()),
                             )));
                         }
                     }
@@ -778,14 +778,14 @@ fn build_message_lines(
                 Line::from(Span::styled(
                     format!(" ✗ Error:{}", ts_label),
                     Style::default()
-                        .fg(Color::Red)
+                        .fg(app.config.theme.error())
                         .add_modifier(Modifier::BOLD),
                 )),
             ];
             for wrapped in utils::wrap_text(text, text_width) {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", wrapped),
-                    Style::default().fg(Color::Red),
+                    Style::default().fg(app.config.theme.error()),
                 )));
             }
             lines.push(Line::from(Span::raw("")));

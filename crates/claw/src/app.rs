@@ -53,6 +53,8 @@ pub struct InputState {
     pub cursor: usize,
     pub history: Vec<String>,
     pub history_index: Option<usize>,
+    undo_stack: Vec<String>,
+    redo_stack: Vec<String>,
 }
 
 impl InputState {
@@ -62,10 +64,37 @@ impl InputState {
             cursor: 0,
             history: Vec::new(),
             history_index: None,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+        }
+    }
+
+    fn push_undo(&mut self) {
+        self.undo_stack.push(self.text.clone());
+        if self.undo_stack.len() > 100 {
+            self.undo_stack.drain(..50);
+        }
+        self.redo_stack.clear();
+    }
+
+    pub fn undo(&mut self) {
+        if let Some(prev) = self.undo_stack.pop() {
+            self.redo_stack.push(self.text.clone());
+            self.text = prev;
+            self.cursor = self.cursor.min(self.text.len());
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(next) = self.redo_stack.pop() {
+            self.undo_stack.push(self.text.clone());
+            self.text = next;
+            self.cursor = self.cursor.min(self.text.len());
         }
     }
 
     pub fn insert_char(&mut self, c: char) {
+        self.push_undo();
         self.text.insert(self.cursor, c);
         self.cursor += c.len_utf8();
     }
@@ -74,11 +103,50 @@ impl InputState {
         if self.cursor == 0 {
             return;
         }
+        self.push_undo();
         let prev = self.text[..self.cursor].char_indices().next_back();
         if let Some((idx, _)) = prev {
             self.text.drain(idx..self.cursor);
             self.cursor = idx;
         }
+    }
+
+    pub fn delete_word_before_cursor(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+        self.push_undo();
+        let before = &self.text[..self.cursor];
+        let trimmed = before.trim_end_matches(|c: char| c.is_whitespace());
+        let word_start = trimmed
+            .char_indices()
+            .rev()
+            .position(|(_, c)| !c.is_alphanumeric() && c != '_')
+            .map(|p| {
+                let idx = trimmed.len() - p - 1;
+                let (_, c) = trimmed.char_indices().nth(idx).unwrap();
+                idx + c.len_utf8()
+            })
+            .unwrap_or(0);
+        self.text.drain(word_start..self.cursor);
+        self.cursor = word_start;
+    }
+
+    pub fn delete_to_line_start(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+        self.push_undo();
+        self.text.drain(..self.cursor);
+        self.cursor = 0;
+    }
+
+    pub fn delete_to_line_end(&mut self) {
+        if self.cursor >= self.text.len() {
+            return;
+        }
+        self.push_undo();
+        self.text.drain(self.cursor..);
     }
 
     pub fn move_cursor_left(&mut self) {
@@ -101,6 +169,47 @@ impl InputState {
         } else {
             self.cursor = self.text.len();
         }
+    }
+
+    pub fn move_cursor_word_left(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+        let before = &self.text[..self.cursor];
+        let trimmed = before.trim_end_matches(|c: char| c.is_whitespace());
+        if trimmed.is_empty() {
+            self.cursor = 0;
+            return;
+        }
+        let new_pos = trimmed
+            .char_indices()
+            .rev()
+            .position(|(_, c)| !c.is_alphanumeric() && c != '_')
+            .map(|p| {
+                let idx = trimmed.len() - p - 1;
+                let (_, c) = trimmed.char_indices().nth(idx).unwrap();
+                idx + c.len_utf8()
+            })
+            .unwrap_or(0);
+        self.cursor = new_pos;
+    }
+
+    pub fn move_cursor_word_right(&mut self) {
+        if self.cursor >= self.text.len() {
+            return;
+        }
+        let after = &self.text[self.cursor..];
+        let trimmed = after.trim_start_matches(|c: char| c.is_whitespace());
+        if trimmed.is_empty() {
+            self.cursor = self.text.len();
+            return;
+        }
+        let skip_ws = after.len() - trimmed.len();
+        let word_end = trimmed
+            .char_indices()
+            .position(|(_, c)| !c.is_alphanumeric() && c != '_')
+            .unwrap_or(trimmed.len());
+        self.cursor = self.cursor + skip_ws + word_end;
     }
 
     pub fn move_cursor_home(&mut self) {

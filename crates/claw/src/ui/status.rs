@@ -49,9 +49,10 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::Rgb(140, 140, 160)),
         ));
     } else if app.is_processing() {
-        // Processing state
+        const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
+        let spinner = SPINNERS[f.count() % SPINNERS.len()];
         spans.push(Span::styled(
-            format!(" ⏳ {} ", app.status_text),
+            format!(" {} {} ", spinner, app.status_text),
             Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
         ));
         // Separator

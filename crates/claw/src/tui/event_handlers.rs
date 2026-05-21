@@ -340,7 +340,7 @@ impl<'a> KeyEventHandler<'a> {
                 }
             }
 
-            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('u') if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 self.app.overlay.show_stats_history = !self.app.overlay.show_stats_history;
                 if self.app.overlay.show_stats_history {
                     self.app.overlay.show_help = false;
@@ -352,7 +352,7 @@ impl<'a> KeyEventHandler<'a> {
                 }
             }
 
-            KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('p') if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 self.app.overlay.show_plugin_list = !self.app.overlay.show_plugin_list;
                 if self.app.overlay.show_plugin_list {
                     self.app.overlay.show_help = false;
@@ -821,10 +821,35 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.overlay.tab_completion_index = 0;
                 }
             }
+            KeyCode::Left if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.move_cursor_word_left();
+            }
+            KeyCode::Right if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.move_cursor_word_right();
+            }
+            KeyCode::Backspace if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.delete_word_before_cursor();
+                if !self.app.overlay.tab_completions.is_empty() {
+                    self.app.overlay.tab_completions.clear();
+                    self.app.overlay.tab_completion_index = 0;
+                }
+            }
             KeyCode::Left => { self.app.move_cursor_left(); }
             KeyCode::Right => { self.app.move_cursor_right(); }
             KeyCode::Home => { self.app.input.move_cursor_home(); }
             KeyCode::End => { self.app.input.move_cursor_end(); }
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() => {
+                self.app.input.delete_to_line_start();
+            }
+            KeyCode::Char('k') if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() => {
+                self.app.input.delete_to_line_end();
+            }
+            KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() => {
+                self.app.input.undo();
+            }
+            KeyCode::Char('y') if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() => {
+                self.app.input.redo();
+            }
             KeyCode::Char(c) if !self.app.is_processing() => {
                 if !self.app.overlay.tab_completions.is_empty() {
                     self.app.overlay.tab_completions.clear();
