@@ -84,6 +84,9 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @ObservedObject var service: ClawService
     @AppStorage("app_appearance") private var appearance: String = "system"
+    @AppStorage("llm_provider") private var llmProvider: String = "openai"
+    @AppStorage("llm_base_url") private var llmBaseURL: String = ""
+    @State private var editingProvider = false
 
     var body: some View {
         Form {
@@ -98,6 +101,15 @@ struct GeneralSettingsView: View {
                     .onChange(of: appearance) { _, newValue in
                         applyAppearance(newValue)
                     }
+            }
+
+            Section {
+                providerRow
+                if editingProvider {
+                    providerEditRow
+                }
+            } header: {
+                Label("LLM Provider", systemImage: "brain")
             }
 
             if let config = service.config {
@@ -132,6 +144,114 @@ struct GeneralSettingsView: View {
             applyAppearance(appearance)
             Task { await service.fetchConfig() }
         }
+    }
+
+    @ViewBuilder
+    private var providerRow: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(providerColor(llmProvider).opacity(0.12))
+                    .frame(width: 28, height: 28)
+                Image(systemName: providerIcon(llmProvider))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(providerColor(llmProvider))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(providerName(llmProvider))
+                    .font(.callout)
+                    .fontWeight(.medium)
+                if !llmBaseURL.isEmpty {
+                    Text(llmBaseURL)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    editingProvider.toggle()
+                }
+            } label: {
+                Image(systemName: editingProvider ? "chevron.up" : "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var providerEditRow: some View {
+        VStack(spacing: 10) {
+            Picker("Provider", selection: $llmProvider) {
+                ForEach(ProviderOption.allCases, id: \.id) { opt in
+                    Label(opt.name, systemImage: opt.icon).tag(opt.id)
+                }
+            }
+            .pickerStyle(.menu)
+
+            TextField("Base URL (optional)", text: $llmBaseURL)
+                .textFieldStyle(.roundedBorder)
+                .font(.callout.monospaced())
+                .textContentType(.URL)
+
+            HStack {
+                Button("Save & Reconnect") {
+                    UserDefaults.standard.set(llmProvider, forKey: "llm_provider")
+                    UserDefaults.standard.set(llmBaseURL, forKey: "llm_base_url")
+                    service.restartBackend()
+                    editingProvider = false
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Button("Cancel") {
+                    editingProvider = false
+                }
+                .controlSize(.small)
+
+                Spacer()
+            }
+        }
+        .padding(.leading, 38)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private func providerIcon(_ id: String) -> String {
+        switch id {
+        case "openai": return "brain"
+        case "anthropic": return "a.circle"
+        case "deepseek": return "magnifyingglass"
+        case "minimax": return "bolt"
+        case "zhipu": return "z.circle"
+        case "kimi": return "k.circle"
+        case "aliyun": return "a.circle"
+        case "ollama": return "llama"
+        default: return "cpu"
+        }
+    }
+
+    private func providerColor(_ id: String) -> Color {
+        switch id {
+        case "openai": return .green
+        case "anthropic": return .orange
+        case "deepseek": return .blue
+        case "minimax": return .purple
+        case "zhipu": return .cyan
+        case "kimi": return .pink
+        case "aliyun": return .indigo
+        case "ollama": return .teal
+        default: return .secondary
+        }
+    }
+
+    private func providerName(_ id: String) -> String {
+        ProviderOption.allCases.first(where: { $0.id == id })?.name ?? id
     }
 
     @ViewBuilder
@@ -179,6 +299,38 @@ struct GeneralSettingsView: View {
             NSApp.appearance = nil
         }
         #endif
+    }
+}
+
+enum ProviderOption: String, CaseIterable, Identifiable {
+    case openai, anthropic, deepseek, minimax, zhipu, kimi, aliyun, ollama
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .openai: return "OpenAI"
+        case .anthropic: return "Anthropic"
+        case .deepseek: return "DeepSeek"
+        case .minimax: return "MiniMax"
+        case .zhipu: return "Zhipu GLM"
+        case .kimi: return "Kimi (Moonshot)"
+        case .aliyun: return "Aliyun (Qwen)"
+        case .ollama: return "Ollama (Local)"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .openai: return "brain"
+        case .anthropic: return "a.circle"
+        case .deepseek: return "magnifyingglass"
+        case .minimax: return "bolt"
+        case .zhipu: return "z.circle"
+        case .kimi: return "k.circle"
+        case .aliyun: return "a.circle"
+        case .ollama: return "llama"
+        }
     }
 }
 

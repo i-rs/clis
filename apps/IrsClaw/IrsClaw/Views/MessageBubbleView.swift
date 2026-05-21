@@ -196,15 +196,13 @@ struct MessageBubbleView: View {
         case .inProgress:
             ProgressView()
                 .scaleEffect(0.6)
-                .tint(.orange)
+                .tint(.orange.opacity(0.7))
         case .success:
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .symbolEffect(.bounce.down, value: true)
+                .foregroundStyle(.green.opacity(0.75))
         case .failure:
             Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(.red)
-                .symbolEffect(.bounce.down, value: true)
+                .foregroundStyle(.red.opacity(0.75))
         }
     }
 
@@ -244,9 +242,9 @@ enum ToolStatus {
 
     var borderColor: Color {
         switch self {
-        case .inProgress: return .orange
-        case .success: return .green
-        case .failure: return .red
+        case .inProgress: return .orange.opacity(0.5)
+        case .success: return .green.opacity(0.5)
+        case .failure: return .red.opacity(0.5)
         }
     }
 }
@@ -351,8 +349,8 @@ struct JSONHighlightView: View {
                 let strVal = String(chars[i..<strEnd])
                 let afterStr = String(chars[strEnd..<chars.count]).trimmingCharacters(in: .whitespaces)
 
-                if afterStr.hasPrefix(":") {
-                    tokens.append((strVal, .purple))
+                    if afterStr.hasPrefix(":") {
+                    tokens.append((strVal, .purple.opacity(0.8)))
                     tokens.append((": ", .secondary))
                     i = strEnd + 1
                     let rest = String(chars[i..<chars.count]).trimmingCharacters(in: .whitespaces)
@@ -364,35 +362,35 @@ struct JSONHighlightView: View {
                             end += 1
                         }
                         if end < chars.count { end += 1 }
-                        tokens.append((String(chars[i..<end]), .green))
+                        tokens.append((String(chars[i..<end]), .green.opacity(0.75)))
                         i = end
                     } else if rest.hasPrefix("true") {
-                        tokens.append(("true", .orange)); i += 4
+                        tokens.append(("true", .orange.opacity(0.7))); i += 4
                     } else if rest.hasPrefix("false") {
-                        tokens.append(("false", .orange)); i += 5
+                        tokens.append(("false", .orange.opacity(0.7))); i += 5
                     } else if rest.hasPrefix("null") {
                         tokens.append(("null", .secondary)); i += 4
                     } else {
                         let numEnd = chars[i..<chars.count].firstIndex(where: { !"-0123456789.eE".contains($0) }) ?? chars.count
-                        tokens.append((String(chars[i..<numEnd]), .orange))
+                        tokens.append((String(chars[i..<numEnd]), .orange.opacity(0.7)))
                         i = numEnd
                     }
                 } else {
-                    tokens.append((strVal, .green))
+                    tokens.append((strVal, .green.opacity(0.75)))
                     i = strEnd
                 }
             } else if c == "," || c == "{" || c == "}" || c == "[" || c == "]" {
                 tokens.append((String(c), .secondary))
                 i += 1
             } else if String(chars[i..<min(i+4, chars.count)]) == "true" {
-                tokens.append(("true", .orange)); i += 4
+                tokens.append(("true", .orange.opacity(0.7))); i += 4
             } else if String(chars[i..<min(i+5, chars.count)]) == "false" {
-                tokens.append(("false", .orange)); i += 5
+                tokens.append(("false", .orange.opacity(0.7))); i += 5
             } else if String(chars[i..<min(i+4, chars.count)]) == "null" {
                 tokens.append(("null", .secondary)); i += 4
             } else if "-0123456789.eE".contains(c) {
                 let numEnd = chars[i..<chars.count].firstIndex(where: { !"-0123456789.eE".contains($0) }) ?? chars.count
-                tokens.append((String(chars[i..<numEnd]), .orange))
+                tokens.append((String(chars[i..<numEnd]), .orange.opacity(0.7)))
                 i = numEnd
             } else {
                 i += 1

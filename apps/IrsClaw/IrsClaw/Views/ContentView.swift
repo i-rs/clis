@@ -35,6 +35,13 @@ struct ContentView: View {
                                 service.switchToSession(session.id)
                             }
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                service.deleteSession(session.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                 }
             }
 
