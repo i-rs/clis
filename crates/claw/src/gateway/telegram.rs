@@ -64,31 +64,31 @@ impl PlatformAdapter for TelegramAdapter {
 
                 match client.get(&url).send().await {
                     Ok(resp) => {
-                        if let Ok(json) = resp.json::<serde_json::Value>().await {
-                            if let Some(updates) = json["result"].as_array() {
-                                for update in updates {
-                                    if let Some(msg) = update.get("message") {
-                                        let chat_id = msg["chat"]["id"].to_string();
-                                        let user_id = msg["from"]["id"].to_string();
-                                        let text = msg["text"]
-                                            .as_str()
-                                            .unwrap_or("")
-                                            .to_string();
+                        if let Ok(json) = resp.json::<serde_json::Value>().await
+                            && let Some(updates) = json["result"].as_array()
+                        {
+                            for update in updates {
+                                if let Some(msg) = update.get("message") {
+                                    let chat_id = msg["chat"]["id"].to_string();
+                                    let user_id = msg["from"]["id"].to_string();
+                                    let text = msg["text"]
+                                        .as_str()
+                                        .unwrap_or("")
+                                        .to_string();
 
-                                        if !text.is_empty() {
-                                            let _ = event_tx.send(GatewayEvent::Message {
-                                                platform: name.clone(),
-                                                chat_id,
-                                                user_id,
-                                                text,
-                                                agent_id: agent_id.clone(),
-                                            });
-                                        }
+                                    if !text.is_empty() {
+                                        let _ = event_tx.send(GatewayEvent::Message {
+                                            platform: name.clone(),
+                                            chat_id,
+                                            user_id,
+                                            text,
+                                            agent_id: agent_id.clone(),
+                                        });
                                     }
-                                    // Update offset to acknowledge this update
-                                    if let Some(update_id) = update["update_id"].as_i64() {
-                                        offset = update_id + 1;
-                                    }
+                                }
+                                // Update offset to acknowledge this update
+                                if let Some(update_id) = update["update_id"].as_i64() {
+                                    offset = update_id + 1;
                                 }
                             }
                         }

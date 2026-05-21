@@ -100,7 +100,7 @@ pub fn group_by_model(records: &[TokenRecord], _pricing: &ModelPricingTable) -> 
     }
 
     let mut result: Vec<_> = map.into_values().collect();
-    result.sort_by(|a, b| b.total_tokens.cmp(&a.total_tokens));
+    result.sort_by_key(|b| std::cmp::Reverse(b.total_tokens));
     result
 }
 
@@ -120,7 +120,7 @@ pub fn group_by_agent(records: &[TokenRecord], _pricing: &ModelPricingTable) -> 
     }
 
     let mut result: Vec<_> = map.into_values().collect();
-    result.sort_by(|a, b| b.total_tokens.cmp(&a.total_tokens));
+    result.sort_by_key(|b| std::cmp::Reverse(b.total_tokens));
     result
 }
 
@@ -129,7 +129,7 @@ pub fn group_by_day(records: &[TokenRecord], _pricing: &ModelPricingTable) -> Ve
 
     for r in records {
         // Convert timestamp to date string
-        let seconds = r.timestamp.max(0) as i64;
+        let seconds = r.timestamp.max(0);
         let naive = chrono::DateTime::from_timestamp(seconds, 0)
             .map(|dt| dt.format("%Y-%m-%d").to_string())
             .unwrap_or_else(|| "unknown".to_string());

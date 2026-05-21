@@ -43,11 +43,10 @@ impl StoreIndex {
                 offset += (line.len() + 1) as u64;
                 continue;
             }
-            if line_num % INDEX_INTERVAL == 0 {
-                if let Some(ts) = extract_timestamp(&line) {
+            if line_num.is_multiple_of(INDEX_INTERVAL)
+                && let Some(ts) = extract_timestamp(&line) {
                     self.entries.push((offset, ts));
                 }
-            }
             offset += (line.len() + 1) as u64;
             line_num += 1;
         }
@@ -144,16 +143,14 @@ pub(crate) fn read_range(
 
         // Quick timestamp filter before deserialization
         if let Some(ts) = extract_timestamp(&line) {
-            if let Some(f) = from {
-                if ts < f {
+            if let Some(f) = from
+                && ts < f {
                     continue;
                 }
-            }
-            if let Some(t) = to {
-                if ts > t {
+            if let Some(t) = to
+                && ts > t {
                     continue;
                 }
-            }
         }
 
         match serde_json::from_str::<TokenRecord>(&line) {

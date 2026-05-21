@@ -470,25 +470,23 @@ pub fn run_gateway() -> anyhow::Result<()> {
     // Register platform adapters based on config
     if config.gateway.enabled {
         #[cfg(feature = "gateway-telegram")]
-        if let Some(ref tg) = config.gateway.telegram {
-            if tg.enabled {
-                if let Some(ref token) = tg.token {
-                    let adapter = crate::gateway::telegram::TelegramAdapter::new(
-                        crate::gateway::telegram::TelegramConfig {
-                            bot_token: token.clone(),
-                            enabled: true,
-                            agent_id: tg.agent_id.clone().unwrap_or_else(|| "default".to_string()),
-                        },
-                    );
-                    server.register(std::sync::Arc::new(adapter));
-                    println!("  ✓ Telegram bot registered");
-                }
+        if let Some(ref tg) = config.gateway.telegram
+            && tg.enabled
+            && let Some(ref token) = tg.token {
+                let adapter = crate::gateway::telegram::TelegramAdapter::new(
+                    crate::gateway::telegram::TelegramConfig {
+                        bot_token: token.clone(),
+                        enabled: true,
+                        agent_id: tg.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                    },
+                );
+                server.register(std::sync::Arc::new(adapter));
+                println!("  ✓ Telegram bot registered");
             }
-        }
 
         #[cfg(feature = "gateway-wechat")]
-        if let Some(ref wc) = config.gateway.wechat {
-            if wc.enabled {
+        if let Some(ref wc) = config.gateway.wechat
+            && wc.enabled {
                 let adapter = crate::gateway::wechat::WeChatAdapter::new(
                     crate::gateway::wechat::WeChatConfig {
                         enabled: true,
@@ -498,7 +496,6 @@ pub fn run_gateway() -> anyhow::Result<()> {
                 server.register(std::sync::Arc::new(adapter));
                 println!("  ✓ WeChat bot registered");
             }
-        }
     }
 
     if server.adapter_count() == 0 {
