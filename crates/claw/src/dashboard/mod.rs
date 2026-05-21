@@ -43,16 +43,28 @@ impl Dashboard {
 
         let inner = Arc::into_inner(core).expect("AppCore must have exactly one reference");
 
-        let auth_token = self.config.auth_token.clone().unwrap_or_else(|| {
-            let token = uuid::Uuid::new_v4().to_string();
-            println!(
-                "  {}  {} {}",
-                "🔑".bright_blue(),
-                "Token:".bold().yellow(),
-                token.bright_white().bold()
-            );
+        let auth_token = if let Some(token) = self.config.auth_token.clone() {
             token
-        });
+        } else {
+            let token = uuid::Uuid::new_v4().to_string();
+            if let Err(e) = Self::persist_auth_token(&token) {
+                eprintln!("  {}  Failed to persist auth token: {}", "⚠".yellow(), e);
+                println!(
+                    "  {}  {} {} (not saved to config, will rotate on restart)",
+                    "🔑".bright_blue(),
+                    "Token:".bold().yellow(),
+                    token.bright_white().bold()
+                );
+            } else {
+                println!(
+                    "  {}  {} {} (saved to config)",
+                    "🔑".bright_blue(),
+                    "Token:".bold().yellow(),
+                    token.bright_white().bold()
+                );
+            }
+            token
+        };
 
         let state = AppState::new(inner, auth_token.clone());
 
@@ -128,6 +140,13 @@ impl Dashboard {
         axum::serve(listener, app)
             .await
             .expect("Dashboard server error");
+    }
+
+    /// Persist the generated auth token to config.toml so it survives restarts.
+    fn persist_auth_token(token: &str) -> anyhow::Result<()> {
+        let mut cfg = crate::config::Config::load()?;
+        cfg.dashboard.auth_token = Some(token.to_string());
+        cfg.save()
     }
 }
 
