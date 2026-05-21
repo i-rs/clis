@@ -69,24 +69,9 @@ struct ContentView: View {
 
             Divider()
 
-            List(selection: $selectedTab) {
-                Section("Chat") {
-                    ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
-                        Label(tab.label, systemImage: tab.icon)
-                            .tag(tab)
-                    }
-                }
-
-                Section("Sessions") {
-                    ForEach(filteredSessionsByAgent) { session in
-                        SessionRow(session: session)
-                            .tag(SidebarTab.sessions)
-                            .onTapGesture {
-                                selectedTab = .sessions
-                                service.switchToSession(session.id)
-                            }
-                    }
-                }
+            List {
+                chatNavSection
+                sessionsSection
             }
             .listStyle(.sidebar)
             .searchable(text: $searchText, prompt: "Search")
@@ -152,6 +137,34 @@ struct ContentView: View {
         }
         .padding(8)
         .background(.ultraThinMaterial)
+    }
+
+    @ViewBuilder
+    private var chatNavSection: some View {
+        Section("Chat") {
+            ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
+                Label(tab.label, systemImage: tab.icon)
+                    .fontWeight(selectedTab == tab ? .medium : .regular)
+                    .foregroundStyle(selectedTab == tab ? .blue : .primary)
+                    .contentShape(Rectangle())
+                    .onTapGesture { selectedTab = tab }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sessionsSection: some View {
+        Section("Sessions") {
+            ForEach(filteredSessionsByAgent) { session in
+                SessionRow(session: session)
+                    .opacity(selectedTab == .sessions ? 1 : 0.6)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedTab = .sessions
+                        service.switchToSession(session.id)
+                    }
+            }
+        }
     }
 
     // MARK: - Shared detail content

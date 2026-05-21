@@ -83,6 +83,7 @@ struct SettingsView: View {
 
 struct GeneralSettingsView: View {
     @ObservedObject var service: ClawService
+    @AppStorage("app_appearance") private var appearance: String = "system"
 
     var body: some View {
         Form {
@@ -90,6 +91,18 @@ struct GeneralSettingsView: View {
                 connectionStatusCard
             } header: {
                 Text("Connection")
+            }
+
+            Section("Appearance") {
+                Picker("Theme", selection: $appearance) {
+                    Text("Follow System").tag("system")
+                    Text("Light").tag("light")
+                    Text("Dark").tag("dark")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: appearance) { _, newValue in
+                    applyAppearance(newValue)
+                }
             }
 
             if let config = service.config {
@@ -121,6 +134,7 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            applyAppearance(appearance)
             Task { await service.fetchConfig() }
         }
     }
@@ -157,6 +171,19 @@ struct GeneralSettingsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func applyAppearance(_ mode: String) {
+        #if os(macOS)
+        switch mode {
+        case "light":
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark":
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        default:
+            NSApp.appearance = nil
+        }
+        #endif
     }
 }
 
