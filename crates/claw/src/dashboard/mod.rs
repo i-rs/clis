@@ -54,7 +54,7 @@ impl Dashboard {
             token
         });
 
-        let state = AppState::new(inner, auth_token);
+        let state = AppState::new(inner, auth_token.clone());
 
         let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth_guard);
 
