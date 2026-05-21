@@ -8,48 +8,48 @@ struct MessageBubbleView: View {
             switch message {
             case .user(let text):
                 Spacer(minLength: 60)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(text)
-                        .textSelection(.enabled)
-                        .padding(12)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                Text(text)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.85)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                        .foregroundColor(.white)
-                        .clipShape(MessageBubbleTail(isUser: true))
-                }
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                    )
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                    .transition(.scale.combined(with: .opacity))
 
             case .assistant(let text):
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bolt.fill")
-                            .font(.caption)
-                            .foregroundColor(.accentColor)
+                    HStack(spacing: 4) {
+                        Circle().fill(Color.accentColor).frame(width: 6, height: 6)
                         Text("Claw")
                             .font(.caption)
+                            .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.leading, 4)
 
                     MarkdownTextView(text: text)
-                        .padding(12)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                         .background(Color.platformControlBackground)
-                        .clipShape(MessageBubbleTail(isUser: false))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .transition(.move(edge: .leading).combined(with: .opacity))
+                .transition(.scale.combined(with: .opacity))
                 Spacer(minLength: 60)
 
             case .toolCall(let name, _, let result):
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "wrench.adjustable")
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wrench.and.screwdriver")
                             .font(.caption)
-                            .foregroundColor(.accentColor)
+                            .foregroundStyle(.orange)
                         Text(name)
                             .font(.caption)
                             .fontWeight(.medium)
@@ -64,24 +64,24 @@ struct MessageBubbleView: View {
                 }
                 .padding(10)
                 .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(.secondary.opacity(0.2), lineWidth: 0.5)
                 )
                 .transition(.scale.combined(with: .opacity))
                 Spacer(minLength: 60)
 
             case .error(let text):
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.circle.fill")
                         .foregroundStyle(.red)
                     Text(text)
                         .font(.callout)
                         .foregroundStyle(.red)
                 }
                 .padding(10)
-                .background(Color.red.opacity(0.08))
+                .background(.red.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .transition(.scale.combined(with: .opacity))
                 Spacer(minLength: 60)
@@ -125,58 +125,6 @@ struct MessageBubbleView: View {
     private func smartTruncate(_ text: String, maxLen: Int) -> String {
         if text.count <= maxLen { return text }
         return String(text.prefix(maxLen)) + "..."
-    }
-}
-
-/// Custom bubble shape with tail for chat messages
-struct MessageBubbleTail: Shape {
-    let isUser: Bool
-
-    func path(in rect: CGRect) -> Path {
-        let radius: CGFloat = 16
-        let tailSize: CGFloat = 8
-
-        var path = Path()
-
-        if isUser {
-            // User message: tail on bottom-right
-            path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
-            path.addArc(center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius),
-                       radius: radius, startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius - tailSize))
-            path.addArc(center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius - tailSize),
-                       radius: radius, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-            path.addLine(to: CGPoint(x: rect.maxX - tailSize, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.maxX - tailSize - 2, y: rect.maxY - 2))
-            path.addLine(to: CGPoint(x: rect.maxX - radius - tailSize, y: rect.maxY))
-            path.addArc(center: CGPoint(x: rect.minX + radius, y: rect.maxY - radius),
-                       radius: radius, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
-            path.addArc(center: CGPoint(x: rect.minX + radius, y: rect.minY + radius),
-                       radius: radius, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-            path.closeSubpath()
-        } else {
-            // Assistant message: tail on bottom-left
-            path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
-            path.addArc(center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius),
-                       radius: radius, startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
-            path.addArc(center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius),
-                       radius: radius, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-            path.addLine(to: CGPoint(x: rect.minX + radius + tailSize, y: rect.maxY))
-            path.addArc(center: CGPoint(x: rect.minX + radius + tailSize, y: rect.maxY - radius),
-                       radius: radius, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-            path.addLine(to: CGPoint(x: rect.minX + tailSize, y: rect.maxY - tailSize))
-            path.addLine(to: CGPoint(x: rect.minX + tailSize + 2, y: rect.maxY - 2))
-            path.addLine(to: CGPoint(x: rect.minX + tailSize, y: rect.maxY - radius))
-            path.addArc(center: CGPoint(x: rect.minX + radius, y: rect.minY + radius),
-                       radius: radius, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-            path.closeSubpath()
-        }
-
-        return path
     }
 }
 

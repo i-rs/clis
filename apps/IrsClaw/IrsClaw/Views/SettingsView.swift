@@ -401,18 +401,14 @@ struct BackendSettingsView: View {
             }
 
             Section("Server") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Server URL")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                LabeledContent("Server URL") {
+                    HStack(spacing: 8) {
+                        TextField("http://127.0.0.1:3000", text: $serverURL)
+                            .textFieldStyle(.plain)
+                            .font(.caption.monospaced())
+                            .textContentType(.URL)
 
-                    TextField("Server URL", text: $serverURL)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption.monospaced())
-                        .textContentType(.URL)
-
-                    HStack(spacing: 6) {
-                        Button("Save & Reconnect") {
+                        Button("Save") {
                             service.updateServerURL(serverURL)
                         }
                         .buttonStyle(.borderedProminent)
@@ -429,18 +425,14 @@ struct BackendSettingsView: View {
             }
 
             Section("Authentication") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Auth Token")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                LabeledContent("Auth Token") {
+                    HStack(spacing: 8) {
+                        SecureField("Bearer token", text: $authToken)
+                            .textFieldStyle(.plain)
+                            .font(.caption.monospaced())
+                            .textContentType(.password)
 
-                    SecureField("Bearer token", text: $authToken)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption.monospaced())
-                        .textContentType(.password)
-
-                    HStack(spacing: 6) {
-                        Button("Save & Reconnect") {
+                        Button("Save") {
                             service.updateAuthToken(authToken)
                         }
                         .buttonStyle(.borderedProminent)
