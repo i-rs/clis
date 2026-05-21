@@ -64,27 +64,36 @@ struct ContentView: View {
 
     @ViewBuilder
     private var sidebarContent: some View {
-        VStack(spacing: 0) {
-            agentSwitcher
+        List {
+            agentSwitcherSection
 
-            Divider()
-
-            List {
-                chatNavSection
-                sessionsSection
+            Section("Chat") {
+                ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
+                    Label(tab.label, systemImage: tab.icon)
+                        .fontWeight(selectedTab == tab ? .medium : .regular)
+                        .foregroundStyle(selectedTab == tab ? .blue : .primary)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedTab = tab }
+                }
             }
-            .listStyle(.sidebar)
-            .searchable(text: $searchText, prompt: "Search")
+
+            Section("Sessions") {
+                ForEach(filteredSessionsByAgent) { session in
+                    SessionRow(session: session)
+                        .opacity(selectedTab == .sessions ? 1 : 0.6)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedTab = .sessions
+                            service.switchToSession(session.id)
+                        }
+                }
+            }
         }
+        .listStyle(.sidebar)
+        .searchable(text: $searchText, prompt: "Search")
         .navigationSplitViewColumnWidth(220)
         .toolbar {
-            ToolbarItemGroup {
-                if service.isProcessing {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .help("Processing...")
-                }
-
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task { await service.createSession() }
                 } label: {
@@ -92,78 +101,36 @@ struct ContentView: View {
                 }
                 .help("New Chat")
                 .disabled(service.connectionState != .connected)
-
-                Button {
-                    showingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .help("Settings")
             }
         }
     }
 
     @ViewBuilder
-    private var agentSwitcher: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "brain")
-                .foregroundStyle(.blue)
-                .font(.caption)
+    private var agentSwitcherSection: some View {
+        Section {
+            HStack(spacing: 8) {
+                Image(systemName: "brain")
+                    .foregroundStyle(.blue)
+                    .font(.title3)
 
-            Picker("", selection: $service.currentAgentId) {
-                ForEach(service.agents) { agent in
-                    Text(agent.id).tag(agent.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .font(.caption)
-            .onChange(of: service.currentAgentId) { _, newAgentId in
-                Task { await service.switchAgent(newAgentId) }
-                selectedTab = .sessions
-            }
-
-            Spacer()
-
-            Button {
-                showingSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Settings")
-        }
-        .padding(8)
-        .background(.ultraThinMaterial)
-    }
-
-    @ViewBuilder
-    private var chatNavSection: some View {
-        Section("Chat") {
-            ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
-                Label(tab.label, systemImage: tab.icon)
-                    .fontWeight(selectedTab == tab ? .medium : .regular)
-                    .foregroundStyle(selectedTab == tab ? .blue : .primary)
-                    .contentShape(Rectangle())
-                    .onTapGesture { selectedTab = tab }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var sessionsSection: some View {
-        Section("Sessions") {
-            ForEach(filteredSessionsByAgent) { session in
-                SessionRow(session: session)
-                    .opacity(selectedTab == .sessions ? 1 : 0.6)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedTab = .sessions
-                        service.switchToSession(session.id)
+                Picker("", selection: $service.currentAgentId) {
+                    ForEach(service.agents) { agent in
+                        Text(agent.id).tag(agent.id)
                     }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .font(.body)
+                .onChange(of: service.currentAgentId) { _, newAgentId in
+                    Task { await service.switchAgent(newAgentId) }
+                    selectedTab = .sessions
+                }
+
+                Spacer()
             }
+            .padding(.vertical, 2)
+        } header: {
+            Text("Agent")
         }
     }
 
@@ -201,30 +168,6 @@ struct ContentView: View {
             sidebarContent
         } detail: {
             detailContent
-        }
-        .toolbar {
-            ToolbarItemGroup {
-                if service.isProcessing {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .help("Processing...")
-                }
-
-                Button {
-                    Task { await service.createSession() }
-                } label: {
-                    Label("New Chat", systemImage: "square.and.pencil")
-                }
-                .help("New Chat")
-                .disabled(service.connectionState != .connected)
-
-                Button {
-                    showingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-                .help("Settings")
-            }
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(service: service)
