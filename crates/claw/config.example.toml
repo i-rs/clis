@@ -122,9 +122,10 @@ execution_mode = "React"
 
 # ── Agent 配置 ──────────────────────────────────────────────────────────────
 #
-# 每个 agent 可覆盖 provider/model/tools/system_prompt，未设字段继承顶层配置
-# agent 级别的 max_react_rounds/max_tool_retries/cli_timeout_secs
-# 等调优参数暂不支持按 agent 覆盖，全局生效
+# 默认智能体 "default" 始终存在，不可创建/删除/修改。
+# 它使用顶层的 provider/model/api_key/base_url 配置。
+# 以下 [agents.*] 仅用于添加额外的智能体，每个 agent 可覆盖
+# provider/model/tools/system_prompt，未设字段继承顶层配置。
 #
 # [agents.analyst]
 # model = "gpt-4o"

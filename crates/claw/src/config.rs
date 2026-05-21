@@ -405,6 +405,12 @@ impl Config {
                 config.api_key = env_key;
             }
 
+        // Ensure "default" agent always exists (safety net against manual config edits)
+        if config.agents.contains_key("default") {
+            config.agents.remove("default");
+            tracing::warn!("配置文件中不应包含 [agents.default]，已自动移除（default 使用顶层配置）");
+        }
+
         // Validate config
         if config.provider != "ollama" && config.api_key.is_empty() {
             anyhow::bail!("配置文件中 api_key 不能为空 (Ollama 除外)");
