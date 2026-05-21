@@ -122,6 +122,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
         ("Ctrl+T", "查看可用工具"),
         ("Ctrl+A", "Agent 管理"),
         ("Ctrl+U", "Token 用量"),
+        ("Ctrl+P", "插件与技能"),
         ("Ctrl+Shift+C", "复制当前消息"),
         ("Alt+Enter", "输入换行"),
         ("Fn", "语音输入 (macOS)"),
@@ -408,6 +409,82 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
     let list = List::new(lines).block(
         Block::default()
             .title(" 📊 Token 用量 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
+pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
+    let popup_width = 65u16.min(area.width.saturating_sub(4));
+    let popup_height = 20u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    lines.push(Line::from(vec![
+        Span::styled("  技能 ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+    ]));
+
+    if app.skill_list.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            "    (无已安装技能)",
+            Style::default().fg(Color::DarkGray),
+        )]));
+    } else {
+        for skill in &app.skill_list {
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("    ✦ {:<18}", skill.name),
+                    Style::default().fg(Color::Rgb(180, 180, 120)).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    skill.content.chars().take(30).collect::<String>(),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+        }
+    }
+
+    lines.push(Line::from(vec![Span::raw("")]));
+    lines.push(Line::from(vec![
+        Span::styled("  插件 ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+    ]));
+
+    if app.plugin_list.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            "    (无已安装插件)",
+            Style::default().fg(Color::DarkGray),
+        )]));
+    } else {
+        for plugin in &app.plugin_list {
+            let status_color = if plugin.enabled { Color::Green } else { Color::DarkGray };
+            let status = if plugin.enabled { "✓" } else { "✗" };
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("    {} {:<16}", status, plugin.name),
+                    Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    &plugin.description,
+                    Style::default().fg(Color::White),
+                ),
+            ]));
+        }
+    }
+
+    lines.push(Line::from(vec![Span::raw("")]));
+    lines.push(Line::from(vec![Span::styled(
+        "  Ctrl+E 切换插件  |  Ctrl+R 删除技能",
+        Style::default().fg(Color::DarkGray),
+    )]));
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" 🔌 插件与技能 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)),

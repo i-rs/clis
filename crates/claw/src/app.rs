@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
 
+#[derive(Clone)]
+pub struct PluginEntry {
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+}
+
 /// A step in the LLM's execution plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanStep {
@@ -169,6 +176,7 @@ pub struct OverlayState {
     pub show_tool_list: bool,
     pub show_agent_list: bool,
     pub show_stats_history: bool,
+    pub show_plugin_list: bool,
     pub copy_feedback: Option<String>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
@@ -214,6 +222,7 @@ impl OverlayState {
             show_tool_list: false,
             show_agent_list: false,
             show_stats_history: false,
+            show_plugin_list: false,
             copy_feedback: None,
             tab_completions: Vec::new(),
             tab_completion_index: 0,
@@ -255,6 +264,8 @@ pub struct App {
     pub current_agent: String,
     pub today_stats: TodaySummary,
     pub stats_history: Vec<crate::stats::DailyStats>,
+    pub skill_list: Vec<crate::skill_store::SkillEntry>,
+    pub plugin_list: Vec<PluginEntry>,
 }
 
 impl App {
@@ -280,6 +291,8 @@ impl App {
             current_agent: "default".to_string(),
             today_stats: TodaySummary::default(),
             stats_history: Vec::new(),
+            skill_list: Vec::new(),
+            plugin_list: Vec::new(),
         }
     }
 

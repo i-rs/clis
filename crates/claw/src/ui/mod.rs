@@ -116,6 +116,11 @@ pub fn render(f: &mut Frame, app: &App) {
         panels::render_stats_history_panel(f, area, app);
     }
 
+    if app.overlay.show_plugin_list {
+        panels::render_backdrop(f, area);
+        panels::render_plugin_list_panel(f, area, app);
+    }
+
     if !app.overlay.tab_completions.is_empty() {
         completions::render_completions(f, area, app);
     }

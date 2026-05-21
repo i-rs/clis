@@ -247,6 +247,9 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Esc if self.app.overlay.show_stats_history => {
                 self.app.overlay.show_stats_history = false;
             }
+            KeyCode::Esc if self.app.overlay.show_plugin_list => {
+                self.app.overlay.show_plugin_list = false;
+            }
             KeyCode::Esc if self.app.overlay.show_config => {
                 self.app.overlay.show_config = false;
             }
@@ -344,7 +347,29 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.overlay.show_config = false;
                     self.app.overlay.show_tool_list = false;
                     self.app.overlay.show_agent_list = false;
+                    self.app.overlay.show_plugin_list = false;
                     self.app.stats_history = self.app_core.stats_manager.daily_history(7);
+                }
+            }
+
+            KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.overlay.show_plugin_list = !self.app.overlay.show_plugin_list;
+                if self.app.overlay.show_plugin_list {
+                    self.app.overlay.show_help = false;
+                    self.app.overlay.show_config = false;
+                    self.app.overlay.show_tool_list = false;
+                    self.app.overlay.show_agent_list = false;
+                    self.app.overlay.show_stats_history = false;
+                    let store = self.app_core.agent_store.skill_store_for(&self.app.current_agent);
+                    self.app.skill_list = store.list_skills();
+                    let plugin_mgr = crate::plugin::PluginManager::new();
+                    self.app.plugin_list = plugin_mgr.manifests.iter().map(|m| {
+                        crate::app::PluginEntry {
+                            name: m.plugin.name.clone(),
+                            description: m.plugin.description.clone(),
+                            enabled: plugin_mgr.is_enabled(&m.plugin.name),
+                        }
+                    }).collect();
                 }
             }
 
