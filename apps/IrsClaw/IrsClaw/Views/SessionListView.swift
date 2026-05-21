@@ -79,39 +79,50 @@ struct SessionRow: View {
     var isSelected: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(session.title)
-                .lineLimit(1)
-                .font(.headline)
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? Color.blue.opacity(0.15) : Color.gray.opacity(0.08))
+                    .frame(width: 32, height: 32)
+                Image(systemName: isSelected ? "bubble.left.and.bubble.right.fill" : "bubble.left")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+            }
 
-            HStack(spacing: 8) {
-                Label("\(session.messageCount)", systemImage: "text.bubble")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(session.title)
+                    .lineLimit(1)
+                    .font(.callout)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
 
-                if let agentId = session.agentId, agentId != "default" {
-                    Text(agentId)
-                        .font(.caption2)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.accentColor.opacity(0.15))
-                        .cornerRadius(4)
+                HStack(spacing: 6) {
+                    Label("\(session.messageCount)", systemImage: "text.bubble.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+
+                    if let agentId = session.agentId, agentId != "default" {
+                        Text(agentId)
+                            .font(.system(size: 9, weight: .medium))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.blue.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+
+                    Text(session.shortDate)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
                 }
-
-                Spacer()
-
-                Text(session.shortDate)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 2)
-        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
         .background(
-            isSelected
-            ? Color.accentColor.opacity(0.12)
-            : Color.clear
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? Color.blue.opacity(0.08) : Color.clear)
         )
-        .cornerRadius(6)
     }
 }

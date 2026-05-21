@@ -45,17 +45,12 @@ struct ContentView: View {
 
             Section("Manage") {
                 ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
-                    Label(tab.label, systemImage: tab.icon)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            appState.selectedTab = tab
-                        }
-                        .background(
-                            appState.selectedTab == tab
-                            ? Color.accentColor.opacity(0.12)
-                            : Color.clear
-                        )
-                        .cornerRadius(6)
+                    ManageTabRow(
+                        tab: tab,
+                        isSelected: appState.selectedTab == tab
+                    ) {
+                        appState.selectedTab = tab
+                    }
                 }
             }
         }
@@ -425,6 +420,53 @@ struct AgentChip: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(isActive ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 0.5)
             )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Manage Tab Row
+
+struct ManageTabRow: View {
+    let tab: SidebarTab
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var accent: Color {
+        switch tab {
+        case .tools: return .orange
+        case .skills: return .green
+        case .plugins: return .purple
+        default: return .accentColor
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(accent.opacity(isSelected ? 0.2 : 0.1))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: tab.icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(accent)
+                }
+
+                Text(tab.label)
+                    .font(.callout)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+            }
+            .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
     }
