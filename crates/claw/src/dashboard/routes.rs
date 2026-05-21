@@ -890,7 +890,7 @@ mod tests {
     /// 创建一个测试 AppState，必须在新线程中调用以避免嵌套 Runtime 问题。
     fn new_test_state() -> AppState {
         let (_cfg, core) = crate::test_helpers::test_core();
-        AppState::new(core)
+        AppState::new(core, "test-token".to_string())
     }
 
     /// 在独立线程中运行一个需要 AppState 的测试。

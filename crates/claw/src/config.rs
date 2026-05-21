@@ -274,6 +274,10 @@ pub struct DashboardConfig {
     /// Port to listen on.
     #[serde(default = "default_dashboard_port")]
     pub port: u16,
+    /// Bearer token for API authentication.
+    /// If not set, a random token is generated on startup and printed to console.
+    #[serde(default)]
+    pub auth_token: Option<String>,
 }
 
 impl Default for DashboardConfig {
@@ -282,6 +286,7 @@ impl Default for DashboardConfig {
             enabled: false,
             host: default_dashboard_host(),
             port: default_dashboard_port(),
+            auth_token: None,
         }
     }
 }
