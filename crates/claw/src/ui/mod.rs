@@ -96,6 +96,11 @@ pub fn render(f: &mut Frame, app: &App) {
         panels::render_help_panel(f, area);
     }
 
+    if app.overlay.show_config {
+        panels::render_backdrop(f, area);
+        panels::render_config_panel(f, area, app);
+    }
+
     if !app.overlay.tab_completions.is_empty() {
         completions::render_completions(f, area, app);
     }

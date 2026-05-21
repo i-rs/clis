@@ -34,7 +34,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // Setup terminal
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
+    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture, crossterm::event::EnableBracketedPaste)?;
     let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout))?;
 
     let rt = tokio::runtime::Runtime::new()?;
@@ -120,7 +120,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     crossterm::execute!(
         io::stdout(),
         crossterm::terminal::LeaveAlternateScreen,
-        crossterm::event::DisableMouseCapture
+        crossterm::event::DisableMouseCapture,
+        crossterm::event::DisableBracketedPaste
     )?;
 
     // Print styled re-entry command and session summary

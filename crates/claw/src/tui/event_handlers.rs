@@ -238,6 +238,9 @@ impl<'a> KeyEventHandler<'a> {
             }
 
             // ── Overlay-toast dismissals (high priority) ─────────
+            KeyCode::Esc if self.app.overlay.show_config => {
+                self.app.overlay.show_config = false;
+            }
             KeyCode::Esc | KeyCode::Enter if self.app.overlay.show_help => {
                 self.app.overlay.show_help = false;
             }
@@ -292,6 +295,17 @@ impl<'a> KeyEventHandler<'a> {
             // ── Help shortcut ────────────────────────────────────
             KeyCode::Char('h') if key.modifiers == KeyModifiers::CONTROL => {
                 self.app.overlay.show_help = !self.app.overlay.show_help;
+                if self.app.overlay.show_help {
+                    self.app.overlay.show_config = false;
+                }
+            }
+
+            // ── Config info shortcut ─────────────────────────────
+            KeyCode::Char('i') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.overlay.show_config = !self.app.overlay.show_config;
+                if self.app.overlay.show_config {
+                    self.app.overlay.show_help = false;
+                }
             }
 
             // ── Session list overlay ─────────────────────────────

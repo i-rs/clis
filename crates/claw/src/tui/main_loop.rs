@@ -62,6 +62,12 @@ pub fn main_loop(
                 Event::Mouse(mouse) => {
                     MouseEventHandler::new(app).handle(mouse);
                 }
+                Event::Paste(text) if !app.is_processing() => {
+                    for c in text.chars() {
+                        app.insert_char(c);
+                    }
+                }
+                Event::Paste(_) => {}
                 _ => {}
             }
         }

@@ -115,9 +115,10 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
         ("Ctrl+N", "新建会话"),
         ("Ctrl+S", "消息选择模式"),
         ("Ctrl+H", "显示/隐藏帮助"),
-        ("Ctrl+L", "清屏 / 重置滚动"),
-        ("Ctrl+P", "会话列表"),
+        ("Ctrl+P", "Agent 切换器"),
         ("Ctrl+R", "HTTP 调试面板"),
+        ("Ctrl+I", "查看配置信息"),
+        ("Ctrl+L", "会话列表"),
         ("Ctrl+Shift+C", "复制当前消息"),
         ("Alt+Enter", "输入换行"),
         ("Fn", "语音输入 (macOS)"),
@@ -166,6 +167,62 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
     let list = List::new(lines).block(
         Block::default()
             .title(" ⌨ 快捷键帮助 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
+pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
+    let popup_width = 52u16.min(area.width.saturating_sub(4));
+    let popup_height = 16u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let config = &app.config;
+    let stats = &app.today_stats;
+    let info: Vec<(String, String)> = vec![
+        ("Provider".to_string(), config.provider.clone()),
+        ("Model".to_string(), config.model.clone()),
+        ("Base URL".to_string(), config.base_url.clone()),
+        ("Execution".to_string(), format!("{:?}", config.execution_mode)),
+        (String::new(), String::new()),
+        ("Tools".to_string(), if config.enabled_tools.is_empty() {
+            "全部启用".to_string()
+        } else {
+            format!("{} 个", config.enabled_tools.len())
+        }),
+        ("MCP Servers".to_string(), format!("{} 个", config.mcp_servers.len())),
+        ("Plugins".to_string(), if config.plugins_auto_discover { "自动发现" } else { "禁用" }.to_string()),
+        (String::new(), String::new()),
+        ("今日请求".to_string(), format!("{} 次", stats.requests)),
+        ("今日 Token".to_string(), format!("{} tok", stats.tokens)),
+        ("今日费用".to_string(), format!("${:.4}", stats.cost_usd)),
+    ];
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (label, value) in &info {
+        if label.is_empty() {
+            lines.push(Line::from(Span::raw("")));
+            continue;
+        }
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("  {:<16}", label),
+                Style::default().fg(Color::Rgb(180, 180, 120)),
+            ),
+            Span::styled(
+                value.clone(),
+                Style::default().fg(Color::White),
+            ),
+        ]));
+    }
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" ℹ 配置信息 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)),
