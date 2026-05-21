@@ -29,8 +29,6 @@ struct ContentView: View {
             case .plugins: return "puzzlepiece"
             }
         }
-
-        var count: Int { 0 }
     }
 
     var body: some View {
@@ -57,27 +55,21 @@ struct ContentView: View {
                     Label(tab.label, systemImage: tab.icon)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            Task { @MainActor in
-                                selectedTab = tab
-                            }
+                            deferStateChange { selectedTab = tab }
                         }
                 }
             }
 
             Section("Sessions") {
-                ForEach(service.sessions, id: \.id) { session in
-                    let isMatchingAgent = session.agentId == service.currentAgentId || session.agentId == nil
-                    let isMatchingSearch = searchText.isEmpty || session.title.localizedCaseInsensitiveContains(searchText)
-                    if isMatchingAgent && isMatchingSearch {
-                        SessionRow(session: session)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
+                ForEach(visibleSessions, id: \.id) { session in
+                    SessionRow(session: session)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            deferStateChange {
                                 selectedTab = .sessions
-                                Task { @MainActor in
-                                    service.switchToSession(session.id)
-                                }
+                                service.switchToSession(session.id)
                             }
-                    }
+                        }
                 }
             }
         }
@@ -97,22 +89,17 @@ struct ContentView: View {
         }
     }
 
+    private var visibleSessions: [ClawSession] {
+        service.sessions.filter { session in
+            (session.agentId == service.currentAgentId || session.agentId == nil) &&
+            (searchText.isEmpty || session.title.localizedCaseInsensitiveContains(searchText))
+        }
+    }
+
     @ViewBuilder
     private var agentSwitcherSection: some View {
         Section {
-            Picker("", selection: Binding(
-                get: {
-                    service.agents.first(where: { $0.id == service.currentAgentId })
-                        .map { $0.id } ?? "default"
-                },
-                set: { newId in
-                    guard newId != service.currentAgentId else { return }
-                    Task { @MainActor in
-                        await service.switchAgent(newId)
-                        selectedTab = .sessions
-                    }
-                }
-            )) {
+            Picker("", selection: $service.currentAgentId) {
                 ForEach(service.agents, id: \.id) { agent in
                     Text(agent.id).tag(agent.id)
                 }
@@ -121,6 +108,12 @@ struct ContentView: View {
             .labelsHidden()
             .font(.body)
             .disabled(service.agents.isEmpty)
+            .onChange(of: service.currentAgentId) { _, newId in
+                deferStateChange {
+                    Task { await service.switchAgent(newId) }
+                    selectedTab = .sessions
+                }
+            }
         } header: {
             Text("Agent")
         }
@@ -357,6 +350,14 @@ struct ContentView: View {
                 Task { await service.createSession() }
             }
             .buttonStyle(.borderedProminent)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func deferStateChange(_ action: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            action()
         }
     }
 }
