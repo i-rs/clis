@@ -2217,6 +2217,7 @@ dependencies = [
  "clap",
  "crossterm",
  "dirs",
+ "fastrand",
  "futures-util",
  "mime_guess",
  "owo-colors 4.3.0",

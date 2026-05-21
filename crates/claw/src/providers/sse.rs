@@ -8,13 +8,14 @@ use tokio::sync::mpsc::UnboundedSender;
 /// Send an HTTP POST request with exponential backoff retry.
 ///
 /// Retry policy:
-/// - 429 Too Many Requests: wait `attempt * 1000 + 500` ms
-/// - 5xx Server Error: wait `attempt * 2000` ms
-/// - Network errors: wait `attempt * 1000` ms
+/// - 429 Too Many Requests: parse `Retry-After` header, fallback to exponential backoff + jitter
+/// - 5xx Server Error: exponential backoff + jitter
+/// - Network errors: exponential backoff + jitter
+/// - 4xx Client Errors (auth, bad request, etc.): **no retry**, fail immediately
 /// - Max `max_attempts` attempts
 ///
-/// Returns `Ok(response)` on success or when retries exhausted on HTTP errors.
-/// Returns `Err(...)` when retries exhausted on network errors.
+/// Returns `Ok(response)` on success or when retries exhausted on retriable errors.
+/// Returns `Err(...)` when retries exhausted on network errors or on non-retriable HTTP errors.
 #[tracing::instrument(skip(client, body, headers))]
 pub(crate) async fn send_with_retry(
     max_attempts: u32,
@@ -32,27 +33,62 @@ pub(crate) async fn send_with_retry(
         }
         match req.send().await {
             Ok(r) if r.status().as_u16() == 429 => {
-                let wait_ms = (attempt as u64) * 1000 + 500;
+                if attempt >= max_attempts {
+                    let text = r.text().await.unwrap_or_default();
+                    return Err(anyhow::anyhow!(
+                        "API 限流 (429) 重试{}次后仍失败: {}", attempt, text
+                    ));
+                }
+                let wait_ms = parse_retry_after_ms(&r).unwrap_or_else(|| {
+                    let base = 1000u64 << attempt.min(4);
+                    base + fastrand::u64(0..500)
+                });
+                tracing::warn!("API 限流 (429), 等待 {}ms 后重试 ({}/{})", wait_ms, attempt, max_attempts);
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-                if attempt < max_attempts { continue; }
-                return Ok(r);
+                continue;
             }
             Ok(r) if r.status().is_server_error() => {
-                let wait_ms = (attempt as u64) * 2000;
+                if attempt >= max_attempts {
+                    let status = r.status().as_u16();
+                    let text = r.text().await.unwrap_or_default();
+                    return Err(anyhow::anyhow!(
+                        "API 服务器错误 ({}) 重试{}次后仍失败: {}", status, attempt, text
+                    ));
+                }
+                let base = 2000u64 << attempt.min(3);
+                let wait_ms = base + fastrand::u64(0..1000);
+                tracing::warn!("API 服务器错误 ({}), 等待 {}ms 后重试 ({}/{})", r.status(), wait_ms, attempt, max_attempts);
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-                if attempt < max_attempts { continue; }
-                return Ok(r);
+                continue;
+            }
+            Ok(r) if r.status().is_client_error() && r.status().as_u16() != 429 => {
+                let status = r.status().as_u16();
+                let text = r.text().await.unwrap_or_default();
+                return Err(anyhow::anyhow!("API 客户端错误 ({}): {}", status, text));
             }
             Ok(r) => return Ok(r),
             Err(e) => {
-                if attempt < max_attempts {
-                    let wait_ms = (attempt as u64) * 1000;
-                    tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-                    continue;
+                if attempt >= max_attempts {
+                    return Err(anyhow::anyhow!("API 请求失败 (重试{}次): {}", attempt, e));
                 }
-                return Err(anyhow::anyhow!("API 请求失败 (重试{}次): {}", attempt, e));
+                let base = 1000u64 << attempt.min(3);
+                let wait_ms = base + fastrand::u64(0..500);
+                tracing::warn!("API 网络错误, 等待 {}ms 后重试 ({}/{}): {}", wait_ms, attempt, max_attempts, e);
+                tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
+                continue;
             }
         }
+    }
+}
+
+/// Parse Retry-After header from response (seconds or HTTP-date).
+/// Returns milliseconds if header is present and parseable.
+fn parse_retry_after_ms(response: &reqwest::Response) -> Option<u64> {
+    let header_val = response.headers().get("retry-after")?.to_str().ok()?;
+    if let Ok(secs) = header_val.parse::<u64>() {
+        Some(secs * 1000)
+    } else {
+        None
     }
 }
 
