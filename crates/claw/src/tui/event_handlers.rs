@@ -238,6 +238,9 @@ impl<'a> KeyEventHandler<'a> {
             }
 
             // ── Overlay-toast dismissals (high priority) ─────────
+            KeyCode::Esc if self.app.overlay.show_tool_list => {
+                self.app.overlay.show_tool_list = false;
+            }
             KeyCode::Esc if self.app.overlay.show_config => {
                 self.app.overlay.show_config = false;
             }
@@ -305,6 +308,15 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.overlay.show_config = !self.app.overlay.show_config;
                 if self.app.overlay.show_config {
                     self.app.overlay.show_help = false;
+                    self.app.overlay.show_tool_list = false;
+                }
+            }
+
+            KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.overlay.show_tool_list = !self.app.overlay.show_tool_list;
+                if self.app.overlay.show_tool_list {
+                    self.app.overlay.show_help = false;
+                    self.app.overlay.show_config = false;
                 }
             }
 

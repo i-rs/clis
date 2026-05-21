@@ -119,6 +119,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
         ("Ctrl+R", "HTTP 调试面板"),
         ("Ctrl+I", "查看配置信息"),
         ("Ctrl+L", "会话列表"),
+        ("Ctrl+T", "查看可用工具"),
         ("Ctrl+Shift+C", "复制当前消息"),
         ("Alt+Enter", "输入换行"),
         ("Fn", "语音输入 (macOS)"),
@@ -223,6 +224,43 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
     let list = List::new(lines).block(
         Block::default()
             .title(" ℹ 配置信息 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
+pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
+    let popup_width = 60u16.min(area.width.saturating_sub(4));
+    let popup_height = 20u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let reg = crate::tools::ToolRegistry::new();
+    let tools = reg.tool_info();
+    let max_width = (popup_width as usize).saturating_sub(4);
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (name, desc) in &tools {
+        let display_desc = if desc.len() > max_width - 18 {
+            format!("{}...", &desc[..(max_width - 21)])
+        } else {
+            desc.to_string()
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("  {:<16}", name),
+                Style::default().fg(Color::Rgb(180, 180, 120)).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(display_desc, Style::default().fg(Color::White)),
+        ]));
+    }
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" 🔧 可用工具 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)),

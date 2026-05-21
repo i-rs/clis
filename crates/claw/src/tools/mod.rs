@@ -132,6 +132,10 @@ impl ToolRegistry {
     pub fn tool_exists(&self, name: &str) -> bool {
         self.tools.iter().any(|t| t.name() == name)
     }
+
+    pub fn tool_info(&self) -> Vec<(&str, &str)> {
+        self.tools.iter().map(|t| (t.name(), t.description())).collect()
+    }
 }
 
 #[cfg(test)]
