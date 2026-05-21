@@ -93,7 +93,7 @@ struct GeneralSettingsView: View {
             }
 
             if let config = service.config {
-                Section {
+                Section("LLM Configuration") {
                     SettingsRow(icon: "cube", iconColor: .blue) {
                         LabeledContent("Provider", value: config.provider ?? "—")
                     }
@@ -116,8 +116,6 @@ struct GeneralSettingsView: View {
                             }
                         }
                     }
-                } header: {
-                    Text("LLM Configuration")
                 }
             }
         }
@@ -398,54 +396,64 @@ struct BackendSettingsView: View {
         Form {
             Section {
                 connectionStatusCard
-
-                LabeledContent("Server URL") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        TextField("Server URL", text: $serverURL)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.caption.monospaced())
-
-                        HStack(spacing: 6) {
-                            Button("Save & Reconnect") {
-                                service.updateServerURL(serverURL)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                            .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                            Button("Reset") {
-                                serverURL = service.serverURLDisplay
-                                service.resetServerURL()
-                            }
-                            .controlSize(.small)
-                        }
-                    }
-                }
-
-                LabeledContent("Auth Token") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        SecureField("Auth Token (Bearer)", text: $authToken)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.caption.monospaced())
-
-                        HStack(spacing: 6) {
-                            Button("Save & Reconnect") {
-                                service.updateAuthToken(authToken)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                            .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                            Button("Clear") {
-                                authToken = ""
-                                service.clearAuthToken()
-                            }
-                            .controlSize(.small)
-                        }
-                    }
-                }
             } header: {
-                Text("Connection")
+                Text("Status")
+            }
+
+            Section("Server") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Server URL")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    TextField("Server URL", text: $serverURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption.monospaced())
+                        .textContentType(.URL)
+
+                    HStack(spacing: 6) {
+                        Button("Save & Reconnect") {
+                            service.updateServerURL(serverURL)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                        Button("Reset") {
+                            serverURL = service.serverURLDisplay
+                            service.resetServerURL()
+                        }
+                        .controlSize(.small)
+                    }
+                }
+            }
+
+            Section("Authentication") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Auth Token")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    SecureField("Bearer token", text: $authToken)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption.monospaced())
+                        .textContentType(.password)
+
+                    HStack(spacing: 6) {
+                        Button("Save & Reconnect") {
+                            service.updateAuthToken(authToken)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                        Button("Clear") {
+                            authToken = ""
+                            service.clearAuthToken()
+                        }
+                        .controlSize(.small)
+                    }
+                }
             }
 
             Section {
