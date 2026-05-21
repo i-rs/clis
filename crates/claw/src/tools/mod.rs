@@ -24,11 +24,10 @@ pub use index::{format_index, TOOL_INDEX};
 /// such as task delegation to sub-agents.
 #[derive(Clone)]
 pub struct ToolContext {
-    /// Full application configuration (for agent lookup).
     pub config: crate::config::Config,
-    /// MCP registry for current agent (for MCP tool forwarding).
     #[allow(dead_code)]
     pub mcp: crate::mcp::McpRegistry,
+    pub http_client: reqwest::Client,
 }
 
 // ── Built-in tool trait ──
@@ -192,6 +191,7 @@ mod tests {
         let ctx = ToolContext {
             config: crate::test_helpers::test_config(),
             mcp: crate::mcp::McpRegistry::empty_for_test(),
+            http_client: crate::providers::shared_client(),
         };
         let result = reg.execute("不存在", &json!({}), &ctx);
         assert!(result.is_err(), "未知工具应返回错误");

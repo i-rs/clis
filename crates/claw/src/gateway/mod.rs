@@ -244,7 +244,9 @@ impl GatewayServer {
 
         // Spawn the multi-round chat loop (no lock held during streaming)
         let (tx, mut rx) = mpsc::unbounded_channel();
+        let client = crate::providers::shared_client();
         let provider = crate::providers::create_provider_for(
+            &client,
             &config.provider,
             &config.api_key,
             &config.base_url,

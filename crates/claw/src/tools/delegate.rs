@@ -89,6 +89,7 @@ impl ClawTool for DelegateTool {
 
         // Create provider for the sub-agent
         let provider = create_provider_for(
+            &ctx.http_client,
             &agent_config.provider,
             &agent_config.api_key,
             &agent_config.base_url,

@@ -71,12 +71,15 @@ pub trait LlmProvider: Send + Sync {
 // Factory
 // =============================================
 
-/// Create the appropriate provider based on configuration.
-pub fn create_provider(config: &crate::config::Config) -> Box<dyn LlmProvider> {
-    let client = reqwest::Client::builder()
+pub fn shared_client() -> reqwest::Client {
+    reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+/// Create the appropriate provider based on configuration.
+pub fn create_provider(client: &reqwest::Client, config: &crate::config::Config) -> Box<dyn LlmProvider> {
     match ProviderKind::from_str(&config.provider) {
         ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
             client.clone(),
@@ -90,21 +93,18 @@ pub fn create_provider(config: &crate::config::Config) -> Box<dyn LlmProvider> {
             config.base_url.clone(),
             config.model.clone(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client, config.model.clone())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), config.model.clone())),
     }
 }
 
 /// Create a provider from a resolved agent config.
 pub fn create_provider_for(
+    client: &reqwest::Client,
     provider_type: &str,
     api_key: &str,
     base_url: &str,
     model: &str,
 ) -> Box<dyn LlmProvider> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(120))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
     match ProviderKind::from_str(provider_type) {
         ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
             client.clone(),
@@ -118,7 +118,7 @@ pub fn create_provider_for(
             base_url.to_string(),
             model.to_string(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client, model.to_string())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), model.to_string())),
     }
 }
 

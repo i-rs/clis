@@ -408,7 +408,8 @@ pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
 
 pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
-    let provider = crate::providers::create_provider(&config);
+    let client = crate::providers::shared_client();
+    let provider = crate::providers::create_provider(&client, &config);
 
     let msgs = vec![
         serde_json::json!({

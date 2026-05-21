@@ -140,10 +140,9 @@ impl AgentRuntimeStore {
 pub struct AppCore {
     pub config: Config,
     pub session_mgr: SessionManager,
-    /// Per-agent runtime data (memory, tool cache, skills, MCP).
     pub agent_store: AgentRuntimeStore,
-    /// Token usage statistics manager.
     pub stats_manager: crate::stats::StatsManager,
+    pub http_client: reqwest::Client,
 }
 
 impl AppCore {
@@ -167,6 +166,7 @@ impl AppCore {
             session_mgr,
             agent_store,
             stats_manager,
+            http_client: crate::providers::shared_client(),
         })
     }
 
@@ -298,6 +298,7 @@ impl AppCore {
 
         // Create provider for this agent config
         let provider = crate::providers::create_provider_for(
+            &self.http_client,
             &resolved.provider,
             &resolved.api_key,
             &resolved.base_url,

@@ -207,6 +207,7 @@ async fn dashboard_chat_loop(
         crate::tools::ToolContext {
             config: core.config.clone(),
             mcp: mcp.clone(),
+            http_client: core.http_client.clone(),
         }
     };
 
@@ -403,6 +404,7 @@ pub async fn chat_stream(
         let msgs = build_dashboard_messages(&core, &session_id, &agent_id);
         let resolved = core.config.agent_config(&agent_id);
         let provider = crate::providers::create_provider_for(
+            &core.http_client,
             &resolved.provider,
             &resolved.api_key,
             &resolved.base_url,
