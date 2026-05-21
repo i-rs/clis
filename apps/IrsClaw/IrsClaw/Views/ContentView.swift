@@ -55,8 +55,6 @@ struct ContentView: View {
             Section("Chat") {
                 ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
                     Label(tab.label, systemImage: tab.icon)
-                        .fontWeight(selectedTab == tab ? .medium : .regular)
-                        .foregroundStyle(selectedTab == tab ? .blue : .primary)
                         .contentShape(Rectangle())
                         .onTapGesture { selectedTab = tab }
                 }
@@ -68,7 +66,6 @@ struct ContentView: View {
                     let isMatchingSearch = searchText.isEmpty || session.title.localizedCaseInsensitiveContains(searchText)
                     if isMatchingAgent && isMatchingSearch {
                         SessionRow(session: session)
-                            .opacity(selectedTab == .sessions ? 1 : 0.6)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 selectedTab = .sessions
@@ -86,7 +83,7 @@ struct ContentView: View {
                 Button {
                     Task { await service.createSession() }
                 } label: {
-                    Label("New Chat", systemImage: "square.and.pencil")
+                    Image(systemName: "square.and.pencil")
                 }
                 .help("New Chat")
                 .disabled(service.connectionState != .connected)
@@ -96,7 +93,7 @@ struct ContentView: View {
                 Button {
                     showingSettings = true
                 } label: {
-                    Label("Settings", systemImage: "gearshape")
+                    Image(systemName: "gearshape")
                 }
                 .help("Settings")
                 .keyboardShortcut(",", modifiers: .command)
@@ -107,27 +104,26 @@ struct ContentView: View {
     @ViewBuilder
     private var agentSwitcherSection: some View {
         Section {
-            HStack(spacing: 8) {
-                Image(systemName: "brain")
-                    .foregroundStyle(.blue)
-                    .font(.title3)
-
-                Picker("", selection: $service.currentAgentId) {
-                    ForEach(service.agents) { agent in
+            if service.agents.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 4)
+            } else {
+                Picker("", selection: Binding(
+                    get: { service.agents.contains(where: { $0.id == service.currentAgentId }) ? service.currentAgentId : "default" },
+                    set: { newAgentId in
+                        Task { await service.switchAgent(newAgentId) }
+                        selectedTab = .sessions
+                    }
+                )) {
+                    ForEach(service.agents.filter { !$0.id.isEmpty }) { agent in
                         Text(agent.id).tag(agent.id)
                     }
                 }
                 .pickerStyle(.menu)
                 .labelsHidden()
                 .font(.body)
-                .onChange(of: service.currentAgentId) { _, newAgentId in
-                    Task { await service.switchAgent(newAgentId) }
-                    selectedTab = .sessions
-                }
-
-                Spacer()
             }
-            .padding(.vertical, 2)
         } header: {
             Text("Agent")
         }
