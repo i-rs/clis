@@ -63,6 +63,7 @@ struct SkillCard: View {
     let skill: SkillInfo
     let isExpanded: Bool
     let onToggle: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -72,13 +73,16 @@ struct SkillCard: View {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [.blue.opacity(0.2), .purple.opacity(0.15)],
+                                    colors: [
+                                        .blue.opacity(colorScheme == .dark ? 0.3 : 0.2),
+                                        .purple.opacity(colorScheme == .dark ? 0.25 : 0.15)
+                                    ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                             .frame(width: 36, height: 36)
-                            .shadow(color: .blue.opacity(0.15), radius: 4, x: 0, y: 2)
+                            .shadow(color: .blue.opacity(colorScheme == .dark ? 0.25 : 0.15), radius: 4, x: 0, y: 2)
                         Image(systemName: "book.fill")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.blue)
@@ -125,18 +129,23 @@ struct SkillCard: View {
         }
         .background(
             LinearGradient(
-                colors: [Color(white: 0.99), Color(white: 0.97)],
+                colors: colorScheme == .dark
+                ? [Color(white: 0.18), Color(white: 0.15)]
+                : [Color(white: 0.99), Color(white: 0.97)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
+        .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.05), radius: 8, x: 0, y: 3)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [.blue.opacity(0.12), .purple.opacity(0.08)],
+                        colors: [
+                            .blue.opacity(colorScheme == .dark ? 0.2 : 0.12),
+                            .purple.opacity(colorScheme == .dark ? 0.15 : 0.08)
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),

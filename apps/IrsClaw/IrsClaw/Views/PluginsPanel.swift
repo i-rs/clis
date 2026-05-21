@@ -52,6 +52,7 @@ struct PluginsPanel: View {
 
 struct PluginCard: View {
     let plugin: PluginInfo
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 14) {
@@ -65,13 +66,16 @@ struct PluginCard: View {
                             endPoint: .bottomTrailing
                         )
                         : LinearGradient(
-                            colors: [Color.secondary.opacity(0.4), Color.secondary.opacity(0.25)],
+                            colors: [
+                                Color.secondary.opacity(colorScheme == .dark ? 0.5 : 0.4),
+                                Color.secondary.opacity(colorScheme == .dark ? 0.35 : 0.25)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 44, height: 44)
-                    .shadow(color: plugin.enabled ? .blue.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+                    .shadow(color: plugin.enabled ? .blue.opacity(colorScheme == .dark ? 0.4 : 0.3) : .clear, radius: 4, x: 0, y: 2)
                 Image(systemName: plugin.enabled ? "puzzlepiece.fill" : "puzzlepiece")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
@@ -88,7 +92,7 @@ struct PluginCard: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.1))
+                        .background(Color.secondary.opacity(colorScheme == .dark ? 0.15 : 0.1))
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
                     if let author = plugin.author, !author.isEmpty {
@@ -113,8 +117,22 @@ struct PluginCard: View {
                 .padding(.vertical, 5)
                 .background(
                     plugin.enabled
-                    ? LinearGradient(colors: [.green.opacity(0.15), .green.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : LinearGradient(colors: [Color.secondary.opacity(0.1), Color.secondary.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ? LinearGradient(
+                        colors: [
+                            .green.opacity(colorScheme == .dark ? 0.25 : 0.15),
+                            .green.opacity(colorScheme == .dark ? 0.15 : 0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    : LinearGradient(
+                        colors: [
+                            Color.secondary.opacity(colorScheme == .dark ? 0.15 : 0.1),
+                            Color.secondary.opacity(colorScheme == .dark ? 0.1 : 0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
                 .foregroundStyle(plugin.enabled ? .green : .secondary)
                 .clipShape(Capsule())
@@ -122,20 +140,35 @@ struct PluginCard: View {
         .padding(14)
         .background(
             LinearGradient(
-                colors: [Color(white: 0.99), Color(white: 0.97)],
+                colors: colorScheme == .dark
+                ? [Color(white: 0.18), Color(white: 0.15)]
+                : [Color(white: 0.99), Color(white: 0.97)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
+        .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.05), radius: 8, x: 0, y: 3)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
                     plugin.enabled
-                    ? LinearGradient(colors: [.blue.opacity(0.15), .cyan.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    : LinearGradient(colors: [Color.secondary.opacity(0.1), Color.secondary.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    ,
+                    ? LinearGradient(
+                        colors: [
+                            .blue.opacity(colorScheme == .dark ? 0.25 : 0.15),
+                            .cyan.opacity(colorScheme == .dark ? 0.15 : 0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    : LinearGradient(
+                        colors: [
+                            Color.secondary.opacity(colorScheme == .dark ? 0.15 : 0.1),
+                            Color.secondary.opacity(colorScheme == .dark ? 0.1 : 0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
                     lineWidth: 1
                 )
         )

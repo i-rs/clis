@@ -145,6 +145,7 @@ struct ToolsPanel: View {
 struct ToolCard: View {
     let tool: ToolInfo
     let category: String
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -154,8 +155,8 @@ struct ToolCard: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    ToolsPanel.categoryColor(category).opacity(0.2),
-                                    ToolsPanel.categoryColor(category).opacity(0.1)
+                                    ToolsPanel.categoryColor(category).opacity(colorScheme == .dark ? 0.3 : 0.2),
+                                    ToolsPanel.categoryColor(category).opacity(colorScheme == .dark ? 0.2 : 0.1)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -166,7 +167,7 @@ struct ToolCard: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(ToolsPanel.categoryColor(category))
                 }
-                .shadow(color: ToolsPanel.categoryColor(category).opacity(0.2), radius: 4, x: 0, y: 2)
+                .shadow(color: ToolsPanel.categoryColor(category).opacity(colorScheme == .dark ? 0.3 : 0.2), radius: 4, x: 0, y: 2)
 
                 Text(tool.name)
                     .font(.callout)
@@ -184,20 +185,22 @@ struct ToolCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [Color(white: 0.99), Color(white: 0.97)],
+                colors: colorScheme == .dark
+                ? [Color(white: 0.18), Color(white: 0.15)]
+                : [Color(white: 0.99), Color(white: 0.97)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
+        .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.05), radius: 8, x: 0, y: 3)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            ToolsPanel.categoryColor(category).opacity(0.15),
-                            ToolsPanel.categoryColor(category).opacity(0.05)
+                            ToolsPanel.categoryColor(category).opacity(colorScheme == .dark ? 0.25 : 0.15),
+                            ToolsPanel.categoryColor(category).opacity(colorScheme == .dark ? 0.1 : 0.05)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
