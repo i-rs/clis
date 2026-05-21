@@ -616,8 +616,11 @@ fn build_message_item(
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            let bg = if is_selected { Color::Rgb(25, 35, 25) } else { Color::Rgb(12, 18, 14) };
-            ListItem::new(lines).style(Style::default().bg(bg))
+            let mut item = ListItem::new(lines);
+            if is_selected {
+                item = item.style(Style::default().bg(Color::Rgb(25, 35, 25)));
+            }
+            item
         }
         Message::Assistant { text } => {
             let ts_label = app.message_timestamps
@@ -656,10 +659,9 @@ fn build_message_item(
                 }
             }
             lines.push(Line::from(Span::raw("")));
-            let bg = if is_selected { Color::Rgb(25, 30, 45) } else { Color::Rgb(0, 0, 0) };
             let mut item = ListItem::new(lines);
             if is_selected {
-                item = item.style(Style::default().bg(bg));
+                item = item.style(Style::default().bg(Color::Rgb(25, 30, 45)));
             }
             item
         }
@@ -749,8 +751,11 @@ fn build_message_item(
                     }
                 }
 
-            let bg = if is_selected { Color::Rgb(25, 25, 35) } else { Color::Rgb(10, 10, 16) };
-            ListItem::new(lines).style(Style::default().bg(bg))
+            let mut item = ListItem::new(lines);
+            if is_selected {
+                item = item.style(Style::default().bg(Color::Rgb(25, 25, 35)));
+            }
+            item
         }
         Message::Error { text } => {
             let ts_label = app.message_timestamps
@@ -772,8 +777,11 @@ fn build_message_item(
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            let bg = if is_selected { Color::Rgb(35, 15, 15) } else { Color::Rgb(18, 8, 8) };
-            ListItem::new(lines).style(Style::default().bg(bg))
+            let mut item = ListItem::new(lines);
+            if is_selected {
+                item = item.style(Style::default().bg(Color::Rgb(35, 15, 15)));
+            }
+            item
         }
     }
 }
