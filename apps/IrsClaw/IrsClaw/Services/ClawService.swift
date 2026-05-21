@@ -37,6 +37,9 @@ class ClawService: ObservableObject {
     @Published var messages: [MessageItem] = []
     @Published var agents: [ClawAgent] = []
     @Published var config: ClawConfig?
+    @Published var tools: [ToolInfo] = []
+    @Published var skills: [SkillInfo] = []
+    @Published var plugins: [PluginInfo] = []
     @Published var errorMessage: String?
     @Published var backendPid: Int32?
     /// Current agent ID for the active chat session.
@@ -565,6 +568,36 @@ class ClawService: ObservableObject {
         guard let response: ApiResponse<ClawConfig> = decode(data) else { return }
         if response.success {
             self.config = response.data
+        }
+    }
+
+    // MARK: - Tools
+
+    func fetchTools() async {
+        guard let data = await get("/api/tools") else { return }
+        guard let response: ApiResponse<[ToolInfo]> = decode(data) else { return }
+        if response.success, let tools = response.data {
+            self.tools = tools
+        }
+    }
+
+    // MARK: - Skills
+
+    func fetchSkills() async {
+        guard let data = await get("/api/skills") else { return }
+        guard let response: ApiResponse<[SkillInfo]> = decode(data) else { return }
+        if response.success, let skills = response.data {
+            self.skills = skills
+        }
+    }
+
+    // MARK: - Plugins
+
+    func fetchPlugins() async {
+        guard let data = await get("/api/plugins") else { return }
+        guard let response: ApiResponse<[PluginInfo]> = decode(data) else { return }
+        if response.success, let plugins = response.data {
+            self.plugins = plugins
         }
     }
 

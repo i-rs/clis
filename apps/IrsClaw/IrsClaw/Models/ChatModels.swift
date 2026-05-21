@@ -139,6 +139,39 @@ struct MCPServerConfig: Codable {
     let url: String?
 }
 
+// MARK: - Tool
+
+struct ToolInfo: Codable, Identifiable {
+    let id = UUID()
+    let type: String
+    let name: String
+    let description: String
+
+    enum CodingKeys: String, CodingKey {
+        case type, name, description
+    }
+}
+
+// MARK: - Skill
+
+struct SkillInfo: Codable, Identifiable {
+    let id = UUID()
+    let name: String
+    let description: String
+    let content: String
+}
+
+// MARK: - Plugin
+
+struct PluginInfo: Codable, Identifiable {
+    let id = UUID()
+    let name: String
+    let version: String
+    let description: String
+    let author: String?
+    let enabled: Bool
+}
+
 // MARK: - Chat Send Response
 
 struct ChatResponse: Codable {

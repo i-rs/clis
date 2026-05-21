@@ -5,6 +5,33 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var searchText = ""
     @State private var showSessionList = false
+    @State private var selectedTab: SidebarTab = .sessions
+
+    enum SidebarTab: String, CaseIterable, Identifiable {
+        case sessions, tools, skills, plugins
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .sessions: return "Sessions"
+            case .tools: return "Tools"
+            case .skills: return "Skills"
+            case .plugins: return "Plugins"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .sessions: return "message"
+            case .tools: return "wrench.adjustable"
+            case .skills: return "book"
+            case .plugins: return "puzzlepiece"
+            }
+        }
+
+        var count: Int { 0 }
+    }
 
     var filteredSessions: [ClawSession] {
         guard !searchText.isEmpty else { return service.sessions }
@@ -25,6 +52,58 @@ struct ContentView: View {
         #endif
     }
 
+    // MARK: - Sidebar
+
+    @ViewBuilder
+    private var sidebarContent: some View {
+        List(selection: $selectedTab) {
+            Section("Chat") {
+                ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
+                    Label(tab.label, systemImage: tab.icon)
+                        .tag(tab)
+                }
+            }
+
+            Section("Sessions") {
+                ForEach(service.sessions.prefix(50)) { session in
+                    SessionRow(session: session)
+                        .tag(SidebarTab.sessions)
+                        .onTapGesture {
+                            selectedTab = .sessions
+                            service.switchToSession(session.id)
+                        }
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationSplitViewColumnWidth(200)
+        .searchable(text: $searchText, prompt: "Search")
+        .toolbar {
+            ToolbarItemGroup {
+                if service.isProcessing {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .help("Processing...")
+                }
+
+                Button {
+                    Task { await service.createSession() }
+                } label: {
+                    Label("New Chat", systemImage: "square.and.pencil")
+                }
+                .help("New Chat")
+                .disabled(service.connectionState != .connected)
+
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .help("Settings")
+            }
+        }
+    }
+
     // MARK: - Shared detail content
 
     @ViewBuilder
@@ -35,10 +114,19 @@ struct ContentView: View {
         case .waitingForHealth:
             connectingView
         case .connected:
-            if service.currentSession != nil {
-                ChatView(service: service)
-            } else {
-                emptySessionView
+            switch selectedTab {
+            case .sessions:
+                if service.currentSession != nil {
+                    ChatView(service: service)
+                } else {
+                    emptySessionView
+                }
+            case .tools:
+                ToolsPanel(service: service)
+            case .skills:
+                SkillsPanel(service: service)
+            case .plugins:
+                PluginsPanel(service: service)
             }
         }
     }
@@ -47,11 +135,7 @@ struct ContentView: View {
 
     private var splitBody: some View {
         NavigationSplitView {
-            SessionListView(
-                service: service,
-                sessions: filteredSessions,
-                searchText: $searchText
-            )
+            sidebarContent
         } detail: {
             detailContent
         }
