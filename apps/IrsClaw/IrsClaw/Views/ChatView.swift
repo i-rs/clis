@@ -9,11 +9,6 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Agent Switcher Bar
-            agentSwitcherBar
-
-            Divider()
-
             // Message List
             ScrollViewReader { proxy in
                 ScrollView {
@@ -111,70 +106,6 @@ struct ChatView: View {
         .sheet(isPresented: $showingAddAgent) {
             AddAgentSheet(service: service)
         }
-    }
-
-    // MARK: - Agent Switcher
-
-    @ViewBuilder
-    private var agentSwitcherBar: some View {
-        HStack(spacing: 6) {
-            // Agent icon
-            Image(systemName: "person.2.circle.fill")
-                .foregroundStyle(.tint)
-                .font(.title3)
-
-            Text("Agent:")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            // Agent picker
-            Picker("", selection: $service.currentAgentId) {
-                ForEach(service.agents) { agent in
-                    HStack(spacing: 6) {
-                        Text(agent.id)
-                        if agent.id == "default" {
-                            Text("(Default)")
-                                .foregroundStyle(.tertiary)
-                                .font(.caption2)
-                        }
-                    }
-                    .tag(agent.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .buttonStyle(.borderless)
-            .fixedSize()
-            .onChange(of: service.currentAgentId) { _, newId in
-                if newId != service.currentSession?.agentId {
-                    service.switchAgent(newId)
-                }
-            }
-
-            // Quick info about selected agent
-            if let agent = service.agents.first(where: { $0.id == service.currentAgentId }) {
-                if let model = agent.model {
-                    Text(model)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer()
-
-            // Add agent button
-            Button {
-                showingAddAgent = true
-            } label: {
-                Label("Add Agent", systemImage: "plus.circle")
-                    .font(.caption)
-            }
-            .buttonStyle(.borderless)
-            .help("Create new agent profile")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.platformControlBackground)
     }
 
     // MARK: - Recording Bar

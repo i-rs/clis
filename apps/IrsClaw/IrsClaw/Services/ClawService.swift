@@ -300,12 +300,15 @@ class ClawService: ObservableObject {
         }
     }
 
-    /// Switch the active agent for the current session.
-    /// Creates a new session with the chosen agent.
-    func switchAgent(_ agentId: String) {
+    func switchAgent(_ agentId: String) async {
         guard agentId != currentAgentId, connectionState.isConnected else { return }
         currentAgentId = agentId
-        Task { await createSession() }
+
+        if let existingSession = sessions.first(where: { $0.agentId == agentId }) {
+            switchToSession(existingSession.id)
+        } else {
+            await createSession()
+        }
     }
 
     // MARK: - Chat (Send Message + SSE Stream)

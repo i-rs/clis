@@ -40,6 +40,14 @@ struct ContentView: View {
         }
     }
 
+    var filteredSessionsByAgent: [ClawSession] {
+        let sessions = service.sessions.filter { $0.agentId == service.currentAgentId || $0.agentId == nil }
+        guard !searchText.isEmpty else { return sessions }
+        return sessions.filter { session in
+            session.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
     var body: some View {
         #if os(iOS)
         if UIDevice.current.userInterfaceIdiom == .pad {
@@ -56,28 +64,34 @@ struct ContentView: View {
 
     @ViewBuilder
     private var sidebarContent: some View {
-        List(selection: $selectedTab) {
-            Section("Chat") {
-                ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
-                    Label(tab.label, systemImage: tab.icon)
-                        .tag(tab)
-                }
-            }
+        VStack(spacing: 0) {
+            agentSwitcher
 
-            Section("Sessions") {
-                ForEach(service.sessions.prefix(50)) { session in
-                    SessionRow(session: session)
-                        .tag(SidebarTab.sessions)
-                        .onTapGesture {
-                            selectedTab = .sessions
-                            service.switchToSession(session.id)
-                        }
+            Divider()
+
+            List(selection: $selectedTab) {
+                Section("Chat") {
+                    ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
+                        Label(tab.label, systemImage: tab.icon)
+                            .tag(tab)
+                    }
+                }
+
+                Section("Sessions") {
+                    ForEach(filteredSessionsByAgent) { session in
+                        SessionRow(session: session)
+                            .tag(SidebarTab.sessions)
+                            .onTapGesture {
+                                selectedTab = .sessions
+                                service.switchToSession(session.id)
+                            }
+                    }
                 }
             }
+            .listStyle(.sidebar)
+            .searchable(text: $searchText, prompt: "Search")
         }
-        .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(200)
-        .searchable(text: $searchText, prompt: "Search")
+        .navigationSplitViewColumnWidth(220)
         .toolbar {
             ToolbarItemGroup {
                 if service.isProcessing {
@@ -102,6 +116,42 @@ struct ContentView: View {
                 .help("Settings")
             }
         }
+    }
+
+    @ViewBuilder
+    private var agentSwitcher: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "brain")
+                .foregroundStyle(.blue)
+                .font(.caption)
+
+            Picker("", selection: $service.currentAgentId) {
+                ForEach(service.agents) { agent in
+                    Text(agent.id).tag(agent.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .font(.caption)
+            .onChange(of: service.currentAgentId) { _, newAgentId in
+                Task { await service.switchAgent(newAgentId) }
+                selectedTab = .sessions
+            }
+
+            Spacer()
+
+            Button {
+                showingSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Settings")
+        }
+        .padding(8)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Shared detail content
