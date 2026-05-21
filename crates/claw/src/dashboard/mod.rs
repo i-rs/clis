@@ -117,7 +117,7 @@ impl Dashboard {
             "  {}  {}	{}",
             "🔗".bright_blue(),
             "Dashboard".bold().bright_cyan(),
-            format!("http://{}", addr).underline().bright_blue()
+            format!("http://{}#{}", addr, auth_token).underline().bright_blue()
         );
         println!();
 

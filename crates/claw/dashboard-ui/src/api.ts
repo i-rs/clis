@@ -1,5 +1,41 @@
 const BASE = '/api'
 
+const TOKEN_KEY = 'claw-dashboard-token'
+
+export function getToken(): string {
+  const fromHash = window.location.hash.slice(1)
+  if (fromHash) {
+    localStorage.setItem(TOKEN_KEY, fromHash)
+    window.location.hash = ''
+    return fromHash
+  }
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
+
+export function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function hasToken(): boolean {
+  return getToken().length > 0
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken()
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
+}
+
+async function authFetch(path: string, options?: RequestInit): Promise<Response> {
+  return fetch(`${BASE}${path}`, {
+    ...options,
+    headers: {
+      ...authHeaders(),
+      ...(options?.headers || {}),
+    },
+  })
+}
+
 export interface SessionMeta {
   id: string
   title: string
@@ -50,7 +86,7 @@ export async function healthCheck(): Promise<ApiResponse<string>> {
 // ── Config ──
 
 export async function getConfig(): Promise<ApiResponse<Record<string, unknown>>> {
-  const res = await fetch(`${BASE}/config`)
+  const res = await authFetch('/config')
   return res.json()
 }
 
@@ -75,18 +111,18 @@ export interface CurrentSession {
 }
 
 export async function getCurrentSession(): Promise<ApiResponse<CurrentSession>> {
-  const res = await fetch(`${BASE}/sessions/current`)
+  const res = await authFetch('/sessions/current')
   return res.json()
 }
 
 export async function listSessions(): Promise<ApiResponse<SessionMeta[]>> {
-  const res = await fetch(`${BASE}/sessions`)
+  const res = await authFetch('/sessions')
   return res.json()
 }
 
 export async function createSession(agentId?: string): Promise<ApiResponse<{ id: string; title: string; message_count: number; agent_id: string }>> {
   const body = agentId ? { agent_id: agentId } : {}
-  const res = await fetch(`${BASE}/sessions`, {
+  const res = await authFetch('/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -95,38 +131,38 @@ export async function createSession(agentId?: string): Promise<ApiResponse<{ id:
 }
 
 export async function switchSession(id: string): Promise<ApiResponse<{ id: string; title: string | null; message_count: number }>> {
-  const res = await fetch(`${BASE}/sessions/${encodeURIComponent(id)}/switch`, { method: 'POST' })
+  const res = await authFetch(`/sessions/${encodeURIComponent(id)}/switch`, { method: 'POST' })
   return res.json()
 }
 
 export async function getSession(id: string): Promise<ApiResponse<{ id: string; title: string; messages: { role: string; content: string }[]; agent_id?: string }>> {
-  const res = await fetch(`${BASE}/sessions/${encodeURIComponent(id)}`)
+  const res = await authFetch(`/sessions/${encodeURIComponent(id)}`)
   return res.json()
 }
 
 export async function deleteSession(id: string): Promise<ApiResponse<string>> {
-  const res = await fetch(`${BASE}/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  const res = await authFetch(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
   return res.json()
 }
 
 // ── Tools ──
 
 export async function listTools(): Promise<ApiResponse<ToolSchema[]>> {
-  const res = await fetch(`${BASE}/tools`)
+  const res = await authFetch('/tools')
   return res.json()
 }
 
 // ── Plugins ──
 
 export async function listPlugins(): Promise<ApiResponse<PluginInfo[]>> {
-  const res = await fetch(`${BASE}/plugins`)
+  const res = await authFetch('/plugins')
   return res.json()
 }
 
 // ── Skills ──
 
 export async function listSkills(): Promise<ApiResponse<SkillInfo[]>> {
-  const res = await fetch(`${BASE}/skills`)
+  const res = await authFetch('/skills')
   return res.json()
 }
 
@@ -137,7 +173,7 @@ export async function sendMessage(message: string, agentId?: string): Promise<Ap
   if (agentId) {
     body.agent_id = agentId
   }
-  const res = await fetch(`${BASE}/chat`, {
+  const res = await authFetch('/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -148,12 +184,12 @@ export async function sendMessage(message: string, agentId?: string): Promise<Ap
 // ── Agents ──
 
 export async function listAgents(): Promise<ApiResponse<AgentInfo[]>> {
-  const res = await fetch(`${BASE}/agents`)
+  const res = await authFetch('/agents')
   return res.json()
 }
 
 export async function createAgent(body: Record<string, unknown>): Promise<ApiResponse<{ id: string; status: string }>> {
-  const res = await fetch(`${BASE}/agents`, {
+  const res = await authFetch('/agents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -162,19 +198,19 @@ export async function createAgent(body: Record<string, unknown>): Promise<ApiRes
 }
 
 export async function deleteAgent(id: string): Promise<ApiResponse<{ id: string; status: string }>> {
-  const res = await fetch(`${BASE}/agents/${encodeURIComponent(id)}`, {
+  const res = await authFetch(`/agents/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
   return res.json()
 }
 
 export async function getAgentConfig(id: string): Promise<ApiResponse<AgentInfo>> {
-  const res = await fetch(`${BASE}/agents/${encodeURIComponent(id)}`)
+  const res = await authFetch(`/agents/${encodeURIComponent(id)}`)
   return res.json()
 }
 
 export async function updateAgent(id: string, body: Record<string, unknown>): Promise<ApiResponse<{ id: string; status: string }>> {
-  const res = await fetch(`${BASE}/agents/${encodeURIComponent(id)}`, {
+  const res = await authFetch(`/agents/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -226,7 +262,7 @@ export type ChatMessage = {
 export function streamChat(sessionId: string, handlers: SseEventHandler): AbortController {
   const controller = new AbortController()
 
-  fetch(`${BASE}/chat/stream/${encodeURIComponent(sessionId)}`, {
+  authFetch(`/chat/stream/${encodeURIComponent(sessionId)}`, {
     signal: controller.signal,
   }).then(async (response) => {
     const reader = response.body?.getReader()

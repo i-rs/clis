@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
-import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Users } from 'lucide-react'
-import { listAgents, type AgentInfo } from './api'
+import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Users, Lock } from 'lucide-react'
+import { listAgents, type AgentInfo, hasToken, setToken } from './api'
 import ChatPage from './pages/Chat'
 import SessionsPage from './pages/Sessions'
 import ConfigPage from './pages/Config'
@@ -20,7 +20,47 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'skills', label: 'Skills', icon: <BookOpen size={18} /> },
 ]
 
+function TokenPrompt({ onSubmit }: { onSubmit: (token: string) => void }) {
+  const [value, setValue] = useState('')
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0f0f23' }}>
+      <div style={{ background: '#1a1a2e', borderRadius: 12, padding: '40px 32px', width: 380, textAlign: 'center' }}>
+        <Lock size={40} color="#6366f1" style={{ marginBottom: 16 }} />
+        <h2 style={{ color: '#e2e8f0', margin: '0 0 8px' }}>Dashboard 需要认证</h2>
+        <p style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 24px' }}>
+          输入启动时打印的 token，或在 config.toml 中配置 <code style={{ background: '#334155', padding: '2px 6px', borderRadius: 4 }}>dashboard.auth_token</code>
+        </p>
+        <input
+          type="password"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) onSubmit(value.trim()) }}
+          placeholder="粘贴 token..."
+          autoFocus
+          style={{
+            width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155',
+            background: '#0f172a', color: '#e2e8f0', fontSize: 14, outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        <button
+          onClick={() => { if (value.trim()) onSubmit(value.trim()) }}
+          disabled={!value.trim()}
+          style={{
+            marginTop: 16, width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
+            background: value.trim() ? '#6366f1' : '#334155', color: '#fff', fontSize: 14,
+            fontWeight: 600, cursor: value.trim() ? 'pointer' : 'not-allowed',
+          }}
+        >
+          确认
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  const [authenticated, setAuthenticated] = useState(hasToken())
   const [currentPage, setCurrentPage] = useState<Page>('chat')
   const [sessionRefreshKey, setSessionRefreshKey] = useState(0)
   const [selectedAgent, setSelectedAgent] = useState('default')
@@ -37,6 +77,16 @@ export default function App() {
       }
     })
   }, [agentRefreshKey])
+
+  const handleTokenSubmit = useCallback((token: string) => {
+    setToken(token)
+    setAuthenticated(true)
+    window.location.reload()
+  }, [])
+
+  if (!authenticated) {
+    return <TokenPrompt onSubmit={handleTokenSubmit} />
+  }
 
   const navigateTo = useCallback((page: Page) => {
     setCurrentPage(page)

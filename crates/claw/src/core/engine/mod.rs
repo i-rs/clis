@@ -44,6 +44,7 @@ pub async fn chat_loop(
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
         mcp: mcp.clone(),
+        http_client: crate::providers::shared_client(),
     };
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
     let max_retries = config.max_tool_retries;
