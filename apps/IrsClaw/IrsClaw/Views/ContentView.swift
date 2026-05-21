@@ -27,13 +27,11 @@ struct ContentView: View {
 
             Section("Sessions") {
                 ForEach(visibleSessions, id: \.id) { session in
-                    SessionRow(session: session)
+                    SessionRow(session: session, isSelected: session.id == service.currentSession?.id)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            deferStateChange {
-                                appState.selectedTab = .sessions
-                                service.switchToSession(session.id)
-                            }
+                            appState.selectedTab = .sessions
+                            service.switchToSession(session.id)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
@@ -50,8 +48,14 @@ struct ContentView: View {
                     Label(tab.label, systemImage: tab.icon)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            deferStateChange { appState.selectedTab = tab }
+                            appState.selectedTab = tab
                         }
+                        .background(
+                            appState.selectedTab == tab
+                            ? Color.accentColor.opacity(0.12)
+                            : Color.clear
+                        )
+                        .cornerRadius(6)
                 }
             }
         }

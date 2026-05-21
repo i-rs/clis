@@ -76,6 +76,7 @@ struct SessionListView: View {
 
 struct SessionRow: View {
     let session: ClawSession
+    var isSelected: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -105,5 +106,12 @@ struct SessionRow: View {
             }
         }
         .padding(.vertical, 2)
+        .padding(.horizontal, 8)
+        .background(
+            isSelected
+            ? Color.accentColor.opacity(0.12)
+            : Color.clear
+        )
+        .cornerRadius(6)
     }
 }
