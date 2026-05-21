@@ -186,7 +186,7 @@ impl StatsManager {
     /// The buffer is flushed to disk when it reaches `flush_threshold` or
     /// when [`flush`](Self::flush) is explicitly called.
     pub fn record(&self, record: TokenRecord) {
-        let mut buffer = self.buffer.lock().unwrap();
+        let mut buffer = self.buffer.lock().expect("StatsManager buffer lock poisoned");
         buffer.push(record);
 
         if buffer.len() >= self.flush_threshold {
@@ -200,7 +200,7 @@ impl StatsManager {
 
     /// Flush all buffered records to disk.
     pub fn flush(&self) {
-        let mut buffer = self.buffer.lock().unwrap();
+        let mut buffer = self.buffer.lock().expect("StatsManager buffer lock poisoned");
         if buffer.is_empty() {
             return;
         }
@@ -212,6 +212,7 @@ impl StatsManager {
 
     /// Create a TokenRecord from an LLM call event.
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     pub fn create_record(
         &self,
         agent_id: &str,

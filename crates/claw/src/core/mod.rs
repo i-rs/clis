@@ -43,7 +43,6 @@ impl AgentRuntime {
     }
 
     #[allow(dead_code)]
-    #[allow(dead_code)]
     fn refresh_mcp(&mut self, config: &Config, agent_id: &str) {
         let resolved = config.agent_config(agent_id);
         self.mcp_registry = McpRegistry::for_agent(&resolved, &config.mcp_servers);
@@ -343,9 +342,8 @@ mod tests {
         // 默认应包含 "default" agent
         let default_memory = store.memory_for("default");
         let default_skills = store.skill_store_for("default");
-        // 不 panic 即通过
-        drop(default_memory);
-        drop(default_skills);
+        let _ = default_memory;
+        let _ = default_skills;
     }
 
     #[test]
