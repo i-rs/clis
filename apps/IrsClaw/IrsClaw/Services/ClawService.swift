@@ -156,6 +156,27 @@ class ClawService: ObservableObject {
         connectToBackend()
     }
 
+    func updateLLMConfig(provider: String, apiKey: String, baseURL: String, model: String? = nil) async {
+        guard let url = URL(string: "\(self.baseURL)/api/config") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = ["provider": provider, "api_key": apiKey, "base_url": baseURL]
+        if let model { body["model"] = model }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: request)
+            if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
+                print("[updateLLMConfig] saved provider=\(provider) base_url=\(baseURL)")
+            } else {
+                print("[updateLLMConfig] failed: status=\((resp as? HTTPURLResponse)?.statusCode ?? 0)")
+            }
+            _ = data
+        } catch {
+            print("[updateLLMConfig] error: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Health Check
 
     /// Check backend health by calling /api/health.

@@ -74,7 +74,7 @@ impl Dashboard {
             .route("/api/health", axum::routing::get(routes::health));
 
         let api_routes = Router::new()
-            .route("/api/config", axum::routing::get(routes::get_config))
+            .route("/api/config", axum::routing::get(routes::get_config).patch(routes::update_config))
             .route("/api/chat", axum::routing::post(routes::send_message))
             .route(
                 "/api/chat/stream/{session_id}",

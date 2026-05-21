@@ -70,6 +70,39 @@ pub async fn get_config(State(state): State<AppState>) -> Json<ApiResponse<Value
     ApiResponse::ok(sanitized)
 }
 
+/// Update default LLM configuration (provider, api_key, base_url, model).
+pub async fn update_config(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Json<ApiResponse<Value>> {
+    let mut core = lock_core!(state);
+
+    if let Some(p) = body.get("provider").and_then(|v| v.as_str()) {
+        core.config.provider = p.to_string();
+    }
+    if let Some(k) = body.get("api_key").and_then(|v| v.as_str()) {
+        core.config.api_key = k.to_string();
+    }
+    if let Some(u) = body.get("base_url").and_then(|v| v.as_str()) {
+        core.config.base_url = u.to_string();
+    }
+    if let Some(m) = body.get("model").and_then(|v| v.as_str()) {
+        core.config.model = m.to_string();
+    }
+
+    if let Err(e) = core.config.save() {
+        return ApiResponse::err(&format!("Failed to save config: {}", e));
+    }
+
+    let result = serde_json::json!({
+        "status": "updated",
+        "provider": core.config.provider,
+        "base_url": core.config.base_url,
+        "model": core.config.model,
+    });
+    ApiResponse::ok(result)
+}
+
 /// Send a message and start LLM processing.
 /// Returns the session ID so the client can subscribe to SSE events.
 pub async fn send_message(

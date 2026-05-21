@@ -86,6 +86,7 @@ struct GeneralSettingsView: View {
     @AppStorage("app_appearance") private var appearance: String = "system"
     @AppStorage("llm_provider") private var llmProvider: String = "openai"
     @AppStorage("llm_base_url") private var llmBaseURL: String = ""
+    @AppStorage("llm_api_key") private var llmAPIKey: String = ""
     @State private var editingProvider = false
 
     var body: some View {
@@ -162,11 +163,21 @@ struct GeneralSettingsView: View {
                 Text(providerName(llmProvider))
                     .font(.callout)
                     .fontWeight(.medium)
-                if !llmBaseURL.isEmpty {
-                    Text(llmBaseURL)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                HStack(spacing: 4) {
+                    if !llmAPIKey.isEmpty {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.green)
+                        Text(maskedAPIKey)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    if !llmBaseURL.isEmpty {
+                        Text(llmBaseURL)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
@@ -195,6 +206,11 @@ struct GeneralSettingsView: View {
             }
             .pickerStyle(.menu)
 
+            SecureField("API Key", text: $llmAPIKey)
+                .textFieldStyle(.roundedBorder)
+                .font(.callout.monospaced())
+                .textContentType(.password)
+
             TextField("Base URL (optional)", text: $llmBaseURL)
                 .textFieldStyle(.roundedBorder)
                 .font(.callout.monospaced())
@@ -203,8 +219,16 @@ struct GeneralSettingsView: View {
             HStack {
                 Button("Save & Reconnect") {
                     UserDefaults.standard.set(llmProvider, forKey: "llm_provider")
+                    UserDefaults.standard.set(llmAPIKey, forKey: "llm_api_key")
                     UserDefaults.standard.set(llmBaseURL, forKey: "llm_base_url")
-                    service.restartBackend()
+                    Task {
+                        await service.updateLLMConfig(
+                            provider: llmProvider,
+                            apiKey: llmAPIKey,
+                            baseURL: llmBaseURL
+                        )
+                        service.restartBackend()
+                    }
                     editingProvider = false
                 }
                 .buttonStyle(.borderedProminent)
@@ -220,6 +244,14 @@ struct GeneralSettingsView: View {
         }
         .padding(.leading, 38)
         .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private var maskedAPIKey: String {
+        guard !llmAPIKey.isEmpty else { return "" }
+        if llmAPIKey.count <= 8 {
+            return String(repeating: "•", count: llmAPIKey.count)
+        }
+        return String(llmAPIKey.prefix(4)) + String(repeating: "•", count: min(llmAPIKey.count - 8, 8)) + String(llmAPIKey.suffix(4))
     }
 
     private func providerIcon(_ id: String) -> String {
