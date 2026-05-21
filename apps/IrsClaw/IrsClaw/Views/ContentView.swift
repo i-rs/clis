@@ -56,7 +56,11 @@ struct ContentView: View {
                 ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
                     Label(tab.label, systemImage: tab.icon)
                         .contentShape(Rectangle())
-                        .onTapGesture { selectedTab = tab }
+                        .onTapGesture {
+                            Task { @MainActor in
+                                selectedTab = tab
+                            }
+                        }
                 }
             }
 
@@ -69,7 +73,9 @@ struct ContentView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 selectedTab = .sessions
-                                service.switchToSession(session.id)
+                                Task { @MainActor in
+                                    service.switchToSession(session.id)
+                                }
                             }
                     }
                 }
@@ -88,34 +94,33 @@ struct ContentView: View {
                 .help("New Chat")
                 .disabled(service.connectionState != .connected)
             }
-
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    showingSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                }
-                .help("Settings")
-                .keyboardShortcut(",", modifiers: .command)
-            }
         }
     }
 
     @ViewBuilder
     private var agentSwitcherSection: some View {
         Section {
-            Picker("", selection: $service.currentAgentId) {
-                ForEach(service.agents) { agent in
+            Picker("", selection: Binding(
+                get: {
+                    service.agents.first(where: { $0.id == service.currentAgentId })
+                        .map { $0.id } ?? "default"
+                },
+                set: { newId in
+                    guard newId != service.currentAgentId else { return }
+                    Task { @MainActor in
+                        await service.switchAgent(newId)
+                        selectedTab = .sessions
+                    }
+                }
+            )) {
+                ForEach(service.agents, id: \.id) { agent in
                     Text(agent.id).tag(agent.id)
                 }
             }
             .pickerStyle(.menu)
             .labelsHidden()
             .font(.body)
-            .onChange(of: service.currentAgentId) { _, newAgentId in
-                Task { await service.switchAgent(newAgentId) }
-                selectedTab = .sessions
-            }
+            .disabled(service.agents.isEmpty)
         } header: {
             Text("Agent")
         }
