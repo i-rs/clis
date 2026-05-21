@@ -181,6 +181,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
             .title(" ⌨ 快捷键帮助 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
     f.render_widget(list, popup_area);
@@ -237,6 +238,7 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
             .title(" ℹ 配置信息 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
     f.render_widget(list, popup_area);
@@ -274,6 +276,7 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
             .title(" 🔧 可用工具 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
     f.render_widget(list, popup_area);
@@ -351,6 +354,7 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
             .title(" 👤 Agent 管理 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
     f.render_widget(list, popup_area);
@@ -419,6 +423,7 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
             .title(" 📊 Token 用量 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
     f.render_widget(list, popup_area);
@@ -495,6 +500,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
             .title(" 🔌 插件与技能 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
     f.render_widget(list, popup_area);

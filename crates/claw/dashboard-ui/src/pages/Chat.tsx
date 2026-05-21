@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Plus, List, Loader, Brain, Terminal, ChevronDown, ChevronRight, Bot } from 'lucide-react'
+import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot } from 'lucide-react'
 import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, type ChatMessage, type ToolCallMsg } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
@@ -349,7 +349,11 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         {hasStreaming && <StreamingBubble display={display} />}
         {loading && !hasStreaming && (
           <div className="message status">
-            <Loader size={12} className="loading-spinner" />
+            <div className="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
             Thinking...
           </div>
         )}
@@ -461,7 +465,11 @@ function StreamingBubble({ display }: { display: { content: string; reasoning: s
       )}
       {!hasContent && !hasToolCalls && (
         <div className="streaming-cursor">
-          <Loader size={12} className="loading-spinner" />
+          <div className="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
           Thinking...
         </div>
       )}

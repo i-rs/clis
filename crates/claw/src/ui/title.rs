@@ -9,7 +9,6 @@ use ratatui::{
 use crate::app::App;
 
 pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
-    // Full-width background
     f.render_widget(
         Block::default()
             .style(Style::default().bg(app.config.theme.background())),
@@ -18,29 +17,37 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
 
     let mut spans: Vec<Span> = Vec::new();
 
-    // App name — standout
     spans.push(Span::styled(
-        " ✦ i-rs-claw",
+        "╺",
+        Style::default().fg(app.config.theme.primary()),
+    ));
+
+    spans.push(Span::styled(
+        " ✦ i-rs-claw ",
         Style::default()
             .fg(app.config.theme.primary())
             .add_modifier(Modifier::BOLD),
     ));
 
+    spans.push(Span::styled(
+        "│",
+        Style::default().fg(app.config.theme.dim_text()),
+    ));
+
     if app.is_processing() {
-        // Processing indicator
+        const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
+        let spinner = SPINNERS[f.count() % SPINNERS.len()];
         spans.push(Span::styled(
-            format!("  ⏳ {} ", app.status_text),
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            format!(" {} {} ", spinner, app.status_text),
+            Style::default().fg(app.config.theme.accent()).add_modifier(Modifier::BOLD),
         ));
     } else {
-        // Tagline + agent name
         spans.push(Span::styled(
-            format!("  个人数据智能助理  [{}]", app.current_agent),
+            format!(" 个人数据智能助理 [{}] ", app.current_agent),
             Style::default().fg(Color::Rgb(180, 180, 200)),
         ));
     }
 
-    // Right-aligned model name (padded to fill width)
     let model_text = format!(" {} ", app.config.model);
     let model_text_ref: &str = &model_text;
     let model_width = unicode_width::UnicodeWidthStr::width(model_text_ref);
@@ -50,7 +57,7 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
             unicode_width::UnicodeWidthStr::width(content)
         }).sum::<usize>()
         + model_width
-        + 2, // buffer
+        + 2,
     );
     if padding > 0 {
         spans.push(Span::styled(
@@ -63,6 +70,11 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
         Style::default()
             .fg(Color::Rgb(100, 100, 130))
             .add_modifier(Modifier::BOLD),
+    ));
+
+    spans.push(Span::styled(
+        "╸",
+        Style::default().fg(app.config.theme.primary()),
     ));
 
     let line = Line::from(spans);
