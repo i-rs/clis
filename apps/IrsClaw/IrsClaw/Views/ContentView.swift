@@ -40,7 +40,7 @@ struct ContentView: View {
         }
     }
 
-    var filteredSessionsByAgent: [ClawSession] {
+    var visibleSessions: [ClawSession] {
         let sessions = service.sessions.filter { $0.agentId == service.currentAgentId || $0.agentId == nil }
         guard !searchText.isEmpty else { return sessions }
         return sessions.filter { session in
@@ -78,7 +78,7 @@ struct ContentView: View {
             }
 
             Section("Sessions") {
-                ForEach(filteredSessionsByAgent) { session in
+                ForEach(visibleSessions, id: \.id) { session in
                     SessionRow(session: session)
                         .opacity(selectedTab == .sessions ? 1 : 0.6)
                         .contentShape(Rectangle())
@@ -127,6 +127,16 @@ struct ContentView: View {
                 }
 
                 Spacer()
+
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
             }
             .padding(.vertical, 2)
         } header: {
