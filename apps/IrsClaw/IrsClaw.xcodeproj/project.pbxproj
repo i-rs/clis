@@ -6,13 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AABBCC0D2FBB8F8600DA7D28 /* IrsClaw/Services/ClawService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC022FBB8F8600DA7D28 /* IrsClaw/Services/ClawService.swift */; };
+		AABBCC0E2FBB8F8600DA7D28 /* IrsClaw/Models/ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC032FBB8F8600DA7D28 /* IrsClaw/Models/ChatModels.swift */; };
+		AABBCC0F2FBB8F8600DA7D28 /* IrsClaw/Extensions/Color+Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC042FBB8F8600DA7D28 /* IrsClaw/Extensions/Color+Platform.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		463837352FBB8F8600DA7D28 /* IrsClaw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IrsClaw.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		463837572FBB8F8700DA7D28 /* IrsClaw-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "IrsClaw-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AABBCC012FBB8F8600DA7D28 /* IrsClaw Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "IrsClaw Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AABBCC022FBB8F8600DA7D28 /* ClawService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Services/ClawService.swift"; sourceTree = "<group>"; };
-		AABBCC032FBB8F8600DA7D28 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Models/ChatModels.swift"; sourceTree = "<group>"; };
-		AABBCC042FBB8F8600DA7D28 /* Color+Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Extensions/Color+Platform.swift"; sourceTree = "<group>"; };
+		AABBCC012FBB8F8600DA7D28 /* IrsClaw Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "IrsClaw Watch App.app"; path = IrsClawWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AABBCC022FBB8F8600DA7D28 /* IrsClaw/Services/ClawService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrsClaw/Services/ClawService.swift; sourceTree = "<group>"; };
+		AABBCC032FBB8F8600DA7D28 /* IrsClaw/Models/ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IrsClaw/Models/ChatModels.swift; sourceTree = "<group>"; };
+		AABBCC042FBB8F8600DA7D28 /* IrsClaw/Extensions/Color+Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IrsClaw/Extensions/Color+Platform.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -27,12 +33,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXBuildFile section */
-		AABBCC0D2FBB8F8600DA7D28 /* ClawService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC022FBB8F8600DA7D28 /* ClawService.swift */; };
-		AABBCC0E2FBB8F8600DA7D28 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC032FBB8F8600DA7D28 /* ChatModels.swift */; };
-		AABBCC0F2FBB8F8600DA7D28 /* Color+Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCC042FBB8F8600DA7D28 /* Color+Platform.swift */; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		463837322FBB8F8600DA7D28 /* Frameworks */ = {
@@ -65,6 +65,7 @@
 				463837372FBB8F8600DA7D28 /* IrsClaw */,
 				AABBCC052FBB8F8600DA7D28 /* IrsClaw Watch App */,
 				463837362FBB8F8600DA7D28 /* Products */,
+				46BA4A7F2FBEE1E20059B9B3 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -76,6 +77,16 @@
 				AABBCC012FBB8F8600DA7D28 /* IrsClaw Watch App.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		46BA4A7F2FBEE1E20059B9B3 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				AABBCC022FBB8F8600DA7D28 /* IrsClaw/Services/ClawService.swift */,
+				AABBCC032FBB8F8600DA7D28 /* IrsClaw/Models/ChatModels.swift */,
+				AABBCC042FBB8F8600DA7D28 /* IrsClaw/Extensions/Color+Platform.swift */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -232,9 +243,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AABBCC0D2FBB8F8600DA7D28 /* ClawService.swift in Sources */,
-				AABBCC0E2FBB8F8600DA7D28 /* ChatModels.swift in Sources */,
-				AABBCC0F2FBB8F8600DA7D28 /* Color+Platform.swift in Sources */,
+				AABBCC0D2FBB8F8600DA7D28 /* IrsClaw/Services/ClawService.swift in Sources */,
+				AABBCC0E2FBB8F8600DA7D28 /* IrsClaw/Models/ChatModels.swift in Sources */,
+				AABBCC0F2FBB8F8600DA7D28 /* IrsClaw/Extensions/Color+Platform.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
