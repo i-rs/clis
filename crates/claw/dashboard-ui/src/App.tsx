@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Users, Lock } from 'lucide-react'
+import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Users, Lock, Sun, Moon } from 'lucide-react'
 import { listAgents, type AgentInfo, hasToken, setToken } from './api'
 import ChatPage from './pages/Chat'
 import SessionsPage from './pages/Sessions'
@@ -66,6 +66,17 @@ export default function App() {
   const [selectedAgent, setSelectedAgent] = useState('default')
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [agentRefreshKey, setAgentRefreshKey] = useState(0)
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('claw-theme')
+    return saved || 'dark'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('claw-theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 
   // Load agents list
   useEffect(() => {
@@ -168,6 +179,12 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <button className="theme-toggle" onClick={toggleTheme} title="切换主题">
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </div>
       </aside>
       <main className="main-content">
         {renderPage()}
