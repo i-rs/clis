@@ -57,6 +57,32 @@ class ClawService: ObservableObject {
         UserDefaults.standard.string(forKey: "server_url") ?? Self.defaultBaseURL
     }
 
+    /// Auth token for Bearer authentication.
+    /// Stored in UserDefaults and sent with every API request.
+    private var authToken: String {
+        UserDefaults.standard.string(forKey: "claw_auth_token") ?? ""
+    }
+
+    /// Update the auth token and reconnect.
+    func updateAuthToken(_ newToken: String) {
+        UserDefaults.standard.set(newToken, forKey: "claw_auth_token")
+        print("[ClawService] Auth token updated")
+        restartBackend()
+    }
+
+    /// Clear the auth token.
+    func clearAuthToken() {
+        UserDefaults.standard.removeObject(forKey: "claw_auth_token")
+        restartBackend()
+    }
+
+    /// Add Bearer auth header if token is set.
+    private func addAuthHeader(_ request: inout URLRequest) {
+        if !authToken.isEmpty {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
+    }
+
     /// Update the server URL and reconnect.
     func updateServerURL(_ newURL: String) {
         let url = newURL.trimmingCharacters(in: .whitespaces)
@@ -339,6 +365,7 @@ class ClawService: ObservableObject {
         let url = URL(string: "\(baseURL)/api/chat/stream/\(sessionId)")!
         var request = URLRequest(url: url)
         request.timeoutInterval = 300
+        addAuthHeader(&request)
 
         sseTask = Task { [weak self] in
             defer {
@@ -549,12 +576,72 @@ class ClawService: ObservableObject {
         let url = URL(string: "\(baseURL)\(path)")!
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
+        addAuthHeader(&request)
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
+            guard let httpResponse = response as? HTTPURLResponse else { return nil }
+            if httpResponse.statusCode == 401 {
+                self.errorMessage = "认证失败，请在设置中检查 Auth Token"
                 return nil
             }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                return nil
+            }
+            return data
+        } catch {
+            self.errorMessage = "Network error: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func post(_ path: String, body: Data? = nil) async -> Data? {
+        guard connectionState.isConnected else { return nil }
+        let url = URL(string: "\(baseURL)\(path)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        request.timeoutInterval = 60
+        addAuthHeader(&request)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { return nil }
+            if httpResponse.statusCode == 401 {
+                self.errorMessage = "认证失败，请在设置中检查 Auth Token"
+                return nil
+            }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                return nil
+            }
+            return data
+        } catch {
+            self.errorMessage = "Network error: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func delete(_ path: String) async -> Data? {
+        guard connectionState.isConnected else { return nil }
+        let url = URL(string: "\(baseURL)\(path)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 10
+        addAuthHeader(&request)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { return nil }
+            if httpResponse.statusCode == 401 {
+                self.errorMessage = "认证失败，请在设置中检查 Auth Token"
+                return nil
+            }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                return nil
+            }
+            return data
+        } catch {
+            return nil
+        }
+    }
             return data
         } catch {
             self.errorMessage = "Network error: \(error.localizedDescription)"

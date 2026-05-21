@@ -405,6 +405,7 @@ struct AddAgentSheet: View {
 struct BackendSettingsView: View {
     @ObservedObject var service: ClawService
     @State private var serverURL: String = ""
+    @State private var authToken: String = ""
 
     var body: some View {
         Form {
@@ -472,6 +473,34 @@ struct BackendSettingsView: View {
                         }
                     }
                 }
+
+                HStack(spacing: 10) {
+                    Image(systemName: "key.fill")
+                        .foregroundStyle(.orange)
+                        .font(.body)
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        SecureField("Auth Token (Bearer)", text: $authToken)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.caption.monospaced())
+
+                        HStack(spacing: 6) {
+                            Button("Save & Reconnect") {
+                                service.updateAuthToken(authToken)
+                            }
+                            .controlSize(.small)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                            Button("Clear") {
+                                authToken = ""
+                                service.clearAuthToken()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
             } header: {
                 Label("Connection", systemImage: "antenna.radiowaves.left.and.right")
             }
@@ -518,6 +547,7 @@ struct BackendSettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             serverURL = service.serverURLDisplay
+            authToken = UserDefaults.standard.string(forKey: "claw_auth_token") ?? ""
         }
         #if !os(macOS)
         .navigationBarTitleDisplayMode(.inline)
