@@ -82,8 +82,6 @@ pub struct McpClient {
     pub name: String,
     rt: Arc<tokio::runtime::Runtime>,
     service: Arc<RunningService<RoleClient, ()>>,
-    /// Stored server config for reconnection.
-    #[allow(dead_code)]
     config: McpServerConfig,
 }
 
@@ -159,7 +157,6 @@ impl McpClient {
 
     /// Health check: try to list tools.
     /// Returns `true` if the MCP server is responsive, `false` otherwise.
-    #[allow(dead_code)]
     pub fn health_check(&self) -> bool {
         self.rt
             .block_on(self.service.list_all_tools())
@@ -168,7 +165,6 @@ impl McpClient {
 
     /// Attempt to reconnect this MCP client using the stored config.
     /// Returns `Ok(new_client)` on success, `Err(e)` if reconnection fails.
-    #[allow(dead_code)]
     pub fn reconnect(&self) -> Result<McpClient, String> {
         match self.config.transport_type.as_str() {
             "stdio" => McpClient::connect(&self.config, &self.rt),
@@ -362,7 +358,6 @@ impl McpRegistry {
 
     /// Check health of all MCP clients and attempt to reconnect failed ones.
     /// Returns the number of successfully reconnected clients.
-    #[allow(dead_code)]
     pub fn health_check_and_reconnect(&mut self) -> usize {
         let mut reconnected = 0;
         let mut failed_indices: Vec<usize> = Vec::new();

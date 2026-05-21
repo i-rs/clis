@@ -19,12 +19,13 @@ pub fn main_loop(
     llm_rx: &mut mpsc::UnboundedReceiver<LlmEvent>,
 ) -> anyhow::Result<()> {
     let mut last_reminder_check = Instant::now();
+    let mut last_mcp_health_check = Instant::now();
     const REMINDER_INTERVAL_SECS: u64 = 120;
+    const MCP_HEALTH_INTERVAL_SECS: u64 = 300;
 
     loop {
         terminal.draw(|f| crate::ui::render(f, app))?;
 
-        // Process LLM events
         while let Ok(event) = llm_rx.try_recv() {
             let mut handler = LlmEventHandler::new(app, app_core);
             if matches!(handler.handle(event), Action::Quit) {
@@ -32,14 +33,21 @@ pub fn main_loop(
             }
         }
 
-        // Periodic background reminder check (every 2 minutes, non-blocking)
-        let elapsed = last_reminder_check.elapsed().as_secs();
-        if elapsed >= REMINDER_INTERVAL_SECS && !app.is_processing() {
+        if last_reminder_check.elapsed().as_secs() >= REMINDER_INTERVAL_SECS && !app.is_processing() {
             let h = rt.spawn_blocking(reminders::check_reminders);
             if let Ok(Some(reminder_text)) = rt.block_on(h) {
                 app.reminder_text = Some(reminder_text);
             }
             last_reminder_check = Instant::now();
+        }
+
+        if last_mcp_health_check.elapsed().as_secs() >= MCP_HEALTH_INTERVAL_SECS && !app.is_processing() {
+            let mcp = app_core.agent_store.mcp_registry_for_mut(&app.current_agent);
+            let reconnected = mcp.health_check_and_reconnect();
+            if reconnected > 0 {
+                tracing::info!("MCP 健康检查: {} 个客户端已重连", reconnected);
+            }
+            last_mcp_health_check = Instant::now();
         }
 
         // Handle terminal events

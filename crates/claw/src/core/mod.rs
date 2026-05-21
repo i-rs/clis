@@ -99,6 +99,10 @@ impl AgentRuntimeStore {
         &self.get(agent_id).mcp_registry
     }
 
+    pub fn mcp_registry_for_mut(&mut self, agent_id: &str) -> &mut McpRegistry {
+        &mut self.get_mut(agent_id).mcp_registry
+    }
+
     /// Refresh MCP registries for all agents (e.g. after plugin discovery).
     #[allow(dead_code)]
     pub fn refresh_mcp_registries(&mut self, config: &Config) {
