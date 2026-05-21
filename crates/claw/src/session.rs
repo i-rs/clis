@@ -193,9 +193,8 @@ impl SessionManager {
     #[allow(dead_code)]
     pub fn save_plan_steps(&self, id: &str, steps: &[crate::app::PlanStep]) {
         let path = self.plan_steps_path(id);
-        if let Ok(content) = serde_json::to_string(steps) {
-            let _ = atomic_write(&path, &content);
-        }
+        if let Ok(content) = serde_json::to_string(steps)
+            && let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
     }
 
     #[allow(dead_code)]
@@ -313,14 +312,13 @@ impl SessionManager {
                 serde_json::to_string(record).ok().map(|line| line + "\n")
             })
             .collect();
-        let _ = atomic_write(&path, &content);
+        if let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
     }
 
     pub fn save_api_messages(&self, id: &str, messages: &[serde_json::Value]) {
         let path = self.api_cache_path(id);
-        if let Ok(content) = serde_json::to_string(messages) {
-            let _ = atomic_write(&path, &content);
-        }
+        if let Ok(content) = serde_json::to_string(messages)
+            && let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
     }
 
     pub fn load_api_messages(&self, id: &str) -> Option<Vec<serde_json::Value>> {
@@ -347,9 +345,8 @@ impl SessionManager {
     }
 
     fn save_index(&self) {
-        if let Ok(content) = serde_json::to_string_pretty(&self.sessions) {
-            let _ = atomic_write(&Self::index_path(&self.claw_dir), &content);
-        }
+        if let Ok(content) = serde_json::to_string_pretty(&self.sessions)
+            && let Err(e) = atomic_write(&Self::index_path(&self.claw_dir), &content) { tracing::error!("持久化写入失败: {}", e); }
     }
 }
 

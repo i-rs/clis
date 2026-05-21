@@ -76,9 +76,8 @@ impl PluginState {
     }
 
     fn save(&self, path: &Path) {
-        if let Ok(content) = serde_json::to_string_pretty(self) {
-            let _ = atomic_write(path, &content);
-        }
+        if let Ok(content) = serde_json::to_string_pretty(self)
+            && let Err(e) = atomic_write(path, &content) { tracing::error!("持久化写入失败: {}", e); }
     }
 
     fn is_enabled(&self, name: &str) -> bool {

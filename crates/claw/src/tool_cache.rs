@@ -122,8 +122,7 @@ impl ToolDocCache {
 
     fn save_hot_docs(&self) {
         let path = Self::cache_path(&self.cache_dir);
-        if let Ok(content) = serde_json::to_string(&self.hot_docs) {
-            let _ = atomic_write(&path, &content);
-        }
+        if let Ok(content) = serde_json::to_string(&self.hot_docs)
+            && let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
     }
 }
