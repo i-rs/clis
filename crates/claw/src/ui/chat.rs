@@ -642,12 +642,22 @@ fn build_message_lines(
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
             let mut lines = vec![
-                Line::from(Span::styled(
-                    format!("  You:{}", ts_label),
-                    Style::default()
-                        .fg(app.config.theme.secondary())
-                        .add_modifier(Modifier::BOLD),
-                )),
+                Line::from(vec![
+                    Span::styled(
+                        "▌ ",
+                        Style::default().fg(app.config.theme.secondary()),
+                    ),
+                    Span::styled(
+                        "You",
+                        Style::default()
+                            .fg(app.config.theme.secondary())
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!(":{}", ts_label),
+                        Style::default().fg(app.config.theme.dim_text()),
+                    ),
+                ]),
             ];
             for wrapped in utils::wrap_text(text, text_width) {
                 lines.push(Line::from(Span::styled(
@@ -663,12 +673,22 @@ fn build_message_lines(
                 .get(msg_index)
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
-            let mut lines = vec![Line::from(Span::styled(
-                format!("  Claw:{}", ts_label),
-                Style::default()
-                    .fg(app.config.theme.primary())
-                    .add_modifier(Modifier::BOLD),
-            ))];
+            let mut lines = vec![Line::from(vec![
+                Span::styled(
+                    "◆ ",
+                    Style::default().fg(app.config.theme.primary()),
+                ),
+                Span::styled(
+                    "Claw",
+                    Style::default()
+                        .fg(app.config.theme.primary())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!(":{}", ts_label),
+                    Style::default().fg(app.config.theme.dim_text()),
+                ),
+            ])];
             if text.is_empty() {
                 lines.push(Line::from(Span::styled(
                     "   ...",
@@ -721,29 +741,29 @@ fn build_message_lines(
                         let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
                         let explanation = val.get("explanation").and_then(|v| v.as_str());
                         (
-                            format!(" ⚡ {}{} {}", step_prefix, tool, cmd),
+                            format!("▸▸ {}{} {}", step_prefix, tool, cmd),
                             explanation.map(|s| s.to_string()),
                         )
                     } else if name == "search_conversations" {
                         let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!(" 🔍 搜索历史: {}", q), None)
+                        (format!("◉ 搜索历史: {}", q), None)
                     } else if name == "search_tools" {
                         let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!(" 🔍 search: {}", q), None)
+                        (format!("◉ search: {}", q), None)
                     } else if name == "update_user_memory" {
-                        (" 💾 记住用户信息".to_string(), None)
+                        ("◎ 记住用户信息".to_string(), None)
                     } else if name == "file_ops" {
                         let op = val.get("operation").and_then(|v| v.as_str()).unwrap_or("?");
                         let p = val.get("path").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!(" 📁 {}: {}", op, p), None)
+                        (format!("▤ {}: {}", op, p), None)
                     } else if name == "web_search" {
                         let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!(" 🔍 搜索网络: {}", q), None)
+                        (format!("◉ 搜索网络: {}", q), None)
                     } else {
-                        (format!(" ⚡ {}{}", step_prefix, name), None)
+                        (format!("▸▸ {}{}", step_prefix, name), None)
                     }
                 } else {
-                    (format!(" ⚡ {}{} {}", step_prefix, name, args), None)
+                    (format!("▸▸ {} {}", step_prefix, name), None)
                 };
 
             let indicator = if is_expanded { " [-]" } else { " [+]" };
@@ -791,12 +811,18 @@ fn build_message_lines(
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
             let mut lines = vec![
-                Line::from(Span::styled(
-                    format!(" ✗ Error:{}", ts_label),
-                    Style::default()
-                        .fg(app.config.theme.error())
-                        .add_modifier(Modifier::BOLD),
-                )),
+                Line::from(vec![
+                    Span::styled(
+                        "✗ ",
+                        Style::default().fg(app.config.theme.error()),
+                    ),
+                    Span::styled(
+                        format!("Error:{}", ts_label),
+                        Style::default()
+                            .fg(app.config.theme.error())
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]),
             ];
             for wrapped in utils::wrap_text(text, text_width) {
                 lines.push(Line::from(Span::styled(

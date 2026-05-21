@@ -55,18 +55,17 @@ struct SettingsView: View {
                         Image(systemName: section.icon)
                             .foregroundStyle(.tint)
                     }
-                    .padding(.vertical, 1)
+                    .padding(.vertical, 2)
                     .tag(section)
                 }
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(220)
+            .navigationSplitViewColumnWidth(200)
         } detail: {
             detailView
-                .padding(.horizontal)
         }
         #if os(macOS)
-        .frame(width: 620, height: 460)
+        .frame(width: 640, height: 480)
         #endif
     }
 
@@ -87,42 +86,12 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            // Connection Status Card
             Section {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(service.connectionState.isConnected
-                                  ? Color.green.opacity(0.12)
-                                  : Color.red.opacity(0.12))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: service.connectionState.isConnected
-                              ? "antenna.radiowaves.left.and.right"
-                              : "antenna.radiowaves.left.and.right.slash")
-                            .foregroundStyle(service.connectionState.isConnected ? .green : .red)
-                            .font(.title3)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Backend Connection")
-                            .font(.body)
-                        Text(service.connectionState.isConnected
-                             ? "Connected to i-rs-claw dashboard"
-                             : service.connectionState.errorMessage ?? "Disconnected")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Circle()
-                        .fill(service.connectionState.isConnected ? Color.green : Color.red)
-                        .frame(width: 10, height: 10)
-                }
-                .padding(.vertical, 4)
+                connectionStatusCard
+            } header: {
+                Text("Connection")
             }
 
-            // LLM Configuration
             if let config = service.config {
                 Section {
                     SettingsRow(icon: "cube", iconColor: .blue) {
@@ -148,26 +117,48 @@ struct GeneralSettingsView: View {
                         }
                     }
                 } header: {
-                    Label("LLM Configuration", systemImage: "brain")
+                    Text("LLM Configuration")
                 }
-            }
-
-            // Data section
-            Section {
-                SettingsRow(icon: "clock", iconColor: .gray) {
-                    LabeledContent("Last Updated") {
-                        Text("Just now")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Label("Data", systemImage: "externaldrive")
             }
         }
         .formStyle(.grouped)
         .onAppear {
             Task { await service.fetchConfig() }
         }
+    }
+
+    @ViewBuilder
+    private var connectionStatusCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: service.connectionState.isConnected
+                  ? "checkmark.circle.fill"
+                  : "exclamationmark.circle.fill")
+                .foregroundStyle(service.connectionState.isConnected ? .green : .red)
+                .font(.title2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(service.connectionState.isConnected ? "Connected" : "Disconnected")
+                    .font(.body)
+                    .fontWeight(.medium)
+                Text(service.connectionState.isConnected
+                     ? "Connected to i-rs-claw dashboard"
+                     : service.connectionState.errorMessage ?? "Not connected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if !service.connectionState.isConnected {
+                Button("Reconnect") {
+                    service.restartBackend()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -318,16 +309,10 @@ struct AddAgentSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(LinearGradient(colors: [.teal, .mint], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 40, height: 40)
-                    Image(systemName: "person.badge.plus")
-                        .foregroundStyle(.white)
-                        .font(.title3)
-                }
+                Image(systemName: "person.badge.plus")
+                    .foregroundStyle(Color.blue)
+                    .font(.title3)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Add Agent Profile")
@@ -344,25 +329,26 @@ struct AddAgentSheet: View {
             Divider()
 
             Form {
-                TextField("Agent ID", text: $id)
-                    .textFieldStyle(.roundedBorder)
-                    .help("Unique identifier for this agent")
+                Section("Identity") {
+                    TextField("Agent ID", text: $id)
+                        .help("Unique identifier for this agent")
+                }
 
-                TextField("Provider (e.g. openai)", text: $provider)
-                    .textFieldStyle(.roundedBorder)
+                Section("Model") {
+                    TextField("Provider (e.g. openai)", text: $provider)
+                    TextField("Model (e.g. gpt-4o-mini)", text: $model)
+                }
 
-                TextField("Model (e.g. deepseek-v4-flash)", text: $model)
-                    .textFieldStyle(.roundedBorder)
+                Section("Authentication") {
+                    SecureField("API Key (optional)", text: $apiKey)
+                    TextField("Base URL (optional)", text: $baseURL)
+                }
 
-                SecureField("API Key (optional)", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
-
-                TextField("Base URL (optional)", text: $baseURL)
-                    .textFieldStyle(.roundedBorder)
-
-                TextField("System Prompt (optional)", text: $systemPrompt, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(3...6)
+                Section("Behavior") {
+                    TextEditor(text: $systemPrompt)
+                        .frame(minHeight: 60)
+                        .font(.caption.monospaced())
+                }
             }
             .formStyle(.grouped)
             .padding(.horizontal, 8)
@@ -394,6 +380,7 @@ struct AddAgentSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(id.trimmingCharacters(in: .whitespaces).isEmpty)
+                .keyboardShortcut(.return, modifiers: .command)
             }
             .padding()
         }
@@ -409,51 +396,11 @@ struct BackendSettingsView: View {
 
     var body: some View {
         Form {
-            // Connection Card
             Section {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(service.connectionState.isConnected
-                                  ? Color.green.opacity(0.12)
-                                  : Color.red.opacity(0.12))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: service.connectionState.isConnected
-                              ? "checkmark.circle.fill"
-                              : "xmark.circle.fill")
-                            .foregroundStyle(service.connectionState.isConnected ? .green : .red)
-                            .font(.title3)
-                    }
+                connectionStatusCard
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Status")
-                            .font(.body)
-                        Text(service.connectionState.isConnected
-                             ? "All systems operational"
-                             : service.connectionState.errorMessage ?? "Not connected")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if !service.connectionState.isConnected {
-                        Button("Connect") {
-                            service.restartBackend()
-                        }
-                        .controlSize(.small)
-                    }
-                }
-                .padding(.vertical, 4)
-
-                // Configurable Server URL
-                HStack(spacing: 10) {
-                    Image(systemName: "point.3.connected.trianglepath.dotted")
-                        .foregroundStyle(.blue)
-                        .font(.body)
-                        .frame(width: 20)
-
-                    VStack(alignment: .leading, spacing: 4) {
+                LabeledContent("Server URL") {
+                    VStack(alignment: .leading, spacing: 6) {
                         TextField("Server URL", text: $serverURL)
                             .textFieldStyle(.roundedBorder)
                             .font(.caption.monospaced())
@@ -462,11 +409,12 @@ struct BackendSettingsView: View {
                             Button("Save & Reconnect") {
                                 service.updateServerURL(serverURL)
                             }
-                            .controlSize(.small)
                             .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                             .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
 
                             Button("Reset") {
+                                serverURL = service.serverURLDisplay
                                 service.resetServerURL()
                             }
                             .controlSize(.small)
@@ -474,13 +422,8 @@ struct BackendSettingsView: View {
                     }
                 }
 
-                HStack(spacing: 10) {
-                    Image(systemName: "key.fill")
-                        .foregroundStyle(.orange)
-                        .font(.body)
-                        .frame(width: 20)
-
-                    VStack(alignment: .leading, spacing: 4) {
+                LabeledContent("Auth Token") {
+                    VStack(alignment: .leading, spacing: 6) {
                         SecureField("Auth Token (Bearer)", text: $authToken)
                             .textFieldStyle(.roundedBorder)
                             .font(.caption.monospaced())
@@ -489,8 +432,8 @@ struct BackendSettingsView: View {
                             Button("Save & Reconnect") {
                                 service.updateAuthToken(authToken)
                             }
-                            .controlSize(.small)
                             .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                             .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
 
                             Button("Clear") {
@@ -502,10 +445,9 @@ struct BackendSettingsView: View {
                     }
                 }
             } header: {
-                Label("Connection", systemImage: "antenna.radiowaves.left.and.right")
+                Text("Connection")
             }
 
-            // Sessions
             Section {
                 SettingsRow(icon: "text.bubble", iconColor: .blue) {
                     LabeledContent("Total Sessions") {
@@ -513,34 +455,19 @@ struct BackendSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.tertiary)
-                        .font(.caption)
-                    Text("Use Cmd+N to create a new session")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.leading, 32)
             } header: {
-                Label("Sessions", systemImage: "list.bullet")
+                Text("Sessions")
+            } footer: {
+                Text("Use ⌘N to create a new session")
             }
 
-            // Errors
             if let error = service.connectionState.errorMessage ?? service.errorMessage {
                 Section {
-                    HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                            .font(.title3)
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 2)
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 } header: {
-                    Label("Errors", systemImage: "exclamationmark.triangle")
+                    Text("Error")
                 }
             }
         }
@@ -552,6 +479,40 @@ struct BackendSettingsView: View {
         #if !os(macOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+    }
+
+    @ViewBuilder
+    private var connectionStatusCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: service.connectionState.isConnected
+                  ? "checkmark.circle.fill"
+                  : "exclamationmark.circle.fill")
+                .foregroundStyle(service.connectionState.isConnected ? .green : .red)
+                .font(.title2)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(service.connectionState.isConnected ? "Connected" : "Disconnected")
+                    .font(.body)
+                    .fontWeight(.medium)
+                Text(service.connectionState.isConnected
+                     ? "All systems operational"
+                     : service.connectionState.errorMessage ?? "Not connected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if !service.connectionState.isConnected {
+                Button("Connect") {
+                    service.restartBackend()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
