@@ -124,6 +124,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
         ("Ctrl+Shift+U", "Token 用量"),
         ("Ctrl+Shift+P", "插件与技能"),
         ("Ctrl+Shift+C", "复制当前消息"),
+        ("Ctrl+E", "导出会话为 Markdown"),
         ("Alt+Enter", "输入换行"),
         ("Fn", "语音输入 (macOS)"),
         ("", ""),

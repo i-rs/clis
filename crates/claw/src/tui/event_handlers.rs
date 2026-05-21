@@ -424,6 +424,9 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
                 return self.handle_agent_picker_toggle();
             }
+            KeyCode::Char('e') if key.modifiers == KeyModifiers::CONTROL => {
+                return self.handle_export_session();
+            }
 
             // ── Session list keys ────────────────────────────────
             _ if self.app.overlay.show_session_list => {
@@ -762,6 +765,73 @@ impl<'a> KeyEventHandler<'a> {
                 .iter()
                 .position(|id| *id == self.app.current_agent)
                 .unwrap_or(0);
+        }
+        Action::Continue
+    }
+
+    fn handle_export_session(&mut self) -> Action {
+        if self.app.messages.is_empty() {
+            self.app.overlay.copy_feedback = Some("无消息可导出".to_string());
+            return Action::Continue;
+        }
+
+        let mut md = String::new();
+        md.push_str(&format!("# 会话导出 - {}\n\n", chrono::Local::now().format("%Y-%m-%d %H:%M")));
+        md.push_str(&format!("Agent: {}\n", self.app.current_agent));
+        md.push_str(&format!("模型: {}\n\n", self.app.config.model));
+        md.push_str("---\n\n");
+
+        for msg in &self.app.messages {
+            match msg {
+                crate::app::Message::User { text } => {
+                    md.push_str("## 👤 用户\n\n");
+                    md.push_str(text);
+                    md.push_str("\n\n---\n\n");
+                }
+                crate::app::Message::Assistant { text } => {
+                    md.push_str("## 🤖 Claw\n\n");
+                    md.push_str(text);
+                    md.push_str("\n\n---\n\n");
+                }
+                crate::app::Message::ToolCall { name, args, result, .. } => {
+                    md.push_str(&format!("## ⚡ 工具调用: `{}`\n\n", name));
+                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
+                        && name == "i_rs" {
+                            let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
+                            let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
+                            md.push_str(&format!("命令: `i-rs {} {}`\n\n", tool, cmd));
+                        }
+                    if !result.is_empty() {
+                        let preview = if result.len() > 500 {
+                            format!("{}...", &result[..500])
+                        } else {
+                            result.clone()
+                        };
+                        md.push_str(&format!("```\n{}\n```\n\n", preview));
+                    }
+                    md.push_str("---\n\n");
+                }
+                crate::app::Message::Error { text } => {
+                    md.push_str("## ✗ 错误\n\n");
+                    md.push_str(&format!("```\n{}\n```\n\n", text));
+                    md.push_str("---\n\n");
+                }
+            }
+        }
+
+        let export_dir = dirs::home_dir()
+            .map(|h| h.join("Downloads"))
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let filename = format!("claw-{}.md", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+        let path = export_dir.join(&filename);
+
+        match std::fs::write(&path, &md) {
+            Ok(_) => {
+                self.app.overlay.copy_feedback = Some(format!("✓ 已导出: {}", filename));
+            }
+            Err(e) => {
+                self.app.overlay.copy_feedback = Some(format!("✗ 导出失败: {}", e));
+            }
         }
         Action::Continue
     }
