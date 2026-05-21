@@ -401,51 +401,53 @@ struct BackendSettingsView: View {
             }
 
             Section("Server") {
-                LabeledContent("Server URL") {
-                    HStack(spacing: 8) {
-                        TextField("http://127.0.0.1:3000", text: $serverURL)
-                            .textFieldStyle(.plain)
-                            .font(.caption.monospaced())
-                            .textContentType(.URL)
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Server URL", text: $serverURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.callout.monospaced())
+                        .textContentType(.URL)
 
-                        Button("Save") {
+                    HStack(spacing: 8) {
+                        Button("Save & Reconnect") {
                             service.updateServerURL(serverURL)
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                         .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                        Button("Reset") {
+                        Button("Reset to Default") {
                             serverURL = service.serverURLDisplay
                             service.resetServerURL()
                         }
                         .controlSize(.small)
                     }
                 }
+                .padding(.vertical, 2)
             }
 
             Section("Authentication") {
-                LabeledContent("Auth Token") {
-                    HStack(spacing: 8) {
-                        SecureField("Bearer token", text: $authToken)
-                            .textFieldStyle(.plain)
-                            .font(.caption.monospaced())
-                            .textContentType(.password)
+                VStack(alignment: .leading, spacing: 8) {
+                    SecureField("Auth Token", text: $authToken)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.callout.monospaced())
+                        .textContentType(.password)
 
-                        Button("Save") {
+                    HStack(spacing: 8) {
+                        Button("Save & Reconnect") {
                             service.updateAuthToken(authToken)
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                         .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                        Button("Clear") {
+                        Button("Clear Token") {
                             authToken = ""
                             service.clearAuthToken()
                         }
                         .controlSize(.small)
                     }
                 }
+                .padding(.vertical, 2)
             }
 
             Section {
