@@ -106,6 +106,11 @@ pub fn render(f: &mut Frame, app: &App) {
         panels::render_tool_list_panel(f, area, app);
     }
 
+    if app.overlay.show_agent_list {
+        panels::render_backdrop(f, area);
+        panels::render_agent_list_panel(f, area, app);
+    }
+
     if !app.overlay.tab_completions.is_empty() {
         completions::render_completions(f, area, app);
     }

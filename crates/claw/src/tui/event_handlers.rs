@@ -241,6 +241,9 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Esc if self.app.overlay.show_tool_list => {
                 self.app.overlay.show_tool_list = false;
             }
+            KeyCode::Esc if self.app.overlay.show_agent_list => {
+                self.app.overlay.show_agent_list = false;
+            }
             KeyCode::Esc if self.app.overlay.show_config => {
                 self.app.overlay.show_config = false;
             }
@@ -317,6 +320,50 @@ impl<'a> KeyEventHandler<'a> {
                 if self.app.overlay.show_tool_list {
                     self.app.overlay.show_help = false;
                     self.app.overlay.show_config = false;
+                    self.app.overlay.show_agent_list = false;
+                }
+            }
+
+            KeyCode::Char('a') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.overlay.show_agent_list = !self.app.overlay.show_agent_list;
+                if self.app.overlay.show_agent_list {
+                    self.app.overlay.show_help = false;
+                    self.app.overlay.show_config = false;
+                    self.app.overlay.show_tool_list = false;
+                }
+            }
+
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.app.overlay.show_agent_list {
+                    let agent_ids: Vec<&String> = self.app.config.agents.keys().collect();
+                    let idx = self.app.overlay.agent_picker_index.min(agent_ids.len().saturating_sub(1));
+                    if let Some(target_id) = agent_ids.get(idx).map(|s| s.as_str()) {
+                        self.app.current_agent = target_id.to_string();
+                    }
+                }
+            }
+
+            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                if self.app.overlay.show_agent_list {
+                    let agent_ids: Vec<String> = self.app.config.agents.keys().cloned().collect();
+                    let idx = self.app.overlay.agent_picker_index.min(agent_ids.len().saturating_sub(1));
+                    if let Some(id) = agent_ids.get(idx).cloned().filter(|id| id != "default") {
+                        self.app.config.agents.remove(&id);
+                        let _ = self.app.config.save();
+                        if self.app.current_agent == id {
+                            self.app.current_agent = "default".to_string();
+                        }
+                    }
+                }
+            }
+
+            KeyCode::Up if self.app.overlay.show_agent_list => {
+                self.app.overlay.agent_picker_index = self.app.overlay.agent_picker_index.saturating_sub(1);
+            }
+            KeyCode::Down if self.app.overlay.show_agent_list => {
+                let max = self.app.config.agents.len().saturating_sub(1);
+                if self.app.overlay.agent_picker_index < max {
+                    self.app.overlay.agent_picker_index += 1;
                 }
             }
 

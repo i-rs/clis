@@ -120,6 +120,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
         ("Ctrl+I", "查看配置信息"),
         ("Ctrl+L", "会话列表"),
         ("Ctrl+T", "查看可用工具"),
+        ("Ctrl+A", "Agent 管理"),
         ("Ctrl+Shift+C", "复制当前消息"),
         ("Alt+Enter", "输入换行"),
         ("Fn", "语音输入 (macOS)"),
@@ -261,6 +262,83 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
     let list = List::new(lines).block(
         Block::default()
             .title(" 🔧 可用工具 ")
+            .title_alignment(ratatui::layout::Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
+    f.render_widget(list, popup_area);
+}
+
+pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
+    let popup_width = 70u16.min(area.width.saturating_sub(4));
+    let popup_height = 20u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    lines.push(Line::from(vec![
+        Span::styled(
+            "  当前 Agent: ",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            &app.current_agent,
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+        ),
+    ]));
+    lines.push(Line::from(vec![Span::raw("")]));
+
+    if app.config.agents.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            "  (无自定义 Agent，使用默认配置)",
+            Style::default().fg(Color::DarkGray),
+        )]));
+    } else {
+        let agent_ids: Vec<&String> = app.config.agents.keys().collect();
+        for (i, id) in agent_ids.iter().enumerate() {
+            let agent = &app.config.agents[*id];
+            let model = agent.model.as_deref().unwrap_or(&app.config.model);
+            let provider = agent.provider.as_deref().unwrap_or(&app.config.provider);
+            let caps = if agent.capabilities.is_empty() {
+                String::new()
+            } else {
+                format!(" [{}]", agent.capabilities.join(", "))
+            };
+            let selected = i == app.overlay.agent_picker_index;
+            let marker = if **id == app.current_agent {
+                if selected { " ▶" } else { " ●" }
+            } else if selected {
+                " ▶"
+            } else {
+                "  "
+            };
+            let id_style = if selected {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Rgb(180, 180, 120)).add_modifier(Modifier::BOLD)
+            };
+            lines.push(Line::from(vec![
+                Span::styled(format!("{} {:<14}", marker, id), id_style),
+                Span::styled(
+                    format!(" {}@{}", provider, model),
+                    Style::default().fg(Color::White),
+                ),
+                Span::styled(caps, Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+    }
+
+    lines.push(Line::from(vec![Span::raw("")]));
+    lines.push(Line::from(vec![Span::styled(
+        "  Ctrl+S 切换  |  Ctrl+D 删除",
+        Style::default().fg(Color::DarkGray),
+    )]));
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" 👤 Agent 管理 ")
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)),
