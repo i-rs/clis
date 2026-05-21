@@ -79,50 +79,54 @@ struct SessionRow: View {
     var isSelected: Bool = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color.blue.opacity(0.15) : Color.gray.opacity(0.08))
-                    .frame(width: 32, height: 32)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        isSelected
+                        ? LinearGradient(colors: [.blue.opacity(0.2), .blue.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : LinearGradient(colors: [Color.gray.opacity(0.1), Color.gray.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .frame(width: 36, height: 36)
+                    .shadow(color: isSelected ? .blue.opacity(0.15) : .clear, radius: 3, x: 0, y: 2)
                 Image(systemName: isSelected ? "bubble.left.and.bubble.right.fill" : "bubble.left")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(isSelected ? .blue : .secondary)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(session.title)
                     .lineLimit(1)
                     .font(.callout)
-                    .fontWeight(isSelected ? .semibold : .regular)
+                    .fontWeight(isSelected ? .semibold : .medium)
                     .foregroundStyle(isSelected ? .primary : .secondary)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Label("\(session.messageCount)", systemImage: "text.bubble.fill")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
 
                     if let agentId = session.agentId, agentId != "default" {
                         Text(agentId)
-                            .font(.system(size: 9, weight: .medium))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.blue.opacity(0.12))
+                            .font(.system(size: 10, weight: .medium))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
                             .clipShape(Capsule())
                     }
 
                     Spacer()
 
                     Text(session.shortDate)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                 }
             }
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 6)
+        .padding(8)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isSelected ? Color.blue.opacity(0.08) : Color.clear)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Color.blue.opacity(0.06) : Color.clear)
         )
     }
 }

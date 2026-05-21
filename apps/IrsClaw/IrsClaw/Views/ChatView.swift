@@ -44,23 +44,29 @@ struct ChatView: View {
             }
 
             // Input Bar
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 TextField("Ask i-rs-claw...", text: $inputText, axis: .vertical)
                     .lineLimit(1...5)
                     .textFieldStyle(.plain)
                     .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .fill(Color.platformControlBackground)
-                            .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
+                            .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.secondary.opacity(0.15), Color.secondary.opacity(0.05)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
                     )
-                    .disabled(service.isProcessing)
 
                 micButton
 
@@ -68,7 +74,13 @@ struct ChatView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.bar)
+            .background(
+                LinearGradient(
+                    colors: [Color.clear, Color.platformControlBackground.opacity(0.5)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
             if voiceInput.isRecording {
@@ -128,22 +140,34 @@ struct ChatView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(hasContent ? Color.accentColor : Color.clear)
-                    .frame(width: 36, height: 36)
+                    .fill(
+                        hasContent
+                        ? LinearGradient(
+                            colors: [
+                                Color(red: 0.25, green: 0.55, blue: 0.98),
+                                Color(red: 0.18, green: 0.44, blue: 0.92)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(
+                            colors: [Color.secondary.opacity(0.1), Color.secondary.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 38, height: 38)
+                    .shadow(color: hasContent ? Color(red: 0.18, green: 0.44, blue: 0.92).opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(hasContent ? .white : .secondary)
             }
-            .overlay(
-                Circle()
-                    .strokeBorder(hasContent ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 1)
-                    .frame(width: 36, height: 36)
-            )
         }
         .buttonStyle(.plain)
         .disabled(!hasContent || service.isProcessing)
         .keyboardShortcut(.return, modifiers: .command)
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: hasContent)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: hasContent)
     }
 
     // MARK: - Recording Bar

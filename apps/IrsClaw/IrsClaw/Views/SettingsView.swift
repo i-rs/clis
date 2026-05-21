@@ -149,28 +149,37 @@ struct GeneralSettingsView: View {
 
     @ViewBuilder
     private var providerRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(providerColor(llmProvider).opacity(0.12))
-                    .frame(width: 28, height: 28)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [providerColor(llmProvider).opacity(0.2), providerColor(llmProvider).opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                    .shadow(color: providerColor(llmProvider).opacity(0.2), radius: 3, x: 0, y: 2)
                 Image(systemName: providerIcon(llmProvider))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(providerColor(llmProvider))
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(providerName(llmProvider))
                     .font(.callout)
                     .fontWeight(.medium)
-                HStack(spacing: 4) {
+
+                HStack(spacing: 6) {
                     if !llmAPIKey.isEmpty {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.green)
-                        Text(maskedAPIKey)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                        HStack(spacing: 3) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 9))
+                            Text(maskedAPIKey)
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.green)
                     }
                     if !llmBaseURL.isEmpty {
                         Text(llmBaseURL)
@@ -184,16 +193,26 @@ struct GeneralSettingsView: View {
             Spacer()
 
             Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     editingProvider.toggle()
                 }
             } label: {
-                Image(systemName: editingProvider ? "chevron.up" : "pencil")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                ZStack {
+                    Circle()
+                        .fill(Color.secondary.opacity(0.1))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: editingProvider ? "chevron.up" : "pencil")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
             }
             .buttonStyle(.plain)
         }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(providerColor(llmProvider).opacity(0.05))
+        )
     }
 
     @ViewBuilder
@@ -288,19 +307,26 @@ struct GeneralSettingsView: View {
 
     @ViewBuilder
     private var connectionStatusCard: some View {
-        HStack(spacing: 12) {
-            Image(systemName: service.connectionState.isConnected
-                  ? "checkmark.circle.fill"
-                  : "exclamationmark.circle.fill")
-                .foregroundStyle(service.connectionState.isConnected ? .green : .red)
-                .font(.title2)
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        service.connectionState.isConnected
+                        ? LinearGradient(colors: [.green.opacity(0.2), .green.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : LinearGradient(colors: [.red.opacity(0.2), .red.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .frame(width: 44, height: 44)
+                Image(systemName: service.connectionState.isConnected ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(service.connectionState.isConnected ? .green : .red)
+                    .font(.title2)
+            }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(service.connectionState.isConnected ? "Connected" : "Disconnected")
                     .font(.body)
                     .fontWeight(.medium)
                 Text(service.connectionState.isConnected
-                     ? "Connected to i-rs-claw dashboard"
+                     ? "Connected to i-rs-claw backend"
                      : service.connectionState.errorMessage ?? "Not connected")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -313,11 +339,19 @@ struct GeneralSettingsView: View {
                 Button("Reconnect") {
                     service.restartBackend()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
                 .controlSize(.small)
             }
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(service.connectionState.isConnected ? Color.green.opacity(0.05) : Color.red.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(service.connectionState.isConnected ? Color.green.opacity(0.15) : Color.red.opacity(0.15), lineWidth: 1)
+        )
     }
 
     private func applyAppearance(_ mode: String) {

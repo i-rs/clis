@@ -3,94 +3,163 @@ import SwiftUI
 struct MessageBubbleView: View {
     let message: AppMessage
     @State private var isToolExpanded = false
+    @State private var isAppearing = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        switch message {
-        case .user(let text):
-            HStack(alignment: .top, spacing: 10) {
-                Spacer(minLength: 60)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(text)
-                        .textSelection(.enabled)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.85)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .foregroundColor(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-                }
-
-                AvatarView(icon: "person.fill", colors: [.blue, .cyan])
+        Group {
+            switch message {
+            case .user(let text):
+                userBubble(text)
+            case .assistant(let text):
+                assistantBubble(text)
+            case .toolCall(let name, let args, let result):
+                toolCallBubble(name: name, args: args, result: result)
+            case .error(let text):
+                errorBubble(text)
+            case .status(let text):
+                statusBubble(text)
+            case .reasoning(let text):
+                reasoningBubble(text)
             }
-            .padding(.vertical, 2)
-
-        case .assistant(let text):
-            HStack(alignment: .top, spacing: 10) {
-                AvatarView(icon: "sparkles", colors: [.purple, .pink])
-
-                VStack(alignment: .leading, spacing: 4) {
-                    MarkdownTextView(text: text)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color.platformControlBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-
-                Spacer(minLength: 60)
-            }
-            .padding(.vertical, 2)
-
-        case .toolCall(let name, let args, let result):
-            HStack(alignment: .top, spacing: 10) {
-                AvatarView(icon: "wrench.and.screwdriver", colors: [.orange, .yellow])
-
-                toolCallCard(name: name, args: args, result: result)
-
-                Spacer(minLength: 60)
-            }
-            .padding(.vertical, 2)
-
-        case .error(let text):
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.circle.fill")
-                    .foregroundStyle(.red)
-                    .symbolEffect(.pulse)
-                Text(text)
-                    .font(.callout)
-                    .foregroundStyle(.red)
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .background(.red.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-        case .status(let text):
-            HStack(spacing: 6) {
-                ProgressView()
-                    .scaleEffect(0.6)
-                Text(text)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 4)
-
-        case .reasoning(let text):
-            HStack(alignment: .top, spacing: 10) {
-                AvatarView(icon: "brain", colors: [.indigo, .teal])
-
-                reasoningBlock(text)
-
-                Spacer(minLength: 60)
-            }
-            .padding(.vertical, 2)
         }
+        .opacity(isAppearing ? 1 : 0)
+        .offset(y: isAppearing ? 0 : 8)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.25)) {
+                isAppearing = true
+            }
+        }
+    }
+
+    // MARK: - User Bubble
+
+    @ViewBuilder
+    private func userBubble(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Spacer(minLength: 60)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(text)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.25, green: 0.55, blue: 0.98),
+                                Color(red: 0.18, green: 0.44, blue: 0.92)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .foregroundColor(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color(red: 0.18, green: 0.44, blue: 0.92).opacity(0.25), radius: 8, x: 0, y: 4)
+            }
+
+            AvatarView(icon: "person.fill", colors: [.blue, .cyan])
+                .scaleEffect(0.9)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Assistant Bubble
+
+    @ViewBuilder
+    private func assistantBubble(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: "sparkles", colors: [.purple, .pink])
+                .scaleEffect(0.9)
+
+            VStack(alignment: .leading, spacing: 4) {
+                MarkdownTextView(text: text)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(assistantBackgroundColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.08), radius: 6, x: 0, y: 3)
+            }
+
+            Spacer(minLength: 60)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Tool Call Bubble
+
+    @ViewBuilder
+    private func toolCallBubble(name: String, args: String, result: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: "wrench.and.screwdriver", colors: [.orange, .yellow])
+                .scaleEffect(0.9)
+
+            toolCallCard(name: name, args: args, result: result)
+
+            Spacer(minLength: 60)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Error Bubble
+
+    @ViewBuilder
+    private func errorBubble(_ text: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(.red)
+                .symbolEffect(.pulse)
+
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.red)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(
+            LinearGradient(
+                colors: [Color.red.opacity(0.08), Color.red.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.red.opacity(0.15), lineWidth: 0.5)
+        )
+    }
+
+    // MARK: - Status Bubble
+
+    @ViewBuilder
+    private func statusBubble(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .scaleEffect(0.65)
+                .tint(.accentColor)
+
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Reasoning Bubble
+
+    @ViewBuilder
+    private func reasoningBubble(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: "brain", colors: [.indigo, .teal])
+                .scaleEffect(0.9)
+
+            reasoningBlock(text)
+
+            Spacer(minLength: 60)
+        }
+        .padding(.vertical, 2)
     }
 
     private func toolStatus(_ result: String) -> ToolStatus {
@@ -111,13 +180,17 @@ struct MessageBubbleView: View {
 
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isToolExpanded.toggle()
                 }
             } label: {
-                HStack(spacing: 8) {
-                    statusIcon(status)
-                        .frame(width: 14)
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(status.backgroundColor.opacity(0.15))
+                            .frame(width: 24, height: 24)
+                        statusIcon(status)
+                    }
 
                     Text(name)
                         .font(.callout)
@@ -127,67 +200,96 @@ struct MessageBubbleView: View {
                     Spacer()
 
                     if !isToolExpanded && !result.isEmpty {
-                        Text(smartTruncate(result, maxLen: 60))
+                        Text(smartTruncate(result, maxLen: 50))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
-                            .frame(maxWidth: 200, alignment: .trailing)
+                            .frame(maxWidth: 160, alignment: .trailing)
                     }
 
                     Image(systemName: isToolExpanded ? "chevron.down" : "chevron.right")
-                        .font(.caption2)
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .frame(width: 12)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             if isToolExpanded {
                 Divider()
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 12)
 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     if !args.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Arguments")
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.tertiary)
-                                .textCase(.uppercase)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.right.circle")
+                                    .font(.caption)
+                                Text("Arguments")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(.primary)
+
                             JSONHighlightView(json: args)
+                                .padding(10)
+                                .background(colorScheme == .dark ? Color.white.opacity(0.03) : Color.black.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
 
                     if !result.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Result")
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.tertiary)
-                                .textCase(.uppercase)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "text.alignleft")
+                                    .font(.caption)
+                                Text("Result")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(.primary)
+
                             JSONHighlightView(json: result)
+                                .padding(10)
+                                .background(colorScheme == .dark ? Color.white.opacity(0.03) : status.resultBackgroundColor)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(status.borderColor.opacity(0.3), lineWidth: 0.5)
+        .background(
+            colorScheme == .dark
+            ? LinearGradient(
+                colors: [Color(white: 0.15), Color(white: 0.12)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            : LinearGradient(
+                colors: [Color(white: 0.98), Color(white: 0.96)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(status.borderColor)
-                .frame(width: 3)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.06), radius: 8, x: 0, y: 3)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [status.borderColor.opacity(0.4), status.borderColor.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
     }
 
     @ViewBuilder
@@ -208,25 +310,61 @@ struct MessageBubbleView: View {
 
     @ViewBuilder
     private func reasoningBlock(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: "brain")
-                    .font(.caption2)
+                    .font(.caption)
                     .symbolEffect(.pulse, options: .repeating, value: text)
                 Text("Thinking")
-                    .font(.caption2)
+                    .font(.caption)
                     .fontWeight(.medium)
             }
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
 
             Text(text)
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.primary)
                 .lineLimit(5)
         }
-        .padding(10)
-        .background(.ultraThinMaterial)
+        .padding(12)
+        .background(
+            colorScheme == .dark
+            ? LinearGradient(
+                colors: [Color(white: 0.18), Color(white: 0.15)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            : LinearGradient(
+                colors: [Color(white: 0.97), Color(white: 0.95)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 0.5)
+        )
+    }
+
+    private var assistantBackgroundColor: LinearGradient {
+        colorScheme == .dark
+        ? LinearGradient(
+            colors: [
+                Color(red: 0.18, green: 0.18, blue: 0.20),
+                Color(red: 0.15, green: 0.15, blue: 0.17)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        : LinearGradient(
+            colors: [
+                Color(red: 0.96, green: 0.96, blue: 0.98),
+                Color(red: 0.93, green: 0.93, blue: 0.95)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     private func smartTruncate(_ text: String, maxLen: Int) -> String {
@@ -242,9 +380,25 @@ enum ToolStatus {
 
     var borderColor: Color {
         switch self {
-        case .inProgress: return .orange.opacity(0.5)
-        case .success: return .green.opacity(0.5)
-        case .failure: return .red.opacity(0.5)
+        case .inProgress: return .orange
+        case .success: return .green
+        case .failure: return .red
+        }
+    }
+
+    var backgroundColor: Color {
+        switch self {
+        case .inProgress: return .orange
+        case .success: return .green
+        case .failure: return .red
+        }
+    }
+
+    var resultBackgroundColor: Color {
+        switch self {
+        case .inProgress: return .orange.opacity(0.05)
+        case .success: return .green.opacity(0.05)
+        case .failure: return .red.opacity(0.05)
         }
     }
 }
@@ -265,12 +419,12 @@ struct AvatarView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 28, height: 28)
+                .frame(width: 30, height: 30)
+
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
         }
-        .padding(.top, 2)
     }
 }
 
@@ -283,19 +437,21 @@ struct JSONHighlightView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             if isPrettyJSON(json) {
                 Text(AttributedString(json))
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.secondary.opacity(0.04))
+                    .background(Color.black.opacity(0.05))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             } else {
                 Text(parseJSON(json))
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.secondary.opacity(0.04))
+                    .background(Color.black.opacity(0.05))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
         }
@@ -350,7 +506,7 @@ struct JSONHighlightView: View {
                 let afterStr = String(chars[strEnd..<chars.count]).trimmingCharacters(in: .whitespaces)
 
                     if afterStr.hasPrefix(":") {
-                    tokens.append((strVal, .purple.opacity(0.8)))
+                    tokens.append((strVal, .purple))
                     tokens.append((": ", .secondary))
                     i = strEnd + 1
                     let rest = String(chars[i..<chars.count]).trimmingCharacters(in: .whitespaces)
@@ -362,21 +518,21 @@ struct JSONHighlightView: View {
                             end += 1
                         }
                         if end < chars.count { end += 1 }
-                        tokens.append((String(chars[i..<end]), .green.opacity(0.75)))
+                        tokens.append((String(chars[i..<end]), .green))
                         i = end
                     } else if rest.hasPrefix("true") {
-                        tokens.append(("true", .orange.opacity(0.7))); i += 4
+                        tokens.append(("true", .orange)); i += 4
                     } else if rest.hasPrefix("false") {
-                        tokens.append(("false", .orange.opacity(0.7))); i += 5
+                        tokens.append(("false", .orange)); i += 5
                     } else if rest.hasPrefix("null") {
-                        tokens.append(("null", .secondary)); i += 4
+                        tokens.append(("null", .red)); i += 4
                     } else {
                         let numEnd = chars[i..<chars.count].firstIndex(where: { !"-0123456789.eE".contains($0) }) ?? chars.count
-                        tokens.append((String(chars[i..<numEnd]), .orange.opacity(0.7)))
+                        tokens.append((String(chars[i..<numEnd]), .blue))
                         i = numEnd
                     }
                 } else {
-                    tokens.append((strVal, .green.opacity(0.75)))
+                    tokens.append((strVal, .green))
                     i = strEnd
                 }
             } else if c == "," || c == "{" || c == "}" || c == "[" || c == "]" {

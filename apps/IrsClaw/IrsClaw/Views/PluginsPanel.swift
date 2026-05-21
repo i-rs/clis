@@ -54,36 +54,46 @@ struct PluginCard: View {
     let plugin: PluginInfo
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(plugin.enabled
-                          ? LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [Color.secondary.opacity(0.3), Color.secondary.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        plugin.enabled
+                        ? LinearGradient(
+                            colors: [.blue, .cyan],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        : LinearGradient(
+                            colors: [Color.secondary.opacity(0.4), Color.secondary.opacity(0.25)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: plugin.enabled ? .blue.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
                 Image(systemName: plugin.enabled ? "puzzlepiece.fill" : "puzzlepiece")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
                     Text(plugin.name)
                         .font(.callout)
                         .fontWeight(.medium)
 
                     Text("v\(plugin.version)")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.secondary.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
                     if let author = plugin.author, !author.isEmpty {
                         Text(author)
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -97,24 +107,37 @@ struct PluginCard: View {
             Spacer()
 
             Text(plugin.enabled ? "Active" : "Off")
-                .font(.caption2)
+                .font(.caption)
                 .fontWeight(.medium)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
                 .background(
-                    plugin.enabled ? Color.green.opacity(0.12) : Color.secondary.opacity(0.08)
+                    plugin.enabled
+                    ? LinearGradient(colors: [.green.opacity(0.15), .green.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    : LinearGradient(colors: [Color.secondary.opacity(0.1), Color.secondary.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
                 .foregroundStyle(plugin.enabled ? .green : .secondary)
                 .clipShape(Capsule())
         }
-        .padding(12)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(.ultraThinMaterial)
+            LinearGradient(
+                colors: [Color(white: 0.99), Color(white: 0.97)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(plugin.enabled ? Color.blue.opacity(0.15) : Color.secondary.opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    plugin.enabled
+                    ? LinearGradient(colors: [.blue.opacity(0.15), .cyan.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    : LinearGradient(colors: [Color.secondary.opacity(0.1), Color.secondary.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ,
+                    lineWidth: 1
+                )
         )
     }
 }

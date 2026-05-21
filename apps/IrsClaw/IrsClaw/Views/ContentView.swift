@@ -109,9 +109,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var singleAgentRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(
                         LinearGradient(
                             colors: [.blue, .purple],
@@ -119,9 +119,10 @@ struct ContentView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28)
+                    .shadow(color: .blue.opacity(0.3), radius: 3, x: 0, y: 2)
                 Image(systemName: "star.fill")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
             }
             Text(service.agents.first?.id ?? "default")
@@ -129,7 +130,12 @@ struct ContentView: View {
                 .fontWeight(.medium)
             Spacer()
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.blue.opacity(0.08))
+        )
     }
 
     // MARK: - Shared detail content

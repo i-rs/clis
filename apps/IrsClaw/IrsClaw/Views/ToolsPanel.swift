@@ -147,16 +147,26 @@ struct ToolCard: View {
     let category: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(ToolsPanel.categoryColor(category).opacity(0.12))
-                        .frame(width: 28, height: 28)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    ToolsPanel.categoryColor(category).opacity(0.2),
+                                    ToolsPanel.categoryColor(category).opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
                     Image(systemName: ToolsPanel.categoryIcon(category))
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(ToolsPanel.categoryColor(category))
                 }
+                .shadow(color: ToolsPanel.categoryColor(category).opacity(0.2), radius: 4, x: 0, y: 2)
 
                 Text(tool.name)
                     .font(.callout)
@@ -166,19 +176,34 @@ struct ToolCard: View {
 
             Text(tool.description)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary.opacity(0.7))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(.ultraThinMaterial)
+            LinearGradient(
+                colors: [Color(white: 0.99), Color(white: 0.97)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            ToolsPanel.categoryColor(category).opacity(0.15),
+                            ToolsPanel.categoryColor(category).opacity(0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
     }
 }
