@@ -48,11 +48,13 @@ impl MockProvider {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_kind(mut self, kind: ProviderKind) -> Self {
         self.kind = kind;
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_model(mut self, model: &str) -> Self {
         self.model = model.to_string();
         self

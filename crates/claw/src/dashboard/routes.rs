@@ -188,6 +188,7 @@ fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent
 // ── Dashboard chat loop (multi-round with tool execution) ──
 
 /// Run the multi-round dashboard chat loop and save results.
+#[allow(clippy::too_many_arguments)]
 async fn dashboard_chat_loop(
     provider: Box<dyn crate::providers::LlmProvider>,
     mut msgs: Vec<Value>,
@@ -214,7 +215,7 @@ async fn dashboard_chat_loop(
 
     // Build tool schemas (same as chat_stream did before spawning)
     let tool_schemas = {
-        let enabled = if enabled_tools.as_ref().map_or(true, |t| t.is_empty()) {
+        let enabled = if enabled_tools.as_ref().is_none_or(|t| t.is_empty()) {
             None
         } else {
             enabled_tools.as_ref()
