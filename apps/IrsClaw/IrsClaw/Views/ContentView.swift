@@ -33,21 +33,6 @@ struct ContentView: View {
         var count: Int { 0 }
     }
 
-    var filteredSessions: [ClawSession] {
-        guard !searchText.isEmpty else { return service.sessions }
-        return service.sessions.filter { session in
-            session.title.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-
-    var visibleSessions: [ClawSession] {
-        let sessions = service.sessions.filter { $0.agentId == service.currentAgentId || $0.agentId == nil }
-        guard !searchText.isEmpty else { return sessions }
-        return sessions.filter { session in
-            session.title.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-
     var body: some View {
         #if os(iOS)
         if UIDevice.current.userInterfaceIdiom == .pad {
@@ -78,14 +63,18 @@ struct ContentView: View {
             }
 
             Section("Sessions") {
-                ForEach(visibleSessions, id: \.id) { session in
-                    SessionRow(session: session)
-                        .opacity(selectedTab == .sessions ? 1 : 0.6)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedTab = .sessions
-                            service.switchToSession(session.id)
-                        }
+                ForEach(service.sessions, id: \.id) { session in
+                    let isMatchingAgent = session.agentId == service.currentAgentId || session.agentId == nil
+                    let isMatchingSearch = searchText.isEmpty || session.title.localizedCaseInsensitiveContains(searchText)
+                    if isMatchingAgent && isMatchingSearch {
+                        SessionRow(session: session)
+                            .opacity(selectedTab == .sessions ? 1 : 0.6)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedTab = .sessions
+                                service.switchToSession(session.id)
+                            }
+                    }
                 }
             }
         }
