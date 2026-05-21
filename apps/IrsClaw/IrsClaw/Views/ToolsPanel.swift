@@ -2,66 +2,183 @@ import SwiftUI
 
 struct ToolsPanel: View {
     @ObservedObject var service: ClawService
-    @State private var searchText = ""
+    @EnvironmentObject var appState: AppState
 
     var filteredTools: [ToolInfo] {
-        guard !searchText.isEmpty else { return service.tools }
+        guard !appState.searchText.isEmpty else { return service.tools }
         return service.tools.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText) ||
-            $0.description.localizedCaseInsensitiveContains(searchText)
+            $0.name.localizedCaseInsensitiveContains(appState.searchText) ||
+            $0.description.localizedCaseInsensitiveContains(appState.searchText)
+        }
+    }
+
+    var groupedTools: [(String, [ToolInfo])] {
+        let groups = Dictionary(grouping: filteredTools) { toolCategory($0.name) }
+        return categoryOrder.compactMap { cat in
+            groups[cat].map { (cat, $0) }
         }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        Group {
             if service.tools.isEmpty {
-                Spacer()
-                VStack(spacing: 8) {
-                    Image(systemName: "wrench.adjustable")
-                        .font(.system(size: 32))
-                        .foregroundStyle(.secondary)
-                    Text("No tools available")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                Spacer()
+                emptyState
+            } else if filteredTools.isEmpty {
+                noResults
             } else {
-                List(filteredTools) { tool in
-                    ToolRow(tool: tool)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        ForEach(groupedTools, id: \.0) { category, tools in
+                            toolSection(category: category, tools: tools)
+                        }
+                    }
+                    .padding(20)
                 }
-                .listStyle(.inset)
             }
         }
-        .searchable(text: $searchText, prompt: "Search tools")
         .onAppear {
             Task { await service.fetchTools() }
         }
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "wrench.adjustable")
+                .font(.system(size: 36))
+                .foregroundStyle(.secondary)
+            Text("No tools available")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Text("Connect to the backend to see available tools")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var noResults: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 36))
+                .foregroundStyle(.secondary)
+            Text("No tools match your search")
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func toolSection(category: String, tools: [ToolInfo]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: Self.categoryIcon(category))
+                    .foregroundStyle(Self.categoryColor(category))
+                    .font(.caption)
+                Text(category)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Text("\(tools.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10)
+            ], spacing: 10) {
+                ForEach(tools) { tool in
+                    ToolCard(tool: tool, category: category)
+                }
+            }
+        }
+    }
+
+    private func toolCategory(_ name: String) -> String {
+        if name.hasPrefix("i_rs") || name == "i-rs" { return "i-rs CLI" }
+        if name.contains("search") || name.contains("web") { return "Search" }
+        if name.contains("file") || name.contains("semantic") { return "Files" }
+        if name.contains("memory") || name.contains("skill") { return "Memory" }
+        if name.contains("chart") { return "Visualization" }
+        if name.contains("delegate") { return "Agent" }
+        if name.contains("vision") { return "Vision" }
+        if name.hasPrefix("mcp_") { return "MCP" }
+        return "Built-in"
+    }
+
+    private let categoryOrder = ["i-rs CLI", "Built-in", "Search", "Files", "Memory", "Vision", "Visualization", "Agent", "MCP"]
+
+    static func categoryIcon(_ cat: String) -> String {
+        switch cat {
+        case "i-rs CLI": return "terminal"
+        case "Search": return "magnifyingglass"
+        case "Files": return "folder"
+        case "Memory": return "brain"
+        case "Vision": return "eye"
+        case "Visualization": return "chart.bar"
+        case "Agent": return "person.2"
+        case "MCP": return "puzzlepiece"
+        default: return "wrench.and.screwdriver"
+        }
+    }
+
+    static func categoryColor(_ cat: String) -> Color {
+        switch cat {
+        case "i-rs CLI": return .orange
+        case "Search": return .blue
+        case "Files": return .teal
+        case "Memory": return .purple
+        case "Vision": return .indigo
+        case "Visualization": return .green
+        case "Agent": return .pink
+        case "MCP": return .mint
+        default: return .secondary
+        }
+    }
 }
 
-struct ToolRow: View {
+struct ToolCard: View {
     let tool: ToolInfo
+    let category: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "wrench.and.screwdriver")
-                    .foregroundStyle(.orange)
-                    .font(.title3)
-                    .frame(width: 24)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(ToolsPanel.categoryColor(category).opacity(0.12))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: ToolsPanel.categoryIcon(category))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(ToolsPanel.categoryColor(category))
+                }
 
                 Text(tool.name)
-                    .font(.body)
+                    .font(.callout)
                     .fontWeight(.medium)
-
-                Spacer()
+                    .lineLimit(1)
             }
 
             Text(tool.description)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 0.5)
+        )
     }
 }

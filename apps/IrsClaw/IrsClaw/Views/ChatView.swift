@@ -44,49 +44,31 @@ struct ChatView: View {
             }
 
             // Input Bar
-            HStack(spacing: 6) {
-                TextField("Ask i-rs-claw...", text: $inputText)
+            HStack(spacing: 8) {
+                TextField("Ask i-rs-claw...", text: $inputText, axis: .vertical)
+                    .lineLimit(1...5)
                     .textFieldStyle(.plain)
-                    .padding(8)
-                    .background(Color.platformControlBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .font(.body)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color.platformControlBackground)
+                            .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 0.5)
+                    )
                     .disabled(service.isProcessing)
 
-                // Microphone button
-                Button {
-                    voiceInput.toggle()
-                    if !voiceInput.isRecording, !voiceInput.transcribedText.isEmpty {
-                        inputText = voiceInput.transcribedText
-                    }
-                } label: {
-                    Image(systemName: voiceInput.isRecording
-                          ? "mic.fill"
-                          : "mic")
-                        .font(.title3)
-                        .foregroundStyle(voiceInput.isRecording ? .red : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Voice Input (⌥V)")
-                .keyboardShortcut("v", modifiers: .option)
-                .disabled(!voiceInput.isAvailable || service.isProcessing)
+                micButton
 
-                // Send button
-                let hasContent = !inputText.trimmingCharacters(in: .whitespaces).isEmpty
-                Button {
-                    sendMessage()
-                } label: {
-                    Image(systemName: hasContent ? "arrow.up.circle.fill" : "arrow.up.circle")
-                        .font(.title2)
-                        .foregroundColor(hasContent ? .accentColor : .secondary)
-                        .scaleEffect(hasContent ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: hasContent)
-                }
-                .buttonStyle(.plain)
-                .disabled(!hasContent || service.isProcessing)
-                .keyboardShortcut(.return, modifiers: .command)
+                sendButton
             }
-            .padding(12)
-            .background(Color.platformWindowBackground)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.bar)
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
             if voiceInput.isRecording {
@@ -108,24 +90,78 @@ struct ChatView: View {
         }
     }
 
+    @ViewBuilder
+    private var micButton: some View {
+        Button {
+            voiceInput.toggle()
+            if !voiceInput.isRecording, !voiceInput.transcribedText.isEmpty {
+                inputText = voiceInput.transcribedText
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(voiceInput.isRecording
+                          ? Color.red.opacity(0.15)
+                          : Color.secondary.opacity(0.08))
+                    .frame(width: 36, height: 36)
+                if voiceInput.isRecording {
+                    Circle()
+                        .stroke(Color.red.opacity(0.3), lineWidth: 2)
+                        .frame(width: 32, height: 32)
+                }
+                Image(systemName: voiceInput.isRecording ? "mic.fill" : "mic")
+                    .font(.system(size: 14, weight: voiceInput.isRecording ? .semibold : .regular))
+                    .foregroundStyle(voiceInput.isRecording ? .red : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Voice Input (⌥V)")
+        .keyboardShortcut("v", modifiers: .option)
+        .disabled(!voiceInput.isAvailable || service.isProcessing)
+    }
+
+    @ViewBuilder
+    private var sendButton: some View {
+        let hasContent = !inputText.trimmingCharacters(in: .whitespaces).isEmpty
+        Button {
+            sendMessage()
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(hasContent ? Color.accentColor : Color.clear)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(hasContent ? .white : .secondary)
+            }
+            .overlay(
+                Circle()
+                    .strokeBorder(hasContent ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 1)
+                    .frame(width: 36, height: 36)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!hasContent || service.isProcessing)
+        .keyboardShortcut(.return, modifiers: .command)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: hasContent)
+    }
+
     // MARK: - Recording Bar
 
     @ViewBuilder
     private var recordingBar: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(.red)
-                .frame(width: 6, height: 6)
-                .opacity(0.8)
+        HStack(spacing: 8) {
+            PulsingDot()
 
-            Text("Recording...")
+            Text("Listening")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .fontWeight(.medium)
+                .foregroundStyle(.red.opacity(0.8))
 
             if !voiceInput.transcribedText.isEmpty {
                 Text(voiceInput.transcribedText)
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -141,9 +177,9 @@ struct ChatView: View {
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.red.opacity(0.05))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.red.opacity(0.04))
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
@@ -180,5 +216,26 @@ struct ChatView: View {
         guard !text.isEmpty else { return }
         inputText = ""
         service.sendMessage(text)
+    }
+}
+
+struct PulsingDot: View {
+    @State private var isPulsing = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.red.opacity(0.2))
+                .frame(width: 14, height: 14)
+                .scaleEffect(isPulsing ? 1.4 : 1.0)
+            Circle()
+                .fill(.red)
+                .frame(width: 6, height: 6)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        }
     }
 }

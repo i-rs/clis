@@ -2,138 +2,413 @@ import SwiftUI
 
 struct MessageBubbleView: View {
     let message: AppMessage
+    @State private var isToolExpanded = false
 
     var body: some View {
-        HStack {
-            switch message {
-            case .user(let text):
+        switch message {
+        case .user(let text):
+            HStack(alignment: .top, spacing: 10) {
                 Spacer(minLength: 60)
-                Text(text)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(text)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 0.23, green: 0.51, blue: 0.96), Color(red: 0.15, green: 0.39, blue: 0.85)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
-                    .transition(.scale.combined(with: .opacity))
+                        .foregroundColor(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+                }
 
-            case .assistant(let text):
+                AvatarView(icon: "person.fill", colors: [.blue, .cyan])
+            }
+            .padding(.vertical, 2)
+
+        case .assistant(let text):
+            HStack(alignment: .top, spacing: 10) {
+                AvatarView(icon: "sparkles", colors: [.purple, .pink])
+
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
-                        Circle().fill(Color.accentColor).frame(width: 6, height: 6)
-                        Text("Claw")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.leading, 4)
-
                     MarkdownTextView(text: text)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(Color.platformControlBackground)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .transition(.scale.combined(with: .opacity))
-                Spacer(minLength: 60)
 
-            case .toolCall(let name, _, let result):
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "wrench.and.screwdriver")
+                Spacer(minLength: 60)
+            }
+            .padding(.vertical, 2)
+
+        case .toolCall(let name, let args, let result):
+            HStack(alignment: .top, spacing: 10) {
+                AvatarView(icon: "wrench.and.screwdriver", colors: [.orange, .yellow])
+
+                toolCallCard(name: name, args: args, result: result)
+
+                Spacer(minLength: 60)
+            }
+            .padding(.vertical, 2)
+
+        case .error(let text):
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundStyle(.red)
+                    .symbolEffect(.pulse)
+                Text(text)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .background(.red.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+        case .status(let text):
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.6)
+                Text(text)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 4)
+
+        case .reasoning(let text):
+            HStack(alignment: .top, spacing: 10) {
+                AvatarView(icon: "brain", colors: [.indigo, .teal])
+
+                reasoningBlock(text)
+
+                Spacer(minLength: 60)
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func toolStatus(_ result: String) -> ToolStatus {
+        if result.isEmpty { return .inProgress }
+        let lower = result.lowercased()
+        if lower.contains("error") || lower.contains("failed") || lower.contains("failure") || lower.contains("panic") {
+            return .failure
+        }
+        if lower.contains("success") || lower.contains("ok") || lower.contains("done") {
+            return .success
+        }
+        return .success
+    }
+
+    @ViewBuilder
+    private func toolCallCard(name: String, args: String, result: String) -> some View {
+        let status = toolStatus(result)
+
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    isToolExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    statusIcon(status)
+                        .frame(width: 14)
+
+                    Text(name)
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+
+                    if !isToolExpanded && !result.isEmpty {
+                        Text(smartTruncate(result, maxLen: 60))
                             .font(.caption)
-                            .foregroundStyle(.orange)
-                        Text(name)
-                            .font(.caption)
-                            .fontWeight(.medium)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .frame(maxWidth: 200, alignment: .trailing)
+                    }
+
+                    Image(systemName: isToolExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 12)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isToolExpanded {
+                Divider()
+                    .padding(.horizontal, 8)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    if !args.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Arguments")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.tertiary)
+                                .textCase(.uppercase)
+                            JSONHighlightView(json: args)
+                        }
                     }
 
                     if !result.isEmpty {
-                        Text(smartTruncate(result, maxLen: 200))
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(3)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Result")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.tertiary)
+                                .textCase(.uppercase)
+                            JSONHighlightView(json: result)
+                        }
                     }
                 }
-                .padding(10)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(.secondary.opacity(0.2), lineWidth: 0.5)
-                )
-                .transition(.scale.combined(with: .opacity))
-                Spacer(minLength: 60)
-
-            case .error(let text):
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(.red)
-                    Text(text)
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                }
-                .padding(10)
-                .background(.red.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .transition(.scale.combined(with: .opacity))
-                Spacer(minLength: 60)
-
-            case .status(let text):
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                    Text(text)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 4)
-
-            case .reasoning(let text):
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "brain")
-                            .font(.caption2)
-                        Text("Thinking")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundStyle(.tertiary)
-
-                    Text(text)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(5)
-                }
-                .padding(8)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .transition(.slide.combined(with: .opacity))
-                Spacer(minLength: 60)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(status.borderColor.opacity(0.3), lineWidth: 0.5)
+        )
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(status.borderColor)
+                .frame(width: 3)
+        }
+    }
+
+    @ViewBuilder
+    private func statusIcon(_ status: ToolStatus) -> some View {
+        switch status {
+        case .inProgress:
+            ProgressView()
+                .scaleEffect(0.6)
+                .tint(.orange)
+        case .success:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .symbolEffect(.bounce.down, value: true)
+        case .failure:
+            Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.red)
+                .symbolEffect(.bounce.down, value: true)
+        }
+    }
+
+    @ViewBuilder
+    private func reasoningBlock(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: "brain")
+                    .font(.caption2)
+                    .symbolEffect(.pulse, options: .repeating, value: text)
+                Text("Thinking")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+            }
+            .foregroundStyle(.tertiary)
+
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .lineLimit(5)
+        }
+        .padding(10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func smartTruncate(_ text: String, maxLen: Int) -> String {
         if text.count <= maxLen { return text }
-        return String(text.prefix(maxLen)) + "..."
+        return String(text.prefix(maxLen)) + "…"
     }
 }
 
-/// Simple markdown rendering for assistant messages.
+enum ToolStatus {
+    case inProgress
+    case success
+    case failure
+
+    var borderColor: Color {
+        switch self {
+        case .inProgress: return .orange
+        case .success: return .green
+        case .failure: return .red
+        }
+    }
+}
+
+// MARK: - Avatar
+
+struct AvatarView: View {
+    let icon: String
+    let colors: [Color]
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: colors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 28, height: 28)
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .padding(.top, 2)
+    }
+}
+
+// MARK: - JSON Syntax Highlight
+
+struct JSONHighlightView: View {
+    let json: String
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            if isPrettyJSON(json) {
+                Text(AttributedString(json))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            } else {
+                Text(parseJSON(json))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+        }
+    }
+
+    private func isPrettyJSON(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("{") || trimmed.hasPrefix("[")
+    }
+
+    private func parseJSON(_ text: String) -> AttributedString {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("{") || trimmed.hasPrefix("[") else {
+            var plain = AttributedString(text)
+            plain.foregroundColor = .secondary
+            return plain
+        }
+
+        var attributed = AttributedString()
+        let lines = trimmed.components(separatedBy: "\n")
+
+        for (lineIdx, line) in lines.enumerated() {
+            let tokens = tokenizeJSONLine(line)
+            for token in tokens {
+                var segment = AttributedString(token.text)
+                segment.foregroundColor = token.color
+                attributed += segment
+            }
+            if lineIdx < lines.count - 1 {
+                attributed += AttributedString("\n")
+            }
+        }
+
+        return attributed
+    }
+
+    private func tokenizeJSONLine(_ line: String) -> [(text: String, color: Color)] {
+        var tokens: [(String, Color)] = []
+        var chars = Array(line)
+        var i = 0
+
+        while i < chars.count {
+            let c = chars[i]
+
+            if c == "\"" {
+                var strEnd = i + 1
+                while strEnd < chars.count && !(chars[strEnd] == "\"" && chars[strEnd - 1] != "\\") {
+                    strEnd += 1
+                }
+                if strEnd < chars.count { strEnd += 1 }
+                let strVal = String(chars[i..<strEnd])
+                let afterStr = String(chars[strEnd..<chars.count]).trimmingCharacters(in: .whitespaces)
+
+                if afterStr.hasPrefix(":") {
+                    tokens.append((strVal, .purple))
+                    tokens.append((": ", .secondary))
+                    i = strEnd + 1
+                    let rest = String(chars[i..<chars.count]).trimmingCharacters(in: .whitespaces)
+                    i += (chars.count - rest.count)
+
+                    if i < chars.count && chars[i] == "\"" {
+                        var end = i + 1
+                        while end < chars.count && !(chars[end] == "\"" && chars[end - 1] != "\\") {
+                            end += 1
+                        }
+                        if end < chars.count { end += 1 }
+                        tokens.append((String(chars[i..<end]), .green))
+                        i = end
+                    } else if rest.hasPrefix("true") {
+                        tokens.append(("true", .orange)); i += 4
+                    } else if rest.hasPrefix("false") {
+                        tokens.append(("false", .orange)); i += 5
+                    } else if rest.hasPrefix("null") {
+                        tokens.append(("null", .secondary)); i += 4
+                    } else {
+                        let numEnd = chars[i..<chars.count].firstIndex(where: { !"-0123456789.eE".contains($0) }) ?? chars.count
+                        tokens.append((String(chars[i..<numEnd]), .orange))
+                        i = numEnd
+                    }
+                } else {
+                    tokens.append((strVal, .green))
+                    i = strEnd
+                }
+            } else if c == "," || c == "{" || c == "}" || c == "[" || c == "]" {
+                tokens.append((String(c), .secondary))
+                i += 1
+            } else if String(chars[i..<min(i+4, chars.count)]) == "true" {
+                tokens.append(("true", .orange)); i += 4
+            } else if String(chars[i..<min(i+5, chars.count)]) == "false" {
+                tokens.append(("false", .orange)); i += 5
+            } else if String(chars[i..<min(i+4, chars.count)]) == "null" {
+                tokens.append(("null", .secondary)); i += 4
+            } else if "-0123456789.eE".contains(c) {
+                let numEnd = chars[i..<chars.count].firstIndex(where: { !"-0123456789.eE".contains($0) }) ?? chars.count
+                tokens.append((String(chars[i..<numEnd]), .orange))
+                i = numEnd
+            } else {
+                i += 1
+            }
+        }
+
+        return tokens
+    }
+}
+
+// MARK: - Markdown
+
 struct MarkdownTextView: View {
     let text: String
 
     var body: some View {
-        // Split by code blocks first
         let blocks = splitByCodeBlocks(text)
 
         VStack(alignment: .leading, spacing: 6) {
@@ -158,7 +433,6 @@ struct MarkdownTextView: View {
         for line in lines {
             if line.hasPrefix("```") {
                 if inCodeBlock {
-                    // End code block
                     if !inlineLines.isEmpty {
                         result.append((inlineLines.joined(separator: "\n"), false, ""))
                         inlineLines.removeAll()
@@ -168,7 +442,6 @@ struct MarkdownTextView: View {
                     language = ""
                     inCodeBlock = false
                 } else {
-                    // Start code block
                     if !inlineLines.isEmpty {
                         result.append((inlineLines.joined(separator: "\n"), false, ""))
                         inlineLines.removeAll()
@@ -183,7 +456,6 @@ struct MarkdownTextView: View {
             }
         }
 
-        // Flush remaining
         if !inlineLines.isEmpty {
             result.append((inlineLines.joined(separator: "\n"), false, ""))
         }
@@ -211,10 +483,8 @@ struct CodeBlockView: View {
             }
 
             ScrollView(.horizontal, showsIndicators: true) {
-                Text(code)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .padding(8)
+                JSONHighlightView(json: code)
+                    .padding(4)
                     .textSelection(.enabled)
             }
         }
@@ -231,10 +501,7 @@ struct InlineMarkdownView: View {
     let text: String
 
     var body: some View {
-        // Simple inline rendering: handle bold, italic, inline code, links
-        let segments = parseInlineMarkdown(text)
-
-        Text(segments)
+        Text(parseInlineMarkdown(text))
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: false)
     }
@@ -242,47 +509,38 @@ struct InlineMarkdownView: View {
     private func parseInlineMarkdown(_ text: String) -> AttributedString {
         var attributed = AttributedString(text)
 
-        // Bold: **text** or __text__
         if let regex = try? NSRegularExpression(pattern: "\\*\\*(.+?)\\*\\*|__(.+?)__") {
             let nsRange = NSRange(text.startIndex..., in: text)
             for match in regex.matches(in: text, range: nsRange).reversed() {
-                let range = match.range
-                if let swiftRange = Range(range, in: text) {
-                    // Remove markers ** ** or __ __
-                    let clean = String(text[swiftRange]).dropFirst(2).dropLast(2)
-                    var cleanAttr = AttributedString(String(clean))
-                    #if os(macOS)
-                    let boldFontSize = NSFont.systemFontSize
-                    #else
-                    let boldFontSize = UIFont.systemFontSize
-                    #endif
-                    cleanAttr.font = .boldSystemFont(ofSize: boldFontSize)
-                    if let attrRange = Range(match.range(at: 1), in: text) ?? Range(match.range(at: 2), in: text) {
-                        if let attributedRange = Range(attrRange, in: attributed) {
-                            attributed.replaceSubrange(attributedRange, with: cleanAttr)
-                        }
+                if let attrRange = Range(match.range(at: 1), in: text) ?? Range(match.range(at: 2), in: text) {
+                    if let attributedRange = Range(attrRange, in: attributed) {
+                        let raw = String(attributed[attributedRange].characters)
+                        var bold = AttributedString(raw)
+                        #if os(macOS)
+                        bold.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+                        #else
+                        bold.font = .boldSystemFont(ofSize: UIFont.systemFontSize)
+                        #endif
+                        attributed.replaceSubrange(attributedRange, with: bold)
                     }
                 }
             }
         }
 
-        // Inline code: `text`
         if let regex = try? NSRegularExpression(pattern: "`(.+?)`") {
             let nsRange = NSRange(text.startIndex..., in: text)
             for match in regex.matches(in: text, range: nsRange).reversed() {
-                let range = match.range(at: 1)
-                if let swiftRange = Range(range, in: text) {
-                    let codeText = String(text[swiftRange])
-                    var attrText = AttributedString(codeText)
-                    #if os(macOS)
-                    let fontSize = NSFont.systemFontSize
-                    #else
-                    let fontSize = UIFont.systemFontSize
-                    #endif
-                    attrText.font = .monospacedSystemFont(ofSize: fontSize - 1, weight: .regular)
-                    attrText.backgroundColor = .init(red: 0.9, green: 0.9, blue: 0.9, alpha: 0.3)
+                if let codeRange = Range(match.range(at: 1), in: text) {
                     if let attributedRange = Range(match.range, in: attributed) {
-                        attributed.replaceSubrange(attributedRange, with: attrText)
+                        let codeText = String(text[codeRange])
+                        var attr = AttributedString(codeText)
+                        #if os(macOS)
+                        attr.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
+                        #else
+                        attr.font = .monospacedSystemFont(ofSize: UIFont.systemFontSize - 1, weight: .regular)
+                        #endif
+                        attr.backgroundColor = .init(red: 0.9, green: 0.9, blue: 0.9, alpha: 0.3)
+                        attributed.replaceSubrange(attributedRange, with: attr)
                     }
                 }
             }
@@ -291,5 +549,3 @@ struct InlineMarkdownView: View {
         return attributed
     }
 }
-
-

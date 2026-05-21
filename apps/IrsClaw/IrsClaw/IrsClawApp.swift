@@ -1,22 +1,17 @@
-//
-//  IrsClawApp.swift
-//  IrsClaw
-//
-//  Created by mankong on 2026/5/19.
-//
-
 import SwiftUI
 
 @main
 struct IrsClawApp: App {
     @StateObject private var service = ClawService()
+    @StateObject private var appState = AppState()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(service)
+                .environmentObject(appState)
                 #if os(macOS)
-                .frame(minWidth: 800, minHeight: 500)
+                .frame(minWidth: 960, idealWidth: 1100, minHeight: 620, idealHeight: 720)
                 #endif
                 .onDisappear {
                     service.stopBackend()

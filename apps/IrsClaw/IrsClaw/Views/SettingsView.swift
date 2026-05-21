@@ -94,15 +94,10 @@ struct GeneralSettingsView: View {
             }
 
             Section("Appearance") {
-                Picker("Theme", selection: $appearance) {
-                    Text("Follow System").tag("system")
-                    Text("Light").tag("light")
-                    Text("Dark").tag("dark")
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: appearance) { _, newValue in
-                    applyAppearance(newValue)
-                }
+                ThemePicker(selection: $appearance)
+                    .onChange(of: appearance) { _, newValue in
+                        applyAppearance(newValue)
+                    }
             }
 
             if let config = service.config {
@@ -418,63 +413,31 @@ struct BackendSettingsView: View {
     @ObservedObject var service: ClawService
     @State private var serverURL: String = ""
     @State private var authToken: String = ""
+    @State private var editingServer = false
+    @State private var editingToken = false
 
     var body: some View {
         Form {
             Section {
                 connectionStatusCard
+            }
+
+            Section {
+                serverRow
+                if editingServer {
+                    serverEditRow
+                }
             } header: {
-                Text("Status")
+                Label("Server", systemImage: "server.rack")
             }
 
-            Section("Server") {
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Server URL", text: $serverURL)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.callout.monospaced())
-                        .textContentType(.URL)
-
-                    HStack(spacing: 8) {
-                        Button("Save & Reconnect") {
-                            service.updateServerURL(serverURL)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                        Button("Reset to Default") {
-                            serverURL = service.serverURLDisplay
-                            service.resetServerURL()
-                        }
-                        .controlSize(.small)
-                    }
+            Section {
+                tokenRow
+                if editingToken {
+                    tokenEditRow
                 }
-                .padding(.vertical, 2)
-            }
-
-            Section("Authentication") {
-                VStack(alignment: .leading, spacing: 8) {
-                    SecureField("Auth Token", text: $authToken)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.callout.monospaced())
-                        .textContentType(.password)
-
-                    HStack(spacing: 8) {
-                        Button("Save & Reconnect") {
-                            service.updateAuthToken(authToken)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                        Button("Clear Token") {
-                            authToken = ""
-                            service.clearAuthToken()
-                        }
-                        .controlSize(.small)
-                    }
-                }
-                .padding(.vertical, 2)
+            } header: {
+                Label("Authentication", systemImage: "key.fill")
             }
 
             Section {
@@ -485,9 +448,11 @@ struct BackendSettingsView: View {
                     }
                 }
             } header: {
-                Text("Sessions")
+                Label("Data", systemImage: "externaldrive")
             } footer: {
-                Text("Use ⌘N to create a new session")
+                Text("⌘N to create a new session")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
 
             if let error = service.connectionState.errorMessage ?? service.errorMessage {
@@ -495,8 +460,6 @@ struct BackendSettingsView: View {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
-                } header: {
-                    Text("Error")
                 }
             }
         }
@@ -513,11 +476,14 @@ struct BackendSettingsView: View {
     @ViewBuilder
     private var connectionStatusCard: some View {
         HStack(spacing: 12) {
-            Image(systemName: service.connectionState.isConnected
-                  ? "checkmark.circle.fill"
-                  : "exclamationmark.circle.fill")
-                .foregroundStyle(service.connectionState.isConnected ? .green : .red)
-                .font(.title2)
+            Circle()
+                .fill(service.connectionState.isConnected ? Color.green : Color.red)
+                .frame(width: 10, height: 10)
+                .overlay(
+                    Circle()
+                        .fill(service.connectionState.isConnected ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
+                        .frame(width: 20, height: 20)
+                )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(service.connectionState.isConnected ? "Connected" : "Disconnected")
@@ -542,6 +508,186 @@ struct BackendSettingsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var serverRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "link")
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("URL")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(service.serverURLDisplay)
+                    .font(.callout.monospaced())
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    editingServer.toggle()
+                    editingToken = false
+                }
+            } label: {
+                Image(systemName: editingServer ? "chevron.up" : "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var serverEditRow: some View {
+        VStack(spacing: 10) {
+            TextField("http://127.0.0.1:3000", text: $serverURL)
+                .textFieldStyle(.roundedBorder)
+                .font(.callout.monospaced())
+                .textContentType(.URL)
+
+            HStack {
+                Button("Save & Reconnect") {
+                    service.updateServerURL(serverURL)
+                    editingServer = false
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                Button("Reset") {
+                    serverURL = "http://127.0.0.1:3000"
+                    service.resetServerURL()
+                    editingServer = false
+                }
+                .controlSize(.small)
+
+                Spacer()
+            }
+        }
+        .padding(.leading, 26)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    @ViewBuilder
+    private var tokenRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: authToken.isEmpty ? "lock.open" : "lock.fill")
+                .foregroundStyle(authToken.isEmpty ? .orange : .green)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dashboard Token")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if authToken.isEmpty {
+                    Text("Not configured")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    Text(maskedToken)
+                        .font(.callout.monospaced())
+                }
+            }
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    editingToken.toggle()
+                    editingServer = false
+                }
+            } label: {
+                Image(systemName: editingToken ? "chevron.up" : "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var maskedToken: String {
+        guard !authToken.isEmpty else { return "" }
+        if authToken.count <= 8 {
+            return String(repeating: "•", count: authToken.count)
+        }
+        return String(authToken.prefix(4)) + String(repeating: "•", count: min(authToken.count - 8, 8)) + String(authToken.suffix(4))
+    }
+
+    @ViewBuilder
+    private var tokenEditRow: some View {
+        VStack(spacing: 10) {
+            SecureField("Enter dashboard token", text: $authToken)
+                .textFieldStyle(.roundedBorder)
+                .font(.callout.monospaced())
+
+            HStack(spacing: 8) {
+                Button("Save & Reconnect") {
+                    service.updateAuthToken(authToken)
+                    editingToken = false
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                Button("Clear") {
+                    authToken = ""
+                    service.clearAuthToken()
+                    editingToken = false
+                }
+                .controlSize(.small)
+
+                Spacer()
+            }
+        }
+        .padding(.leading, 26)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+}
+
+// MARK: - Theme Picker
+
+struct ThemePicker: View {
+    @Binding var selection: String
+
+    private let options: [(id: String, icon: String, label: String)] = [
+        ("light", "sun.max.fill", "Light"),
+        ("system", "desktopcomputer", "Auto"),
+        ("dark", "moon.fill", "Dark"),
+    ]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(options, id: \.id) { opt in
+                Button {
+                    selection = opt.id
+                } label: {
+                    VStack(spacing: 4) {
+                        ZStack {
+                            Circle()
+                                .fill(selection == opt.id ? Color.accentColor : Color.secondary.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: opt.icon)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(selection == opt.id ? .white : .secondary)
+                        }
+                        Text(opt.label)
+                            .font(.caption2)
+                            .foregroundStyle(selection == opt.id ? .primary : .secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Color.secondary.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

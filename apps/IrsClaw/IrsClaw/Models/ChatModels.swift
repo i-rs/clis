@@ -148,7 +148,39 @@ struct ToolInfo: Codable, Identifiable {
     let description: String
 
     enum CodingKeys: String, CodingKey {
-        case type, name, description
+        case type
+        case name = "name"
+        case description = "description"
+        case function
+    }
+
+    let function: ToolFunction?
+
+    struct ToolFunction: Codable {
+        let name: String
+        let description: String
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decodeIfPresent(String.self, forKey: .type) ?? "function"
+
+        if let fn = try? container.decodeIfPresent(ToolFunction.self, forKey: .function) {
+            function = fn
+            name = fn.name
+            description = fn.description
+        } else {
+            function = nil
+            name = (try? container.decodeIfPresent(String.self, forKey: .name)) ?? ""
+            description = (try? container.decodeIfPresent(String.self, forKey: .description)) ?? ""
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(type, forKey: .type)
+        try container.encode(name, forKey: .name)
+        try container.encode(description, forKey: .description)
     }
 }
 

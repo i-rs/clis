@@ -2,34 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var service: ClawService
+    @EnvironmentObject var appState: AppState
     @State private var showingSettings = false
-    @State private var searchText = ""
     @State private var showSessionList = false
-    @State private var selectedTab: SidebarTab = .sessions
-
-    enum SidebarTab: String, CaseIterable, Identifiable {
-        case sessions, tools, skills, plugins
-
-        var id: String { rawValue }
-
-        var label: String {
-            switch self {
-            case .sessions: return "Sessions"
-            case .tools: return "Tools"
-            case .skills: return "Skills"
-            case .plugins: return "Plugins"
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .sessions: return "message"
-            case .tools: return "wrench.adjustable"
-            case .skills: return "book"
-            case .plugins: return "puzzlepiece"
-            }
-        }
-    }
 
     var body: some View {
         #if os(iOS)
@@ -48,17 +23,7 @@ struct ContentView: View {
     @ViewBuilder
     private var sidebarContent: some View {
         List {
-            agentSwitcherSection
-
-            Section("Chat") {
-                ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
-                    Label(tab.label, systemImage: tab.icon)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            deferStateChange { selectedTab = tab }
-                        }
-                }
-            }
+            agentSection
 
             Section("Sessions") {
                 ForEach(visibleSessions, id: \.id) { session in
@@ -66,16 +31,25 @@ struct ContentView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             deferStateChange {
-                                selectedTab = .sessions
+                                appState.selectedTab = .sessions
                                 service.switchToSession(session.id)
                             }
                         }
                 }
             }
+
+            Section("Manage") {
+                ForEach(SidebarTab.allCases.filter { $0 != .sessions }) { tab in
+                    Label(tab.label, systemImage: tab.icon)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            deferStateChange { appState.selectedTab = tab }
+                        }
+                }
+            }
         }
         .listStyle(.sidebar)
-        .searchable(text: $searchText, prompt: "Search")
-        .navigationSplitViewColumnWidth(220)
+        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -92,31 +66,64 @@ struct ContentView: View {
     private var visibleSessions: [ClawSession] {
         service.sessions.filter { session in
             (session.agentId == service.currentAgentId || session.agentId == nil) &&
-            (searchText.isEmpty || session.title.localizedCaseInsensitiveContains(searchText))
+            (appState.searchText.isEmpty || session.title.localizedCaseInsensitiveContains(appState.searchText))
         }
     }
 
+    // MARK: - Agent Switcher
+
     @ViewBuilder
-    private var agentSwitcherSection: some View {
+    private var agentSection: some View {
         Section {
-            Picker("", selection: $service.currentAgentId) {
-                ForEach(service.agents, id: \.id) { agent in
-                    Text(agent.id).tag(agent.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .font(.body)
-            .disabled(service.agents.isEmpty)
-            .onChange(of: service.currentAgentId) { _, newId in
-                deferStateChange {
-                    Task { await service.switchAgent(newId) }
-                    selectedTab = .sessions
+            if service.agents.count <= 1 {
+                singleAgentRow
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(service.agents) { agent in
+                            AgentChip(
+                                agent: agent,
+                                isActive: agent.id == service.currentAgentId
+                            ) {
+                                deferStateChange {
+                                    Task { await service.switchAgent(agent.id) }
+                                    appState.selectedTab = .sessions
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
                 }
             }
         } header: {
             Text("Agent")
         }
+    }
+
+    @ViewBuilder
+    private var singleAgentRow: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 24, height: 24)
+                Image(systemName: "star.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white)
+            }
+            Text(service.agents.first?.id ?? "default")
+                .font(.callout)
+                .fontWeight(.medium)
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Shared detail content
@@ -129,7 +136,7 @@ struct ContentView: View {
         case .waitingForHealth:
             connectingView
         case .connected:
-            switch selectedTab {
+            switch appState.selectedTab {
             case .sessions:
                 if service.currentSession != nil {
                     ChatView(service: service)
@@ -146,6 +153,15 @@ struct ContentView: View {
         }
     }
 
+    private var searchPrompt: String {
+        switch appState.selectedTab {
+        case .sessions: "Search"
+        case .tools: "Search tools"
+        case .skills: "Search skills"
+        case .plugins: "Search plugins"
+        }
+    }
+
     // MARK: - macOS / iPad (NavigationSplitView)
 
     private var splitBody: some View {
@@ -153,6 +169,7 @@ struct ContentView: View {
             sidebarContent
         } detail: {
             detailContent
+                .searchable(text: $appState.searchText, prompt: searchPrompt)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(service: service)
@@ -291,7 +308,7 @@ struct ContentView: View {
                 }
             }
         }
-        .searchable(text: $searchText, prompt: "Search")
+        .searchable(text: $appState.searchText, prompt: "Search")
     }
     #endif
 
@@ -359,5 +376,45 @@ struct ContentView: View {
         DispatchQueue.main.async {
             action()
         }
+    }
+}
+
+// MARK: - Agent Chip
+
+struct AgentChip: View {
+    let agent: ClawAgent
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(isActive ? Color.white.opacity(0.3) : Color.white.opacity(0.15))
+                        .frame(width: 20, height: 20)
+                    Image(systemName: agent.id == "default" ? "star.fill" : "person.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.white)
+                }
+
+                Text(agent.id)
+                    .font(.caption)
+                    .fontWeight(isActive ? .semibold : .regular)
+                    .foregroundStyle(isActive ? .white : .primary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isActive ? Color.accentColor : Color.secondary.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(isActive ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
