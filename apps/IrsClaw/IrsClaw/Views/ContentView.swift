@@ -172,6 +172,17 @@ struct ContentView: View {
         .onDisappear {
             service.stopBackend()
         }
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help("Settings")
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 
     // MARK: - macOS only wrapper
