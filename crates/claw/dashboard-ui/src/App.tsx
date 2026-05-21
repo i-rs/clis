@@ -62,6 +62,7 @@ function TokenPrompt({ onSubmit }: { onSubmit: (token: string) => void }) {
 export default function App() {
   const [authenticated, setAuthenticated] = useState(hasToken())
   const [currentPage, setCurrentPage] = useState<Page>('chat')
+  const [pageKey, setPageKey] = useState(0)
   const [sessionRefreshKey, setSessionRefreshKey] = useState(0)
   const [selectedAgent, setSelectedAgent] = useState('default')
   const [agents, setAgents] = useState<AgentInfo[]>([])
@@ -100,6 +101,7 @@ export default function App() {
   }
 
   const navigateTo = useCallback((page: Page) => {
+    setPageKey(k => k + 1)
     setCurrentPage(page)
   }, [])
 
@@ -120,19 +122,19 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'chat':
-        return <ChatPage key={sessionRefreshKey} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
+        return <ChatPage key={`${sessionRefreshKey}-${pageKey}`} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
       case 'sessions':
-        return <SessionsPage selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
+        return <SessionsPage key={pageKey} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
       case 'config':
-        return <ConfigPage selectedAgent={selectedAgent} onAgentsChange={refreshAgents} />
+        return <ConfigPage key={pageKey} selectedAgent={selectedAgent} onAgentsChange={refreshAgents} />
       case 'tools':
-        return <ToolsPage />
+        return <ToolsPage key={pageKey} />
       case 'plugins':
-        return <PluginsPage />
+        return <PluginsPage key={pageKey} />
       case 'agents':
-        return <AgentsPage onAgentsChange={refreshAgents} onNavigate={navigateTo} />
+        return <AgentsPage key={pageKey} onAgentsChange={refreshAgents} onNavigate={navigateTo} />
       case 'skills':
-        return <SkillsPage />
+        return <SkillsPage key={pageKey} />
     }
   }
 

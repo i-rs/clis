@@ -88,9 +88,21 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
         }));
 
     let total_hidden = msg_skip_count + hidden_extra;
+    let total_msgs = app.messages.len();
     if total_hidden > 0 && !items.is_empty() {
         block = block.title(format!(" ▲ {} 条历史消息 ", total_hidden));
         block = block.title_alignment(ratatui::layout::Alignment::Center);
+    }
+
+    if total_msgs > 0 {
+        let visible_end = total_msgs.saturating_sub(msg_skip_count);
+        let pct = if total_msgs <= 1 { 100 } else { (visible_end * 100) / total_msgs };
+        let bar_width = 10;
+        let filled = ((pct * bar_width) / 100).max(1).min(bar_width);
+        let empty = bar_width - filled;
+        let scroll_bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
+        block = block.title(format!(" {scroll_bar} {pct}% "));
+        block = block.title_alignment(ratatui::layout::Alignment::Right);
     }
 
     let list = List::new(items).block(block);

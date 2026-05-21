@@ -5,6 +5,30 @@ struct SessionListView: View {
     let sessions: [ClawSession]
     @Binding var searchText: String
 
+    private var groupedSessions: [(String, [ClawSession])] {
+        let calendar = Calendar.current
+        let now = Date()
+        var groups: [String: [ClawSession]] = [:]
+        let order = ["Today", "Yesterday", "This Week", "Earlier"]
+
+        for session in sessions {
+            let date = session.dateValue
+            if calendar.isDateInToday(date) {
+                groups["Today", default: []].append(session)
+            } else if calendar.isDateInYesterday(date) {
+                groups["Yesterday", default: []].append(session)
+            } else if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) {
+                groups["This Week", default: []].append(session)
+            } else {
+                groups["Earlier", default: []].append(session)
+            }
+        }
+
+        return order.compactMap { key in
+            groups[key].map { (key, $0) }
+        }
+    }
+
     var body: some View {
         List(selection: Binding(
             get: { service.currentSession?.id },
@@ -26,20 +50,17 @@ struct SessionListView: View {
                 .padding(.vertical, 20)
             }
 
-            ForEach(sessions) { session in
-                SessionRow(session: session)
-                    .tag(session.id)
-                    .contextMenu {
-                        Button("Delete") {
-                            service.deleteSession(session.id)
-                        }
+            ForEach(groupedSessions, id: \.0) { section, items in
+                Section(header: Text(section).font(.caption).foregroundStyle(.secondary).textCase(.uppercase)) {
+                    ForEach(items) { session in
+                        SessionRow(session: session)
+                            .tag(session.id)
+                            .contextMenu {
+                                Button("Delete") {
+                                    service.deleteSession(session.id)
+                                }
+                            }
                     }
-            }
-            .onDelete { indexSet in
-                for index in indexSet {
-                    guard index < sessions.count else { continue }
-                    let session = sessions[index]
-                    service.deleteSession(session.id)
                 }
             }
         }
@@ -78,7 +99,7 @@ struct SessionRow: View {
 
                 Spacer()
 
-                Text(session.formattedDate)
+                Text(session.shortDate)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

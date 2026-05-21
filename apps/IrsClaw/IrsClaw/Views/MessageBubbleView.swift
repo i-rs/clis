@@ -49,7 +49,7 @@ struct MessageBubbleView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "wrench.adjustable")
                             .font(.caption)
-                            .foregroundStyle(.accent)
+                            .foregroundColor(.accentColor)
                         Text(name)
                             .font(.caption)
                             .fontWeight(.medium)
@@ -67,7 +67,7 @@ struct MessageBubbleView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.accent.opacity(0.2), lineWidth: 1)
+                        .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
                 )
                 .transition(.scale.combined(with: .opacity))
                 Spacer(minLength: 60)
@@ -274,7 +274,7 @@ struct CodeBlockView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.accent.opacity(0.15), lineWidth: 1)
+                .stroke(Color.accentColor.opacity(0.15), lineWidth: 1)
         )
     }
 }

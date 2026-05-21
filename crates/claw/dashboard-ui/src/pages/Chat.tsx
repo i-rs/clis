@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot } from 'lucide-react'
+import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles } from 'lucide-react'
 import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, type ChatMessage, type ToolCallMsg } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
@@ -343,6 +343,26 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       </div>
 
       <div className="chat-messages">
+        {messages.length === 0 && !loading && !hasStreaming && (
+          <div className="chat-empty-state">
+            <div className="chat-empty-icon">
+              <MessageSquare size={48} />
+            </div>
+            <h3>开始对话</h3>
+            <p>向 Claw 提问或让它帮你管理个人数据</p>
+            <div className="chat-empty-suggestions">
+              <button className="suggestion-btn" onClick={() => { setInput('今天健康状况如何？'); inputRef.current?.focus(); }}>
+                <Sparkles size={14} /> 今天健康状况如何？
+              </button>
+              <button className="suggestion-btn" onClick={() => { setInput('帮我记录体重75kg'); inputRef.current?.focus(); }}>
+                <Sparkles size={14} /> 帮我记录体重75kg
+              </button>
+              <button className="suggestion-btn" onClick={() => { setInput('这个月跑步情况如何？'); inputRef.current?.focus(); }}>
+                <Sparkles size={14} /> 这个月跑步情况如何？
+              </button>
+            </div>
+          </div>
+        )}
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
         ))}

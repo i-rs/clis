@@ -283,6 +283,21 @@ body {
   background: var(--bg-primary);
 }
 
+.main-content > * {
+  animation: pageFadeIn 0.25s ease-out;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .page-header {
   padding: 16px 24px;
   background: var(--bg-secondary);
@@ -1401,4 +1416,106 @@ pre, .code-block {
 .agent-switcher-btn:hover {
   color: var(--accent);
   background: var(--accent-glow);
+}
+
+/* Chat Empty State */
+.chat-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  animation: pageFadeIn 0.4s ease-out;
+}
+
+.chat-empty-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-bottom: 16px;
+}
+
+.chat-empty-state h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.chat-empty-state p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 32px;
+}
+
+.chat-empty-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-width: 520px;
+}
+
+.suggestion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.suggestion-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 60px;
+    overflow: hidden;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .sidebar-header {
+    display: none;
+  }
+
+  .agent-switcher {
+    flex: 1;
+  }
+
+  .sidebar-nav {
+    display: none;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+
+  .message {
+    max-width: 90%;
+  }
+
+  .chat-empty-suggestions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

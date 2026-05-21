@@ -642,53 +642,6 @@ class ClawService: ObservableObject {
             return nil
         }
     }
-            return data
-        } catch {
-            self.errorMessage = "Network error: \(error.localizedDescription)"
-            return nil
-        }
-    }
-
-    /// Perform a POST request. Uses URLSession.shared for reliability.
-    private func post(_ path: String, body: Data? = nil) async -> Data? {
-        guard connectionState.isConnected else { return nil }
-        let url = URL(string: "\(baseURL)\(path)")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = body
-        request.timeoutInterval = 60
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                return nil
-            }
-            return data
-        } catch {
-            self.errorMessage = "Network error: \(error.localizedDescription)"
-            return nil
-        }
-    }
-
-    /// Perform a DELETE request. Uses URLSession.shared for reliability.
-    private func delete(_ path: String) async -> Data? {
-        guard connectionState.isConnected else { return nil }
-        let url = URL(string: "\(baseURL)\(path)")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        request.timeoutInterval = 10
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                return nil
-            }
-            return data
-        } catch {
-            return nil
-        }
-    }
 
     // MARK: - Helpers
 

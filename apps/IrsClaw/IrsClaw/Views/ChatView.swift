@@ -76,14 +76,18 @@ struct ChatView: View {
                 .disabled(!voiceInput.isAvailable || service.isProcessing)
 
                 // Send button
+                let hasContent = !inputText.trimmingCharacters(in: .whitespaces).isEmpty
                 Button {
                     sendMessage()
                 } label: {
-                    Image(systemName: "arrow.up.circle.fill")
+                    Image(systemName: hasContent ? "arrow.up.circle.fill" : "arrow.up.circle")
                         .font(.title2)
+                        .foregroundColor(hasContent ? .accentColor : .secondary)
+                        .scaleEffect(hasContent ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: hasContent)
                 }
                 .buttonStyle(.plain)
-                .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || service.isProcessing)
+                .disabled(!hasContent || service.isProcessing)
                 .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(12)

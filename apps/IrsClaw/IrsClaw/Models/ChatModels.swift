@@ -40,6 +40,25 @@ struct ClawSession: Codable, Identifiable, Hashable {
         fmt.timeStyle = .short
         return fmt.string(from: date)
     }
+
+    var dateValue: Date {
+        guard let ts = createdAt else { return .distantPast }
+        return Date(timeIntervalSince1970: TimeInterval(ts))
+    }
+
+    var shortDate: String {
+        let date = dateValue
+        let calendar = Calendar.current
+        let fmt = DateFormatter()
+        if calendar.isDateInToday(date) {
+            fmt.dateFormat = "HH:mm"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
+            fmt.dateFormat = "MM-dd"
+        }
+        return fmt.string(from: date)
+    }
 }
 
 // MARK: - Message (from API)
