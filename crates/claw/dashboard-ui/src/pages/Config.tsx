@@ -14,7 +14,6 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // Editable fields (only for non-default agents)
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
@@ -74,11 +73,13 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
   return (
     <>
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Bot size={16} style={{ color: 'var(--accent)' }} />
-          <h2 style={{ fontSize: '15px' }}>
-            {selectedAgent}
-            {isDefault && <span className="badge info" style={{ marginLeft: '8px', fontSize: '10px' }}>Default</span>}
+        <div className="page-header-left">
+          <div className="page-header-icon">
+            <Bot size={16} />
+          </div>
+          <h2>
+            Agent: {selectedAgent}
+            {isDefault && <span className="badge badge-info" style={{ marginLeft: '8px', fontSize: '10px' }}>Default</span>}
           </h2>
         </div>
       </div>
@@ -90,27 +91,35 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
             Loading config...
           </div>
         ) : config ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '640px' }}>
-            {/* Agent info */}
-            <div className="card" style={{ padding: '12px 16px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-                {isDefault ? (
-                  <span>The <strong>default</strong> agent uses the global configuration. To customize, create a new agent.</span>
-                ) : (
-                  <span>Configure agent-specific overrides. Fields left empty will inherit global defaults.</span>
-                )}
+          <div className="config-container">
+            <div className="config-section">
+              <div className="config-section-header">
+                <div className="config-section-icon">
+                  <Info size={16} />
+                </div>
+                <div className="config-section-title">About Agent Configuration</div>
+              </div>
+              <div className="config-section-body">
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {isDefault ? (
+                    <>The <strong>default</strong> agent uses the global configuration from config.toml. Create a new agent to customize settings.</>
+                  ) : (
+                    <>Configure agent-specific overrides. Fields left empty will inherit global defaults from config.toml.</>
+                  )}
+                </p>
               </div>
             </div>
 
             {!isDefault && (
               <>
-                {/* Model Configuration */}
-                <div className="card">
-                  <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Settings size={14} />
-                    Model Configuration
+                <div className="config-section">
+                  <div className="config-section-header">
+                    <div className="config-section-icon">
+                      <Settings size={16} />
+                    </div>
+                    <div className="config-section-title">Model Configuration</div>
                   </div>
-                  <div className="card-body" style={{ marginTop: '12px' }}>
+                  <div className="config-section-body">
                     <ConfigField label="Provider" value={provider} onChange={setProvider} placeholder="e.g. openai" />
                     <ConfigField label="Model" value={model} onChange={setModel} placeholder="e.g. gpt-4o" />
                     <ConfigField label="Base URL" value={baseUrl} onChange={setBaseUrl} placeholder="e.g. https://api.openai.com/v1" />
@@ -118,105 +127,93 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
                   </div>
                 </div>
 
-                {/* System Prompt */}
-                <div className="card">
-                  <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Info size={14} />
-                    System Prompt
+                <div className="config-section">
+                  <div className="config-section-header">
+                    <div className="config-section-icon">
+                      <Info size={16} />
+                    </div>
+                    <div className="config-section-title">System Prompt</div>
                   </div>
-                  <div className="card-body" style={{ marginTop: '12px' }}>
+                  <div className="config-section-body">
                     <textarea
-                      className="chat-input"
+                      className="config-input config-textarea"
                       value={systemPrompt}
                       onChange={(e) => setSystemPrompt(e.target.value)}
                       placeholder="Custom system prompt (optional — leave empty for auto-generated default)"
                       rows={5}
-                      style={{ width: '100%', minHeight: '100px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.5' }}
                     />
+                    <div className="config-hint">Leave empty to use the default auto-generated system prompt.</div>
                   </div>
                 </div>
 
-                {/* Enabled Tools */}
                 {config.enabled_tools && config.enabled_tools.length > 0 && (
-                  <div className="card">
-                    <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Settings size={14} />
-                      Enabled Tools ({config.enabled_tools.length})
+                  <div className="config-section">
+                    <div className="config-section-header">
+                      <div className="config-section-icon">
+                        <Settings size={16} />
+                      </div>
+                      <div className="config-section-title">Enabled Tools ({config.enabled_tools.length})</div>
                     </div>
-                    <div className="card-body" style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {config.enabled_tools.map((tool) => (
-                        <span key={tool} className="badge enabled">{tool}</span>
-                      ))}
+                    <div className="config-section-body">
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {config.enabled_tools.map((tool) => (
+                          <span key={tool} className="badge badge-enabled">{tool}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
               </>
             )}
 
-            {/* For default agent: read-only display */}
             {isDefault && (
-              <div className="card">
-                <div className="card-title">Current Configuration</div>
-                <table className="data-table" style={{ marginTop: '8px' }}>
-                  <tbody>
-                    <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Provider</td><td>{config.provider}</td></tr>
-                    <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Model</td><td>{config.model}</td></tr>
-                    <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Base URL</td><td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{config.base_url}</td></tr>
-                    <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Tools</td>
-                      <td>
-                        {config.enabled_tools && config.enabled_tools.length > 0 ? (
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {config.enabled_tools.map((t) => <span key={t} className="badge enabled">{t}</span>)}
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>All tools enabled</span>
-                        )}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="config-section">
+                <div className="config-section-header">
+                  <div className="config-section-icon">
+                    <Settings size={16} />
+                  </div>
+                  <div className="config-section-title">Current Configuration</div>
+                </div>
+                <div className="config-section-body">
+                  <table className="data-table" style={{ marginTop: '8px' }}>
+                    <tbody>
+                      <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)', width: '120px' }}>Provider</td><td>{config.provider}</td></tr>
+                      <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Model</td><td>{config.model}</td></tr>
+                      <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Base URL</td><td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{config.base_url}</td></tr>
+                      <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Tools</td>
+                        <td>
+                          {config.enabled_tools && config.enabled_tools.length > 0 ? (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {config.enabled_tools.map((t) => <span key={t} className="badge badge-enabled">{t}</span>)}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>All tools enabled</span>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
-            {/* Status messages */}
             {error && (
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius)',
-                background: 'var(--error-bg)',
-                color: 'var(--error)',
-                border: '1px solid rgba(255,107,107,0.3)',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}>
-                <AlertTriangle size={14} />
+              <div className="status-message error">
+                <AlertTriangle size={16} />
                 {error}
               </div>
             )}
             {success && (
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius)',
-                background: 'var(--success-bg)',
-                color: 'var(--success)',
-                border: '1px solid rgba(81,207,102,0.3)',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}>
-                <Check size={14} />
-                Configuration saved
+              <div className="status-message success">
+                <Check size={16} />
+                Configuration saved successfully
               </div>
             )}
 
-            {/* Save button */}
             {!isDefault && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px' }}>
                 <button
-                  className="send-btn btn-sm"
+                  className="btn btn-primary"
                   onClick={handleSave}
                   disabled={saving}
                 >
@@ -231,16 +228,17 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
           </div>
         ) : (
           <div className="empty-state">
-            <Settings size={40} className="empty-state-icon" />
-            <p>Failed to load configuration for agent <strong>{selectedAgent}</strong>.</p>
+            <div className="empty-state-icon">
+              <Settings size={24} />
+            </div>
+            <h3>Failed to load</h3>
+            <p>Could not load configuration for agent <strong>{selectedAgent}</strong>.</p>
           </div>
         )}
       </div>
     </>
   )
 }
-
-// ── Config Field ──
 
 function ConfigField({
   label,
@@ -260,16 +258,8 @@ function ConfigField({
   const inputType = isPassword && !showPassword ? 'password' : 'text'
 
   return (
-    <div style={{ marginBottom: '10px' }}>
-      <label style={{
-        display: 'block',
-        fontSize: '11px',
-        fontWeight: 600,
-        color: 'var(--text-muted)',
-        marginBottom: '3px',
-        textTransform: 'uppercase',
-        letterSpacing: '0.04em',
-      }}>
+    <div className="config-field">
+      <label className="config-label">
         {label}
         <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-muted)', marginLeft: '6px', fontSize: '10px' }}>
           (optional)
@@ -278,17 +268,17 @@ function ConfigField({
       <div style={{ position: 'relative' }}>
         <input
           type={inputType}
-          className="chat-input"
+          className="config-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          style={{ width: '100%', paddingRight: isPassword ? '36px' : undefined }}
+          style={{ paddingRight: isPassword ? '40px' : undefined }}
         />
         {isPassword && (
           <button
-            className="btn-ghost"
+            className="btn btn-ghost btn-icon"
             onClick={() => setShowPassword(!showPassword)}
-            style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', padding: '4px' }}
+            style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)' }}
             type="button"
             tabIndex={-1}
           >

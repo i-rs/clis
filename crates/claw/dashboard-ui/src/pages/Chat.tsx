@@ -20,7 +20,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   const abortRef = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Streaming state
   const streamingRef = useRef<{
     content: string
     reasoning: string
@@ -36,20 +35,17 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     scrollToBottom()
   }, [messages, loading, scrollToBottom])
 
-  // Load current session on mount or when agent changes
   useEffect(() => {
     const load = async () => {
       const resp = await getCurrentSession()
       if (resp.success && resp.data && resp.data.id) {
         const sessionAgentId = resp.data.agent_id || 'default'
-        // If current session belongs to a different agent, find or create one
         if (sessionAgentId !== selectedAgent) {
           const sessionsResp = await listSessions()
           const agentSessions = (sessionsResp.data || [])
             .filter((s: { agent_id: string }) => (s.agent_id || 'default') === selectedAgent)
             .sort((a: { created_at: number }, b: { created_at: number }) => b.created_at - a.created_at)
           if (agentSessions.length > 0) {
-            // Switch to the most recent session for this agent
             const recent = agentSessions[0]
             await switchSession(recent.id)
             const sessionResp = await getCurrentSession()
@@ -85,7 +81,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
               setMessages(msgs)
             }
           } else {
-            // No existing session for this agent, create one
             const createResp = await createSession(
               selectedAgent !== 'default' ? selectedAgent : undefined
             )
@@ -101,10 +96,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         setHasSession(true)
         setSessionTitle(resp.data.title || 'Untitled')
         const sessAgent = resp.data.agent_id || null
-        if (sessAgent) {
-          setSessionAgent(sessAgent)
-        }
-        // Convert API messages to ChatMessage[], merging tool_call into assistant
+        if (sessAgent) setSessionAgent(sessAgent)
         const raw = resp.data.messages || []
         const msgs: ChatMessage[] = []
         let pendingToolCalls: ToolCallMsg[] = []
@@ -131,7 +123,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         }
         setMessages(msgs)
       } else {
-        // No session exists, try to find the most recent one for this agent
         const sessionsResp = await listSessions()
         const agentSessions = (sessionsResp.data || [])
           .filter((s: { agent_id: string }) => (s.agent_id || 'default') === selectedAgent)
@@ -172,7 +163,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             setMessages(msgs)
           }
         } else {
-          // Create a new session for the selected agent
           const createResp = await createSession(
             selectedAgent !== 'default' ? selectedAgent : undefined
           )
@@ -290,7 +280,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     }
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
@@ -310,55 +299,54 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   return (
     <div className="chat-container">
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2>{sessionTitle}</h2>
-            {(sessionAgent || selectedAgent) && (
-              <span className="agent-badge" title={`Agent: ${sessionAgent || selectedAgent}`}>
-                <Bot size={12} />
-                {sessionAgent || selectedAgent}
-              </span>
-            )}
-            {hasSession && (
-              <button
-                className="btn-ghost"
-                onClick={() => onNavigate?.('sessions')}
-                title="Switch session"
-                style={{ fontSize: '14px' }}
-              >
-                <List size={16} />
-              </button>
-            )}
+        <div className="page-header-left">
+          <div className="page-header-icon">
+            <MessageSquare size={16} />
           </div>
-          <button
-            className="send-btn btn-sm"
-            onClick={handleNewChat}
-            disabled={loading}
-            title="New chat"
-          >
-            <Plus size={14} />
-            New Chat
-          </button>
+          <h2>{sessionTitle}</h2>
+          {(sessionAgent || selectedAgent) && (
+            <span className="badge badge-info">
+              <Bot size={10} />
+              {sessionAgent || selectedAgent}
+            </span>
+          )}
+          {hasSession && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => onNavigate?.('sessions')}
+              title="Switch session"
+            >
+              <List size={14} />
+            </button>
+          )}
         </div>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={handleNewChat}
+          disabled={loading}
+        >
+          <Plus size={14} />
+          New Chat
+        </button>
       </div>
 
       <div className="chat-messages">
         {messages.length === 0 && !loading && !hasStreaming && (
           <div className="chat-empty-state">
             <div className="chat-empty-icon">
-              <MessageSquare size={48} />
+              <MessageSquare size={32} />
             </div>
-            <h3>开始对话</h3>
-            <p>向 Claw 提问或让它帮你管理个人数据</p>
-            <div className="chat-empty-suggestions">
-              <button className="suggestion-btn" onClick={() => { setInput('今天健康状况如何？'); inputRef.current?.focus(); }}>
-                <Sparkles size={14} /> 今天健康状况如何？
+            <h3>Start a Conversation</h3>
+            <p>Ask Claw anything or let it help manage your personal data</p>
+            <div className="chat-suggestions">
+              <button className="suggestion-btn" onClick={() => { setInput('How is my health today?'); inputRef.current?.focus(); }}>
+                <Sparkles size={14} /> How is my health today?
               </button>
-              <button className="suggestion-btn" onClick={() => { setInput('帮我记录体重75kg'); inputRef.current?.focus(); }}>
-                <Sparkles size={14} /> 帮我记录体重75kg
+              <button className="suggestion-btn" onClick={() => { setInput('Log my weight as 75kg'); inputRef.current?.focus(); }}>
+                <Sparkles size={14} /> Log my weight as 75kg
               </button>
-              <button className="suggestion-btn" onClick={() => { setInput('这个月跑步情况如何？'); inputRef.current?.focus(); }}>
-                <Sparkles size={14} /> 这个月跑步情况如何？
+              <button className="suggestion-btn" onClick={() => { setInput('How did my running go this month?'); inputRef.current?.focus(); }}>
+                <Sparkles size={14} /> How did my running go this month?
               </button>
             </div>
           </div>
@@ -381,7 +369,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       </div>
 
       <div className="chat-input-area">
-        <div className="chat-input-row">
+        <div className="chat-input-container">
           <textarea
             ref={inputRef}
             className="chat-input"
@@ -397,7 +385,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             onClick={handleSend}
             disabled={loading || !input.trim()}
           >
-            <Send size={15} className="send-icon" />
+            <Send size={15} />
             Send
           </button>
         </div>
@@ -405,8 +393,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     </div>
   )
 }
-
-// ── Sub-components ──
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0

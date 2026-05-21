@@ -14,7 +14,6 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Create form
   const [formId, setFormId] = useState('')
   const [formProvider, setFormProvider] = useState('')
   const [formModel, setFormModel] = useState('')
@@ -100,13 +99,16 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
     <>
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button className="btn-ghost" onClick={() => onNavigate?.('chat')} title="Back to chat">
-              <ArrowLeft size={16} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('chat')}>
+              <ArrowLeft size={14} />
             </button>
+            <div className="page-header-icon">
+              <Bot size={16} />
+            </div>
             <h2>Agents ({agents.length})</h2>
           </div>
-          <button className="send-btn btn-sm" onClick={() => { resetForm(); setShowCreate(true); }}>
+          <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowCreate(true); }}>
             <Plus size={14} />
             Create Agent
           </button>
@@ -115,19 +117,8 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
 
       <div className="page-body">
         {error && (
-          <div style={{
-            padding: '10px 14px',
-            marginBottom: '12px',
-            borderRadius: 'var(--radius)',
-            background: 'var(--error-bg)',
-            color: 'var(--error)',
-            border: '1px solid rgba(255,107,107,0.3)',
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}>
-            <AlertTriangle size={14} />
+          <div className="status-message error" style={{ marginBottom: '16px' }}>
+            <AlertTriangle size={16} />
             {error}
           </div>
         )}
@@ -139,8 +130,11 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
           </div>
         ) : agents.length === 0 ? (
           <div className="empty-state">
-            <Bot size={40} className="empty-state-icon" />
-            <p>No agents configured. Create one to get started.</p>
+            <div className="empty-state-icon">
+              <Bot size={24} />
+            </div>
+            <h3>No agents configured</h3>
+            <p>Create an agent to get started.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -154,12 +148,12 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
           </div>
         )}
 
-        {/* Create Modal */}
         {showCreate && (
           <div style={{
             position: 'fixed',
             inset: 0,
             background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -168,7 +162,7 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
             <div style={{
               background: 'var(--bg-elevated)',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-lg)',
+              borderRadius: 'var(--radius-xl)',
               padding: '24px',
               width: '520px',
               maxHeight: '80vh',
@@ -176,7 +170,7 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
             }} onClick={(e) => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Create New Agent</h3>
-                <button className="btn-ghost" onClick={() => { if (!submitting) setShowCreate(false) }} disabled={submitting}>
+                <button className="btn btn-ghost btn-icon" onClick={() => { if (!submitting) setShowCreate(false) }} disabled={submitting}>
                   <X size={16} />
                 </button>
               </div>
@@ -187,36 +181,35 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
               <FormField label="Base URL" value={formBaseUrl} onChange={setFormBaseUrl} placeholder="e.g. https://api.openai.com/v1" disabled={submitting} />
               <FormField label="API Key" value={formApiKey} onChange={setFormApiKey} placeholder="sk-..." type="password" disabled={submitting} />
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   System Prompt
                 </label>
                 <textarea
-                  className="chat-input"
+                  className="config-input config-textarea"
                   value={formSystemPrompt}
                   onChange={(e) => setFormSystemPrompt(e.target.value)}
                   placeholder="Custom system prompt (optional)"
                   disabled={submitting}
                   rows={4}
-                  style={{ width: '100%', minHeight: '80px', maxHeight: '200px', fontFamily: 'monospace', fontSize: '12px' }}
                 />
               </div>
               <FormField label="Enabled Tools (comma-separated)" value={formTools} onChange={setFormTools} placeholder="e.g. i_rs, web_search (empty=all)" disabled={submitting} />
 
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                 <button
-                  className="icon-btn"
+                  className="btn btn-secondary"
                   onClick={() => { if (!submitting) setShowCreate(false) }}
                   disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
-                  className="send-btn btn-sm"
+                  className="btn btn-primary"
                   onClick={handleCreate}
                   disabled={submitting || !formId.trim()}
                 >
                   {submitting ? (
-                    <><div className="loading-spinner" style={{ width: 12, height: 12 }} /> Creating...</>
+                    <><Loader size={14} /> Creating...</>
                   ) : (
                     <><Check size={14} /> Create</>
                   )}
@@ -229,8 +222,6 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
     </>
   )
 }
-
-// ── Agent Card ──
 
 function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false)
@@ -248,13 +239,24 @@ function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: stri
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Bot size={18} style={{ color: agent.id === 'default' ? 'var(--accent)' : 'var(--text-secondary)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: 'var(--ai-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--ai-primary)',
+          }}>
+            <Bot size={18} />
+          </div>
           <div>
             <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
               {agent.id}
               {agent.id === 'default' && (
-                <span className="badge info" style={{ marginLeft: '8px', fontSize: '10px' }}>Default</span>
+                <span className="badge badge-info" style={{ marginLeft: '8px', fontSize: '10px' }}>Default</span>
               )}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -265,9 +267,10 @@ function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: stri
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {onDelete && (
             <button
-              className="icon-btn icon-only danger"
+              className="btn btn-ghost btn-icon"
               onClick={(e) => { e.stopPropagation(); onDelete(agent.id) }}
               title="Delete agent"
+              style={{ color: 'var(--error)' }}
             >
               <Trash2 size={14} />
             </button>
@@ -279,16 +282,16 @@ function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: stri
         <div style={{ borderTop: '1px solid var(--border)', padding: '14px 16px' }}>
           {agent.system_prompt ? (
             <div style={{ marginBottom: '10px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
                 System Prompt
               </div>
               <pre style={{
-                background: 'var(--bg-primary)',
+                background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border)',
-                borderRadius: '6px',
-                padding: '10px',
+                borderRadius: 'var(--radius)',
+                padding: '12px',
                 fontSize: '12px',
-                lineHeight: '1.5',
+                lineHeight: 1.5,
                 overflowX: 'auto',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
@@ -299,7 +302,7 @@ function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: stri
               }}>{agent.system_prompt}</pre>
             </div>
           ) : (
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '10px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
               No custom system prompt (uses auto-generated default)
             </div>
           )}
@@ -308,8 +311,6 @@ function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: stri
     </div>
   )
 }
-
-// ── Form Field ──
 
 function FormField({
   label,
@@ -334,30 +335,30 @@ function FormField({
     <div style={{ marginBottom: '12px' }}>
       <label style={{
         display: 'block',
-        fontSize: '12px',
-        fontWeight: 600,
+        fontSize: '11px',
+        fontWeight: 700,
         color: 'var(--text-muted)',
-        marginBottom: '4px',
+        marginBottom: '6px',
         textTransform: 'uppercase',
-        letterSpacing: '0.05em',
+        letterSpacing: '0.06em',
       }}>
         {label}
       </label>
       <div style={{ position: 'relative' }}>
         <input
           type={inputType}
-          className="chat-input"
+          className="config-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          style={{ width: '100%', paddingRight: isPassword ? '36px' : undefined }}
+          style={{ width: '100%', paddingRight: isPassword ? '40px' : undefined }}
         />
         {isPassword && (
           <button
-            className="btn-ghost"
+            className="btn btn-ghost btn-icon"
             onClick={() => setShowPassword(!showPassword)}
-            style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', padding: '4px' }}
+            style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)' }}
             type="button"
             tabIndex={-1}
           >
@@ -366,5 +367,18 @@ function FormField({
         )}
       </div>
     </div>
+  )
+}
+
+function Loader({ size = 14 }: { size?: number }) {
+  return (
+    <div style={{
+      width: size,
+      height: size,
+      border: '2px solid var(--border)',
+      borderTopColor: 'var(--accent)',
+      borderRadius: '50%',
+      animation: 'spin 0.6s linear infinite',
+    }} />
   )
 }

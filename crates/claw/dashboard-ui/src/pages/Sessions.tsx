@@ -81,12 +81,9 @@ export default function SessionsPage({ selectedAgent, onNavigate, onSessionChang
     return (
       <>
         <div className="page-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              className="icon-btn"
-              onClick={() => setSelectedSession(null)}
-            >
-              <ArrowLeft size={16} className="icon-btn-icon" />
+          <div className="page-header-left">
+            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedSession(null)}>
+              <ArrowLeft size={14} />
               Back
             </button>
             <h2>{selectedSession.title}</h2>
@@ -95,7 +92,10 @@ export default function SessionsPage({ selectedAgent, onNavigate, onSessionChang
         <div className="page-body">
           {selectedSession.messages.length === 0 ? (
             <div className="empty-state">
-              <MessageSquare size={40} className="empty-state-icon" />
+              <div className="empty-state-icon">
+                <MessageSquare size={24} />
+              </div>
+              <h3>No messages</h3>
               <p>No messages in this session.</p>
             </div>
           ) : (
@@ -114,20 +114,21 @@ export default function SessionsPage({ selectedAgent, onNavigate, onSessionChang
 
   return (
     <>
-          <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2>Sessions ({sessions.length})</h2>
-            <span className="agent-badge">
-              <Bot size={11} />
-              {selectedAgent}
-            </span>
+      <div className="page-header">
+        <div className="page-header-left">
+          <div className="page-header-icon">
+            <MessageSquare size={16} />
           </div>
-          <button className="send-btn btn-sm" onClick={handleNewSession}>
-            <Plus size={14} />
-            New Session
-          </button>
+          <h2>Sessions ({sessions.length})</h2>
+          <span className="badge badge-info">
+            <Bot size={10} />
+            {selectedAgent}
+          </span>
         </div>
+        <button className="btn btn-primary btn-sm" onClick={handleNewSession}>
+          <Plus size={14} />
+          New Session
+        </button>
       </div>
       <div className="page-body">
         {loading ? (
@@ -137,26 +138,32 @@ export default function SessionsPage({ selectedAgent, onNavigate, onSessionChang
           </div>
         ) : sessions.length === 0 ? (
           <div className="empty-state">
-            <MessageSquare size={40} className="empty-state-icon" />
-            <p>No sessions yet. Start a chat!</p>
+            <div className="empty-state-icon">
+              <MessageSquare size={24} />
+            </div>
+            <h3>No sessions yet</h3>
+            <p>Start a chat to create your first session!</p>
           </div>
         ) : (
-          <div className="card">
+          <div className="sessions-list">
             {sessions.map((session) => (
-              <div key={session.id} className="session-item">
+              <div key={session.id} className="session-card">
+                <div className="session-icon">
+                  <MessageSquare size={18} />
+                </div>
                 <div className="session-info" onClick={() => handleClickSession(session.id)}>
                   <div className="session-title">{session.title}</div>
                   <div className="session-meta">
-                    {session.message_count} messages &middot; {new Date(session.created_at * 1000).toLocaleString()}
+                    {session.message_count} messages · {new Date(session.created_at * 1000).toLocaleDateString()}
                     {session.agent_id !== 'default' && <span className="session-agent-badge">{session.agent_id}</span>}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button className="session-use" onClick={() => handleUse(session.id)}>
+                <div className="session-actions">
+                  <button className="session-btn session-btn-use" onClick={() => handleUse(session.id)}>
                     <Play size={12} />
                     Use
                   </button>
-                  <button className="session-delete" onClick={() => handleDelete(session.id)}>
+                  <button className="session-btn session-btn-delete" onClick={() => handleDelete(session.id)}>
                     <Trash2 size={12} />
                     Delete
                   </button>

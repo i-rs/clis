@@ -29,7 +29,12 @@ export default function SkillsPage() {
   return (
     <>
       <div className="page-header">
-        <h2>Skills ({skills.length})</h2>
+        <div className="page-header-left">
+          <div className="page-header-icon">
+            <BookOpen size={16} />
+          </div>
+          <h2>Skills ({skills.length})</h2>
+        </div>
       </div>
       <div className="page-body">
         {loading ? (
@@ -39,8 +44,11 @@ export default function SkillsPage() {
           </div>
         ) : skills.length === 0 ? (
           <div className="empty-state">
-            <BookOpen size={40} className="empty-state-icon" />
-            <p>No skills found. Add <code>.md</code> skill files to <code>~/.i-rs-claw/claw/skills/</code></p>
+            <div className="empty-state-icon">
+              <BookOpen size={24} />
+            </div>
+            <h3>No skills found</h3>
+            <p>Add <code>.md</code> skill files to <code>~/.i-rs-claw/claw/skills/</code></p>
           </div>
         ) : (
           <div className="skill-list">
@@ -54,11 +62,11 @@ export default function SkillsPage() {
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(skill.name) }}
                 >
                   <span className="skill-name">
-                      {skill.name}
-                      {skill.description && skill.description !== skill.name ? (
-                        <span className="skill-desc"> — {skill.description}</span>
-                      ) : null}
-                    </span>
+                    {skill.name}
+                    {skill.description && skill.description !== skill.name ? (
+                      <span className="skill-desc"> — {skill.description}</span>
+                    ) : null}
+                  </span>
                   <span className={`skill-toggle ${expanded.has(skill.name) ? 'expanded' : ''}`}>
                     {expanded.has(skill.name) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </span>

@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react'
-import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Users, Lock, Sun, Moon } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Lock, Sun, Moon, ChevronDown } from 'lucide-react'
 import { listAgents, type AgentInfo, hasToken, setToken } from './api'
 import ChatPage from './pages/Chat'
 import SessionsPage from './pages/Sessions'
@@ -24,35 +24,29 @@ function TokenPrompt({ onSubmit }: { onSubmit: (token: string) => void }) {
   const [value, setValue] = useState('')
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0f0f23' }}>
-      <div style={{ background: '#1a1a2e', borderRadius: 12, padding: '40px 32px', width: 380, textAlign: 'center' }}>
-        <Lock size={40} color="#6366f1" style={{ marginBottom: 16 }} />
-        <h2 style={{ color: '#e2e8f0', margin: '0 0 8px' }}>Dashboard 需要认证</h2>
-        <p style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 24px' }}>
-          输入启动时打印的 token，或在 config.toml 中配置 <code style={{ background: '#334155', padding: '2px 6px', borderRadius: 4 }}>dashboard.auth_token</code>
+    <div className="token-prompt">
+      <div className="token-prompt-card">
+        <div className="token-prompt-icon">
+          <Lock size={28} />
+        </div>
+        <h2>Authentication Required</h2>
+        <p>
+          Enter the token printed at startup, or configure <code>dashboard.auth_token</code> in config.toml
         </p>
         <input
           type="password"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) onSubmit(value.trim()) }}
-          placeholder="粘贴 token..."
+          placeholder="Paste token..."
           autoFocus
-          style={{
-            width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155',
-            background: '#0f172a', color: '#e2e8f0', fontSize: 14, outline: 'none', boxSizing: 'border-box',
-          }}
         />
         <button
+          className="btn btn-primary"
           onClick={() => { if (value.trim()) onSubmit(value.trim()) }}
           disabled={!value.trim()}
-          style={{
-            marginTop: 16, width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
-            background: value.trim() ? '#6366f1' : '#334155', color: '#fff', fontSize: 14,
-            fontWeight: 600, cursor: value.trim() ? 'pointer' : 'not-allowed',
-          }}
         >
-          确认
+          Confirm
         </button>
       </div>
     </div>
@@ -71,15 +65,26 @@ export default function App() {
     const saved = localStorage.getItem('claw-theme')
     return saved || 'dark'
   })
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('claw-theme', theme)
   }, [theme])
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowAgentDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 
-  // Load agents list
   useEffect(() => {
     listAgents().then((resp) => {
       if (resp.success && resp.data) {
@@ -115,6 +120,7 @@ export default function App() {
 
   const handleSwitchAgent = (id: string) => {
     setSelectedAgent(id)
+    setShowAgentDropdown(false)
     refreshSessions()
     setCurrentPage('chat')
   }
@@ -147,45 +153,55 @@ export default function App() {
         </div>
 
         {/* Agent Switcher */}
-        <div className="agent-switcher">
-          <div className="agent-switcher-select">
-            <Bot size={14} className="agent-switcher-icon" />
-            <select
-              value={selectedAgent}
-              onChange={(e) => handleSwitchAgent(e.target.value)}
-              className="agent-switcher-dropdown"
-            >
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>{a.id}</option>
-              ))}
-            </select>
+        <div className="agent-switcher" ref={dropdownRef}>
+          <div className="agent-switcher-container" onClick={() => setShowAgentDropdown(!showAgentDropdown)}>
+            <div className="agent-switcher-icon">
+              <Bot size={14} />
+            </div>
+            <div className="agent-switcher-info">
+              <div className="agent-switcher-label">Agent</div>
+              <div className="agent-switcher-name">{selectedAgent}</div>
+            </div>
+            <ChevronDown size={14} style={{ color: 'var(--text-muted)', transition: 'transform 0.15s', transform: showAgentDropdown ? 'rotate(180deg)' : 'rotate(0deg)' }} />
           </div>
-          <button
-            className="agent-switcher-btn"
-            onClick={() => navigateTo('agents')}
-            title="Manage agents"
-          >
-            <Users size={14} />
-          </button>
+          {showAgentDropdown && (
+            <div className="agent-switcher-dropdown">
+              {agents.map((a) => (
+                <div
+                  key={a.id}
+                  className={`agent-dropdown-item ${a.id === selectedAgent ? 'active' : ''}`}
+                  onClick={() => handleSwitchAgent(a.id)}
+                >
+                  <Bot size={14} />
+                  {a.id}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-item${currentPage === item.id ? ' active' : ''}`}
-              onClick={() => navigateTo(item.id)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
+          <div className="nav-section">
+            <div className="nav-section-label">Menu</div>
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                className={`nav-item${currentPage === item.id ? ' active' : ''}`}
+                onClick={() => navigateTo(item.id)}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
-          <button className="theme-toggle" onClick={toggleTheme} title="切换主题">
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          <div className="sidebar-footer-content">
+            <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
       </aside>
       <main className="main-content">

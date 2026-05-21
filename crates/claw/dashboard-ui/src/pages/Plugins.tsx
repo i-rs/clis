@@ -18,7 +18,12 @@ export default function PluginsPage() {
   return (
     <>
       <div className="page-header">
-        <h2>Plugins ({plugins.length})</h2>
+        <div className="page-header-left">
+          <div className="page-header-icon">
+            <Puzzle size={16} />
+          </div>
+          <h2>Plugins ({plugins.length})</h2>
+        </div>
       </div>
       <div className="page-body">
         {loading ? (
@@ -28,36 +33,41 @@ export default function PluginsPage() {
           </div>
         ) : plugins.length === 0 ? (
           <div className="empty-state">
-            <Puzzle size={40} className="empty-state-icon" />
-            <p>No plugins discovered. Add plugin manifests to ~/.i-rs-claw/plugins/</p>
+            <div className="empty-state-icon">
+              <Puzzle size={24} />
+            </div>
+            <h3>No plugins found</h3>
+            <p>Add plugin manifests to <code>~/.i-rs-claw/plugins/</code></p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Version</th>
-                <th>Description</th>
-                <th>Author</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plugins.map((plugin) => (
-                <tr key={plugin.name}>
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{plugin.name}</td>
-                  <td>{plugin.version}</td>
-                  <td>{plugin.description}</td>
-                  <td>{plugin.author || '-'}</td>
-                  <td>
-                    <span className={`badge ${plugin.enabled ? 'enabled' : 'disabled'}`}>
-                      {plugin.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </td>
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Version</th>
+                  <th>Description</th>
+                  <th>Author</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {plugins.map((plugin) => (
+                  <tr key={plugin.name}>
+                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{plugin.name}</td>
+                    <td>v{plugin.version}</td>
+                    <td>{plugin.description}</td>
+                    <td>{plugin.author || '-'}</td>
+                    <td>
+                      <span className={`badge ${plugin.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
+                        {plugin.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </>
