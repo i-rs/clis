@@ -166,6 +166,18 @@ impl AppCore {
         })
     }
 
+    /// Flush all in-memory state to disk before exit.
+    /// Call this after the TUI main loop ends, before terminal restore.
+    pub fn shutdown(&mut self) {
+        tracing::info!("AppCore shutting down, flushing state to disk...");
+        for (agent_id, rt) in &mut self.agent_store.runtimes {
+            rt.memory.flush();
+            tracing::debug!("Flushed memory for agent '{}'", agent_id);
+        }
+        self.stats_manager.flush();
+        tracing::info!("AppCore shutdown complete");
+    }
+
     /// Migrate legacy data files (memory.json, skills/, etc.) to agents/default/
     /// on first run after upgrade.
     fn migrate_legacy_data(claw_dir: &Path) {

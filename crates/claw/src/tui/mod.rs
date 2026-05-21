@@ -113,6 +113,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         &mut llm_rx,
     );
 
+    app_core.shutdown();
+
     // Restore terminal
     crossterm::terminal::disable_raw_mode()?;
     crossterm::execute!(
@@ -120,9 +122,6 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crossterm::terminal::LeaveAlternateScreen,
         crossterm::event::DisableMouseCapture
     )?;
-
-    // Flush buffered token statistics before exit
-    app_core.stats_manager.flush();
 
     // Print styled re-entry command and session summary
     let msg_count = app.messages.len();

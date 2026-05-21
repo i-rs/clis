@@ -49,6 +49,8 @@ pub async fn chat_loop(
     let max_retries = config.max_tool_retries;
     let max_rounds = config.max_react_rounds;
     let mut round_count = 0u32;
+    let mut consecutive_provider_errors = 0u32;
+    const MAX_PROVIDER_RETRIES: u32 = 2;
 
     // Create shared ToolCallExecutor with configurable parameters
     let executor = crate::core::executor::ToolCallExecutor::new(tool_ctx, mcp.clone(), skills.clone())
@@ -76,6 +78,7 @@ pub async fn chat_loop(
                 break;
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
+                consecutive_provider_errors = 0;
                 let tool_calls_array: Vec<Value> = calls
                     .iter()
                     .map(|(tc, _)| {
@@ -156,7 +159,25 @@ pub async fn chat_loop(
                 // Continue loop: send tool results back to LLM
             }
             Err(e) => {
-                let _ = tx.send(LlmEvent::Error(format!("{}", e)));
+                let err_msg = format!("{}", e);
+                let is_transient = err_msg.starts_with("API 限流")
+                    || err_msg.starts_with("API 服务器错误")
+                    || err_msg.starts_with("API 请求失败");
+
+                if is_transient && consecutive_provider_errors < MAX_PROVIDER_RETRIES {
+                    consecutive_provider_errors += 1;
+                    let wait_secs = 3 * consecutive_provider_errors;
+                    tracing::warn!(
+                        "Provider 瞬态错误 ({}/{}), 等待 {}s 后重试: {}",
+                        consecutive_provider_errors, MAX_PROVIDER_RETRIES, wait_secs, err_msg
+                    );
+                    let _ = tx.send(LlmEvent::Status(format!(
+                        "⚠️ 网络波动，{}s 后重试 ({}/{})…", wait_secs, consecutive_provider_errors, MAX_PROVIDER_RETRIES
+                    )));
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs as u64)).await;
+                    continue;
+                }
+                let _ = tx.send(LlmEvent::Error(err_msg));
                 break;
             }
         }
