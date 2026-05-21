@@ -285,3 +285,39 @@ pub(crate) async fn openai_stream_chat_impl(
         Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_retry_after_seconds() {
+        let resp = test_response_with_header("retry-after", "5");
+        assert_eq!(parse_retry_after_ms(&resp), Some(5000));
+    }
+
+    #[test]
+    fn test_parse_retry_after_zero() {
+        let resp = test_response_with_header("retry-after", "0");
+        let result = parse_retry_after_ms(&resp);
+        assert_eq!(result, Some(0));
+    }
+
+    #[test]
+    fn test_parse_retry_after_missing() {
+        let resp = reqwest::Response::from(
+            http::Response::builder().status(200).body("").unwrap()
+        );
+        assert_eq!(parse_retry_after_ms(&resp), None);
+    }
+
+    fn test_response_with_header(key: &str, value: &str) -> reqwest::Response {
+        reqwest::Response::from(
+            http::Response::builder()
+                .status(200)
+                .header(key, value)
+                .body("")
+                .unwrap()
+        )
+    }
+}

@@ -2219,6 +2219,7 @@ dependencies = [
  "dirs",
  "fastrand",
  "futures-util",
+ "http",
  "mime_guess",
  "owo-colors 4.3.0",
  "pulldown-cmark",
