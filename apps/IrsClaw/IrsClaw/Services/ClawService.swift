@@ -189,6 +189,16 @@ class ClawService: ObservableObject {
         }
         print("[loadInitialData] agents loaded: \(agents.count)")
 
+        if agents.isEmpty {
+            print("[loadInitialData] no agents found, creating default...")
+            await createAgent(id: "default", provider: nil, model: nil, apiKey: nil, baseURL: nil, systemPrompt: nil)
+            await fetchAgents()
+        }
+
+        if !agents.contains(where: { $0.id == currentAgentId }) {
+            currentAgentId = "default"
+        }
+
         print("[loadInitialData] fetching config...")
         await withTimeout(seconds: 5) { [weak self] in
             await self?.fetchConfig()

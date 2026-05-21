@@ -104,25 +104,17 @@ struct ContentView: View {
     @ViewBuilder
     private var agentSwitcherSection: some View {
         Section {
-            if service.agents.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 4)
-            } else {
-                Picker("", selection: Binding(
-                    get: { service.agents.contains(where: { $0.id == service.currentAgentId }) ? service.currentAgentId : "default" },
-                    set: { newAgentId in
-                        Task { await service.switchAgent(newAgentId) }
-                        selectedTab = .sessions
-                    }
-                )) {
-                    ForEach(service.agents.filter { !$0.id.isEmpty }) { agent in
-                        Text(agent.id).tag(agent.id)
-                    }
+            Picker("", selection: $service.currentAgentId) {
+                ForEach(service.agents) { agent in
+                    Text(agent.id).tag(agent.id)
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .font(.body)
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .font(.body)
+            .onChange(of: service.currentAgentId) { _, newAgentId in
+                Task { await service.switchAgent(newAgentId) }
+                selectedTab = .sessions
             }
         } header: {
             Text("Agent")
