@@ -289,7 +289,7 @@ impl LlmProvider for AnthropicProvider {
         if !response.status().is_success() {
             let text = response.text().await.unwrap_or_default();
             let duration_ms = start.elapsed().as_millis() as u64;
-            let _ = tx.send(LlmEvent::HttpLog {
+            let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
                 status,
                 duration_ms,
                 model: self.model.clone(),
@@ -297,7 +297,7 @@ impl LlmProvider for AnthropicProvider {
                 completion_tokens: 0,
                 error: Some(format!("HTTP {}: {}", status, text)),
                 request_body: body_json.clone(),
-            });
+            }));
             return Err(anyhow::anyhow!("Anthropic API 返回错误 {}: {}", status, text));
         }
 
@@ -436,7 +436,7 @@ impl LlmProvider for AnthropicProvider {
             estimated_cost_usd: 0.0,
         }));
 
-        let _ = tx.send(LlmEvent::HttpLog {
+        let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
             status,
             duration_ms,
             model: self.model.clone(),
@@ -444,7 +444,7 @@ impl LlmProvider for AnthropicProvider {
             completion_tokens,
             error: None,
             request_body: body_json.clone(),
-        });
+        }));
 
         // Determine result type based on stop reason
         if has_tool_calls {

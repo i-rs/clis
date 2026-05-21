@@ -59,6 +59,7 @@ pub(crate) async fn send_with_retry(
 /// Internal streaming logic shared by OpenAI-compatible providers
 /// (OpenAI, Ollama, and any other OpenAI-format endpoints).
 #[tracing::instrument(skip(client, tx))]
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn openai_stream_chat_impl(
     client: &reqwest::Client,
     url: &str,
@@ -205,7 +206,7 @@ pub(crate) async fn openai_stream_chat_impl(
             estimated_cost_usd: 0.0, // Estimated by StatsManager on consumption
         }));
 
-        let _ = tx.send(LlmEvent::HttpLog {
+        let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
             status,
             duration_ms,
             model: model.to_string(),
@@ -213,7 +214,7 @@ pub(crate) async fn openai_stream_chat_impl(
             completion_tokens,
             error: None,
             request_body: body_json.clone(),
-        });
+        }));
 
         if has_tool_calls {
             let mut parsed = Vec::new();
@@ -236,7 +237,7 @@ pub(crate) async fn openai_stream_chat_impl(
     } else {
         let text = response.text().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as u64;
-        let _ = tx.send(LlmEvent::HttpLog {
+        let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
             status,
             duration_ms,
             model: model.to_string(),
@@ -244,7 +245,7 @@ pub(crate) async fn openai_stream_chat_impl(
             completion_tokens: 0,
             error: Some(format!("HTTP {}: {}", status, text)),
             request_body: body_json.clone(),
-        });
+        }));
         Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text))
     }
 }

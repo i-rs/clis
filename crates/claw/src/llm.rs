@@ -3,6 +3,17 @@ use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
 
+/// HTTP request/response log data for the debug sidebar.
+#[derive(Debug, Clone)]
+pub struct HttpLogData {
+    pub status: u16,
+    pub duration_ms: u64,
+    pub model: String,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub error: Option<String>,
+    pub request_body: String,
+}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct TokenUsage {
@@ -36,15 +47,7 @@ pub enum LlmEvent {
     /// All responses complete, carries final API message list and optional token usage
     Done(Arc<Vec<Value>>, Option<TokenUsage>),
     /// HTTP request log for debug sidebar
-    HttpLog {
-        status: u16,
-        duration_ms: u64,
-        model: String,
-        prompt_tokens: u32,
-        completion_tokens: u32,
-        error: Option<String>,
-        request_body: String,
-    },
+    HttpLog(HttpLogData),
     /// Token usage record for statistics persistence
     UsageRecord(TokenRecord),
 }

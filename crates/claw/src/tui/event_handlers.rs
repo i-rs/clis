@@ -36,8 +36,8 @@ impl<'a> LlmEventHandler<'a> {
                 self.handle_tool_executed(&name, &args, &result, step, total_steps);
             }
             LlmEvent::Error(text) => self.handle_error(&text),
-            LlmEvent::HttpLog { status, duration_ms, model, prompt_tokens, completion_tokens, error, request_body } => {
-                self.handle_http_log(status, duration_ms, &model, prompt_tokens, completion_tokens, error, &request_body);
+            LlmEvent::HttpLog(data) => {
+                self.handle_http_log(&data);
             }
             LlmEvent::UsageRecord(record) => {
                 self.app_core.stats_manager.record(record);
@@ -54,8 +54,8 @@ impl<'a> LlmEventHandler<'a> {
 
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
-        if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute {
-            if let Some(crate::app::Message::Assistant { text: t }) = self.app.messages.last() {
+        if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
+            && let Some(crate::app::Message::Assistant { text: t }) = self.app.messages.last() {
                 let plan_text = t.clone();
                 if !plan_text.is_empty() {
                     self.app.detect_plan(&plan_text);
@@ -64,7 +64,6 @@ impl<'a> LlmEventHandler<'a> {
                     }
                 }
             }
-        }
     }
 
     fn handle_reasoning(&mut self, text: &str) {
@@ -136,16 +135,16 @@ impl<'a> LlmEventHandler<'a> {
         }
     }
 
-    fn handle_http_log(&mut self, status: u16, duration_ms: u64, model: &str, prompt_tokens: u32, completion_tokens: u32, error: Option<String>, request_body: &str) {
+    fn handle_http_log(&mut self, data: &crate::llm::HttpLogData) {
         self.app.add_http_log(app::HttpLog {
             timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
-            status,
-            duration_ms,
-            model: model.to_string(),
-            prompt_tokens,
-            completion_tokens,
-            error,
-            request_body: request_body.to_string(),
+            status: data.status,
+            duration_ms: data.duration_ms,
+            model: data.model.clone(),
+            prompt_tokens: data.prompt_tokens,
+            completion_tokens: data.completion_tokens,
+            error: data.error.clone(),
+            request_body: data.request_body.clone(),
         });
     }
 
