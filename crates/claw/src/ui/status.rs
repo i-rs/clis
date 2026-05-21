@@ -8,11 +8,20 @@ use ratatui::{
 
 use crate::app::App;
 
+/// Renders the status bar at the bottom of the TUI.
+///
+/// Design: Minimal information-dense footer with clear visual hierarchy.
+/// Left side shows transient feedback or mode indicators.
+/// Center shows system stats.
+/// Right side shows available keyboard shortcuts.
 pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.config.theme;
+
+    // Background color based on state
     let bg = if app.is_processing() {
-        Color::Blue
+        Color::Rgb(15, 15, 30)  // Subtle blue tint when processing
     } else if app.overlay.selection_mode {
-        Color::Rgb(40, 30, 10)
+        Color::Rgb(30, 25, 15)  // Subtle amber tint in selection mode
     } else {
         app.config.theme.background()
     };
@@ -30,11 +39,11 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     if let Some(fb) = &app.overlay.copy_feedback {
         spans.push(Span::styled(
             format!(" {} ", fb),
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            Style::default().fg(Color::Rgb(52, 211, 153)).add_modifier(Modifier::BOLD),  // Green
         ));
         spans.push(Span::styled(
             "│ ",
-            Style::default().fg(app.config.theme.dim_text()),
+            Style::default().fg(theme.dim_text()),
         ));
     }
 
@@ -42,62 +51,62 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         // Selection mode indicator
         spans.push(Span::styled(
             " ● [选择模式] ".to_string(),
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default().fg(Color::Rgb(251, 191, 36)).add_modifier(Modifier::BOLD),  // Amber
         ));
         spans.push(Span::styled(
             "↑↓选择  Space展开  Ctrl+D删除  Ctrl+Shift+C复制  退出Esc",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(113, 113, 122)),
         ));
     } else if app.is_processing() {
         const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
         let spinner = SPINNERS[f.count() % SPINNERS.len()];
         spans.push(Span::styled(
             format!(" {} {} ", spinner, app.status_text),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default().fg(Color::Rgb(251, 191, 36)).add_modifier(Modifier::BOLD),  // Amber for active processing
         ));
         // Separator
         spans.push(Span::styled(
             "│ ",
-            Style::default().fg(app.config.theme.dim_text()),
+            Style::default().fg(theme.dim_text()),
         ));
         // Tool & message stats
         spans.push(Span::styled(
             format!("⚙ {} ", app.tool_call_count),
-            Style::default().fg(app.config.theme.primary()),
+            Style::default().fg(theme.primary()),
         ));
         spans.push(Span::styled(
             format!("💬 {} ", app.messages.len()),
-            Style::default().fg(app.config.theme.primary()),
+            Style::default().fg(theme.primary()),
         ));
     } else {
-        // Idle state — green dot + bold
+        // Idle state — cyan dot + clean styling
         spans.push(Span::styled(
             " ● 就绪 ".to_string(),
-            Style::default().fg(app.config.theme.secondary()).add_modifier(Modifier::BOLD),
+            Style::default().fg(Color::Rgb(34, 211, 238)).add_modifier(Modifier::BOLD),  // Cyan
         ));
         spans.push(Span::styled(
             format!("{} ", app.config.model),
-            Style::default().fg(app.config.theme.primary()),
+            Style::default().fg(Color::Rgb(180, 180, 200)),
         ));
         // Separator
         spans.push(Span::styled(
             "│ ",
-            Style::default().fg(app.config.theme.dim_text()),
+            Style::default().fg(theme.dim_text()),
         ));
         // Tool & message stats
         spans.push(Span::styled(
             format!("⚙ {} ", app.tool_call_count),
-            Style::default().fg(app.config.theme.primary()),
+            Style::default().fg(theme.primary()),
         ));
         spans.push(Span::styled(
             format!("💬 {} ", app.messages.len()),
-            Style::default().fg(app.config.theme.primary()),
+            Style::default().fg(theme.primary()),
         ));
         // Today's token usage summary
         if app.today_stats.requests > 0 {
             spans.push(Span::styled(
                 "│ ",
-                Style::default().fg(app.config.theme.dim_text()),
+                Style::default().fg(theme.dim_text()),
             ));
             let cost = app.today_stats.cost_usd;
             if cost > 0.001 {
@@ -107,7 +116,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
                         app.today_stats.tokens / 1000,
                         cost,
                     ),
-                    Style::default().fg(app.config.theme.accent()),
+                    Style::default().fg(Color::Rgb(251, 191, 36)),  // Amber
                 ));
             } else {
                 spans.push(Span::styled(
@@ -115,52 +124,52 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
                         app.today_stats.requests,
                         app.today_stats.tokens / 1000,
                     ),
-                    Style::default().fg(app.config.theme.accent()),
+                    Style::default().fg(Color::Rgb(251, 191, 36)),  // Amber
                 ));
             }
         }
-        // Keybindings (right side)
+        // Keybindings (right side) - more subtle
         spans.push(Span::styled(
             "│ ",
-            Style::default().fg(app.config.theme.dim_text()),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "Ctrl+Q ",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         spans.push(Span::styled(
             "Ctrl+N  ",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         if !app.overlay.show_sidebar && !app.http_logs.is_empty() {
                 spans.push(Span::styled(
                     "Ctrl+R  ",
-                    Style::default().fg(Color::Rgb(140, 140, 160)),
+                    Style::default().fg(Color::Rgb(80, 80, 95)),
                 ));
             }
         spans.push(Span::styled(
             "Ctrl+L  ",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         spans.push(Span::styled(
             "Ctrl+P ",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         spans.push(Span::styled(
             "  ",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         spans.push(Span::styled(
             "Ctrl+Shift+C",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         spans.push(Span::styled(
             "  Ctrl+S",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
         spans.push(Span::styled(
             "  Ctrl+H",
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(Color::Rgb(80, 80, 95)),
         ));
     }
 

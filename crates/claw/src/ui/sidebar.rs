@@ -10,12 +10,14 @@ use crate::app::App;
 use super::utils;
 
 pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
-    // Sidebar block with border
+    // Sidebar block with border - refined styling
+    let theme = &app.config.theme;
     let block = Block::default()
         .borders(Borders::LEFT | Borders::TOP)
-        .border_style(Style::default().fg(Color::Rgb(80, 80, 100)))
-        .title(" 🔍 Debug ")
-        .title_alignment(ratatui::layout::Alignment::Center);
+        .border_style(Style::default().fg(theme.border()))
+        .title(" ⬡ Debug ")
+        .title_alignment(ratatui::layout::Alignment::Center)
+        .border_type(ratatui::widgets::BorderType::Rounded);
 
     let inner = block.inner(area);
     f.render_widget(block, area);

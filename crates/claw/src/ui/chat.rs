@@ -495,17 +495,24 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 Tag::Heading { level, .. } => {
                     acc.flush(&mut lines, max_width);
                     let n = level as u8;
+                    // Heading color: cyan for H1, lighter for deeper headings
+                    let heading_color = match n {
+                        1 => Color::Rgb(34, 211, 238),  // Cyan
+                        2 => Color::Rgb(150, 200, 220),
+                        _ => Color::Rgb(180, 180, 200),
+                    };
                     let prefix = if n <= 3 && n > 0 {
                         format!("{} ", "#".repeat(n as usize))
                     } else {
                         String::new()
                     };
-                    acc.add(&prefix, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+                    acc.add(&prefix, Style::default().fg(heading_color).add_modifier(Modifier::BOLD));
                 }
                 Tag::List(_) => {}
                 Tag::Item => {
                     acc.flush(&mut lines, max_width);
-                    acc.add("• ", Style::default().fg(Color::Cyan));
+                    // Bullet with amber accent
+                    acc.add("▸ ", Style::default().fg(Color::Rgb(251, 191, 36)));
                 }
                 Tag::Emphasis => italic = true,
                 Tag::Strong => bold = true,
@@ -532,24 +539,24 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 TagEnd::CodeBlock => {
                     in_code_block = false;
                     if code_text.lines().any(|l| !l.trim().is_empty()) {
-                        // Code block header
+                        // Code block with refined colors
                         lines.push(Line::from(Span::styled(
                             format!("{:─^width$}", " code ", width = max_width.min(40)),
                             Style::default()
-                                .fg(Color::Rgb(120, 120, 80))
-                                .bg(Color::Rgb(20, 20, 25)),
+                                .fg(Color::Rgb(100, 100, 120))
+                                .bg(Color::Rgb(15, 15, 22)),
                         )));
                         for code_line in code_text.lines() {
                             lines.push(Line::from(Span::styled(
                                 format!("  {}", code_line),
                                 Style::default()
-                                    .fg(Color::Rgb(200, 200, 120))
-                                    .bg(Color::Rgb(20, 20, 25)),
+                                    .fg(Color::Rgb(220, 180, 120))
+                                    .bg(Color::Rgb(15, 15, 22)),
                             )));
                         }
                         lines.push(Line::from(Span::styled(
                             "".to_string(),
-                            Style::default().bg(Color::Rgb(20, 20, 25)),
+                            Style::default().bg(Color::Rgb(15, 15, 22)),
                         )));
                     }
                 }

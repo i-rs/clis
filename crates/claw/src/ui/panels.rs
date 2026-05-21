@@ -182,7 +182,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),  // Cyan primary
     );
     f.render_widget(list, popup_area);
 }
@@ -239,7 +239,7 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),  // Cyan primary
     );
     f.render_widget(list, popup_area);
 }
@@ -277,7 +277,7 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),  // Cyan primary
     );
     f.render_widget(list, popup_area);
 }
@@ -355,7 +355,7 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),
     );
     f.render_widget(list, popup_area);
 }
@@ -424,7 +424,7 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),
     );
     f.render_widget(list, popup_area);
 }
@@ -501,16 +501,17 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),
     );
     f.render_widget(list, popup_area);
 }
 
 pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
     f.render_widget(Clear, area);
+    // Dark backdrop with subtle blue undertone
     let fill = " ".repeat(area.width as usize);
     let lines: Vec<Line> = (0..area.height)
-        .map(|_| Line::from(Span::styled(&fill, Style::default().bg(Color::Rgb(10, 10, 20)))))
+        .map(|_| Line::from(Span::styled(&fill, Style::default().bg(Color::Rgb(8, 8, 15)))))
         .collect();
     f.render_widget(Paragraph::new(lines), area);
 }
