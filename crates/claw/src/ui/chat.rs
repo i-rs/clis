@@ -31,18 +31,22 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
         ));
     }
 
+    let total_content_height: usize = heights.iter().sum();
+    let max_scroll = total_content_height.saturating_sub(1);
+    let scroll_lines = app.scroll_lines.min(max_scroll);
+
     // Determine how many whole messages to skip + partial line offset
     let mut skipped_lines = 0usize;
     let mut msg_skip_count = 0usize;
     for (i, &h) in heights.iter().enumerate() {
-        if skipped_lines + h <= app.scroll_lines {
+        if skipped_lines + h <= scroll_lines {
             skipped_lines += h;
             msg_skip_count = i + 1;
         } else {
             break;
         }
     }
-    let partial_skip = app.scroll_lines - skipped_lines;
+    let partial_skip = scroll_lines - skipped_lines;
 
     // Fill viewport, always include at least one message even if partial
     let mut end_idx = msg_skip_count;
