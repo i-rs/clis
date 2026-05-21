@@ -12,17 +12,12 @@ use crate::app::{App, Message};
 use super::utils;
 
 pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
-    // Available text width (minus indentation)
     let text_width = (area.width as usize).saturating_sub(4).max(20);
-    // Subtract 1 line for the top border
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    // Pre-compute formatted lines — used by both line counting and rendering
-    // Key: msg_index, Value: rendered body lines (ToolCall format_json_result or Assistant render_markdown)
     let mut format_cache: std::collections::HashMap<usize, Vec<Line<'static>>> =
         std::collections::HashMap::new();
 
-    // ── Pass 1: Compute heights for ALL messages ──
     // heights[0] = newest message height, heights[n-1] = oldest
     let mut heights: Vec<usize> = Vec::with_capacity(app.messages.len());
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
@@ -36,10 +31,9 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
         ));
     }
 
-    // ── Determine skip count from line-level scroll ──
-    // Walk from newest (index 0), accumulate line heights until we exceed scroll_lines
+    // Determine how many whole messages to skip + partial line offset
     let mut skipped_lines = 0usize;
-    let mut msg_skip_count = 0usize; // how many messages to skip from bottom
+    let mut msg_skip_count = 0usize;
     for (i, &h) in heights.iter().enumerate() {
         if skipped_lines + h <= app.scroll_lines {
             skipped_lines += h;
@@ -48,40 +42,42 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             break;
         }
     }
+    let partial_skip = app.scroll_lines - skipped_lines;
 
-    // ── Pass 2: From msg_skip_count, fill viewport ──
-    let mut remaining = area_lines;
-    let mut end_idx = msg_skip_count; // exclusive index in heights
+    // Fill viewport, always include at least one message even if partial
+    let mut end_idx = msg_skip_count;
+    let mut accumulated = 0usize;
     for &h in heights[msg_skip_count..].iter() {
-        if h <= remaining {
-            remaining -= h;
-            end_idx += 1;
-        } else {
+        accumulated += h;
+        end_idx += 1;
+        if end_idx > msg_skip_count + 1 && accumulated > area_lines + partial_skip {
+            end_idx -= 1;
             break;
         }
     }
-    // If even the first visible message doesn't fit, force show at least it
     if end_idx == msg_skip_count && end_idx < heights.len() {
         end_idx = msg_skip_count + 1;
     }
 
-    // ── Pass 3: Build items newest-to-oldest, then reverse for chronological order ──
+    // Build items with partial skip for the first visible message
     let mut items: Vec<ListItem> = Vec::new();
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
         if rev_idx < msg_skip_count {
             continue;
         }
         if rev_idx >= end_idx {
-            continue; // too old, clipped from top
+            continue;
         }
         let msg_index = app.messages.len() - 1 - rev_idx;
-        items.push(build_message_item(app, msg, text_width, msg_index, &format_cache));
+        let skip = if rev_idx == msg_skip_count { partial_skip } else { 0 };
+        items.push(build_message_item_with_skip(
+            app, msg, text_width, msg_index, &format_cache, skip,
+        ));
     }
     items.reverse();
 
-    // ── Bottom indicator ──
     let at_bottom = app.scroll_lines == 0;
-    let hidden_extra = heights.len().saturating_sub(end_idx); // extra hidden by area, not by scroll
+    let hidden_extra = heights.len().saturating_sub(end_idx);
 
     let mut block = ratatui::widgets::Block::default()
         .borders(ratatui::widgets::Borders::TOP)
@@ -586,15 +582,43 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
 }
 
 /// Build a ListItem widget from a Message.
-fn build_message_item(
+fn build_message_item_with_skip(
     app: &App,
     msg: &Message,
     text_width: usize,
     msg_index: usize,
     format_cache: &std::collections::HashMap<usize, Vec<Line<'static>>>,
+    skip_lines: usize,
 ) -> ListItem<'static> {
     let is_selected = app.overlay.selection_mode && app.overlay.selected_message == Some(msg_index);
 
+    let mut lines = build_message_lines(app, msg, text_width, msg_index, format_cache);
+    if skip_lines > 0 && skip_lines < lines.len() {
+        lines.drain(..skip_lines);
+    } else if skip_lines >= lines.len() {
+        lines.clear();
+    }
+
+    let mut item = ListItem::new(lines);
+    if is_selected {
+        let bg = match msg {
+            Message::User { .. } => Color::Rgb(25, 35, 25),
+            Message::Assistant { .. } => Color::Rgb(25, 30, 45),
+            Message::ToolCall { .. } => Color::Rgb(25, 25, 35),
+            Message::Error { .. } => Color::Rgb(35, 15, 15),
+        };
+        item = item.style(Style::default().bg(bg));
+    }
+    item
+}
+
+fn build_message_lines(
+    app: &App,
+    msg: &Message,
+    text_width: usize,
+    msg_index: usize,
+    format_cache: &std::collections::HashMap<usize, Vec<Line<'static>>>,
+) -> Vec<Line<'static>> {
     match msg {
         Message::User { text } => {
             let ts_label = app.message_timestamps
@@ -616,11 +640,7 @@ fn build_message_item(
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            let mut item = ListItem::new(lines);
-            if is_selected {
-                item = item.style(Style::default().bg(Color::Rgb(25, 35, 25)));
-            }
-            item
+            lines
         }
         Message::Assistant { text } => {
             let ts_label = app.message_timestamps
@@ -659,11 +679,7 @@ fn build_message_item(
                 }
             }
             lines.push(Line::from(Span::raw("")));
-            let mut item = ListItem::new(lines);
-            if is_selected {
-                item = item.style(Style::default().bg(Color::Rgb(25, 30, 45)));
-            }
-            item
+            lines
         }
         Message::ToolCall {
             name,
@@ -751,11 +767,7 @@ fn build_message_item(
                     }
                 }
 
-            let mut item = ListItem::new(lines);
-            if is_selected {
-                item = item.style(Style::default().bg(Color::Rgb(25, 25, 35)));
-            }
-            item
+            lines
         }
         Message::Error { text } => {
             let ts_label = app.message_timestamps
@@ -777,11 +789,7 @@ fn build_message_item(
                 )));
             }
             lines.push(Line::from(Span::raw("")));
-            let mut item = ListItem::new(lines);
-            if is_selected {
-                item = item.style(Style::default().bg(Color::Rgb(35, 15, 15)));
-            }
-            item
+            lines
         }
     }
 }
