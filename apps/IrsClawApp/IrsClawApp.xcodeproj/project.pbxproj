@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		466A0BBB2FC23256009170F9 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 466A0BBA2FC23256009170F9 /* MarkdownUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		46540FB22FC1682000297E0B /* IrsClawApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IrsClawApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				466A0BBB2FC23256009170F9 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = IrsClawApp;
 			packageProductDependencies = (
+				466A0BBA2FC23256009170F9 /* MarkdownUI */,
 			);
 			productName = IrsClawApp;
 			productReference = 46540FB22FC1682000297E0B /* IrsClawApp.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = 46540FA92FC1682000297E0B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				466A0BB92FC23256009170F9 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 46540FB32FC1682000297E0B /* Products */;
 			projectDirPath = "";
@@ -375,6 +384,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		466A0BB92FC23256009170F9 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		466A0BBA2FC23256009170F9 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 466A0BB92FC23256009170F9 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 46540FAA2FC1682000297E0B /* Project object */;
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 #if os(macOS)
 extension NSFont: @unchecked @retroactive Sendable {}
 #else
@@ -558,145 +559,31 @@ struct JSONHighlightView: View {
 
 struct MarkdownTextView: View {
     let text: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompact: Bool { horizontalSizeClass == .compact }
 
     var body: some View {
-        let blocks = splitByCodeBlocks(text)
-
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                if block.isCode {
-                    CodeBlockView(code: block.content, language: block.language)
-                } else {
-                    InlineMarkdownView(text: block.content)
-                }
-            }
-        }
-    }
-
-    private func splitByCodeBlocks(_ text: String) -> [(content: String, isCode: Bool, language: String)] {
-        var result: [(String, Bool, String)] = []
-        let lines = text.components(separatedBy: "\n")
-        var inCodeBlock = false
-        var codeLines: [String] = []
-        var language = ""
-        var inlineLines: [String] = []
-
-        for line in lines {
-            if line.hasPrefix("```") {
-                if inCodeBlock {
-                    if !inlineLines.isEmpty {
-                        result.append((inlineLines.joined(separator: "\n"), false, ""))
-                        inlineLines.removeAll()
-                    }
-                    result.append((codeLines.joined(separator: "\n"), true, language))
-                    codeLines.removeAll()
-                    language = ""
-                    inCodeBlock = false
-                } else {
-                    if !inlineLines.isEmpty {
-                        result.append((inlineLines.joined(separator: "\n"), false, ""))
-                        inlineLines.removeAll()
-                    }
-                    language = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                    inCodeBlock = true
-                }
-            } else if inCodeBlock {
-                codeLines.append(line)
-            } else {
-                inlineLines.append(line)
-            }
-        }
-
-        if !inlineLines.isEmpty {
-            result.append((inlineLines.joined(separator: "\n"), false, ""))
-        }
-        if !codeLines.isEmpty {
-            result.append((codeLines.joined(separator: "\n"), true, language))
-        }
-
-        return result
-    }
-}
-
-struct CodeBlockView: View {
-    let code: String
-    let language: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !language.isEmpty {
-                Text(language)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.1))
-            }
-
-            ScrollView(.horizontal, showsIndicators: true) {
-                JSONHighlightView(json: code)
-                    .padding(4)
-                    .textSelection(.enabled)
-            }
-        }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.accentColor.opacity(0.15), lineWidth: 1)
-        )
-    }
-}
-
-struct InlineMarkdownView: View {
-    let text: String
-
-    var body: some View {
-        Text(parseInlineMarkdown(text))
+        Markdown(text)
+            .markdownTheme(isCompact ? .gitHubTableScroll : .gitHub)
             .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: false)
     }
-    
-    private func parseInlineMarkdown(_ text: String) -> AttributedString {
-        var attributed = AttributedString(text)
+}
 
-        if let regex = try? NSRegularExpression(pattern: "\\*\\*(.+?)\\*\\*|__(.+?)__") {
-            let nsRange = NSRange(text.startIndex..., in: text)
-            for match in regex.matches(in: text, range: nsRange).reversed() {
-                if let attrRange = Range(match.range(at: 1), in: text) ?? Range(match.range(at: 2), in: text) {
-                    if let attributedRange = Range(attrRange, in: attributed) {
-                        let raw = String(attributed[attributedRange].characters)
-                        var bold = AttributedString(raw)
-                        #if os(macOS)
-                        bold.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
-                        #else
-                        bold.font = .boldSystemFont(ofSize: UIFont.systemFontSize)
-                        #endif
-                        attributed.replaceSubrange(attributedRange, with: bold)
-                    }
-                }
-            }
+extension Theme {
+    static let gitHubTableScroll = Theme.gitHub.table { configuration in
+        ScrollView(.horizontal, showsIndicators: true) {
+            configuration.label
+                .fixedSize(horizontal: true, vertical: false)
         }
-
-        if let regex = try? NSRegularExpression(pattern: "`(.+?)`") {
-            let nsRange = NSRange(text.startIndex..., in: text)
-            for match in regex.matches(in: text, range: nsRange).reversed() {
-                if let codeRange = Range(match.range(at: 1), in: text) {
-                    if let attributedRange = Range(match.range, in: attributed) {
-                        let codeText = String(text[codeRange])
-                        var attr = AttributedString(codeText)
-                        #if os(macOS)
-                        attr.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize - 1, weight: .regular)
-                        #else
-                        attr.font = .monospacedSystemFont(ofSize: UIFont.systemFontSize - 1, weight: .regular)
-                        #endif
-                        attr.backgroundColor = .init(red: 0.9, green: 0.9, blue: 0.9, alpha: 0.3)
-                        attributed.replaceSubrange(attributedRange, with: attr)
-                    }
-                }
-            }
-        }
-
-        return attributed
+        .scrollBounceBehavior(.basedOnSize)
+        .markdownTableBorderStyle(.init(
+            color: Color(light: Color(rgba: 0xe4e4_e8ff), dark: Color(rgba: 0x4244_4eff))
+        ))
+        .markdownTableBackgroundStyle(.alternatingRows(
+            Color(light: Color(rgba: 0xffff_ffff), dark: Color(rgba: 0x1819_1dff)),
+            Color(light: Color(rgba: 0xf7f7_f9ff), dark: Color(rgba: 0x2526_2aff))
+        ))
+        .markdownMargin(top: 0, bottom: 16)
     }
 }
