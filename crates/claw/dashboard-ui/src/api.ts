@@ -1,4 +1,4 @@
-const BASE = '/api'
+const BASE = window.location.pathname.replace(/\/$/, '') + '/api'
 
 const TOKEN_KEY = 'claw-dashboard-token'
 
