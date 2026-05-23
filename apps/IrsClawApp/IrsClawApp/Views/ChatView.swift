@@ -5,67 +5,51 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var scrollToBottom = false
     @State private var showingAddAgent = false
+    @FocusState private var isInputFocused: Bool
     @StateObject private var voiceInput = VoiceInputService()
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Message List
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 6) {
-                        ForEach(service.messages) { item in
-                            MessageBubbleView(message: item.message)
-                                .id(item.id)
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(service.messages) { item in
+                        MessageBubbleView(message: item.message)
+                            .id(item.id)
+                    }
 
-                        Color.clear
-                            .frame(height: 1)
-                            .id("bottom")
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
                 }
-                .onChange(of: service.messageVersion) { _, _ in
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        proxy.scrollTo("bottom", anchor: .bottom)
-                    }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .onTapGesture { isInputFocused = false }
+            .onChange(of: service.messageVersion) { _, _ in
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
-
-            Divider()
-
-            // Recording / error indicator bar
+        }
+        .overlay(alignment: .bottom) {
             if voiceInput.isRecording || !(voiceInput.errorMessage?.isEmpty ?? true) {
-                if voiceInput.isRecording {
-                    recordingBar
-                } else if let error = voiceInput.errorMessage, !error.isEmpty {
-                    errorBar(error)
+                VStack(spacing: 0) {
+                    if voiceInput.isRecording {
+                        recordingBar
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    } else if let error = voiceInput.errorMessage, !error.isEmpty {
+                        errorBar(error)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
+                .padding(.bottom, 80)
             }
-
-            // Input Bar - Modern iOS-native design
-            HStack(spacing: 8) {
-                TextField("Message i-rs-claw...", text: $inputText, axis: .vertical)
-                    .lineLimit(1...5)
-                    .textFieldStyle(.plain)
-                    .font(.body)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(Color.platformControlBackground)
-                    )
-
-                micButton
-
-                sendButton
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                Color.platformWindowBackground
-                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: -3)
-            )
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            floatingInputBar
+                .padding(.vertical, 8)
+                .background(Color.platformWindowBackground)
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
             if voiceInput.isRecording {
@@ -85,6 +69,42 @@ struct ChatView: View {
         .sheet(isPresented: $showingAddAgent) {
             AddAgentSheet(service: service)
         }
+    }
+
+    // MARK: - ⭐ Floating Input Bar
+
+    @ViewBuilder
+    private var floatingInputBar: some View {
+        HStack(spacing: 8) {
+            micButton
+
+            TextField("Message i-rs-claw...", text: $inputText, axis: .vertical)
+                .lineLimit(1...5)
+                .textFieldStyle(.plain)
+                .font(.body)
+                .focused($isInputFocused)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") { isInputFocused = false }
+                            .fontWeight(.semibold)
+                    }
+                }
+
+            sendButton
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 12)
     }
 
     @ViewBuilder
@@ -167,7 +187,7 @@ struct ChatView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(.red.opacity(0.04))
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Error Bar
@@ -193,7 +213,7 @@ struct ChatView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(Color.orange.opacity(0.05))
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Actions
