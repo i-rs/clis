@@ -6,6 +6,7 @@ extension NSFont: @unchecked @retroactive Sendable {}
 #endif
 struct MessageBubbleView: View {
     let message: AppMessage
+    var tokenUsage: TokenUsage?
     @State private var isToolExpanded = false
     @State private var isReasoningExpanded = false
     @State private var isAppearing = false
@@ -76,11 +77,36 @@ struct MessageBubbleView: View {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(Color.platformSecondaryBackground)
                     )
+                    .overlay(alignment: .bottomTrailing) {
+                        if let usage = tokenUsage {
+                            tokenUsageBadge(usage)
+                                .padding(.trailing, 8)
+                                .padding(.bottom, 4)
+                        }
+                    }
             }
 
             Spacer(minLength: 60)
         }
         .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func tokenUsageBadge(_ usage: TokenUsage) -> some View {
+        let prompt = usage.promptTokens ?? 0
+        let completion = usage.completionTokens ?? 0
+        let total = prompt + completion
+        HStack(spacing: 4) {
+            Image(systemName: "speedometer")
+                .font(.system(size: 8))
+            Text("\(total) tokens")
+                .font(.system(size: 9))
+        }
+        .foregroundStyle(.tertiary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(.ultraThinMaterial.opacity(0.6))
+        .clipShape(Capsule())
     }
 
     // MARK: - Tool Call Bubble

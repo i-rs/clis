@@ -46,6 +46,7 @@ class ClawService: ObservableObject {
     @Published var currentAgentId: String = "default"
     /// Incremented on each message update to trigger scroll in ChatView
     @Published var messageVersion = 0
+    @Published var lastTokenUsage: TokenUsage?
 
     // MARK: - Private Properties
 
@@ -351,6 +352,7 @@ class ClawService: ObservableObject {
         sseTask?.cancel()
 
         // Add user message to UI immediately
+        lastTokenUsage = nil
         messages.append(MessageItem(message: .user(text: text)))
         isProcessing = true
         errorMessage = nil
@@ -546,6 +548,15 @@ class ClawService: ObservableObject {
 
         case "done":
             isProcessing = false
+            // Parse token usage from done event: {"usage": {"prompt_tokens": X, "completion_tokens": Y}}
+            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any],
+               let usageDict = json["usage"] as? [String: Any],
+               let usageData = try? JSONSerialization.data(withJSONObject: usageDict),
+               let usage = try? decoder.decode(TokenUsage.self, from: usageData) {
+                lastTokenUsage = usage
+            } else {
+                lastTokenUsage = nil
+            }
 
         case "error":
             messages.append(MessageItem(message: .error(text: data)))

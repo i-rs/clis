@@ -12,9 +12,15 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 6) {
-                    ForEach(service.messages) { item in
-                        MessageBubbleView(message: item.message)
-                            .id(item.id)
+                    ForEach(Array(service.messages.enumerated()), id: \.element.id) { index, item in
+                        let isLastAssistant = index == service.messages.count - 1
+                            && service.lastTokenUsage != nil
+                            && !service.isProcessing
+                        MessageBubbleView(
+                            message: item.message,
+                            tokenUsage: isLastAssistant ? service.lastTokenUsage : nil
+                        )
+                        .id(item.id)
                     }
 
                     Color.clear
