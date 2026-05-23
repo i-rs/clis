@@ -32,24 +32,26 @@ struct ChatView: View {
                 }
             }
         }
-        .overlay(alignment: .bottom) {
-            if voiceInput.isRecording || !(voiceInput.errorMessage?.isEmpty ?? true) {
-                VStack(spacing: 0) {
-                    if voiceInput.isRecording {
-                        recordingBar
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    } else if let error = voiceInput.errorMessage, !error.isEmpty {
-                        errorBar(error)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                }
-                .padding(.bottom, 80)
-            }
-        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            floatingInputBar
-                .padding(.vertical, 8)
-                .background(Color.platformWindowBackground)
+            VStack(spacing: 0) {
+                if voiceInput.isRecording || !(voiceInput.errorMessage?.isEmpty ?? true) {
+                    VStack(spacing: 0) {
+                        if voiceInput.isRecording {
+                            recordingBar
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        } else if let error = voiceInput.errorMessage, !error.isEmpty {
+                            errorBar(error)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+                }
+
+                floatingInputBar
+                    .padding(.bottom, 8)
+                    .background(Color.platformWindowBackground)
+            }
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
             if voiceInput.isRecording {
