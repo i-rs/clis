@@ -42,7 +42,7 @@ struct MessageBubbleView: View {
     @ViewBuilder
     private func userBubble(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Spacer(minLength: 60)
+            Spacer(minLength: 20)
             VStack(alignment: .trailing, spacing: 4) {
                 Text(text)
                     .textSelection(.enabled)
@@ -86,7 +86,7 @@ struct MessageBubbleView: View {
                     }
             }
 
-            Spacer(minLength: 60)
+            Spacer(minLength: 20)
         }
         .padding(.vertical, 2)
     }
@@ -119,7 +119,7 @@ struct MessageBubbleView: View {
 
             toolCallCard(name: name, args: args, result: result)
 
-            Spacer(minLength: 60)
+            Spacer(minLength: 20)
         }
         .padding(.vertical, 2)
     }
@@ -170,7 +170,7 @@ struct MessageBubbleView: View {
 
             reasoningBlock(text)
 
-            Spacer(minLength: 60)
+            Spacer(minLength: 20)
         }
         .padding(.vertical, 2)
     }
@@ -416,10 +416,10 @@ struct AvatarView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 30, height: 30)
+                .frame(width: 36, height: 36)
 
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }
