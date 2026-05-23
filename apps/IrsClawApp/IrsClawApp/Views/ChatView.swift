@@ -24,8 +24,9 @@ struct ChatView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
-            .scrollDismissesKeyboard(.immediately)
+            .scrollDismissesKeyboard(.interactively)
             .onTapGesture { isInputFocused = false }
+            .animation(.smooth(duration: 0.25), value: isInputFocused)
             .onChange(of: service.messageVersion) { _, _ in
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
@@ -49,9 +50,9 @@ struct ChatView: View {
                 }
 
                 floatingInputBar
-                    .padding(.bottom, 8)
-                    .background(Color.platformWindowBackground)
             }
+            .padding(.bottom, 8)
+            .background(Color.platformWindowBackground)
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
             if voiceInput.isRecording {
@@ -85,13 +86,6 @@ struct ChatView: View {
                 .textFieldStyle(.plain)
                 .font(.body)
                 .focused($isInputFocused)
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") { isInputFocused = false }
-                            .fontWeight(.semibold)
-                    }
-                }
 
             sendButton
         }
