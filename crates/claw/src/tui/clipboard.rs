@@ -10,8 +10,12 @@ pub(super) fn save_session_messages(
             crate::app::Message::User { text } => {
                 serde_json::json!({"type": "user", "text": text})
             }
-            crate::app::Message::Assistant { text } => {
-                serde_json::json!({"type": "assistant", "text": text})
+            crate::app::Message::Assistant { text, reasoning } => {
+                let mut obj = serde_json::json!({"type": "assistant", "text": text});
+                if !reasoning.is_empty() {
+                    obj["reasoning"] = serde_json::Value::String(reasoning.clone());
+                }
+                obj
             }
             crate::app::Message::ToolCall {
                 name,

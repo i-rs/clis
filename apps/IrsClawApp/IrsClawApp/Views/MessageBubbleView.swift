@@ -7,6 +7,7 @@ extension NSFont: @unchecked @retroactive Sendable {}
 struct MessageBubbleView: View {
     let message: AppMessage
     @State private var isToolExpanded = false
+    @State private var isReasoningExpanded = false
     @State private var isAppearing = false
 
     var body: some View {
@@ -126,17 +127,11 @@ struct MessageBubbleView: View {
 
     @ViewBuilder
     private func statusBubble(_ text: String) -> some View {
-        HStack(spacing: 8) {
-            ProgressView()
-                .scaleEffect(0.65)
-                .tint(.accentColor)
-
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.vertical, 6)
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 6)
     }
 
     // MARK: - Reasoning Bubble
@@ -284,32 +279,62 @@ struct MessageBubbleView: View {
 
     @ViewBuilder
     private func reasoningBlock(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Image(systemName: "brain")
-                    .font(.caption)
-                    .symbolEffect(.pulse, options: .repeating, value: text)
-                Text("Thinking")
-                    .font(.caption)
-                    .fontWeight(.medium)
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isReasoningExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "brain")
+                        .font(.caption)
+                        .symbolEffect(.pulse, options: .repeating, value: text)
+                    Text("Thinking")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text(countTokens(text))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Image(systemName: isReasoningExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 12)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
 
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(.primary)
-                .lineLimit(5)
+            if isReasoningExpanded {
+                Divider()
+                    .padding(.horizontal, 12)
+                Text(text)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.platformSecondaryBackground)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 1)
         )
+    }
+
+    private func countTokens(_ text: String) -> String {
+        let count = text.count
+        if count < 1000 { return "\(count) chars" }
+        return "\(count / 1000)k chars"
     }
 
     private func smartTruncate(_ text: String, maxLen: Int) -> String {

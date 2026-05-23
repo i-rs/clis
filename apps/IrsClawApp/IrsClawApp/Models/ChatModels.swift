@@ -67,12 +67,13 @@ struct ClawMessage: Codable, Identifiable {
     let id = UUID()
     let role: String
     let content: String?
+    let reasoning: String?
     let name: String?
     let args: String?
     let result: String?
 
     enum CodingKeys: String, CodingKey {
-        case role, content, name, args, result
+        case role, content, reasoning, name, args, result
     }
 
     var displayContent: String {

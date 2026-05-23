@@ -29,9 +29,7 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.config.theme;
 
     // Determine border color based on state
-    let border_color = if app.is_processing() {
-        theme.border()
-    } else if app.input.text.is_empty() {
+    let border_color = if app.is_processing() || app.input.text.is_empty() {
         theme.border()
     } else {
         theme.primary()

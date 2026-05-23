@@ -102,7 +102,7 @@ impl crate::providers::LlmProvider for MockProvider {
         if has_tool_calls {
             Ok(StreamResult::ToolCalls(Vec::new(), String::new()))
         } else {
-            Ok(StreamResult::Text(None, String::new()))
+            Ok(StreamResult::Text(None, String::new(), String::new()))
         }
     }
 }

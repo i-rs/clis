@@ -35,7 +35,7 @@ pub struct HttpLog {
 #[derive(Clone)]
 pub enum Message {
     User { text: String },
-    Assistant { text: String },
+    Assistant { text: String, reasoning: String },
     ToolCall {
         name: String,
         args: String,
@@ -280,6 +280,7 @@ pub struct OverlayState {
     pub selection_mode: bool,
     pub selected_message: Option<usize>,
     pub tool_call_expanded: HashSet<usize>,
+    pub reasoning_expanded: HashSet<usize>,
     pub show_help: bool,
     pub show_config: bool,
     pub show_tool_list: bool,
@@ -326,6 +327,7 @@ impl OverlayState {
             selection_mode: false,
             selected_message: None,
             tool_call_expanded: HashSet::new(),
+            reasoning_expanded: HashSet::new(),
             show_help: false,
             show_config: false,
             show_tool_list: false,
@@ -492,14 +494,19 @@ impl App {
     /// Start a new assistant message. If the last message is an empty assistant,
     /// reuse it instead of creating a new one.
     pub fn start_assistant_message(&mut self) {
+        // Capture any accumulated reasoning into the last assistant message
+        if !self.current_reasoning.is_empty()
+            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut() {
+                reasoning.push_str(&self.current_reasoning);
+        }
         self.current_reasoning.clear();
         let is_empty_assistant = matches!(
             self.messages.last(),
-            Some(Message::Assistant { text }) if text.is_empty()
+            Some(Message::Assistant { text, .. }) if text.is_empty()
         );
         if !is_empty_assistant {
             self.messages
-                .push(Message::Assistant { text: String::new() });
+                .push(Message::Assistant { text: String::new(), reasoning: String::new() });
             self.message_timestamps.push(chrono::Local::now().naive_local());
         }
     }
@@ -510,7 +517,7 @@ impl App {
         if !last_is_assistant {
             self.start_assistant_message();
         }
-        if let Some(Message::Assistant { text: t }) = self.messages.last_mut() {
+        if let Some(Message::Assistant { text: t, .. }) = self.messages.last_mut() {
             t.push_str(text);
         }
     }
@@ -535,9 +542,14 @@ impl App {
     }
 
     pub fn add_error(&mut self, text: &str) {
+        // Capture any accumulated reasoning into the last assistant message
+        if !self.current_reasoning.is_empty()
+            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut() {
+                reasoning.push_str(&self.current_reasoning);
+        }
         self.current_reasoning.clear();
         // Remove trailing empty assistant message (from NewRound before error)
-        if let Some(Message::Assistant { text }) = self.messages.last()
+        if let Some(Message::Assistant { text, .. }) = self.messages.last()
             && text.is_empty() {
                 self.messages.pop();
             }
@@ -551,9 +563,14 @@ impl App {
 
     /// Finish processing and save the accumulated API messages for context preservation
     pub fn finish_processing(&mut self, api_messages: Option<Vec<Value>>) {
+        // Capture any accumulated reasoning into the last assistant message
+        if !self.current_reasoning.is_empty()
+            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut() {
+                reasoning.push_str(&self.current_reasoning);
+        }
         self.current_reasoning.clear();
         // Remove trailing empty assistant message
-        if let Some(Message::Assistant { text }) = self.messages.last()
+        if let Some(Message::Assistant { text, .. }) = self.messages.last()
             && text.is_empty() {
                 self.messages.pop();
             }
@@ -719,11 +736,11 @@ mod tests {
         let mut app = App::new(test_config());
         app.start_assistant_message();
         assert_eq!(app.messages.len(), 1);
-        assert!(matches!(app.messages[0], Message::Assistant { ref text } if text.is_empty()));
+        assert!(matches!(app.messages[0], Message::Assistant { ref text, .. } if text.is_empty()));
 
         app.append_assistant_text("hello ");
         app.append_assistant_text("world");
-        assert!(matches!(app.messages[0], Message::Assistant { ref text } if text == "hello world"));
+        assert!(matches!(app.messages[0], Message::Assistant { ref text, .. } if text == "hello world"));
     }
 
     #[test]
@@ -731,7 +748,7 @@ mod tests {
         let mut app = App::new(test_config());
         app.append_assistant_text("direct");
         assert_eq!(app.messages.len(), 1);
-        assert!(matches!(app.messages[0], Message::Assistant { ref text } if text == "direct"));
+        assert!(matches!(app.messages[0], Message::Assistant { ref text, .. } if text == "direct"));
     }
 
     #[test]

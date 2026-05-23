@@ -190,7 +190,7 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
             crate::app::Message::User { text } => {
                 msgs.push(serde_json::json!({"role": "user", "content": text}));
             }
-            crate::app::Message::Assistant { text } if !text.is_empty() => {
+            crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
                 msgs.push(serde_json::json!({"role": "assistant", "content": text}));
             }
             _ => {}

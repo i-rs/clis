@@ -7,7 +7,6 @@ use ratatui::{
 };
 
 use crate::app::App;
-use super::utils;
 
 pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     if app.plan_steps.is_empty() {
@@ -60,47 +59,13 @@ pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App) {
     let frame = (app.messages.len() + app.tool_call_count) % dots.len();
     let spinner = dots[frame];
 
-    // Split area: first line for spinner+status, rest for reasoning
-    let (status_area, reason_area) = if area.height > 1 {
-        let chunks = ratatui::layout::Layout::default()
-            .direction(ratatui::layout::Direction::Vertical)
-            .constraints([ratatui::layout::Constraint::Length(1), ratatui::layout::Constraint::Min(1)])
-            .split(area);
-        (chunks[0], chunks[1])
-    } else {
-        (area, Rect::default())
-    };
-
     let label = Line::from(Span::styled(
         format!(" {}  {}", spinner, app.status_text),
         Style::default()
             .fg(Color::Cyan)
             .add_modifier(Modifier::BOLD),
     ));
-    f.render_widget(label, status_area);
-
-    // Render reasoning content below the processing line if available
-    if !app.current_reasoning.is_empty() && reason_area.height >= 1 {
-        let mut reason_lines: Vec<Line> = app
-            .current_reasoning
-            .lines()
-            .take(reason_area.height as usize)
-            .map(|line| {
-                let display = utils::truncate_str(line, (area.width as usize).saturating_sub(4).max(20));
-                Line::from(Span::styled(
-                    format!(" 🤔 {}", display),
-                    Style::default().fg(Color::Rgb(120, 120, 140)),
-                ))
-            })
-            .collect();
-
-        // Fill remaining lines
-        while reason_lines.len() < reason_area.height as usize {
-            reason_lines.push(Line::from(Span::raw("")));
-        }
-
-        f.render_widget(Paragraph::new(reason_lines), reason_area);
-    }
+    f.render_widget(label, area);
 }
 
 pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {

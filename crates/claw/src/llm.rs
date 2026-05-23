@@ -61,6 +61,6 @@ pub struct ToolCallAcc {
 
 #[derive(Clone)]
 pub(crate) enum StreamResult {
-    Text(Option<TokenUsage>, String), // usage + accumulated text content
+    Text(Option<TokenUsage>, String, String), // usage + accumulated text content + accumulated reasoning content
     ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content
 }

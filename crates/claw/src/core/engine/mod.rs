@@ -68,12 +68,16 @@ pub async fn chat_loop(
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
         match provider.stream_chat(&msgs, &tool_schemas, &tx).await {
-            Ok(StreamResult::Text(usage, text)) => {
-                if !text.is_empty() {
-                    msgs.push(serde_json::json!({
+            Ok(StreamResult::Text(usage, text, reasoning)) => {
+                if !text.is_empty() || !reasoning.is_empty() {
+                    let mut msg = serde_json::json!({
                         "role": "assistant",
                         "content": text,
-                    }));
+                    });
+                    if !reasoning.is_empty() {
+                        msg["reasoning_content"] = serde_json::Value::String(reasoning);
+                    }
+                    msgs.push(msg);
                 }
                 let _ = tx.send(LlmEvent::Done(Arc::new(msgs), usage));
                 break;
@@ -343,7 +347,7 @@ mod tests {
             json!({"role": "assistant", "content": "response"}),
         ];
         let params = MessageBuildParams {
-            app_messages: &[Message::User { text: "prev".to_string() }, Message::Assistant { text: "response".to_string() }, Message::User { text: "new".to_string() }],
+            app_messages: &[Message::User { text: "prev".to_string() }, Message::Assistant { text: "response".to_string(), reasoning: String::new() }, Message::User { text: "new".to_string() }],
             user_text: "new",
             saved_api_messages: &Some(saved),
             tool_frequency: &HashMap::new(),
@@ -400,7 +404,7 @@ mod tests {
             json!({"role": "assistant", "content": "ok"}),
         ];
         let params = MessageBuildParams {
-            app_messages: &[Message::User { text: "done".to_string() }, Message::Assistant { text: "ok".to_string() }, Message::User { text: "new".to_string() }],
+            app_messages: &[Message::User { text: "done".to_string() }, Message::Assistant { text: "ok".to_string(), reasoning: String::new() }, Message::User { text: "new".to_string() }],
             user_text: "new",
             saved_api_messages: &Some(saved),
             tool_frequency: &HashMap::new(),
@@ -430,7 +434,7 @@ mod tests {
         use crate::app::Message;
         let app_msgs: Vec<Message> = (0..20).flat_map(|i| vec![
             Message::User { text: format!("q{}", i) },
-            Message::Assistant { text: format!("a{}", i) },
+            Message::Assistant { text: format!("a{}", i), reasoning: String::new() },
         ]).collect();
         let params = MessageBuildParams {
             app_messages: &app_msgs,

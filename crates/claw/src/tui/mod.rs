@@ -91,6 +91,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                     "告诉我这些，我可以更贴心地帮你管理数据 😊",
                 )
                 .to_string(),
+                reasoning: String::new(),
             });
             app.message_timestamps.push(chrono::Local::now().naive_local());
         } else {
@@ -99,6 +100,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                        \n我可以帮你管理健康、财务、任务、媒体等个人信息。\
                        \n试试说：\"记录体重75kg\" 或 \"最近跑步情况如何？\""
                     .to_string(),
+                reasoning: String::new(),
             });
             app.message_timestamps.push(chrono::Local::now().naive_local());
         }

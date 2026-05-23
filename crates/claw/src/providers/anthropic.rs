@@ -470,7 +470,7 @@ impl LlmProvider for AnthropicProvider {
                 .map(|b| b.text.clone())
                 .collect::<Vec<_>>()
                 .join("");
-            Ok(StreamResult::Text(total_usage, text))
+            Ok(StreamResult::Text(total_usage, text, String::new()))
         }
     }
 }

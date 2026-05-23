@@ -275,7 +275,7 @@ class ClawService: ObservableObject {
             if let agentId = cs.agentId {
                 self.currentAgentId = agentId
             }
-            self.messages = cs.messages.map { convertToAppMessage($0) }
+            self.messages = cs.messages.flatMap { convertToAppMessages($0) }
         }
     }
 
@@ -327,7 +327,7 @@ class ClawService: ObservableObject {
         guard let data = await get("/api/sessions/\(id)") else { return }
         guard let response: ApiResponse<SessionDetail> = decode(data) else { return }
         if response.success, let detail = response.data {
-            self.messages = detail.messages.map { convertToAppMessage($0) }
+            self.messages = detail.messages.flatMap { convertToAppMessages($0) }
         }
     }
 
@@ -518,7 +518,13 @@ class ClawService: ObservableObject {
         switch event {
         case "reasoning":
             if !data.isEmpty {
-                messages.append(MessageItem(message: .reasoning(text: data)))
+                // Accumulate consecutive reasoning events into a single message
+                if let last = messages.last, case .reasoning(let existing) = last.message {
+                    messages.removeLast()
+                    messages.append(MessageItem(message: .reasoning(text: existing + data)))
+                } else {
+                    messages.append(MessageItem(message: .reasoning(text: data)))
+                }
                 messageVersion += 1
             }
 
@@ -539,14 +545,7 @@ class ClawService: ObservableObject {
             break
 
         case "done":
-            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any] {
-                if let usage = json["usage"] as? [String: Int] {
-                    let prompt = usage["prompt_tokens"] ?? 0
-                    let completion = usage["completion_tokens"] ?? 0
-                    messages.append(MessageItem(message: .status(text: "⚡ Tokens: \(prompt)↑ + \(completion)↓")))
-                    messageVersion += 1
-                }
-            }
+            isProcessing = false
 
         case "error":
             messages.append(MessageItem(message: .error(text: data)))
@@ -732,7 +731,15 @@ class ClawService: ObservableObject {
         }
     }
 
-    private func convertToAppMessage(_ msg: ClawMessage) -> MessageItem {
+    /// Convert a ClawMessage from the API into one or more MessageItems.
+    /// Reasoning (DeepSeek chain-of-thought) is emitted as a separate message
+    /// before the assistant text, consistent with the SSE streaming model.
+    private func convertToAppMessages(_ msg: ClawMessage) -> [MessageItem] {
+        var items: [MessageItem] = []
+        // Emit reasoning as a separate message if present
+        if let reasoning = msg.reasoning, !reasoning.isEmpty {
+            items.append(MessageItem(message: .reasoning(text: reasoning)))
+        }
         let appMsg: AppMessage
         switch msg.role {
         case "user":
@@ -744,7 +751,8 @@ class ClawService: ObservableObject {
         default:
             appMsg = .assistant(text: msg.content ?? "")
         }
-        return MessageItem(message: appMsg)
+        items.append(MessageItem(message: appMsg))
+        return items
     }
 
 }

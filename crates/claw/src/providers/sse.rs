@@ -269,7 +269,7 @@ pub(crate) async fn openai_stream_chat_impl(
             return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
         }
 
-        Ok(StreamResult::Text(usage, content_buf))
+        Ok(StreamResult::Text(usage, content_buf, reasoning_buf))
     } else {
         let text = response.text().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as u64;

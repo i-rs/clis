@@ -23,16 +23,9 @@ pub fn render(f: &mut Frame, app: &App) {
         0
     };
 
-    let processing_height: u16 = if app.is_processing() && !app.status_text.is_empty() {
-        let reason_lines = if !app.current_reasoning.is_empty() {
-            (app.current_reasoning.lines().count() as u16).min(3)
-        } else {
-            0
-        };
-        1 + reason_lines
-    } else {
-        1
-    };
+    // Show a single-line status bar during processing.
+    // Reasoning content is now rendered inline in the chat message area.
+    let processing_height: u16 = 1;
 
     let mut constraints = vec![
         Constraint::Length(1),

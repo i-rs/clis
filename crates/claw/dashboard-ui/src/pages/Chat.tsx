@@ -65,6 +65,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
                   msgs.push({
                     role: 'assistant',
                     content: m.content || '',
+                    reasoning: m.reasoning || undefined,
                     toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
                   })
                   pendingToolCalls = []
@@ -108,6 +109,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             msgs.push({
               role: 'assistant',
               content: m.content || '',
+              reasoning: m.reasoning || undefined,
               toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
             })
             pendingToolCalls = []
@@ -147,6 +149,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
                 msgs.push({
                   role: 'assistant',
                   content: m.content || '',
+                  reasoning: m.reasoning || undefined,
                   toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
                 })
                 pendingToolCalls = []

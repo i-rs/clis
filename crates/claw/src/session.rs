@@ -290,7 +290,10 @@ impl SessionManager {
             let msg_type = v.get("type").and_then(|t| t.as_str())?;
             match msg_type {
                 "user" => Some(crate::app::Message::User { text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string() }),
-                "assistant" => Some(crate::app::Message::Assistant { text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string() }),
+                "assistant" => Some(crate::app::Message::Assistant {
+                    text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),
+                    reasoning: v.get("reasoning").and_then(|r| r.as_str()).unwrap_or("").to_string(),
+                }),
                 "tool_call" => Some(crate::app::Message::ToolCall {
                     name: v.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
                     args: v.get("args").and_then(|a| a.as_str()).unwrap_or("").to_string(),

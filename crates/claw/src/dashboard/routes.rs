@@ -280,18 +280,25 @@ async fn dashboard_chat_loop(
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
         match provider.stream_chat(&msgs, &tool_schemas, &tx).await {
-            Ok(StreamResult::Text(usage, text)) => {
-                if !text.is_empty() {
-                    msgs.push(serde_json::json!({
+            Ok(StreamResult::Text(usage, text, reasoning)) => {
+                if !text.is_empty() || !reasoning.is_empty() {
+                    let mut msg = serde_json::json!({
                         "role": "assistant",
                         "content": text,
-                    }));
+                    });
+                    if !reasoning.is_empty() {
+                        msg["reasoning_content"] = serde_json::Value::String(reasoning.clone());
+                    }
+                    msgs.push(msg);
                 }
                 let _ = tx.send(LlmEvent::Done(Arc::new(msgs.clone()), usage));
 
                 // Save to session
                 let mut core = state.core.lock().await;
-                core.session_mgr.append_message("assistant", &text, None);
+                let extra = if !reasoning.is_empty() {
+                    Some(serde_json::json!({"reasoning": reasoning}))
+                } else { None };
+                core.session_mgr.append_message("assistant", &text, extra);
                 core.session_mgr.save_api_messages(&session_id, &msgs);
                 break;
             }
@@ -363,6 +370,7 @@ async fn dashboard_chat_loop(
                 }
                 "assistant" => {
                     let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                    let reasoning = m.get("reasoning_content").and_then(|r| r.as_str()).unwrap_or("");
                     if m.get("tool_calls").and_then(|t| t.as_array()).is_some() {
                         // Tool call: pair with the next tool result
                         if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
@@ -394,13 +402,25 @@ async fn dashboard_chat_loop(
                                 }));
                             }
                         }
+                        // Also save reasoning as a separate assistant record
+                        if !reasoning.is_empty() {
+                            records.push(serde_json::json!({
+                                "type": "assistant",
+                                "text": "",
+                                "reasoning": reasoning,
+                            }));
+                        }
                         // Skip both assistant(tool_calls) and tool result
                         i += 2;
-                    } else if !text.is_empty() && text != "null" {
-                        records.push(serde_json::json!({
+                    } else if (!text.is_empty() && text != "null") || !reasoning.is_empty() {
+                        let mut record = serde_json::json!({
                             "type": "assistant",
                             "text": text,
-                        }));
+                        });
+                        if !reasoning.is_empty() {
+                            record["reasoning"] = serde_json::Value::String(reasoning.to_string());
+                        }
+                        records.push(record);
                         i += 1;
                     } else {
                         i += 1;
@@ -534,8 +554,12 @@ pub async fn get_current_session(
                     crate::app::Message::User { text } => {
                         serde_json::json!({"role": "user", "content": text})
                     }
-                    crate::app::Message::Assistant { text } => {
-                        serde_json::json!({"role": "assistant", "content": text})
+                    crate::app::Message::Assistant { text, reasoning } => {
+                        let mut msg = serde_json::json!({"role": "assistant", "content": text});
+                        if !reasoning.is_empty() {
+                            msg["reasoning"] = Value::String(reasoning.clone());
+                        }
+                        msg
                     }
                     crate::app::Message::ToolCall { name, args, result, .. } => {
                         serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
@@ -635,8 +659,12 @@ pub async fn get_session(
             crate::app::Message::User { text } => {
                 serde_json::json!({"role": "user", "content": text})
             }
-            crate::app::Message::Assistant { text } => {
-                serde_json::json!({"role": "assistant", "content": text})
+            crate::app::Message::Assistant { text, reasoning } => {
+                let mut msg = serde_json::json!({"role": "assistant", "content": text});
+                if !reasoning.is_empty() {
+                    msg["reasoning"] = Value::String(reasoning.clone());
+                }
+                msg
             }
             crate::app::Message::ToolCall { name, args, result, .. } => {
                 serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})

@@ -107,7 +107,7 @@ export interface CurrentSession {
   title: string | null
   message_count: number
   agent_id?: string | null
-  messages: { role: string; content?: string; name?: string; args?: string; result?: string }[]
+  messages: { role: string; content?: string; reasoning?: string; name?: string; args?: string; result?: string }[]
 }
 
 export async function getCurrentSession(): Promise<ApiResponse<CurrentSession>> {
@@ -135,7 +135,7 @@ export async function switchSession(id: string): Promise<ApiResponse<{ id: strin
   return res.json()
 }
 
-export async function getSession(id: string): Promise<ApiResponse<{ id: string; title: string; messages: { role: string; content: string }[]; agent_id?: string }>> {
+export async function getSession(id: string): Promise<ApiResponse<{ id: string; title: string; messages: { role: string; content: string; reasoning?: string }[]; agent_id?: string }>> {
   const res = await authFetch(`/sessions/${encodeURIComponent(id)}`)
   return res.json()
 }

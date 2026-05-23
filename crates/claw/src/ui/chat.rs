@@ -369,13 +369,21 @@ fn message_line_count(
             // header + wrapped lines + trailing blank
             1 + wrapped_line_count(text, text_width) + 1
         }
-        Message::Assistant { text } if text.is_empty() => {
+        Message::Assistant { text, reasoning } if text.is_empty() && reasoning.is_empty() => {
             // header + "..." + trailing blank
             1 + 1 + 1
         }
-        Message::Assistant { text } => {
+        Message::Assistant { text, reasoning } => {
             // Use SAME rendering logic as build_message_item for accurate count
             // Pre-render and cache so Pass 3 can reuse
+            let mut extra = 0usize;
+            // Reasoning toggle line
+            if !reasoning.is_empty() {
+                extra += 1; // toggle header
+                if app.overlay.reasoning_expanded.contains(&msg_index) {
+                    extra += reasoning.lines().count();
+                }
+            }
             let header_lines = 1;
             let trailing = 1;
             let body_lines = {
@@ -388,7 +396,7 @@ fn message_line_count(
                     md_lines.len()
                 }
             };
-            header_lines + body_lines + trailing
+            header_lines + body_lines + trailing + extra
         }
         Message::ToolCall {
             name,
@@ -675,11 +683,12 @@ fn build_message_lines(
             lines.push(Line::from(Span::raw("")));
             lines
         }
-        Message::Assistant { text } => {
+        Message::Assistant { text, reasoning } => {
             let ts_label = app.message_timestamps
                 .get(msg_index)
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
+            let is_expanded = app.overlay.reasoning_expanded.contains(&msg_index);
             let mut lines = vec![Line::from(vec![
                 Span::styled(
                     "◆ ",
@@ -696,12 +705,29 @@ fn build_message_lines(
                     Style::default().fg(app.config.theme.dim_text()),
                 ),
             ])];
-            if text.is_empty() {
+            // Render reasoning section (collapsible)
+            if !reasoning.is_empty() {
+                let toggle = if is_expanded { " [-]" } else { " [+]" };
+                lines.push(Line::from(Span::styled(
+                    format!("   💭 思考过程{}", toggle),
+                    Style::default().fg(Color::Rgb(120, 120, 140)),
+                )));
+                if is_expanded {
+                    for reason_line in reasoning.lines() {
+                        let display = utils::truncate_str(reason_line, text_width.saturating_sub(6).max(20));
+                        lines.push(Line::from(Span::styled(
+                            format!("      {}", display),
+                            Style::default().fg(Color::Rgb(100, 100, 130)),
+                        )));
+                    }
+                }
+            }
+            if text.is_empty() && reasoning.is_empty() {
                 lines.push(Line::from(Span::styled(
                     "   ...",
                     Style::default().fg(app.config.theme.dim_text()),
                 )));
-            } else {
+            } else if !text.is_empty() {
                 // Use cached rendering from Pass 1 if available
                 let md_lines = format_cache
                     .get(&msg_index)

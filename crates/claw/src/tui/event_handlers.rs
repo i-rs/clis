@@ -55,7 +55,7 @@ impl<'a> LlmEventHandler<'a> {
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
         if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
-            && let Some(crate::app::Message::Assistant { text: t }) = self.app.messages.last() {
+            && let Some(crate::app::Message::Assistant { text: t, .. }) = self.app.messages.last() {
                 let plan_text = t.clone();
                 if !plan_text.is_empty() {
                     self.app.detect_plan(&plan_text);
@@ -297,11 +297,20 @@ impl<'a> KeyEventHandler<'a> {
                     }
             }
             KeyCode::Char(' ') if self.app.overlay.selection_mode => {
-                if let Some(idx) = self.app.overlay.selected_message
-                    && matches!(self.app.messages.get(idx), Some(crate::app::Message::ToolCall { .. }))
-                        && !self.app.overlay.tool_call_expanded.remove(&idx) {
-                            self.app.overlay.tool_call_expanded.insert(idx);
-                        }
+                if let Some(idx) = self.app.overlay.selected_message {
+                    match self.app.messages.get(idx) {
+                        Some(crate::app::Message::ToolCall { .. })
+                            if !self.app.overlay.tool_call_expanded.remove(&idx) => {
+                                self.app.overlay.tool_call_expanded.insert(idx);
+                            }
+                        Some(crate::app::Message::Assistant { reasoning, .. })
+                            if !reasoning.is_empty()
+                            && !self.app.overlay.reasoning_expanded.remove(&idx) => {
+                                self.app.overlay.reasoning_expanded.insert(idx);
+                            }
+                        _ => {}
+                    }
+                }
             }
 
             // ── Help shortcut ────────────────────────────────────
@@ -470,7 +479,7 @@ impl<'a> KeyEventHandler<'a> {
             self.app.overlay.selected_message.and_then(|idx| {
                 self.app.messages.get(idx).map(|m| match m {
                     crate::app::Message::User { text } => text.clone(),
-                    crate::app::Message::Assistant { text } => text.clone(),
+                    crate::app::Message::Assistant { text, .. } => text.clone(),
                     crate::app::Message::ToolCall { name, args, result, .. } =>
                         format!("Tool: {}\nArgs: {}\nResult: {}", name, args, result),
                     crate::app::Message::Error { text } => text.clone(),
@@ -481,7 +490,7 @@ impl<'a> KeyEventHandler<'a> {
                 .iter()
                 .rev()
                 .find_map(|m| match m {
-                    crate::app::Message::Assistant { text } if !text.is_empty() => Some(text.clone()),
+                    crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.clone()),
                     _ => None,
                 })
         };
@@ -788,7 +797,7 @@ impl<'a> KeyEventHandler<'a> {
                     md.push_str(text);
                     md.push_str("\n\n---\n\n");
                 }
-                crate::app::Message::Assistant { text } => {
+                crate::app::Message::Assistant { text, .. } => {
                     md.push_str("## 🤖 Claw\n\n");
                     md.push_str(text);
                     md.push_str("\n\n---\n\n");
