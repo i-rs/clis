@@ -218,7 +218,6 @@ class VoiceInputService: ObservableObject {
 
         recognitionRequest?.endAudio()
         recognitionRequest = nil
-        recognitionTask?.cancel()
         recognitionTask = nil
 
         if !transcribedText.isEmpty {

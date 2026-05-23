@@ -347,9 +347,11 @@ struct MessageBubbleView: View {
             if isReasoningExpanded {
                 Divider()
                     .padding(.horizontal, 12)
-                Markdown(text)
-                    .markdownTheme(.gitHub)
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
                     .textSelection(.enabled)
+                    .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
