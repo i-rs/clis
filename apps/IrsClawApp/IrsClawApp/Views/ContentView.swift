@@ -265,8 +265,6 @@ struct ContentView: View {
                     case .plugins:
                         PluginsPanel(service: service)
                             .navigationTitle("Plugins")
-                    default:
-                        EmptyView()
                     }
                 }
         }

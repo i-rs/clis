@@ -1,5 +1,9 @@
 import SwiftUI
+#if os(macOS)
+extension NSFont: @unchecked @retroactive Sendable {}
+#else
 
+#endif
 struct MessageBubbleView: View {
     let message: AppMessage
     @State private var isToolExpanded = false
@@ -431,7 +435,7 @@ struct JSONHighlightView: View {
 
     private func tokenizeJSONLine(_ line: String) -> [(text: String, color: Color)] {
         var tokens: [(String, Color)] = []
-        var chars = Array(line)
+        let chars = Array(line)
         var i = 0
 
         while i < chars.count {
@@ -600,7 +604,7 @@ struct InlineMarkdownView: View {
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: false)
     }
-
+    
     private func parseInlineMarkdown(_ text: String) -> AttributedString {
         var attributed = AttributedString(text)
 

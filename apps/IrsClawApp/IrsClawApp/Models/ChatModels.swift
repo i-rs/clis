@@ -187,7 +187,7 @@ struct ToolInfo: Codable, Identifiable {
 // MARK: - Skill
 
 struct SkillInfo: Codable, Identifiable {
-    let id = UUID()
+    var id = UUID()
     let name: String
     let description: String
     let content: String
@@ -196,7 +196,7 @@ struct SkillInfo: Codable, Identifiable {
 // MARK: - Plugin
 
 struct PluginInfo: Codable, Identifiable {
-    let id = UUID()
+    var id = UUID()
     let name: String
     let version: String
     let description: String
