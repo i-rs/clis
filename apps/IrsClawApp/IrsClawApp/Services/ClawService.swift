@@ -55,29 +55,136 @@ class ClawService: ObservableObject {
     private var sseTask: Task<Void, Never>?
     private var healthCheckTask: Task<Void, Never>?
 
-    /// The server URL used for all API requests.
-    /// Stored in UserDefaults for cross-platform cloud deployment support.
+    @Published var backendConfigs: [BackendConfig] = []
+    @Published var currentBackendId: UUID?
+
+    init() {
+        loadBackendConfigs()
+    }
+
+    /// The server URL used for all API requests, from active backend config.
     private var baseURL: String {
-        UserDefaults.standard.string(forKey: "server_url") ?? Self.defaultBaseURL
+        activeConfig?.url ?? UserDefaults.standard.string(forKey: "server_url") ?? Self.defaultBaseURL
     }
 
-    /// Auth token for Bearer authentication.
-    /// Stored in UserDefaults and sent with every API request.
+    /// Auth token for Bearer authentication, from active backend config.
     private var authToken: String {
-        UserDefaults.standard.string(forKey: "claw_auth_token") ?? ""
+        activeConfig?.authToken ?? UserDefaults.standard.string(forKey: "claw_auth_token") ?? ""
     }
 
-    /// Update the auth token and reconnect.
+    private var activeConfig: BackendConfig? {
+        guard let id = currentBackendId else { return nil }
+        return backendConfigs.first(where: { $0.id == id })
+    }
+
+    // MARK: - Backend Config Management
+
+    private static let configsKey = "backend_configs"
+    private static let activeKey = "current_backend_id"
+
+    func loadBackendConfigs() {
+        // Migrate old single-server config if exists
+        let hasOldURL = UserDefaults.standard.string(forKey: "server_url") != nil
+        let hasOldToken = UserDefaults.standard.string(forKey: "claw_auth_token") != nil
+        let hasNewConfigs = UserDefaults.standard.data(forKey: Self.configsKey) != nil
+
+        if !hasNewConfigs, hasOldURL || hasOldToken {
+            let oldURL = UserDefaults.standard.string(forKey: "server_url") ?? Self.defaultBaseURL
+            let oldToken = UserDefaults.standard.string(forKey: "claw_auth_token") ?? ""
+            let migrated = BackendConfig(name: "Default", url: oldURL, authToken: oldToken)
+            backendConfigs = [migrated]
+            currentBackendId = migrated.id
+            saveBackendConfigs()
+            // Clean up old keys
+            UserDefaults.standard.removeObject(forKey: "server_url")
+            UserDefaults.standard.removeObject(forKey: "claw_auth_token")
+            return
+        }
+
+        // Load from new storage
+        if let data = UserDefaults.standard.data(forKey: Self.configsKey),
+           let configs = try? JSONDecoder().decode([BackendConfig].self, from: data) {
+            backendConfigs = configs
+        } else {
+            // No configs at all — create default
+            let default_ = BackendConfig(name: "Default", url: Self.defaultBaseURL)
+            backendConfigs = [default_]
+            currentBackendId = default_.id
+            saveBackendConfigs()
+            return
+        }
+
+        if let idData = UserDefaults.standard.data(forKey: Self.activeKey),
+           let id = try? JSONDecoder().decode(UUID.self, from: idData),
+           backendConfigs.contains(where: { $0.id == id }) {
+            currentBackendId = id
+        } else {
+            currentBackendId = backendConfigs.first?.id
+        }
+    }
+
+    private func saveBackendConfigs() {
+        if let data = try? JSONEncoder().encode(backendConfigs) {
+            UserDefaults.standard.set(data, forKey: Self.configsKey)
+        }
+        if let id = currentBackendId, let data = try? JSONEncoder().encode(id) {
+            UserDefaults.standard.set(data, forKey: Self.activeKey)
+        }
+    }
+
+    func addBackend(name: String, url: String, authToken: String = "") {
+        let config = BackendConfig(name: name, url: url, authToken: authToken)
+        backendConfigs.append(config)
+        currentBackendId = config.id
+        saveBackendConfigs()
+        restartBackend()
+    }
+
+    func updateBackend(_ config: BackendConfig) {
+        guard let idx = backendConfigs.firstIndex(where: { $0.id == config.id }) else { return }
+        backendConfigs[idx] = config
+        saveBackendConfigs()
+        restartBackend()
+    }
+
+    func deleteBackend(_ id: UUID) {
+        backendConfigs.removeAll(where: { $0.id == id })
+        if currentBackendId == id {
+            currentBackendId = backendConfigs.first?.id
+        }
+        saveBackendConfigs()
+        restartBackend()
+    }
+
+    func switchBackend(to id: UUID) {
+        guard backendConfigs.contains(where: { $0.id == id }), id != currentBackendId else { return }
+        currentBackendId = id
+        saveBackendConfigs()
+        restartBackend()
+    }
+
+    /// Update the auth token of the active backend and reconnect.
     func updateAuthToken(_ newToken: String) {
-        UserDefaults.standard.set(newToken, forKey: "claw_auth_token")
-        print("[ClawService] Auth token updated")
-        restartBackend()
+        guard var config = activeConfig else {
+            // Fallback to old key-based storage if no configs exist
+            UserDefaults.standard.set(newToken, forKey: "claw_auth_token")
+            print("[ClawService] Auth token updated (legacy)")
+            restartBackend()
+            return
+        }
+        config.authToken = newToken
+        updateBackend(config)
     }
 
-    /// Clear the auth token.
+    /// Clear the auth token of the active backend.
     func clearAuthToken() {
-        UserDefaults.standard.removeObject(forKey: "claw_auth_token")
-        restartBackend()
+        guard var config = activeConfig else {
+            UserDefaults.standard.removeObject(forKey: "claw_auth_token")
+            restartBackend()
+            return
+        }
+        config.authToken = ""
+        updateBackend(config)
     }
 
     /// Add Bearer auth header if token is set.
@@ -87,19 +194,27 @@ class ClawService: ObservableObject {
         }
     }
 
-    /// Update the server URL and reconnect.
+    /// Update the active backend URL or create one if no config exists.
     func updateServerURL(_ newURL: String) {
         let url = newURL.trimmingCharacters(in: .whitespaces)
         guard !url.isEmpty else { return }
-        UserDefaults.standard.set(url, forKey: "server_url")
-        print("[ClawService] Server URL updated to: \(url)")
-        restartBackend()
+        if var config = activeConfig {
+            config.url = url
+            updateBackend(config)
+        } else {
+            addBackend(name: "Server", url: url)
+        }
     }
 
-    /// Reset server URL to default.
+    /// Reset active backend URL to default.
     func resetServerURL() {
-        UserDefaults.standard.removeObject(forKey: "server_url")
-        restartBackend()
+        guard var config = activeConfig else {
+            UserDefaults.standard.removeObject(forKey: "server_url")
+            restartBackend()
+            return
+        }
+        config.url = Self.defaultBaseURL
+        updateBackend(config)
     }
 
     var serverURLDisplay: String {

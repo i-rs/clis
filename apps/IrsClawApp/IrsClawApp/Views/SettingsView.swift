@@ -64,16 +64,15 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    serverURLRow
-                } header: {
-                    Text("Server")
-                } footer: {
-                    Text("Use your Mac's local IP (e.g., 192.168.1.100) for real device testing")
-                        .font(.caption)
+                    connectionStatusRow
                 }
 
-                Section {
-                    connectionStatusRow
+                Section("Backend") {
+                    NavigationLink {
+                        BackendSettingsView(service: service)
+                    } label: {
+                        backendActiveLabel
+                    }
                 }
 
                 Section("AI Provider") {
@@ -89,14 +88,6 @@ struct SettingsView: View {
                         AgentsSettingsView(service: service)
                     } label: {
                         Label("Manage Agents", systemImage: "person.2")
-                    }
-                }
-
-                Section("Backend") {
-                    NavigationLink {
-                        BackendSettingsView(service: service)
-                    } label: {
-                        Label("Server & Authentication", systemImage: "server.rack")
                     }
                 }
 
@@ -128,7 +119,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(service.connectionState.isConnected ? "Connected" : "Disconnected")
                     .font(.body)
-                Text(service.connectionState.isConnected ? "i-rs-claw backend" : (service.connectionState.errorMessage ?? "Not connected"))
+                Text(activeBackendLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -146,38 +137,34 @@ struct SettingsView: View {
         .padding(.vertical, 4)
     }
 
-    private var serverURLRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Image(systemName: "server.rack")
-                    .foregroundStyle(.blue)
-                    .frame(width: 24)
+    private var activeBackendLabel: String {
+        if let config = service.backendConfigs.first(where: { $0.id == service.currentBackendId }) {
+            return config.name + " — " + config.url
+        }
+        return service.serverURLDisplay
+    }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Server Address")
+    private var backendActiveLabel: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "server.rack")
+                .foregroundStyle(.blue)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                if let config = service.backendConfigs.first(where: { $0.id == service.currentBackendId }) {
+                    Text(config.name)
                         .font(.body)
-                    Text(service.serverURLDisplay)
+                    Text(config.url)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                } else {
+                    Text("Not configured")
+                        .foregroundStyle(.secondary)
                 }
-
-                Spacer()
-
-                Button("Change") {
-                    showingServerURLSheet = true
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             }
         }
-        .padding(.vertical, 4)
-        .sheet(isPresented: $showingServerURLSheet) {
-            ServerURLSheet(service: service)
-        }
     }
-
-    @State private var showingServerURLSheet = false
 
     private var providerLabel: some View {
         HStack(spacing: 12) {
@@ -283,61 +270,6 @@ struct SettingsView: View {
         }
     }
     #endif
-}
-
-// MARK: - Server URL Sheet (iPhone)
-
-struct ServerURLSheet: View {
-    @ObservedObject var service: ClawService
-    @Environment(\.dismiss) private var dismiss
-    @State private var serverURL: String = ""
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    TextField("http://192.168.1.100:3000", text: $serverURL)
-                } header: {
-                    Text("Server Address")
-                } footer: {
-                    Text("Find your Mac's IP: System Settings > Wi-Fi > [Network] > IP Address")
-                        .font(.caption)
-                }
-
-                Section {
-                    Button("Use 127.0.0.1 (Simulator/Mac)") {
-                        serverURL = "http://127.0.0.1:3000"
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("Server URL")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveServerURL()
-                    }
-                    .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-        }
-        .onAppear {
-            serverURL = service.serverURLDisplay
-        }
-    }
-
-    private func saveServerURL() {
-        let url = serverURL.trimmingCharacters(in: .whitespaces)
-        guard !url.isEmpty else { return }
-        service.updateServerURL(url)
-        dismiss()
-    }
 }
 
 // MARK: - LLM Provider Settings (iPhone)
@@ -948,10 +880,9 @@ struct AddAgentSheet: View {
 
 struct BackendSettingsView: View {
     @ObservedObject var service: ClawService
-    @State private var serverURL: String = ""
-    @State private var authToken: String = ""
-    @State private var editingServer = false
-    @State private var editingToken = false
+    @Environment(\.dismiss) private var dismiss
+    @State private var editingConfig: BackendConfig? = nil
+    @State private var showingAdd = false
 
     var body: some View {
         Form {
@@ -959,37 +890,57 @@ struct BackendSettingsView: View {
                 connectionStatusCard
             }
 
-            Section {
-                serverRow
-                if editingServer {
-                    serverEditRow
-                }
-            } header: {
-                Label("Server", systemImage: "server.rack")
-            }
+            Section("Configurations") {
+                ForEach(service.backendConfigs) { config in
+                    HStack(spacing: 12) {
+                        Button {
+                            service.switchBackend(to: config.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(config.name)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                    Text(config.url)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
 
-            Section {
-                tokenRow
-                if editingToken {
-                    tokenEditRow
-                }
-            } header: {
-                Label("Authentication", systemImage: "key.fill")
-            }
+                                Spacer()
 
-            Section {
-                SettingsRow(icon: "text.bubble", iconColor: .blue) {
-                    LabeledContent("Total Sessions") {
-                        Text("\(service.sessions.count)")
-                            .foregroundStyle(.secondary)
+                                if config.id == service.currentBackendId {
+                                    Image(systemName: "checkmark")
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            editingConfig = config
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        if service.backendConfigs.count > 1 {
+                            Button("Delete", role: .destructive) {
+                                service.deleteBackend(config.id)
+                            }
+                        }
                     }
                 }
-            } header: {
-                Label("Data", systemImage: "externaldrive")
-            } footer: {
-                Text("⌘N to create a new session")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+
+                Button {
+                    showingAdd = true
+                } label: {
+                    Label("Add Backend", systemImage: "plus")
+                }
             }
 
             if let error = service.connectionState.errorMessage ?? service.errorMessage {
@@ -1001,13 +952,20 @@ struct BackendSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear {
-            serverURL = service.serverURLDisplay
-            authToken = UserDefaults.standard.string(forKey: "claw_auth_token") ?? ""
-        }
+        .navigationTitle("Backend")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .sheet(item: $editingConfig) { config in
+            NavigationStack {
+                BackendEditView(service: service, config: config)
+            }
+        }
+        .sheet(isPresented: $showingAdd) {
+            NavigationStack {
+                BackendEditView(service: service)
+            }
+        }
     }
 
     @ViewBuilder
@@ -1046,143 +1004,207 @@ struct BackendSettingsView: View {
         }
         .padding(.vertical, 4)
     }
+}
 
-    @ViewBuilder
-    private var serverRow: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "link")
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
+// MARK: - Backend Edit
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("URL")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(service.serverURLDisplay)
-                    .font(.callout.monospaced())
-                    .lineLimit(1)
-            }
+struct BackendEditView: View {
+    @ObservedObject var service: ClawService
+    @Environment(\.dismiss) private var dismiss
+    var config: BackendConfig? = nil
 
-            Spacer()
+    @State private var name: String = ""
+    @State private var url: String = ""
+    @State private var authToken: String = ""
+    @State private var editingToken = false
+    @State private var showDeleteConfirm = false
 
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    editingServer.toggle()
-                    editingToken = false
-                }
-            } label: {
-                Image(systemName: editingServer ? "chevron.up" : "pencil")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
+    private var isEditing: Bool { config != nil }
+    private var isActive: Bool {
+        config?.id == service.currentBackendId
     }
-
-    @ViewBuilder
-    private var serverEditRow: some View {
-        VStack(spacing: 10) {
-            TextField("http://127.0.0.1:3000", text: $serverURL)
-                .textFieldStyle(.roundedBorder)
-                .font(.callout.monospaced())
-                .textContentType(.URL)
-
-            HStack {
-                Button("Save & Reconnect") {
-                    service.updateServerURL(serverURL)
-                    editingServer = false
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                Button("Reset") {
-                    serverURL = "http://127.0.0.1:3000"
-                    service.resetServerURL()
-                    editingServer = false
-                }
-                .controlSize(.small)
-
-                Spacer()
-            }
-        }
-        .padding(.leading, 26)
-        .transition(.opacity.combined(with: .move(edge: .top)))
-    }
-
-    @ViewBuilder
-    private var tokenRow: some View {
-        HStack(spacing: 10) {
-            Image(systemName: authToken.isEmpty ? "lock.open" : "lock.fill")
-                .foregroundStyle(authToken.isEmpty ? .orange : .green)
-                .frame(width: 16)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Dashboard Token")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if authToken.isEmpty {
-                    Text("Not configured")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    Text(maskedToken)
-                        .font(.callout.monospaced())
-                }
-            }
-
-            Spacer()
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    editingToken.toggle()
-                    editingServer = false
-                }
-            } label: {
-                Image(systemName: editingToken ? "chevron.up" : "pencil")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !url.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private var maskedToken: String {
-        guard !authToken.isEmpty else { return "" }
+        guard !authToken.isEmpty else { return "Not configured" }
         if authToken.count <= 8 {
             return String(repeating: "•", count: authToken.count)
         }
         return String(authToken.prefix(4)) + String(repeating: "•", count: min(authToken.count - 8, 8)) + String(authToken.suffix(4))
     }
 
-    @ViewBuilder
-    private var tokenEditRow: some View {
-        VStack(spacing: 10) {
-            SecureField("Enter dashboard token", text: $authToken)
-                .textFieldStyle(.roundedBorder)
-                .font(.callout.monospaced())
+    var body: some View {
+        Form {
+            Section {
+                connectionStatusCard
+            }
 
-            HStack(spacing: 8) {
-                Button("Save & Reconnect") {
-                    service.updateAuthToken(authToken)
-                    editingToken = false
+            if isEditing, !isActive {
+                Section {
+                    Button("Set as Active") {
+                        if let id = config?.id {
+                            service.switchBackend(to: id)
+                            dismiss()
+                        }
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(authToken.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
 
-                Button("Clear") {
-                    authToken = ""
-                    service.clearAuthToken()
-                    editingToken = false
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("My Server", text: $name)
                 }
-                .controlSize(.small)
 
-                Spacer()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("URL")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("http://127.0.0.1:3000", text: $url)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Auth Token")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(authToken.isEmpty ? "Add" : "Edit") {
+                            editingToken.toggle()
+                        }
+                        .font(.caption)
+                    }
+                    if editingToken || authToken.isEmpty {
+                        SecureField("token", text: $authToken)
+                    } else {
+                        HStack {
+                            Text(maskedToken)
+                                .font(.callout.monospaced())
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+            } header: {
+                Text("Configuration")
+            } footer: {
+                if isEditing {
+                    Text("Changes take effect after saving.")
+                }
+            }
+
+            if isEditing {
+                Section {
+                    Button("Delete Backend", role: .destructive) {
+                        showDeleteConfirm = true
+                    }
+                }
+            }
+
+            if let error = service.connectionState.errorMessage ?? service.errorMessage {
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
         }
-        .padding(.leading, 26)
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .formStyle(.grouped)
+        .navigationTitle(isEditing ? "Edit Backend" : "Add Backend")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(isEditing ? "Save" : "Add") {
+                    save()
+                }
+                .disabled(!canSave)
+            }
+        }
+        .onAppear {
+            editingToken = false
+            if let config = config {
+                name = config.name
+                url = config.url
+                authToken = config.authToken
+            }
+        }
+        .alert("Delete Backend?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                if let config = config {
+                    service.deleteBackend(config.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
+    }
+
+    private func save() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let trimmedURL = url.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty, !trimmedURL.isEmpty else { return }
+
+        if var existing = config {
+            existing.name = trimmedName
+            existing.url = trimmedURL
+            existing.authToken = authToken
+            service.updateBackend(existing)
+        } else {
+            service.addBackend(name: trimmedName, url: trimmedURL, authToken: authToken)
+        }
+        dismiss()
+    }
+
+    @ViewBuilder
+    private var connectionStatusCard: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(service.connectionState.isConnected ? Color.green : Color.red)
+                .frame(width: 10, height: 10)
+                .overlay(
+                    Circle()
+                        .fill(service.connectionState.isConnected ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
+                        .frame(width: 20, height: 20)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(service.connectionState.isConnected ? "Connected" : "Disconnected")
+                    .font(.body)
+                    .fontWeight(.medium)
+                Text(service.connectionState.isConnected
+                     ? "All systems operational"
+                     : service.connectionState.errorMessage ?? "Not connected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if !service.connectionState.isConnected {
+                Button("Connect") {
+                    service.restartBackend()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

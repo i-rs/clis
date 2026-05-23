@@ -239,6 +239,22 @@ struct TokenUsage: Codable {
     }
 }
 
+// MARK: - Backend Config
+
+struct BackendConfig: Identifiable, Codable, Equatable {
+    let id: UUID
+    var name: String
+    var url: String
+    var authToken: String
+
+    init(id: UUID = UUID(), name: String, url: String, authToken: String = "") {
+        self.id = id
+        self.name = name
+        self.url = url
+        self.authToken = authToken
+    }
+}
+
 // MARK: - UI Message Types
 
 /// Message item with a stable identity for SwiftUI `ForEach`.
