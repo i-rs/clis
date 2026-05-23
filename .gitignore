@@ -30,6 +30,9 @@ crates/claw/examples/plugins/*/target/
 *.jpg
 
 # Xcode / macOS project build artifacts
+.DS_Store
+**/.DS_Store
+
 **/xcuserdata/
 **/*.xcuserstate
 **/DerivedData/
