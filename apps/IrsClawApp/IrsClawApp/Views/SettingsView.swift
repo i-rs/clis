@@ -1068,7 +1068,9 @@ struct BackendEditView: View {
                     TextField("http://127.0.0.1:3000", text: $url)
                         .textContentType(.URL)
                         .autocorrectionDisabled()
+                        #if os(iOS)
                         .keyboardType(.URL)
+                        #endif
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
