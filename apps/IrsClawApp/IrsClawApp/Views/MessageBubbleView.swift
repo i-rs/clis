@@ -13,6 +13,11 @@ struct MessageBubbleView: View {
     @State private var isAppearing = false
 
     var body: some View {
+        let isStreamingReasoning: Bool = {
+            if case .reasoning = message { return true }
+            return false
+        }()
+
         Group {
             switch message {
             case .user(let text):
@@ -29,9 +34,13 @@ struct MessageBubbleView: View {
                 reasoningBubble(text)
             }
         }
-        .opacity(isAppearing ? 1 : 0)
-        .offset(y: isAppearing ? 0 : 8)
+        .opacity(isStreamingReasoning ? 1 : (isAppearing ? 1 : 0))
+        .offset(y: isStreamingReasoning ? 0 : (isAppearing ? 0 : 8))
         .onAppear {
+            if isStreamingReasoning {
+                isAppearing = true
+                return
+            }
             withAnimation(.easeOut(duration: 0.25)) {
                 isAppearing = true
             }
@@ -315,7 +324,7 @@ struct MessageBubbleView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "brain")
                         .font(.caption)
-                        .symbolEffect(.pulse, options: .repeating, value: text)
+                        .symbolEffect(.pulse, options: .repeating)
                     Text("Thinking")
                         .font(.caption)
                         .fontWeight(.medium)
@@ -338,15 +347,12 @@ struct MessageBubbleView: View {
             if isReasoningExpanded {
                 Divider()
                     .padding(.horizontal, 12)
-                Text(text)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                Markdown(text)
+                    .markdownTheme(.gitHub)
                     .textSelection(.enabled)
-                    .lineSpacing(6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .background(
