@@ -220,6 +220,13 @@ struct ChatView: View {
     // MARK: - Actions
 
     private func sendMessage() {
+        if voiceInput.isRecording {
+            voiceInput.stop()
+            if !voiceInput.transcribedText.isEmpty {
+                inputText = voiceInput.transcribedText
+            }
+            voiceInput.transcribedText = ""
+        }
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         inputText = ""
