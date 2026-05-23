@@ -442,7 +442,13 @@ class ClawService: ObservableObject {
                         if line.hasPrefix("event:") {
                             currentEvent = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
                         } else if line.hasPrefix("data:") {
-                            currentData = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                            let raw = line.dropFirst(5)
+                            let chunk = raw.hasPrefix(" ") ? String(raw.dropFirst()) : String(raw)
+                            if currentData.isEmpty {
+                                currentData = chunk
+                            } else {
+                                currentData += "\n" + chunk
+                            }
                         } else if line.isEmpty {
                             // End of event — dispatch
                             if !currentEvent.isEmpty {
@@ -507,8 +513,7 @@ class ClawService: ObservableObject {
     private func appendAssistantText(_ text: String) {
         guard !text.isEmpty else { return }
         if let last = messages.last, case .assistant(let existing) = last.message {
-            messages.removeLast()
-            messages.append(MessageItem(message: .assistant(text: existing + text)))
+            messages[messages.count - 1] = MessageItem(id: last.id, message: .assistant(text: existing + text))
         } else {
             messages.append(MessageItem(message: .assistant(text: text)))
         }
@@ -520,10 +525,8 @@ class ClawService: ObservableObject {
         switch event {
         case "reasoning":
             if !data.isEmpty {
-                // Accumulate consecutive reasoning events into a single message
                 if let last = messages.last, case .reasoning(let existing) = last.message {
-                    messages.removeLast()
-                    messages.append(MessageItem(message: .reasoning(text: existing + data)))
+                    messages[messages.count - 1] = MessageItem(id: last.id, message: .reasoning(text: existing + data))
                 } else {
                     messages.append(MessageItem(message: .reasoning(text: data)))
                 }

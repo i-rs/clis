@@ -37,6 +37,7 @@ crates/claw/examples/plugins/*/target/
 **/*.xcuserstate
 **/DerivedData/
 **/.build/
+**/build/
 *.app/
 *.dSYM.zip
 *.dSYM

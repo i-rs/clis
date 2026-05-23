@@ -243,8 +243,13 @@ struct TokenUsage: Codable {
 
 /// Message item with a stable identity for SwiftUI `ForEach`.
 struct MessageItem: Identifiable {
-    let id = UUID()
+    let id: UUID
     let message: AppMessage
+
+    init(id: UUID = UUID(), message: AppMessage) {
+        self.id = id
+        self.message = message
+    }
 }
 
 enum AppMessage {
