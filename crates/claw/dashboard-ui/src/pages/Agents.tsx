@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Bot, Plus, Trash2, X, Check, AlertTriangle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import { Bot, Plus, Trash2, X, Check, AlertTriangle, Eye, EyeOff } from 'lucide-react'
 import { listAgents, createAgent, deleteAgent, type AgentInfo } from '../api'
 
 interface Props {
   onAgentsChange?: () => void
-  onNavigate?: (page: 'chat') => void
 }
 
-export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
+export default function AgentsPage({ onAgentsChange }: Props) {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -98,21 +97,16 @@ export default function AgentsPage({ onAgentsChange, onNavigate }: Props) {
   return (
     <>
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate?.('chat')}>
-              <ArrowLeft size={14} />
-            </button>
-            <div className="page-header-icon">
-              <Bot size={16} />
-            </div>
-            <h2>Agents ({agents.length})</h2>
+        <div className="page-header-left">
+          <div className="page-header-icon">
+            <Bot size={16} />
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowCreate(true); }}>
-            <Plus size={14} />
-            Create Agent
-          </button>
+          <h2>Agents ({agents.length})</h2>
         </div>
+        <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowCreate(true); }}>
+          <Plus size={14} />
+          Create Agent
+        </button>
       </div>
 
       <div className="page-body">

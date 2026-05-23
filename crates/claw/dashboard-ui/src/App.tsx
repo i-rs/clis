@@ -14,6 +14,7 @@ type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins' | 'skills' | 'a
 const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'chat', label: 'Chat', icon: <MessageSquareText size={18} /> },
   { id: 'sessions', label: 'Sessions', icon: <History size={18} /> },
+  { id: 'agents', label: 'Agents', icon: <Bot size={18} /> },
   { id: 'config', label: 'Config', icon: <Settings size={18} /> },
   { id: 'tools', label: 'Tools', icon: <Wrench size={18} /> },
   { id: 'plugins', label: 'Plugins', icon: <Puzzle size={18} /> },
@@ -138,7 +139,7 @@ export default function App() {
       case 'plugins':
         return <PluginsPage key={pageKey} />
       case 'agents':
-        return <AgentsPage key={pageKey} onAgentsChange={refreshAgents} onNavigate={navigateTo} />
+        return <AgentsPage key={pageKey} onAgentsChange={refreshAgents} />
       case 'skills':
         return <SkillsPage key={pageKey} />
     }
