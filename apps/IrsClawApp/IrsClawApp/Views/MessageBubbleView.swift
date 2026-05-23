@@ -4,7 +4,6 @@ struct MessageBubbleView: View {
     let message: AppMessage
     @State private var isToolExpanded = false
     @State private var isAppearing = false
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -44,18 +43,10 @@ struct MessageBubbleView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.25, green: 0.55, blue: 0.98),
-                                Color(red: 0.18, green: 0.44, blue: 0.92)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.accentColor)
                     )
                     .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .shadow(color: Color(red: 0.18, green: 0.44, blue: 0.92).opacity(0.25), radius: 8, x: 0, y: 4)
             }
 
             AvatarView(icon: "person.fill", colors: [.blue, .cyan])
@@ -76,9 +67,10 @@ struct MessageBubbleView: View {
                 MarkdownTextView(text: text)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(assistantBackgroundColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.08), radius: 6, x: 0, y: 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.platformSecondaryBackground)
+                    )
             }
 
             Spacer(minLength: 60)
@@ -117,13 +109,9 @@ struct MessageBubbleView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .center)
         .background(
-            LinearGradient(
-                colors: [Color.red.opacity(0.08), Color.red.opacity(0.04)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.red.opacity(0.08))
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.red.opacity(0.15), lineWidth: 0.5)
@@ -236,7 +224,7 @@ struct MessageBubbleView: View {
 
                             JSONHighlightView(json: args)
                                 .padding(10)
-                                .background(colorScheme == .dark ? Color.white.opacity(0.03) : Color.black.opacity(0.04))
+                                .background(Color.platformTertiaryBackground)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
@@ -254,7 +242,7 @@ struct MessageBubbleView: View {
 
                             JSONHighlightView(json: result)
                                 .padding(10)
-                                .background(colorScheme == .dark ? Color.white.opacity(0.03) : status.resultBackgroundColor)
+                                .background(status.resultBackgroundColor)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
@@ -265,30 +253,12 @@ struct MessageBubbleView: View {
             }
         }
         .background(
-            colorScheme == .dark
-            ? LinearGradient(
-                colors: [Color(white: 0.15), Color(white: 0.12)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            : LinearGradient(
-                colors: [Color(white: 0.98), Color(white: 0.96)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.platformSecondaryBackground)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: colorScheme == .dark ? .black.opacity(0.3) : .black.opacity(0.06), radius: 8, x: 0, y: 3)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [status.borderColor.opacity(0.4), status.borderColor.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 1)
         )
     }
 
@@ -327,43 +297,14 @@ struct MessageBubbleView: View {
                 .lineLimit(5)
         }
         .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            colorScheme == .dark
-            ? LinearGradient(
-                colors: [Color(white: 0.18), Color(white: 0.15)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            : LinearGradient(
-                colors: [Color(white: 0.97), Color(white: 0.95)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.platformSecondaryBackground)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.secondary.opacity(0.1), lineWidth: 0.5)
-        )
-    }
-
-    private var assistantBackgroundColor: LinearGradient {
-        colorScheme == .dark
-        ? LinearGradient(
-            colors: [
-                Color(red: 0.18, green: 0.18, blue: 0.20),
-                Color(red: 0.15, green: 0.15, blue: 0.17)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        : LinearGradient(
-            colors: [
-                Color(red: 0.96, green: 0.96, blue: 0.98),
-                Color(red: 0.93, green: 0.93, blue: 0.95)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
         )
     }
 

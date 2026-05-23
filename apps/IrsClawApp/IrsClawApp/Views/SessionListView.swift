@@ -30,42 +30,145 @@ struct SessionListView: View {
     }
 
     var body: some View {
-        List(selection: Binding(
-            get: { service.currentSession?.id },
-            set: { newValue in
-                if let id = newValue {
-                    service.switchToSession(id)
-                }
-            }
-        )) {
+        Group {
             if service.sessions.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "text.bubble")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                    Text("No sessions")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 20)
+                emptyState
+            } else {
+                sessionsList
+            }
+        }
+        .navigationTitle("Sessions")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
+        .searchable(text: $appState.searchText, prompt: "Search sessions")
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(.tertiary)
+
+            VStack(spacing: 8) {
+                Text("No Sessions")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("Start a new conversation\nto begin.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
 
-            ForEach(groupedSessions, id: \.0) { section, items in
-                Section(header: Text(section).font(.caption).foregroundStyle(.secondary).textCase(.uppercase)) {
-                    ForEach(items) { session in
-                        SessionRow(session: session)
-                            .tag(session.id)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button("Delete", role: .destructive) {
-                                    service.deleteSession(session.id)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color.platformWindowBackground)
+    }
+
+    private var sessionsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 24) {
+                ForEach(groupedSessions, id: \.0) { section, items in
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(section)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 20)
+
+                        VStack(spacing: 0) {
+                            ForEach(items) { session in
+                                SessionRowCard(
+                                    session: session,
+                                    isSelected: session.id == service.currentSession?.id
+                                ) {
+                                    service.switchToSession(session.id)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        service.deleteSession(session.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+
+                                if session.id != items.last?.id {
+                                    Divider()
+                                        .padding(.leading, 64)
                                 }
                             }
+                        }
                     }
                 }
             }
+            .padding(.vertical, 16)
         }
-        .listStyle(.plain)
-        .searchable(text: $appState.searchText, prompt: "Search sessions")
+        .background(Color.platformWindowBackground)
+    }
+}
+
+struct SessionRowCard: View {
+    let session: ClawSession
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "bubble.left.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.title)
+                        .font(.body)
+                        .fontWeight(isSelected ? .semibold : .medium)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    HStack(spacing: 8) {
+                        Label("\(session.messageCount)", systemImage: "text.bubble.fill")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+
+                        if let agentId = session.agentId, agentId != "default" {
+                            Text(agentId)
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color.accentColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.accentColor.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+
+                        Spacer()
+
+                        Text(session.shortDate)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -76,17 +179,13 @@ struct SessionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(
-                        isSelected
-                        ? LinearGradient(colors: [.blue.opacity(0.2), .blue.opacity(0.12)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : LinearGradient(colors: [Color.gray.opacity(0.1), Color.gray.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
+                Circle()
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
                     .frame(width: 36, height: 36)
-                    .shadow(color: isSelected ? .blue.opacity(0.15) : .clear, radius: 3, x: 0, y: 2)
-                Image(systemName: isSelected ? "bubble.left.and.bubble.right.fill" : "bubble.left")
+
+                Image(systemName: "bubble.left.fill")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -94,34 +193,27 @@ struct SessionRow: View {
                     .lineLimit(1)
                     .font(.callout)
                     .fontWeight(isSelected ? .semibold : .medium)
-                    .foregroundStyle(isSelected ? .primary : .secondary)
 
                 HStack(spacing: 8) {
-                    Label("\(session.messageCount)", systemImage: "text.bubble.fill")
-                        .font(.system(size: 11))
+                    Text("\(session.messageCount) messages")
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
 
                     if let agentId = session.agentId, agentId != "default" {
                         Text(agentId)
-                            .font(.system(size: 10, weight: .medium))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.1))
-                            .clipShape(Capsule())
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color.accentColor)
                     }
 
                     Spacer()
 
                     Text(session.shortDate)
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? Color.blue.opacity(0.06) : Color.clear)
-        )
+        .padding(.vertical, 4)
     }
 }

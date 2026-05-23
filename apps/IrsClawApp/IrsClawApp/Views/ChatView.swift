@@ -43,9 +43,9 @@ struct ChatView: View {
                 }
             }
 
-            // Input Bar
-            HStack(spacing: 10) {
-                TextField("Ask i-rs-claw...", text: $inputText, axis: .vertical)
+            // Input Bar - Modern iOS-native design
+            HStack(spacing: 8) {
+                TextField("Message i-rs-claw...", text: $inputText, axis: .vertical)
                     .lineLimit(1...5)
                     .textFieldStyle(.plain)
                     .font(.body)
@@ -54,18 +54,6 @@ struct ChatView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .fill(Color.platformControlBackground)
-                            .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.secondary.opacity(0.15), Color.secondary.opacity(0.05)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
                     )
 
                 micButton
@@ -75,11 +63,8 @@ struct ChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(
-                LinearGradient(
-                    colors: [Color.clear, Color.platformControlBackground.opacity(0.5)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                Color.platformWindowBackground
+                    .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: -3)
             )
         }
         .onChange(of: voiceInput.transcribedText) { _, newText in
@@ -112,22 +97,16 @@ struct ChatView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(voiceInput.isRecording
-                          ? Color.red.opacity(0.15)
-                          : Color.secondary.opacity(0.08))
-                    .frame(width: 36, height: 36)
-                if voiceInput.isRecording {
-                    Circle()
-                        .stroke(Color.red.opacity(0.3), lineWidth: 2)
-                        .frame(width: 32, height: 32)
-                }
+                    .fill(Color.platformSecondaryBackground)
+                    .frame(width: 38, height: 38)
+
                 Image(systemName: voiceInput.isRecording ? "mic.fill" : "mic")
-                    .font(.system(size: 14, weight: voiceInput.isRecording ? .semibold : .regular))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(voiceInput.isRecording ? .red : .secondary)
             }
         }
         .buttonStyle(.plain)
-        .help("Voice Input (⌥V)")
+        .help("Voice Input")
         .keyboardShortcut("v", modifiers: .option)
         .disabled(!voiceInput.isAvailable || service.isProcessing)
     }
@@ -140,24 +119,8 @@ struct ChatView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(
-                        hasContent
-                        ? LinearGradient(
-                            colors: [
-                                Color(red: 0.25, green: 0.55, blue: 0.98),
-                                Color(red: 0.18, green: 0.44, blue: 0.92)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        : LinearGradient(
-                            colors: [Color.secondary.opacity(0.1), Color.secondary.opacity(0.05)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(hasContent ? Color.accentColor : Color.platformSecondaryBackground)
                     .frame(width: 38, height: 38)
-                    .shadow(color: hasContent ? Color(red: 0.18, green: 0.44, blue: 0.92).opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
 
                 Image(systemName: "arrow.up")
                     .font(.system(size: 15, weight: .semibold))

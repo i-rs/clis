@@ -25,8 +25,17 @@ enum SidebarTab: String, CaseIterable, Identifiable {
     }
 }
 
+enum DrawerDestination: Hashable {
+    case sessions
+    case tools
+    case skills
+    case plugins
+}
+
 @MainActor
 class AppState: ObservableObject {
     @Published var searchText = ""
     @Published var selectedTab: SidebarTab = .sessions
+    @Published var showingDrawer = false
+    @Published var drawerPath: [DrawerDestination] = []
 }

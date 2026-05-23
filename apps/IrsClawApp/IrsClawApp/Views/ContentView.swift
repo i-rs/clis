@@ -4,7 +4,6 @@ struct ContentView: View {
     @EnvironmentObject var service: ClawService
     @EnvironmentObject var appState: AppState
     @State private var showingSettings = false
-    @State private var showSessionList = false
 
     var body: some View {
         #if os(iOS)
@@ -229,92 +228,57 @@ struct ContentView: View {
     }
     #endif
 
-    // MARK: - iPhone (TabView)
+    // MARK: - iPhone (Sheet Menu)
 
     #if os(iOS)
     private var phoneBody: some View {
-        TabView(selection: $appState.selectedTab) {
-            NavigationStack {
-                ChatView(service: service)
-                    .navigationTitle("i-rs-claw")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button {
-                                showSessionList = true
-                            } label: {
-                                Image(systemName: "list.bullet")
-                            }
-                        }
-
-                        ToolbarItemGroup(placement: .navigationBarTrailing) {
-                            Button {
-                                Task { await service.createSession() }
-                            } label: {
-                                Image(systemName: "square.and.pencil")
-                            }
-
-                            Button {
-                                showingSettings = true
-                            } label: {
-                                Image(systemName: "gearshape")
-                            }
+        NavigationStack(path: $appState.drawerPath) {
+            ChatView(service: service)
+                .navigationTitle("i-rs-claw")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            appState.showingDrawer = true
+                        } label: {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 16, weight: .medium))
                         }
                     }
-            }
-            .tabItem {
-                Label("Chat", systemImage: "message")
-            }
-            .tag(SidebarTab.sessions)
 
-            NavigationStack {
-                ToolsPanel(service: service)
-                    .navigationTitle("Tools")
-                    .navigationBarTitleDisplayMode(.large)
-                    .searchable(text: $appState.searchText, prompt: "Search tools")
-            }
-            .tabItem {
-                Label("Tools", systemImage: "wrench.adjustable")
-            }
-            .tag(SidebarTab.tools)
-
-            NavigationStack {
-                SkillsPanel(service: service)
-                    .navigationTitle("Skills")
-                    .navigationBarTitleDisplayMode(.large)
-                    .searchable(text: $appState.searchText, prompt: "Search skills")
-            }
-            .tabItem {
-                Label("Skills", systemImage: "book")
-            }
-            .tag(SidebarTab.skills)
-
-            NavigationStack {
-                PluginsPanel(service: service)
-                    .navigationTitle("Plugins")
-                    .navigationBarTitleDisplayMode(.large)
-                    .searchable(text: $appState.searchText, prompt: "Search plugins")
-            }
-            .tabItem {
-                Label("Plugins", systemImage: "puzzlepiece")
-            }
-            .tag(SidebarTab.plugins)
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        newChatButton
+                        settingsButton
+                    }
+                }
+                .navigationDestination(for: DrawerDestination.self) { destination in
+                    switch destination {
+                    case .sessions:
+                        SessionListView(service: service)
+                            .navigationTitle("Sessions")
+                    case .tools:
+                        ToolsPanel(service: service)
+                            .navigationTitle("Tools")
+                    case .skills:
+                        SkillsPanel(service: service)
+                            .navigationTitle("Skills")
+                    case .plugins:
+                        PluginsPanel(service: service)
+                            .navigationTitle("Plugins")
+                    default:
+                        EmptyView()
+                    }
+                }
+        }
+        .sheet(isPresented: $appState.showingDrawer) {
+            DrawerMenuView(service: service, appState: appState)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(service: service)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showSessionList) {
-            NavigationStack {
-                SessionListView(service: service)
-                    .navigationTitle("Sessions")
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showSessionList = false }
-                        }
-                    }
-            }
         }
         .onAppear {
             if service.connectionState != .connected {
@@ -325,6 +289,25 @@ struct ContentView: View {
             service.stopBackend()
         }
     }
+
+    private var newChatButton: some View {
+        Button {
+            Task { await service.createSession() }
+        } label: {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 15, weight: .medium))
+        }
+        .disabled(service.connectionState != .connected)
+    }
+
+    private var settingsButton: some View {
+        Button {
+            showingSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 15, weight: .medium))
+        }
+    }
     #endif
 
     private var sessionPicker: some View {
@@ -333,33 +316,6 @@ struct ContentView: View {
                 service.switchToSession(session.id)
             }
         }
-    }
-
-    private var sessionListView: some View {
-        List {
-            if service.sessions.isEmpty {
-                ContentUnavailableView(
-                    "No Sessions",
-                    systemImage: "text.bubble",
-                    description: Text("Tap + to create a new chat")
-                )
-            } else {
-                ForEach(service.sessions) { session in
-                    SessionRow(session: session)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            service.switchToSession(session.id)
-                            showSessionList = false
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button("Delete", role: .destructive) {
-                                service.deleteSession(session.id)
-                            }
-                        }
-                }
-            }
-        }
-        .searchable(text: $appState.searchText, prompt: "Search")
     }
 
     // MARK: - Detail Views
@@ -428,6 +384,247 @@ struct ContentView: View {
         }
     }
 }
+
+// MARK: - Drawer Menu View
+
+#if os(iOS)
+struct DrawerMenuView: View {
+    @ObservedObject var service: ClawService
+    @ObservedObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    private var visibleSessions: [ClawSession] {
+        service.sessions.filter { session in
+            (session.agentId == service.currentAgentId || session.agentId == nil) &&
+            (appState.searchText.isEmpty || session.title.localizedCaseInsensitiveContains(appState.searchText))
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Agent Card
+                    agentCard
+
+                    // Navigation Grid
+                    navigationGrid
+
+                    // Recent Sessions
+                    if !visibleSessions.isEmpty {
+                        recentSessionsSection
+                    }
+                }
+                .padding()
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Menu")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    // MARK: - Agent Card
+
+    private var agentCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Agent")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            if service.agents.count <= 1 {
+                singleAgentRow
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(service.agents) { agent in
+                            AgentChip(
+                                agent: agent,
+                                isActive: agent.id == service.currentAgentId
+                            ) {
+                                Task { await service.switchAgent(agent.id) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var singleAgentRow: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                Image(systemName: "star.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+
+            Text(service.agents.first?.id ?? "default")
+                .font(.body)
+                .fontWeight(.medium)
+        }
+    }
+
+    // MARK: - Navigation Grid
+
+    private var navigationGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Browse")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                navigationCard(
+                    icon: "message.fill",
+                    title: "Sessions",
+                    color: .blue
+                ) {
+                    appState.selectedTab = .sessions
+                    appState.drawerPath = [.sessions]
+                    dismiss()
+                }
+
+                navigationCard(
+                    icon: "wrench.and.screwdriver.fill",
+                    title: "Tools",
+                    color: .orange
+                ) {
+                    appState.selectedTab = .tools
+                    appState.drawerPath = [.tools]
+                    dismiss()
+                }
+
+                navigationCard(
+                    icon: "book.fill",
+                    title: "Skills",
+                    color: .green
+                ) {
+                    appState.selectedTab = .skills
+                    appState.drawerPath = [.skills]
+                    dismiss()
+                }
+
+                navigationCard(
+                    icon: "puzzlepiece.extension.fill",
+                    title: "Plugins",
+                    color: .purple
+                ) {
+                    appState.selectedTab = .plugins
+                    appState.drawerPath = [.plugins]
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private func navigationCard(icon: String, title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(color.opacity(0.15))
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(color)
+                }
+
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Recent Sessions
+
+    private var recentSessionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Sessions")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button("See All") {
+                    appState.selectedTab = .sessions
+                    appState.drawerPath = [.sessions]
+                    dismiss()
+                }
+                .font(.subheadline)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(visibleSessions.prefix(5), id: \.id) { session in
+                    Button {
+                        service.switchToSession(session.id)
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "message.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24)
+
+                            Text(session.title)
+                                .font(.body)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            Text(session.shortDate)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding()
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if session.id != visibleSessions.prefix(5).last?.id {
+                        Divider()
+                            .padding(.leading, 56)
+                    }
+                }
+            }
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+}
+#endif
 
 // MARK: - Agent Chip
 

@@ -54,9 +54,15 @@ struct SettingsView: View {
     // MARK: - iOS Settings
 
     #if os(iOS)
+    @AppStorage("app_appearance") private var appearance: String = "system"
+
     private var iPhoneSettingsView: some View {
         NavigationStack {
             List {
+                Section("Appearance") {
+                    ThemePicker(selection: $appearance)
+                }
+
                 Section {
                     serverURLRow
                 } header: {
