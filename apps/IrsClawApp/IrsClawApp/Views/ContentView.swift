@@ -415,7 +415,6 @@ struct DrawerMenuView: View {
                 }
                 .padding()
             }
-            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Menu")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {

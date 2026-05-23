@@ -10,14 +10,8 @@ struct MessageBubbleView: View {
     var tokenUsage: TokenUsage?
     @State private var isToolExpanded = false
     @State private var isReasoningExpanded = false
-    @State private var isAppearing = false
 
     var body: some View {
-        let isStreamingReasoning: Bool = {
-            if case .reasoning = message { return true }
-            return false
-        }()
-
         Group {
             switch message {
             case .user(let text):
@@ -32,17 +26,6 @@ struct MessageBubbleView: View {
                 statusBubble(text)
             case .reasoning(let text):
                 reasoningBubble(text)
-            }
-        }
-        .opacity(isStreamingReasoning ? 1 : (isAppearing ? 1 : 0))
-        .offset(y: isStreamingReasoning ? 0 : (isAppearing ? 0 : 8))
-        .onAppear {
-            if isStreamingReasoning {
-                isAppearing = true
-                return
-            }
-            withAnimation(.easeOut(duration: 0.25)) {
-                isAppearing = true
             }
         }
     }
