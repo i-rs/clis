@@ -44,7 +44,7 @@ impl ToolCallExecutor {
             tool_ctx,
             skills,
             cli_timeout_secs: 30,
-            truncate_display: 200,
+            truncate_display: 4096,
             truncate_context: 500,
         }
     }

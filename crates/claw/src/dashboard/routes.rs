@@ -339,7 +339,7 @@ async fn dashboard_chat_loop(
                     msgs.push(serde_json::json!({
                         "role": "tool",
                         "tool_call_id": result.call.id,
-                        "content": smart_truncate(&result.result, 500),
+                        "content": smart_truncate(&result.result, 4096),
                     }));
                 }
                 // Continue loop: send tool results back to LLM

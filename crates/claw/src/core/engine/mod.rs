@@ -56,7 +56,7 @@ pub async fn chat_loop(
     // Create shared ToolCallExecutor with configurable parameters
     let executor = crate::core::executor::ToolCallExecutor::new(tool_ctx, mcp.clone(), skills.clone())
         .with_timeout(config.cli_timeout_secs)
-        .with_truncation(200, 500);
+        .with_truncation(4096, 500);
 
     loop {
         round_count += 1;
