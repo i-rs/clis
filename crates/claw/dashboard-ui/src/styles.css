@@ -635,6 +635,24 @@ html, body {
   margin-bottom: 32px;
 }
 
+.message-footer {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.token-stats {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.token-stats-detail {
+  opacity: 0.6;
+  font-weight: 400;
+}
+
 .chat-suggestions {
   display: flex;
   flex-wrap: wrap;

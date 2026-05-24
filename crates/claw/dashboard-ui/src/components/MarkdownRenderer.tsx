@@ -48,6 +48,7 @@ const components: Components = {
 export default function MarkdownRenderer({ content }: Props) {
   return (
     <ReactMarkdown
+      key={content}
       remarkPlugins={[remarkGfm]}
       components={components}
     >

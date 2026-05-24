@@ -235,9 +235,17 @@ export type SseEventHandler = {
   onReasoning?: (text: string) => void
   onStatus?: (text: string) => void
   onError?: (error: string) => void
-  onDone?: (usage: unknown) => void
+  onDone?: (usage: TokenUsage | null) => void
   onNewRound?: () => void
   onToolExecuted?: (evt: ToolCallEvent) => void
+}
+
+// ── Token usage ──
+
+export interface TokenUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
 }
 
 // ── Chat message type ──
@@ -309,10 +317,12 @@ export function streamChat(sessionId: string, handlers: SseEventHandler): AbortC
               } catch { /* ignore parse errors */ }
               break
           case 'done':
+              console.log('[SSE] done event data:', data)
               try {
                 const parsed = JSON.parse(data)
+                console.log('[SSE] parsed.usage:', parsed.usage)
                 handlers.onDone?.(parsed.usage)
-              } catch { /* ignore parse errors */ }
+              } catch (e) { console.error('[SSE] failed to parse done data:', data, e) }
               break
           }
         }

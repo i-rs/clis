@@ -58,7 +58,6 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(hasToken())
   const [currentPage, setCurrentPage] = useState<Page>('chat')
   const [pageKey, setPageKey] = useState(0)
-  const [sessionRefreshKey, setSessionRefreshKey] = useState(0)
   const [selectedAgent, setSelectedAgent] = useState('default')
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [agentRefreshKey, setAgentRefreshKey] = useState(0)
@@ -112,7 +111,7 @@ export default function App() {
   }, [])
 
   const refreshSessions = useCallback(() => {
-    setSessionRefreshKey((k) => k + 1)
+    // Session list is refreshed on mount and agent switch; no remount needed
   }, [])
 
   const refreshAgents = useCallback(() => {
@@ -129,7 +128,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'chat':
-        return <ChatPage key={`${sessionRefreshKey}-${pageKey}`} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
+        return <ChatPage key={pageKey} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
       case 'sessions':
         return <SessionsPage key={pageKey} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
       case 'config':

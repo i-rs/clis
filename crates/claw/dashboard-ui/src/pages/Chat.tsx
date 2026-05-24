@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, type ChatMessage, type ToolCallMsg } from '../api'
+import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, type ChatMessage, type ToolCallMsg, type TokenUsage } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -20,20 +20,37 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   const abortRef = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null)
+
   const streamingRef = useRef<{
     content: string
     reasoning: string
     toolCalls: ToolCallMsg[]
   }>({ content: '', reasoning: '', toolCalls: [] })
-  const [, forceUpdate] = useState(0)
+  const [renderTick, setRenderTick] = useState(0)
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
-
+  // Instant scroll during streaming (tracks every token/tool event)
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, loading, scrollToBottom])
+    if (loading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+    }
+  }, [renderTick, loading])
+
+  // Smooth scroll when a new message arrives
+  useEffect(() => {
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
+
+  // Refresh session list after streaming completes (AFTER render, not during onDone)
+  const prevLoading = useRef(loading)
+  useEffect(() => {
+    if (prevLoading.current && !loading) {
+      onSessionChange?.()
+    }
+    prevLoading.current = loading
+  }, [loading, onSessionChange])
 
   useEffect(() => {
     const load = async () => {
@@ -187,6 +204,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     setMessages([])
     setInput('')
     setLoading(false)
+    setTokenUsage(null)
     streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
     setSessionTitle('New Chat')
     setSessionAgent(null)
@@ -221,7 +239,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setLoading(true)
     streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
-    forceUpdate((n) => n + 1)
+    setRenderTick((n) => n + 1)
 
     try {
       const resp = await sendMessage(text, selectedAgent !== 'default' ? selectedAgent : undefined)
@@ -236,11 +254,11 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       const controller = streamChat(sid, {
         onReasoning: (reasoningText: string) => {
           streamingRef.current.reasoning += reasoningText
-          forceUpdate((n) => n + 1)
+          setRenderTick((n) => n + 1)
         },
         onToken: (token: string) => {
           streamingRef.current.content += token
-          forceUpdate((n) => n + 1)
+          setRenderTick((n) => n + 1)
         },
         onNewRound: () => {
           const s = streamingRef.current
@@ -253,7 +271,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             }])
           }
           streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
-          forceUpdate((n) => n + 1)
+          setRenderTick((n) => n + 1)
         },
         onToolExecuted: (evt) => {
           streamingRef.current.toolCalls.push({
@@ -263,17 +281,18 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             step: evt.step,
             total_steps: evt.total_steps,
           })
-          forceUpdate((n) => n + 1)
+          setRenderTick((n) => n + 1)
         },
         onError: (error: string) => {
           commitStreaming()
           setMessages((prev) => [...prev, { role: 'error', content: error }])
           setLoading(false)
         },
-        onDone: () => {
+        onDone: (usage: TokenUsage | null) => {
+          console.log('[DEBUG] onDone received:', JSON.stringify(usage))
           commitStreaming()
+          setTokenUsage(usage)
           setLoading(false)
-          onSessionChange?.()
         },
       })
       abortRef.current = controller
@@ -355,7 +374,11 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
           </div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
+          <MessageBubble
+            key={i}
+            message={msg}
+            tokenUsage={i === messages.length - 1 && msg.role === 'assistant' ? tokenUsage : null}
+          />
         ))}
         {hasStreaming && <StreamingBubble display={display} />}
         {loading && !hasStreaming && (
@@ -397,9 +420,14 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   )
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, tokenUsage }: { message: ChatMessage; tokenUsage?: TokenUsage | null }) {
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0
   const hasReasoning = message.reasoning && message.reasoning.length > 0
+  const hasContent = !!message.content
+
+  if (message.role === 'assistant' && !hasContent && !hasReasoning && !hasToolCalls) {
+    return null
+  }
 
   return (
     <div className={`message ${message.role}`}>
@@ -433,6 +461,18 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ))}
           </div>
         </details>
+      )}
+      {tokenUsage && (tokenUsage.prompt_tokens != null || tokenUsage.completion_tokens != null || tokenUsage.total_tokens != null) && (
+        <div className="message-footer">
+          <span className="token-stats">
+            {tokenUsage.total_tokens != null
+              ? `${tokenUsage.total_tokens} tokens`
+              : `${(tokenUsage.prompt_tokens ?? 0) + (tokenUsage.completion_tokens ?? 0)} tokens`}
+            <span className="token-stats-detail">
+              &nbsp;(↑{tokenUsage.prompt_tokens ?? 0} ↓{tokenUsage.completion_tokens ?? 0})
+            </span>
+          </span>
+        </div>
       )}
     </div>
   )
