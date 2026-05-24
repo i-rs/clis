@@ -418,6 +418,7 @@ class ClawService: ObservableObject {
                 self.currentAgentId = agentId
             }
             self.messages = cs.messages.flatMap { convertToAppMessages($0) }
+            self.messageVersion += 1
         }
     }
 
@@ -470,6 +471,7 @@ class ClawService: ObservableObject {
         guard let response: ApiResponse<SessionDetail> = decode(data) else { return }
         if response.success, let detail = response.data {
             self.messages = detail.messages.flatMap { convertToAppMessages($0) }
+            self.messageVersion += 1
         }
         restoreLastTokenUsage(for: id)
     }
