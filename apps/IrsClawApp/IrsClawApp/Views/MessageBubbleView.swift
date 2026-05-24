@@ -58,30 +58,34 @@ struct MessageBubbleView: View {
 
     @ViewBuilder
     private func assistantBubble(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            AvatarView(icon: "sparkles", colors: [.purple, .pink])
-                .scaleEffect(0.9)
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            EmptyView()
+        } else {
+            HStack(alignment: .top, spacing: 10) {
+                AvatarView(icon: "sparkles", colors: [.purple, .pink])
+                    .scaleEffect(0.9)
 
-            VStack(alignment: .leading, spacing: 4) {
-                MarkdownTextView(text: text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.platformSecondaryBackground)
-                    )
-                    .overlay(alignment: .bottomTrailing) {
-                        if let usage = tokenUsage {
-                            tokenUsageBadge(usage)
-                                .padding(.trailing, 8)
-                                .padding(.bottom, 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    MarkdownTextView(text: text)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.platformSecondaryBackground)
+                        )
+                        .overlay(alignment: .bottomTrailing) {
+                            if let usage = tokenUsage {
+                                tokenUsageBadge(usage)
+                                    .padding(.trailing, 8)
+                                    .padding(.bottom, 4)
+                            }
                         }
-                    }
-            }
+                }
 
-            Spacer(minLength: 20)
+                Spacer(minLength: 20)
+            }
+            .padding(.vertical, 2)
         }
-        .padding(.vertical, 2)
     }
 
     @ViewBuilder
@@ -556,6 +560,7 @@ struct MarkdownTextView: View {
 
     var body: some View {
         Markdown(text)
+            .id(text)
             .markdownTheme(isCompact ? .gitHubTableScroll : .gitHub)
             .textSelection(.enabled)
     }

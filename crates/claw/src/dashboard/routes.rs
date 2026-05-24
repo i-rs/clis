@@ -412,17 +412,17 @@ async fn dashboard_chat_loop(
                         }
                         // Skip both assistant(tool_calls) and tool result
                         i += 2;
-                    } else if (!text.is_empty() && text != "null") || !reasoning.is_empty() {
+                    } else {
+                        // Always save assistant messages, even with empty/null content,
+                        // so iOS doesn't show empty bubbles on reload.
                         let mut record = serde_json::json!({
                             "type": "assistant",
-                            "text": text,
+                            "text": if text == "null" { "" } else { text },
                         });
                         if !reasoning.is_empty() {
                             record["reasoning"] = serde_json::Value::String(reasoning.to_string());
                         }
                         records.push(record);
-                        i += 1;
-                    } else {
                         i += 1;
                     }
                 }

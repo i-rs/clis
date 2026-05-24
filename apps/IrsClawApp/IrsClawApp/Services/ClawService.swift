@@ -48,6 +48,9 @@ class ClawService: ObservableObject {
     @Published var messageVersion = 0
     @Published var lastTokenUsage: TokenUsage?
 
+    /// Token usage per session, persisted across session switches and app restarts.
+    @Published var sessionTokenUsage: [String: TokenUsage] = [:]
+
     // MARK: - Private Properties
 
     private static let defaultBaseURL = "http://127.0.0.1:3000"
@@ -60,6 +63,7 @@ class ClawService: ObservableObject {
 
     init() {
         loadBackendConfigs()
+        loadSessionTokenUsage()
     }
 
     /// The server URL used for all API requests, from active backend config.
@@ -176,6 +180,26 @@ class ClawService: ObservableObject {
         updateBackend(config)
     }
 
+    // MARK: - Session Token Usage Persistence
+
+    private static let tokenUsageKey = "session_token_usage"
+
+    private func saveSessionTokenUsage() {
+        guard let data = try? JSONEncoder().encode(sessionTokenUsage) else { return }
+        UserDefaults.standard.set(data, forKey: Self.tokenUsageKey)
+    }
+
+    private func loadSessionTokenUsage() {
+        guard let data = UserDefaults.standard.data(forKey: Self.tokenUsageKey),
+              let dict = try? JSONDecoder().decode([String: TokenUsage].self, from: data)
+        else { return }
+        sessionTokenUsage = dict
+    }
+
+    private func restoreLastTokenUsage(for sessionId: String) {
+        lastTokenUsage = sessionTokenUsage[sessionId]
+    }
+
     /// Clear the auth token of the active backend.
     func clearAuthToken() {
         guard var config = activeConfig else {
@@ -264,6 +288,7 @@ class ClawService: ObservableObject {
         sessions = []
         messages = []
         currentSession = nil
+        lastTokenUsage = nil
     }
 
     /// Reconnect to the backend.
@@ -387,6 +412,7 @@ class ClawService: ObservableObject {
             if let sid = cs.id {
                 self.currentSession = sessions.first(where: { $0.id == sid })
                 self.currentSessionId = sid
+                restoreLastTokenUsage(for: sid)
             }
             if let agentId = cs.agentId {
                 self.currentAgentId = agentId
@@ -445,6 +471,7 @@ class ClawService: ObservableObject {
         if response.success, let detail = response.data {
             self.messages = detail.messages.flatMap { convertToAppMessages($0) }
         }
+        restoreLastTokenUsage(for: id)
     }
 
     func switchAgent(_ agentId: String) async {
@@ -672,6 +699,11 @@ class ClawService: ObservableObject {
                let usageData = try? JSONSerialization.data(withJSONObject: usageDict),
                let usage = try? decoder.decode(TokenUsage.self, from: usageData) {
                 lastTokenUsage = usage
+                // Persist per-session for reload
+                if let sid = currentSession?.id {
+                    sessionTokenUsage[sid] = usage
+                    saveSessionTokenUsage()
+                }
             } else {
                 lastTokenUsage = nil
             }
