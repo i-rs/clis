@@ -39,6 +39,9 @@ struct MessageBubbleView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text(text)
                     .textSelection(.enabled)
+                    #if os(macOS)
+                    .font(.system(size: 15))
+                    #endif
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
@@ -562,6 +565,11 @@ struct MarkdownTextView: View {
         Markdown(text)
             .id(text)
             .markdownTheme(isCompact ? .gitHubTableScroll : .gitHub)
+            #if os(macOS)
+            .markdownTextStyle(\.text) {
+                FontSize(13)
+            }
+            #endif
             .textSelection(.enabled)
     }
 }
