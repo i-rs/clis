@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 
 enum SidebarTab: String, CaseIterable, Identifiable {
-    case sessions, tools, skills, plugins
+    case sessions, tools, skills, plugins, usage
 
     var id: String { rawValue }
 
@@ -12,6 +12,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
         case .tools: return "Tools"
         case .skills: return "Skills"
         case .plugins: return "Plugins"
+        case .usage: return "Usage"
         }
     }
 
@@ -21,6 +22,7 @@ enum SidebarTab: String, CaseIterable, Identifiable {
         case .tools: return "wrench.adjustable"
         case .skills: return "book"
         case .plugins: return "puzzlepiece"
+        case .usage: return "chart.bar"
         }
     }
 }
@@ -30,6 +32,7 @@ enum DrawerDestination: Hashable {
     case tools
     case skills
     case plugins
+    case usage
 }
 
 @MainActor

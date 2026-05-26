@@ -160,6 +160,8 @@ struct ContentView: View {
                 SkillsPanel(service: service)
             case .plugins:
                 PluginsPanel(service: service)
+            case .usage:
+                UsagePanel(service: service)
             }
         }
     }
@@ -170,6 +172,7 @@ struct ContentView: View {
         case .tools: "Search tools"
         case .skills: "Search skills"
         case .plugins: "Search plugins"
+        case .usage: "Search"
         }
     }
 
@@ -179,6 +182,7 @@ struct ContentView: View {
         case .tools: return "Tools"
         case .skills: return "Skills"
         case .plugins: return "Plugins"
+        case .usage: return "Token Usage"
         }
     }
 
@@ -265,6 +269,9 @@ struct ContentView: View {
                     case .plugins:
                         PluginsPanel(service: service)
                             .navigationTitle("Plugins")
+                    case .usage:
+                        UsagePanel(service: service)
+                            .navigationTitle("Token Usage")
                     }
                 }
         }
@@ -533,6 +540,16 @@ struct DrawerMenuView: View {
                     appState.drawerPath = [.plugins]
                     dismiss()
                 }
+
+                navigationCard(
+                    icon: "chart.bar.fill",
+                    title: "Usage",
+                    color: .blue
+                ) {
+                    appState.selectedTab = .usage
+                    appState.drawerPath = [.usage]
+                    dismiss()
+                }
             }
         }
     }
@@ -675,6 +692,7 @@ struct ManageTabRow: View {
         case .tools: return .orange
         case .skills: return .green
         case .plugins: return .purple
+        case .usage: return .blue
         default: return .accentColor
         }
     }

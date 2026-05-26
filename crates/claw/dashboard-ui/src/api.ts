@@ -263,6 +263,7 @@ export type ChatMessage = {
   content: string
   reasoning?: string
   toolCalls?: ToolCallMsg[]
+  tokenUsage?: TokenUsage
 }
 
 // ── SSE stream parsing ──

@@ -46,10 +46,15 @@ class ClawService: ObservableObject {
     @Published var currentAgentId: String = "default"
     /// Incremented on each message update to trigger scroll in ChatView
     @Published var messageVersion = 0
-    @Published var lastTokenUsage: TokenUsage?
-
     /// Token usage per session, persisted across session switches and app restarts.
     @Published var sessionTokenUsage: [String: TokenUsage] = [:]
+
+    /// Total token usage aggregated across all sessions.
+    var totalTokenUsage: TokenUsage {
+        sessionTokenUsage.values.reduce(TokenUsage(promptTokens: 0, completionTokens: 0)) { acc, usage in
+            acc + usage
+        }
+    }
 
     // MARK: - Private Properties
 
@@ -182,7 +187,7 @@ class ClawService: ObservableObject {
 
     // MARK: - Session Token Usage Persistence
 
-    private static let tokenUsageKey = "session_token_usage"
+    private static let tokenUsageKey = "session_token_usage_v2"
 
     private func saveSessionTokenUsage() {
         guard let data = try? JSONEncoder().encode(sessionTokenUsage) else { return }
@@ -196,8 +201,9 @@ class ClawService: ObservableObject {
         sessionTokenUsage = dict
     }
 
-    private func restoreLastTokenUsage(for sessionId: String) {
-        lastTokenUsage = sessionTokenUsage[sessionId]
+    private func attachPersistedTokenUsage(for sessionId: String) {
+        // sessionTokenUsage now stores cumulative per-session totals for the global panel.
+        // Per-message token usage is only available during live SSE streaming.
     }
 
     /// Clear the auth token of the active backend.
@@ -288,7 +294,6 @@ class ClawService: ObservableObject {
         sessions = []
         messages = []
         currentSession = nil
-        lastTokenUsage = nil
     }
 
     /// Reconnect to the backend.
@@ -412,7 +417,7 @@ class ClawService: ObservableObject {
             if let sid = cs.id {
                 self.currentSession = sessions.first(where: { $0.id == sid })
                 self.currentSessionId = sid
-                restoreLastTokenUsage(for: sid)
+                attachPersistedTokenUsage(for: sid)
             }
             if let agentId = cs.agentId {
                 self.currentAgentId = agentId
@@ -473,7 +478,7 @@ class ClawService: ObservableObject {
             self.messages = detail.messages.flatMap { convertToAppMessages($0) }
             self.messageVersion += 1
         }
-        restoreLastTokenUsage(for: id)
+        attachPersistedTokenUsage(for: id)
     }
 
     func switchAgent(_ agentId: String) async {
@@ -496,7 +501,6 @@ class ClawService: ObservableObject {
         sseTask?.cancel()
 
         // Add user message to UI immediately
-        lastTokenUsage = nil
         messages.append(MessageItem(message: .user(text: text)))
         isProcessing = true
         errorMessage = nil
@@ -657,7 +661,7 @@ class ClawService: ObservableObject {
     private func appendAssistantText(_ text: String) {
         guard !text.isEmpty else { return }
         if let last = messages.last, case .assistant(let existing) = last.message {
-            messages[messages.count - 1] = MessageItem(id: last.id, message: .assistant(text: existing + text))
+            messages[messages.count - 1] = MessageItem(id: last.id, message: .assistant(text: existing + text), tokenUsage: last.tokenUsage)
         } else {
             messages.append(MessageItem(message: .assistant(text: text)))
         }
@@ -700,14 +704,16 @@ class ClawService: ObservableObject {
                let usageDict = json["usage"] as? [String: Any],
                let usageData = try? JSONSerialization.data(withJSONObject: usageDict),
                let usage = try? decoder.decode(TokenUsage.self, from: usageData) {
-                lastTokenUsage = usage
-                // Persist per-session for reload
+                // Attach usage to the last assistant message
+                if let last = messages.last, case .assistant = last.message {
+                    messages[messages.count - 1] = MessageItem(id: last.id, message: last.message, tokenUsage: usage)
+                }
+                // Accumulate per-session for global tracking
                 if let sid = currentSession?.id {
-                    sessionTokenUsage[sid] = usage
+                    let existing = sessionTokenUsage[sid] ?? TokenUsage(promptTokens: 0, completionTokens: 0)
+                    sessionTokenUsage[sid] = existing + usage
                     saveSessionTokenUsage()
                 }
-            } else {
-                lastTokenUsage = nil
             }
 
         case "error":

@@ -20,8 +20,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   const abortRef = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null)
-
   const streamingRef = useRef<{
     content: string
     reasoning: string
@@ -204,7 +202,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     setMessages([])
     setInput('')
     setLoading(false)
-    setTokenUsage(null)
     streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
     setSessionTitle('New Chat')
     setSessionAgent(null)
@@ -291,7 +288,17 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         onDone: (usage: TokenUsage | null) => {
           console.log('[DEBUG] onDone received:', JSON.stringify(usage))
           commitStreaming()
-          setTokenUsage(usage)
+          if (usage) {
+            setMessages((prev) => {
+              const lastIdx = prev.length - 1
+              if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+                const updated = [...prev]
+                updated[lastIdx] = { ...updated[lastIdx], tokenUsage: usage }
+                return updated
+              }
+              return prev
+            })
+          }
           setLoading(false)
         },
       })
@@ -377,7 +384,6 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
           <MessageBubble
             key={i}
             message={msg}
-            tokenUsage={i === messages.length - 1 && msg.role === 'assistant' ? tokenUsage : null}
           />
         ))}
         {hasStreaming && <StreamingBubble display={display} />}
@@ -420,7 +426,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   )
 }
 
-function MessageBubble({ message, tokenUsage }: { message: ChatMessage; tokenUsage?: TokenUsage | null }) {
+function MessageBubble({ message }: { message: ChatMessage }) {
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0
   const hasReasoning = message.reasoning && message.reasoning.length > 0
   const hasContent = !!message.content
@@ -462,14 +468,14 @@ function MessageBubble({ message, tokenUsage }: { message: ChatMessage; tokenUsa
           </div>
         </details>
       )}
-      {tokenUsage && (tokenUsage.prompt_tokens != null || tokenUsage.completion_tokens != null || tokenUsage.total_tokens != null) && (
+      {message.tokenUsage && (message.tokenUsage.prompt_tokens != null || message.tokenUsage.completion_tokens != null || message.tokenUsage.total_tokens != null) && (
         <div className="message-footer">
           <span className="token-stats">
-            {tokenUsage.total_tokens != null
-              ? `${tokenUsage.total_tokens} tokens`
-              : `${(tokenUsage.prompt_tokens ?? 0) + (tokenUsage.completion_tokens ?? 0)} tokens`}
+            {message.tokenUsage.total_tokens != null
+              ? `${message.tokenUsage.total_tokens} tokens`
+              : `${(message.tokenUsage.prompt_tokens ?? 0) + (message.tokenUsage.completion_tokens ?? 0)} tokens`}
             <span className="token-stats-detail">
-              &nbsp;(↑{tokenUsage.prompt_tokens ?? 0} ↓{tokenUsage.completion_tokens ?? 0})
+              &nbsp;(↑{message.tokenUsage.prompt_tokens ?? 0} ↓{message.tokenUsage.completion_tokens ?? 0})
             </span>
           </span>
         </div>

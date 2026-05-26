@@ -237,6 +237,19 @@ struct TokenUsage: Codable {
         case promptTokens = "prompt_tokens"
         case completionTokens = "completion_tokens"
     }
+
+    var totalTokens: Int {
+        (promptTokens ?? 0) + (completionTokens ?? 0)
+    }
+}
+
+extension TokenUsage {
+    static func + (lhs: TokenUsage, rhs: TokenUsage) -> TokenUsage {
+        TokenUsage(
+            promptTokens: (lhs.promptTokens ?? 0) + (rhs.promptTokens ?? 0),
+            completionTokens: (lhs.completionTokens ?? 0) + (rhs.completionTokens ?? 0)
+        )
+    }
 }
 
 // MARK: - Backend Config
@@ -261,10 +274,12 @@ struct BackendConfig: Identifiable, Codable, Equatable {
 struct MessageItem: Identifiable {
     let id: UUID
     let message: AppMessage
+    var tokenUsage: TokenUsage?
 
-    init(id: UUID = UUID(), message: AppMessage) {
+    init(id: UUID = UUID(), message: AppMessage, tokenUsage: TokenUsage? = nil) {
         self.id = id
         self.message = message
+        self.tokenUsage = tokenUsage
     }
 }
 
