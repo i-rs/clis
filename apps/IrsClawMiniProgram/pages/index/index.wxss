@@ -107,12 +107,11 @@
 .conn-text { font-size: 24rpx; color: var(--red); font-weight: 500; }
 
 /* Input Bar */
-.input-bar-wrap { flex-shrink: 0; padding: 0 20rpx; }
+.input-bar-wrap { flex-shrink: 0; padding: 0 24rpx; }
 .input-bar {
   background: var(--surface);
   border: 1rpx solid var(--border);
   border-radius: 24rpx;
-  margin-top: 12rpx;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .input-bar:focus-within {

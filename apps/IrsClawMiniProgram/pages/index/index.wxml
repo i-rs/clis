@@ -143,8 +143,8 @@
           <text class="input-send-icon">↑</text>
         </view>
       </view>
+      <view style="height: env(safe-area-inset-bottom);"></view>
     </view>
-    <view style="height: env(safe-area-inset-bottom);"></view>
   </view>
 
   <!-- Sidebar -->
