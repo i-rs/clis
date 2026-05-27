@@ -15,7 +15,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(1),
             Constraint::Min(1),
-            Constraint::Length(3),
+            Constraint::Length(4),
         ])
         .split(area);
 
@@ -317,59 +317,75 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
+    let border_color = if matches!(app.mode, AppMode::Waiting) {
+        Color::DarkGray
+    } else if app.input.is_empty() {
+        Color::Rgb(80, 80, 90)
+    } else {
+        Color::Cyan
+    };
+
     let block = Block::default()
-        .borders(Borders::TOP)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border_color));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let prompt_style = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
-    let cursor_style = Style::default().fg(Color::Cyan);
-
-    let text_before_cursor = &app.input[..app.cursor_pos];
-    let text_after_cursor = &app.input[app.cursor_pos..];
-
-    let left_line = Line::from(vec![
-        Span::styled("> ", prompt_style),
-        Span::raw(text_before_cursor),
-        if matches!(app.mode, AppMode::Idle) {
-            Span::styled("█", cursor_style)
-        } else {
-            Span::raw("")
-        },
-        Span::raw(text_after_cursor),
-    ]);
-
-    let right_label = match app.mode {
-        AppMode::Idle => {
-            if app.input.is_empty() {
-                Span::styled(" ⚡ idle ", Style::default().fg(Color::DarkGray))
-            } else {
-                Span::styled(" ↵ send ", Style::default().fg(Color::Green))
-            }
-        }
-        AppMode::Waiting => Span::styled(" ⏳ waiting...", Style::default().fg(Color::Yellow)),
+    let (prefix, prefix_color) = if matches!(app.mode, AppMode::Waiting) {
+        ("⏳ ", Color::Rgb(113, 113, 122))
+    } else {
+        ("❯ ", Color::Cyan)
     };
 
-    let label_len = 14usize;
-    let left_width = inner.width.saturating_sub(label_len as u16) as usize;
+    let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
+        vec![Line::from(Span::styled(
+            format!("{}{}", prefix, app.input),
+            Style::default().fg(prefix_color),
+        ))]
+    } else if app.input.is_empty() {
+        vec![
+            Line::from(Span::styled(
+                format!("{}输入消息...", prefix),
+                Style::default().fg(Color::Rgb(113, 113, 122)),
+            )),
+            Line::from(Span::styled(
+                "  [Enter] 发送  [Esc] 退出",
+                Style::default().fg(Color::Rgb(80, 80, 90)),
+            )),
+        ]
+    } else {
+        let mut result: Vec<Line> = app.input.lines().enumerate().map(|(i, line)| {
+            let p = if i == 0 { prefix } else { "  " };
+            Line::from(Span::styled(
+                format!("{}{}", p, line),
+                Style::default().fg(Color::Rgb(250, 250, 250)),
+            ))
+        }).collect();
+        result.push(Line::from(Span::styled(
+            "  [Enter] 发送",
+            Style::default().fg(Color::Rgb(80, 80, 90)),
+        )));
+        result
+    };
 
-    let line = Line::from(vec![
-        Span::raw(format!(
-            "{:width$}",
-            left_line.to_string(),
-            width = left_width
-        )),
-        right_label.clone(),
-    ]);
+    let input_widget = Paragraph::new(lines).block(Block::default());
+    frame.render_widget(input_widget, inner);
 
-    let paragraph = Paragraph::new(Text::from(vec![line]));
-    frame.render_widget(paragraph, inner);
-
-    if matches!(app.mode, AppMode::Idle) {
-        let cursor_x = (2 + app.cursor_pos) as u16;
-        let cursor_x = cursor_x.min(inner.width.saturating_sub(1));
-        frame.set_cursor_position((inner.x + cursor_x, inner.y));
+    // Set cursor position
+    if !matches!(app.mode, AppMode::Waiting) && !app.input.is_empty() {
+        let input_before = &app.input[..app.cursor_pos];
+        let line_idx = input_before.matches('\n').count();
+        let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
+        let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
+        let cursor_x = inner.x + 1 + prefix_width as u16 + pos_in_line as u16;
+        let cursor_y = inner.y + 1 + line_idx as u16;
+        frame.set_cursor_position((cursor_x, cursor_y));
+    } else if !matches!(app.mode, AppMode::Waiting) {
+        let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
+        let cursor_x = inner.x + 1 + prefix_width as u16;
+        let cursor_y = inner.y + 1;
+        frame.set_cursor_position((cursor_x, cursor_y));
     }
 }

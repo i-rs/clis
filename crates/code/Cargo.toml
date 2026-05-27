@@ -27,6 +27,7 @@ regex = "1"
 walkdir = "2"
 ratatui = { version = "0.30", optional = true }
 crossterm = { version = "0.29", optional = true }
+unicode-width = "0.2"
 
 [features]
 default = ["tui"]
