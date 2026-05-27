@@ -1,11 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub fn config_path() -> PathBuf {
-    let base = std::env::var("CONFIG_DIR")
+pub fn i_rs_code_dir() -> PathBuf {
+    std::env::var("I_RS_CODE_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| dirs::config_dir().unwrap_or_else(|| PathBuf::from("~/.config")));
-    base.join("i-rs-code").join("config.toml")
+        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".i-rs-code"))
+}
+
+pub fn config_path() -> PathBuf {
+    i_rs_code_dir().join("config.toml")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,17 +66,27 @@ impl Config {
 
     pub fn tools_dir(&self) -> PathBuf {
         self.tools_dir.as_ref().map(PathBuf::from).unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join(".i-rs-code").join("tools")
+            i_rs_code_dir().join("tools")
         })
     }
 
     pub fn bin_dir(&self) -> PathBuf {
         self.bin_dir.as_ref().map(PathBuf::from).unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join(".i-rs-code").join("bin")
+            i_rs_code_dir().join("bin")
         })
     }
 
     pub fn manifest_path(&self) -> PathBuf {
-        dirs::home_dir().unwrap_or_default().join(".i-rs-code").join("manifest.json")
+        i_rs_code_dir().join("manifest.json")
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        let path = config_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
     }
 }

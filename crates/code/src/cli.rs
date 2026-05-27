@@ -22,6 +22,20 @@ pub enum Commands {
         #[arg(long)]
         task_id: String,
     },
-    /// View/edit config
-    Config,
+    /// Manage configuration
+    #[command(subcommand)]
+    Config(ConfigCommands),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommands {
+    /// Show current config
+    Show,
+    /// Interactive setup wizard
+    Init,
+    /// Set a config value: provider|api_key|base_url|model
+    Set {
+        key: String,
+        value: String,
+    },
 }
