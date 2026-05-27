@@ -1,10 +1,24 @@
 var api = require('../../utils/api.js')
 var app = getApp()
 
+function maskToken(token) {
+  if (!token) return ''
+  if (token.length <= 8) return '••••••••'
+  return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4)
+}
+
+function enrichServers(servers) {
+  for (var i = 0; i < servers.length; i++) {
+    servers[i].tokenDisplay = maskToken(servers[i].token || '')
+  }
+  return servers
+}
+
 Page({
   data: {
     isConnected: false,
     theme: 'dark',
+    displayUrl: '',
     serverUrl: '',
     authToken: '',
     currentAgent: 'default',
@@ -15,20 +29,26 @@ Page({
     newName: '',
     newUrl: '',
     newToken: '',
-    tokenEditing: false,
-    editToken: ''
+    showManual: false,
+    manualUrl: '',
+    manualToken: ''
   },
 
   onLoad: function() {
     var g = app.globalData
-    var servers = wx.getStorageSync('claw_servers') || []
+    var servers = enrichServers(wx.getStorageSync('claw_servers') || [])
+    var currentId = wx.getStorageSync('claw_current_server') || ''
+    var activeUrl = g.serverUrl || ''
+    var activeToken = g.authToken || ''
+
     this.setData({
       theme: g.theme || 'dark',
-      serverUrl: g.serverUrl || '',
-      authToken: g.authToken || '',
+      serverUrl: activeUrl,
+      authToken: activeToken,
+      displayUrl: activeUrl || '未设置',
       currentAgent: g.currentAgent || 'default',
       servers: servers,
-      currentServerId: wx.getStorageSync('claw_current_server') || ''
+      currentServerId: currentId
     })
     this.checkHealth()
     this.loadConfig()
@@ -61,38 +81,84 @@ Page({
     app.saveConfig()
   },
 
-  onServerInput: function(e) { this.setData({ serverUrl: e.detail.value }) },
-  onTokenInput: function(e) { this.setData({ editToken: e.detail.value }) },
-
-  maskToken: function(token) {
-    if (!token) return ''
-    if (token.length <= 8) return '••••••••'
-    return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4)
+  saveServers: function(servers) {
+    wx.setStorageSync('claw_servers', servers)
   },
 
-  toggleTokenEdit: function() {
-    if (this.data.tokenEditing) {
-      this.setData({ tokenEditing: false, editToken: '' })
-    } else {
-      this.setData({ tokenEditing: true, editToken: this.data.authToken })
+  activateServer: function(id) {
+    var servers = this.data.servers
+    for (var i = 0; i < servers.length; i++) {
+      if (servers[i].id === id) {
+        var srv = servers[i]
+        app.globalData.serverUrl = srv.url
+        app.globalData.authToken = srv.token || ''
+        app.saveConfig()
+        wx.setStorageSync('claw_current_server', id)
+        this.setData({
+          currentServerId: id,
+          serverUrl: srv.url,
+          authToken: srv.token || '',
+          displayUrl: srv.url
+        })
+        this.checkHealth()
+        this.loadConfig()
+        return
+      }
     }
   },
 
-  confirmToken: function() {
-    this.setData({ authToken: this.data.editToken, tokenEditing: false, editToken: '' })
+  selectServer: function(e) {
+    var id = e.currentTarget.dataset.id
+    this.activateServer(id)
   },
 
-  onSave: function() {
-    app.globalData.serverUrl = this.data.serverUrl
-    app.globalData.authToken = this.data.authToken
-    app.saveConfig()
-    this.checkHealth()
-    this.loadConfig()
-    wx.showToast({ title: '已保存', icon: 'success' })
+  deleteServer: function(e) {
+    var id = e.currentTarget.dataset.id
+    var name = e.currentTarget.dataset.name
+    var that = this
+
+    wx.showModal({
+      title: '删除服务器',
+      content: '确认删除「' + name + '」？',
+      success: function(res) {
+        if (!res.confirm) return
+        var servers = that.data.servers.slice()
+        var newServers = []
+        for (var i = 0; i < servers.length; i++) {
+          if (servers[i].id !== id) newServers.push(servers[i])
+        }
+        enrichServers(newServers)
+        that.setData({ servers: newServers })
+        that.saveServers(newServers)
+
+        if (that.data.currentServerId === id) {
+          wx.removeStorageSync('claw_current_server')
+          if (newServers.length > 0) {
+            that.activateServer(newServers[0].id)
+          } else {
+            app.globalData.serverUrl = ''
+            app.globalData.authToken = ''
+            app.saveConfig()
+            that.setData({
+              currentServerId: '',
+              serverUrl: '',
+              authToken: '',
+              displayUrl: '未设置'
+            })
+            that.checkHealth()
+          }
+        }
+        wx.showToast({ title: '已删除', icon: 'success' })
+      }
+    })
   },
 
+  // Add Server
   toggleAddForm: function() {
-    this.setData({ showAddForm: !this.data.showAddForm })
+    this.setData({
+      showAddForm: !this.data.showAddForm,
+      showManual: false
+    })
   },
 
   onNewName: function(e) { this.setData({ newName: e.detail.value }) },
@@ -107,12 +173,15 @@ Page({
       return
     }
     var servers = this.data.servers.slice()
-    servers.push({
-      id: 'srv_' + Date.now(),
+    var id = 'srv_' + Date.now()
+    var srv = {
+      id: id,
       name: name,
       url: url,
       token: this.data.newToken.trim()
-    })
+    }
+    srv.tokenDisplay = maskToken(srv.token)
+    servers.push(srv)
     this.setData({
       servers: servers,
       showAddForm: false,
@@ -120,43 +189,45 @@ Page({
       newUrl: '',
       newToken: ''
     })
-    wx.setStorageSync('claw_servers', servers)
+    this.saveServers(servers)
+    this.activateServer(id)
+    wx.showToast({ title: '已添加并连接', icon: 'success' })
   },
 
-  selectServer: function(e) {
-    var id = e.currentTarget.dataset.id
-    var servers = this.data.servers
-    for (var i = 0; i < servers.length; i++) {
-      if (servers[i].id === id) {
-        this.setData({
-          serverUrl: servers[i].url,
-          authToken: servers[i].token || '',
-          currentServerId: id
-        })
-        app.globalData.serverUrl = servers[i].url
-        app.globalData.authToken = servers[i].token || ''
-        app.saveConfig()
-        wx.setStorageSync('claw_current_server', id)
-        this.checkHealth()
-        this.loadConfig()
-        wx.showToast({ title: '已切换', icon: 'success' })
-        break
-      }
-    }
+  // Manual Connect
+  toggleManual: function() {
+    this.setData({
+      showManual: !this.data.showManual,
+      showAddForm: false
+    })
   },
 
-  deleteServer: function(e) {
-    var id = e.currentTarget.dataset.id
-    var servers = this.data.servers.slice()
-    var newServers = []
-    for (var i = 0; i < servers.length; i++) {
-      if (servers[i].id !== id) newServers.push(servers[i])
+  onManualUrl: function(e) { this.setData({ manualUrl: e.detail.value }) },
+  onManualToken: function(e) { this.setData({ manualToken: e.detail.value }) },
+
+  manualConnect: function() {
+    var url = this.data.manualUrl.trim()
+    if (!url) {
+      wx.showToast({ title: '请输入服务器地址', icon: 'none' })
+      return
     }
-    this.setData({ servers: newServers })
-    wx.setStorageSync('claw_servers', newServers)
-    if (this.data.currentServerId === id) {
-      this.setData({ currentServerId: '' })
-      wx.removeStorageSync('claw_current_server')
-    }
+    var token = this.data.manualToken.trim()
+    app.globalData.serverUrl = url
+    app.globalData.authToken = token
+    app.saveConfig()
+
+    wx.removeStorageSync('claw_current_server')
+    this.setData({
+      currentServerId: '',
+      serverUrl: url,
+      authToken: token,
+      displayUrl: url,
+      showManual: false,
+      manualUrl: '',
+      manualToken: ''
+    })
+    this.checkHealth()
+    this.loadConfig()
+    wx.showToast({ title: '已连接', icon: 'success' })
   }
 })

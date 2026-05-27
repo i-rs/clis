@@ -5,19 +5,19 @@
     <view class="nav-right"></view>
   </view>
 
-  <!-- Status -->
+  <!-- Connection Status -->
   <view class="section">
     <text class="section-label">连接状态</text>
     <view class="card">
       <view class="status">
         <view class="status-dot {{isConnected ? 'ok' : ''}}"></view>
         <text class="status-text">{{isConnected ? '已连接' : '未连接'}}</text>
-        <text class="status-extra">{{serverUrl}}</text>
+        <text class="status-extra">{{displayUrl}}</text>
       </view>
     </view>
   </view>
 
-  <!-- Theme -->
+  <!-- Appearance -->
   <view class="section">
     <text class="section-label">外观</text>
     <view class="card">
@@ -28,41 +28,42 @@
     </view>
   </view>
 
-  <!-- Server List -->
+  <!-- Servers -->
   <view class="section">
-    <text class="section-label">服务器列表</text>
+    <text class="section-label">服务器</text>
+
     <view class="card" wx:if="{{servers.length > 0}}">
       <view wx:for="{{servers}}" wx:key="id" class="srv-row {{item.id === currentServerId ? 'srv-active' : ''}}">
         <view class="srv-info" bindtap="selectServer" data-id="{{item.id}}">
-          <view class="srv-icon-wrap {{item.id === currentServerId ? 'srv-icon-active' : ''}}">
+          <view class="srv-icon {{item.id === currentServerId ? 'srv-icon-active' : ''}}">
             <text class="srv-icon-text">🌐</text>
           </view>
           <view class="srv-body">
-            <text class="srv-name">{{item.name}}</text>
+            <view class="srv-name-row">
+              <text class="srv-name">{{item.name}}</text>
+              <text class="srv-check" wx:if="{{item.id === currentServerId}}">✓</text>
+            </view>
             <text class="srv-url">{{item.url}}</text>
+            <text class="srv-token">{{item.tokenDisplay}}</text>
           </view>
-          <view class="srv-check" wx:if="{{item.id === currentServerId}}">
-            <text class="srv-check-text">✓</text>
+          <view class="srv-del" bindtap="deleteServer" data-id="{{item.id}}" data-name="{{item.name}}">
+            <text class="srv-del-text">×</text>
           </view>
-        </view>
-        <view class="srv-del" bindtap="deleteServer" data-id="{{item.id}}">
-          <text class="srv-del-text">×</text>
         </view>
       </view>
     </view>
+
     <view class="card" wx:else>
       <view class="srv-empty">
         <text class="srv-empty-text">暂无保存的服务器</text>
       </view>
     </view>
+
+    <!-- Add Server -->
     <view class="add-btn-wrap">
       <view class="btn btn-ghost" bindtap="toggleAddForm">{{showAddForm ? '取消' : '+ 添加服务器'}}</view>
     </view>
-  </view>
-
-  <!-- Add Server Form -->
-  <view class="section" wx:if="{{showAddForm}}">
-    <view class="card">
+    <view class="card add-form" wx:if="{{showAddForm}}">
       <view class="field-row">
         <text class="field-label">名称</text>
         <input class="config-input" value="{{newName}}" bindinput="onNewName" placeholder="服务器名称" />
@@ -75,34 +76,27 @@
         <text class="field-label">令牌</text>
         <input class="config-input" value="{{newToken}}" bindinput="onNewToken" placeholder="可选" />
       </view>
+      <view class="add-form-btn">
+        <view class="btn btn-fill" bindtap="addServer">保存并连接</view>
+      </view>
     </view>
-    <view class="add-btn-wrap">
-      <view class="btn btn-fill" bindtap="addServer">确认添加</view>
-    </view>
-  </view>
 
-  <!-- Current Config -->
-  <view class="section">
-    <text class="section-label">当前服务器</text>
-    <view class="card">
-      <view class="field-row">
-        <text class="field-label">URL</text>
-        <input class="config-input" value="{{serverUrl}}" placeholder="http://localhost:3000" bindinput="onServerInput" />
-      </view>
-      <view class="field-row">
-        <text class="field-label">Token</text>
-        <text class="token-masked" wx:if="{{!tokenEditing}}">{{authToken && authToken.length > 8 ? authToken.substring(0, 4) + '••••••••' + authToken.substring(authToken.length - 4) : (authToken ? '••••••••' : '未设置')}}</text>
-        <view class="token-edit-btn" bindtap="toggleTokenEdit">
-          <text class="token-edit-text">{{tokenEditing ? '取消' : '修改'}}</text>
-        </view>
-      </view>
-      <view class="field-row" wx:if="{{tokenEditing}}">
-        <text class="field-label">新Token</text>
-        <input class="config-input" value="{{editToken}}" placeholder="输入新Token" bindinput="onTokenInput" focus="{{tokenEditing}}" bindconfirm="confirmToken" />
-      </view>
-    </view>
+    <!-- Manual Connect -->
     <view class="add-btn-wrap">
-      <view class="btn btn-fill" bindtap="onSave">保存并重连</view>
+      <view class="btn btn-ghost" bindtap="toggleManual">{{showManual ? '取消' : '手动连接 >>'}}</view>
+    </view>
+    <view class="card add-form" wx:if="{{showManual}}">
+      <view class="field-row">
+        <text class="field-label">地址</text>
+        <input class="config-input" value="{{manualUrl}}" bindinput="onManualUrl" placeholder="http://localhost:3000" />
+      </view>
+      <view class="field-row">
+        <text class="field-label">令牌</text>
+        <input class="config-input" value="{{manualToken}}" bindinput="onManualToken" placeholder="可选" />
+      </view>
+      <view class="add-form-btn">
+        <view class="btn btn-fill" bindtap="manualConnect">连接</view>
+      </view>
     </view>
   </view>
 
@@ -112,7 +106,6 @@
     <view class="card">
       <view class="info-row"><text>Provider</text><text class="info-val">{{aiConfig.provider || '-'}}</text></view>
       <view class="info-row"><text>Model</text><text class="info-val">{{aiConfig.model || '-'}}</text></view>
-      <view class="info-row"><text>Agent</text><text class="info-val">{{currentAgent}}</text></view>
     </view>
   </view>
 </view>
