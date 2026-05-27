@@ -14,6 +14,8 @@ pub struct Session {
 pub struct Message {
     pub role: String,
     pub content: String,
+    #[serde(default)]
+    pub reasoning: String,
     pub tool_calls: Option<Vec<Value>>,
 }
 
@@ -35,6 +37,7 @@ impl Session {
             messages: msgs.iter().map(|m| Message {
                 role: m.role.clone(),
                 content: m.content.clone(),
+                reasoning: m.reasoning.clone(),
                 tool_calls: None,
             }).collect(),
             created_at: now.clone(),

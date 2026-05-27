@@ -5,6 +5,7 @@ use std::collections::HashSet;
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
+    pub reasoning: String,
 }
 
 #[derive(Clone, Default)]
@@ -27,6 +28,7 @@ pub struct ToolCallInfo {
 
 pub struct StreamingState {
     pub content: String,
+    pub reasoning: String,
     pub tool_calls: Vec<ToolCallInfo>,
     pub current_tool: Option<ToolCallInfo>,
 }
@@ -83,6 +85,7 @@ impl App {
     pub fn start_streaming(&mut self) {
         self.streaming = Some(StreamingState {
             content: String::new(),
+            reasoning: String::new(),
             tool_calls: Vec::new(),
             current_tool: None,
         });
@@ -94,8 +97,12 @@ impl App {
         }
     }
 
-    pub fn finish_streaming(&mut self) -> String {
-        self.streaming.take().map(|s| s.content).unwrap_or_default()
+    pub fn finish_streaming(&mut self) -> (String, String) {
+        let s = self.streaming.take();
+        match s {
+            Some(s) => (s.content, s.reasoning),
+            None => (String::new(), String::new()),
+        }
     }
 
     pub fn insert_char(&mut self, c: char) {

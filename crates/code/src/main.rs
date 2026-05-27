@@ -40,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
                             app.messages.push(app::ChatMessage {
                                 role: m.role.clone(),
                                 content: m.content.clone(),
+                                reasoning: m.reasoning.clone(),
                             });
                         }
                     }

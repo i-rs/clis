@@ -235,6 +235,14 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 lines.push(Line::from(vec![
                     Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
                 ]));
+                if !msg.reasoning.is_empty() {
+                    for line in msg.reasoning.lines() {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
+                        )));
+                    }
+                }
                 for line in msg.content.lines() {
                     lines.push(Line::from(Span::raw(format!(" {}", line))));
                 }
@@ -264,6 +272,15 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(vec![
             Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
         ]));
+
+        if !s.reasoning.is_empty() {
+            for line in s.reasoning.lines() {
+                lines.push(Line::from(Span::styled(
+                    format!(" {}", line),
+                    Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
+                )));
+            }
+        }
 
         if !s.content.is_empty() {
             for line in s.content.lines() {

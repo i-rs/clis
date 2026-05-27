@@ -42,6 +42,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                  i-rs-code config init    交互式配置\n  \
                  i-rs-code config show    查看配置"
             ),
+            reasoning: String::new(),
         });
     }
 
@@ -115,8 +116,10 @@ fn handle_event(event: AgentEvent, app: &mut App) {
         AgentEvent::Token(t) => {
             app.push_token(&t);
         }
-        AgentEvent::Reasoning(_r) => {
-            app.push_token("[thinking]");
+        AgentEvent::Reasoning(r) => {
+            if let Some(ref mut s) = app.streaming {
+                s.reasoning.push_str(&r);
+            }
         }
         AgentEvent::ToolCallStart { id: _id, name, args } => {
             let info = ToolCallInfo {
@@ -137,7 +140,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             }
         }
         AgentEvent::Done { usage, messages } => {
-            let content = app.finish_streaming();
+            let (content, reasoning) = app.finish_streaming();
             if !messages.is_empty() {
                 app.agent_messages = messages;
             }
@@ -147,6 +150,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             app.messages.push(ChatMessage {
                 role: "assistant".into(),
                 content,
+                reasoning,
             });
             app.scroll_offset = 0;
             if matches!(app.mode, AppMode::Waiting) {
@@ -154,7 +158,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             }
         }
         AgentEvent::Error(e) => {
-            let content = app.finish_streaming();
+            let (content, reasoning) = app.finish_streaming();
             let msg = if !content.is_empty() {
                 format!("{}\n\nError: {}", content, e)
             } else {
@@ -163,6 +167,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             app.messages.push(ChatMessage {
                 role: "assistant".into(),
                 content: msg,
+                reasoning,
             });
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
@@ -186,11 +191,12 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                         tx.send(()).ok();
                     }
                     app.mode = AppMode::Idle;
-                    let content = app.finish_streaming();
+                    let (content, reasoning) = app.finish_streaming();
                     if !content.is_empty() {
                         app.messages.push(ChatMessage {
                             role: "assistant".into(),
                             content: format!("{}\n\n[Cancelled]", content),
+                            reasoning,
                         });
                     }
                     return;
@@ -273,6 +279,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             app.messages.push(ChatMessage {
                 role: "user".into(),
                 content: prompt.clone(),
+                reasoning: String::new(),
             });
             app.start_streaming();
             app.mode = AppMode::Waiting;
