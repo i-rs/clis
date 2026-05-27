@@ -1,14 +1,11 @@
 <view class="settings-page">
   <view class="navbar">
-    <view class="nav-btn" bindtap="goBack">
-      <text>←</text>
-    </view>
-    <view class="nav-center">
-      <text class="nav-title">设置</text>
-    </view>
+    <view class="nav-btn" bindtap="goBack"><text>←</text></view>
+    <view class="nav-center"><text class="nav-title">设置</text></view>
     <view class="nav-right"></view>
   </view>
 
+  <!-- Status -->
   <view class="section">
     <text class="section-label">连接状态</text>
     <view class="card">
@@ -20,6 +17,7 @@
     </view>
   </view>
 
+  <!-- Theme -->
   <view class="section">
     <text class="section-label">外观</text>
     <view class="card">
@@ -30,8 +28,62 @@
     </view>
   </view>
 
+  <!-- Server List -->
   <view class="section">
-    <text class="section-label">服务器</text>
+    <text class="section-label">服务器列表</text>
+    <view class="card" wx:if="{{servers.length > 0}}">
+      <view wx:for="{{servers}}" wx:key="id" class="srv-row {{item.id === currentServerId ? 'srv-active' : ''}}">
+        <view class="srv-info" bindtap="selectServer" data-id="{{item.id}}">
+          <view class="srv-icon-wrap {{item.id === currentServerId ? 'srv-icon-active' : ''}}">
+            <text class="srv-icon-text">🌐</text>
+          </view>
+          <view class="srv-body">
+            <text class="srv-name">{{item.name}}</text>
+            <text class="srv-url">{{item.url}}</text>
+          </view>
+          <view class="srv-check" wx:if="{{item.id === currentServerId}}">
+            <text class="srv-check-text">✓</text>
+          </view>
+        </view>
+        <view class="srv-del" bindtap="deleteServer" data-id="{{item.id}}">
+          <text class="srv-del-text">×</text>
+        </view>
+      </view>
+    </view>
+    <view class="card" wx:else>
+      <view class="srv-empty">
+        <text class="srv-empty-text">暂无保存的服务器</text>
+      </view>
+    </view>
+    <view class="add-btn-wrap">
+      <view class="btn btn-ghost" bindtap="toggleAddForm">{{showAddForm ? '取消' : '+ 添加服务器'}}</view>
+    </view>
+  </view>
+
+  <!-- Add Server Form -->
+  <view class="section" wx:if="{{showAddForm}}">
+    <view class="card">
+      <view class="field-row">
+        <text class="field-label">名称</text>
+        <input class="config-input" value="{{newName}}" bindinput="onNewName" placeholder="服务器名称" />
+      </view>
+      <view class="field-row">
+        <text class="field-label">地址</text>
+        <input class="config-input" value="{{newUrl}}" bindinput="onNewUrl" placeholder="http://localhost:3000" />
+      </view>
+      <view class="field-row">
+        <text class="field-label">令牌</text>
+        <input class="config-input" value="{{newToken}}" bindinput="onNewToken" placeholder="可选" />
+      </view>
+    </view>
+    <view class="add-btn-wrap">
+      <view class="btn btn-fill" bindtap="addServer">确认添加</view>
+    </view>
+  </view>
+
+  <!-- Current Config -->
+  <view class="section">
+    <text class="section-label">当前服务器</text>
     <view class="card">
       <view class="field-row">
         <text class="field-label">URL</text>
@@ -39,30 +91,21 @@
       </view>
       <view class="field-row">
         <text class="field-label">Token</text>
-        <input class="config-input" value="{{authToken}}" placeholder="可选" password type="text" bindinput="onTokenInput" />
+        <input class="config-input" value="{{authToken}}" placeholder="可选" bindinput="onTokenInput" />
       </view>
+    </view>
+    <view class="add-btn-wrap">
+      <view class="btn btn-fill" bindtap="onSave">保存并重连</view>
     </view>
   </view>
 
-  <view class="save-section">
-    <view class="btn btn-fill" bindtap="onSave">保存并重连</view>
-  </view>
-
-  <view class="section info-card" wx:if="{{aiConfig}}">
+  <!-- AI Config -->
+  <view class="section" wx:if="{{aiConfig}}">
     <text class="section-label">AI 配置</text>
     <view class="card">
-      <view class="info-row">
-        <text>Provider</text>
-        <text class="info-val">{{aiConfig.provider || '-'}}</text>
-      </view>
-      <view class="info-row">
-        <text>Model</text>
-        <text class="info-val">{{aiConfig.model || '-'}}</text>
-      </view>
-      <view class="info-row">
-        <text>Agent</text>
-        <text class="info-val">{{currentAgent}}</text>
-      </view>
+      <view class="info-row"><text>Provider</text><text class="info-val">{{aiConfig.provider || '-'}}</text></view>
+      <view class="info-row"><text>Model</text><text class="info-val">{{aiConfig.model || '-'}}</text></view>
+      <view class="info-row"><text>Agent</text><text class="info-val">{{currentAgent}}</text></view>
     </view>
   </view>
 </view>

@@ -147,14 +147,17 @@
     <text class="conn-text">未连接到服务器</text>
   </view>
 
-  <!-- Input -->
-  <view class="input-bar">
-    <view class="input-wrap {{inputFocused ? 'input-wrap-focus' : ''}}">
-      <textarea class="input-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="input-placeholder" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" disable-default-padding cursor-spacing="20" />
+  <!-- Floating Input -->
+  <view class="float-input-area" style="padding-bottom: {{keyboardHeight}}px;">
+    <view class="float-input-bar">
+      <view class="float-input-wrap {{inputFocused ? 'float-input-focus' : ''}}">
+        <textarea class="float-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{false}}" cursor-spacing="0" />
+      </view>
+      <view class="float-send {{inputText.length > 0 ? 'float-send-on' : ''}}" bindtap="onSend">
+        <text class="float-send-icon">↑</text>
+      </view>
     </view>
-    <view class="send-btn {{inputText.length > 0 ? 'send-btn-active' : ''}}" bindtap="onSend">
-      <text class="send-icon">↑</text>
-    </view>
+    <view style="height: env(safe-area-inset-bottom);"></view>
   </view>
 
   <!-- Sidebar -->

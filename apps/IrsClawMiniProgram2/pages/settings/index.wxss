@@ -1,18 +1,23 @@
 page { background: var(--bg); }
-
 .settings-page { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
-
-.config-input {
-  flex: 1;
-  font-size: 28rpx;
-  color: var(--text);
-  text-align: right;
-  background: transparent;
-  border: none;
-  outline: none;
-}
+.config-input { flex: 1; font-size: 28rpx; color: var(--text); text-align: right; background: transparent; border: none; outline: none; }
 .config-input::placeholder { color: var(--text-3); }
+.add-btn-wrap { margin-top: 20rpx; padding: 0 24rpx; }
 
-.save-section { margin-top: 40rpx; padding: 0 24rpx; }
-
-.info-card { margin-top: 32rpx; }
+.srv-row { display: flex; align-items: center; padding: 20rpx 24rpx; border-bottom: 1rpx solid var(--border); }
+.srv-row:last-child { border-bottom: none; }
+.srv-active { background: var(--accent-bg); }
+.srv-info { display: flex; align-items: center; gap: 16rpx; flex: 1; }
+.srv-icon-wrap { width: 64rpx; height: 64rpx; border-radius: 16rpx; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
+.srv-icon-active { background: var(--accent-bg); }
+.srv-icon-text { font-size: 28rpx; }
+.srv-body { flex: 1; overflow: hidden; }
+.srv-name { font-size: 28rpx; font-weight: 600; color: var(--text); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-url { font-size: 22rpx; color: var(--text-3); display: block; margin-top: 2rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-check { width: 40rpx; height: 40rpx; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+.srv-check-text { font-size: 22rpx; color: #fff; font-weight: 700; }
+.srv-del { width: 56rpx; height: 56rpx; display: flex; align-items: center; justify-content: center; margin-left: 8rpx; }
+.srv-del-text { font-size: 32rpx; color: var(--text-3); }
+.srv-del:active .srv-del-text { color: var(--red); }
+.srv-empty { padding: 40rpx; text-align: center; }
+.srv-empty-text { font-size: 28rpx; color: var(--text-3); }
