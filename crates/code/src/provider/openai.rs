@@ -93,6 +93,7 @@ impl LlmProvider for OpenAiProvider {
 
             let mut buf = String::new();
             let mut stream = res.bytes_stream();
+            let mut final_usage: Option<Usage> = None;
             use futures::StreamExt;
             while let Some(chunk) = stream.next().await {
                 let chunk = match chunk {
@@ -108,6 +109,12 @@ impl LlmProvider for OpenAiProvider {
                     if line == "data: [DONE]" { continue; }
                     if let Some(data) = line.strip_prefix("data: ") {
                         if let Ok(val) = serde_json::from_str::<Value>(data) {
+                            // Extract usage from the final chunk (empty choices + usage field)
+                            if val.get("usage").and_then(|u| u.as_object()).is_some() {
+                                let input = val["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
+                                let output = val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
+                                final_usage = Some(Usage { input_tokens: input, output_tokens: output });
+                            }
                             if let Some(choices) = val["choices"].as_array() {
                                 for choice in choices {
                                     let delta = &choice["delta"];
@@ -136,7 +143,7 @@ impl LlmProvider for OpenAiProvider {
                 }
                 buf.clear();
             }
-            tx.send(StreamEvent { kind: StreamEventKind::Done { content: None, usage: None } }).await.ok();
+            tx.send(StreamEvent { kind: StreamEventKind::Done { content: None, usage: final_usage } }).await.ok();
         });
 
         rx
@@ -181,7 +188,11 @@ impl LlmProvider for OpenAiProvider {
         } else {
             Vec::new()
         };
+        let usage = val.get("usage").map(|u| Usage {
+            input_tokens: u["prompt_tokens"].as_u64().unwrap_or(0) as u32,
+            output_tokens: u["completion_tokens"].as_u64().unwrap_or(0) as u32,
+        });
 
-        Ok(LlmResponse { content, tool_calls, usage: None })
+        Ok(LlmResponse { content, tool_calls, usage })
     }
 }

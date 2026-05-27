@@ -1,9 +1,9 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 use crate::app::{App, AppMode};
 
@@ -22,6 +22,62 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_title_bar(frame, chunks[0], app);
     render_main_area(frame, chunks[1], app);
     render_input_bar(frame, chunks[2], app);
+
+    if matches!(app.mode, AppMode::ConfirmQuit) {
+        render_confirm_overlay(frame, area, app);
+    }
+}
+
+fn render_confirm_overlay(frame: &mut Frame, area: Rect, app: &App) {
+    let w = 50.min(area.width.saturating_sub(4));
+    let h = 6;
+    let x = (area.width - w) / 2;
+    let y = (area.height - h) / 2;
+
+    let overlay = Rect { x, y, width: w, height: h };
+
+    frame.render_widget(Clear, overlay);
+
+    let title = format!("  Exit i-rs-code?  ");
+    let has_msgs = app.messages.len() > 1;
+    let text = if has_msgs {
+        Text::from(vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Save session before exit?",
+                Style::default().fg(Color::White),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  y  保存并退出  |  n  直接退出  |  Esc  取消",
+                Style::default().fg(Color::Rgb(120, 120, 140)),
+            )),
+        ])
+    } else {
+        Text::from(vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Exit without saving?",
+                Style::default().fg(Color::White),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Esc  取消  |  q  退出",
+                Style::default().fg(Color::Rgb(120, 120, 140)),
+            )),
+        ])
+    };
+
+    let block = Block::default()
+        .title(title)
+        .title_alignment(Alignment::Center)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let paragraph = Paragraph::new(text)
+        .block(block)
+        .alignment(Alignment::Center);
+    frame.render_widget(paragraph, overlay);
 }
 
 fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
@@ -283,10 +339,12 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     let mode_text = match app.mode {
         AppMode::Idle => "Idle",
         AppMode::Waiting => "Waiting...",
+        AppMode::ConfirmQuit => "Exit?",
     };
     let mode_style = match app.mode {
         AppMode::Idle => Style::default().fg(Color::Green),
         AppMode::Waiting => Style::default().fg(Color::Yellow),
+        AppMode::ConfirmQuit => Style::default().fg(Color::Cyan),
     };
     items.push(Line::from(vec![
         Span::styled("Mode ", Style::default().fg(Color::Gray)),
@@ -339,17 +397,26 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let (prefix, prefix_color) = if matches!(app.mode, AppMode::Waiting) {
-        ("⏳ ", Color::Rgb(113, 113, 122))
+    let prefix = if matches!(app.mode, AppMode::Waiting) {
+        "⏳ "
+    } else if matches!(app.mode, AppMode::ConfirmQuit) {
+        "❯ "
     } else {
-        ("❯ ", Color::Cyan)
+        "❯ "
     };
 
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
-        vec![Line::from(Span::styled(
-            format!("{}{}", prefix, app.input),
-            Style::default().fg(prefix_color),
-        ))]
+        vec![Line::from(vec![
+            Span::styled("⏳ ", Style::default().fg(Color::Rgb(113, 113, 122))),
+            Span::styled(&app.input, Style::default().fg(Color::Rgb(113, 113, 122))),
+        ])]
+    } else if matches!(app.mode, AppMode::ConfirmQuit) {
+        vec![
+            Line::from(Span::styled(
+                format!("{}按 y/n 确认退出...", prefix),
+                Style::default().fg(Color::Rgb(80, 80, 90)),
+            )),
+        ]
     } else if app.input.is_empty() {
         vec![
             Line::from(Span::styled(
@@ -379,8 +446,8 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let input_widget = Paragraph::new(lines).block(Block::default());
     frame.render_widget(input_widget, inner);
 
-    // Set cursor position
-    if !matches!(app.mode, AppMode::Waiting) && !app.input.is_empty() {
+    // Set cursor position (only in Idle mode)
+    if matches!(app.mode, AppMode::Idle) && !app.input.is_empty() {
         let input_before = &app.input[..app.cursor_pos];
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
@@ -389,7 +456,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         let cursor_x = inner.x + 1 + prefix_width as u16 + pos_in_line as u16;
         let cursor_y = inner.y + 1 + line_idx as u16;
         frame.set_cursor_position((cursor_x, cursor_y));
-    } else if !matches!(app.mode, AppMode::Waiting) {
+    } else if matches!(app.mode, AppMode::Idle) {
         let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
         let cursor_x = inner.x + 1 + prefix_width as u16;
         let cursor_y = inner.y + 1;

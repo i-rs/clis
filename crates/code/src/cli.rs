@@ -10,7 +10,10 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Enter TUI full-screen mode
-    Tui,
+    Tui {
+        #[arg(long, help = "Session ID to resume")]
+        session: Option<String>,
+    },
     /// One-shot conversation
     Chat {
         prompt: String,

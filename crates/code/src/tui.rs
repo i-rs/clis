@@ -31,17 +31,19 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     let (event_tx, mut event_rx) = mpsc::channel::<AgentEvent>(256);
 
     let version = app.version.clone();
-    app.messages.push(ChatMessage {
-        role: "assistant".into(),
-        content: format!(
-            "Welcome to i-rs-code v{version}\n\n\
-             Type a message to start coding...\n\n\
-             可用命令:\n  \
-             i-rs-code chat <prompt>  一次性对话\n  \
-             i-rs-code config init    交互式配置\n  \
-             i-rs-code config show    查看配置"
-        ),
-    });
+    if app.messages.is_empty() {
+        app.messages.push(ChatMessage {
+            role: "assistant".into(),
+            content: format!(
+                "Welcome to i-rs-code v{version}\n\n\
+                 Type a message to start coding...\n\n\
+                 可用命令:\n  \
+                 i-rs-code chat <prompt>  一次性对话\n  \
+                 i-rs-code config init    交互式配置\n  \
+                 i-rs-code config show    查看配置"
+            ),
+        });
+    }
 
     while !app.should_quit {
         terminal.draw(|f| {
@@ -59,6 +61,16 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         }
     }
 
+    let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let has_history = app.messages.len() > 1;
+    let saved = if has_history {
+        let sessions_dir = crate::config::i_rs_code_dir().join("sessions");
+        let session = crate::session::Session::from_chat_messages(Some(session_id.clone()), &app.messages);
+        session.save(&sessions_dir).ok().map(|_| session_id)
+    } else {
+        None
+    };
+
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -66,6 +78,13 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         DisableMouseCapture,
     )?;
     terminal.show_cursor()?;
+
+    if let Some(sid) = saved {
+        println!();
+        println!("  Session saved: {}", sid);
+        println!("  To resume: i-rs-code tui --session {}", sid);
+        println!();
+    }
 
     Ok(())
 }
@@ -128,26 +147,60 @@ fn handle_event(event: AgentEvent, app: &mut App) {
 
 #[cfg(feature = "tui")]
 async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentEvent>) {
+    match app.mode {
+        AppMode::ConfirmQuit => {
+            match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    app.should_quit = true;
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') => {
+                    app.should_quit = true;
+                }
+                KeyCode::Esc => {
+                    app.mode = AppMode::Idle;
+                }
+                _ => {}
+            }
+            return;
+        }
+        AppMode::Waiting => {
+            // still allow scroll and page keys
+            match key.code {
+                KeyCode::Up => app.scroll_up(),
+                KeyCode::Down => app.scroll_down(),
+                KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
+                KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
+                _ => {}
+            }
+            return;
+        }
+        AppMode::Idle => {}
+    }
+
     match key.code {
         KeyCode::Char('q') if matches!(app.mode, AppMode::Idle) => {
-            app.should_quit = true;
-        }
-        KeyCode::Esc => {
-            if matches!(app.mode, AppMode::Idle) {
+            if app.messages.len() > 1 {
+                app.mode = AppMode::ConfirmQuit;
+            } else {
                 app.should_quit = true;
             }
         }
-        KeyCode::Char(c) if matches!(app.mode, AppMode::Idle) => {
+        KeyCode::Esc => {
+            if app.messages.len() > 1 {
+                app.mode = AppMode::ConfirmQuit;
+            } else {
+                app.should_quit = true;
+            }
+        }
+        KeyCode::Char(c) => {
             if key.modifiers == KeyModifiers::CONTROL && c == 'c' {
                 app.should_quit = true;
                 return;
             }
             app.insert_char(c);
         }
-        KeyCode::Backspace if matches!(app.mode, AppMode::Idle) => {
-            app.delete_char();
-        }
-        KeyCode::Delete if matches!(app.mode, AppMode::Idle) => {
+        KeyCode::Backspace => app.delete_char(),
+        KeyCode::Delete => {
             if app.cursor_pos < app.input.len() {
                 let len = app.input[app.cursor_pos..]
                     .chars()
@@ -157,34 +210,16 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 app.input.drain(app.cursor_pos..app.cursor_pos + len);
             }
         }
-        KeyCode::Left if matches!(app.mode, AppMode::Idle) => {
-            app.move_cursor_left();
-        }
-        KeyCode::Right if matches!(app.mode, AppMode::Idle) => {
-            app.move_cursor_right();
-        }
-        KeyCode::Home if matches!(app.mode, AppMode::Idle) => {
-            app.move_cursor_home();
-        }
-        KeyCode::End if matches!(app.mode, AppMode::Idle) => {
-            app.move_cursor_end();
-        }
-        KeyCode::Up if matches!(app.mode, AppMode::Idle) => {
-            app.scroll_up();
-        }
-        KeyCode::Down if matches!(app.mode, AppMode::Idle) => {
-            app.scroll_down();
-        }
-        KeyCode::PageUp => {
-            app.scroll_offset = app.scroll_offset.saturating_sub(10);
-        }
-        KeyCode::PageDown => {
-            app.scroll_offset = app.scroll_offset.saturating_add(10);
-        }
-        KeyCode::Enter if key.modifiers == KeyModifiers::ALT && matches!(app.mode, AppMode::Idle) => {
-            app.insert_char('\n');
-        }
-        KeyCode::Enter if matches!(app.mode, AppMode::Idle) && !app.input.is_empty() => {
+        KeyCode::Left => app.move_cursor_left(),
+        KeyCode::Right => app.move_cursor_right(),
+        KeyCode::Home => app.move_cursor_home(),
+        KeyCode::End => app.move_cursor_end(),
+        KeyCode::Up => app.scroll_up(),
+        KeyCode::Down => app.scroll_down(),
+        KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
+        KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
+        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.insert_char('\n'),
+        KeyCode::Enter if !app.input.is_empty() => {
             let prompt = std::mem::take(&mut app.input);
             app.cursor_pos = 0;
             app.messages.push(ChatMessage {
@@ -202,7 +237,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 }
             });
         }
-        KeyCode::Tab if matches!(app.mode, AppMode::Idle) => {
+        KeyCode::Tab => {
             app.insert_char(' ');
             app.insert_char(' ');
         }

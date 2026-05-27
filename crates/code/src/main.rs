@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load()?;
 
     match cli.command {
-        cli::Commands::Tui => {
+        cli::Commands::Tui { session } => {
             #[cfg(feature = "tui")]
             {
                 if config.api_key.as_ref().map_or(true, |k| k.trim().is_empty()) {
@@ -30,7 +30,18 @@ async fn main() -> anyhow::Result<()> {
                     println!("   Run:  i-rs-code config init");
                     println!();
                 }
-                let app = app::App::new(config);
+                let mut app = app::App::new(config, session.clone());
+                if let Some(ref sid) = session {
+                    let sessions_dir = config::i_rs_code_dir().join("sessions");
+                    if let Ok(s) = session::Session::load(sid, &sessions_dir) {
+                        for m in &s.messages {
+                            app.messages.push(app::ChatMessage {
+                                role: m.role.clone(),
+                                content: m.content.clone(),
+                            });
+                        }
+                    }
+                }
                 tui::run(app).await?;
             }
             #[cfg(not(feature = "tui"))]

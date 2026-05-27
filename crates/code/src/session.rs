@@ -28,6 +28,20 @@ impl Session {
         }
     }
 
+    pub fn from_chat_messages(id: Option<String>, msgs: &[crate::app::ChatMessage]) -> Self {
+        let now = chrono::Utc::now().to_rfc3339();
+        Self {
+            id: id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            messages: msgs.iter().map(|m| Message {
+                role: m.role.clone(),
+                content: m.content.clone(),
+                tool_calls: None,
+            }).collect(),
+            created_at: now.clone(),
+            updated_at: now,
+        }
+    }
+
     pub fn save(&self, sessions_dir: &Path) -> anyhow::Result<()> {
         std::fs::create_dir_all(sessions_dir)?;
         let path = sessions_dir.join(format!("{}.json", self.id));

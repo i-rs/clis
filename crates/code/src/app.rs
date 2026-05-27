@@ -25,6 +25,7 @@ impl Default for TokenUsage {
 pub enum AppMode {
     Idle,
     Waiting,
+    ConfirmQuit,
 }
 
 #[derive(Debug, Clone)]
@@ -52,11 +53,12 @@ pub struct App {
     pub current_dir: String,
     pub mode: AppMode,
     pub streaming: Option<StreamingState>,
+    pub session_id: Option<String>,
     pub should_quit: bool,
 }
 
 impl App {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, session_id: Option<String>) -> Self {
         let current_dir = std::env::current_dir()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|_| "unknown".into());
@@ -73,6 +75,7 @@ impl App {
             current_dir,
             mode: AppMode::Idle,
             streaming: None,
+            session_id,
             should_quit: false,
         }
     }
