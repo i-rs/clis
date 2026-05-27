@@ -1,9 +1,11 @@
 pub mod engine;
 pub mod context;
+pub mod event;
 
 use crate::config::Config;
 use crate::provider::{LlmProvider, LlmMessage};
 use crate::tools::ToolRegistry;
+use tokio::sync::mpsc;
 
 pub struct Agent {
     pub config: Config,
@@ -38,22 +40,7 @@ impl Agent {
 
         let tool_defs = self.tools.schemas();
 
-        let mut msgs = Vec::new();
-        msgs.push(LlmMessage::System(system_text.to_string()));
-        for msg in &self.messages {
-            match msg {
-                LlmMessage::User(c) => msgs.push(LlmMessage::User(c.clone())),
-                LlmMessage::Assistant(c) => msgs.push(LlmMessage::Assistant(c.clone())),
-                LlmMessage::ToolCall { id, name, args } => {
-                    msgs.push(LlmMessage::ToolCall { id: id.clone(), name: name.clone(), args: args.clone() });
-                }
-                LlmMessage::Tool { name, content, call_id } => {
-                    msgs.push(LlmMessage::Tool { name: name.clone(), content: content.clone(), call_id: call_id.clone() });
-                }
-                _ => {}
-            }
-        }
-        msgs.push(LlmMessage::User(prompt.to_string()));
+        let msgs = build_messages(&self.messages, system_text, prompt);
 
         let (final_text, new_messages) = engine::react_loop(
             &*self.provider,
@@ -74,4 +61,62 @@ impl Agent {
 
         Ok(())
     }
+
+    pub async fn run_once_streaming(
+        &mut self,
+        prompt: &str,
+        event_tx: mpsc::Sender<event::AgentEvent>,
+    ) -> anyhow::Result<String> {
+        let system_text = "You are i-rs-code, a code editor AI agent. You can read/write files, execute commands, create i-rs CLI tools, and more. Always use the available tools to help the user. After making changes, verify with cargo check or equivalent commands.";
+
+        let tool_defs = self.tools.schemas();
+        let msgs = build_messages(&self.messages, system_text, prompt);
+
+        let (final_text, new_messages) = engine::react_loop_streaming(
+            &*self.provider,
+            &self.tools,
+            msgs,
+            &tool_defs,
+            event_tx,
+        ).await?;
+
+        self.messages = new_messages;
+        Ok(final_text)
+    }
+}
+
+fn build_messages(
+    history: &[LlmMessage],
+    system_text: &str,
+    prompt: &str,
+) -> Vec<LlmMessage> {
+    let mut msgs = Vec::new();
+    msgs.push(LlmMessage::System(system_text.to_string()));
+    for msg in history {
+        match msg {
+            LlmMessage::User(c) => msgs.push(LlmMessage::User(c.clone())),
+            LlmMessage::Assistant(c) => msgs.push(LlmMessage::Assistant(c.clone())),
+            LlmMessage::ToolCall { id, name, args } => {
+                msgs.push(LlmMessage::ToolCall {
+                    id: id.clone(),
+                    name: name.clone(),
+                    args: args.clone(),
+                });
+            }
+            LlmMessage::Tool {
+                name,
+                content,
+                call_id,
+            } => {
+                msgs.push(LlmMessage::Tool {
+                    name: name.clone(),
+                    content: content.clone(),
+                    call_id: call_id.clone(),
+                });
+            }
+            _ => {}
+        }
+    }
+    msgs.push(LlmMessage::User(prompt.to_string()));
+    msgs
 }

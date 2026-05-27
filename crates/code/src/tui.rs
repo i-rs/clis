@@ -2,7 +2,9 @@
 pub mod ui;
 
 #[cfg(feature = "tui")]
-use crate::app::{App, AppMode, ChatMessage};
+use crate::agent::event::AgentEvent;
+#[cfg(feature = "tui")]
+use crate::app::{App, AppMode, ChatMessage, ToolCallInfo};
 #[cfg(feature = "tui")]
 use std::io;
 #[cfg(feature = "tui")]
@@ -26,7 +28,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let (result_tx, mut result_rx) = mpsc::channel::<String>(4);
+    let (event_tx, mut event_rx) = mpsc::channel::<AgentEvent>(256);
 
     while !app.should_quit {
         terminal.draw(|f| {
@@ -35,19 +37,12 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
-                handle_key(key, &mut app, &result_tx).await;
+                handle_key(key, &mut app, &event_tx).await;
             }
         }
 
-        if let Ok(response) = result_rx.try_recv() {
-            app.messages.push(ChatMessage {
-                role: "assistant".into(),
-                content: response,
-            });
-            app.scroll_offset = 0;
-            if matches!(app.mode, AppMode::Waiting) {
-                app.mode = AppMode::Idle;
-            }
+        if let Ok(event) = event_rx.try_recv() {
+            handle_event(event, &mut app);
         }
     }
 
@@ -63,7 +58,60 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 }
 
 #[cfg(feature = "tui")]
-async fn handle_key(key: KeyEvent, app: &mut App, result_tx: &mpsc::Sender<String>) {
+fn handle_event(event: AgentEvent, app: &mut App) {
+    match event {
+        AgentEvent::Token(t) => {
+            app.push_token(&t);
+        }
+        AgentEvent::ToolCallStart { id: _id, name, args } => {
+            let info = ToolCallInfo {
+                name,
+                args: serde_json::to_string_pretty(&args).unwrap_or_default(),
+                result: None,
+            };
+            if let Some(ref mut s) = app.streaming {
+                s.current_tool = Some(info);
+            }
+        }
+        AgentEvent::ToolCallEnd { id: _id, name: _name, result } => {
+            if let Some(ref mut s) = app.streaming {
+                if let Some(mut tool) = s.current_tool.take() {
+                    tool.result = Some(result);
+                    s.tool_calls.push(tool);
+                }
+            }
+        }
+        AgentEvent::Done => {
+            let content = app.finish_streaming();
+            app.messages.push(ChatMessage {
+                role: "assistant".into(),
+                content,
+            });
+            app.scroll_offset = 0;
+            if matches!(app.mode, AppMode::Waiting) {
+                app.mode = AppMode::Idle;
+            }
+        }
+        AgentEvent::Error(e) => {
+            let content = app.finish_streaming();
+            let msg = if !content.is_empty() {
+                format!("{}\n\nError: {}", content, e)
+            } else {
+                format!("Error: {}", e)
+            };
+            app.messages.push(ChatMessage {
+                role: "assistant".into(),
+                content: msg,
+            });
+            if matches!(app.mode, AppMode::Waiting) {
+                app.mode = AppMode::Idle;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "tui")]
+async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentEvent>) {
     match key.code {
         KeyCode::Char('q') if matches!(app.mode, AppMode::Idle) => {
             app.should_quit = true;
@@ -119,15 +167,15 @@ async fn handle_key(key: KeyEvent, app: &mut App, result_tx: &mpsc::Sender<Strin
                 role: "user".into(),
                 content: prompt.clone(),
             });
+            app.start_streaming();
             app.mode = AppMode::Waiting;
 
             let config = app.config.clone();
-            let tx = result_tx.clone();
+            let tx = event_tx.clone();
             tokio::spawn(async move {
-                let result = run_agent(&config, &prompt).await;
-                tx.send(result.unwrap_or_else(|e| format!("Error: {}", e)))
-                    .await
-                    .ok();
+                if let Err(e) = run_streaming_agent(&config, &prompt, tx.clone()).await {
+                    tx.send(AgentEvent::Error(e.to_string())).await.ok();
+                }
             });
         }
         KeyCode::Tab if matches!(app.mode, AppMode::Idle) => {
@@ -139,58 +187,16 @@ async fn handle_key(key: KeyEvent, app: &mut App, result_tx: &mpsc::Sender<Strin
 }
 
 #[cfg(feature = "tui")]
-async fn run_agent(config: &crate::config::Config, prompt: &str) -> anyhow::Result<String> {
-    use crate::agent::Agent;
-    use crate::provider::{self, LlmMessage};
-    use crate::tools::ToolRegistry;
-
-    let provider = provider::create_provider(config)?;
-    let tools = ToolRegistry::new(config)?;
-    let mut agent = Agent::new(config.clone(), provider, tools, false);
-
-    let system_text = "You are i-rs-code, a code editor AI agent running in TUI mode. \
-        You can read/write files, execute commands, create i-rs CLI tools, and more. \
-        Always use the available tools to help the user. \
-        After making changes, verify with cargo check or equivalent commands.";
-
-    let tool_defs = agent.tools.schemas();
-
-    let mut msgs = Vec::new();
-    msgs.push(LlmMessage::System(system_text.to_string()));
-    for msg in &agent.messages {
-        match msg {
-            LlmMessage::User(c) => msgs.push(LlmMessage::User(c.clone())),
-            LlmMessage::Assistant(c) => msgs.push(LlmMessage::Assistant(c.clone())),
-            LlmMessage::ToolCall { id, name, args } => {
-                msgs.push(LlmMessage::ToolCall {
-                    id: id.clone(),
-                    name: name.clone(),
-                    args: args.clone(),
-                });
-            }
-            LlmMessage::Tool {
-                name,
-                content,
-                call_id,
-            } => {
-                msgs.push(LlmMessage::Tool {
-                    name: name.clone(),
-                    content: content.clone(),
-                    call_id: call_id.clone(),
-                });
-            }
-            _ => {}
-        }
-    }
-    msgs.push(LlmMessage::User(prompt.to_string()));
-
-    let (final_text, new_messages) =
-        crate::agent::engine::react_loop(&*agent.provider, &agent.tools, msgs, &tool_defs, false)
-            .await?;
-
-    agent.messages = new_messages;
-
-    Ok(final_text)
+async fn run_streaming_agent(
+    config: &crate::config::Config,
+    prompt: &str,
+    event_tx: mpsc::Sender<AgentEvent>,
+) -> anyhow::Result<()> {
+    let provider = crate::provider::create_provider(config)?;
+    let tools = crate::tools::ToolRegistry::new(config)?;
+    let mut agent = crate::agent::Agent::new(config.clone(), provider, tools, false);
+    agent.run_once_streaming(prompt, event_tx).await?;
+    Ok(())
 }
 
 #[cfg(not(feature = "tui"))]

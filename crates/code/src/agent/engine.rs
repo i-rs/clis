@@ -1,6 +1,8 @@
 use crate::provider::*;
 use crate::tools::ToolRegistry;
+use super::event::AgentEvent;
 use serde_json::Value;
+use tokio::sync::mpsc;
 
 pub async fn react_loop(
     provider: &dyn LlmProvider,
@@ -31,11 +33,7 @@ pub async fn react_loop(
                     }
                 }
                 StreamEventKind::ToolCall { id, name, args } => {
-                    pending_tool_calls.push(ToolCall { id: id.clone(), name: name.clone(), args: args.clone() });
-                    if json_output {
-                        let event = serde_json::json!({"event": "tool_call", "name": name, "args": args});
-                        println!("{}", serde_json::to_string(&event)?);
-                    }
+                    pending_tool_calls.push(ToolCall { id, name, args });
                 }
                 StreamEventKind::Done { .. } => break,
                 StreamEventKind::Error(e) => {
@@ -57,7 +55,6 @@ pub async fn react_loop(
             break;
         }
 
-        // Add tool calls to messages
         for tc in &pending_tool_calls {
             messages.push(LlmMessage::ToolCall {
                 id: tc.id.clone(),
@@ -66,7 +63,6 @@ pub async fn react_loop(
             });
         }
 
-        // Execute tool calls in parallel
         for tc in &pending_tool_calls {
             let result = if let Some(tool) = tools.get(&tc.name) {
                 match tc.args.as_object() {
@@ -82,11 +78,9 @@ pub async fn react_loop(
                 Err(e) => format!("Error: {}", e),
             };
 
-            // Check if result requires claw interaction
             if let Ok(s) = &result {
                 if let Ok(val) = serde_json::from_str::<Value>(s) {
                     if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
-                        // This result needs to go back to claw - return early
                         if json_output {
                             let event = serde_json::json!({
                                 "event": "request",
@@ -129,5 +123,105 @@ pub async fn react_loop(
         }
     }
 
+    Ok((final_text, messages))
+}
+
+pub async fn react_loop_streaming(
+    provider: &dyn LlmProvider,
+    tools: &ToolRegistry,
+    mut messages: Vec<LlmMessage>,
+    tool_defs: &[Value],
+    event_tx: mpsc::Sender<AgentEvent>,
+) -> anyhow::Result<(String, Vec<LlmMessage>)> {
+    let max_rounds = 20;
+    let mut final_text = String::new();
+
+    for _round in 0..max_rounds {
+        let mut rx = provider.stream(&messages, tool_defs).await;
+        let mut content = String::new();
+        let mut pending_tool_calls = Vec::new();
+
+        while let Some(event) = rx.recv().await {
+            match event.kind {
+                StreamEventKind::Token(t) => {
+                    content.push_str(&t);
+                    if event_tx.send(AgentEvent::Token(t)).await.is_err() {
+                        break;
+                    }
+                }
+                StreamEventKind::ToolCall { id, name, args } => {
+                    pending_tool_calls.push(ToolCall { id: id.clone(), name: name.clone(), args: args.clone() });
+                    if event_tx.send(AgentEvent::ToolCallStart {
+                        id: id.clone(),
+                        name,
+                        args,
+                    }).await.is_err() {
+                        break;
+                    }
+                }
+                StreamEventKind::Done { .. } => break,
+                StreamEventKind::Error(e) => {
+                    event_tx.send(AgentEvent::Error(e.clone())).await.ok();
+                    anyhow::bail!("{}", e);
+                }
+            }
+        }
+
+        if !content.is_empty() {
+            final_text = content.clone();
+            messages.push(LlmMessage::Assistant(content));
+        }
+
+        if pending_tool_calls.is_empty() {
+            break;
+        }
+
+        for tc in &pending_tool_calls {
+            messages.push(LlmMessage::ToolCall {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                args: tc.args.clone(),
+            });
+        }
+
+        for tc in &pending_tool_calls {
+            let result = if let Some(tool) = tools.get(&tc.name) {
+                match tc.args.as_object() {
+                    Some(obj) => tool.call(obj).await,
+                    None => tool.call(&serde_json::Map::new()).await,
+                }
+            } else {
+                Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
+            };
+
+            let result_str = match &result {
+                Ok(s) => s.clone(),
+                Err(e) => format!("Error: {}", e),
+            };
+
+            event_tx.send(AgentEvent::ToolCallEnd {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                result: result_str.clone(),
+            }).await.ok();
+
+            if let Ok(s) = &result {
+                if let Ok(val) = serde_json::from_str::<Value>(s) {
+                    if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
+                        event_tx.send(AgentEvent::Done).await.ok();
+                        return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
+                    }
+                }
+            }
+
+            messages.push(LlmMessage::Tool {
+                name: tc.name.clone(),
+                content: result_str,
+                call_id: tc.id.clone(),
+            });
+        }
+    }
+
+    event_tx.send(AgentEvent::Done).await.ok();
     Ok((final_text, messages))
 }

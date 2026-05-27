@@ -27,6 +27,19 @@ pub enum AppMode {
     Waiting,
 }
 
+#[derive(Debug, Clone)]
+pub struct ToolCallInfo {
+    pub name: String,
+    pub args: String,
+    pub result: Option<String>,
+}
+
+pub struct StreamingState {
+    pub content: String,
+    pub tool_calls: Vec<ToolCallInfo>,
+    pub current_tool: Option<ToolCallInfo>,
+}
+
 pub struct App {
     pub config: Config,
     pub input: String,
@@ -38,6 +51,7 @@ pub struct App {
     pub version: String,
     pub current_dir: String,
     pub mode: AppMode,
+    pub streaming: Option<StreamingState>,
     pub should_quit: bool,
 }
 
@@ -58,8 +72,28 @@ impl App {
             version: env!("CARGO_PKG_VERSION").to_string(),
             current_dir,
             mode: AppMode::Idle,
+            streaming: None,
             should_quit: false,
         }
+    }
+
+    pub fn start_streaming(&mut self) {
+        self.streaming = Some(StreamingState {
+            content: String::new(),
+            tool_calls: Vec::new(),
+            current_tool: None,
+        });
+    }
+
+    pub fn push_token(&mut self, token: &str) {
+        if let Some(ref mut s) = self.streaming {
+            s.content.push_str(token);
+        }
+    }
+
+    pub fn finish_streaming(&mut self) -> String {
+        let content = self.streaming.take().map(|s| s.content).unwrap_or_default();
+        content
     }
 
     pub fn insert_char(&mut self, c: char) {

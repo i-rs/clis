@@ -1,136 +1,137 @@
 [workspace]
-resolver = "2"
 members = [
-    "crates/core",
-    "crates/clis/i-rs",
-    "crates/clis/i-rs-server",
-    "crates/clis/i-rs-password",
-    "crates/clis/i-rs-bookmark",
-    "crates/clis/i-rs-note",
-    "crates/clis/i-rs-domain",
-    "crates/clis/i-rs-remind",
-    "crates/clis/i-rs-weight",
-    "crates/clis/i-rs-mood",
-    "crates/clis/i-rs-todo",
-    "crates/clis/i-rs-bestby",
-    "crates/clis/i-rs-kv",
-    "crates/clis/i-rs-recur",
-    "crates/clis/i-rs-ledger",
-    "crates/clis/i-rs-keys",
-    "crates/clis/i-rs-pig",
-    "crates/clis/i-rs-meal",
-    "crates/clis/i-rs-step",
-    "crates/clis/i-rs-dose",
-    "crates/clis/i-rs-sub",
-    "crates/clis/i-rs-want",
-    "crates/clis/i-rs-spark",
-    "crates/clis/i-rs-tick",
-    "crates/clis/i-rs-water",
-    "crates/clis/i-rs-cycle",
-    "crates/clis/i-rs-sit",
-    "crates/clis/i-rs-allergy",
-    "crates/clis/i-rs-cal",
-    "crates/clis/i-rs-fast",
-    "crates/clis/i-rs-sheet",
-    "crates/clis/i-rs-feedpet",
-    "crates/clis/i-rs-petbath",
-    "crates/clis/i-rs-walkdog",
-    "crates/clis/i-rs-aqua",
-    "crates/clis/i-rs-ac",
-    "crates/clis/i-rs-filter",
-    "crates/clis/i-rs-purify",
-    "crates/clis/i-rs-toothbrush",
-    "crates/clis/i-rs-towel",
-    "crates/clis/i-rs-bed",
-    "crates/clis/i-rs-habit",
-    "crates/clis/i-rs-sleep",
-    "crates/clis/i-rs-grocery",
-    "crates/clis/i-rs-exercise",
-    "crates/clis/i-rs-read",
-    "crates/clis/i-rs-movie",
-    "crates/clis/i-rs-budget",
-    "crates/clis/i-rs-project",
-    "crates/clis/i-rs-birthday",
-    "crates/clis/i-rs-contact",
-    "crates/clis/i-rs-podcast",
-    "crates/clis/i-rs-run",
-    "crates/clis/i-rs-snippet",
-    "crates/clis/i-rs-invest",
-    "crates/clis/i-rs-goal",
-    "crates/clis/i-rs-article",
-    "crates/clis/i-rs-plant",
-    "crates/clis/i-rs-cycling",
-    "crates/clis/i-rs-gift",
-    "crates/clis/i-rs-debt",
-    "crates/clis/i-rs-time",
-    "crates/clis/i-rs-car",
-    "crates/clis/i-rs-vocab",
-    "crates/clis/i-rs-quote",
-    "crates/clis/i-rs-invoice",
-    "crates/clis/i-rs-tax",
-    "crates/clis/i-rs-height",
-    "crates/clis/i-rs-deploy",
-    "crates/clis/i-rs-vision",
-    "crates/clis/i-rs-appliance",
-    "crates/clis/i-rs-event",
-    "crates/mcp",
-    "crates/cli-api",
-    "crates/claw",
+  "crates/core",
+  "crates/clis/i-rs",
+  "crates/clis/i-rs-server",
+  "crates/clis/i-rs-password",
+  "crates/clis/i-rs-bookmark",
+  "crates/clis/i-rs-note",
+  "crates/clis/i-rs-domain",
+  "crates/clis/i-rs-remind",
+  "crates/clis/i-rs-weight",
+  "crates/clis/i-rs-mood",
+  "crates/clis/i-rs-todo",
+  "crates/clis/i-rs-bestby",
+  "crates/clis/i-rs-kv",
+  "crates/clis/i-rs-recur",
+  "crates/clis/i-rs-ledger",
+  "crates/clis/i-rs-keys",
+  "crates/clis/i-rs-pig",
+  "crates/clis/i-rs-meal",
+  "crates/clis/i-rs-step",
+  "crates/clis/i-rs-dose",
+  "crates/clis/i-rs-sub",
+  "crates/clis/i-rs-want",
+  "crates/clis/i-rs-spark",
+  "crates/clis/i-rs-tick",
+  "crates/clis/i-rs-water",
+  "crates/clis/i-rs-cycle",
+  "crates/clis/i-rs-sit",
+  "crates/clis/i-rs-allergy",
+  "crates/clis/i-rs-cal",
+  "crates/clis/i-rs-fast",
+  "crates/clis/i-rs-sheet",
+  "crates/clis/i-rs-feedpet",
+  "crates/clis/i-rs-petbath",
+  "crates/clis/i-rs-walkdog",
+  "crates/clis/i-rs-aqua",
+  "crates/clis/i-rs-ac",
+  "crates/clis/i-rs-filter",
+  "crates/clis/i-rs-purify",
+  "crates/clis/i-rs-toothbrush",
+  "crates/clis/i-rs-towel",
+  "crates/clis/i-rs-bed",
+  "crates/clis/i-rs-habit",
+  "crates/clis/i-rs-sleep",
+  "crates/clis/i-rs-grocery",
+  "crates/clis/i-rs-exercise",
+  "crates/clis/i-rs-read",
+  "crates/clis/i-rs-movie",
+  "crates/clis/i-rs-budget",
+  "crates/clis/i-rs-project",
+  "crates/clis/i-rs-birthday",
+  "crates/clis/i-rs-contact",
+  "crates/clis/i-rs-podcast",
+  "crates/clis/i-rs-run",
+  "crates/clis/i-rs-snippet",
+  "crates/clis/i-rs-invest",
+  "crates/clis/i-rs-goal",
+  "crates/clis/i-rs-article",
+  "crates/clis/i-rs-plant",
+  "crates/clis/i-rs-cycling",
+  "crates/clis/i-rs-gift",
+  "crates/clis/i-rs-debt",
+  "crates/clis/i-rs-time",
+  "crates/clis/i-rs-car",
+  "crates/clis/i-rs-vocab",
+  "crates/clis/i-rs-quote",
+  "crates/clis/i-rs-invoice",
+  "crates/clis/i-rs-tax",
+  "crates/clis/i-rs-height",
+  "crates/clis/i-rs-deploy",
+  "crates/clis/i-rs-vision",
+  "crates/clis/i-rs-appliance",
+  "crates/clis/i-rs-event",
+  "crates/mcp",
+  "crates/cli-api",
+  "crates/claw",
+  "crates/code",
 ]
+resolver = "2"
 
 [workspace.package]
-version = "0.0.2"
-edition = "2024"
 authors = ["mankong <mankong@mankong.me>"]
+edition = "2024"
+homepage = "https://github.com/i-rs/clis"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/i-rs/clis"
-homepage = "https://github.com/i-rs/clis"
+version = "0.0.2"
 
 [workspace.dependencies]
-clap = { version = "4.5", features = ["derive"] }
 anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.150"
+async-trait = "0.1"
+axum = {version = "0.8"}
+base64 = "0.22"
+chrono = {version = "0.4", features = ["serde"]}
+clap = {version = "4.5", features = ["derive"]}
 dirs = "6.0.0"
+fs2 = "0.4"
 keyring = "4.0.1"
 keyring-core = "1.0.0"
-tabled = { version = "0.20.0", features = ["ansi"] }
 owo-colors = "4.3.0"
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.0", features = ["v4"] }
-toml = "1.1.2"
-axum = { version = "0.8" }
-tokio = { version = "1.0", features = ["full"] }
-tower-http = { version = "0.6.11", features = ["cors"] }
-fs2 = "0.4"
 paste = "1.0"
-reqwest = { version = "0.13.3", features = ["json", "stream", "blocking"] }
 pulldown-cmark = "0.13.4"
-async-trait = "0.1"
-base64 = "0.22"
+reqwest = {version = "0.13.3", features = ["json", "stream", "blocking"]}
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0.150"
+tabled = {version = "0.20.0", features = ["ansi"]}
+tokio = {version = "1.0", features = ["full"]}
+toml = "1.1.2"
+tower-http = {version = "0.6.11", features = ["cors"]}
+uuid = {version = "1.0", features = ["v4"]}
 
 [workspace.metadata.dist]
 cargo-dist-version = "0.31.0"
 ci = ["github"]
-installers = ["shell", "powershell", "npm", "homebrew"]
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "aarch64-apple-darwin",
-    "x86_64-pc-windows-msvc",
-]
-npm-scope = "@i-rs"
 github-org = "i-rs"
 github-repo = "clis"
-tap = "i-rs/homebrew-tap"
+installers = ["shell", "powershell", "npm", "homebrew"]
+npm-scope = "@i-rs"
 publish-jobs = ["npm", "homebrew"]
+tap = "i-rs/homebrew-tap"
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
 
 [profile.release]
-lto = "thin"
-strip = true
 codegen-units = 1
 incremental = true
+lto = "thin"
+strip = true
 
 [profile.dist]
 inherits = "release"

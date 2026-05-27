@@ -38,10 +38,7 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::Cyan).bg(Color::Blue),
         ),
         Span::raw("  "),
-        Span::styled(
-            dir,
-            Style::default().fg(Color::White).bg(Color::Blue),
-        ),
+        Span::styled(dir, Style::default().fg(Color::White).bg(Color::Blue)),
         Span::raw(" "),
     ]);
 
@@ -88,10 +85,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             }
             "tool" => {
                 lines.push(Line::from(vec![
-                    Span::styled(
-                        " Tool ",
-                        Style::default().fg(Color::Black).bg(Color::Yellow),
-                    ),
+                    Span::styled(" Tool ", Style::default().fg(Color::Black).bg(Color::Yellow)),
                 ]));
                 let preview: String = msg.content.chars().take(200).collect();
                 if preview.len() < msg.content.len() {
@@ -109,16 +103,78 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(""));
     }
 
-    if matches!(app.mode, AppMode::Waiting) {
+    // Render streaming state
+    if let Some(ref s) = app.streaming {
         lines.push(Line::from(vec![
             Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
         ]));
-        lines.push(Line::from(vec![
-            Span::styled(
-                " thinking...",
-                Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
-            ),
-        ]));
+
+        // Streaming response content
+        if !s.content.is_empty() {
+            for line in s.content.lines() {
+                lines.push(Line::from(Span::raw(format!(" {}", line))));
+            }
+        }
+
+        // Current tool call (in progress)
+        if let Some(ref tool) = s.current_tool {
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!(" [Tool] {} running...", tool.name),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            let preview: String = tool.args.chars().take(inner.width.saturating_sub(4) as usize).collect();
+            for line in preview.lines() {
+                lines.push(Line::from(Span::styled(
+                    format!("   {}", line),
+                    Style::default().fg(Color::DarkGray),
+                )));
+            }
+        }
+
+        // Completed tool calls in this round
+        for tool in &s.tool_calls {
+            lines.push(Line::from(""));
+            let status = if tool.result.is_some() { "done" } else { "running..." };
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!(" [Tool] {} {}", tool.name, status),
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            if let Some(ref result) = tool.result {
+                let preview: String = result.chars().take(300).collect();
+                for line in preview.lines().take(6) {
+                    lines.push(Line::from(Span::styled(
+                        format!("   {}", line),
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+                if preview.len() < result.len() || result.lines().count() > 6 {
+                    lines.push(Line::from(Span::styled(
+                        "   ... (truncated)",
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+            }
+        }
+
+        // Typing indicator
+        if s.current_tool.is_none() && !s.content.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled(" ▊", Style::default().fg(Color::Green)),
+            ]));
+        } else if s.current_tool.is_none() && s.content.is_empty() {
+            lines.push(Line::from(vec![
+                Span::styled(
+                    " thinking...",
+                    Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
+                ),
+            ]));
+        }
     }
 
     let max_scroll = lines.len().saturating_sub(inner.height as usize);
@@ -235,6 +291,26 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         Span::styled("Messages ", Style::default().fg(Color::Gray)),
         Span::raw(app.messages.len().to_string()),
     ]));
+    items.push(Line::from(""));
+
+    // Active streaming info
+    if let Some(ref s) = app.streaming {
+        let token_count = s.content.len();
+        let tool_count = s.tool_calls.len();
+        items.push(Line::from(vec![
+            Span::styled("Streaming ", Style::default().fg(Color::Gray)),
+            Span::styled(
+                format!("{} tokens, {} tools", token_count, tool_count),
+                Style::default().fg(Color::Cyan),
+            ),
+        ]));
+        if s.current_tool.is_some() {
+            items.push(Line::from(vec![
+                Span::styled("▸ ", Style::default().fg(Color::Yellow)),
+                Span::styled("tool executing...", Style::default().fg(Color::Yellow)),
+            ]));
+        }
+    }
 
     let paragraph = Paragraph::new(Text::from(items));
     frame.render_widget(paragraph, inner);
