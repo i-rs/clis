@@ -13,7 +13,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 #[cfg(feature = "tui")]
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -51,8 +51,22 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         })?;
 
         if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                handle_key(key, &mut app, &event_tx).await;
+            match event::read()? {
+                Event::Key(key) => {
+                    handle_key(key, &mut app, &event_tx).await;
+                }
+                Event::Mouse(mouse) => {
+                    match mouse.kind {
+                        MouseEventKind::ScrollUp => {
+                            app.scroll_offset = app.scroll_offset.saturating_sub(3);
+                        }
+                        MouseEventKind::ScrollDown => {
+                            app.scroll_offset = app.scroll_offset.saturating_add(3);
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
             }
         }
 
