@@ -1,0 +1,21 @@
+<view class="list-page">
+  <view class="section-body">
+    <block wx:if="{{sessions.length === 0}}">
+      <view class="empty-state">
+        <view class="empty-icon">💬</view>
+        <text class="empty-title">暂无会话</text>
+        <text class="empty-sub">开始一段新对话吧</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view wx:for="{{sessions}}" wx:key="id" class="list-item" bindtap="onSelect" data-id="{{item.id}}">
+        <view class="list-icon purple">💬</view>
+        <view class="list-body">
+          <text class="list-title">{{item.title || '未命名会话'}}</text>
+          <text class="list-desc">{{item.message_count || 0}} 条消息</text>
+        </view>
+        <view class="list-item-del" catchtap="onDelete" data-id="{{item.id}}">🗑️</view>
+      </view>
+    </block>
+  </view>
+</view>

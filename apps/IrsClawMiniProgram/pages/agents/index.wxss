@@ -1,0 +1,17 @@
+page {
+  background: var(--page-bg);
+}
+
+.agent-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  flex-shrink: 0;
+}

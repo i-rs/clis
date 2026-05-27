@@ -1,0 +1,56 @@
+<view class="list-page">
+  <!-- Connection Status -->
+  <view class="section-group">
+    <view class="section-header">连接</view>
+    <view class="card-rounded">
+      <view class="status-row">
+        <view class="status-dot {{isConnected ? 'online' : ''}}"></view>
+        <text class="status-text">{{isConnected ? '已连接' : '未连接'}}</text>
+        <text class="info-val">{{serverUrl}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Server Config -->
+  <view class="section-group">
+    <view class="section-header">服务器配置</view>
+    <view class="card-rounded">
+      <view class="input-row">
+        <text class="input-label">服务器地址</text>
+        <input class="input-field" type="text" value="{{serverUrl}}" bindinput="onUrl" placeholder="http://localhost:3000" />
+      </view>
+      <view class="input-row">
+        <text class="input-label">认证令牌</text>
+        <view class="input-right">
+          <text class="token-mask" wx:if="{{maskedToken}}">{{maskedToken}}</text>
+          <view class="token-edit" bindtap="onEditToken">
+            <text wx:if="{{!tokenEditing}}">修改</text>
+            <text wx:else>取消</text>
+          </view>
+        </view>
+      </view>
+      <view class="input-row" wx:if="{{tokenEditing}}">
+        <text class="input-label">新令牌</text>
+        <input class="input-field" type="text" value="{{newToken}}" bindinput="onNewToken" placeholder="输入新认证令牌" />
+      </view>
+    </view>
+    <view style="padding: 12px 16px;">
+      <view class="btn-primary" bindtap="onSave">保存并重连</view>
+    </view>
+  </view>
+
+  <!-- AI Provider Info -->
+  <view class="section-group" wx:if="{{config}}">
+    <view class="section-header">AI 提供方</view>
+    <view class="card-rounded">
+      <view class="info-row">
+        <text>Provider</text>
+        <text class="info-val">{{config.provider || '-'}}</text>
+      </view>
+      <view class="info-row">
+        <text>Model</text>
+        <text class="info-val">{{config.model || '-'}}</text>
+      </view>
+    </view>
+  </view>
+</view>

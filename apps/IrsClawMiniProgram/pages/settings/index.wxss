@@ -1,0 +1,28 @@
+page {
+  background: var(--page-bg);
+}
+
+.input-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.token-mask {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-family: Menlo, Monaco, monospace;
+}
+
+.token-edit {
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: #F2F2F2;
+  font-size: 14px;
+  color: var(--brand);
+}
+.token-edit:active {
+  background: #E0E0E0;
+}

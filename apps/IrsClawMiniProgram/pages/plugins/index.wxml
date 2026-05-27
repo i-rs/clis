@@ -1,0 +1,21 @@
+<view class="list-page">
+  <view class="section-body">
+    <block wx:if="{{plugins.length === 0}}">
+      <view class="empty-state">
+        <view class="empty-icon">🧩</view>
+        <text class="empty-title">暂无插件</text>
+        <text class="empty-sub">连接服务器后插件将自动加载</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view wx:for="{{plugins}}" wx:key="id" class="list-item">
+        <view class="list-icon blue">🧩</view>
+        <view class="list-body">
+          <text class="list-title">{{item.name || item.id}}</text>
+          <text class="list-desc">{{item.description || '暂无描述'}}</text>
+        </view>
+        <view class="list-arrow">›</view>
+      </view>
+    </block>
+  </view>
+</view>

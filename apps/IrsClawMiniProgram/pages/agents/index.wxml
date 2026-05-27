@@ -1,0 +1,24 @@
+<view class="list-page">
+  <view class="section-header">AGENT</view>
+  <view class="section-body">
+    <block wx:if="{{agents.length === 0}}">
+      <view class="empty-state">
+        <view class="empty-icon">👤</view>
+        <text class="empty-title">暂无 Agent</text>
+        <text class="empty-sub">连接服务器后可查看可用 Agent</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view wx:for="{{agents}}" wx:key="id" class="list-item" bindtap="onSelectAgent" data-id="{{item.id}}">
+        <view class="list-icon blue">👤</view>
+        <view class="list-body">
+          <text class="list-title">{{item.name || item.id}}</text>
+          <text class="list-desc">{{item.model || ''}}</text>
+        </view>
+        <view wx:if="{{item.id === currentAgentId}}" class="agent-check">
+          <text>✓</text>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>
