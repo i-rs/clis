@@ -33,7 +33,7 @@ impl OpenAiProvider {
                 LlmMessage::Assistant(c) => out.push(json!({"role": "assistant", "content": c})),
                 LlmMessage::AssistantWithReasoning { content, reasoning } => out.push(json!({
                     "role": "assistant",
-                    "content": if content.is_empty() { Value::Null } else { Value::String(content.clone()) },
+                    "content": if content.is_empty() { Value::String(String::new()) } else { Value::String(content.clone()) },
                     "reasoning_content": reasoning,
                 })),
                 LlmMessage::Tool { name, content, call_id } => {
