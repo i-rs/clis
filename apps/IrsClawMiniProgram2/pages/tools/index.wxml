@@ -1,0 +1,31 @@
+<view class="page">
+  <view class="navbar">
+    <view class="nav-btn" bindtap="goBack">
+      <text>←</text>
+    </view>
+    <view class="nav-center">
+      <text class="nav-title">工具</text>
+    </view>
+    <view class="nav-right"></view>
+  </view>
+
+  <view wx:if="{{tools.length > 0}}">
+    <view class="card" style="margin-top: 24rpx;">
+      <view class="item" wx:for="{{tools}}" wx:key="name">
+        <view class="item-icon orange">
+          <text>⚙</text>
+        </view>
+        <view class="item-body">
+          <text class="item-title">{{item.function.name || item.name}}</text>
+          <text class="item-desc">{{item.function.description || item.description || ''}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{loaded && tools.length === 0}}">
+    <view class="empty-icon">⚙</view>
+    <text class="empty-title">暂无工具</text>
+    <text class="empty-desc">连接服务器后，可用工具将显示在这里</text>
+  </view>
+</view>

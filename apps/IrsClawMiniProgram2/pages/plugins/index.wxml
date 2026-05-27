@@ -1,0 +1,31 @@
+<view class="page">
+  <view class="navbar">
+    <view class="nav-btn" bindtap="goBack">
+      <text>←</text>
+    </view>
+    <view class="nav-center">
+      <text class="nav-title">插件</text>
+    </view>
+    <view class="nav-right"></view>
+  </view>
+
+  <view wx:if="{{plugins.length > 0}}">
+    <view class="card" style="margin-top: 24rpx;">
+      <view class="item" wx:for="{{plugins}}" wx:key="name">
+        <view class="item-icon blue">
+          <text>🧩</text>
+        </view>
+        <view class="item-body">
+          <text class="item-title">{{item.name}}</text>
+          <text class="item-desc">{{item.description || ''}}{{item.version ? ' · v' + item.version : ''}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{loaded && plugins.length === 0}}">
+    <view class="empty-icon">🧩</view>
+    <text class="empty-title">暂无插件</text>
+    <text class="empty-desc">连接服务器后，已安装插件将显示在这里</text>
+  </view>
+</view>

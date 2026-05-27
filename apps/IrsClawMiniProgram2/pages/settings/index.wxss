@@ -1,0 +1,18 @@
+page { background: var(--bg); }
+
+.settings-page { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+
+.config-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text);
+  text-align: right;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+.config-input::placeholder { color: var(--text-3); }
+
+.save-section { margin-top: 40rpx; padding: 0 24rpx; }
+
+.info-card { margin-top: 32rpx; }

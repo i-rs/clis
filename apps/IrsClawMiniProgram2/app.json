@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/sessions/index",
+    "pages/tools/index",
+    "pages/skills/index",
+    "pages/plugins/index",
+    "pages/agents/index",
+    "pages/settings/index"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#0A0A0F",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

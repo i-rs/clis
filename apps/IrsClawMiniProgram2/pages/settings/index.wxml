@@ -1,0 +1,68 @@
+<view class="settings-page">
+  <view class="navbar">
+    <view class="nav-btn" bindtap="goBack">
+      <text>←</text>
+    </view>
+    <view class="nav-center">
+      <text class="nav-title">设置</text>
+    </view>
+    <view class="nav-right"></view>
+  </view>
+
+  <view class="section">
+    <text class="section-label">连接状态</text>
+    <view class="card">
+      <view class="status">
+        <view class="status-dot {{isConnected ? 'ok' : ''}}"></view>
+        <text class="status-text">{{isConnected ? '已连接' : '未连接'}}</text>
+        <text class="status-extra">{{serverUrl}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-label">外观</text>
+    <view class="card">
+      <view class="field-row">
+        <text class="field-label">深色模式</text>
+        <view class="toggle {{theme === 'dark' ? 'on' : ''}}" bindtap="toggleTheme"></view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-label">服务器</text>
+    <view class="card">
+      <view class="field-row">
+        <text class="field-label">URL</text>
+        <input class="config-input" value="{{serverUrl}}" placeholder="http://localhost:3000" bindinput="onServerInput" />
+      </view>
+      <view class="field-row">
+        <text class="field-label">Token</text>
+        <input class="config-input" value="{{authToken}}" placeholder="可选" password type="text" bindinput="onTokenInput" />
+      </view>
+    </view>
+  </view>
+
+  <view class="save-section">
+    <view class="btn btn-fill" bindtap="onSave">保存并重连</view>
+  </view>
+
+  <view class="section info-card" wx:if="{{aiConfig}}">
+    <text class="section-label">AI 配置</text>
+    <view class="card">
+      <view class="info-row">
+        <text>Provider</text>
+        <text class="info-val">{{aiConfig.provider || '-'}}</text>
+      </view>
+      <view class="info-row">
+        <text>Model</text>
+        <text class="info-val">{{aiConfig.model || '-'}}</text>
+      </view>
+      <view class="info-row">
+        <text>Agent</text>
+        <text class="info-val">{{currentAgent}}</text>
+      </view>
+    </view>
+  </view>
+</view>
