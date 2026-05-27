@@ -112,6 +112,9 @@ function streamChat(sessionId, handlers) {
     }
   })
 
+  var buffer = ''
+  var currentEvent = ''
+
   task.onChunkReceived(function(res) {
     var bytes = new Uint8Array(res.data)
     var text = ''
@@ -122,8 +125,10 @@ function streamChat(sessionId, handlers) {
       text = decodeURIComponent(escape(text))
     } catch (e) {}
 
-    var lines = text.split('\n')
-    var currentEvent = ''
+    buffer += text
+    var lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
     for (var j = 0; j < lines.length; j++) {
       var line = lines[j].trim()
       if (line.indexOf('event: ') === 0) {

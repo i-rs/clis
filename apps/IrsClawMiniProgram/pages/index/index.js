@@ -21,6 +21,7 @@ Page({
     streamingContent: '',
     streamingReasoning: '',
     streamingToolCalls: [],
+    renderTick: 0,
     streamTask: null,
     keyboardHeight: 0
   },
@@ -178,7 +179,8 @@ Page({
       loading: true,
       streamingContent: '',
       streamingReasoning: '',
-      streamingToolCalls: []
+      streamingToolCalls: [],
+      renderTick: 0
     })
     this.scrollToBottom()
 
@@ -224,13 +226,13 @@ Page({
 
       onError: function(err) {
         that.commitStreamMessage()
-        that.setData({ loading: false })
+        that.setData({ loading: false, renderTick: 0 })
         wx.showToast({ title: '流式错误', icon: 'none' })
       },
 
       onDone: function(usage) {
         that.commitStreamMessage()
-        that.setData({ loading: false })
+        that.setData({ loading: false, renderTick: 0 })
       },
 
       onNewRound: function() {
@@ -238,27 +240,20 @@ Page({
       },
 
       onToolExecuted: function(toolInfo) {
-        var calls = that.data.streamingToolCalls.slice()
-        var found = false
-        for (var i = 0; i < calls.length; i++) {
-          if (calls[i].name === toolInfo.name) {
-            calls[i].status = 'done'
-            calls[i].result = toolInfo.result || ''
-            calls[i].expanded = calls[i].expanded
-            found = true
-            break
-          }
+        var toolMsg = {
+          id: genId(),
+          role: 'tool_call',
+          name: toolInfo.name || 'unknown',
+          args: toolInfo.arguments || toolInfo.args || '',
+          result: toolInfo.result || '',
+          expanded: false
         }
-        if (!found) {
-          calls.push({
-            name: toolInfo.name || 'unknown',
-            status: 'done',
-            args: toolInfo.arguments || toolInfo.args || '',
-            result: toolInfo.result || '',
-            expanded: false
-          })
-        }
-        that.setData({ streamingToolCalls: calls })
+        var messages = that.data.messages.concat([toolMsg])
+        var tick = Date.now()
+        that.setData({
+          messages: messages,
+          renderTick: tick
+        })
         that.scrollToBottom()
       }
     })
@@ -269,17 +264,18 @@ Page({
   commitStreamMessage: function() {
     var content = this.data.streamingContent
     var reasoning = this.data.streamingReasoning
-    var toolCalls = this.data.streamingToolCalls
 
-    if (!content && !reasoning && toolCalls.length === 0) return
+    if (!content && !reasoning) {
+      this.setData({ renderTick: 0 })
+      return
+    }
 
     var aiMsg = {
       id: genId(),
       role: 'assistant',
       content: content,
       reasoning: reasoning,
-      reasoningExpanded: false,
-      toolCalls: toolCalls
+      reasoningExpanded: false
     }
 
     var messages = this.data.messages.concat([aiMsg])
@@ -287,7 +283,7 @@ Page({
       messages: messages,
       streamingContent: '',
       streamingReasoning: '',
-      streamingToolCalls: []
+      renderTick: 0
     })
     this.scrollToBottom()
   },
@@ -301,6 +297,7 @@ Page({
       streamingContent: '',
       streamingReasoning: '',
       streamingToolCalls: [],
+      renderTick: 0,
       streamTask: null
     })
     this.createNewSession()
@@ -366,13 +363,6 @@ Page({
         break
       }
     }
-  },
-
-  onToggleStreamTool: function(e) {
-    var toolIdx = e.currentTarget.dataset.toolIdx
-    var key = 'streamingToolCalls[' + toolIdx + '].expanded'
-    var current = this.data.streamingToolCalls[toolIdx].expanded
-    this.setData({ [key]: !current })
   },
 
   onSuggest: function(e) {

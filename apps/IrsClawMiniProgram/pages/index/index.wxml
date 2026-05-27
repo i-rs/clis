@@ -7,9 +7,7 @@
     <view class="nav-center">
       <text class="nav-title">{{sessionTitle || 'i-rs-claw'}}</text>
     </view>
-    <view class="nav-btn" bindtap="onNewChat">
-      <text class="nav-btn-icon">✦</text>
-    </view>
+    <view class="nav-right"></view>
   </view>
 
   <!-- Messages -->
@@ -114,7 +112,7 @@
       </view>
 
       <!-- Streaming -->
-      <view class="msg-row msg-row-ai" wx:if="{{loading || streamingContent || streamingReasoning}}">
+      <view class="msg-row msg-row-ai" wx:if="{{loading || streamingContent || streamingReasoning || renderTick}}">
         <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
         <view class="msg-content msg-content-ai">
           <view class="reasoning-fold" wx:if="{{streamingReasoning}}">
@@ -168,6 +166,8 @@
       <text class="sidebar-title">i-rs-claw</text>
     </view>
     <view class="sidebar-nav">
+      <view class="sidebar-item" bindtap="onNewChat"><text class="sidebar-item-icon">✦</text><text class="sidebar-item-text">新建会话</text></view>
+      <view class="sidebar-divider"></view>
       <view class="sidebar-item" bindtap="onGoSessions"><text class="sidebar-item-icon">💬</text><text class="sidebar-item-text">会话历史</text></view>
       <view class="sidebar-item" bindtap="onGoTools"><text class="sidebar-item-icon">🔧</text><text class="sidebar-item-text">工具</text></view>
       <view class="sidebar-item" bindtap="onGoSkills"><text class="sidebar-item-icon">📖</text><text class="sidebar-item-text">技能</text></view>
