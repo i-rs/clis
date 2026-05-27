@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 use crate::app::{App, AppMode};
 
@@ -208,6 +208,7 @@ fn render_debug_panel(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let paragraph = Paragraph::new(Text::from(lines))
+        .wrap(Wrap { trim: false })
         .scroll((0, 0));
     frame.render_widget(paragraph, inner);
 }
@@ -362,6 +363,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 
     let paragraph = Paragraph::new(Text::from(lines))
         .block(block)
+        .wrap(Wrap { trim: false })
         .scroll((scroll as u16, 0));
 
     frame.render_widget(paragraph, area);
