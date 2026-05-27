@@ -14,7 +14,7 @@ impl ContextManager {
             LlmMessage::System(s) => s.len(),
             LlmMessage::User(s) => s.len(),
             LlmMessage::Assistant(s) => s.len(),
-            LlmMessage::AssistantWithReasoning { content, reasoning } => content.len() + reasoning.len(),
+            LlmMessage::AssistantWithReasoning { content, reasoning, .. } => content.len() + reasoning.len(),
             LlmMessage::Tool { content, .. } => content.len(),
             LlmMessage::ToolCall { args, .. } => args.to_string().len(),
         }).sum();

@@ -103,8 +103,12 @@ fn build_messages(
         match msg {
             LlmMessage::User(c) => msgs.push(LlmMessage::User(c.clone())),
             LlmMessage::Assistant(c) => msgs.push(LlmMessage::Assistant(c.clone())),
-            LlmMessage::AssistantWithReasoning { content, reasoning } => {
-                msgs.push(LlmMessage::AssistantWithReasoning { content: content.clone(), reasoning: reasoning.clone() });
+            LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls } => {
+                msgs.push(LlmMessage::AssistantWithReasoning {
+                    content: content.clone(),
+                    reasoning: reasoning.clone(),
+                    tool_calls: tool_calls.clone(),
+                });
             }
             LlmMessage::ToolCall { id, name, args } => {
                 msgs.push(LlmMessage::ToolCall {

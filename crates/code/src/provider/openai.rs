@@ -31,11 +31,34 @@ impl OpenAiProvider {
                 LlmMessage::System(c) => out.push(json!({"role": "system", "content": c})),
                 LlmMessage::User(c) => out.push(json!({"role": "user", "content": c})),
                 LlmMessage::Assistant(c) => out.push(json!({"role": "assistant", "content": c})),
-                LlmMessage::AssistantWithReasoning { content, reasoning } => out.push(json!({
-                    "role": "assistant",
-                    "content": if content.is_empty() { Value::String(String::new()) } else { Value::String(content.clone()) },
-                    "reasoning_content": reasoning,
-                })),
+                LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls } => {
+                    let content_val = if content.is_empty() { Value::String(String::new()) } else { Value::String(content.clone()) };
+                    if !tool_calls.is_empty() {
+                        let tcs: Vec<Value> = tool_calls.iter().map(|tc| json!({
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.name, "arguments": tc.args.to_string()}
+                        })).collect();
+                        let mut msg = json!({
+                            "role": "assistant",
+                            "content": content_val,
+                            "tool_calls": tcs,
+                        });
+                        if !reasoning.is_empty() {
+                            msg["reasoning_content"] = json!(reasoning);
+                        }
+                        out.push(msg);
+                    } else {
+                        let mut msg = json!({
+                            "role": "assistant",
+                            "content": content_val,
+                        });
+                        if !reasoning.is_empty() {
+                            msg["reasoning_content"] = json!(reasoning);
+                        }
+                        out.push(msg);
+                    }
+                }
                 LlmMessage::Tool { name, content, call_id } => {
                     out.push(json!({"role": "tool", "tool_call_id": call_id, "name": name, "content": content}));
                 }

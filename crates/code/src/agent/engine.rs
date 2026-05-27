@@ -64,25 +64,23 @@ pub async fn react_loop(
             total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
         }
 
-        if !content.is_empty() || !reasoning.is_empty() {
+        if !content.is_empty() || !reasoning.is_empty() || !pending_tool_calls.is_empty() {
             final_text = content.clone();
-            if reasoning.is_empty() {
+            if !pending_tool_calls.is_empty() {
+                messages.push(LlmMessage::AssistantWithReasoning {
+                    content,
+                    reasoning,
+                    tool_calls: pending_tool_calls.clone(),
+                });
+            } else if reasoning.is_empty() {
                 messages.push(LlmMessage::Assistant(content));
             } else {
-                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning });
+                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls: Vec::new() });
             }
         }
 
         if pending_tool_calls.is_empty() {
             break;
-        }
-
-        for tc in &pending_tool_calls {
-            messages.push(LlmMessage::ToolCall {
-                id: tc.id.clone(),
-                name: tc.name.clone(),
-                args: tc.args.clone(),
-            });
         }
 
         let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
@@ -248,25 +246,23 @@ pub async fn react_loop_streaming(
             total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
         }
 
-        if !content.is_empty() || !reasoning.is_empty() {
+        if !content.is_empty() || !reasoning.is_empty() || !pending_tool_calls.is_empty() {
             final_text = content.clone();
-            if reasoning.is_empty() {
+            if !pending_tool_calls.is_empty() {
+                messages.push(LlmMessage::AssistantWithReasoning {
+                    content,
+                    reasoning,
+                    tool_calls: pending_tool_calls.clone(),
+                });
+            } else if reasoning.is_empty() {
                 messages.push(LlmMessage::Assistant(content));
             } else {
-                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning });
+                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls: Vec::new() });
             }
         }
 
         if pending_tool_calls.is_empty() {
             break;
-        }
-
-        for tc in &pending_tool_calls {
-            messages.push(LlmMessage::ToolCall {
-                id: tc.id.clone(),
-                name: tc.name.clone(),
-                args: tc.args.clone(),
-            });
         }
 
         let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {

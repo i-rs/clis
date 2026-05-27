@@ -13,7 +13,7 @@ pub enum LlmMessage {
     System(String),
     User(String),
     Assistant(String),
-    AssistantWithReasoning { content: String, reasoning: String },
+    AssistantWithReasoning { content: String, reasoning: String, tool_calls: Vec<ToolCall> },
     Tool { name: String, content: String, call_id: String },
     ToolCall { id: String, name: String, args: Value },
 }
@@ -25,7 +25,7 @@ pub struct LlmResponse {
     pub usage: Option<Usage>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
