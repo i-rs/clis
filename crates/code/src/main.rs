@@ -25,6 +25,11 @@ async fn main() -> anyhow::Result<()> {
         cli::Commands::Tui => {
             #[cfg(feature = "tui")]
             {
+                if config.api_key.as_ref().map_or(true, |k| k.trim().is_empty()) {
+                    println!("⚠  API key not configured. The AI agent won't work until you set it up.");
+                    println!("   Run:  i-rs-code config init");
+                    println!();
+                }
                 let app = app::App::new(config);
                 tui::run(app).await?;
             }

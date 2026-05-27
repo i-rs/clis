@@ -83,6 +83,14 @@ impl LlmProvider for OpenAiProvider {
                 }
             };
 
+            if !res.status().is_success() {
+                let status = res.status();
+                let body_text = res.text().await.unwrap_or_default();
+                let error_msg = format!("API error ({}): {}", status, body_text);
+                tx.send(StreamEvent { kind: StreamEventKind::Error(error_msg) }).await.ok();
+                return;
+            }
+
             let mut buf = String::new();
             let mut stream = res.bytes_stream();
             use futures::StreamExt;
@@ -154,6 +162,12 @@ impl LlmProvider for OpenAiProvider {
             .json(&body)
             .send()
             .await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let body_text = res.text().await.unwrap_or_default();
+            anyhow::bail!("API error ({}): {}", status, body_text);
+        }
 
         let val: Value = res.json().await?;
         let choice = val["choices"][0]["message"].clone();
