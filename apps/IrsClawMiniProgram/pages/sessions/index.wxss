@@ -1,1 +1,123 @@
 page { background: var(--bg); }
+
+.sessions-content {
+  padding: 20rpx 24rpx 40rpx;
+}
+
+/* Section */
+.sec-group {
+  margin-bottom: 32rpx;
+}
+.sec-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 0 8rpx 16rpx;
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+.sec-card {
+  background: var(--surface);
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.12);
+}
+
+/* Session Row */
+.sess-row {
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+  border-bottom: 1rpx solid var(--border);
+}
+.sess-row:last-child { border-bottom: none; }
+
+.sess-info {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  flex: 1;
+  min-width: 0;
+  padding: 24rpx 0;
+}
+
+.sess-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: var(--accent-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sess-icon-text { font-size: 32rpx; }
+
+.sess-body {
+  flex: 1;
+  min-width: 0;
+}
+.sess-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sess-meta {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  margin-top: 4rpx;
+}
+.sess-count {
+  font-size: 24rpx;
+  color: var(--text-3);
+}
+.sess-meta-sep {
+  font-size: 24rpx;
+  color: var(--text-3);
+}
+.sess-agent {
+  font-size: 20rpx;
+  font-weight: 500;
+  color: var(--accent);
+  padding: 2rpx 12rpx;
+  background: var(--accent-bg);
+  border-radius: 20rpx;
+}
+
+.sess-date {
+  font-size: 22rpx;
+  color: var(--text-3);
+  flex-shrink: 0;
+  margin-right: 8rpx;
+}
+.sess-arrow {
+  font-size: 32rpx;
+  color: var(--text-3);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.sess-del {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 8rpx;
+}
+.sess-del-text {
+  font-size: 32rpx;
+  color: var(--text-3);
+}
+.sess-del:active .sess-del-text { color: var(--red); }
+
+/* Active state */
+.sess-info:active { opacity: 0.7; }
