@@ -98,23 +98,40 @@ impl App {
 
     pub fn insert_char(&mut self, c: char) {
         self.input.insert(self.cursor_pos, c);
-        self.cursor_pos += 1;
+        self.cursor_pos += c.len_utf8();
     }
 
     pub fn delete_char(&mut self) {
         if self.cursor_pos > 0 {
-            self.cursor_pos -= 1;
+            let len = self.input[..self.cursor_pos]
+                .chars()
+                .last()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
+            self.cursor_pos -= len;
             self.input.remove(self.cursor_pos);
         }
     }
 
     pub fn move_cursor_left(&mut self) {
-        self.cursor_pos = self.cursor_pos.saturating_sub(1);
+        if self.cursor_pos > 0 {
+            let len = self.input[..self.cursor_pos]
+                .chars()
+                .last()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
+            self.cursor_pos -= len;
+        }
     }
 
     pub fn move_cursor_right(&mut self) {
         if self.cursor_pos < self.input.len() {
-            self.cursor_pos += 1;
+            let len = self.input[self.cursor_pos..]
+                .chars()
+                .next()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
+            self.cursor_pos += len;
         }
     }
 

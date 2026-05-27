@@ -149,7 +149,12 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         }
         KeyCode::Delete if matches!(app.mode, AppMode::Idle) => {
             if app.cursor_pos < app.input.len() {
-                app.input.remove(app.cursor_pos);
+                let len = app.input[app.cursor_pos..]
+                    .chars()
+                    .next()
+                    .map(|c| c.len_utf8())
+                    .unwrap_or(1);
+                app.input.drain(app.cursor_pos..app.cursor_pos + len);
             }
         }
         KeyCode::Left if matches!(app.mode, AppMode::Idle) => {
