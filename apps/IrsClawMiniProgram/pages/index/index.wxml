@@ -30,12 +30,12 @@
 
         <!-- ===== User Message ===== -->
         <view class="msg-row msg-row-user" wx:if="{{item.role === 'user'}}">
+          <view class="avatar avatar-user"><text class="avatar-text">U</text></view>
           <view class="msg-content msg-content-user">
             <view class="msg-bubble msg-bubble-user">
               <text class="msg-text msg-text-user">{{item.content}}</text>
             </view>
           </view>
-          <view class="avatar avatar-user"><text class="avatar-text">U</text></view>
         </view>
 
         <!-- ===== AI Thinking (reasoning only, no content) ===== -->
