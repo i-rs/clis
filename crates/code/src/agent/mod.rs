@@ -36,7 +36,7 @@ impl Agent {
     }
 
     pub async fn run_once(&mut self, prompt: &str) -> anyhow::Result<()> {
-        let system_text = "You are i-rs-code, a code editor AI agent. You can read/write files, execute commands, create i-rs CLI tools, and more. Always use the available tools to help the user. After making changes, verify with cargo check or equivalent commands.";
+        let system_text = crate::prompt::SYSTEM;
 
         let tool_defs = self.tools.schemas();
 
@@ -67,7 +67,7 @@ impl Agent {
         prompt: &str,
         event_tx: mpsc::Sender<event::AgentEvent>,
     ) -> anyhow::Result<String> {
-        let system_text = "You are i-rs-code, a code editor AI agent. You can read/write files, execute commands, create i-rs CLI tools, and more. Always use the available tools to help the user. After making changes, verify with cargo check or equivalent commands.";
+        let system_text = crate::prompt::SYSTEM;
 
         let tool_defs = self.tools.schemas();
         let msgs = build_messages(&self.messages, system_text, prompt);

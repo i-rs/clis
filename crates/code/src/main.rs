@@ -11,6 +11,7 @@ mod diff;
 mod session;
 mod utils;
 mod debug;
+mod prompt;
 mod tui;
 
 use clap::Parser;

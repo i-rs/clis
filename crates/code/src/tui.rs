@@ -128,7 +128,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 role: "assistant".into(),
                 content,
             });
-            app.scroll_offset = 0;
+            app.scroll_offset = usize::MAX;
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
@@ -153,15 +153,14 @@ fn handle_event(event: AgentEvent, app: &mut App) {
 
 #[cfg(feature = "tui")]
 async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentEvent>) {
-    match app.mode {
-        AppMode::Waiting => {
-    // If shortcuts overlay is shown, any key dismisses it
     if app.show_shortcuts {
         app.show_shortcuts = false;
         return;
     }
 
-    match key.code {
+    match app.mode {
+        AppMode::Waiting => {
+            match key.code {
                 KeyCode::Up => app.scroll_up(),
                 KeyCode::Down => app.scroll_down(),
                 KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),

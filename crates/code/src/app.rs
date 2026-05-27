@@ -156,7 +156,7 @@ impl App {
     }
 
     pub fn scroll_down(&mut self) {
-        self.scroll_offset += 1;
+        self.scroll_offset = self.scroll_offset.saturating_add(1);
     }
 
     pub fn add_token_usage(&mut self, input: u32, output: u32) {

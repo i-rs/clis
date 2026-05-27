@@ -537,7 +537,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
             ))
         }).collect();
         result.push(Line::from(Span::styled(
-            "  [Enter] 发送",
+            "  [Enter] 发送  [?] 帮助",
             Style::default().fg(Color::Rgb(80, 80, 90)),
         )));
         result
