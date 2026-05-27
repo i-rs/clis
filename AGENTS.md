@@ -2,15 +2,18 @@
 
 ## Project Overview
 
-Rust monorepo 包含 **75+ crate**，覆盖三类产品形态：
+Rust monorepo 包含 **75+ crate** + **3 个客户端**，覆盖三类产品形态：
 
-| 类别 | Crates | 说明 |
-|------|--------|------|
+| 类别 | 组件 | 说明 |
+|------|------|------|
 | **CLI 工具** | 70 个 `i-rs-{name}` | 个人数据管理命令行工具 |
-| **智能助理** | `i-rs-claw` | TUI AI 助理，带 Dashboard/Gateway 可观测性扩展 |
+| **智能助理** | `i-rs-claw` | TUI AI 助理，带 Dashboard 可观测性扩展 |
 | **服务器** | `i-rs-api` | REST API 服务器 (Axum) |
 | **协议服务** | `i-rs-mcp` | MCP 协议服务器 (JSON-RPC over stdio) |
 | **共享库** | `i-rs-core` | 所有 crate 的基础库 |
+| **客户端** | `dashboard-ui` | i-rs-claw 内嵌 Web Dashboard |
+| **客户端** | `IrsClawApp` | 原生客户端 (macOS / iPad / iOS, SwiftUI) |
+| **客户端** | `IrsClawMiniProgram` | 微信小程序客户端 |
 
 **Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api, 48 unit tests in i-rs-claw.
 
@@ -28,6 +31,9 @@ i-rs-clis/
 │   ├── cli-api/            # [REST API] i-rs-api Axum 服务器
 │   ├── mcp/                # [MCP 协议] i-rs-mcp 服务器
 │   └── core/               # [共享库] i-rs-core
+├── apps/                   # [客户端] 多端应用
+│   ├── IrsClawApp/         # 原生客户端 (macOS / iPad / iOS, SwiftUI)
+│   └── IrsClawMiniProgram/ # 微信小程序客户端
 ├── docs/                   # VitePress 文档
 ├── skills/                 # AI 技能文档 (70 CLI crates)
 ├── extensions/             # 浏览器扩展 + Native Messaging
@@ -353,6 +359,75 @@ crates/cli-api/src/
 
 ---
 
+## 6. IrsClawMiniProgram (微信小程序客户端)
+
+`apps/IrsClawMiniProgram/` — 微信小程序客户端，提供 i-rs 个人数据管理工具的移动端体验。
+
+### 源码结构
+
+```
+apps/IrsClawMiniProgram/
+├── app.json              # 小程序配置
+├── app.ts                # 应用入口
+├── miniprogram/          # 小程序主包
+│   ├── components/       # 公共组件
+│   ├── pages/            # 页面
+│   ├── utils/            # 工具函数
+│   └── services/         # API 调用层 (调用 i-rs-api)
+├── cloud/                # 云开发 (可选)
+├── project.config.json   # 项目配置
+└── README.md
+```
+
+### 架构要点
+
+- **数据来源**: 所有数据通过调用 `i-rs-api` REST API 获取
+- **UI 框架**: 微信原生小程序框架 (WXML + WXSS + TypeScript)
+- **用户绑定**: 通过微信 openid 关联 i-rs 用户数据
+- **离线能力**: 本地缓存热点数据，支持弱网环境查看
+- **API 调用**: 封装 `wx.request` 为统一 Service 层，支持 token 认证
+
+### 开发规范
+
+1. **不依赖 Rust crate** — 纯前端项目，无 Rust 编译产物
+2. **API 优先** — 功能变更先在 `i-rs-api` 确认可用，再实现小程序端
+3. **组件复用** — 公共组件放在 `miniprogram/components/` 目录
+4. **状态管理** — 使用全局 `app.ts` + 页面局部状态，避免引入第三方状态库
+5. **适配** — 支持 iPad 小程序 (screen size 适配 + rpx 单位)
+6. **测试** — 微信开发者工具真机调试 + 模拟器预览
+
+---
+
+## 7. 多端适配规范
+
+项目提供多个客户端形态，不同端共享同一套数据后端 (`i-rs-api`)，但交互方式和能力各有侧重。
+
+### 客户端矩阵
+
+| 客户端 | 平台 | UI 框架 | 核心场景 | 数据源 |
+|--------|------|---------|---------|--------|
+| `i-rs-claw` | 终端 (macOS/Linux) | ratatui (TUI) | AI 对话 + 工具调用 | CLI 二进制 + MCP |
+| `dashboard-ui` | 浏览器 (Web) | React (嵌入 claw) | 数据可视化 + 管理 | i-rs-api |
+| `IrsClawApp` | macOS/iPad/iOS | SwiftUI | 原生 AI 助理 | i-rs-api |
+| `IrsClawMiniProgram` | 微信 (iOS/Android) | WXML + WXSS | 移动端快速查询 + 录入 | i-rs-api |
+
+### 适配原则
+
+1. **API 一致性** — 所有客户端通过 `i-rs-api` 统一的 REST 端点读写数据，禁止客户端直连存储文件
+2. **功能子集** — 小程序和原生 App 为 CLI 功能子集，优先支持高频 CRUD + 核心统计命令
+3. **UI 映射规则**
+   - CLI 命令 → 移动端页面或操作按钮
+   - CLI 参数 → 移动端表单字段
+   - CLI 表格输出 → 移动端列表/卡片视图
+   - CLI 统计命令 → 移动端图表展示
+4. **离线策略**
+   - 小程序: localStorage 缓存，启动时同步
+   - 原生 App: CoreData (iOS) / UserDefaults (macOS)
+   - claw: 无离线需求 (终端持续联网)
+5. **权限模型** — 所有客户端统一使用 `i-rs-api` 的 token 认证
+
+---
+
 ## 跨类别规范
 
 ### Build & Development
@@ -431,3 +506,4 @@ CI (cargo-dist) 自动构建并发布到 GitHub Releases / npm / Homebrew。
 - `crates/cli-api/src/update.rs` — 通用 JSON 合并/部分更新工具
 - `crates/mcp/src/main.rs` — MCP 服务器入口
 - `crates/core/src/` — 共享库源码
+- `apps/IrsClawMiniProgram/` — 微信小程序客户端源码

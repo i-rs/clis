@@ -34,7 +34,10 @@ i-rs-clis/
 │   │   └── src/
 │   │       ├── main.rs         # 入口: 宏 + 会话循环
 │   │       └── transport.rs    # JSON-RPC 2.0 stdio 传输层
-│   └── clis/i-rs-{name}...     # 70 个 CLI 工具
+│       └── clis/i-rs-{name}...     # 70 个 CLI 工具
+├── apps/                       # 多端客户端
+│   ├── IrsClawApp/             # 原生客户端 (macOS / iPad / iOS, SwiftUI)
+│   └── IrsClawMiniProgram/     # 微信小程序客户端
 ├── docs/                       # VitePress 文档站点
 │   └── .vitepress/
 │       └── config.ts           # 侧边栏配置
@@ -53,7 +56,7 @@ i-rs-clis/
 └── AGENTS.md                   # 开发规范 (AI)
 ```
 
-> 当前项目包含 75+ crate，覆盖三类产品形态：**CLI 工具** (70 个 i-rs-{name})、**TUI 智能助理** (i-rs-claw)、**服务器** (i-rs-api / i-rs-mcp)。详见 AGENTS.md 获取各类 crate 的开发规范和目录结构。
+> 当前项目包含 75+ crate + **3 个客户端**，覆盖三类产品形态：**CLI 工具** (70 个 i-rs-{name})、**TUI 智能助理** (i-rs-claw)、**服务器** (i-rs-api / i-rs-mcp)、**客户端** (IrsClawApp / IrsClawMiniProgram / dashboard-ui)。详见 AGENTS.md 获取各类组件开发规范和目录结构。
 
 ## 2. 工具列表 (当前 70 个)
 
@@ -221,12 +224,76 @@ pub use i_rs_core::utils::validation::{
 | `example_command!()` | 生成示例命令处理函数 | `commands/example.rs` |
 | `data_command!(DataCommand)` | 生成 Data 子命令枚举 + handler | `commands/data.rs` |
 
-## 4. Crate 开发流程
+## 4. 客户端架构
 
-> 以下第 4-6 章规范仅适用于 `crates/clis/i-rs-{name}` 标准 CLI 工具。
+项目提供多端客户端形态，所有客户端通过 `i-rs-api` REST API 统一读写数据。
+
+### 4.1 客户端矩阵
+
+| 客户端 | 平台 | UI 框架 | 位置 | 核心场景 | 数据源 |
+|--------|------|---------|------|---------|--------|
+| `dashboard-ui` | 浏览器 | React (嵌入 claw) | `crates/claw/dashboard-ui/` | 数据可视化 + 管理 | i-rs-api |
+| `IrsClawApp` | macOS/iPad/iOS | SwiftUI | `apps/IrsClawApp/` | 原生 AI 助理 | i-rs-api |
+| `IrsClawMiniProgram` | 微信 | WXML + WXSS | `apps/IrsClawMiniProgram/` | 移动端快速查询 + 录入 | i-rs-api |
+
+### 4.2 适配原则
+
+1. **API 一致性** — 所有客户端通过 `i-rs-api` 统一的 REST 端点读写数据，禁止客户端直连存储文件
+2. **功能子集** — 客户端为 CLI 功能子集，优先支持高频 CRUD + 核心统计命令
+3. **UI 映射规则**
+   - CLI 命令 → 移动端页面或操作按钮
+   - CLI 参数 → 移动端表单字段
+   - CLI 表格输出 → 移动端列表/卡片视图
+   - CLI 统计命令 → 移动端图表展示
+4. **离线策略**
+   - 小程序: localStorage 缓存，启动时同步
+   - 原生 App: CoreData (iOS) / UserDefaults (macOS)
+   - dashboard-ui: 无离线需求 (浏览器常驻)
+5. **权限模型** — 所有客户端统一使用 `i-rs-api` 的 token 认证
+
+### 4.3 IrsClawMiniProgram
+
+`apps/IrsClawMiniProgram/` — 微信小程序客户端，提供 i-rs 数据管理工具的移动端体验。
+
+#### 源码结构
+
+```
+apps/IrsClawMiniProgram/
+├── app.json              # 小程序配置
+├── app.ts                # 应用入口
+├── miniprogram/          # 小程序主包
+│   ├── components/       # 公共组件
+│   ├── pages/            # 页面
+│   ├── utils/            # 工具函数
+│   └── services/         # API 调用层 (调用 i-rs-api)
+├── cloud/                # 云开发 (可选)
+├── project.config.json   # 项目配置
+└── README.md
+```
+
+#### 架构要点
+
+- **数据来源**: 所有数据通过 `i-rs-api` API 获取，封装 `wx.request` 为统一 Service 层
+- **UI 框架**: 微信原生小程序框架 (WXML + WXSS + TypeScript)
+- **用户绑定**: 通过微信 openid 关联 i-rs 用户数据
+- **离线能力**: 本地缓存 (localStorage) 热点数据，弱网环境可查看
+
+### 4.4 IrsClawApp
+
+`apps/IrsClawApp/` — 原生客户端 (macOS / iPad / iOS)，使用 SwiftUI 构建，提供原生 AI 助理体验。
+
+### 4.5 dashboard-ui
+
+`crates/claw/dashboard-ui/` — Web Dashboard，嵌入 i-rs-claw TUI，通过 React 实现数据可视化和系统管理。
+
+---
+
+## 5. Crate 开发流程
+
+> 以下第 5-7 章规范仅适用于 `crates/clis/i-rs-{name}` 标准 CLI 工具。
 > **i-rs-claw**、**i-rs-api**、**i-rs-mcp** 的结构和开发规范与 CLI 工具不同，详见 AGENTS.md 的对应章节。
 
-### 4.1 创建新工具步骤
+### 5.1 创建新工具步骤
 
 1. **创建目录结构**
 ```bash
@@ -296,7 +363,7 @@ cargo build -p i-rs-{name}
 cargo check
 ```
 
-### 4.2 文档完整性检查清单
+### 5.2 文档完整性检查清单
 
 - [ ] `crates/clis/i-rs-{name}/README.md` 存在
 - [ ] `docs/crates/i-rs-{name}/index.md` 存在
@@ -308,9 +375,9 @@ cargo check
 - [ ] `docs/.vitepress/config.ts` 包含侧边栏条目
 - [ ] `Cargo.toml` workspace 包含此 crate
 
-## 5. 数据模型规范
+## 6. 数据模型规范
 
-### 5.1 实体结构 (命名实体)
+### 6.1 实体结构 (命名实体)
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -327,20 +394,20 @@ pub struct Entity {
 }
 ```
 
-### 5.2 Store 规范
+### 6.2 Store 规范
 
 - **存储结构**: 必须使用 `BTreeMap<String, Entity>` (统一 BTreeMap, 不用 HashMap)
 - **CRUD 方法命名**: 统一为 `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
 - **主键类型**: String (name) 或 UUID
 
-### 5.3 敏感字段
+### 6.3 敏感字段
 
 ```rust
 #[serde(skip)]
 pub password: Option<String>,
 ```
 
-### 5.4 时间计算
+### 6.4 时间计算
 
 ```rust
 pub fn days_until(&self) -> i64 {
@@ -348,9 +415,9 @@ pub fn days_until(&self) -> i64 {
 }
 ```
 
-## 6. CLI 设计规范
+## 7. CLI 设计规范
 
-### 6.1 命令结构
+### 7.1 命令结构
 
 ```rust
 #[derive(Parser, Debug)]
@@ -386,7 +453,7 @@ enum Commands {
 - **stats**: 统计信息，接收 `--json` 控制输出格式
 - **copy/rename**: 需要两个位置参数（源和目标），JSON 模式返回条目数据
 
-### 6.2 main.rs 模板
+### 7.2 main.rs 模板
 
 ```rust
 fn main() {
@@ -396,7 +463,7 @@ fn main() {
 }
 ```
 
-### 6.3 storage/mod.rs 模板
+### 7.3 storage/mod.rs 模板
 
 ```rust
 use crate::models::XxxStore;
@@ -410,7 +477,7 @@ i_rs_core::create_store!(XxxStore, "xxx");
 - `import_data(input)` — 从 JSON 字符串导入数据
 - `clear_data()` — 清空所有数据（重置为默认值）
 
-### 6.4 commands/data.rs 模板
+### 7.4 commands/data.rs 模板
 
 ```rust
 use clap::Subcommand;
@@ -432,7 +499,7 @@ pub fn handle(command: &DataCommand) -> anyhow::Result<()> {
 }
 ```
 
-### 6.5 presentation/mod.rs 模板
+### 7.5 presentation/mod.rs 模板
 
 ```rust
 // 标准模式: 使用 presentation! 宏自动生成展示函数
@@ -456,7 +523,7 @@ pub fn print_entry_count(count: usize) {
 - `print_entry_count(count)` — 打印条目计数
 - `output_list(items, format, filter)` — JSON 列表输出
 
-### 6.6 commands/skill.rs 模板
+### 7.6 commands/skill.rs 模板
 
 ```rust
 i_rs_core::skill_command!("i-rs-xxx");
@@ -488,7 +555,7 @@ Commands::Skill(cmd) => {
 }
 ```
 
-### 6.7 Data 命令（通用子命令）
+### 7.7 Data 命令（通用子命令）
 
 每个 crate 统一支持:
 
@@ -504,7 +571,7 @@ i-rs-xxx data import /path/to/file.json
 i-rs-xxx data clear
 ```
 
-### 6.8 Handler 参数规范
+### 7.8 Handler 参数规范
 
 `format: OutputFormat` 参数用于控制 CLI 输出的 JSON 化。所有 CLI 命令都应遵循 `--json` 通用契约，区别在于返回的数据类型：
 
@@ -551,7 +618,7 @@ pub fn handle_delete(id: String, format: OutputFormat) -> Result<()> {
 
 > 注意：i-rs-claw 等消费方始终追加 `--json` 参数，因此所有 handler 必须支持 JSON 输出。
 
-### 6.9 API 与 CLI 的关系
+### 7.9 API 与 CLI 的关系
 
 i-rs-api **不调用 CLI 的 command handlers**（如 `handle_add`、`handle_delete`），而是直接复用 CLI crate 的 `service` 层：
 
@@ -570,11 +637,11 @@ async fn delete_kv(
 
 因此 CLI `handle_delete` 也需要 `format` 参数（返回 `{"success": true, "message": "..."}`），以满足 i-rs-claw 等消费方始终追加 `--json` 的通用契约。API 则自行处理 JSON 响应，不依赖 CLI handler。
 
-## 7. REST API 开发规范（i-rs-api）
+## 8. REST API 开发规范（i-rs-api）
 
 > 本章节是 i-rs-api（`crates/cli-api/`）REST API 服务器的专属规范。该 crate 的结构和开发方式与 CLI 工具不同，详见 AGENTS.md 的「i-rs-api」章节。
 
-### 7.1 架构模式
+### 8.1 架构模式
 
 i-rs-api 通过 `SharedStore<T>`（RwLock 封装）提供线程安全的内存内存储，所有数据变更自动持久化到磁盘。
 
@@ -592,7 +659,7 @@ i-rs-api 通过 `SharedStore<T>`（RwLock 封装）提供线程安全的内存�
 └─────────────────────┘
 ```
 
-### 7.2 Service 层复用
+### 8.2 Service 层复用
 
 API 端点直接复用 CLI crate 的 `service` 模块，避免重复实现：
 
@@ -614,7 +681,7 @@ async fn copy_kv_handler(state: State<Arc<AppState>>, ...) -> ApiResult<...> {
 }
 ```
 
-### 7.3 Router 端点注册
+### 8.3 Router 端点注册
 
 ```rust
 pub fn router() -> Router<Arc<AppState>> {
@@ -635,7 +702,7 @@ pub fn router() -> Router<Arc<AppState>> {
 - 写操作统一使用 `state.store.write()` 确保自动刷盘
 - 读操作使用 `state.store.read()` 避免锁竞争
 
-### 7.4 端点设计规范
+### 8.4 端点设计规范
 
 | 操作 | 方法 | 路径模式 | 描述 |
 |------|------|---------|------|
@@ -649,7 +716,7 @@ pub fn router() -> Router<Arc<AppState>> {
 | 复制 | POST | `/{id}/copy` | body: {dst} |
 | 重命名 | PATCH | `/{id}/rename` | body: {new} |
 
-### 7.5 响应格式
+### 8.5 响应格式
 
 成功响应：
 ```json
@@ -669,13 +736,13 @@ pub fn router() -> Router<Arc<AppState>> {
 - `invalid` / `parse` / `validation` → `BAD_REQUEST` (400)
 - 其余 → `SERVER_ERROR` (500)
 
-### 7.6 文档要求
+### 8.6 文档要求
 
 - 每个接入 i-rs-api 的工具必须维护 `docs/crates/i-rs-{name}/api.md`
 - 文档需包含：端点概览表、每个端点的请求/响应示例
 - 新增端点时必须同步更新 api.md
 
-## 8. JSON输出规范
+## 9. JSON输出规范
 
 ```json
 {
@@ -696,7 +763,7 @@ pub fn router() -> Router<Arc<AppState>> {
 }
 ```
 
-## 9. 存储规范
+## 10. 存储规范
 
 - **密码**: 必须存储在 OS keychain 中
 - **数据文件**: `~/.config/i-rs/{name}.json`
@@ -704,7 +771,7 @@ pub fn router() -> Router<Arc<AppState>> {
 - **存储结构**: 统一使用 `BTreeMap` (不用 HashMap)
 - **CRUD 方法**: 统一为 `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
 
-## 10. 输入验证
+## 11. 输入验证
 
 ```rust
 use i_rs_core::{validate_name, validate_url, validate_weight, validate_amount};
@@ -724,7 +791,7 @@ if let Err(e) = validate_name(&name) {
 | `validate_weight` | > 0, ≤1000 kg |
 | `validate_amount` | > 0, ≤10亿 |
 
-## 11. Bug 预防
+## 12. Bug 预防
 
 ### Store 加载模式 (正确)
 ```rust
@@ -740,7 +807,7 @@ let store = storage::load_store()?;
 let mut store = storage::load_store()?;  // BUG: 重复加载!
 ```
 
-## 12. Workspace 依赖
+## 13. Workspace 依赖
 
 ### CLI 工具通用依赖
 
@@ -795,7 +862,7 @@ uuid = { version = "1.0", features = ["v4"] }
 | `tower-http` | workspace | CORS 等 HTTP 中间件 |
 | `paste` | workspace | 宏元编程 |
 
-## 13. 发布流程
+## 14. 发布流程
 
 ```bash
 # 更新版本号 (workspace.package.version in Cargo.toml)
@@ -808,7 +875,7 @@ CI (cargo-dist) auto-builds 并发布到:
 - npm (`@i-rs/i-rs-*`)
 - Homebrew (`i-rs/homebrew-tap/i-rs-*`)
 
-## 14. 构建配置
+## 15. 构建配置
 
 ```toml
 [profile.release]
@@ -820,7 +887,7 @@ codegen-units = 1
 inherits = "release"
 ```
 
-## 15. CI / 质量保障
+## 16. CI / 质量保障
 
 - `check.yml` — push/PR 时运行 `cargo check` + `clippy` + `fmt`
 - `release.yml` — tag 推送时 cargo-dist 发布
@@ -834,11 +901,11 @@ inherits = "release"
 | i-rs-api | 32 集成测试 | CRUD、PATCH、404、BadRequest、数据导出/清空 |
 | i-rs-claw | 48 单元测试 | 会话管理、状态机、语义搜索、配置等 (需 `--test-threads=1` 避免 env var 竞争) |
 
-## 16. 文章与推广规范
+## 17. 文章与推广规范
 
 开发过程中遇到以下场景时，应在 `docs/articles/` 下撰写推广文章，记录实践、思考与成果：
 
-### 16.1 触发场景
+### 17.1 触发场景
 
 | 场景 | 说明 | 举例 |
 |------|------|------|
@@ -849,13 +916,13 @@ inherits = "release"
 | **演进决策** | 技术选型、架构取舍、设计哲学 | 为什么用 JSON 不用 SQLite、为什么不引入 tokio |
 | **工程创新** | 独特的 Rust 实践、宏技巧、自动化方案 | build.rs 自动生成路由、三个宏管理 70 个 crate、claw ReAct 架构 |
 
-### 16.2 文章存放位置
+### 17.2 文章存放位置
 
 - 所有文章存放在 `docs/articles/` 目录
 - 文件名使用英文小写 + 连字符，如 `shared-storage-layer.md`
 - 文章采用标准 Markdown 格式，无需 YAML frontmatter
 
-### 16.3 文章内容指南
+### 17.3 文章内容指南
 
 - **开头要有钩子** — 一个能引发读者兴趣的场景或问题
 - **有代码演示** — 真实可运行的命令或代码片段
@@ -863,7 +930,7 @@ inherits = "release"
 - **面向外部读者** — 假设读者不了解项目背景，文章本身应自成一体
 - **结尾留链接** — 附上 GitHub 仓库地址，方便读者进一步了解
 
-### 16.4 VitePress 集成
+### 17.4 VitePress 集成
 
 每篇新文章需要：
 
@@ -873,13 +940,13 @@ inherits = "release"
 
 > 注意：文章中如果包含泛型语法（如 `Storage<T>`），需要用反引号包裹 `<T>`，否则 VitePress 的 Vue 编译器会将其解析为 HTML 标签导致构建失败。
 
-### 16.5 文章分类
+### 17.5 文章分类
 
 - **推广文章** — 可直接发布到外部平台的独立文章，放在 Articles 侧边栏的「推广文章」子分组
 - **技术文章** — 架构解析、实现细节、经验总结，放在 Articles 侧边栏的主列表
 - **文章目录** — `index.md` 作为入口，汇总所有文章并标注推荐发布平台
 
-### 16.6 分享渠道参考
+### 17.6 分享渠道参考
 
 | 文章类型 | 推荐平台 |
 |---------|---------|
@@ -888,7 +955,7 @@ inherits = "release"
 | 开源项目推介 | V2EX、Product Hunt、GitHub Trending |
 | 个人效率工具 | 小众软件、Appinn、即刻 |
 
-## 17. 重要文件
+## 18. 重要文件
 
 | 文件 | 说明 |
 |------|------|
@@ -907,3 +974,5 @@ inherits = "release"
 | `crates/cli-api/src/update.rs` | 通用 JSON 合并/部分更新工具 |
 | `crates/mcp/src/main.rs` | MCP 服务器入口 (含 `make_mcp_tools!`) |
 | `crates/core/src/macro.rs` | 核心宏定义 |
+| `apps/IrsClawMiniProgram/` | 微信小程序客户端 |
+| `apps/IrsClawApp/` | 原生客户端 (macOS / iPad / iOS) |
