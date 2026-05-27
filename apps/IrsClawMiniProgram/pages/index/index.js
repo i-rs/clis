@@ -16,14 +16,12 @@ Page({
     sessionId: '',
     sessionTitle: '',
     agents: [],
-    inputFocused: false,
     scrollTarget: '',
     streamingContent: '',
     streamingReasoning: '',
     streamingToolCalls: [],
     renderTick: 0,
-    streamTask: null,
-    floatBtnMinimized: false
+    streamTask: null
   },
 
   onLoad: function() {
@@ -151,12 +149,7 @@ Page({
   },
 
   onInputFocus: function() {
-    this.setData({ inputFocused: true })
     this.onCloseMenu()
-  },
-
-  onInputBlur: function() {
-    this.setData({ inputFocused: false })
   },
 
   onSend: function() {
@@ -306,24 +299,6 @@ Page({
 
   onCloseMenu: function() {
     this.setData({ menuOpen: false })
-  },
-
-  onFloatBtnTap: function() {
-    if (this.data.floatBtnMinimized) {
-      this.setData({ floatBtnMinimized: false })
-      return
-    }
-    if (this.data.menuOpen) {
-      this.setData({ menuOpen: false, floatBtnMinimized: true })
-    } else {
-      this.setData({ menuOpen: true })
-    }
-  },
-
-  onScroll: function() {
-    if (!this.data.floatBtnMinimized) {
-      this.setData({ floatBtnMinimized: true })
-    }
   },
 
   onGoSessions: function() {

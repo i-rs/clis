@@ -1,6 +1,6 @@
 <view class="chat-page">
   <!-- Messages -->
-  <scroll-view class="messages-scroll" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation bindscroll="onScroll">
+  <scroll-view class="messages-scroll" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation>
     <!-- Empty -->
     <view class="empty-state" wx:if="{{messages.length === 0 && !loading}}">
       <view class="empty-logo"><text class="empty-logo-text">AI</text></view>
@@ -134,22 +134,18 @@
     <text class="conn-text">未连接到服务器</text>
   </view>
 
-  <!-- Floating Input -->
-  <view class="float-input-area">
-    <view class="float-input-bar">
-      <view class="float-capsule {{inputFocused ? 'float-capsule-focus' : ''}}">
-        <textarea class="float-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{true}}" cursor-spacing="20" />
-        <view class="float-send {{inputText.length > 0 ? 'float-send-on' : ''}}" bindtap="onSend">
-          <text class="float-send-icon">↑</text>
-        </view>
+  <!-- Input Area -->
+  <view class="input-area">
+    <textarea class="input-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{true}}" cursor-spacing="20" />
+    <view class="input-bottom-row">
+      <view class="input-menu-btn" bindtap="onToggleMenu">
+        <text class="input-menu-icon">☰</text>
+      </view>
+      <view class="input-send {{inputText.length > 0 ? 'input-send-on' : ''}}" bindtap="onSend">
+        <text class="input-send-icon">↑</text>
       </view>
     </view>
     <view style="height: env(safe-area-inset-bottom);"></view>
-  </view>
-
-  <!-- Floating Button -->
-  <view class="float-btn {{floatBtnMinimized ? 'float-btn-minimized' : ''}} {{menuOpen ? 'float-btn-active' : ''}}" bindtap="onFloatBtnTap">
-    <text class="float-btn-icon">{{menuOpen ? '×' : '☰'}}</text>
   </view>
 
   <!-- Sidebar -->
