@@ -1,11 +1,102 @@
 use crate::config::Config;
+use std::collections::HashSet;
+
+#[derive(Debug, Clone)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Clone)]
+pub struct TokenUsage {
+    pub input: u32,
+    pub output: u32,
+}
+
+impl Default for TokenUsage {
+    fn default() -> Self {
+        Self {
+            input: 0,
+            output: 0,
+        }
+    }
+}
+
+pub enum AppMode {
+    Idle,
+    Waiting,
+}
 
 pub struct App {
     pub config: Config,
+    pub input: String,
+    pub cursor_pos: usize,
+    pub messages: Vec<ChatMessage>,
+    pub scroll_offset: usize,
+    pub file_changes: HashSet<String>,
+    pub token_usage: TokenUsage,
+    pub version: String,
+    pub current_dir: String,
+    pub mode: AppMode,
+    pub should_quit: bool,
 }
 
 impl App {
     pub fn new(config: Config) -> Self {
-        Self { config }
+        let current_dir = std::env::current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| "unknown".into());
+
+        Self {
+            config,
+            input: String::new(),
+            cursor_pos: 0,
+            messages: Vec::new(),
+            scroll_offset: 0,
+            file_changes: HashSet::new(),
+            token_usage: TokenUsage::default(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            current_dir,
+            mode: AppMode::Idle,
+            should_quit: false,
+        }
+    }
+
+    pub fn insert_char(&mut self, c: char) {
+        self.input.insert(self.cursor_pos, c);
+        self.cursor_pos += 1;
+    }
+
+    pub fn delete_char(&mut self) {
+        if self.cursor_pos > 0 {
+            self.cursor_pos -= 1;
+            self.input.remove(self.cursor_pos);
+        }
+    }
+
+    pub fn move_cursor_left(&mut self) {
+        self.cursor_pos = self.cursor_pos.saturating_sub(1);
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        if self.cursor_pos < self.input.len() {
+            self.cursor_pos += 1;
+        }
+    }
+
+    pub fn move_cursor_home(&mut self) {
+        self.cursor_pos = 0;
+    }
+
+    pub fn move_cursor_end(&mut self) {
+        self.cursor_pos = self.input.len();
+    }
+
+    pub fn scroll_up(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+    }
+
+    pub fn scroll_down(&mut self) {
+        self.scroll_offset += 1;
     }
 }
