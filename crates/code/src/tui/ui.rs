@@ -510,8 +510,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let prefix = "❯";
-    let gap: u16 = 1;
+    let prefix = "> ";
 
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
         vec![Line::from(vec![
@@ -521,7 +520,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     } else if app.input.is_empty() {
         vec![
             Line::from(Span::styled(
-                format!("{} 输入消息...", prefix),
+                format!("{}输入消息...", prefix),
                 Style::default().fg(Color::Rgb(113, 113, 122)),
             )),
             Line::from(Span::styled(
@@ -531,7 +530,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         ]
     } else {
         let mut result: Vec<Line> = app.input.lines().enumerate().map(|(i, line)| {
-            let p = if i == 0 { format!("{} ", prefix) } else { "  ".to_string() };
+            let p = if i == 0 { prefix } else { "  " };
             Line::from(Span::styled(
                 format!("{}{}", p, line),
                 Style::default().fg(Color::Rgb(250, 250, 250)),
@@ -547,16 +546,17 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let input_widget = Paragraph::new(lines).block(Block::default());
     frame.render_widget(input_widget, inner);
 
+    let prefix_width = unicode_width::UnicodeWidthStr::width(prefix) as u16;
     if matches!(app.mode, AppMode::Idle) && !app.input.is_empty() {
         let input_before = &app.input[..app.cursor_pos];
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
         let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
-        let cursor_x = inner.x + 1 + unicode_width::UnicodeWidthStr::width(prefix) as u16 + gap + pos_in_line as u16;
+        let cursor_x = inner.x + 1 + prefix_width + pos_in_line as u16;
         let cursor_y = inner.y + line_idx as u16;
         frame.set_cursor_position((cursor_x, cursor_y));
     } else if matches!(app.mode, AppMode::Idle) {
-        let cursor_x = inner.x + 1 + unicode_width::UnicodeWidthStr::width(prefix) as u16 + gap;
+        let cursor_x = inner.x + 1 + prefix_width;
         let cursor_y = inner.y;
         frame.set_cursor_position((cursor_x, cursor_y));
     }
