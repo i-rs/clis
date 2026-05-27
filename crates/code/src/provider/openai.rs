@@ -195,7 +195,8 @@ impl LlmProvider for OpenAiProvider {
         });
         if !tool_defs.is_empty() {
             body["tools"] = json!(tool_defs);
-        }
+                body["tool_choice"] = json!("auto");
+            }
 
         let log_body = serde_json::to_string(&body).unwrap_or_default();
         let log_url = url.clone();
