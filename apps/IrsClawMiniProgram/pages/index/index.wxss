@@ -107,7 +107,7 @@
 .conn-text { font-size: 24rpx; color: var(--red); font-weight: 500; }
 
 /* Input Bar */
-.input-bar-wrap { flex-shrink: 0; padding: 0 24rpx 32rpx; }
+.input-bar-wrap { flex-shrink: 0; padding: 0 24rpx 40rpx; }
 .input-bar {
   background: var(--surface);
   border: 1rpx solid var(--border);
