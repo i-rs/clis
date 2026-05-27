@@ -304,6 +304,78 @@ i-rs-code 本身没有权限系统，所有需要人工介入的操作通过协�
    - **strict**: 默认拒绝，用户手动批准才能执行
 4. claw 回复 `respond`，i-rs-code 继续执行
 
+## 代码存储与安装
+
+### 两种模式
+
+| | 开发模式 | 用户模式 |
+|--|---------|---------|
+| **代码位置** | `crates/clis/i-rs-{name}/` (monorepo) | `~/.i-rs-code/tools/i-rs-{name}/` |
+| **构建方式** | `cargo build -p i-rs-{name}` (workspace) | `cargo build --release` (独立) |
+| **产物位置** | `target/debug/i-rs-{name}` | `~/.i-rs-code/bin/i-rs-{name}` |
+| **使用场景** | 开发 i-rs 项目本身 | 用户自定义工具 |
+
+i-rs-code 自动检测当前目录：如果在 i-rs-clis 项目内，使用开发模式；否则使用用户模式。
+
+### 安装流程
+
+```
+create_crate → generate source → cargo build → install binary → update manifest
+```
+
+1. **生成源码** → `~/.i-rs-code/tools/i-rs-mood/`
+2. **编译** → `cargo build --release`
+3. **安装** → 复制 binary 到 `~/.i-rs-code/bin/i-rs-mood`
+4. **注册 manifest** → 写入 `~/.i-rs-code/manifest.json`
+
+### Manifest 文件
+
+`~/.i-rs-code/manifest.json` 记录所有已安装的自定义工具：
+
+```json
+{
+  "tools": [
+    {
+      "name": "i-rs-mood",
+      "version": "0.1.0",
+      "binary": "~/.i-rs-code/bin/i-rs-mood",
+      "source": "~/.i-rs-code/tools/i-rs-mood",
+      "description": "Mood tracking CLI tool",
+      "commands": ["add", "list", "calendar", "stats"],
+      "created_at": "2026-05-27T10:00:00Z"
+    }
+  ]
+}
+```
+
+### Claw 如何调用
+
+生成工具后，claw 通过以下路径找到并使用它：
+
+```
+1. register_tool 事件 → claw 收到 tool definition
+2. claw 将 binary 路径加入 ToolRegistry
+3. 后续 claw 调用 i-rs-mood 时，直接执行 binary 路径
+4. claw 的 i_rs.rs 工具包装器通过 manifest 发现新工具
+```
+
+具体调用方式（由 claw 的 `tools/i_rs.rs` 处理）：
+
+```rust
+// claw 通过 manifest 发现并调用
+let binary = manifest.find_tool("i-rs-mood")?.binary;
+let output = Command::new(binary).args(["add", ...]).output()?;
+```
+
+### 启动与更新
+
+| 场景 | 流程 |
+|------|------|
+| **首次创建** | 用户通过 claw 对话 → claw 调 i-rs-code 生成 → 安装 → manifest 注册 → 可用 |
+| **后续使用** | claw 启动时扫描 manifest → 加载已注册工具 → 用户可直接对话使用 |
+| **迭代更新** | 用户说"加个图表" → claw 再次调 i-rs-code → 修改源码 → 重新编译安装 → manifest 版本号更新 |
+| **卸载** | `i-rs-code tool remove i-rs-mood` → 删除 source + binary → manifest 移除 |
+
 ## File Security
 
 - **Read-before-edit enforcement** — tools require file to be read before modification
