@@ -22,18 +22,13 @@ Page({
     streamingReasoning: '',
     streamingToolCalls: [],
     renderTick: 0,
-    streamTask: null,
-    keyboardHeight: 0
+    streamTask: null
   },
 
   onLoad: function() {
     this.checkConnection()
     this.loadAgents()
     this.loadOrCreateSession()
-    var that = this
-    wx.onKeyboardHeightChange(function(res) {
-      that.setData({ keyboardHeight: res.height })
-    })
   },
 
   onUnload: function() {

@@ -146,10 +146,10 @@
   </view>
 
   <!-- Floating Input -->
-  <view class="float-input-area" style="padding-bottom: {{keyboardHeight}}px;">
+  <view class="float-input-area">
     <view class="float-input-bar">
       <view class="float-capsule {{inputFocused ? 'float-capsule-focus' : ''}}">
-        <textarea class="float-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{false}}" cursor-spacing="0" />
+        <textarea class="float-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{true}}" cursor-spacing="20" />
         <view class="float-send {{inputText.length > 0 ? 'float-send-on' : ''}}" bindtap="onSend">
           <text class="float-send-icon">↑</text>
         </view>
