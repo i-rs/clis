@@ -50,5 +50,6 @@
   "condition": {},
   "appid": "wx2ba3ff8f92312f89",
   "simulatorPluginLibVersion": {},
-  "editorSetting": {}
+  "editorSetting": {},
+  "libVersion": "3.16.1"
 }

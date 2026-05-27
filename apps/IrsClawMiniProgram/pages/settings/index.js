@@ -14,7 +14,9 @@ Page({
     showAddForm: false,
     newName: '',
     newUrl: '',
-    newToken: ''
+    newToken: '',
+    tokenEditing: false,
+    editToken: ''
   },
 
   onLoad: function() {
@@ -60,7 +62,25 @@ Page({
   },
 
   onServerInput: function(e) { this.setData({ serverUrl: e.detail.value }) },
-  onTokenInput: function(e) { this.setData({ authToken: e.detail.value }) },
+  onTokenInput: function(e) { this.setData({ editToken: e.detail.value }) },
+
+  maskToken: function(token) {
+    if (!token) return ''
+    if (token.length <= 8) return '••••••••'
+    return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4)
+  },
+
+  toggleTokenEdit: function() {
+    if (this.data.tokenEditing) {
+      this.setData({ tokenEditing: false, editToken: '' })
+    } else {
+      this.setData({ tokenEditing: true, editToken: this.data.authToken })
+    }
+  },
+
+  confirmToken: function() {
+    this.setData({ authToken: this.data.editToken, tokenEditing: false, editToken: '' })
+  },
 
   onSave: function() {
     app.globalData.serverUrl = this.data.serverUrl

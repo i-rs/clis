@@ -21,3 +21,7 @@ page { background: var(--bg); }
 .srv-del:active .srv-del-text { color: var(--red); }
 .srv-empty { padding: 40rpx; text-align: center; }
 .srv-empty-text { font-size: 28rpx; color: var(--text-3); }
+.token-masked { flex: 1; font-size: 28rpx; color: var(--text-3); text-align: right; letter-spacing: 2rpx; }
+.token-edit-btn { padding: 8rpx 24rpx; background: var(--surface-2); border-radius: 8rpx; }
+.token-edit-btn:active { background: var(--surface-3); }
+.token-edit-text { font-size: 26rpx; color: var(--accent); font-weight: 500; }
