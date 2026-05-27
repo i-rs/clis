@@ -5,6 +5,6 @@ pub enum AgentEvent {
     Token(String),
     ToolCallStart { id: String, name: String, args: Value },
     ToolCallEnd { id: String, name: String, result: String },
-    Done,
+    Done { usage: Option<crate::provider::Usage> },
     Error(String),
 }

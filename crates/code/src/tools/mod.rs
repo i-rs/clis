@@ -4,6 +4,7 @@ pub mod create_crate;
 pub mod call_claw;
 pub mod register_tool;
 pub mod git;
+pub mod web;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -46,6 +47,8 @@ impl ToolRegistry {
         tools.insert("create_crate".into(), Arc::new(create_crate::CreateCrateTool));
         tools.insert("call_claw".into(), Arc::new(call_claw::CallClawTool));
         tools.insert("register_tool".into(), Arc::new(register_tool::RegisterTool));
+        tools.insert("web_fetch".into(), Arc::new(web::WebFetchTool));
+        tools.insert("web_search".into(), Arc::new(web::WebSearchTool));
 
         Ok(Self { tools })
     }

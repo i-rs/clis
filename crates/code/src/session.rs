@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Session {
@@ -25,5 +26,38 @@ impl Session {
             created_at: now.clone(),
             updated_at: now,
         }
+    }
+
+    pub fn save(&self, sessions_dir: &Path) -> anyhow::Result<()> {
+        std::fs::create_dir_all(sessions_dir)?;
+        let path = sessions_dir.join(format!("{}.json", self.id));
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
+    }
+
+    pub fn load(id: &str, sessions_dir: &Path) -> anyhow::Result<Self> {
+        let path = sessions_dir.join(format!("{}.json", id));
+        let content = std::fs::read_to_string(&path)?;
+        Ok(serde_json::from_str(&content)?)
+    }
+
+    pub fn list(sessions_dir: &Path) -> anyhow::Result<Vec<String>> {
+        if !sessions_dir.exists() {
+            return Ok(Vec::new());
+        }
+        let mut ids = Vec::new();
+        for entry in std::fs::read_dir(sessions_dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_file() {
+                if let Some(name) = entry.file_name().to_str() {
+                    if let Some(id) = name.strip_suffix(".json") {
+                        ids.push(id.to_string());
+                    }
+                }
+            }
+        }
+        ids.sort();
+        Ok(ids)
     }
 }

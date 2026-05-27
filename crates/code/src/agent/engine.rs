@@ -13,11 +13,13 @@ pub async fn react_loop(
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let max_rounds = 20;
     let mut final_text = String::new();
+    let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
 
     for _round in 0..max_rounds {
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
         let mut pending_tool_calls = Vec::new();
+        let mut round_usage: Option<crate::provider::Usage> = None;
 
         while let Some(event) = rx.recv().await {
             match event.kind {
@@ -35,7 +37,10 @@ pub async fn react_loop(
                 StreamEventKind::ToolCall { id, name, args } => {
                     pending_tool_calls.push(ToolCall { id, name, args });
                 }
-                StreamEventKind::Done { .. } => break,
+                StreamEventKind::Done { usage, .. } => {
+                    round_usage = usage;
+                    break;
+                }
                 StreamEventKind::Error(e) => {
                     if json_output {
                         let event = serde_json::json!({"event": "error", "content": e});
@@ -44,6 +49,11 @@ pub async fn react_loop(
                     anyhow::bail!("{}", e);
                 }
             }
+        }
+
+        if let Some(u) = round_usage {
+            total_usage.input_tokens = total_usage.input_tokens.saturating_add(u.input_tokens);
+            total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
         }
 
         if !content.is_empty() {
@@ -135,11 +145,13 @@ pub async fn react_loop_streaming(
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let max_rounds = 20;
     let mut final_text = String::new();
+    let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
 
     for _round in 0..max_rounds {
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
         let mut pending_tool_calls = Vec::new();
+        let mut round_usage: Option<crate::provider::Usage> = None;
 
         while let Some(event) = rx.recv().await {
             match event.kind {
@@ -159,12 +171,20 @@ pub async fn react_loop_streaming(
                         break;
                     }
                 }
-                StreamEventKind::Done { .. } => break,
+                StreamEventKind::Done { usage, .. } => {
+                    round_usage = usage;
+                    break;
+                }
                 StreamEventKind::Error(e) => {
                     event_tx.send(AgentEvent::Error(e.clone())).await.ok();
                     anyhow::bail!("{}", e);
                 }
             }
+        }
+
+        if let Some(u) = round_usage {
+            total_usage.input_tokens = total_usage.input_tokens.saturating_add(u.input_tokens);
+            total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
         }
 
         if !content.is_empty() {
@@ -208,7 +228,7 @@ pub async fn react_loop_streaming(
             if let Ok(s) = &result {
                 if let Ok(val) = serde_json::from_str::<Value>(s) {
                     if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
-                        event_tx.send(AgentEvent::Done).await.ok();
+                        event_tx.send(AgentEvent::Done { usage: Some(total_usage.clone()) }).await.ok();
                         return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
                     }
                 }
@@ -222,6 +242,6 @@ pub async fn react_loop_streaming(
         }
     }
 
-    event_tx.send(AgentEvent::Done).await.ok();
+    event_tx.send(AgentEvent::Done { usage: Some(total_usage) }).await.ok();
     Ok((final_text, messages))
 }

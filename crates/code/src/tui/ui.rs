@@ -57,12 +57,6 @@ fn render_main_area(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-
-    let inner = block.inner(area);
-
     let mut lines: Vec<Line> = Vec::new();
 
     for msg in &app.messages {
@@ -125,7 +119,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
                 ),
             ]));
-            let preview: String = tool.args.chars().take(inner.width.saturating_sub(4) as usize).collect();
+            let preview: String = tool.args.chars().take(area.width.saturating_sub(4) as usize).collect();
             for line in preview.lines() {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", line),
@@ -177,8 +171,21 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    let max_scroll = lines.len().saturating_sub(inner.height as usize);
+    let inner_height = area.height.saturating_sub(2);
+    let max_scroll = lines.len().saturating_sub(inner_height as usize);
     let scroll = app.scroll_offset.min(max_scroll);
+
+    // Calculate hidden messages above visible area
+    let hidden_above = if scroll > 0 { scroll.min(lines.len()) } else { 0 };
+
+    let mut block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    if hidden_above > 0 {
+        block = block.title(format!(" ↑ {} 条历史消息 ", hidden_above));
+        block = block.title_alignment(ratatui::layout::Alignment::Center);
+    }
 
     let paragraph = Paragraph::new(Text::from(lines))
         .block(block)

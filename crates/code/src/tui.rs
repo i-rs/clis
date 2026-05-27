@@ -30,6 +30,19 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 
     let (event_tx, mut event_rx) = mpsc::channel::<AgentEvent>(256);
 
+    let version = app.version.clone();
+    app.messages.push(ChatMessage {
+        role: "assistant".into(),
+        content: format!(
+            "Welcome to i-rs-code v{version}\n\n\
+             Type a message to start coding...\n\n\
+             可用命令:\n  \
+             i-rs-code chat <prompt>  一次性对话\n  \
+             i-rs-code config init    交互式配置\n  \
+             i-rs-code config show    查看配置"
+        ),
+    });
+
     while !app.should_quit {
         terminal.draw(|f| {
             ui::render(f, &app);
@@ -81,8 +94,11 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 }
             }
         }
-        AgentEvent::Done => {
+        AgentEvent::Done { usage } => {
             let content = app.finish_streaming();
+            if let Some(u) = usage {
+                app.add_token_usage(u.input_tokens, u.output_tokens);
+            }
             app.messages.push(ChatMessage {
                 role: "assistant".into(),
                 content,
@@ -159,6 +175,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         }
         KeyCode::PageDown => {
             app.scroll_offset = app.scroll_offset.saturating_add(10);
+        }
+        KeyCode::Enter if key.modifiers == KeyModifiers::ALT && matches!(app.mode, AppMode::Idle) => {
+            app.insert_char('\n');
         }
         KeyCode::Enter if matches!(app.mode, AppMode::Idle) && !app.input.is_empty() => {
             let prompt = std::mem::take(&mut app.input);
