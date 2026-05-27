@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "Plugins"
+  "usingComponents": {},
+  "navigationStyle": "custom"
 }

@@ -1,17 +1,9 @@
-page {
-  background: var(--page-bg);
-}
+page { background: var(--bg); }
 
-.agent-check {
-  width: 22px;
-  height: 22px;
+.agent-current {
+  width: 16rpx;
+  height: 16rpx;
   border-radius: 50%;
-  background: var(--brand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 13px;
-  font-weight: bold;
+  background: var(--green);
   flex-shrink: 0;
 }

@@ -1,30 +1,40 @@
-const app = getApp()
+var api = require('../../utils/api.js')
+var app = getApp()
 
 Page({
   data: {
     agents: [],
-    currentAgentId: null
+    currentAgent: 'default',
+    loaded: false
   },
 
-  onLoad() {
-    this.setData({ currentAgentId: app.globalData.currentAgentId })
+  onLoad: function() {
+    this.setData({ currentAgent: app.globalData.currentAgent || 'default' })
     this.loadAgents()
   },
 
-  onShow() {
-    this.setData({ currentAgentId: app.globalData.currentAgentId })
-    this.loadAgents()
-  },
-
-  async loadAgents() {
-    const agents = await app.getAgents()
-    this.setData({ agents })
-  },
-
-  onSelectAgent(e) {
-    const agentId = e.currentTarget.dataset.id
-    app.globalData.currentAgentId = agentId
-    this.setData({ currentAgentId: agentId })
+  goBack: function() {
     wx.navigateBack()
+  },
+
+  loadAgents: function() {
+    var that = this
+    api.listAgents().then(function(res) {
+      if (res.success && res.data) {
+        that.setData({ agents: res.data, loaded: true })
+      } else {
+        that.setData({ agents: [], loaded: true })
+      }
+    }).catch(function() {
+      that.setData({ agents: [], loaded: true })
+    })
+  },
+
+  onSwitchAgent: function(e) {
+    var id = e.currentTarget.dataset.id
+    app.globalData.currentAgent = id
+    app.saveConfig()
+    this.setData({ currentAgent: id })
+    wx.showToast({ title: '已切换', icon: 'success' })
   }
 })

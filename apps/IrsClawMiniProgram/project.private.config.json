@@ -1,9 +1,7 @@
 {
-  "libVersion": "3.16.1",
-  "projectname": "IrsClawMiniProgram",
-  "condition": {},
   "setting": {
-    "urlCheck": false,
+    "compileHotReLoad": true,
+    "urlCheck": true,
     "coverView": true,
     "lazyloadPlaceholderEnable": false,
     "skylineRenderEnable": false,
@@ -14,10 +12,12 @@
     "useStaticServer": false,
     "useLanDebug": false,
     "showES6CompileOption": false,
-    "compileHotReLoad": true,
     "checkInvalidKey": true,
     "ignoreDevUnusedFiles": true,
     "bigPackageSizeSupport": false,
     "useIsolateContext": true
-  }
+  },
+  "condition": {},
+  "libVersion": "3.16.1",
+  "projectname": "IrsClawMiniProgram2"
 }

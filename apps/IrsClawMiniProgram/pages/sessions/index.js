@@ -1,44 +1,49 @@
-const app = getApp()
+var api = require('../../utils/api.js')
 
 Page({
-  data: { sessions: [] },
-
-  onLoad() { this.load() },
-  onShow() { this.load() },
-
-  async load() {
-    const sessions = await app.getSessions()
-    this.setData({ sessions })
+  data: {
+    sessions: [],
+    loaded: false
   },
 
-  async onSelect(e) {
-    const id = e.currentTarget.dataset.id
-    const session = await app.getSession(id)
-    if (session) {
-      app.globalData.currentSession = { id }
-      wx.navigateBack()
-    }
+  onLoad: function() {
+    this.loadSessions()
   },
 
-  onDelete(e) {
-    const id = e.currentTarget.dataset.id
-    wx.showModal({
-      title: 'Delete',
-      content: 'Delete this session?',
-      success: async (r) => {
-        if (r.confirm) {
-          await app.deleteSession(id)
-          this.load()
-        }
+  goBack: function() {
+    wx.navigateBack()
+  },
+
+  loadSessions: function() {
+    var that = this
+    api.listSessions().then(function(res) {
+      if (res.success && res.data) {
+        that.setData({ sessions: res.data, loaded: true })
+      } else {
+        that.setData({ sessions: [], loaded: true })
       }
+    }).catch(function() {
+      that.setData({ sessions: [], loaded: true })
     })
   },
 
-  async onNew() {
-    const session = await app.createSession(app.globalData.currentAgentId)
-    if (session) {
-      app.globalData.currentSession = session
-      wx.navigateBack()
-    }
+  onSwitch: function(e) {
+    var id = e.currentTarget.dataset.id
+    var title = e.currentTarget.dataset.title
+    var app = getApp()
+    var that = this
+    api.switchSession(id).then(function(res) {
+      if (res.success) {
+        app.globalData.sessionId = id
+        wx.showToast({ title: '已切换', icon: 'success' })
+        setTimeout(function() {
+          wx.navigateBack()
+        }, 500)
+      } else {
+        wx.showToast({ title: '切换失败', icon: 'none' })
+      }
+    }).catch(function() {
+      wx.showToast({ title: '网络错误', icon: 'none' })
+    })
   }
 })

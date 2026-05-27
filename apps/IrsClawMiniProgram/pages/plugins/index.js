@@ -1,20 +1,29 @@
-const app = getApp()
+var api = require('../../utils/api.js')
 
 Page({
   data: {
-    plugins: []
+    plugins: [],
+    loaded: false
   },
 
-  onLoad() {
+  onLoad: function() {
     this.loadPlugins()
   },
 
-  onShow() {
-    this.loadPlugins()
+  goBack: function() {
+    wx.navigateBack()
   },
 
-  async loadPlugins() {
-    const plugins = await app.getPlugins()
-    this.setData({ plugins })
+  loadPlugins: function() {
+    var that = this
+    api.listPlugins().then(function(res) {
+      if (res.success && res.data) {
+        that.setData({ plugins: res.data, loaded: true })
+      } else {
+        that.setData({ plugins: [], loaded: true })
+      }
+    }).catch(function() {
+      that.setData({ plugins: [], loaded: true })
+    })
   }
 })

@@ -1,20 +1,29 @@
-const app = getApp()
+var api = require('../../utils/api.js')
 
 Page({
   data: {
-    tools: []
+    tools: [],
+    loaded: false
   },
 
-  onLoad() {
+  onLoad: function() {
     this.loadTools()
   },
 
-  onShow() {
-    this.loadTools()
+  goBack: function() {
+    wx.navigateBack()
   },
 
-  async loadTools() {
-    const tools = await app.getTools()
-    this.setData({ tools })
+  loadTools: function() {
+    var that = this
+    api.listTools().then(function(res) {
+      if (res.success && res.data) {
+        that.setData({ tools: res.data, loaded: true })
+      } else {
+        that.setData({ tools: [], loaded: true })
+      }
+    }).catch(function() {
+      that.setData({ tools: [], loaded: true })
+    })
   }
 })

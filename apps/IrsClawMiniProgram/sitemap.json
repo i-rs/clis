@@ -1,7 +1,9 @@
 {
-  "desc": "关于本文件及其功能的详细介绍",
-  "rules": [{
-    "action": "allow",
-    "page": "*"
-  }]
+  "desc": "For more information see https://developers.weixin.qq.com/miniprogram/dev/framework/sitemap.html",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
 }

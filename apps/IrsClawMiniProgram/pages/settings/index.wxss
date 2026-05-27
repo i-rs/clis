@@ -1,142 +1,23 @@
-page {
-  background: var(--page-bg);
-}
+page { background: var(--bg); }
+.settings-page { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+.config-input { flex: 1; font-size: 28rpx; color: var(--text); text-align: right; background: transparent; border: none; outline: none; }
+.config-input::placeholder { color: var(--text-3); }
+.add-btn-wrap { margin-top: 20rpx; padding: 0 24rpx; }
 
-.input-right {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.token-mask {
-  font-size: 16px;
-  color: var(--text-secondary);
-  font-family: Menlo, Monaco, monospace;
-}
-
-.token-edit {
-  padding: 4px 12px;
-  border-radius: 6px;
-  background: #F2F2F2;
-  font-size: 14px;
-  color: var(--brand);
-}
-.token-edit:active {
-  background: #E0E0E0;
-}
-
-/* Server list */
-.server-item {
-  border-bottom: 0.5px solid var(--divider);
-}
-.server-item:last-child {
-  border-bottom: none;
-}
-.server-item-active {
-  background: #F0FFF4;
-}
-
-.server-item-main {
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  gap: 10px;
-}
-
-.server-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-tertiary);
-  flex-shrink: 0;
-}
-.server-status-dot.online {
-  background: var(--brand);
-}
-
-.server-info {
-  flex: 1;
-  overflow: hidden;
-}
-
-.server-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-primary);
-  display: block;
-  margin-bottom: 2px;
-}
-
-.server-url-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.server-badge {
-  font-size: 11px;
-  color: var(--brand);
-  background: rgba(7, 193, 96, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.server-actions {
-  display: flex;
-  gap: 8px;
-  padding: 0 16px 10px;
-}
-
-.server-action-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  background: #F2F2F2;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-.server-action-btn:active {
-  background: #E0E0E0;
-}
-.server-action-danger {
-  color: var(--danger);
-}
-
-/* Empty hint */
-.empty-hint {
-  padding: 24px 16px;
-  text-align: center;
-}
-.empty-hint-text {
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
-/* Add form */
-.add-form {
-  margin-top: 0;
-}
-
-/* Edit form */
-.edit-form {
-  border-top: 0.5px solid var(--divider);
-}
-
-/* Outline button */
-.btn-outline {
-  border: 1px solid var(--divider);
-  border-radius: 6px;
-  padding: 10px;
-  text-align: center;
-  font-size: 15px;
-  color: var(--brand);
-  background: transparent;
-}
-.btn-outline:active {
-  background: #F2F2F2;
-}
+.srv-row { display: flex; align-items: center; padding: 20rpx 24rpx; border-bottom: 1rpx solid var(--border); }
+.srv-row:last-child { border-bottom: none; }
+.srv-active { background: var(--accent-bg); }
+.srv-info { display: flex; align-items: center; gap: 16rpx; flex: 1; }
+.srv-icon-wrap { width: 64rpx; height: 64rpx; border-radius: 16rpx; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }
+.srv-icon-active { background: var(--accent-bg); }
+.srv-icon-text { font-size: 28rpx; }
+.srv-body { flex: 1; overflow: hidden; }
+.srv-name { font-size: 28rpx; font-weight: 600; color: var(--text); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-url { font-size: 22rpx; color: var(--text-3); display: block; margin-top: 2rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srv-check { width: 40rpx; height: 40rpx; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+.srv-check-text { font-size: 22rpx; color: #fff; font-weight: 700; }
+.srv-del { width: 56rpx; height: 56rpx; display: flex; align-items: center; justify-content: center; margin-left: 8rpx; }
+.srv-del-text { font-size: 32rpx; color: var(--text-3); }
+.srv-del:active .srv-del-text { color: var(--red); }
+.srv-empty { padding: 40rpx; text-align: center; }
+.srv-empty-text { font-size: 28rpx; color: var(--text-3); }

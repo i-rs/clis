@@ -1,20 +1,29 @@
-const app = getApp()
+var api = require('../../utils/api.js')
 
 Page({
   data: {
-    skills: []
+    skills: [],
+    loaded: false
   },
 
-  onLoad() {
+  onLoad: function() {
     this.loadSkills()
   },
 
-  onShow() {
-    this.loadSkills()
+  goBack: function() {
+    wx.navigateBack()
   },
 
-  async loadSkills() {
-    const skills = await app.getSkills()
-    this.setData({ skills })
+  loadSkills: function() {
+    var that = this
+    api.listSkills().then(function(res) {
+      if (res.success && res.data) {
+        that.setData({ skills: res.data, loaded: true })
+      } else {
+        that.setData({ skills: [], loaded: true })
+      }
+    }).catch(function() {
+      that.setData({ skills: [], loaded: true })
+    })
   }
 })

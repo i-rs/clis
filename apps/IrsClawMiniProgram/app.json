@@ -5,14 +5,13 @@
     "pages/tools/index",
     "pages/skills/index",
     "pages/plugins/index",
-    "pages/settings/index",
-    "pages/agents/index"
+    "pages/agents/index",
+    "pages/settings/index"
   ],
   "window": {
-    "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#EDEDED",
-    "navigationBarTitleText": "IrsClaw",
-    "navigationBarTextStyle": "black"
+    "navigationStyle": "custom",
+    "backgroundColor": "#0A0A0F",
+    "backgroundTextStyle": "dark"
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
