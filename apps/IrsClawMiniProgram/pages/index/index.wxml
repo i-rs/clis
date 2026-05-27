@@ -1,17 +1,6 @@
 <view class="chat-page">
-  <!-- Navbar -->
-  <view class="navbar">
-    <view class="nav-btn" bindtap="onToggleMenu">
-      <text class="nav-btn-icon">☰</text>
-    </view>
-    <view class="nav-center">
-      <text class="nav-title">{{sessionTitle || 'i-rs-claw'}}</text>
-    </view>
-    <view class="nav-right"></view>
-  </view>
-
   <!-- Messages -->
-  <scroll-view class="messages-scroll" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation>
+  <scroll-view class="messages-scroll" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation bindscroll="onScroll">
     <!-- Empty -->
     <view class="empty-state" wx:if="{{messages.length === 0 && !loading}}">
       <view class="empty-logo"><text class="empty-logo-text">AI</text></view>
@@ -156,6 +145,11 @@
       </view>
     </view>
     <view style="height: env(safe-area-inset-bottom);"></view>
+  </view>
+
+  <!-- Floating Button -->
+  <view class="float-btn {{floatBtnMinimized ? 'float-btn-minimized' : ''}} {{menuOpen ? 'float-btn-active' : ''}}" bindtap="onFloatBtnTap">
+    <text class="float-btn-icon">{{menuOpen ? '×' : '☰'}}</text>
   </view>
 
   <!-- Sidebar -->

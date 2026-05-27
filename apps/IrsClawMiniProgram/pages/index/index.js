@@ -22,7 +22,8 @@ Page({
     streamingReasoning: '',
     streamingToolCalls: [],
     renderTick: 0,
-    streamTask: null
+    streamTask: null,
+    floatBtnMinimized: false
   },
 
   onLoad: function() {
@@ -151,6 +152,7 @@ Page({
 
   onInputFocus: function() {
     this.setData({ inputFocused: true })
+    this.onCloseMenu()
   },
 
   onInputBlur: function() {
@@ -304,6 +306,24 @@ Page({
 
   onCloseMenu: function() {
     this.setData({ menuOpen: false })
+  },
+
+  onFloatBtnTap: function() {
+    if (this.data.floatBtnMinimized) {
+      this.setData({ floatBtnMinimized: false })
+      return
+    }
+    if (this.data.menuOpen) {
+      this.setData({ menuOpen: false, floatBtnMinimized: true })
+    } else {
+      this.setData({ menuOpen: true })
+    }
+  },
+
+  onScroll: function() {
+    if (!this.data.floatBtnMinimized) {
+      this.setData({ floatBtnMinimized: true })
+    }
   },
 
   onGoSessions: function() {
