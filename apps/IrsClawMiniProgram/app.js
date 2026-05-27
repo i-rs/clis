@@ -3,6 +3,8 @@ App({
     serverUrl: 'http://localhost:3000',
     authToken: '',
     isConnected: false,
+    currentServerId: null,
+    serverList: [],
     currentAgentId: 'default',
     currentSession: null,
     sessions: [],
@@ -14,10 +16,85 @@ App({
   },
 
   onLaunch() {
-    const savedUrl = wx.getStorageSync('serverUrl')
-    if (savedUrl) this.globalData.serverUrl = savedUrl
-    const savedToken = wx.getStorageSync('authToken')
-    if (savedToken) this.globalData.authToken = savedToken
+    const savedList = wx.getStorageSync('serverList')
+    if (savedList && savedList.length > 0) {
+      this.globalData.serverList = savedList
+      const savedId = wx.getStorageSync('currentServerId')
+      if (savedId) {
+        const server = savedList.find(s => s.id === savedId)
+        if (server) {
+          this.globalData.currentServerId = savedId
+          this.globalData.serverUrl = server.url
+          this.globalData.authToken = server.token
+        }
+      }
+    } else {
+      const savedUrl = wx.getStorageSync('serverUrl')
+      if (savedUrl) this.globalData.serverUrl = savedUrl
+      const savedToken = wx.getStorageSync('authToken')
+      if (savedToken) this.globalData.authToken = savedToken
+      // Migrate legacy single-server to new format
+      if (savedUrl) {
+        const id = 'srv_' + Date.now()
+        const server = { id, name: '默认服务器', url: savedUrl, token: savedToken || '' }
+        this.globalData.serverList = [server]
+        this.globalData.currentServerId = id
+        wx.setStorageSync('serverList', [server])
+        wx.setStorageSync('currentServerId', id)
+      }
+    }
+  },
+
+  _saveServerList() {
+    wx.setStorageSync('serverList', this.globalData.serverList)
+    wx.setStorageSync('currentServerId', this.globalData.currentServerId)
+  },
+
+  addServer(name, url, token) {
+    const id = 'srv_' + Date.now()
+    const server = { id, name, url, token }
+    this.globalData.serverList.push(server)
+    this._saveServerList()
+    return server
+  },
+
+  removeServer(id) {
+    this.globalData.serverList = this.globalData.serverList.filter(s => s.id !== id)
+    if (this.globalData.currentServerId === id) {
+      const first = this.globalData.serverList[0]
+      if (first) {
+        this.switchServer(first.id)
+      } else {
+        this.globalData.currentServerId = null
+        this.globalData.serverUrl = 'http://localhost:3000'
+        this.globalData.authToken = ''
+      }
+    }
+    this._saveServerList()
+  },
+
+  updateServer(id, data) {
+    const server = this.globalData.serverList.find(s => s.id === id)
+    if (server) {
+      Object.assign(server, data)
+      if (this.globalData.currentServerId === id) {
+        this.globalData.serverUrl = server.url
+        this.globalData.authToken = server.token
+      }
+      this._saveServerList()
+    }
+  },
+
+  switchServer(id) {
+    const server = this.globalData.serverList.find(s => s.id === id)
+    if (!server) return
+    this.globalData.currentServerId = id
+    this.globalData.serverUrl = server.url
+    this.globalData.authToken = server.token
+    this.globalData.isConnected = false
+    wx.setStorageSync('currentServerId', id)
+    wx.setStorageSync('serverUrl', server.url)
+    wx.setStorageSync('authToken', server.token)
   },
 
   // Unified request wrapper
@@ -34,7 +111,6 @@ App({
         },
         success: (res) => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            // API returns {success, data, error} wrapper
             if (res.data && res.data.success === false) {
               reject(new Error(res.data.error || 'Request failed'))
             } else {
@@ -134,7 +210,6 @@ App({
   },
 
   async getAgents() {
-    // Agent list is not in dashboard API, return default
     return [{ id: 'default', name: 'Default Agent' }]
   },
 

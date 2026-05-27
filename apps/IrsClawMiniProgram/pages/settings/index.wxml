@@ -11,9 +11,81 @@
     </view>
   </view>
 
-  <!-- Server Config -->
+  <!-- Server List -->
   <view class="section-group">
-    <view class="section-header">服务器配置</view>
+    <view class="section-header">服务器列表</view>
+    <view class="card-rounded">
+      <view wx:if="{{serverList.length === 0}}" class="empty-hint">
+        <text class="empty-hint-text">暂无服务器，点击下方添加</text>
+      </view>
+      <view wx:for="{{serverList}}" wx:key="id" class="server-item {{item.id === currentServerId ? 'server-item-active' : ''}}">
+        <view class="server-item-main" bindtap="onSelectServer" data-id="{{item.id}}">
+          <view class="server-status-dot {{item.id === currentServerId ? 'online' : ''}}"></view>
+          <view class="server-info">
+            <text class="server-name">{{item.name}}</text>
+            <text class="server-url-text">{{item.url}}</text>
+          </view>
+          <view wx:if="{{item.id === currentServerId}}" class="server-badge">当前</view>
+        </view>
+        <view class="server-actions">
+          <view class="server-action-btn" bindtap="onEditServer" data-id="{{item.id}}">
+            <text>{{editingServerId === item.id ? '收起' : '编辑'}}</text>
+          </view>
+          <view class="server-action-btn server-action-danger" bindtap="onDeleteServer" data-id="{{item.id}}">
+            <text>删除</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Inline edit form -->
+    <view class="card-rounded" wx:for="{{serverList}}" wx:key="id">
+      <view wx:if="{{editingServerId === item.id}}" class="edit-form">
+        <view class="input-row">
+          <text class="input-label">名称</text>
+          <input class="input-field" type="text" value="{{item.name}}" bindinput="onEditServerName" data-id="{{item.id}}" placeholder="服务器名称" />
+        </view>
+        <view class="input-row">
+          <text class="input-label">地址</text>
+          <input class="input-field" type="text" value="{{item.url}}" bindinput="onEditServerUrl" data-id="{{item.id}}" placeholder="http://..." />
+        </view>
+        <view class="input-row">
+          <text class="input-label">令牌</text>
+          <input class="input-field" type="text" value="{{item.token}}" bindinput="onEditServerToken" data-id="{{item.id}}" placeholder="可选" />
+        </view>
+      </view>
+    </view>
+
+    <!-- Add server button -->
+    <view style="padding: 12px 16px;">
+      <view class="btn-outline" bindtap="onToggleAddForm">
+        <text>{{showAddForm ? '取消' : '+ 添加服务器'}}</text>
+      </view>
+    </view>
+
+    <!-- Add server form -->
+    <view wx:if="{{showAddForm}}" class="card-rounded add-form">
+      <view class="input-row">
+        <text class="input-label">名称</text>
+        <input class="input-field" type="text" value="{{newServerName}}" bindinput="onNewServerName" placeholder="例如：生产环境" />
+      </view>
+      <view class="input-row">
+        <text class="input-label">地址</text>
+        <input class="input-field" type="text" value="{{newServerUrl}}" bindinput="onNewServerUrl" placeholder="http://localhost:3000" />
+      </view>
+      <view class="input-row">
+        <text class="input-label">令牌</text>
+        <input class="input-field" type="text" value="{{newServerToken}}" bindinput="onNewServerToken" placeholder="可选" />
+      </view>
+      <view style="padding: 12px 16px;">
+        <view class="btn-primary" bindtap="onAddServer">确认添加</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Current Server Config -->
+  <view class="section-group">
+    <view class="section-header">当前服务器配置</view>
     <view class="card-rounded">
       <view class="input-row">
         <text class="input-label">服务器地址</text>
