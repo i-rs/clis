@@ -30,8 +30,8 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 
     let (event_tx, mut event_rx) = mpsc::channel::<AgentEvent>(256);
 
-    let version = app.version.clone();
     if app.messages.is_empty() {
+        let version = app.version.clone();
         app.messages.push(ChatMessage {
             role: "assistant".into(),
             content: format!(
@@ -61,12 +61,17 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         }
     }
 
-    let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let has_history = app.messages.len() > 1;
-    let saved = if has_history {
+    // Auto-save session before exit
+    let stats = if app.messages.len() > 1 {
+        let tool_count: usize = app.messages.iter().filter(|m| m.role == "tool").count();
+        let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let sessions_dir = crate::config::i_rs_code_dir().join("sessions");
         let session = crate::session::Session::from_chat_messages(Some(session_id.clone()), &app.messages);
-        session.save(&sessions_dir).ok().map(|_| session_id)
+        if session.save(&sessions_dir).is_ok() {
+            Some((session_id, app.messages.len(), tool_count))
+        } else {
+            None
+        }
     } else {
         None
     };
@@ -79,12 +84,13 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     )?;
     terminal.show_cursor()?;
 
-    if let Some(sid) = saved {
-        println!();
-        println!("  Session saved: {}", sid);
-        println!("  To resume: i-rs-code tui --session {}", sid);
-        println!();
+    println!();
+    println!("  ✨ 已退出 i-rs-code");
+    if let Some((sid, msg_count, tool_count)) = stats {
+        println!("  📊 {} 条消息 · {} 次工具调用", msg_count - 1, tool_count);
+        println!("  ↻ 重新进入: i-rs-code tui --session {}", sid);
     }
+    println!();
 
     Ok(())
 }
@@ -148,23 +154,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
 #[cfg(feature = "tui")]
 async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentEvent>) {
     match app.mode {
-        AppMode::ConfirmQuit => {
-            match key.code {
-                KeyCode::Char('y') | KeyCode::Char('Y') => {
-                    app.should_quit = true;
-                }
-                KeyCode::Char('n') | KeyCode::Char('N') => {
-                    app.should_quit = true;
-                }
-                KeyCode::Esc => {
-                    app.mode = AppMode::Idle;
-                }
-                _ => {}
-            }
-            return;
-        }
         AppMode::Waiting => {
-            // still allow scroll and page keys
             match key.code {
                 KeyCode::Up => app.scroll_up(),
                 KeyCode::Down => app.scroll_down(),
@@ -178,19 +168,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     }
 
     match key.code {
-        KeyCode::Char('q') if matches!(app.mode, AppMode::Idle) => {
-            if app.messages.len() > 1 {
-                app.mode = AppMode::ConfirmQuit;
-            } else {
-                app.should_quit = true;
-            }
-        }
-        KeyCode::Esc => {
-            if app.messages.len() > 1 {
-                app.mode = AppMode::ConfirmQuit;
-            } else {
-                app.should_quit = true;
-            }
+        KeyCode::Char('q') | KeyCode::Esc => {
+            app.should_quit = true;
         }
         KeyCode::Char(c) => {
             if key.modifiers == KeyModifiers::CONTROL && c == 'c' {

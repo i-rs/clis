@@ -25,7 +25,6 @@ impl Default for TokenUsage {
 pub enum AppMode {
     Idle,
     Waiting,
-    ConfirmQuit,
 }
 
 #[derive(Debug, Clone)]
