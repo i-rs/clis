@@ -104,15 +104,15 @@
 
 /* Floating Input */
 .float-input-area { flex-shrink: 0; background: transparent; }
-.float-input-bar { display: flex; align-items: flex-end; padding: 12rpx 24rpx; gap: 16rpx; background: var(--surface); border-top: 1rpx solid var(--border); }
-.float-input-wrap { flex: 1; background: var(--surface-2); border: 2rpx solid var(--border); border-radius: 40rpx; padding: 12rpx 24rpx; transition: all 0.25s; min-height: 80rpx; display: flex; align-items: center; }
-.float-input-focus { border-color: var(--accent); box-shadow: 0 0 0 6rpx rgba(108, 92, 231, 0.12); background: var(--surface); }
-.float-textarea { width: 100%; font-size: 30rpx; color: var(--text); line-height: 1.6; min-height: 48rpx; max-height: 240rpx; background: transparent; }
+.float-input-bar { padding: 16rpx 24rpx; background: var(--surface); border-top: 1rpx solid var(--border); }
+.float-capsule { display: flex; align-items: flex-end; background: var(--surface-2); border: 2rpx solid var(--border); border-radius: 44rpx; padding: 6rpx 6rpx 6rpx 24rpx; transition: all 0.25s; min-height: 88rpx; }
+.float-capsule-focus { border-color: var(--accent); box-shadow: 0 0 0 6rpx rgba(108, 92, 231, 0.12); background: var(--surface); }
+.float-textarea { flex: 1; font-size: 30rpx; color: var(--text); line-height: 1.6; min-height: 48rpx; max-height: 240rpx; background: transparent; padding: 12rpx 0; }
 .float-ph { color: var(--text-3); font-size: 30rpx; }
-.float-send { width: 80rpx; height: 80rpx; border-radius: 50%; background: var(--surface-3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
-.float-send-on { background: var(--accent); box-shadow: 0 6rpx 24rpx rgba(108, 92, 231, 0.4); }
+.float-send { width: 72rpx; height: 72rpx; border-radius: 50%; background: var(--surface-3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; margin-left: 12rpx; }
+.float-send-on { background: var(--accent); box-shadow: 0 4rpx 16rpx rgba(108, 92, 231, 0.4); }
 .float-send-on:active { transform: scale(0.9); }
-.float-send-icon { font-size: 36rpx; font-weight: 700; color: var(--text-3); transition: color 0.2s; }
+.float-send-icon { font-size: 32rpx; font-weight: 700; color: var(--text-3); transition: color 0.2s; }
 .float-send-on .float-send-icon { color: #fff; }
 
 /* Sidebar */

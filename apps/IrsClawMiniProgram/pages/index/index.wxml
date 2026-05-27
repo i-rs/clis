@@ -150,11 +150,11 @@
   <!-- Floating Input -->
   <view class="float-input-area" style="padding-bottom: {{keyboardHeight}}px;">
     <view class="float-input-bar">
-      <view class="float-input-wrap {{inputFocused ? 'float-input-focus' : ''}}">
+      <view class="float-capsule {{inputFocused ? 'float-capsule-focus' : ''}}">
         <textarea class="float-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{false}}" cursor-spacing="0" />
-      </view>
-      <view class="float-send {{inputText.length > 0 ? 'float-send-on' : ''}}" bindtap="onSend">
-        <text class="float-send-icon">↑</text>
+        <view class="float-send {{inputText.length > 0 ? 'float-send-on' : ''}}" bindtap="onSend">
+          <text class="float-send-icon">↑</text>
+        </view>
       </view>
     </view>
     <view style="height: env(safe-area-inset-bottom);"></view>
