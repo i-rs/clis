@@ -134,15 +134,17 @@
     <text class="conn-text">未连接到服务器</text>
   </view>
 
-  <!-- Input Area -->
-  <view class="input-area">
-    <textarea class="input-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="float-ph" bindinput="onInput" bindfocus="onInputFocus" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" adjust-position="{{true}}" cursor-spacing="20" />
-    <view class="input-bottom-row">
-      <view class="input-menu-btn" bindtap="onToggleMenu">
-        <text class="input-menu-icon">☰</text>
-      </view>
-      <view class="input-send {{inputText.length > 0 ? 'input-send-on' : ''}}" bindtap="onSend">
-        <text class="input-send-icon">↑</text>
+  <!-- Input Bar -->
+  <view class="input-bar-wrap">
+    <view class="input-bar">
+      <view class="input-bar-inner">
+        <view class="input-menu-btn" bindtap="onToggleMenu">
+          <text class="input-menu-icon">☰</text>
+        </view>
+        <input class="input-text" value="{{inputText}}" placeholder="输入消息..." placeholder-class="ph" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" maxlength="-1" cursor-spacing="20" />
+        <view class="input-send {{inputText.length > 0 ? 'input-send-on' : ''}}" bindtap="onSend">
+          <text class="input-send-icon">↑</text>
+        </view>
       </view>
     </view>
     <view style="height: env(safe-area-inset-bottom);"></view>

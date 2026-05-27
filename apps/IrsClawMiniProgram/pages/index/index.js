@@ -13,6 +13,7 @@ Page({
     menuOpen: false,
     isConnected: false,
     currentAgent: 'default',
+    inputFocused: false,
     sessionId: '',
     sessionTitle: '',
     agents: [],
@@ -149,7 +150,12 @@ Page({
   },
 
   onInputFocus: function() {
+    this.setData({ inputFocused: true })
     this.onCloseMenu()
+  },
+
+  onInputBlur: function() {
+    this.setData({ inputFocused: false })
   },
 
   onSend: function() {
