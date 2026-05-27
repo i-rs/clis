@@ -93,17 +93,37 @@ Page({
       this.setData({ messages: [] })
       return
     }
+    var raw = session.messages
     var msgs = []
-    for (var i = 0; i < session.messages.length; i++) {
-      var m = session.messages[i]
-      msgs.push({
-        id: m.id || genId(),
-        role: m.role,
-        content: m.content || '',
-        reasoning: m.reasoning || '',
-        reasoningExpanded: false,
-        toolCalls: m.tool_calls || []
-      })
+    var pendingTools = []
+    for (var i = 0; i < raw.length; i++) {
+      var m = raw[i]
+      if (m.role === 'user') {
+        pendingTools = []
+        msgs.push({
+          id: genId(),
+          role: 'user',
+          content: m.content || ''
+        })
+      } else if (m.role === 'tool_call') {
+        pendingTools.push({
+          name: m.name || '',
+          args: m.args || '',
+          result: m.result || '',
+          status: 'done',
+          expanded: false
+        })
+      } else if (m.role === 'assistant') {
+        msgs.push({
+          id: genId(),
+          role: 'assistant',
+          content: m.content || '',
+          reasoning: m.reasoning || '',
+          reasoningExpanded: false,
+          toolCalls: pendingTools.length > 0 ? pendingTools.slice() : []
+        })
+        pendingTools = []
+      }
     }
     this.setData({ messages: msgs })
     this.scrollToBottom()
