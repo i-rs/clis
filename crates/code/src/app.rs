@@ -53,6 +53,9 @@ pub struct App {
     pub mode: AppMode,
     pub streaming: Option<StreamingState>,
     pub session_id: Option<String>,
+    pub show_shortcuts: bool,
+    pub show_debug: bool,
+    pub debug_scroll: usize,
     pub should_quit: bool,
 }
 
@@ -75,6 +78,9 @@ impl App {
             mode: AppMode::Idle,
             streaming: None,
             session_id,
+            show_shortcuts: false,
+            show_debug: false,
+            debug_scroll: 0,
             should_quit: false,
         }
     }

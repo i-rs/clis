@@ -60,15 +60,18 @@ impl LlmProvider for OpenAiProvider {
         let msgs = Self::build_messages(messages);
         let tool_defs = tool_defs.to_vec();
 
+        let body = json!({
+            "model": model,
+            "messages": msgs,
+            "stream": true,
+            "tools": if tool_defs.is_empty() { json!(null) } else { json!(tool_defs) },
+        });
+
+        let log_body = serde_json::to_string(&body).unwrap_or_default();
+        let log_url = url.clone();
+
         tokio::spawn(async move {
-            let mut body = json!({
-                "model": model,
-                "messages": msgs,
-                "stream": true,
-            });
-            if !tool_defs.is_empty() {
-                body["tools"] = json!(tool_defs);
-            }
+            let start = std::time::Instant::now();
 
             let res = match client.post(&url)
                 .header("Authorization", format!("Bearer {}", api_key))
@@ -78,26 +81,47 @@ impl LlmProvider for OpenAiProvider {
             {
                 Ok(r) => r,
                 Err(e) => {
+                    crate::debug::push_log(crate::debug::HttpLogEntry {
+                        url: log_url.clone(),
+                        request_body: log_body.clone(),
+                        response_status: 0,
+                        response_body_preview: e.to_string(),
+                        duration_ms: start.elapsed().as_millis() as u64,
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                    });
                     tx.send(StreamEvent { kind: StreamEventKind::Error(e.to_string()) }).await.ok();
                     return;
                 }
             };
 
-            if !res.status().is_success() {
-                let status = res.status();
+            let status = res.status();
+
+            if !status.is_success() {
+                let status_code = status.as_u16();
                 let body_text = res.text().await.unwrap_or_default();
-                let error_msg = format!("API error ({}): {}", status, body_text);
-                tx.send(StreamEvent { kind: StreamEventKind::Error(error_msg) }).await.ok();
+                crate::debug::push_log(crate::debug::HttpLogEntry {
+                    url: log_url.clone(),
+                    request_body: log_body.clone(),
+                    response_status: status_code,
+                    response_body_preview: body_text.clone(),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                });
+                tx.send(StreamEvent { kind: StreamEventKind::Error(format!("API error ({}): {}", status_code, body_text)) }).await.ok();
                 return;
             }
 
+            let mut total_bytes = 0usize;
             let mut buf = String::new();
             let mut stream = res.bytes_stream();
             let mut final_usage: Option<Usage> = None;
             use futures::StreamExt;
             while let Some(chunk) = stream.next().await {
                 let chunk = match chunk {
-                    Ok(c) => c,
+                    Ok(c) => {
+                        total_bytes += c.len();
+                        c
+                    }
                     Err(e) => {
                         tx.send(StreamEvent { kind: StreamEventKind::Error(e.to_string()) }).await.ok();
                         return;
@@ -109,7 +133,6 @@ impl LlmProvider for OpenAiProvider {
                     if line == "data: [DONE]" { continue; }
                     if let Some(data) = line.strip_prefix("data: ") {
                         if let Ok(val) = serde_json::from_str::<Value>(data) {
-                            // Extract usage from the final chunk (empty choices + usage field)
                             if val.get("usage").and_then(|u| u.as_object()).is_some() {
                                 let input = val["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
                                 let output = val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
@@ -143,6 +166,16 @@ impl LlmProvider for OpenAiProvider {
                 }
                 buf.clear();
             }
+
+            crate::debug::push_log(crate::debug::HttpLogEntry {
+                url: log_url,
+                request_body: log_body,
+                response_status: status.as_u16(),
+                response_body_preview: format!("streamed {} bytes, {} rounds", total_bytes, 1),
+                duration_ms: start.elapsed().as_millis() as u64,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            });
+
             tx.send(StreamEvent { kind: StreamEventKind::Done { content: None, usage: final_usage } }).await.ok();
         });
 
@@ -164,6 +197,10 @@ impl LlmProvider for OpenAiProvider {
             body["tools"] = json!(tool_defs);
         }
 
+        let log_body = serde_json::to_string(&body).unwrap_or_default();
+        let log_url = url.clone();
+        let start = std::time::Instant::now();
+
         let res = client.post(&url)
             .header("Authorization", format!("Bearer {}", api_key))
             .json(&body)
@@ -173,10 +210,29 @@ impl LlmProvider for OpenAiProvider {
         if !res.status().is_success() {
             let status = res.status();
             let body_text = res.text().await.unwrap_or_default();
+            crate::debug::push_log(crate::debug::HttpLogEntry {
+                url: log_url,
+                request_body: log_body,
+                response_status: status.as_u16(),
+                response_body_preview: body_text.clone(),
+                duration_ms: start.elapsed().as_millis() as u64,
+                timestamp: chrono::Utc::now().to_rfc3339(),
+            });
             anyhow::bail!("API error ({}): {}", status, body_text);
         }
 
         let val: Value = res.json().await?;
+        let body_text = serde_json::to_string(&val).unwrap_or_default();
+
+        crate::debug::push_log(crate::debug::HttpLogEntry {
+            url: log_url,
+            request_body: log_body,
+            response_status: 200,
+            response_body_preview: body_text.chars().take(500).collect(),
+            duration_ms: start.elapsed().as_millis() as u64,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        });
+
         let choice = val["choices"][0]["message"].clone();
         let content = choice["content"].as_str().map(|s| s.to_string());
         let tool_calls = if let Some(tcs) = choice["tool_calls"].as_array() {

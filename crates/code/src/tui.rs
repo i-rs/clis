@@ -155,7 +155,13 @@ fn handle_event(event: AgentEvent, app: &mut App) {
 async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentEvent>) {
     match app.mode {
         AppMode::Waiting => {
-            match key.code {
+    // If shortcuts overlay is shown, any key dismisses it
+    if app.show_shortcuts {
+        app.show_shortcuts = false;
+        return;
+    }
+
+    match key.code {
                 KeyCode::Up => app.scroll_up(),
                 KeyCode::Down => app.scroll_down(),
                 KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
@@ -168,8 +174,44 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     }
 
     match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => {
-            app.should_quit = true;
+        KeyCode::Esc | KeyCode::Char('q') => {
+            if app.show_shortcuts {
+                app.show_shortcuts = false;
+            } else if app.show_debug {
+                app.show_debug = false;
+                app.debug_scroll = 0;
+            } else {
+                app.should_quit = true;
+            }
+        }
+        KeyCode::Char('?') => {
+            if !app.show_debug {
+                app.show_shortcuts = !app.show_shortcuts;
+            }
+        }
+        KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+            app.show_shortcuts = false;
+            app.show_debug = !app.show_debug;
+            if !app.show_debug {
+                app.debug_scroll = 0;
+            }
+        }
+        KeyCode::Char('l') if key.modifiers == KeyModifiers::CONTROL => {
+            if app.show_debug {
+                crate::debug::clear_log();
+            }
+        }
+        KeyCode::Up if app.show_debug => {
+            app.debug_scroll = app.debug_scroll.saturating_sub(1);
+        }
+        KeyCode::Down if app.show_debug => {
+            app.debug_scroll = app.debug_scroll.saturating_add(1);
+        }
+        KeyCode::PageUp if app.show_debug => {
+            app.debug_scroll = app.debug_scroll.saturating_sub(10);
+        }
+        KeyCode::PageDown if app.show_debug => {
+            app.debug_scroll = app.debug_scroll.saturating_add(10);
         }
         KeyCode::Char(c) => {
             if key.modifiers == KeyModifiers::CONTROL && c == 'c' {

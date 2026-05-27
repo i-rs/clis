@@ -1,9 +1,9 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 use crate::app::{App, AppMode};
 
@@ -22,6 +22,72 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_title_bar(frame, chunks[0], app);
     render_main_area(frame, chunks[1], app);
     render_input_bar(frame, chunks[2], app);
+
+    if app.show_shortcuts {
+        render_shortcuts_overlay(frame, area);
+    }
+}
+
+fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
+    let w = 50.min(area.width.saturating_sub(4));
+    let h = 16;
+    let x = (area.width - w) / 2;
+    let y = (area.height - h) / 2;
+    let overlay = Rect { x, y, width: w, height: h };
+
+    frame.render_widget(Clear, overlay);
+
+    let items = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  ? / Esc       关闭此面板",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  Ctrl+D        打开 HTTP 调试面板",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  Enter         发送消息",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  Alt+Enter     换行",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  Esc / q       退出",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  PgUp / PgDn   滚动聊天",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  ↑ / ↓         逐行滚动",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
+            "  Tab           插入缩进 (2 spaces)",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "     Press any key to close",
+            Style::default().fg(Color::Rgb(113, 113, 122)),
+        )),
+    ];
+
+    let block = Block::default()
+        .title(" ⌨ Keyboard Shortcuts ")
+        .title_alignment(Alignment::Center)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let paragraph = Paragraph::new(Text::from(items))
+        .block(block)
+        .alignment(Alignment::Center);
+    frame.render_widget(paragraph, overlay);
 }
 
 fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
@@ -47,6 +113,11 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_main_area(frame: &mut Frame, area: Rect, app: &App) {
+    if app.show_debug {
+        render_debug_panel(frame, area, app);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
@@ -56,7 +127,98 @@ fn render_main_area(frame: &mut Frame, area: Rect, app: &App) {
     render_status(frame, chunks[1], app);
 }
 
+fn render_debug_panel(frame: &mut Frame, area: Rect, app: &App) {
+    let block = Block::default()
+        .title(format!(" HTTP Debug ({} logs) ", crate::debug::log_count()))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let logs = crate::debug::get_log();
+    if logs.is_empty() {
+        let text = Paragraph::new(Text::from(vec![
+            Line::from(Span::styled(
+                "  No HTTP requests yet.",
+                Style::default().fg(Color::Gray),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  [Ctrl+L] clear  [Esc/Ctrl+D] close",
+                Style::default().fg(Color::Rgb(80, 80, 90)),
+            )),
+        ]));
+        frame.render_widget(text, inner);
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+    let max_scroll = logs.len().saturating_sub(inner.height as usize / 5);
+    let scroll = app.debug_scroll.min(max_scroll);
+
+    for entry in logs.iter().rev().skip(scroll) {
+        let status_color = if entry.response_status == 200 {
+            Color::Green
+        } else if entry.response_status >= 400 {
+            Color::Red
+        } else {
+            Color::Yellow
+        };
+
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!(" {} ", entry.time_short()),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                format!(" POST {}", entry.path()),
+                Style::default().fg(Color::White),
+            ),
+            Span::raw("  "),
+            Span::styled(
+                entry.status_label(),
+                Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!(" ({}.{:03}s)", entry.duration_ms / 1000, entry.duration_ms % 1000),
+                Style::default().fg(Color::Gray),
+            ),
+        ]));
+
+        // Request body preview
+        let req_preview: String = entry.request_body.chars().take(inner.width.saturating_sub(4) as usize).collect();
+        for line in req_preview.lines().take(2) {
+            lines.push(Line::from(Span::styled(
+                format!("  >> {}", line),
+                Style::default().fg(Color::Rgb(100, 180, 100)),
+            )));
+        }
+
+        // Response body preview
+        let res_preview: String = entry.response_body_preview.chars().take(inner.width.saturating_sub(4) as usize).collect();
+        for line in res_preview.lines().take(3) {
+            lines.push(Line::from(Span::styled(
+                format!("  << {}", line),
+                Style::default().fg(Color::Rgb(180, 150, 100)),
+            )));
+        }
+
+        lines.push(Line::from(""));
+    }
+
+    let paragraph = Paragraph::new(Text::from(lines))
+        .scroll((0, 0));
+    frame.render_widget(paragraph, inner);
+}
+
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    let inner = block.inner(area);
+
     let mut lines: Vec<Line> = Vec::new();
 
     for msg in &app.messages {
@@ -103,14 +265,12 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
         ]));
 
-        // Streaming response content
         if !s.content.is_empty() {
             for line in s.content.lines() {
                 lines.push(Line::from(Span::raw(format!(" {}", line))));
             }
         }
 
-        // Current tool call (in progress)
         if let Some(ref tool) = s.current_tool {
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
@@ -119,7 +279,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
                 ),
             ]));
-            let preview: String = tool.args.chars().take(area.width.saturating_sub(4) as usize).collect();
+            let preview: String = tool.args.chars().take(inner.width.saturating_sub(4) as usize).collect();
             for line in preview.lines() {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", line),
@@ -128,7 +288,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             }
         }
 
-        // Completed tool calls in this round
         for tool in &s.tool_calls {
             lines.push(Line::from(""));
             let status = if tool.result.is_some() { "done" } else { "running..." };
@@ -155,7 +314,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             }
         }
 
-        // Typing indicator
         if s.current_tool.is_none() && !s.content.is_empty() {
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
@@ -171,20 +329,18 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    let inner_height = area.height.saturating_sub(2);
-    let max_scroll = lines.len().saturating_sub(inner_height as usize);
+    let max_scroll = lines.len().saturating_sub(inner.height as usize);
     let scroll = app.scroll_offset.min(max_scroll);
 
-    // Calculate hidden messages above visible area
-    let hidden_above = if scroll > 0 { scroll.min(lines.len()) } else { 0 };
-
+    // Show hidden message count
     let mut block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
 
-    if hidden_above > 0 {
-        block = block.title(format!(" ↑ {} 条历史消息 ", hidden_above));
-        block = block.title_alignment(ratatui::layout::Alignment::Center);
+    let hidden_msgs = app.messages.len().saturating_sub(1);
+    if scroll > 0 || (hidden_msgs > 0 && lines.len() > inner.height as usize) {
+        block = block.title(format!(" ↑ {} 条历史消息 ", hidden_msgs));
+        block = block.title_alignment(Alignment::Center);
     }
 
     let paragraph = Paragraph::new(Text::from(lines))
@@ -300,6 +456,21 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     ]));
     items.push(Line::from(""));
 
+    // Debug log count
+    let debug_count = crate::debug::log_count();
+    items.push(Line::from(vec![
+        Span::styled("HTTP Log ", Style::default().fg(Color::Gray)),
+        Span::styled(
+            format!("{} entries", debug_count),
+            Style::default().fg(if debug_count > 0 { Color::Cyan } else { Color::DarkGray }),
+        ),
+    ]));
+    items.push(Line::from(Span::styled(
+        "  [Ctrl+D] open  [Ctrl+L] clear",
+        Style::default().fg(Color::Rgb(80, 80, 90)),
+    )));
+    items.push(Line::from(""));
+
     // Active streaming info
     if let Some(ref s) = app.streaming {
         let token_count = s.content.len();
@@ -353,7 +524,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(Color::Rgb(113, 113, 122)),
             )),
             Line::from(Span::styled(
-                "  [Enter] 发送  [Esc] 退出",
+                "  [Enter] 发送  [Esc] 退出  [?] 帮助",
                 Style::default().fg(Color::Rgb(80, 80, 90)),
             )),
         ]
@@ -375,7 +546,6 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let input_widget = Paragraph::new(lines).block(Block::default());
     frame.render_widget(input_widget, inner);
 
-    // Set cursor position (only in Idle mode)
     if matches!(app.mode, AppMode::Idle) && !app.input.is_empty() {
         let input_before = &app.input[..app.cursor_pos];
         let line_idx = input_before.matches('\n').count();

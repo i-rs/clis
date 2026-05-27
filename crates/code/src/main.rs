@@ -10,6 +10,7 @@ mod protocol;
 mod diff;
 mod session;
 mod utils;
+mod debug;
 mod tui;
 
 use clap::Parser;
