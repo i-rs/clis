@@ -115,6 +115,7 @@ impl LlmProvider for OpenAiProvider {
             let mut buf = String::new();
             let mut stream = res.bytes_stream();
             let mut final_usage: Option<Usage> = None;
+            let mut tool_call_accum: std::collections::HashMap<u32, (String, String, String)> = std::collections::HashMap::new();
             use futures::StreamExt;
             while let Some(chunk) = stream.next().await {
                 let chunk = match chunk {
@@ -131,8 +132,8 @@ impl LlmProvider for OpenAiProvider {
                 for line in buf.lines() {
                     if line.is_empty() { continue; }
                     if line == "data: [DONE]" { continue; }
-                    if let Some(data) = line.strip_prefix("data: ") {
-                        if let Ok(val) = serde_json::from_str::<Value>(data) {
+                    if let Some(data) = line.strip_prefix("data: ")
+                        && let Ok(val) = serde_json::from_str::<Value>(data) {
                             if val.get("usage").and_then(|u| u.as_object()).is_some() {
                                 let input = val["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
                                 let output = val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
@@ -141,30 +142,37 @@ impl LlmProvider for OpenAiProvider {
                             if let Some(choices) = val["choices"].as_array() {
                                 for choice in choices {
                                     let delta = &choice["delta"];
-                                    if let Some(content) = delta["content"].as_str() {
-                                        if !content.is_empty() {
+                                    if let Some(content) = delta["content"].as_str()
+                                        && !content.is_empty() {
                                             tx.send(StreamEvent { kind: StreamEventKind::Token(content.to_string()) }).await.ok();
                                         }
-                                    }
                                     if let Some(tcs) = delta["tool_calls"].as_array() {
                                         for tc in tcs {
-                                            if let (Some(id), Some(name), Some(args)) = (
-                                                tc["id"].as_str(),
-                                                tc["function"]["name"].as_str(),
-                                                tc["function"]["arguments"].as_str(),
-                                            ) {
-                                                if let Ok(args_val) = serde_json::from_str(args) {
-                                                    tx.send(StreamEvent { kind: StreamEventKind::ToolCall { id: id.to_string(), name: name.to_string(), args: args_val } }).await.ok();
-                                                }
+                                            let idx = tc["index"].as_u64().unwrap_or(0) as u32;
+                                            let entry = tool_call_accum.entry(idx).or_insert_with(|| (String::new(), String::new(), String::new()));
+                                            if let Some(id) = tc["id"].as_str() {
+                                                entry.0 = id.to_string();
+                                            }
+                                            if let Some(name) = tc["function"]["name"].as_str() {
+                                                entry.1 = name.to_string();
+                                            }
+                                            if let Some(args) = tc["function"]["arguments"].as_str() {
+                                                entry.2.push_str(args);
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
                 }
                 buf.clear();
+            }
+            for idx in 0..tool_call_accum.len() as u32 {
+                if let Some((id, name, args_str)) = tool_call_accum.remove(&idx)
+                    && !id.is_empty() && !name.is_empty() {
+                        let args_val = serde_json::from_str(&args_str).unwrap_or(serde_json::json!({}));
+                        tx.send(StreamEvent { kind: StreamEventKind::ToolCall { id, name, args: args_val } }).await.ok();
+                    }
             }
 
             crate::debug::push_log(crate::debug::HttpLogEntry {

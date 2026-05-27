@@ -14,8 +14,12 @@ pub async fn react_loop(
     let max_rounds = 20;
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
+    let ctx = super::context::ContextManager::new();
 
     for _round in 0..max_rounds {
+        if ctx.should_compress(&messages) {
+            messages = ctx.compress(&messages);
+        }
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
         let mut pending_tool_calls = Vec::new();
@@ -73,23 +77,56 @@ pub async fn react_loop(
             });
         }
 
-        for tc in &pending_tool_calls {
-            let result = if let Some(tool) = tools.get(&tc.name) {
-                match tc.args.as_object() {
-                    Some(obj) => tool.call(obj).await,
-                    None => tool.call(&serde_json::Map::new()).await,
+        let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
+            let tool = tools.get(&tc.name);
+            let tc = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
+            tokio::spawn(async move {
+                let result = if let Some(tool) = tool {
+                    match tc.args.as_object() {
+                        Some(obj) => tool.call(obj).await,
+                        None => tool.call(&serde_json::Map::new()).await,
+                    }
+                } else {
+                    Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
+                };
+                (tc, result)
+            })
+        }).collect();
+
+        let tc_list: Vec<ToolCall> = pending_tool_calls.clone();
+
+        for (i, handle) in handles.into_iter().enumerate() {
+            let tc = &tc_list[i];
+            let result = match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
+                Ok(Ok(inner)) => inner,
+                Ok(Err(_)) => continue,
+                Err(_) => {
+                    let result_str = "Error: tool execution timed out (120s)".to_string();
+                    if json_output {
+                        let event = serde_json::json!({
+                            "event": "tool_result",
+                            "tool_call_id": tc.id,
+                            "name": tc.name,
+                            "result": result_str,
+                        });
+                        println!("{}", serde_json::to_string(&event)?);
+                    }
+                    messages.push(LlmMessage::Tool {
+                        name: tc.name.clone(),
+                        content: result_str,
+                        call_id: tc.id.clone(),
+                    });
+                    continue;
                 }
-            } else {
-                Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
             };
 
-            let result_str = match &result {
+            let result_str = match &result.1 {
                 Ok(s) => s.clone(),
                 Err(e) => format!("Error: {}", e),
             };
 
-            if let Ok(s) = &result {
-                if let Ok(val) = serde_json::from_str::<Value>(s) {
+            if let Ok(s) = &result.1
+                && let Ok(val) = serde_json::from_str::<Value>(s) {
                     if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
                         if json_output {
                             let event = serde_json::json!({
@@ -101,19 +138,16 @@ pub async fn react_loop(
                         }
                         return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
                     }
-                    if val.get("requires_registration").and_then(|v| v.as_bool()).unwrap_or(false) {
-                        if let Some(tool_info) = val.get("tool") {
-                            if json_output {
-                                let event = serde_json::json!({
-                                    "event": "tool_created",
-                                    "tool": tool_info,
-                                });
-                                println!("{}", serde_json::to_string(&event)?);
-                            }
+                    if val.get("requires_registration").and_then(|v| v.as_bool()).unwrap_or(false)
+                        && let Some(tool_info) = val.get("tool")
+                        && json_output {
+                            let event = serde_json::json!({
+                                "event": "tool_created",
+                                "tool": tool_info,
+                            });
+                            println!("{}", serde_json::to_string(&event)?);
                         }
-                    }
                 }
-            }
 
             if json_output {
                 let event = serde_json::json!({
@@ -146,8 +180,12 @@ pub async fn react_loop_streaming(
     let max_rounds = 20;
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
+    let ctx = super::context::ContextManager::new();
 
     for _round in 0..max_rounds {
+        if ctx.should_compress(&messages) {
+            messages = ctx.compress(&messages);
+        }
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
         let mut pending_tool_calls = Vec::new();
@@ -204,17 +242,46 @@ pub async fn react_loop_streaming(
             });
         }
 
-        for tc in &pending_tool_calls {
-            let result = if let Some(tool) = tools.get(&tc.name) {
-                match tc.args.as_object() {
-                    Some(obj) => tool.call(obj).await,
-                    None => tool.call(&serde_json::Map::new()).await,
+        let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
+            let tool = tools.get(&tc.name);
+            let tc = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
+            tokio::spawn(async move {
+                let result = if let Some(tool) = tool {
+                    match tc.args.as_object() {
+                        Some(obj) => tool.call(obj).await,
+                        None => tool.call(&serde_json::Map::new()).await,
+                    }
+                } else {
+                    Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
+                };
+                (tc, result)
+            })
+        }).collect();
+
+        let tc_list: Vec<ToolCall> = pending_tool_calls.clone();
+
+        for (i, handle) in handles.into_iter().enumerate() {
+            let tc = &tc_list[i];
+            let result = match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
+                Ok(Ok(inner)) => inner,
+                Ok(Err(_)) => continue,
+                Err(_) => {
+                    let result_str = "Error: tool execution timed out (120s)".to_string();
+                    event_tx.send(AgentEvent::ToolCallEnd {
+                        id: tc.id.clone(),
+                        name: tc.name.clone(),
+                        result: result_str.clone(),
+                    }).await.ok();
+                    messages.push(LlmMessage::Tool {
+                        name: tc.name.clone(),
+                        content: result_str,
+                        call_id: tc.id.clone(),
+                    });
+                    continue;
                 }
-            } else {
-                Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
             };
 
-            let result_str = match &result {
+            let result_str = match &result.1 {
                 Ok(s) => s.clone(),
                 Err(e) => format!("Error: {}", e),
             };
@@ -225,14 +292,12 @@ pub async fn react_loop_streaming(
                 result: result_str.clone(),
             }).await.ok();
 
-            if let Ok(s) = &result {
-                if let Ok(val) = serde_json::from_str::<Value>(s) {
-                    if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
-                        event_tx.send(AgentEvent::Done { usage: Some(total_usage.clone()) }).await.ok();
-                        return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
-                    }
+            if let Ok(s) = &result.1
+                && let Ok(val) = serde_json::from_str::<Value>(s)
+                && val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    event_tx.send(AgentEvent::Done { usage: Some(total_usage.clone()), messages: messages.clone() }).await.ok();
+                    return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
                 }
-            }
 
             messages.push(LlmMessage::Tool {
                 name: tc.name.clone(),
@@ -242,6 +307,6 @@ pub async fn react_loop_streaming(
         }
     }
 
-    event_tx.send(AgentEvent::Done { usage: Some(total_usage) }).await.ok();
+    event_tx.send(AgentEvent::Done { usage: Some(total_usage), messages: messages.clone() }).await.ok();
     Ok((final_text, messages))
 }

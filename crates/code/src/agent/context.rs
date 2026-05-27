@@ -9,50 +9,95 @@ impl ContextManager {
         Self { max_tokens: 128_000 }
     }
 
-    pub fn check_usage(&self, messages: &[LlmMessage]) -> f64 {
-        let total: usize = messages.iter().map(|m| {
-            match m {
-                LlmMessage::System(s) => s.len(),
-                LlmMessage::User(s) => s.len(),
-                LlmMessage::Assistant(s) => s.len(),
-                LlmMessage::Tool { content, .. } => content.len(),
-                LlmMessage::ToolCall { args, .. } => args.to_string().len(),
-            }
+    fn estimate_tokens(messages: &[LlmMessage]) -> usize {
+        let total_chars: usize = messages.iter().map(|m| match m {
+            LlmMessage::System(s) => s.len(),
+            LlmMessage::User(s) => s.len(),
+            LlmMessage::Assistant(s) => s.len(),
+            LlmMessage::Tool { content, .. } => content.len(),
+            LlmMessage::ToolCall { args, .. } => args.to_string().len(),
         }).sum();
-        total as f64 / self.max_tokens as f64
+        (total_chars + 3) / 4
+    }
+
+    pub fn should_compress(&self, messages: &[LlmMessage]) -> bool {
+        Self::estimate_tokens(messages) > self.max_tokens * 80 / 100
     }
 
     pub fn compress(&self, messages: &[LlmMessage]) -> Vec<LlmMessage> {
-        // MVP: simple truncation - keep system + last N messages
-        if self.check_usage(messages) > 0.8 {
-            let mut compressed = Vec::new();
-            for msg in messages {
-                match msg {
-                    LlmMessage::System(s) => {
-                        compressed.push(LlmMessage::System(s.clone()));
-                    }
-                    _ => {
-                        if compressed.len() > messages.len().saturating_sub(20) {
-                            compressed.push(match msg {
-                                LlmMessage::User(c) => LlmMessage::User(c.clone()),
-                                LlmMessage::Assistant(c) => LlmMessage::Assistant(c.clone()),
-                                LlmMessage::Tool { name, content, call_id } => {
-                                    let truncated = if content.len() > 500 {
-                                        format!("{}...[truncated {} bytes]", &content[..500], content.len() - 500)
-                                    } else {
-                                        content.clone()
-                                    };
-                                    LlmMessage::Tool { name: name.clone(), content: truncated, call_id: call_id.clone() }
-                                }
-                                _ => continue,
-                            });
+        if !self.should_compress(messages) {
+            return messages.to_vec();
+        }
+
+        let mut compressed: Vec<LlmMessage> = Vec::new();
+        let mut early_tool_pairs: Vec<(LlmMessage, LlmMessage)> = Vec::new();
+        let mut late_tool_pairs: Vec<(LlmMessage, LlmMessage)> = Vec::new();
+
+        let msg_count = messages.len();
+        let tool_call_count = messages.iter().filter(|m| matches!(m, LlmMessage::ToolCall { .. })).count();
+        let keep_recent = tool_call_count.saturating_sub(5);
+
+        let mut i = 0;
+        while i < msg_count {
+            if matches!(messages[i], LlmMessage::ToolCall { .. }) {
+                if let Some(call) = messages.get(i) {
+                    if let Some(result) = messages.get(i + 1) {
+                        if matches!(result, LlmMessage::Tool { .. }) {
+                            if early_tool_pairs.len() + late_tool_pairs.len() < keep_recent {
+                                late_tool_pairs.push((call.clone(), result.clone()));
+                            } else {
+                                early_tool_pairs.push((call.clone(), result.clone()));
+                            }
+                            i += 2;
+                            continue;
                         }
                     }
                 }
             }
-            compressed
-        } else {
-            messages.to_vec()
+            i += 1;
         }
+
+        let total_calls = early_tool_pairs.len() + late_tool_pairs.len();
+
+        for msg in messages.iter() {
+            match msg {
+                LlmMessage::System(s) => {
+                    compressed.push(LlmMessage::System(s.clone()));
+                }
+                LlmMessage::User(_) | LlmMessage::Assistant(_) => {
+                    if compressed.len() < 3 {
+                        compressed.push(msg.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if total_calls > 0 {
+            let truncated: Vec<LlmMessage> = early_tool_pairs.into_iter().flat_map(|(call, result)| {
+                let (name, call_id) = match &result {
+                    LlmMessage::Tool { name, call_id, .. } => (name.clone(), call_id.clone()),
+                    _ => (String::new(), String::new()),
+                };
+                vec![
+                    call,
+                    LlmMessage::Tool { name, content: "[compressed]".to_string(), call_id },
+                ]
+            }).collect();
+
+            let recent: Vec<LlmMessage> = late_tool_pairs.into_iter()
+                .flat_map(|(call, result)| vec![call, result])
+                .collect();
+
+            if !truncated.is_empty() {
+                compressed.push(LlmMessage::Assistant(
+                    format!("[Previous conversation: {} tool calls, earlier ones compressed]", total_calls)
+                ));
+                compressed.extend(truncated);
+            }
+            compressed.extend(recent);
+        }
+
+        compressed
     }
 }

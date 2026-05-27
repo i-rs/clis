@@ -29,11 +29,17 @@ impl Tool for BashTool {
         let cmd = args.get("command").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("command required"))?;
         let desc = args.get("description").and_then(|v| v.as_str()).unwrap_or("");
 
-        // Block dangerous commands
-        let blocked = ["curl", "wget", "python", "ruby", "perl", "node -e", "bash -c", "sh -c", "eval", "exec", "source"];
-        for b in &blocked {
-            if cmd.trim_start().starts_with(b) {
-                anyhow::bail!("Command '{}' is blocked for security", b);
+        let blocked_patterns = [
+            "rm -rf /",
+            "mkfs",
+            "dd if=",
+            ":(){ :|:& };:",
+            "> /dev/sd",
+            "chmod -R 777 /",
+        ];
+        for b in &blocked_patterns {
+            if cmd.contains(b) {
+                anyhow::bail!("Command contains dangerous pattern: {}", b);
             }
         }
 

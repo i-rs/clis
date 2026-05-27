@@ -66,11 +66,12 @@ impl Agent {
         &mut self,
         prompt: &str,
         event_tx: mpsc::Sender<event::AgentEvent>,
+        history: Vec<LlmMessage>,
     ) -> anyhow::Result<String> {
         let system_text = crate::prompt::SYSTEM;
 
         let tool_defs = self.tools.schemas();
-        let msgs = build_messages(&self.messages, system_text, prompt);
+        let msgs = build_messages(&history, system_text, prompt);
 
         let (final_text, new_messages) = engine::react_loop_streaming(
             &*self.provider,
@@ -91,7 +92,13 @@ fn build_messages(
     prompt: &str,
 ) -> Vec<LlmMessage> {
     let mut msgs = Vec::new();
-    msgs.push(LlmMessage::System(system_text.to_string()));
+    let context = crate::prompt::build_context();
+    let system = if context.is_empty() {
+        system_text.to_string()
+    } else {
+        format!("{}\n\n## Current Context\n{}", system_text, context)
+    };
+    msgs.push(LlmMessage::System(system));
     for msg in history {
         match msg {
             LlmMessage::User(c) => msgs.push(LlmMessage::User(c.clone())),

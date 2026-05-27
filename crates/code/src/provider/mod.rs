@@ -23,6 +23,7 @@ pub struct LlmResponse {
     pub usage: Option<Usage>,
 }
 
+#[derive(Clone)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,

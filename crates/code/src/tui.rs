@@ -133,8 +133,11 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 }
             }
         }
-        AgentEvent::Done { usage } => {
+        AgentEvent::Done { usage, messages } => {
             let content = app.finish_streaming();
+            if !messages.is_empty() {
+                app.agent_messages = messages;
+            }
             if let Some(u) = usage {
                 app.add_token_usage(u.input_tokens, u.output_tokens);
             }
@@ -265,8 +268,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
 
             let config = app.config.clone();
             let tx = event_tx.clone();
+            let history = std::mem::take(&mut app.agent_messages);
             tokio::spawn(async move {
-                if let Err(e) = run_streaming_agent(&config, &prompt, tx.clone()).await {
+                if let Err(e) = run_streaming_agent(&config, &prompt, tx.clone(), history).await {
                     tx.send(AgentEvent::Error(e.to_string())).await.ok();
                 }
             });
@@ -284,11 +288,12 @@ async fn run_streaming_agent(
     config: &crate::config::Config,
     prompt: &str,
     event_tx: mpsc::Sender<AgentEvent>,
+    history: Vec<crate::provider::LlmMessage>,
 ) -> anyhow::Result<()> {
     let provider = crate::provider::create_provider(config)?;
     let tools = crate::tools::ToolRegistry::new(config)?;
     let mut agent = crate::agent::Agent::new(config.clone(), provider, tools, false);
-    agent.run_once_streaming(prompt, event_tx).await?;
+    agent.run_once_streaming(prompt, event_tx.clone(), history).await?;
     Ok(())
 }
 
