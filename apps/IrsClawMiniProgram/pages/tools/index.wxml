@@ -9,15 +9,20 @@
     <view class="nav-right"></view>
   </view>
 
-  <view wx:if="{{tools.length > 0}}">
-    <view class="card" style="margin-top: 24rpx;">
-      <view class="item" wx:for="{{tools}}" wx:key="name">
-        <view class="item-icon orange">
-          <text>⚙</text>
-        </view>
-        <view class="item-body">
-          <text class="item-title">{{item.function.name || item.name}}</text>
-          <text class="item-desc">{{item.function.description || item.description || ''}}</text>
+  <view wx:if="{{loaded && groups.length > 0}}" class="tools-content">
+    <view wx:for="{{groups}}" wx:key="name" class="cat-section">
+      <view class="cat-header">
+        <text class="cat-icon" style="color: {{catColors[item.name]}};">{{catIcons[item.name]}}</text>
+        <text class="cat-name">{{item.name}}</text>
+        <text class="cat-count">{{item.count}}</text>
+      </view>
+      <view class="tool-grid">
+        <view wx:for="{{item.items}}" wx:key="id" wx:for-item="tool" class="tool-card">
+          <view class="tool-icon-wrap" style="background: {{item.bgColor}};">
+            <text class="tool-icon" style="color: {{item.color}};">{{catIcons[item.name]}}</text>
+          </view>
+          <text class="tool-name">{{tool.name}}</text>
+          <text class="tool-desc">{{tool.description}}</text>
         </view>
       </view>
     </view>
