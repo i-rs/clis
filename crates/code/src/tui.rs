@@ -178,6 +178,20 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     match app.mode {
         AppMode::Waiting => {
             match key.code {
+                KeyCode::Char('c') if key.modifiers == KeyModifiers::CONTROL => {
+                    if let Some(tx) = app.cancel_tx.take() {
+                        tx.send(()).ok();
+                    }
+                    app.mode = AppMode::Idle;
+                    let content = app.finish_streaming();
+                    if !content.is_empty() {
+                        app.messages.push(ChatMessage {
+                            role: "assistant".into(),
+                            content: format!("{}\n\n[Cancelled]", content),
+                        });
+                    }
+                    return;
+                }
                 KeyCode::Up => app.scroll_up(),
                 KeyCode::Down => app.scroll_down(),
                 KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
@@ -269,6 +283,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             let config = app.config.clone();
             let tx = event_tx.clone();
             let history = std::mem::take(&mut app.agent_messages);
+            let (cancel_tx, _cancel_rx) = tokio::sync::oneshot::channel::<()>();
+            app.cancel_tx = Some(cancel_tx);
             tokio::spawn(async move {
                 if let Err(e) = run_streaming_agent(&config, &prompt, tx.clone(), history).await {
                     tx.send(AgentEvent::Error(e.to_string())).await.ok();

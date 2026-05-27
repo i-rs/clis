@@ -99,7 +99,15 @@ pub async fn react_loop(
             let tc = &tc_list[i];
             let result = match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
                 Ok(Ok(inner)) => inner,
-                Ok(Err(_)) => continue,
+                Ok(Err(join_err)) => {
+                    let result_str = format!("Error: tool task panicked: {}", join_err);
+                    messages.push(LlmMessage::Tool {
+                        name: tc.name.clone(),
+                        content: result_str,
+                        call_id: tc.id.clone(),
+                    });
+                    continue;
+                }
                 Err(_) => {
                     let result_str = "Error: tool execution timed out (120s)".to_string();
                     if json_output {
@@ -264,7 +272,15 @@ pub async fn react_loop_streaming(
             let tc = &tc_list[i];
             let result = match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
                 Ok(Ok(inner)) => inner,
-                Ok(Err(_)) => continue,
+                Ok(Err(join_err)) => {
+                    let result_str = format!("Error: tool task panicked: {}", join_err);
+                    messages.push(LlmMessage::Tool {
+                        name: tc.name.clone(),
+                        content: result_str,
+                        call_id: tc.id.clone(),
+                    });
+                    continue;
+                }
                 Err(_) => {
                     let result_str = "Error: tool execution timed out (120s)".to_string();
                     event_tx.send(AgentEvent::ToolCallEnd {

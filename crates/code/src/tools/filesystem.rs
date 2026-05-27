@@ -92,18 +92,34 @@ impl Tool for WriteTool {
         let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let content = args.get("content").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("content required"))?;
         check_path(path)?;
+
+        let old_content = if Path::new(path).exists() {
+            std::fs::read_to_string(path).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
         if let Some(parent) = Path::new(path).parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(path, content)?;
-        Ok(format!("Written {} bytes to {}", content.len(), path))
+
+        if old_content.is_empty() {
+            Ok(format!("Created {} ({} bytes)\n```{}\n```", path, content.len(), content))
+        } else {
+            let diff = crate::diff::diff_text(&old_content, content);
+            Ok(format!(
+                "Modified {} (+{} -{})\n```diff\n{}\n```",
+                path, diff.lines_added, diff.lines_removed, diff.patch
+            ))
+        }
     }
 }
 
 #[async_trait]
 impl Tool for EditTool {
     fn name(&self) -> &str { "edit" }
-    fn description(&self) -> &str { "Edit a file by replacing text (old_string must be unique)" }
+    fn description(&self) -> &str { "Edit a file by replacing text (use replace_all for batch renames)" }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -114,8 +130,9 @@ impl Tool for EditTool {
                     "type": "object",
                     "properties": {
                         "file_path": {"type": "string"},
-                        "old_string": {"type": "string", "description": "Text to replace (must match exactly once)"},
-                        "new_string": {"type": "string"}
+                        "old_string": {"type": "string", "description": "Text to replace (must match exactly once, unless replace_all)"},
+                        "new_string": {"type": "string"},
+                        "replace_all": {"type": "boolean", "description": "Replace all occurrences (default: false)"}
                     },
                     "required": ["file_path", "old_string", "new_string"]
                 }
@@ -126,18 +143,34 @@ impl Tool for EditTool {
         let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let old = args.get("old_string").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("old_string required"))?;
         let new = args.get("new_string").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("new_string required"))?;
+        let replace_all = args.get("replace_all").and_then(|v| v.as_bool()).unwrap_or(false);
         check_path(path)?;
         let content = std::fs::read_to_string(path)?;
         let count = content.matches(old).count();
         if count == 0 {
             anyhow::bail!("old_string not found in {}", path);
         }
-        if count > 1 {
-            anyhow::bail!("Found {} matches for old_string. Provide more context.", count);
+        if count > 1 && !replace_all {
+            anyhow::bail!("Found {} matches for old_string. Use replace_all=true or provide more context.", count);
         }
-        let new_content = content.replace(old, new);
+
+        let new_content = if replace_all {
+            content.replace(old, new)
+        } else {
+            content.replacen(old, new, 1)
+        };
+
+        let diff = crate::diff::diff_text(&content, &new_content);
         std::fs::write(path, &new_content)?;
-        Ok(format!("Edited {}. Replaced {} bytes.", path, old.len()))
+
+        Ok(format!(
+            "Edited {} (+{} -{}{})\n```diff\n{}\n```",
+            path,
+            diff.lines_added,
+            diff.lines_removed,
+            if replace_all { format!(" ({} replacements)", count) } else { String::new() },
+            diff.patch
+        ))
     }
 }
 
