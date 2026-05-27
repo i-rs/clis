@@ -552,11 +552,11 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
         let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
-        let cursor_x = inner.x + 1 + prefix_width + pos_in_line as u16;
+        let cursor_x = inner.x + prefix_width + pos_in_line as u16;
         let cursor_y = inner.y + line_idx as u16;
         frame.set_cursor_position((cursor_x, cursor_y));
     } else if matches!(app.mode, AppMode::Idle) {
-        let cursor_x = inner.x + 1 + prefix_width;
+        let cursor_x = inner.x + prefix_width;
         let cursor_y = inner.y;
         frame.set_cursor_position((cursor_x, cursor_y));
     }
