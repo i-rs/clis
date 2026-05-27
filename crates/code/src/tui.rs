@@ -58,10 +58,10 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                 Event::Mouse(mouse) => {
                     match mouse.kind {
                         MouseEventKind::ScrollUp => {
-                            app.scroll_offset = app.scroll_offset.saturating_sub(3);
+                            app.scroll_offset = app.scroll_offset.saturating_add(3);
                         }
                         MouseEventKind::ScrollDown => {
-                            app.scroll_offset = app.scroll_offset.saturating_add(3);
+                            app.scroll_offset = app.scroll_offset.saturating_sub(3);
                         }
                         _ => {}
                     }
@@ -142,7 +142,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 role: "assistant".into(),
                 content,
             });
-            app.scroll_offset = usize::MAX;
+            app.scroll_offset = 0;
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
@@ -177,8 +177,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             match key.code {
                 KeyCode::Up => app.scroll_up(),
                 KeyCode::Down => app.scroll_down(),
-                KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
-                KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
+                KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
+                KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_sub(10),
                 _ => {}
             }
             return;
@@ -250,8 +250,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::End => app.move_cursor_end(),
         KeyCode::Up => app.scroll_up(),
         KeyCode::Down => app.scroll_down(),
-        KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
-        KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
+        KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
+        KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.insert_char('\n'),
         KeyCode::Enter if !app.input.is_empty() => {
             let prompt = std::mem::take(&mut app.input);

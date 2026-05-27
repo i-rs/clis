@@ -330,7 +330,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let max_scroll = lines.len().saturating_sub(inner.height as usize);
-    let scroll = app.scroll_offset.min(max_scroll);
+    let scroll = max_scroll.saturating_sub(app.scroll_offset).min(max_scroll);
 
     // Show hidden message count
     let mut block = Block::default()
@@ -510,7 +510,8 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let prefix = "❯ ";
+    let prefix = "❯";
+    let gap: u16 = 1;
 
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
         vec![Line::from(vec![
@@ -520,7 +521,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     } else if app.input.is_empty() {
         vec![
             Line::from(Span::styled(
-                format!("{}输入消息...", prefix),
+                format!("{} 输入消息...", prefix),
                 Style::default().fg(Color::Rgb(113, 113, 122)),
             )),
             Line::from(Span::styled(
@@ -530,7 +531,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         ]
     } else {
         let mut result: Vec<Line> = app.input.lines().enumerate().map(|(i, line)| {
-            let p = if i == 0 { prefix } else { "  " };
+            let p = if i == 0 { format!("{} ", prefix) } else { "  ".to_string() };
             Line::from(Span::styled(
                 format!("{}{}", p, line),
                 Style::default().fg(Color::Rgb(250, 250, 250)),
@@ -551,13 +552,11 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
         let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
-        let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
-        let cursor_x = inner.x + 1 + prefix_width as u16 + pos_in_line as u16;
+        let cursor_x = inner.x + 1 + unicode_width::UnicodeWidthStr::width(prefix) as u16 + gap + pos_in_line as u16;
         let cursor_y = inner.y + line_idx as u16;
         frame.set_cursor_position((cursor_x, cursor_y));
     } else if matches!(app.mode, AppMode::Idle) {
-        let prefix_width = unicode_width::UnicodeWidthStr::width(prefix);
-        let cursor_x = inner.x + 1 + prefix_width as u16;
+        let cursor_x = inner.x + 1 + unicode_width::UnicodeWidthStr::width(prefix) as u16 + gap;
         let cursor_y = inner.y;
         frame.set_cursor_position((cursor_x, cursor_y));
     }
