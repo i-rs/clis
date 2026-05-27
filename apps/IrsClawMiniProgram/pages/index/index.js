@@ -31,6 +31,11 @@ Page({
     this.loadOrCreateSession()
   },
 
+  onShow: function() {
+    this.checkConnection()
+    this.loadAgents()
+  },
+
   onUnload: function() {
     if (this.data.streamTask) {
       this.data.streamTask.abort()
