@@ -36,8 +36,9 @@
                 <view class="thinking-icon-wrap">
                   <text class="thinking-icon">◈</text>
                 </view>
-                <text class="thinking-label">思考中</text>
-                <text class="thinking-toggle">{{item.reasoningExpanded ? '收起' : '展开'}}</text>
+                <text class="thinking-label">Thinking</text>
+                <text class="thinking-count">{{item.reasoningCount}}</text>
+                <text class="thinking-chevron">{{item.reasoningExpanded ? '▼' : '▶'}}</text>
               </view>
               <view class="thinking-body" wx:if="{{item.reasoningExpanded}}">
                 <text class="thinking-text">{{item.reasoning}}</text>
@@ -52,26 +53,20 @@
           <view class="msg-content msg-content-ai">
             <view class="tool-card" bindtap="onToggleTool" data-id="{{item.id}}">
               <view class="tool-header">
-                <view class="tool-icon-wrap">
-                  <text class="tool-icon-text">⚡</text>
+                <view class="tool-status {{item.result ? 'tool-status-done' : 'tool-status-running'}}">
+                  <view class="tool-status-icon {{item.result ? '' : 'tool-status-spin'}}">{{item.result ? '✓' : '↻'}}</view>
                 </view>
-                <view class="tool-info">
-                  <text class="tool-name">{{item.name}}</text>
-                </view>
-                <view class="tool-badge tool-badge-done" wx:if="{{item.result}}">
-                  <text class="tool-badge-text">完成</text>
-                </view>
-                <view class="tool-badge tool-badge-running" wx:else>
-                  <text class="tool-badge-text">执行中</text>
-                </view>
+                <text class="tool-name">{{item.name}}</text>
+                <text class="tool-preview" wx:if="{{!item.expanded && item.result}}">{{item.preview}}</text>
+                <text class="tool-chevron">{{item.expanded ? '▼' : '▶'}}</text>
               </view>
               <view class="tool-body" wx:if="{{item.expanded}}">
                 <view class="tool-section" wx:if="{{item.args}}">
-                  <text class="tool-section-label">参数</text>
+                  <text class="tool-section-label">Args</text>
                   <view class="tool-code-wrap"><text class="tool-code">{{item.args}}</text></view>
                 </view>
                 <view class="tool-section" wx:if="{{item.result}}">
-                  <text class="tool-section-label">结果</text>
+                  <text class="tool-section-label">Result</text>
                   <view class="tool-code-wrap"><text class="tool-code">{{item.result}}</text></view>
                 </view>
               </view>
@@ -86,8 +81,9 @@
             <view class="reasoning-fold" wx:if="{{item.reasoning}}" bindtap="onToggleReasoning" data-id="{{item.id}}">
               <view class="reasoning-fold-header">
                 <text class="reasoning-fold-icon">◈</text>
-                <text class="reasoning-fold-label">思考过程</text>
-                <text class="reasoning-fold-toggle">{{item.reasoningExpanded ? '收起' : '展开'}}</text>
+                <text class="reasoning-fold-label">Reasoning</text>
+                <text class="reasoning-fold-count">{{item.reasoningCount}}</text>
+                <text class="reasoning-fold-chevron">{{item.reasoningExpanded ? '▼' : '▶'}}</text>
               </view>
               <view class="reasoning-fold-body" wx:if="{{item.reasoningExpanded}}">
                 <text class="reasoning-fold-text">{{item.reasoning}}</text>
@@ -107,7 +103,8 @@
           <view class="reasoning-fold" wx:if="{{streamingReasoning}}">
             <view class="reasoning-fold-header">
               <text class="reasoning-fold-icon">◈</text>
-              <text class="reasoning-fold-label">思考中...</text>
+                <text class="reasoning-fold-label">Thinking...</text>
+                <text class="reasoning-fold-chevron">▼</text>
             </view>
             <view class="reasoning-fold-body">
               <text class="reasoning-fold-text">{{streamingReasoning}}</text>

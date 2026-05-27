@@ -51,28 +51,29 @@
 
 /* ===== Thinking Card (reasoning only, no content) ===== */
 .thinking-card { background: var(--surface); border: 1rpx solid rgba(108, 92, 231, 0.2); border-radius: 20rpx; overflow: hidden; }
-.thinking-header { display: flex; align-items: center; padding: 20rpx 24rpx; gap: 12rpx; background: var(--accent-bg); min-height: 72rpx; box-sizing: border-box; }
-.thinking-icon-wrap { width: 44rpx; height: 44rpx; border-radius: 50%; background: var(--accent-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.thinking-card:active { background: var(--surface-2); }
+.thinking-header { display: flex; align-items: center; padding: 16rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; }
+.thinking-icon-wrap { width: 44rpx; height: 44rpx; border-radius: 12rpx; background: var(--accent-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .thinking-icon { font-size: 24rpx; color: var(--accent); }
-.thinking-label { font-size: 26rpx; font-weight: 600; color: var(--accent); flex: 1; }
-.thinking-toggle { font-size: 22rpx; color: var(--text-3); padding: 4rpx 16rpx; background: var(--surface-2); border-radius: 8rpx; flex-shrink: 0; }
+.thinking-label { font-size: 26rpx; font-weight: 600; color: var(--text); flex: 1; }
+.thinking-count { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; }
+.thinking-chevron { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; width: 24rpx; text-align: center; }
 .thinking-body { padding: 20rpx 24rpx; border-top: 1rpx solid var(--border); }
 .thinking-text { font-size: 26rpx; color: var(--text-2); line-height: 1.7; white-space: pre-wrap; }
 
 /* ===== Tool Call Card ===== */
 .tool-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; overflow: hidden; }
 .tool-card:active { background: var(--surface-2); }
-.tool-header { display: flex; align-items: center; padding: 14rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; }
-.tool-icon-wrap { width: 44rpx; height: 44rpx; border-radius: 12rpx; background: var(--orange-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.tool-icon-text { font-size: 26rpx; }
-.tool-info { flex: 1; }
-.tool-name { font-size: 28rpx; font-weight: 600; color: var(--text); }
-.tool-badge { padding: 4rpx 16rpx; border-radius: 20rpx; flex-shrink: 0; }
-.tool-badge-done { background: var(--green-bg); }
-.tool-badge-running { background: var(--orange-bg); }
-.tool-badge-text { font-size: 22rpx; font-weight: 500; }
-.tool-badge-done .tool-badge-text { color: var(--green); }
-.tool-badge-running .tool-badge-text { color: var(--orange); }
+.tool-header { display: flex; align-items: center; padding: 16rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; }
+.tool-status { width: 28rpx; height: 28rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tool-status-running { background: var(--orange-bg); }
+.tool-status-done { background: var(--green-bg); }
+.tool-status-icon { font-size: 18rpx; font-weight: 700; line-height: 1; }
+.tool-status-spin { color: var(--orange); animation: spin 1s linear infinite; display: inline-block; }
+.tool-status-done .tool-status-icon { color: var(--green); }
+.tool-name { font-size: 26rpx; font-weight: 600; color: var(--text); flex-shrink: 0; max-width: 240rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-preview { font-size: 22rpx; color: var(--text-3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; min-width: 0; }
+.tool-chevron { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; width: 24rpx; text-align: center; }
 .tool-body { padding: 20rpx 24rpx; border-top: 1rpx solid var(--border); }
 .tool-section { margin-bottom: 16rpx; }
 .tool-section:last-child { margin-bottom: 0; }
@@ -81,12 +82,14 @@
 .tool-code { font-size: 24rpx; color: var(--text-2); line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
 
 /* ===== Reasoning Fold (in AI message with content) ===== */
-.reasoning-fold { background: var(--surface); border: 1rpx solid rgba(255, 179, 71, 0.15); border-radius: 16rpx; margin-bottom: 16rpx; overflow: hidden; }
-.reasoning-fold-header { display: flex; align-items: center; padding: 16rpx 20rpx; gap: 10rpx; background: var(--orange-bg); min-height: 64rpx; box-sizing: border-box; }
-.reasoning-fold-icon { font-size: 24rpx; color: var(--orange); flex-shrink: 0; }
-.reasoning-fold-label { font-size: 24rpx; font-weight: 600; color: var(--orange); flex: 1; }
-.reasoning-fold-toggle { font-size: 20rpx; color: var(--text-3); padding: 2rpx 12rpx; background: var(--surface-2); border-radius: 6rpx; flex-shrink: 0; }
-.reasoning-fold-body { padding: 16rpx 20rpx; border-top: 1rpx solid var(--border); }
+.reasoning-fold { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; margin-bottom: 16rpx; overflow: hidden; }
+.reasoning-fold:active { background: var(--surface-2); }
+.reasoning-fold-header { display: flex; align-items: center; padding: 16rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; }
+.reasoning-fold-icon { font-size: 24rpx; color: var(--text-3); flex-shrink: 0; }
+.reasoning-fold-label { font-size: 26rpx; font-weight: 600; color: var(--text); flex: 1; }
+.reasoning-fold-count { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; }
+.reasoning-fold-chevron { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; width: 24rpx; text-align: center; }
+.reasoning-fold-body { padding: 16rpx 24rpx; border-top: 1rpx solid var(--border); }
 .reasoning-fold-text { font-size: 24rpx; color: var(--text-2); line-height: 1.7; white-space: pre-wrap; }
 
 /* Thinking Dots */
@@ -96,6 +99,7 @@
 .dot-2 { animation-delay: 0.16s; }
 .dot-3 { animation-delay: 0.32s; }
 @keyframes dotBounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* Connection */
 .conn-bar { display: flex; align-items: center; justify-content: center; padding: 12rpx 24rpx; gap: 12rpx; background: var(--red-bg); flex-shrink: 0; }

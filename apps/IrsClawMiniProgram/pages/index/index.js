@@ -5,6 +5,18 @@ function genId() {
   return 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 10000)
 }
 
+function smartTruncate(text, maxLen) {
+  if (!text || text.length <= maxLen) return text || ''
+  return text.substring(0, maxLen) + '…'
+}
+
+function charCount(text) {
+  if (!text || text.length === 0) return ''
+  var count = text.length
+  if (count < 1000) return count + 'c'
+  return Math.floor(count / 1000) + 'k'
+}
+
 Page({
   data: {
     messages: [],
@@ -106,12 +118,14 @@ Page({
       if (m.role === 'user') {
         msgs.push({ id: genId(), role: 'user', content: m.content || '' })
       } else if (m.role === 'tool_call') {
+        var tResult = m.result || ''
         msgs.push({
           id: genId(),
           role: 'tool_call',
           name: m.name || '',
           args: m.args || '',
-          result: m.result || '',
+          result: tResult,
+          preview: smartTruncate(tResult, 40),
           expanded: false
         })
       } else if (m.role === 'assistant') {
@@ -123,6 +137,7 @@ Page({
             role: 'assistant',
             content: content,
             reasoning: reasoning,
+            reasoningCount: charCount(reasoning),
             reasoningExpanded: false
           })
         }
@@ -241,12 +256,14 @@ Page({
       },
 
       onToolExecuted: function(toolInfo) {
+        var resultStr = toolInfo.result || ''
         var toolMsg = {
           id: genId(),
           role: 'tool_call',
           name: toolInfo.name || 'unknown',
           args: toolInfo.arguments || toolInfo.args || '',
-          result: toolInfo.result || '',
+          result: resultStr,
+          preview: resultStr ? smartTruncate(resultStr, 40) : '',
           expanded: false
         }
         var messages = that.data.messages.concat([toolMsg])
@@ -276,6 +293,7 @@ Page({
       role: 'assistant',
       content: content,
       reasoning: reasoning,
+      reasoningCount: charCount(reasoning),
       reasoningExpanded: false
     }
 
