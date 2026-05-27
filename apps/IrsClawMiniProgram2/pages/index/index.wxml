@@ -5,160 +5,130 @@
       <text class="nav-btn-icon">☰</text>
     </view>
     <view class="nav-center">
-      <text class="nav-title">{{sessionTitle || 'i-Rs Claw'}}</text>
-      <text class="nav-sub" wx:if="{{currentAgent && currentAgent !== 'default'}}">{{currentAgent}}</text>
+      <text class="nav-title">{{sessionTitle || 'i-rs-claw'}}</text>
     </view>
     <view class="nav-btn" bindtap="onNewChat">
       <text class="nav-btn-icon">✦</text>
     </view>
   </view>
 
-  <!-- Messages Area -->
-  <scroll-view
-    class="messages-scroll"
-    scroll-y
-    scroll-into-view="{{scrollTarget}}"
-    scroll-with-animation
-    enhanced
-    show-scrollbar="{{false}}"
-  >
-    <!-- Empty State -->
+  <!-- Messages -->
+  <scroll-view class="messages-scroll" scroll-y scroll-into-view="{{scrollTarget}}" scroll-with-animation>
+    <!-- Empty -->
     <view class="empty-state" wx:if="{{messages.length === 0 && !loading}}">
-      <view class="empty-logo">
-        <text class="empty-logo-text">AI</text>
-      </view>
+      <view class="empty-logo"><text class="empty-logo-text">AI</text></view>
       <text class="empty-title">开始对话</text>
-      <text class="empty-desc">与 AI 助理交流，探索你的数据世界</text>
+      <text class="empty-desc">与 AI 助理交流</text>
       <view class="suggestions">
-        <view class="suggest-btn" bindtap="onSuggest" data-text="帮我总结今天的数据">
-          <text class="suggest-text">帮我总结今天的数据</text>
-        </view>
-        <view class="suggest-btn" bindtap="onSuggest" data-text="查看我的待办事项">
-          <text class="suggest-text">查看我的待办事项</text>
-        </view>
-        <view class="suggest-btn" bindtap="onSuggest" data-text="分析最近的体重趋势">
-          <text class="suggest-text">分析最近的体重趋势</text>
-        </view>
-        <view class="suggest-btn" bindtap="onSuggest" data-text="今天的心情怎么样">
-          <text class="suggest-text">今天的心情怎么样</text>
-        </view>
+        <view class="suggest-btn" bindtap="onSuggest" data-text="帮我总结今天的数据"><text class="suggest-text">总结今天的数据</text></view>
+        <view class="suggest-btn" bindtap="onSuggest" data-text="查看我的待办事项"><text class="suggest-text">查看待办事项</text></view>
+        <view class="suggest-btn" bindtap="onSuggest" data-text="今天心情怎么样"><text class="suggest-text">记录心情</text></view>
       </view>
     </view>
 
-    <!-- Message List -->
+    <!-- Messages List -->
     <view class="message-list" wx:if="{{messages.length > 0}}">
       <view wx:for="{{messages}}" wx:key="id" id="msg-{{item.id}}">
-        <!-- User Message -->
+
+        <!-- ===== User Message ===== -->
         <view class="msg-row msg-row-user" wx:if="{{item.role === 'user'}}">
           <view class="msg-content msg-content-user">
             <view class="msg-bubble msg-bubble-user">
               <text class="msg-text msg-text-user">{{item.content}}</text>
             </view>
           </view>
-          <view class="avatar avatar-user">
-            <text class="avatar-text">U</text>
+          <view class="avatar avatar-user"><text class="avatar-text">U</text></view>
+        </view>
+
+        <!-- ===== AI Thinking (reasoning only, no content) ===== -->
+        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'assistant' && item.reasoning && !item.content}}">
+          <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
+          <view class="msg-content msg-content-ai">
+            <view class="thinking-card" bindtap="onToggleReasoning" data-id="{{item.id}}">
+              <view class="thinking-header">
+                <view class="thinking-icon-wrap">
+                  <text class="thinking-icon">◈</text>
+                </view>
+                <text class="thinking-label">思考中</text>
+                <text class="thinking-toggle">{{item.reasoningExpanded ? '收起' : '展开'}}</text>
+              </view>
+              <view class="thinking-body" wx:if="{{item.reasoningExpanded}}">
+                <text class="thinking-text">{{item.reasoning}}</text>
+              </view>
+            </view>
           </view>
         </view>
 
-        <!-- Assistant Message -->
-        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'assistant'}}">
-          <view class="avatar avatar-ai">
-            <text class="avatar-text">AI</text>
-          </view>
+        <!-- ===== Tool Call ===== -->
+        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'tool_call'}}">
+          <view class="avatar avatar-tool"><text class="avatar-text">⚙</text></view>
           <view class="msg-content msg-content-ai">
-            <!-- Reasoning Fold -->
-            <view class="reasoning-card" wx:if="{{item.reasoning}}" bindtap="onToggleReasoning" data-id="{{item.id}}">
-              <view class="reasoning-header">
-                <text class="reasoning-icon">◈</text>
-                <text class="reasoning-label">思考过程</text>
-                <text class="reasoning-toggle">{{item.reasoningExpanded ? '收起' : '展开'}}</text>
-              </view>
-              <view class="reasoning-body" wx:if="{{item.reasoningExpanded}}">
-                <text class="reasoning-text">{{item.reasoning}}</text>
-              </view>
-            </view>
-
-            <!-- Tool Call Cards -->
-            <view class="tool-cards" wx:if="{{item.toolCalls && item.toolCalls.length > 0}}">
-              <view wx:for="{{item.toolCalls}}" wx:for-item="tool" wx:for-index="tIdx" wx:key="name"
-                class="tool-card" bindtap="onToggleTool" data-msg-id="{{item.id}}" data-tool-idx="{{tIdx}}">
-                <view class="tool-header">
-                  <text class="tool-icon">⚙</text>
-                  <text class="tool-name">{{tool.name}}</text>
-                  <text class="tool-status {{tool.status === 'done' ? 'tool-status-done' : 'tool-status-running'}}">
-                    {{tool.status === 'done' ? '完成' : '执行中'}}
-                  </text>
-                  <text class="tool-expand">{{tool.expanded ? '收起' : '详情'}}</text>
+            <view class="tool-card" bindtap="onToggleTool" data-id="{{item.id}}">
+              <view class="tool-header">
+                <view class="tool-icon-wrap">
+                  <text class="tool-icon-text">⚡</text>
                 </view>
-                <view class="tool-body" wx:if="{{tool.expanded}}">
-                  <view class="tool-section" wx:if="{{tool.args}}">
-                    <text class="tool-section-label">参数</text>
-                    <text class="tool-section-content">{{tool.args}}</text>
-                  </view>
-                  <view class="tool-section" wx:if="{{tool.result}}">
-                    <text class="tool-section-label">结果</text>
-                    <text class="tool-section-content">{{tool.result}}</text>
-                  </view>
+                <view class="tool-info">
+                  <text class="tool-name">{{item.name}}</text>
+                </view>
+                <view class="tool-badge tool-badge-done" wx:if="{{item.result}}">
+                  <text class="tool-badge-text">完成</text>
+                </view>
+                <view class="tool-badge tool-badge-running" wx:else>
+                  <text class="tool-badge-text">执行中</text>
+                </view>
+              </view>
+              <view class="tool-body" wx:if="{{item.expanded}}">
+                <view class="tool-section" wx:if="{{item.args}}">
+                  <text class="tool-section-label">参数</text>
+                  <view class="tool-code-wrap"><text class="tool-code">{{item.args}}</text></view>
+                </view>
+                <view class="tool-section" wx:if="{{item.result}}">
+                  <text class="tool-section-label">结果</text>
+                  <view class="tool-code-wrap"><text class="tool-code">{{item.result}}</text></view>
                 </view>
               </view>
             </view>
+          </view>
+        </view>
 
-            <!-- Text Content -->
-            <view class="msg-bubble msg-bubble-ai" wx:if="{{item.content}}">
+        <!-- ===== AI Message (with content) ===== -->
+        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'assistant' && item.content}}">
+          <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
+          <view class="msg-content msg-content-ai">
+            <view class="reasoning-fold" wx:if="{{item.reasoning}}" bindtap="onToggleReasoning" data-id="{{item.id}}">
+              <view class="reasoning-fold-header">
+                <text class="reasoning-fold-icon">◈</text>
+                <text class="reasoning-fold-label">思考过程</text>
+                <text class="reasoning-fold-toggle">{{item.reasoningExpanded ? '收起' : '展开'}}</text>
+              </view>
+              <view class="reasoning-fold-body" wx:if="{{item.reasoningExpanded}}">
+                <text class="reasoning-fold-text">{{item.reasoning}}</text>
+              </view>
+            </view>
+            <view class="msg-bubble msg-bubble-ai">
               <text class="msg-text msg-text-ai">{{item.content}}</text>
             </view>
           </view>
         </view>
       </view>
 
-      <!-- Streaming Assistant Message -->
-      <view class="msg-row msg-row-ai" wx:if="{{streamingContent || streamingReasoning || streamingToolCalls.length > 0}}">
-        <view class="avatar avatar-ai">
-          <text class="avatar-text">AI</text>
-        </view>
+      <!-- Streaming -->
+      <view class="msg-row msg-row-ai" wx:if="{{loading || streamingContent || streamingReasoning}}">
+        <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
         <view class="msg-content msg-content-ai">
-          <!-- Streaming Reasoning -->
-          <view class="reasoning-card" wx:if="{{streamingReasoning}}">
-            <view class="reasoning-header">
-              <text class="reasoning-icon">◈</text>
-              <text class="reasoning-label">思考中...</text>
+          <view class="reasoning-fold" wx:if="{{streamingReasoning}}">
+            <view class="reasoning-fold-header">
+              <text class="reasoning-fold-icon">◈</text>
+              <text class="reasoning-fold-label">思考中...</text>
             </view>
-            <view class="reasoning-body">
-              <text class="reasoning-text">{{streamingReasoning}}</text>
-            </view>
-          </view>
-
-          <!-- Streaming Tool Calls -->
-          <view class="tool-cards" wx:if="{{streamingToolCalls.length > 0}}">
-            <view wx:for="{{streamingToolCalls}}" wx:for-item="tool" wx:for-index="tIdx" wx:key="name"
-              class="tool-card" bindtap="onToggleStreamTool" data-tool-idx="{{tIdx}}">
-              <view class="tool-header">
-                <text class="tool-icon">⚙</text>
-                <text class="tool-name">{{tool.name}}</text>
-                <text class="tool-status {{tool.status === 'done' ? 'tool-status-done' : 'tool-status-running'}}">
-                  {{tool.status === 'done' ? '完成' : '执行中'}}
-                </text>
-                <text class="tool-expand">{{tool.expanded ? '收起' : '详情'}}</text>
-              </view>
-              <view class="tool-body" wx:if="{{tool.expanded}}">
-                <view class="tool-section" wx:if="{{tool.args}}">
-                  <text class="tool-section-label">参数</text>
-                  <text class="tool-section-content">{{tool.args}}</text>
-                </view>
-                <view class="tool-section" wx:if="{{tool.result}}">
-                  <text class="tool-section-label">结果</text>
-                  <text class="tool-section-content">{{tool.result}}</text>
-                </view>
-              </view>
+            <view class="reasoning-fold-body">
+              <text class="reasoning-fold-text">{{streamingReasoning}}</text>
             </view>
           </view>
-
-          <!-- Streaming Text -->
           <view class="msg-bubble msg-bubble-ai" wx:if="{{streamingContent}}">
             <text class="msg-text msg-text-ai">{{streamingContent}}</text>
           </view>
-
-          <!-- Thinking Dots -->
           <view class="thinking-dots" wx:if="{{loading && !streamingContent && !streamingReasoning}}">
             <view class="dot dot-1"></view>
             <view class="dot dot-2"></view>
@@ -167,88 +137,46 @@
         </view>
       </view>
 
-      <!-- Thinking Dots (no streaming yet) -->
-      <view class="msg-row msg-row-ai" wx:if="{{loading && !streamingContent && !streamingReasoning && streamingToolCalls.length === 0}}">
-      </view>
-
       <view id="msg-bottom" class="msg-bottom-anchor"></view>
     </view>
   </scroll-view>
 
-  <!-- Connection Status Bar -->
+  <!-- Connection -->
   <view class="conn-bar" wx:if="{{!isConnected}}">
     <text class="conn-dot"></text>
     <text class="conn-text">未连接到服务器</text>
   </view>
 
-  <!-- Input Bar -->
+  <!-- Input -->
   <view class="input-bar">
     <view class="input-wrap {{inputFocused ? 'input-wrap-focus' : ''}}">
-      <textarea
-        class="input-textarea"
-        value="{{inputText}}"
-        placeholder="输入消息..."
-        placeholder-class="input-placeholder"
-        bindinput="onInput"
-        bindfocus="onInputFocus"
-        bindblur="onInputBlur"
-        bindconfirm="onSend"
-        confirm-type="send"
-        auto-height
-        maxlength="-1"
-        disable-default-padding
-        cursor-spacing="20"
-      />
+      <textarea class="input-textarea" value="{{inputText}}" placeholder="输入消息..." placeholder-class="input-placeholder" bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur" bindconfirm="onSend" confirm-type="send" auto-height maxlength="-1" disable-default-padding cursor-spacing="20" />
     </view>
     <view class="send-btn {{inputText.length > 0 ? 'send-btn-active' : ''}}" bindtap="onSend">
       <text class="send-icon">↑</text>
     </view>
   </view>
 
-  <!-- Sidebar Overlay -->
+  <!-- Sidebar -->
   <view class="sidebar-mask {{menuOpen ? 'sidebar-mask-show' : ''}}" bindtap="onCloseMenu"></view>
   <view class="sidebar {{menuOpen ? 'sidebar-open' : ''}}">
     <view class="sidebar-header">
-      <view class="sidebar-logo">
-        <text class="sidebar-logo-text">AI</text>
-      </view>
-      <text class="sidebar-title">i-Rs Claw</text>
+      <view class="sidebar-logo"><text class="sidebar-logo-text">AI</text></view>
+      <text class="sidebar-title">i-rs-claw</text>
     </view>
     <view class="sidebar-nav">
-      <view class="sidebar-item" bindtap="onGoSessions">
-        <text class="sidebar-item-icon">💬</text>
-        <text class="sidebar-item-text">会话历史</text>
-      </view>
-      <view class="sidebar-item" bindtap="onGoTools">
-        <text class="sidebar-item-icon">🔧</text>
-        <text class="sidebar-item-text">工具</text>
-      </view>
-      <view class="sidebar-item" bindtap="onGoSkills">
-        <text class="sidebar-item-icon">📖</text>
-        <text class="sidebar-item-text">技能</text>
-      </view>
-      <view class="sidebar-item" bindtap="onGoPlugins">
-        <text class="sidebar-item-icon">🔌</text>
-        <text class="sidebar-item-text">插件</text>
-      </view>
-      <view class="sidebar-item" bindtap="onGoAgents">
-        <text class="sidebar-item-icon">🤖</text>
-        <text class="sidebar-item-text">Agent</text>
-      </view>
+      <view class="sidebar-item" bindtap="onGoSessions"><text class="sidebar-item-icon">💬</text><text class="sidebar-item-text">会话历史</text></view>
+      <view class="sidebar-item" bindtap="onGoTools"><text class="sidebar-item-icon">🔧</text><text class="sidebar-item-text">工具</text></view>
+      <view class="sidebar-item" bindtap="onGoSkills"><text class="sidebar-item-icon">📖</text><text class="sidebar-item-text">技能</text></view>
+      <view class="sidebar-item" bindtap="onGoPlugins"><text class="sidebar-item-icon">🔌</text><text class="sidebar-item-text">插件</text></view>
+      <view class="sidebar-item" bindtap="onGoAgents"><text class="sidebar-item-icon">🤖</text><text class="sidebar-item-text">Agent</text></view>
       <view class="sidebar-divider"></view>
-      <view class="sidebar-item" bindtap="onGoSettings">
-        <text class="sidebar-item-icon">⚙️</text>
-        <text class="sidebar-item-text">设置</text>
-      </view>
+      <view class="sidebar-item" bindtap="onGoSettings"><text class="sidebar-item-icon">⚙️</text><text class="sidebar-item-text">设置</text></view>
     </view>
     <view class="sidebar-footer">
-      <view class="sidebar-conn" wx:if="{{isConnected}}">
-        <view class="sidebar-conn-dot sidebar-conn-dot-ok"></view>
-        <text class="sidebar-conn-text">已连接</text>
-      </view>
-      <view class="sidebar-conn" wx:else>
-        <view class="sidebar-conn-dot"></view>
-        <text class="sidebar-conn-text">未连接</text>
+      <view class="sidebar-conn">
+        <view class="sidebar-conn-dot {{isConnected ? 'sidebar-conn-dot-ok' : ''}}"></view>
+        <text class="sidebar-conn-text">{{isConnected ? '已连接' : '未连接'}}</text>
       </view>
     </view>
   </view>

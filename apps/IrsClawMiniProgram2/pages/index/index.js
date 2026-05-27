@@ -95,34 +95,31 @@ Page({
     }
     var raw = session.messages
     var msgs = []
-    var pendingTools = []
     for (var i = 0; i < raw.length; i++) {
       var m = raw[i]
       if (m.role === 'user') {
-        pendingTools = []
+        msgs.push({ id: genId(), role: 'user', content: m.content || '' })
+      } else if (m.role === 'tool_call') {
         msgs.push({
           id: genId(),
-          role: 'user',
-          content: m.content || ''
-        })
-      } else if (m.role === 'tool_call') {
-        pendingTools.push({
+          role: 'tool_call',
           name: m.name || '',
           args: m.args || '',
           result: m.result || '',
-          status: 'done',
           expanded: false
         })
       } else if (m.role === 'assistant') {
-        msgs.push({
-          id: genId(),
-          role: 'assistant',
-          content: m.content || '',
-          reasoning: m.reasoning || '',
-          reasoningExpanded: false,
-          toolCalls: pendingTools.length > 0 ? pendingTools.slice() : []
-        })
-        pendingTools = []
+        var content = m.content || ''
+        var reasoning = m.reasoning || ''
+        if (content || reasoning) {
+          msgs.push({
+            id: genId(),
+            role: 'assistant',
+            content: content,
+            reasoning: reasoning,
+            reasoningExpanded: false
+          })
+        }
       }
     }
     this.setData({ messages: msgs })
@@ -355,14 +352,12 @@ Page({
   },
 
   onToggleTool: function(e) {
-    var msgId = e.currentTarget.dataset.msgId
-    var toolIdx = e.currentTarget.dataset.toolIdx
+    var id = e.currentTarget.dataset.id
     var messages = this.data.messages
     for (var i = 0; i < messages.length; i++) {
-      if (messages[i].id === msgId) {
-        var key = 'messages[' + i + '].toolCalls[' + toolIdx + '].expanded'
-        var current = messages[i].toolCalls[toolIdx].expanded
-        this.setData({ [key]: !current })
+      if (messages[i].id === id) {
+        var key = 'messages[' + i + '].expanded'
+        this.setData({ [key]: !messages[i].expanded })
         break
       }
     }
