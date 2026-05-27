@@ -17,7 +17,7 @@ impl ContextManager {
             LlmMessage::Tool { content, .. } => content.len(),
             LlmMessage::ToolCall { args, .. } => args.to_string().len(),
         }).sum();
-        (total_chars + 3) / 4
+        total_chars.div_ceil(4)
     }
 
     pub fn should_compress(&self, messages: &[LlmMessage]) -> bool {
@@ -39,20 +39,18 @@ impl ContextManager {
 
         let mut i = 0;
         while i < msg_count {
-            if matches!(messages[i], LlmMessage::ToolCall { .. }) {
-                if let Some(call) = messages.get(i) {
-                    if let Some(result) = messages.get(i + 1) {
-                        if matches!(result, LlmMessage::Tool { .. }) {
-                            if early_tool_pairs.len() + late_tool_pairs.len() < keep_recent {
-                                late_tool_pairs.push((call.clone(), result.clone()));
-                            } else {
-                                early_tool_pairs.push((call.clone(), result.clone()));
-                            }
-                            i += 2;
-                            continue;
-                        }
-                    }
+            if matches!(messages[i], LlmMessage::ToolCall { .. })
+                && let Some(call) = messages.get(i)
+                && let Some(result) = messages.get(i + 1)
+                && matches!(result, LlmMessage::Tool { .. })
+            {
+                if early_tool_pairs.len() + late_tool_pairs.len() < keep_recent {
+                    late_tool_pairs.push((call.clone(), result.clone()));
+                } else {
+                    early_tool_pairs.push((call.clone(), result.clone()));
                 }
+                i += 2;
+                continue;
             }
             i += 1;
         }
@@ -64,12 +62,12 @@ impl ContextManager {
                 LlmMessage::System(s) => {
                     compressed.push(LlmMessage::System(s.clone()));
                 }
-                LlmMessage::User(_) | LlmMessage::Assistant(_) => {
-                    if compressed.len() < 3 {
-                        compressed.push(msg.clone());
-                    }
+                _ => {
+                    if compressed.len() < 3
+                        && matches!(msg, LlmMessage::User(_) | LlmMessage::Assistant(_)) {
+                            compressed.push(msg.clone());
+                        }
                 }
-                _ => {}
             }
         }
 

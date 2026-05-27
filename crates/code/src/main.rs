@@ -27,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
         cli::Commands::Tui { session } => {
             #[cfg(feature = "tui")]
             {
-                if config.api_key.as_ref().map_or(true, |k| k.trim().is_empty()) {
+                if config.api_key.as_ref().is_none_or(|k| k.trim().is_empty()) {
                     println!("⚠  API key not configured. The AI agent won't work until you set it up.");
                     println!("   Run:  i-rs-code config init");
                     println!();
@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         cli::Commands::Chat { prompt, json } => {
-            if config.api_key.as_ref().map_or(true, |k| k.trim().is_empty()) {
+            if config.api_key.as_ref().is_none_or(|k| k.trim().is_empty()) {
                 anyhow::bail!("API key not configured. Run `i-rs-code config init` to set up.");
             }
             let provider = provider::create_provider(&config)?;
@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
             agent.run_once(&prompt).await?;
         }
         cli::Commands::Agent { task_id } => {
-            if config.api_key.as_ref().map_or(true, |k| k.trim().is_empty()) {
+            if config.api_key.as_ref().is_none_or(|k| k.trim().is_empty()) {
                 anyhow::bail!("API key not configured. Run `i-rs-code config init` to set up.");
             }
             let provider = provider::create_provider(&config)?;

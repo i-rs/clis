@@ -7,19 +7,10 @@ pub struct ChatMessage {
     pub content: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TokenUsage {
     pub input: u32,
     pub output: u32,
-}
-
-impl Default for TokenUsage {
-    fn default() -> Self {
-        Self {
-            input: 0,
-            output: 0,
-        }
-    }
 }
 
 pub enum AppMode {
@@ -104,8 +95,7 @@ impl App {
     }
 
     pub fn finish_streaming(&mut self) -> String {
-        let content = self.streaming.take().map(|s| s.content).unwrap_or_default();
-        content
+        self.streaming.take().map(|s| s.content).unwrap_or_default()
     }
 
     pub fn insert_char(&mut self, c: char) {

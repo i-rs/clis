@@ -126,11 +126,11 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             }
         }
         AgentEvent::ToolCallEnd { id: _id, name: _name, result } => {
-            if let Some(ref mut s) = app.streaming {
-                if let Some(mut tool) = s.current_tool.take() {
-                    tool.result = Some(result);
-                    s.tool_calls.push(tool);
-                }
+            if let Some(ref mut s) = app.streaming
+                && let Some(mut tool) = s.current_tool.take()
+            {
+                tool.result = Some(result);
+                s.tool_calls.push(tool);
             }
         }
         AgentEvent::Done { usage, messages } => {
@@ -214,10 +214,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 app.should_quit = true;
             }
         }
-        KeyCode::Char('?') => {
-            if !app.show_debug {
-                app.show_shortcuts = !app.show_shortcuts;
-            }
+        KeyCode::Char('?') if !app.show_debug => {
+            app.show_shortcuts = !app.show_shortcuts;
         }
         KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
             app.show_shortcuts = false;
@@ -226,10 +224,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 app.debug_scroll = 0;
             }
         }
-        KeyCode::Char('l') if key.modifiers == KeyModifiers::CONTROL => {
-            if app.show_debug {
-                crate::debug::clear_log();
-            }
+        KeyCode::Char('l') if key.modifiers == KeyModifiers::CONTROL && app.show_debug => {
+            crate::debug::clear_log();
         }
         KeyCode::Up if app.show_debug => {
             app.debug_scroll = app.debug_scroll.saturating_sub(1);
@@ -251,15 +247,13 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             app.insert_char(c);
         }
         KeyCode::Backspace => app.delete_char(),
-        KeyCode::Delete => {
-            if app.cursor_pos < app.input.len() {
-                let len = app.input[app.cursor_pos..]
-                    .chars()
-                    .next()
-                    .map(|c| c.len_utf8())
-                    .unwrap_or(1);
-                app.input.drain(app.cursor_pos..app.cursor_pos + len);
-            }
+        KeyCode::Delete if app.cursor_pos < app.input.len() => {
+            let len = app.input[app.cursor_pos..]
+                .chars()
+                .next()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
+            app.input.drain(app.cursor_pos..app.cursor_pos + len);
         }
         KeyCode::Left => app.move_cursor_left(),
         KeyCode::Right => app.move_cursor_right(),

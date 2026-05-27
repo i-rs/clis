@@ -79,9 +79,11 @@ impl Tool for WebSearchTool {
             .await?;
         let html = resp.text().await?;
         let mut results = Vec::new();
-        for cap in regex::Regex::new(r###"<a[^>]*class="result__a"[^>]*>(.*?)</a>"###).unwrap().captures_iter(&html) {
+        let link_re = regex::Regex::new(r###"<a[^>]*class="result__a"[^>]*>(.*?)</a>"###).unwrap();
+        let tag_re = regex::Regex::new("<[^>]*>").unwrap();
+        for cap in link_re.captures_iter(&html) {
             let title = cap[1].to_string();
-            let clean = regex::Regex::new("<[^>]*>").unwrap().replace_all(&title, "");
+            let clean = tag_re.replace_all(&title, "");
             results.push(clean.to_string());
             if results.len() >= 10 {
                 break;
