@@ -247,6 +247,63 @@ Tool execution order for a typical crate creation:
 9. `register_tool` → output tool definition
 10. done
 
+## Human-in-the-Loop 审批
+
+i-rs-code 本身没有权限系统，所有需要人工介入的操作通过协议发给 claw，由 claw 的 permission 系统处理。
+
+### 审批触发节点
+
+| 事件 | 触发条件 | 预期行为 |
+|------|---------|---------|
+| 创建文件 | `write` 工具调用 | 自动发 approval 请求 + diff 预览 |
+| 修改文件 | `edit` 工具调用 | 自动发 approval 请求 + diff 预览 |
+| 执行 shell | `bash` 工具调用（写操作） | 只读命令（cargo check/mkdir/git status）免审批，写入/删除命令需要审批 |
+| git commit/push | git 操作 | 请求审批 |
+| 注册新工具 | `register_tool` 调用 | 审批通过后才正式注册到 claw |
+| 批量修改 | 一次超过 3 个文件 | 请求审批 |
+
+### 协议消息
+
+```json
+// i-rs-code → claw: 请求审批
+{"event": "request", "task_id": "uuid-123", "request_id": "req-2",
+ "type": "approval", "stage": "write",
+ "content": "Write src/main.rs (240 lines)",
+ "detail": {"file": "src/main.rs", "diff": "+240 -0 lines", "diff_content": "#[derive(Parser)]..."}}
+
+// claw 展示给用户: [Y]es / [N]o / [S]kip
+// 用户确认后，claw 回复
+{"type": "respond", "task_id": "uuid-123", "request_id": "req-2",
+ "content": "approved"}
+// 或
+{"type": "respond", "task_id": "uuid-123", "request_id": "req-2",
+ "content": "rejected", "reason": "不需要这个文件"}
+
+// 如果用户请求修改后执行
+{"type": "respond", "task_id": "uuid-123", "request_id": "req-2",
+ "content": "modify", "modification": "把文件名改成 lib.rs"}
+```
+
+### TUI 模式
+
+独立 TUI 模式下无审批——用户就在终端前实时观察每一步，看到不满意直接 Ctrl-C 打断用 Edit 改。但每个 `write`/`edit` 操作会 **自动 checkpoint 快照**，用户可以随时回退：
+
+```
+[Checkpoint] Saving snapshot before edit: src/main.rs (240 bytes)
+[Checkpoint] 3 snapshots available. ~s to view history.
+```
+
+### Agent 模式（claw 调用）
+
+审批流程：
+1. i-rs-code 到达需要审批的步骤，发送 `type: "approval"` 请求
+2. i-rs-code 暂停，等待 stdin 上的 `respond`
+3. claw 收到请求后，根据用户配置的 permission level 处理：
+   - **always**: 自动 approved，不打扰用户
+   - **default**: 展示给用户确认
+   - **strict**: 默认拒绝，用户手动批准才能执行
+4. claw 回复 `respond`，i-rs-code 继续执行
+
 ## File Security
 
 - **Read-before-edit enforcement** — tools require file to be read before modification
