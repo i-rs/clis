@@ -115,6 +115,9 @@ fn handle_event(event: AgentEvent, app: &mut App) {
         AgentEvent::Token(t) => {
             app.push_token(&t);
         }
+        AgentEvent::Reasoning(_r) => {
+            app.push_token("[thinking]");
+        }
         AgentEvent::ToolCallStart { id: _id, name, args } => {
             let info = ToolCallInfo {
                 name,

@@ -13,12 +13,14 @@ pub enum LlmMessage {
     System(String),
     User(String),
     Assistant(String),
+    AssistantWithReasoning { content: String, reasoning: String },
     Tool { name: String, content: String, call_id: String },
     ToolCall { id: String, name: String, args: Value },
 }
 
 pub struct LlmResponse {
     pub content: Option<String>,
+    pub reasoning: String,
     pub tool_calls: Vec<ToolCall>,
     pub usage: Option<Usage>,
 }
@@ -44,6 +46,7 @@ pub struct StreamEvent {
 #[derive(Debug, Clone)]
 pub enum StreamEventKind {
     Token(String),
+    Reasoning(String),
     ToolCall { id: String, name: String, args: Value },
     Done { content: Option<String>, usage: Option<Usage> },
     Error(String),

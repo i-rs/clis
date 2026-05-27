@@ -22,6 +22,7 @@ pub async fn react_loop(
         }
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
+        let mut reasoning = String::new();
         let mut pending_tool_calls = Vec::new();
         let mut round_usage: Option<crate::provider::Usage> = None;
 
@@ -37,6 +38,9 @@ pub async fn react_loop(
                         use std::io::Write;
                         std::io::stdout().flush().ok();
                     }
+                }
+                StreamEventKind::Reasoning(r) => {
+                    reasoning.push_str(&r);
                 }
                 StreamEventKind::ToolCall { id, name, args } => {
                     pending_tool_calls.push(ToolCall { id, name, args });
@@ -60,9 +64,13 @@ pub async fn react_loop(
             total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
         }
 
-        if !content.is_empty() {
+        if !content.is_empty() || !reasoning.is_empty() {
             final_text = content.clone();
-            messages.push(LlmMessage::Assistant(content));
+            if reasoning.is_empty() {
+                messages.push(LlmMessage::Assistant(content));
+            } else {
+                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning });
+            }
         }
 
         if pending_tool_calls.is_empty() {
@@ -196,6 +204,7 @@ pub async fn react_loop_streaming(
         }
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
+        let mut reasoning = String::new();
         let mut pending_tool_calls = Vec::new();
         let mut round_usage: Option<crate::provider::Usage> = None;
 
@@ -204,6 +213,12 @@ pub async fn react_loop_streaming(
                 StreamEventKind::Token(t) => {
                     content.push_str(&t);
                     if event_tx.send(AgentEvent::Token(t)).await.is_err() {
+                        break;
+                    }
+                }
+                StreamEventKind::Reasoning(r) => {
+                    reasoning.push_str(&r);
+                    if event_tx.send(AgentEvent::Reasoning(r)).await.is_err() {
                         break;
                     }
                 }
@@ -233,9 +248,13 @@ pub async fn react_loop_streaming(
             total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
         }
 
-        if !content.is_empty() {
+        if !content.is_empty() || !reasoning.is_empty() {
             final_text = content.clone();
-            messages.push(LlmMessage::Assistant(content));
+            if reasoning.is_empty() {
+                messages.push(LlmMessage::Assistant(content));
+            } else {
+                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning });
+            }
         }
 
         if pending_tool_calls.is_empty() {

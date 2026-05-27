@@ -41,6 +41,19 @@ impl AnthropicProvider {
                 LlmMessage::Assistant(c) => {
                     anthro_msgs.push(json!({"role": "assistant", "content": c}));
                 }
+                LlmMessage::AssistantWithReasoning { content, reasoning } => {
+                    let mut blocks = Vec::new();
+                    if !reasoning.is_empty() {
+                        blocks.push(json!({"type": "thinking", "thinking": reasoning}));
+                    }
+                    if !content.is_empty() {
+                        blocks.push(json!({"type": "text", "text": content}));
+                    }
+                    if blocks.is_empty() {
+                        blocks.push(json!({"type": "text", "text": ""}));
+                    }
+                    anthro_msgs.push(json!({"role": "assistant", "content": blocks}));
+                }
                 LlmMessage::ToolCall { id, name, args } => {
                     anthro_msgs.push(json!({
                         "role": "assistant",
@@ -384,6 +397,6 @@ impl LlmProvider for AnthropicProvider {
             output_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
         });
 
-        Ok(LlmResponse { content, tool_calls, usage })
+        Ok(LlmResponse { content, reasoning: String::new(), tool_calls, usage })
     }
 }

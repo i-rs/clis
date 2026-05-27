@@ -31,6 +31,11 @@ impl OpenAiProvider {
                 LlmMessage::System(c) => out.push(json!({"role": "system", "content": c})),
                 LlmMessage::User(c) => out.push(json!({"role": "user", "content": c})),
                 LlmMessage::Assistant(c) => out.push(json!({"role": "assistant", "content": c})),
+                LlmMessage::AssistantWithReasoning { content, reasoning } => out.push(json!({
+                    "role": "assistant",
+                    "content": if content.is_empty() { Value::Null } else { Value::String(content.clone()) },
+                    "reasoning_content": reasoning,
+                })),
                 LlmMessage::Tool { name, content, call_id } => {
                     out.push(json!({"role": "tool", "tool_call_id": call_id, "name": name, "content": content}));
                 }
@@ -146,6 +151,10 @@ impl LlmProvider for OpenAiProvider {
                                         && !content.is_empty() {
                                             tx.send(StreamEvent { kind: StreamEventKind::Token(content.to_string()) }).await.ok();
                                         }
+                                    if let Some(reasoning) = delta["reasoning_content"].as_str()
+                                        && !reasoning.is_empty() {
+                                            tx.send(StreamEvent { kind: StreamEventKind::Reasoning(reasoning.to_string()) }).await.ok();
+                                        }
                                     if let Some(tcs) = delta["tool_calls"].as_array() {
                                         for tc in tcs {
                                             let idx = tc["index"].as_u64().unwrap_or(0) as u32;
@@ -244,6 +253,7 @@ impl LlmProvider for OpenAiProvider {
 
         let choice = val["choices"][0]["message"].clone();
         let content = choice["content"].as_str().map(|s| s.to_string());
+        let reasoning = choice["reasoning_content"].as_str().map(|s| s.to_string()).unwrap_or_default();
         let tool_calls = if let Some(tcs) = choice["tool_calls"].as_array() {
             tcs.iter().map(|tc| ToolCall {
                 id: tc["id"].as_str().unwrap_or("").to_string(),
@@ -258,6 +268,6 @@ impl LlmProvider for OpenAiProvider {
             output_tokens: u["completion_tokens"].as_u64().unwrap_or(0) as u32,
         });
 
-        Ok(LlmResponse { content, tool_calls, usage })
+        Ok(LlmResponse { content, reasoning, tool_calls, usage })
     }
 }
