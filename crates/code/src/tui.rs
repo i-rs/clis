@@ -332,12 +332,28 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
 
     match key.code {
         KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
-            for msg in app.messages.iter_mut().rev() {
-                if let AgentMessage::Assistant { reasoning_expanded, .. } = msg {
-                    *reasoning_expanded = !*reasoning_expanded;
-                    break;
+            // If a message is selected, toggle that one; otherwise toggle the last assistant message
+            if let Some(idx) = app.selected_message
+                && let Some(AgentMessage::Assistant { reasoning_expanded, .. }) = app.messages.get_mut(idx)
+            {
+                *reasoning_expanded = !*reasoning_expanded;
+            } else {
+                for msg in app.messages.iter_mut().rev() {
+                    if let AgentMessage::Assistant { reasoning_expanded, .. } = msg {
+                        *reasoning_expanded = !*reasoning_expanded;
+                        break;
+                    }
                 }
             }
+        }
+        KeyCode::Char('[') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+            let idx = app.selected_message.unwrap_or(app.messages.len());
+            app.selected_message = Some(idx.saturating_sub(1));
+        }
+        KeyCode::Char(']') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+            let idx = app.selected_message.unwrap_or(usize::MAX);
+            let next = idx.saturating_add(1);
+            app.selected_message = if next < app.messages.len() { Some(next) } else { Some(app.messages.len().saturating_sub(1)) };
         }
         KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
             app.show_transcript = !app.show_transcript;

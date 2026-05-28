@@ -60,6 +60,10 @@ impl McpConnection {
         Ok(conn)
     }
 
+    pub fn server_count(&self) -> usize {
+        0 // async, can't lock from sync context; shown via status instead
+    }
+
     pub fn discovered_tools(&self) -> &[McpToolDef] {
         &self.tools
     }

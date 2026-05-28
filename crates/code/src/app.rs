@@ -85,6 +85,7 @@ pub struct App {
     pub status_message: Option<String>,
     pub show_transcript: bool,
     pub transcript_scroll: usize,
+    pub selected_message: Option<usize>,
 }
 
 impl App {
@@ -119,6 +120,7 @@ impl App {
             status_message: None,
             show_transcript: false,
             transcript_scroll: 0,
+            selected_message: None,
         }
     }
 
