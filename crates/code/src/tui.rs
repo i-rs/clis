@@ -43,6 +43,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                  i-rs-code config show    查看配置"
             ),
             reasoning: String::new(),
+            tool_calls: None,
         });
     }
 
@@ -142,15 +143,17 @@ fn handle_event(event: AgentEvent, app: &mut App) {
         AgentEvent::Done { usage, messages } => {
             let (content, reasoning) = app.finish_streaming();
             if !messages.is_empty() {
-                app.agent_messages = messages;
+                app.agent_messages = messages.clone();
             }
             if let Some(u) = usage {
                 app.add_token_usage(u.input_tokens, u.output_tokens);
             }
+            let tool_calls = extract_tool_calls(&messages);
             app.messages.push(ChatMessage {
                 role: "assistant".into(),
                 content,
                 reasoning,
+                tool_calls,
             });
             app.scroll_offset = 0;
             if matches!(app.mode, AppMode::Waiting) {
@@ -168,6 +171,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 role: "assistant".into(),
                 content: msg,
                 reasoning,
+                tool_calls: None,
             });
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
@@ -197,6 +201,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                             role: "assistant".into(),
                             content: format!("{}\n\n[Cancelled]", content),
                             reasoning,
+                            tool_calls: None,
                         });
                     }
                     return;
@@ -280,6 +285,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 role: "user".into(),
                 content: prompt.clone(),
                 reasoning: String::new(),
+                tool_calls: None,
             });
             app.start_streaming();
             app.mode = AppMode::Waiting;
@@ -301,6 +307,19 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         }
         _ => {}
     }
+}
+
+#[cfg(feature = "tui")]
+fn extract_tool_calls(messages: &[crate::provider::LlmMessage]) -> Option<Vec<serde_json::Value>> {
+    let calls: Vec<serde_json::Value> = messages.iter().rev().filter_map(|m| match m {
+        crate::provider::LlmMessage::AssistantWithReasoning { tool_calls, .. } if !tool_calls.is_empty() => {
+            Some(tool_calls.iter().map(|tc| serde_json::json!({
+                "id": tc.id, "name": tc.name, "args": tc.args
+            })).collect::<Vec<_>>())
+        }
+        _ => None,
+    }).next().unwrap_or_default();
+    if calls.is_empty() { None } else { Some(calls) }
 }
 
 #[cfg(feature = "tui")]

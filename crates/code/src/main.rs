@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
                                 role: m.role.clone(),
                                 content: m.content.clone(),
                                 reasoning: m.reasoning.clone(),
+                                tool_calls: m.tool_calls.clone(),
                             });
                         }
                     }

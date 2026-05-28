@@ -38,7 +38,7 @@ impl Session {
                 role: m.role.clone(),
                 content: m.content.clone(),
                 reasoning: m.reasoning.clone(),
-                tool_calls: None,
+                tool_calls: m.tool_calls.clone(),
             }).collect(),
             created_at: now.clone(),
             updated_at: now,

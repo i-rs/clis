@@ -1,11 +1,13 @@
 use crate::config::Config;
 use std::collections::HashSet;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
     pub reasoning: String,
+    #[serde(default)]
+    pub tool_calls: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Clone, Default)]
