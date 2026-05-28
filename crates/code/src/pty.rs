@@ -148,14 +148,14 @@ impl PtySession {
         let command = command.to_string();
         let inner = self.inner.clone();
         tokio::task::spawn_blocking(move || {
-            let mut guard = inner.lock().unwrap();
+            let mut guard = inner.lock().expect("pty mutex poisoned");
             guard.exec(&command, timeout_secs)
         })
         .await?
     }
 
     pub fn interrupt(&self) -> anyhow::Result<()> {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock().expect("pty mutex poisoned");
         if let Some(child) = guard.child.as_mut() {
             child.kill()?;
         }
@@ -180,7 +180,9 @@ impl PtyManager {
             let session = PtySession::spawn(cwd)?;
             sessions.insert(id.to_string(), session);
         }
-        let session = sessions.get(id).unwrap().clone();
+        let session = sessions.get(id)
+            .ok_or_else(|| anyhow::anyhow!("pty session '{}' not found", id))?
+            .clone();
         session.exec_async(command, timeout_secs).await
     }
 
