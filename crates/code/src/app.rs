@@ -50,11 +50,14 @@ pub struct App {
     pub streaming: Option<StreamingState>,
     pub session_id: Option<String>,
     pub cancel_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    pub task_handle: Option<tokio::task::JoinHandle<()>>,
     pub show_shortcuts: bool,
     pub show_debug: bool,
     pub debug_scroll: usize,
     pub should_quit: bool,
     pub tool_names: Vec<String>,
+    pub last_file_states: Vec<(String, String)>,
+    pub context_usage: Option<f64>,
 }
 
 impl App {
@@ -78,11 +81,14 @@ impl App {
             streaming: None,
             session_id,
             cancel_tx: None,
+            task_handle: None,
             show_shortcuts: false,
             show_debug: false,
             debug_scroll: 0,
             should_quit: false,
             tool_names: Vec::new(),
+            last_file_states: Vec::new(),
+            context_usage: None,
         }
     }
 

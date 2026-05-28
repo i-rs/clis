@@ -48,6 +48,8 @@ impl Agent {
             msgs,
             &tool_defs,
             self.json_output,
+            self.config.max_rounds,
+            self.config.tool_timeout_secs,
         ).await?;
 
         self.messages = new_messages;
@@ -79,6 +81,8 @@ impl Agent {
             msgs,
             &tool_defs,
             event_tx,
+            self.config.max_rounds,
+            self.config.tool_timeout_secs,
         ).await?;
 
         self.messages = new_messages;

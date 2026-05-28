@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 
 const MAX_PROVIDER_RETRIES: u32 = 2;
 const MAX_TOOL_RETRIES: u32 = 2;
+const DEFAULT_TOOL_TIMEOUT_SECS: u64 = 120;
 
 fn is_transient_error(e: &str) -> bool {
     let lower = e.to_lowercase();
@@ -22,14 +23,90 @@ fn is_transient_error(e: &str) -> bool {
         || lower.contains("econnrefused")
 }
 
+struct ToolExecResult {
+    tool_messages: Vec<(String, String, String)>,
+}
+
+async fn execute_tools(
+    pending_tool_calls: &[ToolCall],
+    tools: &ToolRegistry,
+    retry_counts: &mut HashMap<String, u32>,
+    tool_timeout_secs: u64,
+) -> ToolExecResult {
+    let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
+        let tool = tools.get(&tc.name);
+        let tc = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
+        tokio::spawn(async move {
+            let result = if let Some(tool) = tool {
+                match tc.args.as_object() {
+                    Some(obj) => tool.call(obj).await,
+                    None => tool.call(&serde_json::Map::new()).await,
+                }
+            } else {
+                Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
+            };
+            (tc, result)
+        })
+    }).collect();
+
+    let tc_list: Vec<ToolCall> = pending_tool_calls.to_vec();
+    let mut tool_messages = Vec::new();
+
+    for (i, handle) in handles.into_iter().enumerate() {
+        let tc = &tc_list[i];
+        let result_str = match tokio::time::timeout(std::time::Duration::from_secs(tool_timeout_secs), handle).await {
+            Ok(Ok(inner)) => match &inner.1 {
+                Ok(s) => s.clone(),
+                Err(e) => format!("Error: {}", e),
+            },
+            Ok(Err(join_err)) => {
+                format!("Error: tool task panicked: {}", join_err)
+            }
+            Err(_) => {
+                format!("Error: tool execution timed out ({}s)", tool_timeout_secs)
+            }
+        };
+
+        if result_str.starts_with("Error:") {
+            let count = retry_counts.entry(tc.id.clone()).or_insert(0);
+            *count += 1;
+        } else {
+            retry_counts.remove(&tc.id);
+        }
+
+        tool_messages.push((tc.name.clone(), tc.id.clone(), result_str));
+    }
+
+    ToolExecResult { tool_messages }
+}
+
+fn build_over_limit_message(retry_counts: &HashMap<String, u32>) -> Option<String> {
+    let over_limit: Vec<_> = retry_counts.iter()
+        .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
+        .map(|(id, c)| (id.clone(), *c))
+        .collect();
+    if over_limit.is_empty() {
+        return None;
+    }
+    let details: Vec<String> = over_limit.iter()
+        .map(|(id, c)| format!("tool_call_id='{}' ({}次)", id, c))
+        .collect();
+    Some(format!(
+        "工具连续 {} 次调用失败。请反思：\n1. 参数是否正确？\n2. 是否需要换一种方式？\n3. 是否不需要这个工具？\n失败的调用: {}",
+        MAX_TOOL_RETRIES,
+        details.join("; ")
+    ))
+}
+
 pub async fn react_loop(
     provider: &dyn LlmProvider,
     tools: &ToolRegistry,
     mut messages: Vec<LlmMessage>,
     tool_defs: &[Value],
     json_output: bool,
+    max_rounds: u32,
+    tool_timeout_secs: u64,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
-    let max_rounds = 20;
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
     let ctx = super::context::ContextManager::new();
@@ -117,123 +194,49 @@ pub async fn react_loop(
             break;
         }
 
-        let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
-            let tool = tools.get(&tc.name);
-            let tc = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
-            tokio::spawn(async move {
-                let result = if let Some(tool) = tool {
-                    match tc.args.as_object() {
-                        Some(obj) => tool.call(obj).await,
-                        None => tool.call(&serde_json::Map::new()).await,
-                    }
-                } else {
-                    Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
-                };
-                (tc, result)
-            })
-        }).collect();
+        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs).await;
 
-        let tc_list: Vec<ToolCall> = pending_tool_calls.clone();
-
-        for (i, handle) in handles.into_iter().enumerate() {
-            let tc = &tc_list[i];
-            let result = match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
-                Ok(Ok(inner)) => inner,
-                Ok(Err(join_err)) => {
-                    let result_str = format!("Error: tool task panicked: {}", join_err);
-                    messages.push(LlmMessage::Tool {
-                        name: tc.name.clone(),
-                        content: result_str,
-                        call_id: tc.id.clone(),
-                    });
-                    continue;
-                }
-                Err(_) => {
-                    let result_str = "Error: tool execution timed out (120s)".to_string();
+        for (name, call_id, result_str) in &tool_messages {
+            if let Ok(val) = serde_json::from_str::<Value>(result_str)
+                && val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
                     if json_output {
                         let event = serde_json::json!({
-                            "event": "tool_result",
-                            "tool_call_id": tc.id,
-                            "name": tc.name,
-                            "result": result_str,
+                            "event": "request",
+                            "type": val.get("request_type"),
+                            "content": val.get("content"),
                         });
                         println!("{}", serde_json::to_string(&event)?);
                     }
-                    messages.push(LlmMessage::Tool {
-                        name: tc.name.clone(),
-                        content: result_str,
-                        call_id: tc.id.clone(),
+                    return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
+                }
+            if let Ok(val) = serde_json::from_str::<Value>(result_str)
+                && val.get("requires_registration").and_then(|v| v.as_bool()).unwrap_or(false)
+                && let Some(tool_info) = val.get("tool")
+                && json_output {
+                    let event = serde_json::json!({
+                        "event": "tool_created",
+                        "tool": tool_info,
                     });
-                    continue;
-                }
-            };
-
-            let result_str = match &result.1 {
-                Ok(s) => s.clone(),
-                Err(e) => format!("Error: {}", e),
-            };
-
-            if result_str.starts_with("Error:") {
-                let count = retry_counts.entry(tc.id.clone()).or_insert(0);
-                *count += 1;
-            } else {
-                retry_counts.remove(&tc.id);
+                    println!("{}", serde_json::to_string(&event)?);
             }
-
-            if let Ok(s) = &result.1
-                && let Ok(val) = serde_json::from_str::<Value>(s) {
-                    if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
-                        if json_output {
-                            let event = serde_json::json!({
-                                "event": "request",
-                                "type": val.get("request_type"),
-                                "content": val.get("content"),
-                            });
-                            println!("{}", serde_json::to_string(&event)?);
-                        }
-                        return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
-                    }
-                    if val.get("requires_registration").and_then(|v| v.as_bool()).unwrap_or(false)
-                        && let Some(tool_info) = val.get("tool")
-                        && json_output {
-                            let event = serde_json::json!({
-                                "event": "tool_created",
-                                "tool": tool_info,
-                            });
-                            println!("{}", serde_json::to_string(&event)?);
-                        }
-                }
-
             if json_output {
                 let event = serde_json::json!({
                     "event": "tool_result",
-                    "tool_call_id": tc.id,
-                    "name": tc.name,
+                    "tool_call_id": call_id,
+                    "name": name,
                     "result": result_str,
                 });
                 println!("{}", serde_json::to_string(&event)?);
             }
-
             messages.push(LlmMessage::Tool {
-                name: tc.name.clone(),
-                content: result_str,
-                call_id: tc.id.clone(),
+                name: name.clone(),
+                content: result_str.clone(),
+                call_id: call_id.clone(),
             });
         }
 
-        let over_limit: Vec<_> = retry_counts.iter()
-            .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
-            .map(|(id, c)| (id.clone(), *c))
-            .collect();
-        if !over_limit.is_empty() {
-            let details: Vec<String> = over_limit.iter()
-                .map(|(id, c)| format!("tool_call_id='{}' ({}次)", id, c))
-                .collect();
-            messages.push(LlmMessage::System(format!(
-                "工具连续 {} 次调用失败。请反思：\n1. 参数是否正确？\n2. 是否需要换一种方式？\n3. 是否不需要这个工具？\n失败的调用: {}",
-                MAX_TOOL_RETRIES,
-                details.join("; ")
-            )));
+        if let Some(sys_msg) = build_over_limit_message(&retry_counts) {
+            messages.push(LlmMessage::System(sys_msg));
         }
     }
 
@@ -246,8 +249,9 @@ pub async fn react_loop_streaming(
     mut messages: Vec<LlmMessage>,
     tool_defs: &[Value],
     event_tx: mpsc::Sender<AgentEvent>,
+    max_rounds: u32,
+    tool_timeout_secs: u64,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
-    let max_rounds = 20;
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
     let ctx = super::context::ContextManager::new();
@@ -338,101 +342,34 @@ pub async fn react_loop_streaming(
             break;
         }
 
-        let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
-            let tool = tools.get(&tc.name);
-            let tc = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
-            tokio::spawn(async move {
-                let result = if let Some(tool) = tool {
-                    match tc.args.as_object() {
-                        Some(obj) => tool.call(obj).await,
-                        None => tool.call(&serde_json::Map::new()).await,
-                    }
-                } else {
-                    Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
-                };
-                (tc, result)
-            })
-        }).collect();
+        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs).await;
 
-        let tc_list: Vec<ToolCall> = pending_tool_calls.clone();
-
-        for (i, handle) in handles.into_iter().enumerate() {
-            let tc = &tc_list[i];
-            let result = match tokio::time::timeout(std::time::Duration::from_secs(120), handle).await {
-                Ok(Ok(inner)) => inner,
-                Ok(Err(join_err)) => {
-                    let result_str = format!("Error: tool task panicked: {}", join_err);
-                    messages.push(LlmMessage::Tool {
-                        name: tc.name.clone(),
-                        content: result_str,
-                        call_id: tc.id.clone(),
-                    });
-                    continue;
-                }
-                Err(_) => {
-                    let result_str = "Error: tool execution timed out (120s)".to_string();
-                    event_tx.send(AgentEvent::ToolCallEnd {
-                        id: tc.id.clone(),
-                        name: tc.name.clone(),
-                        result: result_str.clone(),
-                    }).await.ok();
-                    messages.push(LlmMessage::Tool {
-                        name: tc.name.clone(),
-                        content: result_str,
-                        call_id: tc.id.clone(),
-                    });
-                    continue;
-                }
-            };
-
-            let result_str = match &result.1 {
-                Ok(s) => s.clone(),
-                Err(e) => format!("Error: {}", e),
-            };
-
-            if result_str.starts_with("Error:") {
-                let count = retry_counts.entry(tc.id.clone()).or_insert(0);
-                *count += 1;
-            } else {
-                retry_counts.remove(&tc.id);
-            }
-
+        for (name, call_id, result_str) in &tool_messages {
             event_tx.send(AgentEvent::ToolCallEnd {
-                id: tc.id.clone(),
-                name: tc.name.clone(),
+                id: call_id.clone(),
+                name: name.clone(),
                 result: result_str.clone(),
             }).await.ok();
 
-            if let Ok(s) = &result.1
-                && let Ok(val) = serde_json::from_str::<Value>(s)
+            if let Ok(val) = serde_json::from_str::<Value>(result_str)
                 && val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
-                    event_tx.send(AgentEvent::Done { usage: Some(total_usage.clone()), messages: messages.clone() }).await.ok();
+                    event_tx.send(AgentEvent::Done { usage: Some(total_usage.clone()), messages: messages.clone(), context_pct: 0.0 }).await.ok();
                     return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
                 }
 
             messages.push(LlmMessage::Tool {
-                name: tc.name.clone(),
-                content: result_str,
-                call_id: tc.id.clone(),
+                name: name.clone(),
+                content: result_str.clone(),
+                call_id: call_id.clone(),
             });
         }
 
-        let over_limit: Vec<_> = retry_counts.iter()
-            .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
-            .map(|(id, c)| (id.clone(), *c))
-            .collect();
-        if !over_limit.is_empty() {
-            let details: Vec<String> = over_limit.iter()
-                .map(|(id, c)| format!("tool_call_id='{}' ({}次)", id, c))
-                .collect();
-            messages.push(LlmMessage::System(format!(
-                "工具连续 {} 次调用失败。请反思：\n1. 参数是否正确？\n2. 是否需要换一种方式？\n3. 是否不需要这个工具？\n失败的调用: {}",
-                MAX_TOOL_RETRIES,
-                details.join("; ")
-            )));
+        if let Some(sys_msg) = build_over_limit_message(&retry_counts) {
+            messages.push(LlmMessage::System(sys_msg));
         }
     }
 
-    event_tx.send(AgentEvent::Done { usage: Some(total_usage), messages: messages.clone() }).await.ok();
+    let _estimated = super::context::ContextManager::estimate_tokens(&messages) as f64 / 128_000.0;
+    event_tx.send(AgentEvent::Done { usage: Some(total_usage), messages: messages.clone(), context_pct: _estimated }).await.ok();
     Ok((final_text, messages))
 }

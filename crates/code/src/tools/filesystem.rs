@@ -12,6 +12,12 @@ pub struct LsTool;
 
 fn check_path(path: &str) -> anyhow::Result<()> {
     let p = Path::new(path);
+    if p.is_absolute() {
+        let cwd = std::env::current_dir()?;
+        if !p.canonicalize()?.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
+    }
     if p.components().any(|c| c.as_os_str() == "..") {
         anyhow::bail!("Path traversal detected: {}", path);
     }

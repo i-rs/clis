@@ -156,8 +156,11 @@ impl LlmProvider for OpenAiProvider {
                         return;
                     }
                 };
-                buf.push_str(&String::from_utf8_lossy(&chunk));
-                for line in buf.lines() {
+                let chunk_str = String::from_utf8_lossy(&chunk);
+                buf.push_str(&chunk_str);
+                while let Some(pos) = buf.find('\n') {
+                    let line = buf[..pos].trim_end_matches('\r').to_string();
+                    buf = buf[pos + 1..].to_string();
                     if line.is_empty() { continue; }
                     if line == "data: [DONE]" { continue; }
                     if let Some(data) = line.strip_prefix("data: ")
@@ -197,7 +200,6 @@ impl LlmProvider for OpenAiProvider {
                             }
                         }
                 }
-                buf.clear();
             }
             for idx in 0..tool_call_accum.len() as u32 {
                 if let Some((id, name, args_str)) = tool_call_accum.remove(&idx)

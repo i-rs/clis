@@ -15,7 +15,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(1),
             Constraint::Min(1),
-            Constraint::Length(4),
+            Constraint::Length(app.input.lines().count().clamp(1, 8) as u16 + 2),
         ])
         .split(area);
 
@@ -97,7 +97,18 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         app.current_dir.clone()
     };
 
-    let text = Line::from(vec![
+    let context_text = if let Some(pct) = app.context_usage {
+        let pct_str = format!("{:.0}%", pct * 100.0);
+        let ctx_color = if pct > 0.8 { Color::Red } else if pct > 0.6 { Color::Yellow } else { Color::Green };
+        vec![
+            Span::raw(" "),
+            Span::styled(pct_str, Style::default().fg(ctx_color).bg(Color::Blue)),
+        ]
+    } else {
+        vec![]
+    };
+
+    let mut spans = vec![
         Span::styled(" i-rs-code ", Style::default().fg(Color::White).bg(Color::Blue)),
         Span::styled(
             format!(" v{} ", app.version),
@@ -105,9 +116,10 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         ),
         Span::raw("  "),
         Span::styled(dir, Style::default().fg(Color::White).bg(Color::Blue)),
-        Span::raw(" "),
-    ]);
+    ];
+    spans.extend(context_text);
 
+    let text = Line::from(spans);
     let bar = Paragraph::new(text).style(Style::default().bg(Color::Blue));
     frame.render_widget(bar, area);
 }

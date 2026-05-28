@@ -9,6 +9,6 @@ pub enum AgentEvent {
     #[allow(dead_code)]
     FileChanged { path: String },
     Status(String),
-    Done { usage: Option<crate::provider::Usage>, messages: Vec<crate::provider::LlmMessage> },
+    Done { usage: Option<crate::provider::Usage>, messages: Vec<crate::provider::LlmMessage>, context_pct: f64 },
     Error(String),
 }

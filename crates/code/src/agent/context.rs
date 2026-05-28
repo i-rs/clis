@@ -9,7 +9,7 @@ impl ContextManager {
         Self { max_tokens: 128_000 }
     }
 
-    fn estimate_tokens(messages: &[LlmMessage]) -> usize {
+    pub fn estimate_tokens(messages: &[LlmMessage]) -> usize {
         let total_chars: usize = messages.iter().map(|m| match m {
             LlmMessage::System(s) => s.len(),
             LlmMessage::User(s) => s.len(),

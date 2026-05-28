@@ -126,6 +126,9 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             if matches!(name.as_str(), "write" | "edit")
                 && let Some(path) = args.get("path").and_then(|v| v.as_str()) {
                     app.file_changes.insert(path.to_string());
+                    if let Ok(content) = std::fs::read_to_string(path) {
+                        app.last_file_states.push((path.to_string(), content));
+                    }
                 }
             let info = ToolCallInfo {
                 name,
@@ -150,7 +153,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
         AgentEvent::FileChanged { path } => {
             app.file_changes.insert(path);
         }
-        AgentEvent::Done { usage, messages } => {
+        AgentEvent::Done { usage, messages, context_pct } => {
             let (content, reasoning) = app.finish_streaming();
             if !messages.is_empty() {
                 app.agent_messages = messages.clone();
@@ -158,6 +161,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             if let Some(u) = usage {
                 app.add_token_usage(u.input_tokens, u.output_tokens);
             }
+            app.context_usage = Some(context_pct);
             let tool_calls = extract_tool_calls(&messages);
             app.messages.push(ChatMessage {
                 role: "assistant".into(),
@@ -204,6 +208,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     if let Some(tx) = app.cancel_tx.take() {
                         tx.send(()).ok();
                     }
+                    if let Some(h) = app.task_handle.take() {
+                        h.abort();
+                    }
                     app.mode = AppMode::Idle;
                     let (content, reasoning) = app.finish_streaming();
                     if !content.is_empty() {
@@ -228,6 +235,28 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     }
 
     match key.code {
+        KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
+            if let Some((path, content)) = app.last_file_states.pop() {
+                match std::fs::write(&path, &content) {
+                    Ok(_) => {
+                        app.messages.push(ChatMessage {
+                            role: "system".into(),
+                            content: format!("Reverted {}", path),
+                            reasoning: String::new(),
+                            tool_calls: None,
+                        });
+                    }
+                    Err(e) => {
+                        app.messages.push(ChatMessage {
+                            role: "system".into(),
+                            content: format!("Failed to revert {}: {}", path, e),
+                            reasoning: String::new(),
+                            tool_calls: None,
+                        });
+                    }
+                }
+            }
+        }
         KeyCode::Esc | KeyCode::Char('q') => {
             if app.show_shortcuts {
                 app.show_shortcuts = false;
@@ -290,6 +319,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.insert_char('\n'),
         KeyCode::Enter if !app.input.is_empty() => {
             let prompt = std::mem::take(&mut app.input);
+            let expanded = expand_file_refs(&prompt);
             app.cursor_pos = 0;
             app.messages.push(ChatMessage {
                 role: "user".into(),
@@ -303,13 +333,13 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             let config = app.config.clone();
             let tx = event_tx.clone();
             let history = std::mem::take(&mut app.agent_messages);
-            let (cancel_tx, _cancel_rx) = tokio::sync::oneshot::channel::<()>();
+            let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
             app.cancel_tx = Some(cancel_tx);
-            tokio::spawn(async move {
-                if let Err(e) = run_streaming_agent(&config, &prompt, tx.clone(), history).await {
+            app.task_handle = Some(tokio::spawn(async move {
+                if let Err(e) = run_streaming_agent(&config, &expanded, tx.clone(), history, cancel_rx).await {
                     tx.send(AgentEvent::Error(e.to_string())).await.ok();
                 }
-            });
+            }));
         }
         KeyCode::Tab => {
             let input = &app.input;
@@ -364,15 +394,49 @@ async fn run_streaming_agent(
     prompt: &str,
     event_tx: mpsc::Sender<AgentEvent>,
     history: Vec<crate::provider::LlmMessage>,
+    cancel_rx: tokio::sync::oneshot::Receiver<()>,
 ) -> anyhow::Result<()> {
     let provider = crate::provider::create_provider(config)?;
     let tools = crate::tools::ToolRegistry::new(config)?;
     let mut agent = crate::agent::Agent::new(config.clone(), provider, tools, false);
-    agent.run_once_streaming(prompt, event_tx.clone(), history).await?;
-    Ok(())
+    tokio::select! {
+        result = agent.run_once_streaming(prompt, event_tx.clone(), history) => {
+            result?;
+            Ok(())
+        }
+        _ = cancel_rx => {
+            event_tx.send(AgentEvent::Error("Cancelled by user".into())).await.ok();
+            Ok(())
+        }
+    }
 }
 
 #[cfg(not(feature = "tui"))]
 pub async fn run(_app: crate::app::App) -> anyhow::Result<()> {
     anyhow::bail!("TUI feature not enabled. Build with --features tui")
+}
+
+#[cfg(feature = "tui")]
+fn expand_file_refs(input: &str) -> String {
+    let mut result = String::new();
+    let mut remaining = input;
+    while let Some(at_pos) = remaining.find('@') {
+        result.push_str(&remaining[..at_pos]);
+        let after = &remaining[at_pos + 1..];
+        let end = after.find(|c: char| c.is_whitespace() || c == '\n').unwrap_or(after.len());
+        let path = &after[..end];
+        match std::fs::read_to_string(path) {
+            Ok(content) => {
+                let preview: String = content.chars().take(3000).collect();
+                result.push_str(&format!("\n[File: {}]\n```\n{}\n```\n", path, preview));
+            }
+            Err(_) => {
+                result.push('@');
+                result.push_str(path);
+            }
+        }
+        remaining = &after[end..];
+    }
+    result.push_str(remaining);
+    result
 }

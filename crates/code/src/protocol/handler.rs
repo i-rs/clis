@@ -38,7 +38,9 @@ pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<
             &agent.tools,
             messages,
             &tool_defs,
-            true, // json_output always true in agent mode
+            true,
+            agent.config.max_rounds,
+            agent.config.tool_timeout_secs,
         ).await?;
 
         messages = new_messages;
