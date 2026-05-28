@@ -26,6 +26,16 @@ fn tool_glyph(name: &str) -> &'static str {
     }
 }
 
+fn short_path(path: &str) -> String {
+    if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy();
+        if let Some(rest) = path.strip_prefix(&*home_str) {
+            return format!("~{}", rest);
+        }
+    }
+    path.to_string()
+}
+
 fn is_diff_like(text: &str) -> bool {
     text.lines().any(|l| l.starts_with("--- ") || l.starts_with("+++ ") || l.starts_with("@@ "))
 }
@@ -205,10 +215,9 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
 }
 
 fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let dir = if app.current_dir.len() > 48 {
-        format!("...{}", &app.current_dir[app.current_dir.len() - 45..])
-    } else {
-        app.current_dir.clone()
+    let dir = {
+        let s = short_path(&app.current_dir);
+        if s.len() > 48 { format!("...{}", &s[s.len() - 45..]) } else { s }
     };
 
     let context_text = if let Some(pct) = app.context_usage {
@@ -498,10 +507,12 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     )));
 
     // --- Directory ---
-    let dir = if app.current_dir.len() > w.saturating_sub(2) {
-        format!("..{}", &app.current_dir[app.current_dir.len().saturating_sub(w.saturating_sub(4))..])
+    items.push(Line::from(Span::styled("─ Dir ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    let short = short_path(&app.current_dir);
+    let dir = if short.len() > w.saturating_sub(2) {
+        format!("..{}", &short[short.len().saturating_sub(w.saturating_sub(4))..])
     } else {
-        app.current_dir.clone()
+        short
     };
     items.push(Line::from(Span::styled(format!(" {}", dir), Style::default().fg(Color::White))));
     items.push(Line::from(""));
