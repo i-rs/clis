@@ -74,13 +74,19 @@ impl ContextManager {
 
         if total_calls > 0 {
             let truncated: Vec<LlmMessage> = early_tool_pairs.into_iter().flat_map(|(call, result)| {
-                let (name, call_id) = match &result {
-                    LlmMessage::Tool { name, call_id, .. } => (name.clone(), call_id.clone()),
-                    _ => (String::new(), String::new()),
+                let (name, call_id, content) = match &result {
+                    LlmMessage::Tool { name, call_id, content } => (name.clone(), call_id.clone(), content.clone()),
+                    _ => (String::new(), String::new(), String::new()),
+                };
+                let summary = if content.len() > 200 {
+                    let trimmed: String = content.chars().take(200).collect();
+                    format!("{}...", trimmed)
+                } else {
+                    content
                 };
                 vec![
                     call,
-                    LlmMessage::Tool { name, content: "[compressed]".to_string(), call_id },
+                    LlmMessage::Tool { name, content: format!("[compressed] {}", summary), call_id },
                 ]
             }).collect();
 

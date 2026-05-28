@@ -6,6 +6,7 @@ pub enum AgentEvent {
     Reasoning(String),
     ToolCallStart { id: String, name: String, args: Value },
     ToolCallEnd { id: String, name: String, result: String },
+    #[allow(dead_code)]
     FileChanged { path: String },
     Status(String),
     Done { usage: Option<crate::provider::Usage>, messages: Vec<crate::provider::LlmMessage> },

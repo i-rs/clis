@@ -64,3 +64,58 @@ impl Tool for BashTool {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn blocked_patterns() -> Vec<&'static str> {
+        vec!["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "> /dev/sd", "chmod -R 777 /"]
+    }
+
+    #[test]
+    fn test_safe_commands_not_blocked() {
+        let safe = vec!["cargo check", "python main.py", "git status", "ls -la", "npm test", "echo hello"];
+        let patterns = blocked_patterns();
+        for cmd in &safe {
+            assert!(!patterns.iter().any(|p| cmd.contains(p)), "cmd '{}' should not be blocked", cmd);
+        }
+    }
+
+    #[test]
+    fn test_dangerous_commands_blocked() {
+        let patterns = blocked_patterns();
+        let dangerous = vec!["rm -rf /", "mkfs.ext4 /dev/sda1", "dd if=/dev/zero", ":(){ :|:& };:", "echo test > /dev/sda"];
+        for cmd in &dangerous {
+            assert!(patterns.iter().any(|p| cmd.contains(p)), "cmd '{}' should be blocked", cmd);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bash_echo() {
+        let args: serde_json::Map<String, serde_json::Value> = [
+            ("command".into(), serde_json::json!("echo hello")),
+            ("description".into(), serde_json::json!("test echo")),
+        ].into_iter().collect();
+        let result = BashTool.call(&args).await.expect("echo should work");
+        assert!(result.contains("hello"));
+    }
+
+    #[tokio::test]
+    async fn test_bash_missing_command() {
+        let args: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        let result = BashTool.call(&args).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_bash_dangerous_blocked() {
+        let args: serde_json::Map<String, serde_json::Value> = [
+            ("command".into(), serde_json::json!("rm -rf /")),
+            ("description".into(), serde_json::json!("test dangerous")),
+        ].into_iter().collect();
+        let result = BashTool.call(&args).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("dangerous"));
+    }
+}

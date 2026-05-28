@@ -23,6 +23,32 @@ pub struct Config {
     pub tools_dir: Option<String>,
     #[serde(default)]
     pub bin_dir: Option<String>,
+    #[serde(default = "default_max_rounds")]
+    pub max_rounds: u32,
+    #[serde(default = "default_max_tool_retries")]
+    pub max_tool_retries: u32,
+    #[serde(default = "default_tool_timeout")]
+    pub tool_timeout_secs: u64,
+    #[serde(default)]
+    pub agents: std::collections::HashMap<String, AgentConfig>,
+}
+
+fn default_max_rounds() -> u32 { 20 }
+fn default_max_tool_retries() -> u32 { 2 }
+fn default_tool_timeout() -> u64 { 120 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentConfig {
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(default)]
+    pub system_prompt: Option<String>,
 }
 
 impl Default for Config {
@@ -35,6 +61,10 @@ impl Default for Config {
             workspace: None,
             tools_dir: None,
             bin_dir: None,
+            max_rounds: default_max_rounds(),
+            max_tool_retries: default_max_tool_retries(),
+            tool_timeout_secs: default_tool_timeout(),
+            agents: std::collections::HashMap::new(),
         }
     }
 }
@@ -88,5 +118,73 @@ impl Config {
         let content = toml::to_string_pretty(self)?;
         std::fs::write(&path, content)?;
         Ok(())
+    }
+
+    pub fn agent_config(&self, agent_id: &str) -> Config {
+        if let Some(agent) = self.agents.get(agent_id) {
+            Config {
+                provider: agent.provider.clone().unwrap_or_else(|| self.provider.clone()),
+                api_key: agent.api_key.clone().or_else(|| self.api_key.clone()),
+                base_url: agent.base_url.clone().or_else(|| self.base_url.clone()),
+                model: agent.model.clone().or_else(|| self.model.clone()),
+                ..self.clone()
+            }
+        } else {
+            self.clone()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_default() {
+        let c = Config::default();
+        assert_eq!(c.provider, "openai");
+        assert!(c.api_key.is_none());
+        assert_eq!(c.max_rounds, 20);
+        assert_eq!(c.max_tool_retries, 2);
+        assert_eq!(c.tool_timeout_secs, 120);
+    }
+
+    #[test]
+    fn test_agent_config_override() {
+        let mut c = Config::default();
+        c.agents.insert("code".into(), AgentConfig {
+            provider: Some("anthropic".into()),
+            model: Some("claude-sonnet-4-20250514".into()),
+            api_key: None,
+            base_url: None,
+            system_prompt: None,
+        });
+        let resolved = c.agent_config("code");
+        assert_eq!(resolved.provider, "anthropic");
+        assert_eq!(resolved.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert!(resolved.api_key.is_none());
+    }
+
+    #[test]
+    fn test_agent_config_fallback() {
+        let mut c = Config::default();
+        c.agents.insert("missing_field".into(), AgentConfig {
+            provider: Some("ollama".into()),
+            model: None,
+            api_key: Some("sk-test".into()),
+            base_url: None,
+            system_prompt: None,
+        });
+        let resolved = c.agent_config("missing_field");
+        assert_eq!(resolved.provider, "ollama");
+        assert_eq!(resolved.model.as_deref(), None);
+        assert_eq!(resolved.api_key.as_deref(), Some("sk-test"));
+    }
+
+    #[test]
+    fn test_agent_config_nonexistent() {
+        let c = Config::default();
+        let resolved = c.agent_config("no_such_agent");
+        assert_eq!(resolved.provider, "openai");
     }
 }

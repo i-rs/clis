@@ -77,3 +77,57 @@ impl Session {
         Ok(ids)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_new() {
+        let s = Session::new();
+        assert!(!s.id.is_empty());
+        assert!(s.messages.is_empty());
+        assert!(!s.created_at.is_empty());
+    }
+
+    #[test]
+    fn test_session_roundtrip() {
+        let dir = std::env::temp_dir().join("i-rs-code-test-session-roundtrip");
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut s = Session::new();
+        s.messages.push(Message { role: "user".into(), content: "hello".into(), reasoning: String::new(), tool_calls: None });
+        s.messages.push(Message { role: "assistant".into(), content: "hi there".into(), reasoning: String::new(), tool_calls: None });
+        s.save(&dir).expect("save should work");
+        let loaded = Session::load(&s.id, &dir).expect("load should work");
+        assert_eq!(loaded.messages.len(), 2);
+        assert_eq!(loaded.messages[0].content, "hello");
+        assert_eq!(loaded.messages[1].content, "hi there");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_session_list() {
+        let dir = std::env::temp_dir().join("i-rs-code-test-session-list");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("aaa.json"), "{}").unwrap();
+        std::fs::write(dir.join("bbb.json"), "{}").unwrap();
+        std::fs::write(dir.join("readme.txt"), "").unwrap();
+        let ids = Session::list(&dir).unwrap();
+        assert_eq!(ids, vec!["aaa", "bbb"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_session_tool_calls_persist() {
+        let dir = std::env::temp_dir().join("i-rs-code-test-session-tc");
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut s = Session::new();
+        let tc = serde_json::json!({"id": "call_1", "name": "bash", "args": {"command": "ls"}});
+        s.messages.push(Message { role: "assistant".into(), content: String::new(), reasoning: String::new(), tool_calls: Some(vec![tc]) });
+        s.save(&dir).expect("save with tool_calls should work");
+        let loaded = Session::load(&s.id, &dir).expect("load with tool_calls should work");
+        assert!(loaded.messages[0].tool_calls.is_some());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
