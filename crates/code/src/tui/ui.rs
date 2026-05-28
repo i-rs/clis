@@ -437,6 +437,10 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
     }
 
+    // Bottom padding
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+
     let max_scroll = lines.len().saturating_sub(inner.height as usize);
     let scroll = if app.auto_scroll { max_scroll } else { max_scroll.saturating_sub(app.scroll_offset).min(max_scroll) };
 
