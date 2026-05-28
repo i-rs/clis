@@ -9,8 +9,10 @@ pub mod delete;
 pub mod rename;
 pub mod lsp;
 pub mod pty;
+pub mod test_runner;
 pub mod mcp;
 pub mod verify;
+pub mod batch_edit;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -69,6 +71,8 @@ impl ToolRegistry {
         tools.insert("pty_interrupt".into(), Arc::new(pty::PtyInterruptTool));
         tools.insert("mcp_connect".into(), Arc::new(mcp::McpConnectTool));
         tools.insert("verify".into(), Arc::new(verify::VerifyTool));
+        tools.insert("batch_edit".into(), Arc::new(batch_edit::BatchEditTool));
+    tools.insert("test".into(), Arc::new(test_runner::TestRunnerTool));
 
         Ok(Self { tools })
     }
