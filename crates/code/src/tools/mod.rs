@@ -5,6 +5,8 @@ pub mod call_claw;
 pub mod register_tool;
 pub mod git;
 pub mod web;
+pub mod delete;
+pub mod rename;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -49,6 +51,8 @@ impl ToolRegistry {
         tools.insert("register_tool".into(), Arc::new(register_tool::RegisterTool));
         tools.insert("web_fetch".into(), Arc::new(web::WebFetchTool));
         tools.insert("web_search".into(), Arc::new(web::WebSearchTool));
+        tools.insert("delete".into(), Arc::new(delete::DeleteTool));
+        tools.insert("rename".into(), Arc::new(rename::RenameTool));
 
         Ok(Self { tools })
     }
