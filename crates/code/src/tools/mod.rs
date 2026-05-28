@@ -10,6 +10,7 @@ pub mod rename;
 pub mod lsp;
 pub mod pty;
 pub mod mcp;
+pub mod verify;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -59,9 +60,13 @@ impl ToolRegistry {
         tools.insert("lsp_diagnostics".into(), Arc::new(lsp::LspDiagnosticsTool));
         tools.insert("lsp_definition".into(), Arc::new(lsp::LspDefinitionTool));
         tools.insert("lsp_references".into(), Arc::new(lsp::LspReferencesTool));
+        tools.insert("lsp_hover".into(), Arc::new(lsp::LspHoverTool));
+        tools.insert("lsp_rename".into(), Arc::new(lsp::LspRenameTool));
+        tools.insert("lsp_symbols".into(), Arc::new(lsp::LspSymbolsTool));
         tools.insert("pty_exec".into(), Arc::new(pty::PtyExecTool));
         tools.insert("pty_interrupt".into(), Arc::new(pty::PtyInterruptTool));
         tools.insert("mcp_connect".into(), Arc::new(mcp::McpConnectTool));
+        tools.insert("verify".into(), Arc::new(verify::VerifyTool));
 
         Ok(Self { tools })
     }
