@@ -59,30 +59,31 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     let input_lines = (app.input.content.lines().count() + 1).clamp(2, 8) as u16 + 2;
 
-    // Top-level vertical: Title | Content+Sidebar | Input
+    // Title (full width) | below title: chat | sidebar
     let vert = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(input_lines),
-        ])
+        .constraints([Constraint::Length(1), Constraint::Min(1)])
         .split(area);
 
-    // Title bar full width
     render_title_bar(frame, vert[0], app);
 
-    // Below title: horizontal split for chat + sidebar
+    // Below title: chat column | sidebar column
     let horiz = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(1), Constraint::Length(SIDEBAR_WIDTH)])
         .split(vert[1]);
 
-    render_chat(frame, horiz[0], app);
-    render_sidebar(frame, horiz[1], app);
+    // Chat column: chat area + input bar
+    let chat_col = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(input_lines)])
+        .split(horiz[0]);
 
-    // Input bar full width
-    render_input_bar(frame, vert[2], app);
+    render_chat(frame, chat_col[0], app);
+    render_input_bar(frame, chat_col[1], app);
+
+    // Sidebar column: full height (spans chat + input rows)
+    render_sidebar(frame, horiz[1], app);
 
     if app.show_shortcuts {
         render_shortcuts_overlay(frame, area);
