@@ -23,6 +23,7 @@ mod pty;
 mod mcp;
 mod prompt;
 mod runtime;
+mod tokenizer;
 mod tui;
 
 use clap::Parser;

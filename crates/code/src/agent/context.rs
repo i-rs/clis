@@ -23,15 +23,7 @@ impl ContextManager {
     }
 
     pub fn estimate_tokens(messages: &[LlmMessage]) -> usize {
-        let total_chars: usize = messages.iter().map(|m| match m {
-            LlmMessage::System(s) => s.len(),
-            LlmMessage::User(s) => s.len(),
-            LlmMessage::Assistant(s) => s.len(),
-            LlmMessage::AssistantWithReasoning { content, reasoning, .. } => content.len() + reasoning.len(),
-            LlmMessage::Tool { content, .. } => content.len(),
-            LlmMessage::ToolCall { args, .. } => args.to_string().len(),
-        }).sum();
-        total_chars * 10 / 35
+        crate::tokenizer::estimate_message_tokens(messages)
     }
 
     pub fn should_compress(&self, messages: &[LlmMessage]) -> bool {
