@@ -2,6 +2,14 @@ use async_trait::async_trait;
 use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
 
+fn subst(template: &str, pairs: &[(&str, &str)]) -> String {
+    let mut s = template.to_string();
+    for (k, v) in pairs {
+        s = s.replace(k, v);
+    }
+    s
+}
+
 pub struct CreateCrateTool;
 
 #[async_trait]
@@ -53,133 +61,14 @@ impl Tool for CreateCrateTool {
         std::fs::create_dir_all(&pres_dir)?;
 
         // Cargo.toml
-        let cargo = format!(r#"[package]
-name = "{}"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-
-[dependencies]
-i-rs-core = {{ path = "../../i-rs-core" }}
-clap.workspace = true
-anyhow.workspace = true
-serde.workspace = true
-tabled.workspace = true
-owo-colors.workspace = true
-chrono.workspace = true
-uuid.workspace = true
-"#, name);
+        let cargo = subst(include_str!("templates/Cargo.toml.in"), &[("$NAME", name)]);
         std::fs::write(format!("{}/Cargo.toml", crate_dir), &cargo)?;
 
         // main.rs
-        let store_type = format!("{}Store", name);
-        let main_rs = format!(r#"use clap::{{Parser, Subcommand}};
-use i_rs_core::presentation::OutputFormat;
-use i_rs_core::exit_on_error;
-use models::Entity;
-use presentation;
-use storage::{store_type};
-
-#[derive(Parser, Debug)]
-#[command(name = "{name}")]
-#[command(about = "{description}", long_about = None)]
-struct Cli {{
-    #[command(subcommand)]
-    command: Commands,
-    #[arg(short, long, global = true)]
-    json: bool,
-}}
-
-#[derive(Subcommand, Debug)]
-enum Commands {{
-    Add {{ name: String, #[arg(short, long)] tags: Vec<String> }},
-    Delete {{ name: String }},
-    Get {{ name: String }},
-    List {{ #[arg(short, long)] tag: Option<String> }},
-    Update {{ name: String, #[arg(short, long)] tags: Vec<String> }},
-    Example {{}},
-    Skill {{ sub: Option<String> }},
-}}
-
-mod commands;
-mod models;
-mod storage;
-mod presentation;
-
-fn main() {{
-    let cli = Cli::parse();
-    let format = if cli.json {{ OutputFormat::Json }} else {{ OutputFormat::Table }};
-    exit_on_error!(run(cli.command, format), cli.json);
-}}
-
-fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {{
-    match command {{
-        Commands::Add {{ name, tags }} => {{
-            let mut store = {store_type}::load()?;
-            let id = uuid::Uuid::new_v4().to_string();
-            let now = chrono::Utc::now();
-            let entity = Entity {{
-                id: id.clone(),
-                name,
-                tags,
-                remark: Vec::new(),
-                created_at: now,
-                updated_at: now,
-            }};
-            store.insert(id.clone(), entity);
-            {store_type}::save(&store)?;
-            presentation::render_entries(&store.values().cloned().collect::<Vec<_>>(), format)?;
-            Ok(())
-        }}
-        Commands::Delete {{ name }} => {{
-            let mut store = {store_type}::load()?;
-            let id = store.iter().find(|(_, e)| e.name == name).map(|(id, _)| id.clone());
-            match id {{
-                Some(id) => {{ store.remove(&id); {store_type}::save(&store)?; Ok(()) }}
-                None => anyhow::bail!("not found: {{}}", name),
-            }}
-        }}
-        Commands::Get {{ name }} => {{
-            let store = {store_type}::load()?;
-            let entity = store.values().find(|e| e.name == name);
-            match entity {{
-                Some(e) => {{ presentation::render_entries(&[e.clone()], format)?; Ok(()) }}
-                None => anyhow::bail!("not found: {{}}", name),
-            }}
-        }}
-        Commands::List {{ tag }} => {{
-            let store = {store_type}::load()?;
-            let entries: Vec<_> = store.values()
-                .filter(|e| tag.as_ref().map_or(true, |t| e.tags.contains(t)))
-                .cloned().collect();
-            presentation::render_entries(&entries, format)?;
-            Ok(())
-        }}
-        Commands::Update {{ name, tags }} => {{
-            let mut store = {store_type}::load()?;
-            let entity = store.values_mut().find(|e| e.name == name);
-            match entity {{
-                Some(e) => {{ e.tags = tags; e.updated_at = chrono::Utc::now(); {store_type}::save(&store)?; Ok(()) }}
-                None => anyhow::bail!("not found: {{}}", name),
-            }}
-        }}
-        Commands::Example {{}} => {{
-            println!("Example usage:");
-            println!("  {name} add \"example\" --tags tag1,tag2");
-            println!("  {name} list");
-            println!("  {name} get \"example\"");
-            println!("  {name} delete \"example\"");
-            Ok(())
-        }}
-        Commands::Skill {{ sub }} => {{
-            i_rs_core::skill_command!("{name}", sub.as_deref().unwrap_or("show"));
-            Ok(())
-        }}
-    }}
-}}
-"#, name=name, description=description, store_type=store_type);
+        let main_rs = subst(
+            include_str!("templates/main.rs.in"),
+            &[("$NAME", name), ("$DESCRIPTION", description), ("$STORE_TYPE", &format!("{}Store", name))],
+        );
         std::fs::write(format!("{}/main.rs", src_dir), &main_rs)?;
 
         // models/mod.rs

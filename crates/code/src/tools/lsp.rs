@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
-use crate::runtime::LSP_SESSION;
 
 pub struct LspDiagnosticsTool;
 pub struct LspDefinitionTool;
@@ -34,7 +33,7 @@ impl Tool for LspDiagnosticsTool {
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let file_path = args.get("file_path").and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let diags = session.get_diagnostics(file_path).await?;
         if diags.is_empty() {
             Ok(format!("{}: no diagnostics", file_path))
@@ -71,7 +70,7 @@ impl Tool for LspDefinitionTool {
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
         let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_definition(file_path, line, character).await?;
         Ok(result)
     }
@@ -104,7 +103,7 @@ impl Tool for LspReferencesTool {
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
         let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_references(file_path, line, character).await?;
         Ok(result)
     }
@@ -137,7 +136,7 @@ impl Tool for LspHoverTool {
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
         let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_hover(file_path, line, character).await?;
         Ok(result)
     }
@@ -173,7 +172,7 @@ impl Tool for LspRenameTool {
         let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
         let new_name = args.get("new_name").and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("new_name required"))?;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_rename(file_path, line, character, new_name).await?;
         Ok(result)
     }
@@ -202,7 +201,7 @@ impl Tool for LspSymbolsTool {
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let file_path = args.get("file_path").and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_document_symbols(file_path).await?;
         Ok(result)
     }
@@ -235,7 +234,7 @@ impl Tool for LspCompletionTool {
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
         let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let mut session = LSP_SESSION.lock().await;
+        let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_completion(file_path, line, character).await?;
         Ok(result)
     }

@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, LazyLock, Mutex};
 
-use crate::runtime::MCP_MANAGER;
 use crate::tools::{Tool, ToolResult};
 
 pub struct McpConnectTool;
@@ -51,8 +50,8 @@ impl Tool for McpConnectTool {
             .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
             .unwrap_or_default();
 
-        MCP_MANAGER.connect(server_name, command, &cmd_args).await?;
-        let tools = MCP_MANAGER.discover_tools(server_name).await?;
+        crate::runtime::mcp_manager().connect(server_name, command, &cmd_args).await?;
+        let tools = crate::runtime::mcp_manager().discover_tools(server_name).await?;
 
         if tools.is_empty() {
             return Ok(format!("Connected to '{}' but no tools discovered", server_name));
@@ -115,7 +114,7 @@ impl Tool for McpToolWrapper {
         })
     }
     async fn call(&self, _args: &Map<String, Value>) -> ToolResult {
-        let result = crate::runtime::MCP_MANAGER.call_tool(&self.server_name, &self.tool_name, serde_json::Value::Object(_args.clone())).await?;
+        let result = crate::runtime::mcp_manager().call_tool(&self.server_name, &self.tool_name, serde_json::Value::Object(_args.clone())).await?;
         Ok(result.to_string())
     }
 }

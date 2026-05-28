@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::process::Stdio;
 
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
@@ -90,7 +90,7 @@ impl McpConnection {
 
         let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("no reader"))?;
         loop {
-            let read = read_mcp_message(reader);
+            let read = crate::protocol::transport::read_content_length_message(reader, "MCP");
             let msg = tokio::time::timeout(MCP_REQUEST_TIMEOUT, read).await
                 .map_err(|_| anyhow::anyhow!("MCP request timed out (id={})", id))??;
             if msg["id"].as_u64() == Some(id as u64) {
@@ -125,27 +125,6 @@ impl Drop for McpConnection {
             let _ = child.start_kill();
         }
     }
-}
-
-async fn read_mcp_message(reader: &mut BufReader<tokio::process::ChildStdout>) -> anyhow::Result<Value> {
-    let mut content_len: Option<usize> = None;
-    loop {
-        let mut line = String::new();
-        let bytes = reader.read_line(&mut line).await?;
-        if bytes == 0 {
-            anyhow::bail!("MCP server closed");
-        }
-        let trimmed = line.trim();
-        if trimmed.is_empty() { break; }
-        if let Some(len_str) = trimmed.strip_prefix("Content-Length: ") {
-            content_len = Some(len_str.parse()?);
-        }
-    }
-    let len = content_len.ok_or_else(|| anyhow::anyhow!("MCP: missing Content-Length"))?;
-    let mut buf = vec![0u8; len];
-    reader.read_exact(&mut buf).await?;
-    let content = String::from_utf8(buf)?;
-    Ok(serde_json::from_str(&content)?)
 }
 
 pub struct McpManager {

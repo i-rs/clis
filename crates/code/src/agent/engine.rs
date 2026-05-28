@@ -3,12 +3,13 @@ use crate::provider::*;
 use crate::router::{ExecutionMode, build_plan_prompt, classify_complexity};
 use crate::tools::ToolRegistry;
 use super::event::AgentEvent;
+use super::output::OutputMode;
+use super::tool_exec::{execute_tools, build_over_limit_message, ToolExecResult};
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 
 const MAX_PROVIDER_RETRIES: u32 = 3;
-const MAX_TOOL_RETRIES: u32 = 2;
 
 pub trait LoopHooks: Send + Sync {
     fn on_round_start(&self, _round: u32, _messages: &[LlmMessage]) {}
@@ -66,198 +67,6 @@ pub async fn generate_plan(
 
 fn is_transient_error(e: &str) -> bool {
     crate::provider::error::ProviderError::from_message(e).is_retryable()
-}
-
-struct ToolExecResult {
-    tool_messages: Vec<(String, String, String)>,
-}
-
-async fn execute_tools(
-    pending_tool_calls: &[ToolCall],
-    tools: &ToolRegistry,
-    retry_counts: &mut HashMap<String, u32>,
-    tool_timeout_secs: u64,
-    memory: &mut Option<CrossSessionMemory>,
-) -> ToolExecResult {
-    let mut tool_messages = Vec::new();
-
-    for tc in pending_tool_calls {
-        let mut result_str = String::new();
-        let current_retries = *retry_counts.get(&tc.id).unwrap_or(&0);
-
-        for attempt in 0..=current_retries {
-            if attempt > 0 {
-                tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
-            }
-
-            let tool = tools.get(&tc.name);
-            let tc_clone = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
-
-            let handle = tokio::spawn(async move {
-                if let Some(tool) = tool {
-                    match tc_clone.args.as_object() {
-                        Some(obj) => tool.call(obj).await,
-                        None => tool.call(&serde_json::Map::new()).await,
-                    }
-                } else {
-                    Err(anyhow::anyhow!("Unknown tool: {}", tc_clone.name))
-                }
-            });
-
-            result_str = match tokio::time::timeout(std::time::Duration::from_secs(tool_timeout_secs), handle).await {
-                Ok(Ok(inner)) => match inner {
-                    Ok(s) => crate::utils::truncate_output(&s, crate::error::MAX_TOOL_OUTPUT_BYTES),
-                    Err(e) => format!("Error: {}", e),
-                },
-                Ok(Err(join_err)) => format!("Error: tool task panicked: {}", join_err),
-                Err(_) => format!("Error: tool execution timed out ({}s)", tool_timeout_secs),
-            };
-
-            if !result_str.starts_with("Error:") {
-                retry_counts.remove(&tc.id);
-                break;
-            }
-        }
-
-        if result_str.starts_with("Error:") {
-            retry_counts.insert(tc.id.clone(), current_retries + 1);
-        }
-
-        if let Some(mem) = memory {
-            mem.record_tool_use(&tc.name);
-        }
-        tool_messages.push((tc.name.clone(), tc.id.clone(), result_str));
-    }
-    ToolExecResult { tool_messages }
-}
-
-fn build_over_limit_message(retry_counts: &HashMap<String, u32>) -> Option<String> {
-    let over_limit: Vec<_> = retry_counts.iter()
-        .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
-        .map(|(id, c)| (id.clone(), *c))
-        .collect();
-    if over_limit.is_empty() { return None; }
-    let details: Vec<String> = over_limit.iter()
-        .map(|(id, c)| format!("tool_call_id='{}' ({}次)", id, c))
-        .collect();
-    Some(format!(
-        "工具连续 {} 次调用失败。请反思：\n1. 参数是否正确？\n2. 是否需要换一种方式？\n3. 是否不需要这个工具？\n失败的调用: {}",
-        MAX_TOOL_RETRIES, details.join("; ")
-    ))
-}
-
-enum OutputMode<'a> {
-    Stdout { json_output: bool },
-    Channel { event_tx: &'a mpsc::Sender<AgentEvent> },
-}
-
-impl OutputMode<'_> {
-    async fn emit_token(&self, text: &str) -> anyhow::Result<()> {
-        match self {
-            Self::Stdout { json_output } => {
-                if *json_output {
-                    let ev = serde_json::json!({"event": "token", "content": text});
-                    println!("{}", serde_json::to_string(&ev)?);
-                } else {
-                    print!("{}", text);
-                    use std::io::Write;
-                    std::io::stdout().flush().ok();
-                }
-            }
-            Self::Channel { event_tx } => {
-                if event_tx.send(AgentEvent::Token(text.into())).await.is_err() {
-                    anyhow::bail!("channel closed");
-                }
-            }
-        }
-        Ok(())
-    }
-
-    async fn emit_reasoning(&self, text: &str) -> anyhow::Result<()> {
-        if let Self::Channel { event_tx } = self
-            && event_tx.send(AgentEvent::Reasoning(text.into())).await.is_err() {
-                anyhow::bail!("channel closed");
-        }
-        Ok(())
-    }
-
-    async fn emit_tool_call_start(&self, id: &str, name: &str, args: Value) -> anyhow::Result<()> {
-        if let Self::Channel { event_tx } = self
-            && event_tx.send(AgentEvent::ToolCallStart {
-                id: id.into(), name: name.into(), args,
-            }).await.is_err() {
-                anyhow::bail!("channel closed");
-        }
-        Ok(())
-    }
-
-    async fn emit_retry(&self, wait: u64, attempt: u32) -> anyhow::Result<()> {
-        match self {
-            Self::Stdout { json_output } if *json_output => {
-                let ev = serde_json::json!({"event": "retry", "wait": wait, "attempt": attempt});
-                println!("{}", serde_json::to_string(&ev)?);
-            }
-            Self::Channel { event_tx } => {
-                event_tx.send(AgentEvent::Status(
-                    format!("网络波动，{}s 后重试 ({}/{})...", wait, attempt, MAX_PROVIDER_RETRIES)
-                )).await.ok();
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    async fn emit_error(&self, error: &str) {
-        if let Self::Channel { event_tx } = self {
-            event_tx.send(AgentEvent::Error(error.into())).await.ok();
-        }
-    }
-
-    async fn emit_tool_call_end(&self, id: &str, name: &str, result: &str) {
-        if let Self::Channel { event_tx } = self {
-            event_tx.send(AgentEvent::ToolCallEnd {
-                id: id.into(), name: name.into(), result: result.into(),
-            }).await.ok();
-        }
-    }
-
-    fn emit_tool_created(&self, tool: &Value) {
-        if let Self::Stdout { json_output } = self
-            && *json_output {
-                let ev = serde_json::json!({"event": "tool_created", "tool": tool});
-                println!("{}", serde_json::to_string(&ev).unwrap_or_default());
-        }
-    }
-
-    fn emit_tool_result(&self, call_id: &str, name: &str, result: &str) {
-        if let Self::Stdout { json_output } = self
-            && *json_output {
-                let ev = serde_json::json!({
-                    "event": "tool_result", "tool_call_id": call_id, "name": name, "result": result,
-                });
-                println!("{}", serde_json::to_string(&ev).unwrap_or_default());
-        }
-    }
-
-    fn emit_request(&self, val: &Value) {
-        if let Self::Stdout { json_output } = self
-            && *json_output {
-                let ev = serde_json::json!({
-                    "event": "request",
-                    "type": val.get("request_type"),
-                    "content": val.get("content"),
-                });
-                println!("{}", serde_json::to_string(&ev).unwrap_or_default());
-        }
-    }
-
-    async fn emit_done(&self, usage: Option<crate::provider::Usage>, messages: &[LlmMessage], pct: f64) {
-        if let Self::Channel { event_tx } = self {
-            event_tx.send(AgentEvent::Done {
-                usage, messages: messages.to_vec(), context_pct: pct,
-            }).await.ok();
-        }
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -522,7 +331,7 @@ mod tests {
             &provider, &registry, messages, &tool_defs, false, 3, 5, &mut None
         ).await.expect("react_loop should not bail on tool errors");
 
-        let has_over_limit = msgs.iter().any(|m| matches!(m, LlmMessage::System(s) if s.contains("工具连续")));
+        let has_over_limit = msgs.iter().any(|m| matches!(m, LlmMessage::System(s) if s.contains("consecutive times")));
         assert!(has_over_limit, "Over-limit reflection prompt should be injected");
     }
 

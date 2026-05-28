@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{json, Map, Value};
 
-use crate::runtime::PTY_MANAGER;
 use crate::tools::{Tool, ToolResult};
 
 pub struct PtyExecTool;
@@ -48,7 +47,7 @@ impl Tool for PtyExecTool {
             .ok_or_else(|| anyhow::anyhow!("command required"))?;
         let timeout = args.get("timeout_secs").and_then(|v| v.as_u64()).unwrap_or(120);
         let cwd = std::env::current_dir().unwrap_or_default();
-        let output = PTY_MANAGER.exec(session_id, command, timeout, &cwd).await?;
+        let output = crate::runtime::pty_manager().exec(session_id, command, timeout, &cwd).await?;
         Ok(output)
     }
 }
@@ -79,7 +78,7 @@ impl Tool for PtyInterruptTool {
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let session_id = args.get("session_id").and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("session_id required"))?;
-        PTY_MANAGER.interrupt(session_id).await?;
+        crate::runtime::pty_manager().interrupt(session_id).await?;
         Ok(format!("Interrupted session {}", session_id))
     }
 }

@@ -1,6 +1,8 @@
 #[cfg(feature = "tui")]
 pub mod input;
 #[cfg(feature = "tui")]
+pub mod strings;
+#[cfg(feature = "tui")]
 pub mod ui;
 
 #[cfg(feature = "tui")]
@@ -38,10 +40,10 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             content: format!(
                 "Welcome to i-rs-code v{version}\n\n\
                  Type a message to start coding...\n\n\
-                 可用命令:\n  \
-                 i-rs-code chat <prompt>  一次性对话\n  \
-                 i-rs-code config init    交互式配置\n  \
-                 i-rs-code config show    查看配置"
+                 Available commands:\n  \
+                 i-rs-code chat <prompt>  One-shot conversation\n  \
+                 i-rs-code config init    Interactive setup\n  \
+                 i-rs-code config show    View configuration"
             ),
             reasoning: String::new(),
             tool_calls: None,

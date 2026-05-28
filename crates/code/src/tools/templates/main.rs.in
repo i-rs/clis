@@ -1,0 +1,104 @@
+use clap::{Parser, Subcommand};
+use i_rs_core::presentation::OutputFormat;
+use i_rs_core::exit_on_error;
+use models::Entity;
+use presentation;
+use storage::$STORE_TYPE;
+
+#[derive(Parser, Debug)]
+#[command(name = "$NAME")]
+#[command(about = "$DESCRIPTION", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+    #[arg(short, long, global = true)]
+    json: bool,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Add { name: String, #[arg(short, long)] tags: Vec<String> },
+    Delete { name: String },
+    Get { name: String },
+    List { #[arg(short, long)] tag: Option<String> },
+    Update { name: String, #[arg(short, long)] tags: Vec<String> },
+    Example {},
+    Skill { sub: Option<String> },
+}
+
+mod commands;
+mod models;
+mod storage;
+mod presentation;
+
+fn main() {
+    let cli = Cli::parse();
+    let format = if cli.json { OutputFormat::Json } else { OutputFormat::Table };
+    exit_on_error!(run(cli.command, format), cli.json);
+}
+
+fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
+    match command {
+        Commands::Add { name, tags } => {
+            let mut store = $STORE_TYPE::load()?;
+            let id = uuid::Uuid::new_v4().to_string();
+            let now = chrono::Utc::now();
+            let entity = Entity {
+                id: id.clone(),
+                name,
+                tags,
+                remark: Vec::new(),
+                created_at: now,
+                updated_at: now,
+            };
+            store.insert(id.clone(), entity);
+            $STORE_TYPE::save(&store)?;
+            presentation::render_entries(&store.values().cloned().collect::<Vec<_>>(), format)?;
+            Ok(())
+        }
+        Commands::Delete { name } => {
+            let mut store = $STORE_TYPE::load()?;
+            let id = store.iter().find(|(_, e)| e.name == name).map(|(id, _)| id.clone());
+            match id {
+                Some(id) => { store.remove(&id); $STORE_TYPE::save(&store)?; Ok(()) }
+                None => anyhow::bail!("not found: {}", name),
+            }
+        }
+        Commands::Get { name } => {
+            let store = $STORE_TYPE::load()?;
+            let entity = store.values().find(|e| e.name == name);
+            match entity {
+                Some(e) => { presentation::render_entries(&[e.clone()], format)?; Ok(()) }
+                None => anyhow::bail!("not found: {}", name),
+            }
+        }
+        Commands::List { tag } => {
+            let store = $STORE_TYPE::load()?;
+            let entries: Vec<_> = store.values()
+                .filter(|e| tag.as_ref().map_or(true, |t| e.tags.contains(t)))
+                .cloned().collect();
+            presentation::render_entries(&entries, format)?;
+            Ok(())
+        }
+        Commands::Update { name, tags } => {
+            let mut store = $STORE_TYPE::load()?;
+            let entity = store.values_mut().find(|e| e.name == name);
+            match entity {
+                Some(e) => { e.tags = tags; e.updated_at = chrono::Utc::now(); $STORE_TYPE::save(&store)?; Ok(()) }
+                None => anyhow::bail!("not found: {}", name),
+            }
+        }
+        Commands::Example {} => {
+            println!("Example usage:");
+            println!("  $NAME add \"example\" --tags tag1,tag2");
+            println!("  $NAME list");
+            println!("  $NAME get \"example\"");
+            println!("  $NAME delete \"example\"");
+            Ok(())
+        }
+        Commands::Skill { sub } => {
+            i_rs_core::skill_command!("$NAME", sub.as_deref().unwrap_or("show"));
+            Ok(())
+        }
+    }
+}

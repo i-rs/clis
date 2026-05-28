@@ -1,8 +1,7 @@
 use lsp_types::*;
 use std::sync::LazyLock;
-use std::sync::atomic::Ordering;
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 
 const LSP_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
@@ -133,7 +132,7 @@ impl LspSession {
         match tokio::time::timeout(std::time::Duration::from_secs(15), init).await {
             Ok(Ok(())) => {
                 self.initialized = true;
-                crate::runtime::LSP_INITIALIZED.store(true, Ordering::Relaxed);
+                crate::runtime::mark_lsp_initialized();
                 Ok(())
             }
             Ok(Err(e)) => Err(e),
@@ -163,7 +162,7 @@ impl LspSession {
         let target_uri = path_to_uri(file_path)?;
 
         loop {
-            let read = read_lsp_message(self.reader.as_mut().expect("LSP reader not initialized"));
+            let read = crate::protocol::transport::read_content_length_message(self.reader.as_mut().expect("LSP reader not initialized"), "LSP");
             match tokio::time::timeout(LSP_DIAGNOSTICS_TIMEOUT, read).await {
                 Ok(Ok(msg)) => {
                     if msg["method"] == "textDocument/publishDiagnostics"
@@ -423,7 +422,7 @@ impl LspSession {
         let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("no reader"))?;
 
         loop {
-            let read = read_lsp_message(reader);
+            let read = crate::protocol::transport::read_content_length_message(reader, "LSP");
             match tokio::time::timeout(LSP_REQUEST_TIMEOUT, read).await {
                 Ok(Ok(msg)) => {
                     if msg["id"].as_u64() == Some(id as u64) {
@@ -465,29 +464,6 @@ impl Drop for LspSession {
             let _ = child.start_kill();
         }
     }
-}
-
-async fn read_lsp_message(reader: &mut BufReader<tokio::process::ChildStdout>) -> anyhow::Result<Value> {
-    let mut content_len: Option<usize> = None;
-    loop {
-        let mut line = String::new();
-        let bytes = reader.read_line(&mut line).await?;
-        if bytes == 0 {
-            anyhow::bail!("LSP server closed connection");
-        }
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            break;
-        }
-        if let Some(len_str) = trimmed.strip_prefix("Content-Length: ") {
-            content_len = Some(len_str.parse()?);
-        }
-    }
-    let len = content_len.ok_or_else(|| anyhow::anyhow!("missing Content-Length"))?;
-    let mut buf = vec![0u8; len];
-    reader.read_exact(&mut buf).await?;
-    let content = String::from_utf8(buf)?;
-    Ok(serde_json::from_str(&content)?)
 }
 
 fn format_location(loc: &Location) -> String {

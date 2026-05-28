@@ -1,81 +1,151 @@
-use std::sync::LazyLock;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
+use tokio::sync::Mutex as AsyncMutex;
 
+use crate::lsp::LspSession;
 use crate::mcp::McpManager;
 use crate::pty::PtyManager;
-use crate::lsp::LspSession;
 
-pub static MCP_MANAGER: LazyLock<McpManager> = LazyLock::new(McpManager::new);
-pub static PTY_MANAGER: LazyLock<PtyManager> = LazyLock::new(PtyManager::new);
-pub static LSP_SESSION: LazyLock<Mutex<LspSession>> = LazyLock::new(|| Mutex::new(LspSession::new()));
-pub static LSP_INITIALIZED: AtomicBool = AtomicBool::new(false);
-pub static LAST_WEB_REQUEST: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+struct RuntimeInner {
+    mcp_manager: McpManager,
+    pty_manager: PtyManager,
+    lsp_session: LspSession,
+    lsp_initialized: bool,
+    last_web_request: Instant,
+    total_input_tokens: u64,
+    total_output_tokens: u64,
+    session_token_budget: u64,
+    last_api_call: Instant,
+    debug_mode: bool,
+    verbose_mode: bool,
+}
 
-static TOTAL_INPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
-static TOTAL_OUTPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
-static SESSION_TOKEN_BUDGET: AtomicU64 = AtomicU64::new(0);
-static LAST_API_CALL: LazyLock<tokio::sync::Mutex<Instant>> = LazyLock::new(|| tokio::sync::Mutex::new(Instant::now()));
-static MIN_REQUEST_INTERVAL_MS: u64 = 1000;
-static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
-static VERBOSE_MODE: AtomicBool = AtomicBool::new(false);
+impl RuntimeInner {
+    fn new() -> Self {
+        Self {
+            mcp_manager: McpManager::new(),
+            pty_manager: PtyManager::new(),
+            lsp_session: LspSession::new(),
+            lsp_initialized: false,
+            last_web_request: Instant::now(),
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            session_token_budget: 0,
+            last_api_call: Instant::now(),
+            debug_mode: false,
+            verbose_mode: false,
+        }
+    }
+}
+
+static RUNTIME: LazyLock<Mutex<Option<RuntimeInner>>> = LazyLock::new(|| Mutex::new(Some(RuntimeInner::new())));
+
+fn with_runtime<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut RuntimeInner) -> R,
+{
+    let mut guard = RUNTIME.lock().unwrap();
+    let inner = guard.as_mut().expect("Runtime not initialized");
+    f(inner)
+}
+
+pub fn reset_for_testing() {
+    let mut guard = RUNTIME.lock().unwrap();
+    *guard = Some(RuntimeInner::new());
+}
+
+static LSP_INIT: AtomicBool = AtomicBool::new(false);
+
+pub fn mark_lsp_initialized() {
+    LSP_INIT.store(true, Ordering::Relaxed);
+}
+
+pub fn is_lsp_initialized() -> bool {
+    LSP_INIT.load(Ordering::Relaxed)
+}
+
+pub fn mcp_manager() -> &'static McpManager {
+    static MCP: LazyLock<McpManager> = LazyLock::new(McpManager::new);
+    &MCP
+}
+
+pub fn pty_manager() -> &'static PtyManager {
+    static PTY: LazyLock<PtyManager> = LazyLock::new(PtyManager::new);
+    &PTY
+}
+
+pub fn lsp_session() -> &'static AsyncMutex<LspSession> {
+    static LSP: LazyLock<AsyncMutex<LspSession>> = LazyLock::new(|| AsyncMutex::new(LspSession::new()));
+    &LSP
+}
+
+pub fn last_web_request() -> &'static AsyncMutex<Instant> {
+    static WEB: LazyLock<AsyncMutex<Instant>> = LazyLock::new(|| AsyncMutex::new(Instant::now()));
+    &WEB
+}
 
 pub fn set_debug(enabled: bool) {
-    DEBUG_MODE.store(enabled, Ordering::Relaxed);
+    with_runtime(|r| r.debug_mode = enabled);
 }
 
 pub fn is_debug() -> bool {
-    DEBUG_MODE.load(Ordering::Relaxed)
+    with_runtime(|r| r.debug_mode)
 }
 
 pub fn set_verbose(enabled: bool) {
-    VERBOSE_MODE.store(enabled, Ordering::Relaxed);
+    with_runtime(|r| r.verbose_mode = enabled);
 }
 
 pub fn is_verbose() -> bool {
-    VERBOSE_MODE.load(Ordering::Relaxed)
+    with_runtime(|r| r.verbose_mode)
 }
 
 pub fn session_token_budget() -> u64 {
-    SESSION_TOKEN_BUDGET.load(Ordering::Relaxed)
+    with_runtime(|r| r.session_token_budget)
 }
 
 pub fn set_session_token_budget(budget: u64) {
-    SESSION_TOKEN_BUDGET.store(budget, Ordering::Relaxed);
+    with_runtime(|r| r.session_token_budget = budget);
 }
 
 pub fn add_usage(input: u32, output: u32) {
-    TOTAL_INPUT_TOKENS.fetch_add(input as u64, Ordering::Relaxed);
-    TOTAL_OUTPUT_TOKENS.fetch_add(output as u64, Ordering::Relaxed);
+    with_runtime(|r| {
+        r.total_input_tokens += input as u64;
+        r.total_output_tokens += output as u64;
+    });
 }
 
 pub fn total_usage_tokens() -> u64 {
-    TOTAL_INPUT_TOKENS.load(Ordering::Relaxed) + TOTAL_OUTPUT_TOKENS.load(Ordering::Relaxed)
+    with_runtime(|r| r.total_input_tokens + r.total_output_tokens)
 }
 
 pub fn exceeds_token_budget() -> bool {
-    let budget = SESSION_TOKEN_BUDGET.load(Ordering::Relaxed);
-    if budget == 0 { return false; }
-    total_usage_tokens() >= budget
+    with_runtime(|r| {
+        if r.session_token_budget == 0 {
+            return false;
+        }
+        r.total_input_tokens + r.total_output_tokens >= r.session_token_budget
+    })
 }
 
 pub fn reset_usage() {
-    TOTAL_INPUT_TOKENS.store(0, Ordering::Relaxed);
-    TOTAL_OUTPUT_TOKENS.store(0, Ordering::Relaxed);
+    with_runtime(|r| {
+        r.total_input_tokens = 0;
+        r.total_output_tokens = 0;
+    });
 }
+
+const MIN_REQUEST_INTERVAL_MS: u64 = 1000;
 
 pub async fn rate_limit_wait() {
     let interval = Duration::from_millis(MIN_REQUEST_INTERVAL_MS);
     loop {
         let now = Instant::now();
-        let last = {
-            let guard = LAST_API_CALL.lock().await;
-            *guard
-        };
+        let last = with_runtime(|r| r.last_api_call);
         let elapsed = now.saturating_duration_since(last);
         if elapsed >= interval {
-            *LAST_API_CALL.lock().await = now;
+            with_runtime(|r| r.last_api_call = now);
             return;
         }
         tokio::time::sleep(interval - elapsed).await;

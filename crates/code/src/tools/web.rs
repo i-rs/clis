@@ -3,7 +3,6 @@ use std::net::ToSocketAddrs;
 use serde_json::{json, Value, Map};
 use std::time::Instant;
 use crate::config::Config;
-use crate::runtime::LAST_WEB_REQUEST;
 use crate::tools::{Tool, ToolResult};
 
 const MAX_RESULTS: usize = 10;
@@ -42,7 +41,7 @@ fn is_private_url(url: &str) -> bool {
 }
 
 async fn rate_limit() {
-    let mut last = LAST_WEB_REQUEST.lock().await;
+    let mut last = crate::runtime::last_web_request().lock().await;
     let elapsed = last.elapsed().as_millis() as u64;
     if elapsed < RATE_LIMIT_MS {
         tokio::time::sleep(std::time::Duration::from_millis(RATE_LIMIT_MS - elapsed)).await;

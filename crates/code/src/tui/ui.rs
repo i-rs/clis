@@ -1,4 +1,3 @@
-use std::sync::atomic::Ordering;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -7,6 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 use crate::app::{AgentMessage, App, AppMode};
+use super::strings;
 
 const SIDEBAR_WIDTH: u16 = 38;
 
@@ -201,26 +201,21 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
 
     frame.render_widget(Clear, overlay);
 
-    let items = vec![
-        Line::from(""),
-        Line::from(Span::styled("  ? / Esc       关闭此面板", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Enter         发送消息", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Alt+Enter     换行", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Esc / q       退出", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Ctrl+C        取消当前生成", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Ctrl+Z        撤销文件修改", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Ctrl+T        转录模式（完整输出）", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Ctrl+D        HTTP 调试面板", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  [ / ]         选择上/下一条消息", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  r             展开/折叠选中消息的思考过程", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  ↑ / ↓ / PgUp  滚动聊天", Style::default().fg(Color::White))),
-        Line::from(Span::styled("  Tab           工具名补全", Style::default().fg(Color::White))),
-        Line::from(""),
-        Line::from(Span::styled("     Press any key to close", Style::default().fg(C_DIM))),
-    ];
+    let items: Vec<Line> = std::iter::once(Line::from(""))
+        .chain(strings::SHORTCUTS.iter().map(|(key, label)| {
+            Line::from(Span::styled(
+                format!("  {:<14} {}", key, label),
+                Style::default().fg(Color::White),
+            ))
+        }))
+        .chain(std::iter::once(Line::from("")))
+        .chain(std::iter::once(Line::from(Span::styled(
+            "     Press any key to close", Style::default().fg(C_DIM),
+        ))))
+        .collect();
 
     let block = Block::default()
-        .title(" ⌨ Keyboard Shortcuts ")
+        .title(format!(" {} ", strings::SHORTCUT_TITLE))
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
@@ -299,21 +294,10 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Span::styled("▎AI", Style::default().fg(C_GREEN).add_modifier(Modifier::BOLD)),
                 ]));
                 if !reasoning.is_empty() {
-                    if *reasoning_expanded {
-                        lines.push(Line::from(vec![
-                            Span::styled(" ▼ 思考过程（按 r 折叠）", Style::default().fg(C_YELLOW)),
-                        ]));
-                        for line in reasoning.lines() {
-                            lines.push(Line::from(Span::styled(
-                                format!(" {}", line),
-                                Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
-                            )));
-                        }
-                    } else {
-                        lines.push(Line::from(vec![
-                            Span::styled(" ▶ 思考过程（按 r 展开）", Style::default().fg(C_YELLOW)),
-                        ]));
-                    }
+                    lines.push(Line::from(Span::styled(
+                        if *reasoning_expanded { strings::REASONING_VISIBLE } else { strings::REASONING_HIDDEN },
+                        Style::default().fg(C_YELLOW),
+                    )));
                 }
                 for line in content.lines() {
                     lines.push(Line::from(Span::raw(format!(" {}", line))));
@@ -474,7 +458,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     let hidden_msgs = app.messages.len().saturating_sub(1);
     if scroll > 0 && hidden_msgs > 0 {
         let mut header = vec![Line::from(Span::styled(
-            format!(" ↑ {} 条历史消息 ", hidden_msgs),
+            strings::scrolled_up_hint(hidden_msgs),
             Style::default().fg(C_DIM),
         ))];
         if let Some(idx) = app.selected_message {
@@ -613,7 +597,7 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 
     // --- LSP ---
     items.push(Line::from(Span::styled("─ LSP ─", Style::default().fg(C_DIM))));
-    let (lsp_label, lsp_color) = if crate::runtime::LSP_INITIALIZED.load(Ordering::Relaxed) {
+    let (lsp_label, lsp_color) = if crate::runtime::is_lsp_initialized() {
         ("✓ ready", Color::Green)
     } else {
         ("… waiting", Color::Yellow)
@@ -691,7 +675,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let prefix = "> ";
 
     let hint = Line::from(Span::styled(
-        "  [?] 键盘快捷键  [Enter] 发送  [Esc] 退出  [Ctrl+C] 取消  [Ctrl+Z] 撤销  [Ctrl+T] 转录  [[] []] 选择",
+        strings::STATUS_BAR,
         Style::default().fg(C_DIM),
     ));
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
@@ -704,7 +688,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         ]
     } else if app.input.content.is_empty() {
         vec![
-            Line::from(Span::styled(format!("{}输入消息...", prefix), Style::default().fg(C_DIM))),
+            Line::from(Span::styled(format!("{}{}", prefix, strings::INPUT_PLACEHOLDER), Style::default().fg(C_DIM))),
             hint,
         ]
     } else {

@@ -1,0 +1,17 @@
+[package]
+name = "$NAME"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+i-rs-core = { path = "../../i-rs-core" }
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+tabled.workspace = true
+owo-colors.workspace = true
+chrono.workspace = true
+uuid.workspace = true

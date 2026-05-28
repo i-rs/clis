@@ -1,7 +1,9 @@
 pub mod engine;
 pub mod context;
 pub mod event;
+pub mod output;
 pub mod session_trait;
+pub mod tool_exec;
 
 use crate::config::{Config, ProjectInfo};
 use crate::memory::CrossSessionMemory;
