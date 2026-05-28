@@ -7,6 +7,8 @@ pub mod git;
 pub mod web;
 pub mod delete;
 pub mod rename;
+pub mod lsp;
+pub mod pty;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -53,6 +55,11 @@ impl ToolRegistry {
         tools.insert("web_search".into(), Arc::new(web::WebSearchTool));
         tools.insert("delete".into(), Arc::new(delete::DeleteTool));
         tools.insert("rename".into(), Arc::new(rename::RenameTool));
+        tools.insert("lsp_diagnostics".into(), Arc::new(lsp::LspDiagnosticsTool));
+        tools.insert("lsp_definition".into(), Arc::new(lsp::LspDefinitionTool));
+        tools.insert("lsp_references".into(), Arc::new(lsp::LspReferencesTool));
+        tools.insert("pty_exec".into(), Arc::new(pty::PtyExecTool));
+        tools.insert("pty_interrupt".into(), Arc::new(pty::PtyInterruptTool));
 
         Ok(Self { tools })
     }

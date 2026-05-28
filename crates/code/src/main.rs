@@ -19,6 +19,8 @@ mod utils;
 mod debug;
 #[cfg(test)]
 mod testing;
+mod lsp;
+mod pty;
 mod prompt;
 mod tui;
 
