@@ -76,6 +76,76 @@ pub struct AgentConfig {
     pub system_prompt: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ProjectInfo {
+    pub project_type: String,
+    pub has_cargo: bool,
+    pub has_package_json: bool,
+    pub has_pyproject: bool,
+    pub has_makefile: bool,
+    pub has_agents_md: bool,
+    pub has_cursor_rules: bool,
+    pub agents_md_content: Option<String>,
+    pub cursor_rules_content: Option<String>,
+}
+
+impl ProjectInfo {
+    pub fn detect() -> Self {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let has_cargo = cwd.join("Cargo.toml").exists();
+        let has_package_json = cwd.join("package.json").exists();
+        let has_pyproject = cwd.join("pyproject.toml").exists();
+        let has_makefile = cwd.join("Makefile").exists();
+        let agents_md = cwd.join("AGENTS.md");
+        let has_agents_md = agents_md.exists();
+        let agents_md_content = if has_agents_md {
+            std::fs::read_to_string(&agents_md).ok()
+        } else {
+            cwd.join(".cursor/rules").exists().then(|| {
+                std::fs::read_dir(&cwd.join(".cursor/rules"))
+                    .ok()
+                    .map(|entries| {
+                        entries.filter_map(|e| e.ok())
+                            .filter_map(|e| std::fs::read_to_string(e.path()).ok())
+                            .collect::<Vec<_>>()
+                            .join("\n\n")
+                    })
+                    .unwrap_or_default()
+            })
+        };
+        let cursor_rules = cwd.join(".cursor/rules");
+        let has_cursor_rules = cursor_rules.exists();
+
+        let project_type = if has_cargo { "Rust (Cargo)" }
+            else if has_package_json { "Node.js" }
+            else if has_pyproject { "Python" }
+            else if has_makefile { "Make/C" }
+            else { "Unknown" };
+
+        Self {
+            project_type: project_type.into(),
+            has_cargo,
+            has_package_json,
+            has_pyproject,
+            has_makefile,
+            has_agents_md,
+            has_cursor_rules,
+            agents_md_content,
+            cursor_rules_content: if has_cursor_rules {
+                std::fs::read_dir(&cursor_rules).ok()
+                    .map(|entries| {
+                        entries.filter_map(|e| e.ok())
+                            .filter_map(|e| std::fs::read_to_string(e.path()).ok())
+                            .collect::<Vec<_>>()
+                            .join("\n\n")
+                    })
+            } else {
+                None
+            },
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {

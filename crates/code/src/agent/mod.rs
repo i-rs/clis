@@ -3,7 +3,7 @@ pub mod context;
 pub mod event;
 pub mod session_trait;
 
-use crate::config::Config;
+use crate::config::{Config, ProjectInfo};
 use crate::provider::{LlmProvider, LlmMessage};
 use crate::tools::ToolRegistry;
 use tokio::sync::mpsc;
@@ -23,13 +23,19 @@ impl Agent {
         tools: ToolRegistry,
         json_output: bool,
     ) -> Self {
-        Self {
+        let agent = Self {
             config,
             provider,
             tools,
             messages: Vec::new(),
             json_output,
+        };
+        if let Some(max_cost) = agent.config.max_cost_per_session {
+            let budget = (max_cost * 1_000_000.0) as u64;
+            crate::runtime::set_session_token_budget(budget);
+            crate::runtime::reset_usage();
         }
+        agent
     }
 
     pub fn add_system_prompt(&mut self, prompt: &str) {
@@ -37,11 +43,12 @@ impl Agent {
     }
 
     pub async fn run_once(&mut self, prompt: &str) -> anyhow::Result<()> {
-        let system_text = crate::prompt::SYSTEM;
+        let project_info = ProjectInfo::detect();
+        let system_text = crate::prompt::build_system_prompt(&project_info);
 
         let tool_defs = self.tools.schemas();
 
-        let msgs = build_messages(&self.messages, system_text, prompt);
+        let msgs = build_messages(&self.messages, &system_text, &project_info, prompt);
 
         let (final_text, new_messages) = engine::react_loop(
             &*self.provider,
@@ -71,10 +78,11 @@ impl Agent {
         event_tx: mpsc::Sender<event::AgentEvent>,
         history: Vec<LlmMessage>,
     ) -> anyhow::Result<String> {
-        let system_text = crate::prompt::SYSTEM;
+        let project_info = ProjectInfo::detect();
+        let system_text = crate::prompt::build_system_prompt(&project_info);
 
         let tool_defs = self.tools.schemas();
-        let msgs = build_messages(&history, system_text, prompt);
+        let msgs = build_messages(&history, &system_text, &project_info, prompt);
 
         let (final_text, new_messages) = engine::react_loop_streaming(
             &*self.provider,
@@ -94,10 +102,11 @@ impl Agent {
 fn build_messages(
     history: &[LlmMessage],
     system_text: &str,
+    project_info: &ProjectInfo,
     prompt: &str,
 ) -> Vec<LlmMessage> {
     let mut msgs = Vec::new();
-    let context = crate::prompt::build_context();
+    let context = crate::prompt::build_context(project_info);
     let system = if context.is_empty() {
         system_text.to_string()
     } else {
@@ -150,9 +159,10 @@ impl ChatSession for Agent {
         input: ChatInput,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ChatOutput>> + Send + '_>> {
         Box::pin(async move {
-            let system_text = crate::prompt::SYSTEM;
+            let project_info = ProjectInfo::detect();
+            let system_text = crate::prompt::build_system_prompt(&project_info);
             let tool_defs = self.tools.schemas();
-            let msgs = build_messages(&input.history, system_text, &input.prompt);
+            let msgs = build_messages(&input.history, &system_text, &project_info, &input.prompt);
             let (final_text, new_messages) = engine::react_loop(
                 &*self.provider, &self.tools, msgs, &tool_defs,
                 self.json_output, self.config.max_rounds, self.config.tool_timeout_secs,
@@ -170,9 +180,10 @@ impl StreamingChatSession for Agent {
         event_tx: mpsc::Sender<event::AgentEvent>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ChatOutput>> + Send + '_>> {
         Box::pin(async move {
-            let system_text = crate::prompt::SYSTEM;
+            let project_info = ProjectInfo::detect();
+            let system_text = crate::prompt::build_system_prompt(&project_info);
             let tool_defs = self.tools.schemas();
-            let msgs = build_messages(&input.history, system_text, &input.prompt);
+            let msgs = build_messages(&input.history, &system_text, &project_info, &input.prompt);
             let (final_text, new_messages) = engine::react_loop_streaming(
                 &*self.provider, &self.tools, msgs, &tool_defs,
                 event_tx, self.config.max_rounds, self.config.tool_timeout_secs,
