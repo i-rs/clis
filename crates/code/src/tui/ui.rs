@@ -324,70 +324,84 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(""));
     }
 
-    // Render streaming state
+    // Render live streaming block (stable layout: completed tools → current tool → last 6 reasoning → content)
     if let Some(ref s) = app.streaming {
         lines.push(Line::from(vec![
             Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
         ]));
 
-        if !s.reasoning.is_empty() {
-            for line in s.reasoning.lines() {
+        // 1. Completed tool calls (accumulated, above everything, don't move)
+        for tool in &s.tool_calls {
+            lines.push(Line::from(""));
+            let status = if tool.result.is_some() { "done" } else { "running..." };
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!(" • {} {}", tool.name, status),
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            if let Some(ref result) = tool.result {
+                let preview: String = result.chars().take(300).collect();
+                for line in preview.lines().take(4) {
+                    lines.push(Line::from(Span::styled(
+                        format!("   └ {}", line),
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+                if preview.len() < result.len() || result.lines().count() > 4 {
+                    lines.push(Line::from(Span::styled(
+                        "   └ ...",
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+            }
+        }
+
+        // 2. Current running tool (if any)
+        if let Some(ref tool) = s.current_tool {
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!(" • {} running...", tool.name),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            let preview: String = tool.args.chars().take(inner.width.saturating_sub(6) as usize).collect();
+            for line in preview.lines() {
                 lines.push(Line::from(Span::styled(
-                    format!(" {}", line),
+                    format!("   └ {}", line),
+                    Style::default().fg(Color::DarkGray),
+                )));
+            }
+        }
+
+        // 3. Live thinking: last 6 lines only (fixed height, in-place update)
+        if !s.reasoning.is_empty() {
+            let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
+            let total = reasoning_lines.len();
+            let start = total.saturating_sub(6);
+            if start > 0 {
+                lines.push(Line::from(Span::styled(
+                    format!(" ╎ … {} earlier lines", start),
+                    Style::default().fg(Color::Rgb(150, 150, 100)).add_modifier(Modifier::ITALIC),
+                )));
+            }
+            for line in &reasoning_lines[start..] {
+                lines.push(Line::from(Span::styled(
+                    format!(" ╎ {}", line),
                     Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
                 )));
             }
         }
 
+        // 4. Streaming content (below thinking)
         if !s.content.is_empty() {
             for line in s.content.lines() {
                 lines.push(Line::from(Span::raw(format!(" {}", line))));
             }
         }
 
-        if let Some(ref tool) = s.current_tool {
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!(" [Tool] {} running...", tool.name),
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            let preview: String = tool.args.chars().take(inner.width.saturating_sub(4) as usize).collect();
-            for line in preview.lines() {
-                lines.push(Line::from(Span::styled(
-                    format!("   {}", line),
-                    Style::default().fg(Color::DarkGray),
-                )));
-            }
-        }
-
-        for tool in &s.tool_calls {
-            lines.push(Line::from(""));
-            let status = if tool.result.is_some() { "done" } else { "running..." };
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!(" [Tool] {} {}", tool.name, status),
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-                ),
-            ]));
-            if let Some(ref result) = tool.result {
-                let preview: String = result.chars().take(300).collect();
-                for line in preview.lines().take(6) {
-                    lines.push(Line::from(Span::styled(
-                        format!("   {}", line),
-                        Style::default().fg(Color::DarkGray),
-                    )));
-                }
-                if preview.len() < result.len() || result.lines().count() > 6 {
-                    lines.push(Line::from(Span::styled(
-                        "   ... (truncated)",
-                        Style::default().fg(Color::DarkGray),
-                    )));
-                }
-            }
-        }
-
+        // 5. Cursor indicator
         if s.current_tool.is_none() && !s.content.is_empty() {
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
@@ -396,7 +410,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         } else if s.current_tool.is_none() && s.content.is_empty() {
             lines.push(Line::from(vec![
                 Span::styled(
-                    " thinking...",
+                    " ╎ ...",
                     Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
                 ),
             ]));
