@@ -8,7 +8,7 @@ pub struct GitTool;
 impl Tool for GitTool {
     fn name(&self) -> &str { "git" }
     fn description(&self) -> &str {
-        "Execute git operations (status, diff, add, commit, log, stash, checkout, branch, etc.)"
+        "Execute git operations (status, diff, add, commit, log, stash, checkout, stash_pop, etc.)"
     }
     fn schema(&self) -> Value {
         json!({
@@ -19,7 +19,7 @@ impl Tool for GitTool {
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "command": {"type": "string", "description": "Full git command string, e.g. 'status --short', 'add -A', 'commit -m \"fix: typo\"', 'log --oneline -10', 'stash push -m \"wip\"', 'stash pop', 'checkout -- <file>', 'diff --cached', 'branch -a', 'show HEAD:path/to/file'"}
+                        "command": {"type": "string", "description": "Git subcommand, e.g. 'status --short', 'add -A', 'commit -m \"msg\"', 'log --oneline -10', 'stash push -m wip', 'stash pop', 'checkout -- <file>', 'diff --cached', 'branch -a', 'show HEAD:path/to/file', 'checkout -b <branch>', 'merge --no-ff'"}
                     },
                     "required": ["command"]
                 }
@@ -28,10 +28,10 @@ impl Tool for GitTool {
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let cmd = args.get("command").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("command required"))?;
-        let blocked = ["push", "force", "reset --hard", "clean -fd"];
+        let blocked = ["push --force", "push -f", "reset --hard", "clean -fd", "filter-branch"];
         for pattern in &blocked {
             if cmd.contains(pattern) {
-                return Err(anyhow::anyhow!("git command blocked: '{}' contains '{}'. Use bash if you really need this.", cmd, pattern));
+                return Err(anyhow::anyhow!("git command blocked: '{}' contains '{}'. This is dangerous and should be done manually.", cmd, pattern));
             }
         }
         let cwd = std::env::current_dir()?;
