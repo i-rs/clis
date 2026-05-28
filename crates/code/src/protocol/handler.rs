@@ -3,6 +3,7 @@ use crate::protocol::{CodeEvent, ClawTask, transport::Transport};
 
 pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<()> {
     // Set agent mode flag so tools know they're running under claw
+    // SAFETY: called once at startup, no concurrent access
     unsafe { std::env::set_var("I_RS_CODE_AGENT_MODE", "1"); }
 
     // Notify claw we're ready

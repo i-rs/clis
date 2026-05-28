@@ -7,7 +7,6 @@ use tokio::sync::mpsc;
 
 const MAX_PROVIDER_RETRIES: u32 = 2;
 const MAX_TOOL_RETRIES: u32 = 2;
-const DEFAULT_TOOL_TIMEOUT_SECS: u64 = 120;
 
 fn is_transient_error(e: &str) -> bool {
     let lower = e.to_lowercase();

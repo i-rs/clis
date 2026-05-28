@@ -1,3 +1,6 @@
+// Dead code is allowed at crate level because large portions
+// (protocol mode, router, memory, convstore, cross-session features)
+// are only exercised through specific feature paths or CLI subcommands.
 #![allow(dead_code)]
 
 mod cli;
