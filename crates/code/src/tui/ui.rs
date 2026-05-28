@@ -243,11 +243,6 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let inner = block.inner(area);
-
     let mut lines: Vec<Line> = Vec::new();
     let mut last_was_tool = false;
 
@@ -454,42 +449,55 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     lines.push(Line::from(""));
     lines.push(Line::from(""));
 
-    let max_scroll = lines.len().saturating_sub(inner.height as usize);
+    let max_scroll = lines.len().saturating_sub(area.height as usize);
     let scroll = if app.auto_scroll { max_scroll } else { max_scroll.saturating_sub(app.scroll_offset).min(max_scroll) };
 
+
+    // Show "↑ N 条历史消息" at the top if scrolled
     let hidden_msgs = app.messages.len().saturating_sub(1);
-    let mut block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    if !app.auto_scroll && (scroll > 0 || hidden_msgs > 0) {
-        block = block.title(format!(" ↑ {} 条历史消息 ", hidden_msgs));
-        block = block.title_alignment(Alignment::Center);
-    }
-    if let Some(idx) = app.selected_message {
-        block = block.title(format!(" 📍 #{} ", idx));
-        block = block.title_alignment(Alignment::Right);
+    if scroll > 0 && hidden_msgs > 0 {
+        let mut header = vec![Line::from(Span::styled(
+            format!(" ↑ {} 条历史消息 ", hidden_msgs),
+            Style::default().fg(Color::Rgb(80, 80, 90)),
+        ))];
+        if let Some(idx) = app.selected_message {
+            header.push(Line::from(Span::styled(
+                format!(" 📍 #{}  ", idx),
+                Style::default().fg(Color::Rgb(200, 200, 100)),
+            )));
+        }
+        for h in header {
+            lines.insert(0, h);
+        }
     }
 
     let paragraph = Paragraph::new(Text::from(lines))
-        .block(block)
         .wrap(Wrap { trim: false })
         .scroll((scroll as u16, 0));
     frame.render_widget(paragraph, area);
 }
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
-    let block = Block::default()
-        .title(" ⚙ Status ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    let sidebar_bg = Style::default().bg(Color::Rgb(25, 25, 35));
+    frame.render_widget(Clear, area);
+    // Fill background
+    let bg_paragraph = Paragraph::new(Text::from(vec![Line::from("")])).style(sidebar_bg);
+    frame.render_widget(bg_paragraph, area);
 
-    let mut items = Vec::new();
-    let w = inner.width as usize;
+    let mut items: Vec<Line> = Vec::new();
+    let w = (area.width as usize).saturating_sub(2);
+
+    // Header
+    items.push(Line::from(Span::styled(
+        " ⚙ Status ",
+        Style::default().fg(Color::Rgb(150, 150, 160)).bg(Color::Rgb(25, 25, 35)),
+    )));
+    items.push(Line::from(Span::styled(
+        "─".repeat(area.width.saturating_sub(1) as usize),
+        Style::default().fg(Color::Rgb(50, 50, 60)),
+    )));
 
     // --- Directory ---
-    items.push(Line::from(Span::styled("─ Dir ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
     let dir = if app.current_dir.len() > w.saturating_sub(2) {
         format!("..{}", &app.current_dir[app.current_dir.len().saturating_sub(w.saturating_sub(4))..])
     } else {
@@ -615,26 +623,46 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
     }
 
-    let paragraph = Paragraph::new(Text::from(items));
-    frame.render_widget(paragraph, inner);
+    if let Some(ref s) = app.streaming {
+        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(Color::Rgb(80, 80, 90)).bg(Color::Rgb(25, 25, 35)))));
+        items.push(Line::from(Span::styled(
+            format!(" {}c · {}t", s.content.len(), s.tool_calls.len()),
+            Style::default().fg(Color::Cyan).bg(Color::Rgb(25, 25, 35)),
+        )));
+        if s.current_tool.is_some() {
+            items.push(Line::from(Span::styled(" ▸ executing...", Style::default().fg(Color::Yellow).bg(Color::Rgb(25, 25, 35)))));
+        }
+        items.push(Line::from(""));
+    }
+
+    if let Some(ref msg) = app.status_message {
+        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)).bg(Color::Rgb(25, 25, 35)))));
+        let preview: String = msg.chars().take(w.saturating_sub(2)).collect();
+        items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow).bg(Color::Rgb(25, 25, 35)))));
+    }
+
+    let paragraph = Paragraph::new(Text::from(items)).style(Style::default().bg(Color::Rgb(25, 25, 35)));
+    frame.render_widget(paragraph, area);
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let border_color = if matches!(app.mode, AppMode::Waiting) {
-        Color::DarkGray
-    } else if app.input.content.is_empty() {
-        Color::Rgb(80, 80, 90)
+    let input_bg = if matches!(app.mode, AppMode::Waiting) {
+        Style::default().bg(Color::Rgb(20, 20, 25))
     } else {
-        Color::Cyan
+        Style::default().bg(Color::Rgb(18, 18, 22))
     };
+    frame.render_widget(Clear, area);
+    let bg_fill = Paragraph::new(Text::from(vec![Line::from("")])).style(input_bg);
+    frame.render_widget(bg_fill, area);
 
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color));
+    // Top separator line
+    let sep_color = if matches!(app.mode, AppMode::Waiting) { Color::Rgb(60, 60, 70) } else { Color::Rgb(40, 40, 50) };
+    let sep = Span::styled("─".repeat(area.width as usize), Style::default().fg(sep_color));
+    let sep_line = Paragraph::new(Text::from(vec![Line::from(sep)])).style(input_bg);
+    let sep_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
+    frame.render_widget(sep_line, sep_area);
 
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
+    let inner = Rect { x: area.x + 1, y: area.y + 1, width: area.width.saturating_sub(2), height: area.height.saturating_sub(1) };
     let prefix = "> ";
 
     let hint = Line::from(Span::styled(
@@ -663,7 +691,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         result
     };
 
-    let input_widget = Paragraph::new(lines).block(Block::default());
+    let input_widget = Paragraph::new(lines).style(input_bg);
     frame.render_widget(input_widget, inner);
 
     let prefix_width = unicode_width::UnicodeWidthStr::width(prefix) as u16;
