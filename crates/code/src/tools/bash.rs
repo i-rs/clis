@@ -31,11 +31,17 @@ impl Tool for BashTool {
 
         let blocked_patterns = [
             "rm -rf /",
+            "rm -rf --no-preserve-root",
+            "rm -rf /*",
             "mkfs",
             "dd if=",
             ":(){ :|:& };:",
             "> /dev/sd",
             "chmod -R 777 /",
+            "chmod 777 /",
+            "sudo ",
+            "wget -O /",
+            "curl -o /",
         ];
         for b in &blocked_patterns {
             if cmd.contains(b) {
@@ -43,8 +49,12 @@ impl Tool for BashTool {
             }
         }
 
+        // 强制在 workspace 内执行
+        let cwd = std::env::current_dir()?;
+        let cmd = format!("cd {} && {}", cwd.to_string_lossy(), cmd);
+
         let output = tokio::process::Command::new("sh")
-            .args(["-c", cmd])
+            .args(["-c", &cmd])
             .output()
             .await?;
 
@@ -70,7 +80,12 @@ mod tests {
     use super::*;
 
     fn blocked_patterns() -> Vec<&'static str> {
-        vec!["rm -rf /", "mkfs", "dd if=", ":(){ :|:& };:", "> /dev/sd", "chmod -R 777 /"]
+        vec![
+            "rm -rf /", "rm -rf --no-preserve-root", "rm -rf /*",
+            "mkfs", "dd if=", ":(){ :|:& };:", "> /dev/sd",
+            "chmod -R 777 /", "chmod 777 /", "sudo ",
+            "wget -O /", "curl -o /",
+        ]
     }
 
     #[test]
@@ -85,7 +100,13 @@ mod tests {
     #[test]
     fn test_dangerous_commands_blocked() {
         let patterns = blocked_patterns();
-        let dangerous = vec!["rm -rf /", "mkfs.ext4 /dev/sda1", "dd if=/dev/zero", ":(){ :|:& };:", "echo test > /dev/sda"];
+        let dangerous = vec![
+            "rm -rf /", "rm -rf --no-preserve-root /", "rm -rf /*",
+            "mkfs.ext4 /dev/sda1", "dd if=/dev/zero",
+            ":(){ :|:& };:", "echo test > /dev/sda",
+            "sudo apt install", "wget -O /tmp/test http://x.com", "curl -o /tmp/test http://x.com",
+            "chmod -R 777 /", "chmod 777 /etc",
+        ];
         for cmd in &dangerous {
             assert!(patterns.iter().any(|p| cmd.contains(p)), "cmd '{}' should be blocked", cmd);
         }
