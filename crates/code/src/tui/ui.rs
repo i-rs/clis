@@ -10,13 +10,9 @@ use crate::app::{AgentMessage, App, AppMode};
 
 const SIDEBAR_WIDTH: u16 = 38;
 
-const C_BG: Color = Color::Rgb(16, 16, 20);
-const C_BG_INPUT: Color = Color::Rgb(22, 22, 28);
-const C_BG_TITLE: Color = Color::Rgb(22, 22, 28);
-const C_BG_USER: Color = Color::Rgb(30, 64, 175);
-const C_BG_AI: Color = Color::Rgb(22, 101, 52);
-const C_BG_TOOL: Color = Color::Rgb(113, 63, 18);
-const C_BG_REASON: Color = Color::Rgb(30, 30, 26);
+const C_BG: Color = Color::Rgb(10, 10, 10);
+const C_BG_INPUT: Color = Color::Rgb(20, 20, 20);
+const C_BG_TITLE: Color = Color::Rgb(20, 20, 20);
 const C_SEP: Color = Color::Rgb(40, 40, 48);
 const C_TEXT: Color = Color::Rgb(229, 229, 234);
 const C_DIM: Color = Color::Rgb(113, 113, 122);
@@ -236,40 +232,45 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
 }
 
 fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let dir = {
-        let s = short_path(&app.current_dir);
-        if s.len() > 48 { format!("...{}", &s[s.len() - 45..]) } else { s }
-    };
+    let dir = short_path(&app.current_dir);
 
     let context_text = if let Some(pct) = app.context_usage {
         let pct_str = format!("{:.0}%", pct * 100.0);
         let ctx_color = if pct > 0.8 { Color::Red } else if pct > 0.6 { Color::Yellow } else { Color::Green };
-        vec![Span::raw(" "), Span::styled(pct_str, Style::default().fg(ctx_color).bg(Color::Blue))]
+        vec![Span::raw("  "), Span::styled(pct_str, Style::default().fg(ctx_color))]
     } else {
         vec![]
     };
 
     let sel_text = app.selected_message.map(|idx| {
-        Span::styled(format!("#{}", idx), Style::default().fg(C_YELLOW).bg(Color::Blue))
+        Span::styled(format!(" #{} ", idx), Style::default().fg(C_YELLOW))
     });
 
     let mut spans = vec![
-        Span::styled(" i-rs-code ", Style::default().fg(Color::White).bg(Color::Blue)),
-        Span::styled(format!(" v{} ", app.version), Style::default().fg(Color::Cyan).bg(Color::Blue)),
+        Span::styled(" i-rs-code ", Style::default().fg(C_GREEN).add_modifier(Modifier::BOLD)),
+        Span::styled(format!("v{}", app.version), Style::default().fg(C_ACCENT)),
         Span::raw("  "),
-        Span::styled(dir, Style::default().fg(Color::White).bg(Color::Blue)),
+        Span::styled(dir, Style::default().fg(C_DIM)),
     ];
     spans.extend(context_text);
     if let Some(s) = sel_text {
-        spans.push(Span::raw(" "));
         spans.push(s);
     }
-    spans.push(Span::raw(" "));
-    spans.push(Span::styled("[?]", Style::default().fg(C_YELLOW).bg(Color::Blue)));
+    spans.push(Span::raw("  "));
+    spans.push(Span::styled("[?]", Style::default().fg(C_YELLOW)));
 
     let text = Line::from(spans);
-    let bar = Paragraph::new(text).style(Style::default().bg(Color::Blue));
+    frame.render_widget(Clear, area);
+    let bar = Paragraph::new(text);
     frame.render_widget(bar, area);
+
+    // Bottom separator
+    let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
+        "─".repeat(area.width as usize),
+        Style::default().fg(C_RAIL),
+    ))]));
+    let sep_area = Rect { x: area.x, y: area.y + area.height.saturating_sub(1), width: area.width, height: 1 };
+    frame.render_widget(sep_line, sep_area);
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
@@ -284,8 +285,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             AgentMessage::User { content } => {
                 last_was_tool = false;
                 lines.push(Line::from(vec![
-                    Span::styled(format!(" {} ", sel_prefix), Style::default().fg(Color::White).bg(Color::Blue)),
-                    Span::styled(" You ", Style::default().fg(Color::White).bg(Color::Blue)),
+                    Span::styled(sel_prefix, Style::default().fg(C_ACCENT)),
+                    Span::styled("▎You", Style::default().fg(Color::Rgb(59, 130, 246)).add_modifier(Modifier::BOLD)),
                 ]));
                 for line in content.lines() {
                     lines.push(Line::from(Span::raw(format!(" {}", line))));
@@ -294,14 +295,13 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             AgentMessage::Assistant { content, reasoning, tool_calls: _, reasoning_expanded } => {
                 last_was_tool = false;
                 lines.push(Line::from(vec![
-                    Span::styled(format!(" {} ", sel_prefix), if is_selected { Style::default().fg(Color::Yellow).bg(Color::Green) } else { Style::default().fg(Color::White).bg(Color::Green) }),
-                    Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
+                    Span::styled(sel_prefix, Style::default().fg(C_YELLOW)),
+                    Span::styled("▎AI", Style::default().fg(C_GREEN).add_modifier(Modifier::BOLD)),
                 ]));
                 if !reasoning.is_empty() {
                     if *reasoning_expanded {
                         lines.push(Line::from(vec![
-                            Span::styled(" ▼ ", Style::default().fg(C_YELLOW).bg(C_BG_REASON)),
-                            Span::styled(" 思考过程（按 r 折叠）", Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC)),
+                            Span::styled(" ▼ 思考过程（按 r 折叠）", Style::default().fg(C_YELLOW)),
                         ]));
                         for line in reasoning.lines() {
                             lines.push(Line::from(Span::styled(
@@ -311,8 +311,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         }
                     } else {
                         lines.push(Line::from(vec![
-                            Span::styled(" ▶ ", Style::default().fg(C_YELLOW).bg(C_BG_REASON)),
-                            Span::styled(" 思考过程（按 r 展开）", Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC)),
+                            Span::styled(" ▶ 思考过程（按 r 展开）", Style::default().fg(C_YELLOW)),
                         ]));
                     }
                 }
@@ -328,9 +327,9 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 let (rail_top, rail_mid) = if last_was_tool { ("│", "│") } else { ("╭", "│") };
 
                 lines.push(Line::from(vec![
-                    Span::styled(format!(" {} ", sel_prefix), if is_selected { Style::default().fg(Color::Yellow).bg(Color::Yellow) } else { Style::default().fg(Color::Black).bg(Color::Yellow) }),
-                    Span::styled(format!(" {} ", glyph), Style::default().fg(Color::Black).bg(Color::Yellow)),
-                    Span::styled(format!(" {} ", label), Style::default().fg(Color::Black).bg(Color::Yellow)),
+                    Span::styled(sel_prefix, Style::default().fg(C_YELLOW)),
+                    Span::styled(format!(" {} ", glyph), Style::default().fg(C_YELLOW)),
+                    Span::styled(label, Style::default().fg(C_YELLOW).add_modifier(Modifier::BOLD)),
                 ]));
                 if !tool_result.is_empty() {
                     let preview: String = tool_result.chars().take(1200).collect();
@@ -361,9 +360,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             AgentMessage::FileEdit { path, summary } => {
                 last_was_tool = false;
                 lines.push(Line::from(vec![
-                    Span::styled(format!(" {} ", sel_prefix), if is_selected { Style::default().fg(Color::Yellow).bg(Color::Magenta) } else { Style::default().fg(Color::White).bg(Color::Magenta) }),
-                    Span::styled(" ✎ ", Style::default().fg(Color::White).bg(Color::Magenta)),
-                    Span::styled(format!(" {} ", path), Style::default().fg(Color::White).bg(Color::Magenta)),
+                    Span::styled(sel_prefix, Style::default().fg(C_FILE_EDIT)),
+                    Span::styled(format!(" ✎ {} ", path), Style::default().fg(C_FILE_EDIT).add_modifier(Modifier::BOLD)),
                 ]));
                 for line in summary.lines() {
                     if is_diff_like(line) {
@@ -398,15 +396,14 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     // Streaming block
     if let Some(ref s) = app.streaming {
         lines.push(Line::from(vec![
-            Span::styled("  ", Style::default().fg(Color::White).bg(Color::Green)),
-            Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
+            Span::styled("▎AI", Style::default().fg(C_GREEN).add_modifier(Modifier::BOLD)),
         ]));
 
         for tool in &s.tool_calls {
             lines.push(Line::from(""));
             let glyph = tool_glyph(&tool.name);
             lines.push(Line::from(vec![
-                Span::styled(format!(" {} {} done", glyph, tool.name), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled(format!(" {} {} done", glyph, tool.name), Style::default().fg(C_GREEN).add_modifier(Modifier::BOLD)),
             ]));
             if let Some(ref result) = tool.result {
                 let preview: String = result.chars().take(300).collect();
@@ -423,7 +420,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             lines.push(Line::from(""));
             let glyph = tool_glyph(&tool.name);
             lines.push(Line::from(vec![
-                Span::styled(format!(" {} {} running...", glyph, tool.name), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(format!(" {} {} running...", glyph, tool.name), Style::default().fg(C_ACCENT).add_modifier(Modifier::BOLD)),
             ]));
             let preview: String = tool.args.chars().take(area.width.saturating_sub(8) as usize).collect();
             for line in preview.lines() {
@@ -434,30 +431,20 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         if !s.reasoning.is_empty() {
             let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
             let total = reasoning_lines.len();
-            if s.content.is_empty() {
-                // Still thinking: show live (last 6 lines)
-                let start = total.saturating_sub(6);
-                if start > 0 {
-                    lines.push(Line::from(Span::styled(
-                        format!(" ╎ … {} earlier lines", start),
-                        Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
-                    )));
-                }
-                for line in &reasoning_lines[start..] {
-                    lines.push(Line::from(Span::styled(
-                        format!(" ╎ {}", line),
-                        Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
-                    )));
-                }
-            } else {
-                // Thinking done: show folded summary (r to expand in final message)
-                lines.push(Line::from(vec![
-                    Span::styled(" ▶ ", Style::default().fg(C_YELLOW).bg(C_BG_REASON)),
-                    Span::styled(
-                        format!(" 思考过程已完成 · {}行（按 r 查看完整思考）", total),
-                        Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
-                    ),
-                ]));
+            // Show last 3-6 lines as live preview
+            let show_count = if s.content.is_empty() { 6.min(total) } else { 3.min(total) };
+            let start = total.saturating_sub(show_count);
+            if start > 0 {
+                lines.push(Line::from(Span::styled(
+                    format!(" ╎ … {} earlier lines", start),
+                    Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
+                )));
+            }
+            for line in &reasoning_lines[start..] {
+                lines.push(Line::from(Span::styled(
+                    format!(" ╎ {}", line),
+                    Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
+                )));
             }
         }
 
@@ -469,9 +456,9 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 
         if s.current_tool.is_none() && !s.content.is_empty() {
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![Span::styled(" ▊", Style::default().fg(Color::Green))]));
+            lines.push(Line::from(vec![Span::styled(" ▊", Style::default().fg(C_GREEN))]));
         } else if s.current_tool.is_none() && s.reasoning.is_empty() && s.content.is_empty() {
-            lines.push(Line::from(vec![Span::styled(" ╎ ...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))]));
+            lines.push(Line::from(vec![Span::styled(" ╎ ...", Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC))]));
         }
     }
 
@@ -502,12 +489,18 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let paragraph = Paragraph::new(Text::from(lines))
+        .block(Block::default().padding(ratatui::widgets::Padding::horizontal(1)))
         .wrap(Wrap { trim: false })
         .scroll((scroll as u16, 0));
     frame.render_widget(paragraph, area);
 }
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
+    // Sidebar background
+    frame.render_widget(Clear, area);
+    let bg = Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(C_BG_INPUT));
+    frame.render_widget(bg, area);
+
     let mut items: Vec<Line> = Vec::new();
     let w = (area.width as usize).saturating_sub(2);
 
@@ -515,11 +508,11 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
         "▕",
         Style::default().fg(C_SEP),
-    ))])).style(Style::default().bg(C_BG_INPUT));
+    ))])).style(Style::default().bg(C_BG));
     let sep_area = Rect { x: area.x, y: area.y, width: 1, height: area.height };
     frame.render_widget(sep_line, sep_area);
 
-    let inner = Rect { x: area.x + 1, y: area.y, width: area.width.saturating_sub(1), height: area.height };
+    let inner = Rect { x: area.x + 1, y: area.y, width: area.width.saturating_sub(2), height: area.height };
 
     // Header
     items.push(Line::from(Span::styled(
