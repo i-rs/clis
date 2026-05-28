@@ -1,22 +1,13 @@
+use crate::app::AgentMessage;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Session {
     pub id: String,
-    pub messages: Vec<Message>,
+    pub messages: Vec<AgentMessage>,
     pub created_at: String,
     pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Message {
-    pub role: String,
-    pub content: String,
-    #[serde(default)]
-    pub reasoning: String,
-    pub tool_calls: Option<Vec<Value>>,
 }
 
 impl Session {
@@ -30,16 +21,11 @@ impl Session {
         }
     }
 
-    pub fn from_chat_messages(id: Option<String>, msgs: &[crate::app::ChatMessage]) -> Self {
+    pub fn from_agent_messages(id: Option<String>, msgs: &[AgentMessage]) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
             id: id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
-            messages: msgs.iter().map(|m| Message {
-                role: m.role.clone(),
-                content: m.content.clone(),
-                reasoning: m.reasoning.clone(),
-                tool_calls: m.tool_calls.clone(),
-            }).collect(),
+            messages: msgs.to_vec(),
             created_at: now.clone(),
             updated_at: now,
         }
@@ -81,6 +67,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::AgentMessage;
 
     #[test]
     fn test_session_new() {
@@ -95,13 +82,15 @@ mod tests {
         let dir = std::env::temp_dir().join("i-rs-code-test-session-roundtrip");
         let _ = std::fs::remove_dir_all(&dir);
         let mut s = Session::new();
-        s.messages.push(Message { role: "user".into(), content: "hello".into(), reasoning: String::new(), tool_calls: None });
-        s.messages.push(Message { role: "assistant".into(), content: "hi there".into(), reasoning: String::new(), tool_calls: None });
+        s.messages.push(AgentMessage::user("hello"));
+        s.messages.push(AgentMessage::assistant("hi there"));
         s.save(&dir).expect("save should work");
         let loaded = Session::load(&s.id, &dir).expect("load should work");
         assert_eq!(loaded.messages.len(), 2);
-        assert_eq!(loaded.messages[0].content, "hello");
-        assert_eq!(loaded.messages[1].content, "hi there");
+        assert_eq!(
+            serde_json::to_string(&loaded.messages[0]).unwrap(),
+            serde_json::to_string(&s.messages[0]).unwrap()
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -120,14 +109,24 @@ mod tests {
 
     #[test]
     fn test_session_tool_calls_persist() {
+        use serde_json::json;
         let dir = std::env::temp_dir().join("i-rs-code-test-session-tc");
         let _ = std::fs::remove_dir_all(&dir);
         let mut s = Session::new();
-        let tc = serde_json::json!({"id": "call_1", "name": "bash", "args": {"command": "ls"}});
-        s.messages.push(Message { role: "assistant".into(), content: String::new(), reasoning: String::new(), tool_calls: Some(vec![tc]) });
+        let tc = json!({"id": "call_1", "name": "bash", "args": {"command": "ls"}});
+        s.messages.push(AgentMessage::Assistant {
+            content: String::new(),
+            reasoning: String::new(),
+            tool_calls: Some(vec![tc]),
+        });
         s.save(&dir).expect("save with tool_calls should work");
         let loaded = Session::load(&s.id, &dir).expect("load with tool_calls should work");
-        assert!(loaded.messages[0].tool_calls.is_some());
+        match &loaded.messages[0] {
+            AgentMessage::Assistant { tool_calls, .. } => {
+                assert!(tool_calls.is_some());
+            }
+            _ => panic!("expected Assistant"),
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -6,7 +6,41 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
-use crate::app::{App, AppMode};
+use crate::app::{AgentMessage, App, AppMode};
+
+fn tool_glyph(name: &str) -> &'static str {
+    match name {
+        "write" | "edit" | "create" => "◆",
+        "read" | "glob" | "grep" | "ls" => "▷",
+        "bash" | "run" | "exec" => "▶",
+        "web_fetch" | "web_search" | "search" => "⌕",
+        "delete" => "✕",
+        "rename" => "→",
+        "create_crate" => "+",
+        "call_claw" | "delegate" => "◐",
+        "register_tool" => "◎",
+        "git" => "±",
+        _ => "•",
+    }
+}
+
+fn is_diff_like(text: &str) -> bool {
+    text.lines().any(|l| l.starts_with("--- ") || l.starts_with("+++ ") || l.starts_with("@@ "))
+}
+
+fn render_diff_line(line: &str) -> Vec<Span<'static>> {
+    if let Some(rest) = line.strip_prefix("+") {
+        vec![Span::styled("+", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+             Span::styled(rest.to_string(), Style::default().fg(Color::Rgb(140, 200, 140)))]
+    } else if let Some(rest) = line.strip_prefix("-") {
+        vec![Span::styled("-", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+             Span::styled(rest.to_string(), Style::default().fg(Color::Rgb(200, 140, 140)))]
+    } else if line.starts_with("@@") {
+        vec![Span::styled(line.to_string(), Style::default().fg(Color::Cyan))]
+    } else {
+        vec![Span::raw(line.to_string())]
+    }
+}
 
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -29,9 +63,84 @@ pub fn render(frame: &mut Frame, app: &App) {
     }
 }
 
+pub fn render_transcript(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    frame.render_widget(Clear, area);
+
+    let block = Block::default()
+        .title(" Transcript (Ctrl+T to close, ↑↓ scroll) ")
+        .title_alignment(Alignment::Center)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let mut lines: Vec<Line> = Vec::new();
+    for msg in &app.messages {
+        match msg {
+            AgentMessage::User { content } => {
+                lines.push(Line::from(Span::styled("── User ──", Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))));
+                for line in content.lines() {
+                    lines.push(Line::from(Span::raw(line.to_string())));
+                }
+            }
+            AgentMessage::Assistant { content, reasoning, tool_calls } => {
+                lines.push(Line::from(Span::styled("── Assistant ──", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))));
+                if !reasoning.is_empty() {
+                    for line in reasoning.lines() {
+                        lines.push(Line::from(Span::styled(line.to_string(), Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC))));
+                    }
+                }
+                for line in content.lines() {
+                    lines.push(Line::from(Span::raw(line.to_string())));
+                }
+                if let Some(tcs) = tool_calls {
+                    for tc in tcs {
+                        let name = tc.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
+                        lines.push(Line::from(Span::styled(format!("  [tool_call] {}", name), Style::default().fg(Color::Yellow))));
+                    }
+                }
+            }
+            AgentMessage::ToolResult { content } => {
+                let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
+                lines.push(Line::from(Span::styled(
+                    format!("── {} ──", if tool_name.is_empty() { "Tool" } else { tool_name }),
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                )));
+                if !tool_result.is_empty() {
+                    for line in tool_result.lines() {
+                        lines.push(Line::from(Span::raw(line.to_string())));
+                    }
+                }
+            }
+            AgentMessage::FileEdit { path, summary } => {
+                lines.push(Line::from(Span::styled(format!("── File Edit: {} ──", path), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))));
+                for line in summary.lines() {
+                    lines.push(Line::from(Span::raw(line.to_string())));
+                }
+            }
+            AgentMessage::System { content } => {
+                lines.push(Line::from(Span::styled("── System ──", Style::default().fg(Color::Rgb(113, 113, 122)))));
+                for line in content.lines() {
+                    lines.push(Line::from(Span::raw(line.to_string())));
+                }
+            }
+            AgentMessage::Separator { .. } => {}
+        }
+        lines.push(Line::from(""));
+    }
+
+    let max_scroll = lines.len().saturating_sub(inner.height as usize);
+    let scroll = app.transcript_scroll.min(max_scroll);
+    let paragraph = Paragraph::new(Text::from(lines))
+        .wrap(Wrap { trim: false })
+        .scroll((scroll as u16, 0));
+    frame.render_widget(paragraph, inner);
+}
+
 fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
-    let w = 50.min(area.width.saturating_sub(4));
-    let h = 16;
+    let w = 56.min(area.width.saturating_sub(4));
+    let h = 20;
     let x = (area.width - w) / 2;
     let y = (area.height - h) / 2;
     let overlay = Rect { x, y, width: w, height: h };
@@ -40,47 +149,20 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
 
     let items = vec![
         Line::from(""),
-        Line::from(Span::styled(
-            "  ? / Esc       关闭此面板",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  Ctrl+D        打开 HTTP 调试面板",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  Enter         发送消息",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  Alt+Enter     换行",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  Esc / q       退出",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  PgUp / PgDn   滚动聊天",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  ↑ / ↓         逐行滚动",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  r             展开/折叠 AI 思考过程",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            "  Tab           插入缩进 (2 spaces)",
-            Style::default().fg(Color::White),
-        )),
+        Line::from(Span::styled("  ? / Esc       关闭此面板", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Enter         发送消息", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Alt+Enter     换行", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Esc / q       退出", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Ctrl+C        取消当前生成", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Ctrl+Z        撤销文件修改", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Ctrl+T        转录模式（完整输出）", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Ctrl+D        打开 HTTP 调试面板", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  PgUp / PgDn   滚动聊天", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  ↑ / ↓         逐行滚动", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  r             展开/折叠 AI 思考过程", Style::default().fg(Color::White))),
+        Line::from(Span::styled("  Tab           工具名补全 / 插入缩进", Style::default().fg(Color::White))),
         Line::from(""),
-        Line::from(Span::styled(
-            "     Press any key to close",
-            Style::default().fg(Color::Rgb(113, 113, 122)),
-        )),
+        Line::from(Span::styled("     Press any key to close", Style::default().fg(Color::Rgb(113, 113, 122)))),
     ];
 
     let block = Block::default()
@@ -127,10 +209,7 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
 
     let mut spans = vec![
         Span::styled(" i-rs-code ", Style::default().fg(Color::White).bg(Color::Blue)),
-        Span::styled(
-            format!(" v{} ", app.version),
-            Style::default().fg(Color::Cyan).bg(Color::Blue),
-        ),
+        Span::styled(format!(" v{} ", app.version), Style::default().fg(Color::Cyan).bg(Color::Blue)),
         Span::raw("  "),
         Span::styled(dir, Style::default().fg(Color::White).bg(Color::Blue)),
     ];
@@ -171,15 +250,9 @@ fn render_debug_panel(frame: &mut Frame, area: Rect, app: &App) {
     let logs = crate::debug::get_log();
     if logs.is_empty() {
         let text = Paragraph::new(Text::from(vec![
-            Line::from(Span::styled(
-                "  No HTTP requests yet.",
-                Style::default().fg(Color::Gray),
-            )),
+            Line::from(Span::styled("  No HTTP requests yet.", Style::default().fg(Color::Gray))),
             Line::from(""),
-            Line::from(Span::styled(
-                "  [Ctrl+L] clear  [Esc/Ctrl+D] close",
-                Style::default().fg(Color::Rgb(80, 80, 90)),
-            )),
+            Line::from(Span::styled("  [Ctrl+L] clear  [Esc/Ctrl+D] close", Style::default().fg(Color::Rgb(80, 80, 90)))),
         ]));
         frame.render_widget(text, inner);
         return;
@@ -199,43 +272,21 @@ fn render_debug_panel(frame: &mut Frame, area: Rect, app: &App) {
         };
 
         lines.push(Line::from(vec![
-            Span::styled(
-                format!(" {} ", entry.time_short()),
-                Style::default().fg(Color::DarkGray),
-            ),
-            Span::styled(
-                format!(" POST {}", entry.path()),
-                Style::default().fg(Color::White),
-            ),
+            Span::styled(format!(" {} ", entry.time_short()), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!(" POST {}", entry.path()), Style::default().fg(Color::White)),
             Span::raw("  "),
-            Span::styled(
-                entry.status_label(),
-                Style::default().fg(status_color).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                format!(" ({}.{:03}s)", entry.duration_ms / 1000, entry.duration_ms % 1000),
-                Style::default().fg(Color::Gray),
-            ),
+            Span::styled(entry.status_label(), Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
+            Span::styled(format!(" ({}.{:03}s)", entry.duration_ms / 1000, entry.duration_ms % 1000), Style::default().fg(Color::Gray)),
         ]));
 
-        // Request body preview
         let req_preview: String = entry.request_body.chars().take(inner.width.saturating_sub(4) as usize).collect();
         for line in req_preview.lines().take(2) {
-            lines.push(Line::from(Span::styled(
-                format!("  >> {}", line),
-                Style::default().fg(Color::Rgb(100, 180, 100)),
-            )));
+            lines.push(Line::from(Span::styled(format!("  >> {}", line), Style::default().fg(Color::Rgb(100, 180, 100)))));
         }
-
-        // Response body preview
         let res_preview: String = entry.response_body_preview.chars().take(inner.width.saturating_sub(4) as usize).collect();
         for line in res_preview.lines().take(3) {
-            lines.push(Line::from(Span::styled(
-                format!("  << {}", line),
-                Style::default().fg(Color::Rgb(180, 150, 100)),
-            )));
+            lines.push(Line::from(Span::styled(format!("  << {}", line), Style::default().fg(Color::Rgb(180, 150, 100)))));
         }
-
         lines.push(Line::from(""));
     }
 
@@ -253,28 +304,31 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     let inner = block.inner(area);
 
     let mut lines: Vec<Line> = Vec::new();
+    let mut last_was_tool = false;
 
     for msg in &app.messages {
-        match msg.role.as_str() {
-            "user" => {
+        match msg {
+            AgentMessage::User { content } => {
+                last_was_tool = false;
                 lines.push(Line::from(vec![
                     Span::styled(" You ", Style::default().fg(Color::White).bg(Color::Blue)),
                 ]));
-                for line in msg.content.lines() {
+                for line in content.lines() {
                     lines.push(Line::from(Span::raw(format!(" {}", line))));
                 }
             }
-            "assistant" => {
+            AgentMessage::Assistant { content, reasoning, tool_calls: _ } => {
+                last_was_tool = false;
                 lines.push(Line::from(vec![
                     Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
                 ]));
-                if !msg.reasoning.is_empty() {
+                if !reasoning.is_empty() {
                     if app.show_reasoning {
                         lines.push(Line::from(vec![
                             Span::styled(" ▼ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
                             Span::styled(" 思考过程（按 r 折叠）", Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC)),
                         ]));
-                        for line in msg.reasoning.lines() {
+                        for line in reasoning.lines() {
                             lines.push(Line::from(Span::styled(
                                 format!(" {}", line),
                                 Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
@@ -287,58 +341,101 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         ]));
                     }
                 }
-                for line in msg.content.lines() {
+                for line in content.lines() {
                     lines.push(Line::from(Span::raw(format!(" {}", line))));
                 }
             }
-            "tool" => {
-                let (tool_name, tool_result) = msg.content.split_once('\n').unwrap_or(("", &msg.content));
+            AgentMessage::ToolResult { content } => {
+                let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
+                let glyph = tool_glyph(tool_name);
+                let label = if tool_name.is_empty() { "Tool" } else { tool_name };
+
+                // Card rail: consecutive tools get ╭ │ ╰ rail
+                let (rail_top, rail_mid) = if last_was_tool {
+                    ("│", "│")
+                } else {
+                    ("╭", "│")
+                };
+
                 lines.push(Line::from(vec![
-                    Span::styled(
-                        format!(" {} ", if !tool_name.is_empty() { tool_name } else { "Tool" }),
-                        Style::default().fg(Color::Black).bg(Color::Yellow),
-                    ),
+                    Span::styled(format!(" {} ", glyph), Style::default().fg(Color::Black).bg(Color::Yellow)),
+                    Span::styled(format!(" {} ", label), Style::default().fg(Color::Black).bg(Color::Yellow)),
                 ]));
                 if !tool_result.is_empty() {
                     let preview: String = tool_result.chars().take(1200).collect();
-                    for line in preview.lines().take(12) {
-                        lines.push(Line::from(Span::styled(
-                            format!("  {}", line),
-                            Style::default().fg(Color::Rgb(180, 150, 100)),
-                        )));
+                    let result_lines: Vec<&str> = preview.lines().collect();
+                    for (i, line) in result_lines.iter().enumerate().take(12) {
+                        let prefix = if i == result_lines.len().saturating_sub(1).min(11) { "╰" } else { rail_mid };
+                        if is_diff_like(line) {
+                            let diff_spans = render_diff_line(line);
+                            let mut spans = vec![Span::styled(format!(" {} ", prefix), Style::default().fg(Color::DarkGray))];
+                            spans.extend(diff_spans);
+                            lines.push(Line::from(spans));
+                        } else {
+                            lines.push(Line::from(Span::styled(
+                                format!(" {} {}", prefix, line),
+                                Style::default().fg(Color::Rgb(180, 150, 100)),
+                            )));
+                        }
                     }
                     if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
                         lines.push(Line::from(Span::styled(
-                            format!("  ... ({} more bytes, press ↑ to scroll)", tool_result.len().saturating_sub(preview.len())),
+                            format!(" {}  … {} more bytes (Ctrl+T for full)", rail_top, tool_result.len().saturating_sub(preview.len())),
                             Style::default().fg(Color::DarkGray),
                         )));
                     }
                 }
+                last_was_tool = true;
             }
-            _ => {
-                for line in msg.content.lines() {
-                    lines.push(Line::from(Span::raw(format!(" {}", line))));
+            AgentMessage::FileEdit { path, summary } => {
+                last_was_tool = false;
+                lines.push(Line::from(vec![
+                    Span::styled(" ✎ ", Style::default().fg(Color::White).bg(Color::Magenta)),
+                    Span::styled(format!(" {} ", path), Style::default().fg(Color::White).bg(Color::Magenta)),
+                ]));
+                for line in summary.lines() {
+                    if is_diff_like(line) {
+                        let diff_spans = render_diff_line(line);
+                        lines.push(Line::from(diff_spans));
+                    } else {
+                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(Color::Rgb(200, 160, 200)))));
+                    }
                 }
+            }
+            AgentMessage::System { content } => {
+                last_was_tool = false;
+                for line in content.lines() {
+                    lines.push(Line::from(Span::styled(
+                        format!(" {}", line),
+                        Style::default().fg(Color::Rgb(100, 100, 120)),
+                    )));
+                }
+            }
+            AgentMessage::Separator { label } => {
+                last_was_tool = false;
+                let sep = if label.is_empty() {
+                    format!(" ── {} ── ", "done")
+                } else {
+                    format!(" ── {} ── ", label)
+                };
+                lines.push(Line::from(Span::styled(sep, Style::default().fg(Color::Rgb(60, 60, 70)))));
             }
         }
         lines.push(Line::from(""));
     }
 
-    // Render live streaming block (stable layout: completed tools → current tool → last 6 reasoning → content)
+    // Render live streaming block
     if let Some(ref s) = app.streaming {
         lines.push(Line::from(vec![
             Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
         ]));
 
-        // 1. Completed tool calls (accumulated, above everything, don't move)
+        // 1. Completed tool calls
         for tool in &s.tool_calls {
             lines.push(Line::from(""));
-            let status = if tool.result.is_some() { "done" } else { "running..." };
+            let glyph = tool_glyph(&tool.name);
             lines.push(Line::from(vec![
-                Span::styled(
-                    format!(" • {} {}", tool.name, status),
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled(format!(" {} {} done", glyph, tool.name), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
             ]));
             if let Some(ref result) = tool.result {
                 let preview: String = result.chars().take(300).collect();
@@ -349,33 +446,25 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     )));
                 }
                 if preview.len() < result.len() || result.lines().count() > 4 {
-                    lines.push(Line::from(Span::styled(
-                        "   └ ...",
-                        Style::default().fg(Color::DarkGray),
-                    )));
+                    lines.push(Line::from(Span::styled("   └ ...", Style::default().fg(Color::DarkGray))));
                 }
             }
         }
 
-        // 2. Current running tool (if any)
+        // 2. Current running tool
         if let Some(ref tool) = s.current_tool {
             lines.push(Line::from(""));
+            let glyph = tool_glyph(&tool.name);
             lines.push(Line::from(vec![
-                Span::styled(
-                    format!(" • {} running...", tool.name),
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled(format!(" {} {} running...", glyph, tool.name), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
             ]));
             let preview: String = tool.args.chars().take(inner.width.saturating_sub(6) as usize).collect();
             for line in preview.lines() {
-                lines.push(Line::from(Span::styled(
-                    format!("   └ {}", line),
-                    Style::default().fg(Color::DarkGray),
-                )));
+                lines.push(Line::from(Span::styled(format!("   └ {}", line), Style::default().fg(Color::DarkGray))));
             }
         }
 
-        // 3. Live thinking: last 6 lines only (fixed height, in-place update)
+        // 3. Live thinking: last 6 lines
         if !s.reasoning.is_empty() {
             let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
             let total = reasoning_lines.len();
@@ -394,39 +483,34 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             }
         }
 
-        // 4. Streaming content (below thinking)
+        // 4. Streaming content
         if !s.content.is_empty() {
             for line in s.content.lines() {
                 lines.push(Line::from(Span::raw(format!(" {}", line))));
             }
         }
 
-        // 5. Cursor indicator
+        // 5. Cursor
         if s.current_tool.is_none() && !s.content.is_empty() {
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled(" ▊", Style::default().fg(Color::Green)),
-            ]));
+            lines.push(Line::from(vec![Span::styled(" ▊", Style::default().fg(Color::Green))]));
         } else if s.current_tool.is_none() && s.content.is_empty() {
-            lines.push(Line::from(vec![
-                Span::styled(
-                    " ╎ ...",
-                    Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
-                ),
-            ]));
+            lines.push(Line::from(vec![Span::styled(" ╎ ...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))]));
         }
     }
 
     let max_scroll = lines.len().saturating_sub(inner.height as usize);
-    let scroll = max_scroll.saturating_sub(app.scroll_offset).min(max_scroll);
+    let scroll = if app.auto_scroll {
+        max_scroll
+    } else {
+        max_scroll.saturating_sub(app.scroll_offset).min(max_scroll)
+    };
 
-    // Show hidden message count
+    let hidden_msgs = app.messages.len().saturating_sub(1);
     let mut block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-
-    let hidden_msgs = app.messages.len().saturating_sub(1);
-    if scroll > 0 || (hidden_msgs > 0 && lines.len() > inner.height as usize) {
+    if !app.auto_scroll && (scroll > 0 || hidden_msgs > 0) {
         block = block.title(format!(" ↑ {} 条历史消息 ", hidden_msgs));
         block = block.title_alignment(Alignment::Center);
     }
@@ -446,57 +530,30 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         .border_style(Style::default().fg(Color::DarkGray));
 
     let inner = block.inner(area);
-
     frame.render_widget(block, area);
 
     let mut items = Vec::new();
 
-    items.push(Line::from(vec![
-        Span::styled("Dir ", Style::default().fg(Color::Gray)),
-    ]));
+    items.push(Line::from(vec![Span::styled("Dir ", Style::default().fg(Color::Gray))]));
     let dir = if app.current_dir.len() > inner.width as usize - 2 {
-        format!(
-            "..{}",
-            &app.current_dir
-                [app.current_dir.len().saturating_sub(inner.width as usize - 4)..]
-        )
+        format!("..{}", &app.current_dir[app.current_dir.len().saturating_sub(inner.width as usize - 4)..])
     } else {
         app.current_dir.clone()
     };
     items.push(Line::from(Span::raw(format!(" {}", dir))));
     items.push(Line::from(""));
 
-    items.push(Line::from(vec![
-        Span::styled("Version ", Style::default().fg(Color::Gray)),
-        Span::raw(app.version.clone()),
-    ]));
+    items.push(Line::from(vec![Span::styled("Version ", Style::default().fg(Color::Gray)), Span::raw(app.version.clone())]));
     items.push(Line::from(""));
 
-    items.push(Line::from(vec![
-        Span::styled("Tokens ", Style::default().fg(Color::Gray)),
-        Span::raw(format!(
-            "I: {}  O: {}",
-            app.token_usage.input, app.token_usage.output
-        )),
-    ]));
+    items.push(Line::from(vec![Span::styled("Tokens ", Style::default().fg(Color::Gray)), Span::raw(format!("I: {}  O: {}", app.token_usage.input, app.token_usage.output))]));
     items.push(Line::from(""));
 
     let change_count = app.file_changes.len();
-    let change_text = if change_count == 0 {
-        "none".to_string()
-    } else {
-        format!("{} file(s)", change_count)
-    };
+    let change_text = if change_count == 0 { "none".to_string() } else { format!("{} file(s)", change_count) };
     items.push(Line::from(vec![
         Span::styled("Changes ", Style::default().fg(Color::Gray)),
-        Span::styled(
-            change_text,
-            if change_count > 0 {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default().fg(Color::DarkGray)
-            },
-        ),
+        Span::styled(change_text, if change_count > 0 { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::DarkGray) }),
     ]));
 
     if change_count > 0 {
@@ -504,23 +561,14 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         changes.sort();
         for path in changes.iter().take(5) {
             let display = if path.len() > inner.width as usize - 4 {
-                format!(
-                    " ..{}",
-                    &path[path.len().saturating_sub(inner.width as usize - 6)..]
-                )
+                format!(" ..{}", &path[path.len().saturating_sub(inner.width as usize - 6)..])
             } else {
                 format!(" {}", path)
             };
-            items.push(Line::from(Span::styled(
-                display,
-                Style::default().fg(Color::Yellow),
-            )));
+            items.push(Line::from(Span::styled(display, Style::default().fg(Color::Yellow))));
         }
         if change_count > 5 {
-            items.push(Line::from(Span::styled(
-                format!(" ... and {} more", change_count - 5),
-                Style::default().fg(Color::DarkGray),
-            )));
+            items.push(Line::from(Span::styled(format!(" ... and {} more", change_count - 5), Style::default().fg(Color::DarkGray))));
         }
     }
     items.push(Line::from(""));
@@ -531,76 +579,36 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         ("rust-analyzer ...", Color::Yellow)
     };
-    items.push(Line::from(vec![
-        Span::styled("LSP ", Style::default().fg(Color::Gray)),
-        Span::styled(lsp_label, Style::default().fg(lsp_color)),
-    ]));
+    items.push(Line::from(vec![Span::styled("LSP ", Style::default().fg(Color::Gray)), Span::styled(lsp_label, Style::default().fg(lsp_color))]));
     items.push(Line::from(""));
 
-    // Status message (retry, progress)
+    // Status message
     if let Some(ref msg) = app.status_message {
         let preview: String = msg.chars().take(inner.width.saturating_sub(4) as usize).collect();
-        items.push(Line::from(vec![
-            Span::styled("Status ", Style::default().fg(Color::Gray)),
-        ]));
-        items.push(Line::from(Span::styled(
-            format!(" {}", preview),
-            Style::default().fg(Color::Yellow),
-        )));
+        items.push(Line::from(vec![Span::styled("Status ", Style::default().fg(Color::Gray))]));
+        items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
         items.push(Line::from(""));
     }
 
-    let mode_text = match app.mode {
-        AppMode::Idle => "Idle",
-        AppMode::Waiting => "Waiting...",
-    };
-    let mode_style = match app.mode {
-        AppMode::Idle => Style::default().fg(Color::Green),
-        AppMode::Waiting => Style::default().fg(Color::Yellow),
-    };
-    items.push(Line::from(vec![
-        Span::styled("Mode ", Style::default().fg(Color::Gray)),
-        Span::styled(mode_text, mode_style),
-    ]));
+    let mode_text = match app.mode { AppMode::Idle => "Idle", AppMode::Waiting => "Waiting..." };
+    let mode_style = match app.mode { AppMode::Idle => Style::default().fg(Color::Green), AppMode::Waiting => Style::default().fg(Color::Yellow) };
+    items.push(Line::from(vec![Span::styled("Mode ", Style::default().fg(Color::Gray)), Span::styled(mode_text, mode_style)]));
     items.push(Line::from(""));
 
-    items.push(Line::from(vec![
-        Span::styled("Messages ", Style::default().fg(Color::Gray)),
-        Span::raw(app.messages.len().to_string()),
-    ]));
+    items.push(Line::from(vec![Span::styled("Messages ", Style::default().fg(Color::Gray)), Span::raw(app.messages.len().to_string())]));
     items.push(Line::from(""));
 
-    // Debug log count
     let debug_count = crate::debug::log_count();
-    items.push(Line::from(vec![
-        Span::styled("HTTP Log ", Style::default().fg(Color::Gray)),
-        Span::styled(
-            format!("{} entries", debug_count),
-            Style::default().fg(if debug_count > 0 { Color::Cyan } else { Color::DarkGray }),
-        ),
-    ]));
-    items.push(Line::from(Span::styled(
-        "  [Ctrl+D] open  [Ctrl+L] clear",
-        Style::default().fg(Color::Rgb(80, 80, 90)),
-    )));
+    items.push(Line::from(vec![Span::styled("HTTP Log ", Style::default().fg(Color::Gray)), Span::styled(format!("{} entries", debug_count), Style::default().fg(if debug_count > 0 { Color::Cyan } else { Color::DarkGray }))]));
+    items.push(Line::from(Span::styled("  [Ctrl+D] open  [Ctrl+L] clear", Style::default().fg(Color::Rgb(80, 80, 90)))));
     items.push(Line::from(""));
 
-    // Active streaming info
     if let Some(ref s) = app.streaming {
         let token_count = s.content.len();
         let tool_count = s.tool_calls.len();
-        items.push(Line::from(vec![
-            Span::styled("Streaming ", Style::default().fg(Color::Gray)),
-            Span::styled(
-                format!("{} tokens, {} tools", token_count, tool_count),
-                Style::default().fg(Color::Cyan),
-            ),
-        ]));
+        items.push(Line::from(vec![Span::styled("Streaming ", Style::default().fg(Color::Gray)), Span::styled(format!("{} tokens, {} tools", token_count, tool_count), Style::default().fg(Color::Cyan))]));
         if s.current_tool.is_some() {
-            items.push(Line::from(vec![
-                Span::styled("▸ ", Style::default().fg(Color::Yellow)),
-                Span::styled("tool executing...", Style::default().fg(Color::Yellow)),
-            ]));
+            items.push(Line::from(vec![Span::styled("▸ ", Style::default().fg(Color::Yellow)), Span::styled("tool executing...", Style::default().fg(Color::Yellow))]));
         }
     }
 
@@ -627,7 +635,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let prefix = "> ";
 
     let hint = Line::from(Span::styled(
-        "  [?] 键盘快捷键  [Enter] 发送  [Esc] 退出  [Ctrl+C] 取消  [Ctrl+Z] 撤销",
+        "  [?] 键盘快捷键  [Enter] 发送  [Esc] 退出  [Ctrl+C] 取消  [Ctrl+Z] 撤销  [Ctrl+T] 转录",
         Style::default().fg(Color::Rgb(80, 80, 90)),
     ));
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
@@ -640,19 +648,13 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         ]
     } else if app.input.content.is_empty() {
         vec![
-            Line::from(Span::styled(
-                format!("{}输入消息...", prefix),
-                Style::default().fg(Color::Rgb(113, 113, 122)),
-            )),
+            Line::from(Span::styled(format!("{}输入消息...", prefix), Style::default().fg(Color::Rgb(113, 113, 122)))),
             hint,
         ]
     } else {
         let mut result: Vec<Line> = app.input.content.lines().enumerate().map(|(i, line)| {
             let p = if i == 0 { prefix } else { "  " };
-            Line::from(Span::styled(
-                format!("{}{}", p, line),
-                Style::default().fg(Color::Rgb(250, 250, 250)),
-            ))
+            Line::from(Span::styled(format!("{}{}", p, line), Style::default().fg(Color::Rgb(250, 250, 250))))
         }).collect();
         result.push(hint);
         result

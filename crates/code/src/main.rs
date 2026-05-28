@@ -50,14 +50,7 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref sid) = session {
                     let sessions_dir = config::i_rs_code_dir().join("sessions");
                     if let Ok(s) = session::Session::load(sid, &sessions_dir) {
-                        for m in &s.messages {
-                            app.messages.push(app::ChatMessage {
-                                role: m.role.clone(),
-                                content: m.content.clone(),
-                                reasoning: m.reasoning.clone(),
-                                tool_calls: m.tool_calls.clone(),
-                            });
-                        }
+                        app.messages = s.messages;
                     }
                 }
                 tui::run(app).await?;

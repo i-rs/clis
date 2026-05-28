@@ -6,7 +6,7 @@ pub mod ui;
 #[cfg(feature = "tui")]
 use crate::agent::event::AgentEvent;
 #[cfg(feature = "tui")]
-use crate::app::{App, AppMode, ChatMessage, ToolCallInfo};
+use crate::app::{AgentMessage, App, AppMode, ToolCallInfo};
 #[cfg(feature = "tui")]
 use std::io;
 #[cfg(feature = "tui")]
@@ -34,8 +34,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 
     if app.messages.is_empty() {
         let version = app.version.clone();
-        app.messages.push(ChatMessage {
-            role: "assistant".into(),
+        app.messages.push(AgentMessage::Assistant {
             content: format!(
                 "Welcome to i-rs-code v{version}\n\n\
                  Type a message to start coding...\n\n\
@@ -51,7 +50,11 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 
     while !app.should_quit {
         terminal.draw(|f| {
-            ui::render(f, &app);
+            if app.show_transcript {
+                ui::render_transcript(f, &app);
+            } else {
+                ui::render(f, &app);
+            }
         })?;
 
         if event::poll(Duration::from_millis(50))? {
@@ -68,6 +71,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                     match mouse.kind {
                         MouseEventKind::ScrollUp => {
                             app.scroll_offset = app.scroll_offset.saturating_add(3);
+                            app.auto_scroll = false;
                         }
                         MouseEventKind::ScrollDown => {
                             app.scroll_offset = app.scroll_offset.saturating_sub(3);
@@ -84,12 +88,11 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         }
     }
 
-    // Auto-save session before exit
     let stats = if app.messages.len() > 1 {
-        let tool_count: usize = app.messages.iter().filter(|m| m.role == "tool").count();
+        let tool_count: usize = app.messages.iter().filter(|m| matches!(m, AgentMessage::ToolResult { .. })).count();
         let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let sessions_dir = crate::config::i_rs_code_dir().join("sessions");
-        let session = crate::session::Session::from_chat_messages(Some(session_id.clone()), &app.messages);
+        let session = crate::session::Session::from_agent_messages(Some(session_id.clone()), &app.messages);
         if session.save(&sessions_dir).is_ok() {
             Some((session_id, app.messages.len(), tool_count))
         } else {
@@ -178,6 +181,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 .map(|s| s.tool_calls.clone())
                 .unwrap_or_default();
             let (content, reasoning) = app.finish_streaming();
+
             for tc in &streamed_tc {
                 let display = match &tc.result {
                     Some(r) => {
@@ -190,13 +194,9 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                     }
                     None => format!("{}\n(no result)", tc.name),
                 };
-                app.messages.push(ChatMessage {
-                    role: "tool".into(),
-                    content: display,
-                    reasoning: String::new(),
-                    tool_calls: None,
-                });
+                app.messages.push(AgentMessage::tool("", &display));
             }
+
             if !messages.is_empty() {
                 app.agent_messages = messages.clone();
             }
@@ -206,13 +206,14 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             app.context_usage = Some(context_pct);
             let tool_calls = extract_tool_calls(&messages);
             if !content.is_empty() || !reasoning.is_empty() || tool_calls.is_some() {
-                app.messages.push(ChatMessage {
-                    role: "assistant".into(),
+                app.messages.push(AgentMessage::Assistant {
                     content,
                     reasoning,
                     tool_calls,
                 });
             }
+
+            // Completion summary
             if !app.file_changes.is_empty() {
                 let mut files: Vec<&String> = app.file_changes.iter().collect();
                 files.sort();
@@ -230,14 +231,15 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                         .collect();
                     summary.push_str(&format!("\n🔧 {}", tool_str.join("  ")));
                 }
-                app.messages.push(ChatMessage {
-                    role: "system".into(),
-                    content: summary,
-                    reasoning: String::new(),
-                    tool_calls: None,
-                });
+                app.messages.push(AgentMessage::system(summary));
             }
-            app.scroll_offset = 0;
+
+            // Separator
+            app.messages.push(AgentMessage::Separator { label: String::new() });
+
+            if app.auto_scroll {
+                app.scroll_offset = 0;
+            }
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
@@ -250,8 +252,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             } else {
                 format!("Error: {}", e)
             };
-            app.messages.push(ChatMessage {
-                role: "assistant".into(),
+            app.messages.push(AgentMessage::Assistant {
                 content: msg,
                 reasoning,
                 tool_calls: None,
@@ -270,6 +271,28 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         return;
     }
 
+    // Transcript mode key handling
+    if app.show_transcript {
+        match key.code {
+            KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
+                app.show_transcript = false;
+                app.transcript_scroll = 0;
+            }
+            KeyCode::Esc | KeyCode::Char('q') => {
+                app.show_transcript = false;
+                app.transcript_scroll = 0;
+            }
+            KeyCode::Up => app.transcript_scroll = app.transcript_scroll.saturating_sub(1),
+            KeyCode::Down => app.transcript_scroll = app.transcript_scroll.saturating_add(1),
+            KeyCode::PageUp => app.transcript_scroll = app.transcript_scroll.saturating_sub(10),
+            KeyCode::PageDown => app.transcript_scroll = app.transcript_scroll.saturating_add(10),
+            KeyCode::Home => app.transcript_scroll = 0,
+            KeyCode::End => app.transcript_scroll = usize::MAX,
+            _ => {}
+        }
+        return;
+    }
+
     match app.mode {
         AppMode::Waiting => {
             match key.code {
@@ -283,8 +306,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     app.mode = AppMode::Idle;
                     let (content, reasoning) = app.finish_streaming();
                     if !content.is_empty() {
-                        app.messages.push(ChatMessage {
-                            role: "assistant".into(),
+                        app.messages.push(AgentMessage::Assistant {
                             content: format!("{}\n\n[Cancelled]", content),
                             reasoning,
                             tool_calls: None,
@@ -307,24 +329,18 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
             app.show_reasoning = !app.show_reasoning;
         }
+        KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
+            app.show_transcript = !app.show_transcript;
+            app.transcript_scroll = 0;
+        }
         KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
             if let Some((path, content)) = app.last_file_states.pop() {
                 match std::fs::write(&path, &content) {
                     Ok(_) => {
-                        app.messages.push(ChatMessage {
-                            role: "system".into(),
-                            content: format!("Reverted {}", path),
-                            reasoning: String::new(),
-                            tool_calls: None,
-                        });
+                        app.messages.push(AgentMessage::system(format!("Reverted {}", path)));
                     }
                     Err(e) => {
-                        app.messages.push(ChatMessage {
-                            role: "system".into(),
-                            content: format!("Failed to revert {}: {}", path, e),
-                            reasoning: String::new(),
-                            tool_calls: None,
-                        });
+                        app.messages.push(AgentMessage::system(format!("Failed to revert {}: {}", path, e)));
                     }
                 }
             }
@@ -367,22 +383,10 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Char(c) => {
             if key.modifiers == KeyModifiers::CONTROL {
                 match c {
-                    'c' => {
-                        app.should_quit = true;
-                        return;
-                    }
-                    'a' | 'A' => {
-                        app.input.cursor_pos = 0;
-                        return;
-                    }
-                    'e' | 'E' => {
-                        app.input.cursor_pos = app.input.content.len();
-                        return;
-                    }
-                    'u' | 'U' => {
-                        app.input.clear();
-                        return;
-                    }
+                    'c' => { app.should_quit = true; return; }
+                    'a' | 'A' => { app.input.cursor_pos = 0; return; }
+                    'e' | 'E' => { app.input.cursor_pos = app.input.content.len(); return; }
+                    'u' | 'U' => { app.input.clear(); return; }
                     _ => {}
                 }
             }
@@ -405,12 +409,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             let prompt = std::mem::take(&mut app.input.content);
             let expanded = expand_file_refs(&prompt);
             app.input.cursor_pos = 0;
-            app.messages.push(ChatMessage {
-                role: "user".into(),
-                content: prompt.clone(),
-                reasoning: String::new(),
-                tool_calls: None,
-            });
+            app.messages.push(AgentMessage::user(&prompt));
             app.start_streaming();
             app.mode = AppMode::Waiting;
 

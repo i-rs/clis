@@ -3,12 +3,35 @@ use crate::tui::input::InputState;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ChatMessage {
-    pub role: String,
-    pub content: String,
-    pub reasoning: String,
-    #[serde(default)]
-    pub tool_calls: Option<Vec<serde_json::Value>>,
+#[serde(tag = "role")]
+pub enum AgentMessage {
+    #[serde(rename = "user")]
+    User { content: String },
+    #[serde(rename = "assistant")]
+    Assistant { content: String, reasoning: String, tool_calls: Option<Vec<serde_json::Value>> },
+    #[serde(rename = "tool")]
+    ToolResult { content: String },
+    #[serde(rename = "system")]
+    System { content: String },
+    #[serde(rename = "file_edit")]
+    FileEdit { path: String, summary: String },
+    #[serde(rename = "separator")]
+    Separator { label: String },
+}
+
+impl AgentMessage {
+    pub fn user(content: impl Into<String>) -> Self {
+        Self::User { content: content.into() }
+    }
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self::Assistant { content: content.into(), reasoning: String::new(), tool_calls: None }
+    }
+    pub fn tool(name: impl Into<String>, content: impl Into<String>) -> Self {
+        Self::ToolResult { content: format!("{}\n{}", name.into(), content.into()) }
+    }
+    pub fn system(content: impl Into<String>) -> Self {
+        Self::System { content: content.into() }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -39,11 +62,10 @@ pub struct StreamingState {
 pub struct App {
     pub config: Config,
     pub input: InputState,
-    pub messages: Vec<ChatMessage>,
-    /// API-format message history, synced from AgentEvent::Done.
-    /// Used as history input for the next LLM call.
+    pub messages: Vec<AgentMessage>,
     pub agent_messages: Vec<crate::provider::LlmMessage>,
     pub scroll_offset: usize,
+    pub auto_scroll: bool,
     pub file_changes: HashSet<String>,
     pub token_usage: TokenUsage,
     pub version: String,
@@ -60,10 +82,10 @@ pub struct App {
     pub tool_names: Vec<String>,
     pub last_file_states: Vec<(String, String)>,
     pub context_usage: Option<f64>,
-    /// When false, reasoning blocks are collapsed to a single-line indicator.
     pub show_reasoning: bool,
-    /// Transient status message (retry, progress), shown in status panel
     pub status_message: Option<String>,
+    pub show_transcript: bool,
+    pub transcript_scroll: usize,
 }
 
 impl App {
@@ -78,6 +100,7 @@ impl App {
             messages: Vec::new(),
             agent_messages: Vec::new(),
             scroll_offset: 0,
+            auto_scroll: true,
             file_changes: HashSet::new(),
             token_usage: TokenUsage::default(),
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -96,6 +119,8 @@ impl App {
             context_usage: None,
             show_reasoning: false,
             status_message: None,
+            show_transcript: false,
+            transcript_scroll: 0,
         }
     }
 
@@ -124,6 +149,7 @@ impl App {
 
     pub fn scroll_up(&mut self) {
         self.scroll_offset = self.scroll_offset.saturating_add(1);
+        self.auto_scroll = false;
     }
 
     pub fn scroll_down(&mut self) {
