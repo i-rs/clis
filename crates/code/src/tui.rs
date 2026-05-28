@@ -1,5 +1,9 @@
 #[cfg(feature = "tui")]
+pub mod colors;
+#[cfg(feature = "tui")]
 pub mod input;
+#[cfg(feature = "tui")]
+pub mod sidebar;
 #[cfg(feature = "tui")]
 pub mod strings;
 #[cfg(feature = "tui")]
