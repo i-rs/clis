@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct ReadTool;
 pub struct WriteTool;
@@ -9,6 +9,21 @@ pub struct EditTool;
 pub struct GlobTool;
 pub struct GrepTool;
 pub struct LsTool;
+
+/// Validate path is within workspace and return safe path.
+pub fn resolve_safe_path(path: &str) -> anyhow::Result<PathBuf> {
+    let p = Path::new(path);
+    if p.components().any(|c| c.as_os_str() == "..") {
+        anyhow::bail!("Path traversal detected: {}", path);
+    }
+    if p.is_absolute() {
+        let cwd = std::env::current_dir()?;
+        if !p.canonicalize()?.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
+    }
+    Ok(p.canonicalize().unwrap_or_else(|_| p.to_path_buf()))
+}
 
 fn check_path(path: &str) -> anyhow::Result<()> {
     let p = Path::new(path);
