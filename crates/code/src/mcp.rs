@@ -6,6 +6,8 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
+const MCP_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub struct McpConnection {
     child: Option<Child>,
     stdin: Option<tokio::process::ChildStdin>,
@@ -88,7 +90,9 @@ impl McpConnection {
 
         let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("no reader"))?;
         loop {
-            let msg = read_mcp_message(reader).await?;
+            let read = read_mcp_message(reader);
+            let msg = tokio::time::timeout(MCP_REQUEST_TIMEOUT, read).await
+                .map_err(|_| anyhow::anyhow!("MCP request timed out (id={})", id))??;
             if msg["id"].as_u64() == Some(id as u64) {
                 if let Some(result) = msg.get("result") {
                     return Ok(result.clone());

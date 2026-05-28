@@ -16,7 +16,7 @@ pub static LAST_WEB_REQUEST: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::
 static TOTAL_INPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
 static TOTAL_OUTPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
 static SESSION_TOKEN_BUDGET: AtomicU64 = AtomicU64::new(0);
-static LAST_API_CALL: LazyLock<std::sync::Mutex<Instant>> = LazyLock::new(|| std::sync::Mutex::new(Instant::now()));
+static LAST_API_CALL: LazyLock<tokio::sync::Mutex<Instant>> = LazyLock::new(|| tokio::sync::Mutex::new(Instant::now()));
 static MIN_REQUEST_INTERVAL_MS: u64 = 1000;
 static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
 static VERBOSE_MODE: AtomicBool = AtomicBool::new(false);
@@ -70,12 +70,12 @@ pub async fn rate_limit_wait() {
     loop {
         let now = Instant::now();
         let last = {
-            let guard = LAST_API_CALL.lock().unwrap();
+            let guard = LAST_API_CALL.lock().await;
             *guard
         };
         let elapsed = now.saturating_duration_since(last);
         if elapsed >= interval {
-            *LAST_API_CALL.lock().unwrap() = now;
+            *LAST_API_CALL.lock().await = now;
             return;
         }
         tokio::time::sleep(interval - elapsed).await;

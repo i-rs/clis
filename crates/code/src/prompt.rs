@@ -1,4 +1,66 @@
 use crate::config::ProjectInfo;
+use std::sync::OnceLock;
+
+struct BuildContextCache {
+    dir: String,
+    branch: String,
+    git_status: String,
+    workspace_crates: String,
+}
+
+static CONTEXT_CACHE: OnceLock<BuildContextCache> = OnceLock::new();
+
+fn build_cached_context(project_info: &ProjectInfo) -> BuildContextCache {
+    let dir = std::env::current_dir()
+        .map(|d| d.display().to_string())
+        .unwrap_or_default();
+
+    let branch = std::process::Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|b| !b.is_empty())
+        .unwrap_or_default();
+
+    let git_status = std::process::Command::new("git")
+        .args(["status", "--short"])
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout).trim().to_string()
+        })
+        .filter(|s| !s.is_empty())
+        .unwrap_or_default();
+
+    let workspace_crates = if project_info.has_cargo {
+        std::process::Command::new("cargo")
+            .args(["metadata", "--format-version=1", "--no-deps"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| {
+                let stdout = String::from_utf8_lossy(&o.stdout);
+                serde_json::from_str::<serde_json::Value>(&stdout).ok()
+            })
+            .and_then(|meta| meta["workspace_members"].as_array().cloned())
+            .map(|members| {
+                let mut s = String::new();
+                s.push_str(&format!("Workspace crates ({}):\n", members.len()));
+                for member in members.iter().take(15) {
+                    if let Some(name) = member.as_str() {
+                        s.push_str(&format!("  {}\n", name));
+                    }
+                }
+                s
+            })
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    BuildContextCache { dir, branch, git_status, workspace_crates }
+}
 
 pub const SYSTEM: &str = "\
 You are i-rs-code, an expert coding AI agent.
@@ -67,52 +129,22 @@ Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_se
 After completing changes, briefly summarize what was done in Chinese.";
 
 pub fn build_context(project_info: &ProjectInfo) -> String {
+    let cache = CONTEXT_CACHE.get_or_init(|| build_cached_context(project_info));
     let mut ctx = String::new();
 
-    if let Ok(dir) = std::env::current_dir() {
-        ctx.push_str(&format!("Working directory: {}\n", dir.display()));
+    if !cache.dir.is_empty() {
+        ctx.push_str(&format!("Working directory: {}\n", cache.dir));
     }
-
     ctx.push_str(&format!("Project type: {}\n", project_info.project_type));
-
-    if let Ok(output) = std::process::Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-    {
-        let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !branch.is_empty() {
-            ctx.push_str(&format!("Git branch: {}\n", branch));
-        }
+    if !cache.branch.is_empty() {
+        ctx.push_str(&format!("Git branch: {}\n", cache.branch));
     }
-
-    if let Ok(output) = std::process::Command::new("git")
-        .args(["status", "--short"])
-        .output()
-    {
-        let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !status.is_empty() {
-            let lines: Vec<&str> = status.lines().take(20).collect();
-            ctx.push_str(&format!("Git status:\n{}\n", lines.join("\n")));
-        }
+    if !cache.git_status.is_empty() {
+        let lines: Vec<&str> = cache.git_status.lines().take(20).collect();
+        ctx.push_str(&format!("Git status:\n{}\n", lines.join("\n")));
     }
-
-    if project_info.has_cargo
-        && let Ok(output) = std::process::Command::new("cargo")
-            .args(["metadata", "--format-version=1", "--no-deps"])
-            .output()
-        && output.status.success()
-    {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&stdout)
-            && let Some(workspace_members) = meta["workspace_members"].as_array()
-        {
-            ctx.push_str(&format!("Workspace crates ({}):\n", workspace_members.len()));
-            for member in workspace_members.iter().take(15) {
-                if let Some(name) = member.as_str() {
-                    ctx.push_str(&format!("  {}\n", name));
-                }
-            }
-        }
+    if !cache.workspace_crates.is_empty() {
+        ctx.push_str(&cache.workspace_crates);
     }
 
     ctx
