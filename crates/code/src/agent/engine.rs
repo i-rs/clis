@@ -331,6 +331,16 @@ async fn react_loop_inner(
         if let Some(u) = round_usage {
             total_usage.input_tokens = total_usage.input_tokens.saturating_add(u.input_tokens);
             total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
+            crate::runtime::add_usage(u.input_tokens, u.output_tokens);
+            if crate::runtime::exceeds_token_budget() {
+                let used = crate::runtime::total_usage_tokens();
+                let budget = crate::runtime::session_token_budget();
+                output.emit_tool_result("", "budget", &format!(
+                    "Token budget exceeded: {} / {}. Stopping.",
+                    used, budget
+                ));
+                break;
+            }
         }
 
         if !content.is_empty() || !reasoning.is_empty() || !pending_tool_calls.is_empty() {
