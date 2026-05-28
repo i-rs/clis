@@ -567,7 +567,7 @@ struct MarkdownTextView: View {
             .markdownTheme(isCompact ? .gitHubTableScroll : .gitHub)
             #if os(macOS)
             .markdownTextStyle(\.text) {
-                FontSize(13)
+                FontSize(11)
             }
             #endif
             .textSelection(.enabled)
