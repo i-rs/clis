@@ -57,6 +57,10 @@ impl ToolRegistry {
         Ok(Self { tools })
     }
 
+    pub fn new_empty() -> Self {
+        Self { tools: HashMap::new() }
+    }
+
     pub fn register(&mut self, tool: Arc<dyn Tool>) {
         self.tools.insert(tool.name().to_string(), tool);
     }

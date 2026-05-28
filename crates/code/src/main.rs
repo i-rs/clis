@@ -17,6 +17,8 @@ mod diff;
 mod session;
 mod utils;
 mod debug;
+#[cfg(test)]
+mod testing;
 mod prompt;
 mod tui;
 
