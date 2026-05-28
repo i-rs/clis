@@ -408,18 +408,30 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         if !s.reasoning.is_empty() {
             let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
             let total = reasoning_lines.len();
-            let start = total.saturating_sub(6);
-            if start > 0 {
-                lines.push(Line::from(Span::styled(
-                    format!(" ╎ … {} earlier lines", start),
-                    Style::default().fg(Color::Rgb(150, 150, 100)).add_modifier(Modifier::ITALIC),
-                )));
-            }
-            for line in &reasoning_lines[start..] {
-                lines.push(Line::from(Span::styled(
-                    format!(" ╎ {}", line),
-                    Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
-                )));
+            if s.content.is_empty() {
+                // Still thinking: show live (last 6 lines)
+                let start = total.saturating_sub(6);
+                if start > 0 {
+                    lines.push(Line::from(Span::styled(
+                        format!(" ╎ … {} earlier lines", start),
+                        Style::default().fg(Color::Rgb(150, 150, 100)).add_modifier(Modifier::ITALIC),
+                    )));
+                }
+                for line in &reasoning_lines[start..] {
+                    lines.push(Line::from(Span::styled(
+                        format!(" ╎ {}", line),
+                        Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
+                    )));
+                }
+            } else {
+                // Thinking done: show folded summary (r to expand in final message)
+                lines.push(Line::from(vec![
+                    Span::styled(" ▶ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
+                    Span::styled(
+                        format!(" 思考过程已完成 · {}行（按 r 查看完整思考）", total),
+                        Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC),
+                    ),
+                ]));
             }
         }
 

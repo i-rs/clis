@@ -128,9 +128,6 @@ fn handle_event(event: AgentEvent, app: &mut App) {
     match event {
         AgentEvent::Token(t) => {
             if let Some(ref mut s) = app.streaming {
-                if s.content.is_empty() && !s.reasoning.is_empty() {
-                    s.reasoning.clear();
-                }
                 s.content.push_str(&t);
             }
         }
