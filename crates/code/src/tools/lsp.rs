@@ -9,6 +9,7 @@ pub struct LspReferencesTool;
 pub struct LspHoverTool;
 pub struct LspRenameTool;
 pub struct LspSymbolsTool;
+pub struct LspCompletionTool;
 
 #[async_trait]
 impl Tool for LspDiagnosticsTool {
@@ -203,6 +204,39 @@ impl Tool for LspSymbolsTool {
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let mut session = LSP_SESSION.lock().await;
         let result = session.get_document_symbols(file_path).await?;
+        Ok(result)
+    }
+}
+
+#[async_trait]
+impl Tool for LspCompletionTool {
+    fn name(&self) -> &str { "lsp_completion" }
+    fn description(&self) -> &str { "Get code completion suggestions at a given position using LSP." }
+    fn schema(&self) -> Value {
+        json!({
+            "type": "function",
+            "function": {
+                "name": "lsp_completion",
+                "description": "Get code completions at a file position (1-indexed line/column). Returns a list of suggested symbols.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "line": {"type": "integer", "description": "Line number (1-indexed)"},
+                        "character": {"type": "integer", "description": "Column number (1-indexed)"}
+                    },
+                    "required": ["file_path", "line", "character"]
+                }
+            }
+        })
+    }
+    async fn call(&self, args: &Map<String, Value>) -> ToolResult {
+        let file_path = args.get("file_path").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
+        let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
+        let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
+        let mut session = LSP_SESSION.lock().await;
+        let result = session.get_completion(file_path, line, character).await?;
         Ok(result)
     }
 }

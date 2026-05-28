@@ -67,6 +67,7 @@ impl ToolRegistry {
         tools.insert("lsp_hover".into(), Arc::new(lsp::LspHoverTool));
         tools.insert("lsp_rename".into(), Arc::new(lsp::LspRenameTool));
         tools.insert("lsp_symbols".into(), Arc::new(lsp::LspSymbolsTool));
+        tools.insert("lsp_completion".into(), Arc::new(lsp::LspCompletionTool));
         tools.insert("pty_exec".into(), Arc::new(pty::PtyExecTool));
         tools.insert("pty_interrupt".into(), Arc::new(pty::PtyInterruptTool));
         tools.insert("mcp_connect".into(), Arc::new(mcp::McpConnectTool));

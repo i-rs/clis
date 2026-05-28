@@ -269,6 +269,50 @@ impl LspSession {
         }
     }
 
+    pub async fn get_completion(&mut self, file_path: &str, line: u32, character: u32) -> anyhow::Result<String> {
+        self.ensure_initialized_for(file_path).await?;
+        self.open_document(file_path).await?;
+        let uri = path_to_uri(file_path)?;
+
+        let params = CompletionParams {
+            text_document_position: TextDocumentPositionParams {
+                text_document: TextDocumentIdentifier { uri: uri.clone() },
+                position: Position { line, character },
+            },
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+            context: Some(CompletionContext {
+                trigger_kind: CompletionTriggerKind::INVOKED,
+                trigger_character: None,
+            }),
+        };
+
+        let result: Option<CompletionResponse> = self.send_request("textDocument/completion", params).await?;
+        match result {
+            None => Ok("No completions available".into()),
+            Some(CompletionResponse::Array(items)) => {
+                if items.is_empty() {
+                    return Ok("No completions found".into());
+                }
+                let lines: Vec<String> = items.iter().map(|item| {
+                    let detail = item.detail.as_deref().unwrap_or("");
+                    format!("  {} {} {}", item.insert_text.as_deref().unwrap_or(&item.label), detail, item.filter_text.as_deref().unwrap_or(""))
+                }).collect();
+                Ok(format!("Completions ({}):\n{}", lines.len(), lines.join("\n")))
+            }
+            Some(CompletionResponse::List(list)) => {
+                if list.items.is_empty() {
+                    return Ok("No completions found".into());
+                }
+                let lines: Vec<String> = list.items.iter().map(|item| {
+                    let detail = item.detail.as_deref().unwrap_or("");
+                    format!("  {} {}", item.label, detail)
+                }).collect();
+                Ok(format!("Completions ({}):\n{}", lines.len(), lines.join("\n")))
+            }
+        }
+    }
+
     pub async fn get_rename(&mut self, file_path: &str, line: u32, character: u32, new_name: &str) -> anyhow::Result<String> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;

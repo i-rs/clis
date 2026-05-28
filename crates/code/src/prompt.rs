@@ -71,7 +71,7 @@ If you only respond with text, nothing happens — no files are created, no code
 IMMEDIATELY call the appropriate tool. Do NOT explain what you will do — just do it.
 Your internal reasoning is for analysis only. After reasoning, you MUST output tool calls to take action.
 
-Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_search, create_crate, verify, lsp_diagnostics, lsp_definition, lsp_references, lsp_hover, lsp_rename, lsp_symbols.
+Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_search, create_crate, verify, lsp_diagnostics, lsp_definition, lsp_references, lsp_hover, lsp_rename, lsp_symbols, lsp_completion.
 
 ## Workflow
 1. UNDERSTAND -- use read/glob/grep/ls to understand current code
