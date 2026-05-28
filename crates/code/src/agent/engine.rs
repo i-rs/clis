@@ -2,7 +2,25 @@ use crate::provider::*;
 use crate::tools::ToolRegistry;
 use super::event::AgentEvent;
 use serde_json::Value;
+use std::collections::HashMap;
 use tokio::sync::mpsc;
+
+const MAX_PROVIDER_RETRIES: u32 = 2;
+const MAX_TOOL_RETRIES: u32 = 2;
+
+fn is_transient_error(e: &str) -> bool {
+    let lower = e.to_lowercase();
+    lower.contains("限流")
+        || lower.contains("rate")
+        || lower.contains("timeout")
+        || lower.contains("502")
+        || lower.contains("503")
+        || lower.contains("504")
+        || lower.contains("连接")
+        || lower.contains("connection")
+        || lower.contains("econnreset")
+        || lower.contains("econnrefused")
+}
 
 pub async fn react_loop(
     provider: &dyn LlmProvider,
@@ -15,6 +33,8 @@ pub async fn react_loop(
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
     let ctx = super::context::ContextManager::new();
+    let mut provider_errors: u32 = 0;
+    let mut retry_counts: HashMap<String, u32> = HashMap::new();
 
     for _round in 0..max_rounds {
         if ctx.should_compress(&messages) {
@@ -25,6 +45,7 @@ pub async fn react_loop(
         let mut reasoning = String::new();
         let mut pending_tool_calls = Vec::new();
         let mut round_usage: Option<crate::provider::Usage> = None;
+        let mut had_error = false;
 
         while let Some(event) = rx.recv().await {
             match event.kind {
@@ -50,14 +71,27 @@ pub async fn react_loop(
                     break;
                 }
                 StreamEventKind::Error(e) => {
-                    if json_output {
-                        let event = serde_json::json!({"event": "error", "content": e});
-                        println!("{}", serde_json::to_string(&event)?);
+                    had_error = true;
+                    if is_transient_error(&e) && provider_errors < MAX_PROVIDER_RETRIES {
+                        provider_errors += 1;
+                        let wait = 3 * provider_errors as u64;
+                        if json_output {
+                            let ev = serde_json::json!({"event": "retry", "wait": wait, "attempt": provider_errors});
+                            println!("{}", serde_json::to_string(&ev)?);
+                        }
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                        continue;
                     }
                     anyhow::bail!("{}", e);
                 }
             }
         }
+
+        if had_error {
+            continue;
+        }
+
+        provider_errors = 0;
 
         if let Some(u) = round_usage {
             total_usage.input_tokens = total_usage.input_tokens.saturating_add(u.input_tokens);
@@ -139,6 +173,13 @@ pub async fn react_loop(
                 Err(e) => format!("Error: {}", e),
             };
 
+            if result_str.starts_with("Error:") {
+                let count = retry_counts.entry(tc.id.clone()).or_insert(0);
+                *count += 1;
+            } else {
+                retry_counts.remove(&tc.id);
+            }
+
             if let Ok(s) = &result.1
                 && let Ok(val) = serde_json::from_str::<Value>(s) {
                     if val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
@@ -179,6 +220,21 @@ pub async fn react_loop(
                 call_id: tc.id.clone(),
             });
         }
+
+        let over_limit: Vec<_> = retry_counts.iter()
+            .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
+            .map(|(id, c)| (id.clone(), *c))
+            .collect();
+        if !over_limit.is_empty() {
+            let details: Vec<String> = over_limit.iter()
+                .map(|(id, c)| format!("tool_call_id='{}' ({}次)", id, c))
+                .collect();
+            messages.push(LlmMessage::System(format!(
+                "工具连续 {} 次调用失败。请反思：\n1. 参数是否正确？\n2. 是否需要换一种方式？\n3. 是否不需要这个工具？\n失败的调用: {}",
+                MAX_TOOL_RETRIES,
+                details.join("; ")
+            )));
+        }
     }
 
     Ok((final_text, messages))
@@ -195,6 +251,8 @@ pub async fn react_loop_streaming(
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
     let ctx = super::context::ContextManager::new();
+    let mut provider_errors: u32 = 0;
+    let mut retry_counts: HashMap<String, u32> = HashMap::new();
 
     for _round in 0..max_rounds {
         if ctx.should_compress(&messages) {
@@ -205,6 +263,7 @@ pub async fn react_loop_streaming(
         let mut reasoning = String::new();
         let mut pending_tool_calls = Vec::new();
         let mut round_usage: Option<crate::provider::Usage> = None;
+        let mut had_error = false;
 
         while let Some(event) = rx.recv().await {
             match event.kind {
@@ -235,11 +294,25 @@ pub async fn react_loop_streaming(
                     break;
                 }
                 StreamEventKind::Error(e) => {
+                    had_error = true;
+                    if is_transient_error(&e) && provider_errors < MAX_PROVIDER_RETRIES {
+                        provider_errors += 1;
+                        let wait = 3 * provider_errors as u64;
+                        event_tx.send(AgentEvent::Status(format!("网络波动，{}s 后重试 ({}/{})...", wait, provider_errors, MAX_PROVIDER_RETRIES))).await.ok();
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                        continue;
+                    }
                     event_tx.send(AgentEvent::Error(e.clone())).await.ok();
                     anyhow::bail!("{}", e);
                 }
             }
         }
+
+        if had_error {
+            continue;
+        }
+
+        provider_errors = 0;
 
         if let Some(u) = round_usage {
             total_usage.input_tokens = total_usage.input_tokens.saturating_add(u.input_tokens);
@@ -317,6 +390,13 @@ pub async fn react_loop_streaming(
                 Err(e) => format!("Error: {}", e),
             };
 
+            if result_str.starts_with("Error:") {
+                let count = retry_counts.entry(tc.id.clone()).or_insert(0);
+                *count += 1;
+            } else {
+                retry_counts.remove(&tc.id);
+            }
+
             event_tx.send(AgentEvent::ToolCallEnd {
                 id: tc.id.clone(),
                 name: tc.name.clone(),
@@ -335,6 +415,21 @@ pub async fn react_loop_streaming(
                 content: result_str,
                 call_id: tc.id.clone(),
             });
+        }
+
+        let over_limit: Vec<_> = retry_counts.iter()
+            .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
+            .map(|(id, c)| (id.clone(), *c))
+            .collect();
+        if !over_limit.is_empty() {
+            let details: Vec<String> = over_limit.iter()
+                .map(|(id, c)| format!("tool_call_id='{}' ({}次)", id, c))
+                .collect();
+            messages.push(LlmMessage::System(format!(
+                "工具连续 {} 次调用失败。请反思：\n1. 参数是否正确？\n2. 是否需要换一种方式？\n3. 是否不需要这个工具？\n失败的调用: {}",
+                MAX_TOOL_RETRIES,
+                details.join("; ")
+            )));
         }
     }
 

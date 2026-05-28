@@ -123,6 +123,10 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             }
         }
         AgentEvent::ToolCallStart { id: _id, name, args } => {
+            if matches!(name.as_str(), "write" | "edit")
+                && let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+                    app.file_changes.insert(path.to_string());
+                }
             let info = ToolCallInfo {
                 name,
                 args: serde_json::to_string_pretty(&args).unwrap_or_default(),
@@ -139,6 +143,12 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 tool.result = Some(result);
                 s.tool_calls.push(tool);
             }
+        }
+        AgentEvent::Status(_msg) => {
+            // Status updates for provider retry etc. Could display in TUI status bar.
+        }
+        AgentEvent::FileChanged { path } => {
+            app.file_changes.insert(path);
         }
         AgentEvent::Done { usage, messages } => {
             let (content, reasoning) = app.finish_streaming();
