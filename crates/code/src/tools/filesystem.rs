@@ -152,7 +152,10 @@ impl Tool for WriteTool {
         if let Some(parent) = Path::new(path).parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
-        tokio::fs::write(path, content).await?;
+
+        let tmp_path = format!("{}.tmp", path);
+        tokio::fs::write(&tmp_path, content).await?;
+        tokio::fs::rename(&tmp_path, path).await?;
 
         if old_content.is_empty() {
             Ok(format!("Created {} ({} bytes)\n```{}\n```", path, content.len(), content))
@@ -211,7 +214,9 @@ impl Tool for EditTool {
         };
 
         let diff = crate::diff::diff_text(&content, &new_content);
-        tokio::fs::write(path, &new_content).await?;
+        let tmp_path = format!("{}.tmp", path);
+        tokio::fs::write(&tmp_path, &new_content).await?;
+        tokio::fs::rename(&tmp_path, path).await?;
 
         Ok(format!(
             "Edited {} (+{} -{}{})\n```diff\n{}\n```",
@@ -282,23 +287,31 @@ impl Tool for GrepTool {
                     "properties": {
                         "pattern": {"type": "string"},
                         "path": {"type": "string", "description": "Root directory (default: .)"},
-                        "include": {"type": "string", "description": "File pattern e.g. *.rs"}
+                        "include": {"type": "string", "description": "File glob filter e.g. *.rs, *.py"}
                     },
                     "required": ["pattern"]
                 }
             }
         })
     }
-    async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?.to_string();
-        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".").to_string();
-        tokio::task::spawn_blocking(move || {
-            let re = regex::Regex::new(&pattern)?;
-            let lines = std::sync::Mutex::new(Vec::new());
-            let walker = ignore::WalkBuilder::new(&root)
-                .hidden(false)
-                .git_ignore(true)
-                .build();
+async fn call(&self, args: &Map<String, Value>) -> ToolResult {
+    let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?.to_string();
+    let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".").to_string();
+    let include = args.get("include").and_then(|v| v.as_str()).map(|s| s.to_string());
+    tokio::task::spawn_blocking(move || {
+        let re = regex::Regex::new(&pattern)?;
+        let lines = std::sync::Mutex::new(Vec::new());
+        let mut builder = ignore::WalkBuilder::new(&root);
+        builder.hidden(false);
+        builder.git_ignore(true);
+        if let Some(ref glob_str) = include {
+            let glob = globset::Glob::new(glob_str)?;
+            let matcher = glob.compile_matcher();
+            builder.filter_entry(move |entry| {
+                entry.path().to_str().is_none_or(|p| matcher.is_match(p))
+            });
+        }
+        let walker = builder.build();
 
             for entry in walker.flatten() {
                 if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {

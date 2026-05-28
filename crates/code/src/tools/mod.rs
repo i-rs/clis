@@ -20,6 +20,8 @@ use std::sync::Arc;
 
 pub type ToolResult = anyhow::Result<String>;
 
+pub use crate::error::ToolError;
+
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
@@ -80,11 +82,13 @@ impl ToolRegistry {
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
-        self.tools.get(name).cloned()
+        self.tools.get(name).cloned().or_else(|| crate::tools::mcp::get_mcp_tool(name))
     }
 
     pub fn all_tools(&self) -> Vec<Arc<dyn Tool>> {
-        self.tools.values().cloned().collect()
+        let mut tools: Vec<_> = self.tools.values().cloned().collect();
+        tools.extend(crate::tools::mcp::all_mcp_tools());
+        tools
     }
 
     pub fn schemas(&self) -> Vec<Value> {

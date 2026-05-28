@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{json, Map, Value};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::runtime::MCP_MANAGER;
 use crate::tools::{Tool, ToolResult};
@@ -57,9 +58,31 @@ impl Tool for McpConnectTool {
             return Ok(format!("Connected to '{}' but no tools discovered", server_name));
         }
 
+        let mut registry = MCP_TOOL_REGISTRY.lock().unwrap();
+        for tool_def in &tools {
+            let wrapper = Arc::new(McpToolWrapper {
+                server_name: server_name.to_string(),
+                tool_name: tool_def.name.clone(),
+                description: tool_def.description.clone(),
+            });
+            let key = format!("mcp:{}", tool_def.name);
+            registry.insert(key, wrapper);
+        }
+
         let tool_names: Vec<String> = tools.iter().map(|t| format!("  - {}: {}", t.name, t.description)).collect();
-        Ok(format!("Connected to '{}' with {} tools:\n{}", server_name, tools.len(), tool_names.join("\n")))
+        Ok(format!("Connected to '{}' with {} tools (registered as mcp:*)\n{}", server_name, tools.len(), tool_names.join("\n")))
     }
+}
+
+static MCP_TOOL_REGISTRY: LazyLock<Mutex<std::collections::HashMap<String, Arc<dyn Tool>>>> =
+    LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
+
+pub fn get_mcp_tool(name: &str) -> Option<Arc<dyn Tool>> {
+    MCP_TOOL_REGISTRY.lock().ok()?.get(name).cloned()
+}
+
+pub fn all_mcp_tools() -> Vec<Arc<dyn Tool>> {
+    MCP_TOOL_REGISTRY.lock().map(|r| r.values().cloned().collect()).unwrap_or_default()
 }
 
 struct McpToolWrapper {
@@ -78,12 +101,21 @@ impl Tool for McpToolWrapper {
             "function": {
                 "name": self.tool_name,
                 "description": self.description,
-                "parameters": {"type": "object", "properties": {}}
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "input": {
+                            "type": "object",
+                            "description": "Input parameters for this MCP tool"
+                        }
+                    },
+                    "required": ["input"]
+                }
             }
         })
     }
-    async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let result = MCP_MANAGER.call_tool(&self.server_name, &self.tool_name, json!(args)).await?;
-        Ok(serde_json::to_string_pretty(&result)?)
+    async fn call(&self, _args: &Map<String, Value>) -> ToolResult {
+        let result = crate::runtime::MCP_MANAGER.call_tool(&self.server_name, &self.tool_name, serde_json::Value::Object(_args.clone())).await?;
+        Ok(result.to_string())
     }
 }

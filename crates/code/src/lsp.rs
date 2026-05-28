@@ -5,6 +5,9 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 
+const LSP_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const LSP_DIAGNOSTICS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
 static CLIENT_CAPS: LazyLock<ClientCapabilities> = LazyLock::new(ClientCapabilities::default);
 
 pub struct LspSession {
@@ -97,35 +100,50 @@ impl LspSession {
             (cmd_args.into_iter().next().unwrap_or_else(|| "rust-analyzer".into()), Vec::new())
         };
 
-        let mut child = Command::new(&binary)
-            .args(&args)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-            .map_err(|e| anyhow::anyhow!("failed to start LSP server '{}': {}. Is it installed?", binary, e))?;
+        let init = async {
+            let mut child = Command::new(&binary)
+                .args(&args)
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .map_err(|e| anyhow::anyhow!("failed to start LSP server '{}': {}. Is it installed?", binary, e))?;
 
-        let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+            let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
+            let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
 
-        self.process = Some(child);
-        self.stdin = Some(stdin);
-        self.reader = Some(BufReader::new(stdout));
+            self.process = Some(child);
+            self.stdin = Some(stdin);
+            self.reader = Some(BufReader::new(stdout));
 
-        let params = InitializeParams {
-            process_id: Some(std::process::id()),
-            capabilities: CLIENT_CAPS.clone(),
-            workspace_folders: Some(vec![WorkspaceFolder {
-                uri: self.workspace_uri.clone(),
-                name: "workspace".into(),
-            }]),
-            ..Default::default()
+            let params = InitializeParams {
+                process_id: Some(std::process::id()),
+                capabilities: CLIENT_CAPS.clone(),
+                workspace_folders: Some(vec![WorkspaceFolder {
+                    uri: self.workspace_uri.clone(),
+                    name: "workspace".into(),
+                }]),
+                ..Default::default()
+            };
+            let _result: InitializeResult = self.send_request("initialize", params).await?;
+            self.send_notification("initialized", serde_json::json!({})).await?;
+            anyhow::Ok(())
         };
-        let _result: InitializeResult = self.send_request("initialize", params).await?;
-        self.send_notification("initialized", serde_json::json!({})).await?;
-        self.initialized = true;
-        crate::runtime::LSP_INITIALIZED.store(true, Ordering::Relaxed);
-        Ok(())
+
+        match tokio::time::timeout(std::time::Duration::from_secs(15), init).await {
+            Ok(Ok(())) => {
+                self.initialized = true;
+                crate::runtime::LSP_INITIALIZED.store(true, Ordering::Relaxed);
+                Ok(())
+            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => {
+                if let Some(mut c) = self.process.take() { let _ = c.start_kill(); }
+                self.stdin = None;
+                self.reader = None;
+                Err(anyhow::anyhow!("LSP server '{}' initialization timed out", binary))
+            }
+        }
     }
 
     async fn ensure_initialized(&mut self) -> anyhow::Result<()> {
@@ -143,7 +161,7 @@ impl LspSession {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let target_uri = path_to_uri(file_path)?;
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let deadline = std::time::Instant::now() + LSP_DIAGNOSTICS_TIMEOUT;
 
         loop {
             if std::time::Instant::now() > deadline {
