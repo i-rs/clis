@@ -13,7 +13,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 #[cfg(feature = "tui")]
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind},
+    event::{self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -24,7 +24,7 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 pub async fn run(mut app: App) -> anyhow::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -56,6 +56,11 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             match event::read()? {
                 Event::Key(key) => {
                     handle_key(key, &mut app, &event_tx).await;
+                }
+                Event::Paste(data) => {
+                    for c in data.chars() {
+                        app.insert_char(c);
+                    }
                 }
                 Event::Mouse(mouse) => {
                     match mouse.kind {
@@ -97,6 +102,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         terminal.backend_mut(),
         LeaveAlternateScreen,
         DisableMouseCapture,
+        DisableBracketedPaste,
     )?;
     terminal.show_cursor()?;
 
@@ -293,9 +299,27 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             app.debug_scroll = app.debug_scroll.saturating_add(10);
         }
         KeyCode::Char(c) => {
-            if key.modifiers == KeyModifiers::CONTROL && c == 'c' {
-                app.should_quit = true;
-                return;
+            if key.modifiers == KeyModifiers::CONTROL {
+                match c {
+                    'c' => {
+                        app.should_quit = true;
+                        return;
+                    }
+                    'a' | 'A' => {
+                        app.move_cursor_home();
+                        return;
+                    }
+                    'e' | 'E' => {
+                        app.move_cursor_end();
+                        return;
+                    }
+                    'u' | 'U' => {
+                        app.input.clear();
+                        app.cursor_pos = 0;
+                        return;
+                    }
+                    _ => {}
+                }
             }
             app.insert_char(c);
         }

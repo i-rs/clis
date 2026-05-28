@@ -1,6 +1,15 @@
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
 use serde_json::{json, Value, Map};
+use std::time::Instant;
+use tokio::sync::Mutex;
+use crate::config::Config;
 use crate::tools::{Tool, ToolResult};
+
+const MAX_RESULTS: usize = 10;
+const RATE_LIMIT_MS: u64 = 1000;
+
+static LAST_REQUEST: Lazy<Mutex<Instant>> = Lazy::new(|| Mutex::new(Instant::now()));
 
 fn is_private_url(url: &str) -> bool {
     if url.starts_with("file://") || url.starts_with("ftp://") { return true; }
@@ -10,8 +19,102 @@ fn is_private_url(url: &str) -> bool {
     private_prefixes.iter().any(|p| host.starts_with(p) || host == *p)
 }
 
+async fn rate_limit() {
+    let mut last = LAST_REQUEST.lock().await;
+    let elapsed = last.elapsed().as_millis() as u64;
+    if elapsed < RATE_LIMIT_MS {
+        tokio::time::sleep(std::time::Duration::from_millis(RATE_LIMIT_MS - elapsed)).await;
+    }
+    *last = Instant::now();
+}
+
+async fn search_duckduckgo(query: &str) -> anyhow::Result<String> {
+    let encoded: String = query.chars().map(|c| match c {
+        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+        ' ' => "+".to_string(),
+        c => format!("%{:02X}", c as u8),
+    }).collect();
+    let url = format!("https://html.duckduckgo.com/html/?q={}", encoded);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+    let resp = client.get(&url)
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+        .send()
+        .await?;
+    let html = resp.text().await?;
+    let mut results = Vec::new();
+    let link_re = regex::Regex::new(r###"<a[^>]*class="result__a"[^>]*>(.*?)</a>"###).unwrap();
+    let tag_re = regex::Regex::new("<[^>]*>").unwrap();
+    for cap in link_re.captures_iter(&html) {
+        let title = cap[1].to_string();
+        let clean = tag_re.replace_all(&title, "");
+        results.push(clean.to_string());
+        if results.len() >= MAX_RESULTS {
+            break;
+        }
+    }
+    if results.is_empty() {
+        let snippet = &html[..html.len().min(2000)];
+        return Ok(format!("No parsed results. Raw snippet:\n{}", snippet));
+    }
+    Ok(format!("DuckDuckGo results for '{}':\n  {}", query, results.join("\n  ")))
+}
+
+async fn search_serpapi(query: &str, api_key: &str) -> anyhow::Result<String> {
+    let url = format!("https://serpapi.com/search?q={}&api_key={}&engine=google", urlencoding(query), api_key);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+    let resp = client.get(&url).send().await?;
+    let data: Value = resp.json().await?;
+    let empty = vec![];
+    let items = data.get("organic_results").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let mut results = Vec::new();
+    for item in items.iter().take(MAX_RESULTS) {
+        let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("");
+        let snippet = item.get("snippet").and_then(|v| v.as_str()).unwrap_or("");
+        results.push(format!("{} — {}", title, snippet));
+    }
+    if results.is_empty() {
+        return Ok(format!("SerpAPI: no results for '{}'", query));
+    }
+    Ok(format!("SerpAPI results for '{}':\n  {}", query, results.join("\n  ")))
+}
+
+async fn search_bing(query: &str, api_key: &str) -> anyhow::Result<String> {
+    let url = format!("https://api.bing.microsoft.com/v7.0/search?q={}", urlencoding(query));
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+    let resp = client.get(&url)
+        .header("Ocp-Apim-Subscription-Key", api_key)
+        .send()
+        .await?;
+    let data: Value = resp.json().await?;
+    let empty = vec![];
+    let items = data.get("webPages").and_then(|v| v.get("value")).and_then(|v| v.as_array()).unwrap_or(&empty);
+    let mut results = Vec::new();
+    for item in items.iter().take(MAX_RESULTS) {
+        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let snippet = item.get("snippet").and_then(|v| v.as_str()).unwrap_or("");
+        results.push(format!("{} — {}", name, snippet));
+    }
+    if results.is_empty() {
+        return Ok(format!("Bing: no results for '{}'", query));
+    }
+    Ok(format!("Bing results for '{}':\n  {}", query, results.join("\n  ")))
+}
+
+fn urlencoding(query: &str) -> String {
+    query.chars().map(|c| match c {
+        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+        ' ' => "+".to_string(),
+        c => format!("%{:02X}", c as u8),
+    }).collect()
+}
+
 pub struct WebFetchTool;
-pub struct WebSearchTool;
 
 #[async_trait]
 impl Tool for WebFetchTool {
@@ -38,6 +141,7 @@ impl Tool for WebFetchTool {
         if is_private_url(url) {
             anyhow::bail!("Access to private/internal URLs is blocked");
         }
+        rate_limit().await;
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
@@ -53,16 +157,18 @@ impl Tool for WebFetchTool {
     }
 }
 
+pub struct WebSearchTool;
+
 #[async_trait]
 impl Tool for WebSearchTool {
     fn name(&self) -> &str { "web_search" }
-    fn description(&self) -> &str { "Search the web using a simple HTML scraping approach (DuckDuckGo)" }
+    fn description(&self) -> &str { "Search the web. Supports SerpAPI, Bing, and DuckDuckGo (fallback). Configure via config.toml search_provider + search_api_key." }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
             "function": {
                 "name": "web_search",
-                "description": "Search the web for a query",
+                "description": "Search the web for a query. Tries the configured provider first, falls back to DuckDuckGo.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -75,35 +181,26 @@ impl Tool for WebSearchTool {
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let query = args.get("query").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("query required"))?;
-        let encoded: String = query.chars().map(|c| match c {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
-            ' ' => "+".to_string(),
-            c => format!("%{:02X}", c as u8),
-        }).collect();
-        let url = format!("https://html.duckduckgo.com/html/?q={}", encoded);
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
-        let resp = client.get(&url)
-            .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
-            .send()
-            .await?;
-        let html = resp.text().await?;
-        let mut results = Vec::new();
-        let link_re = regex::Regex::new(r###"<a[^>]*class="result__a"[^>]*>(.*?)</a>"###).unwrap();
-        let tag_re = regex::Regex::new("<[^>]*>").unwrap();
-        for cap in link_re.captures_iter(&html) {
-            let title = cap[1].to_string();
-            let clean = tag_re.replace_all(&title, "");
-            results.push(clean.to_string());
-            if results.len() >= 10 {
-                break;
+        rate_limit().await;
+
+        let config = Config::load().ok();
+        let provider = config.as_ref().and_then(|c| c.search_provider.as_deref()).unwrap_or("duckduckgo");
+        let api_key = config.as_ref().and_then(|c| c.search_api_key.as_deref());
+
+        match provider {
+            "serpapi" | "serp" => {
+                if let Some(key) = api_key {
+                    return search_serpapi(query, key).await;
+                }
             }
+            "bing" | "bingsearch" => {
+                if let Some(key) = api_key {
+                    return search_bing(query, key).await;
+                }
+            }
+            _ => {}
         }
-        if results.is_empty() {
-            let snippet = &html[..html.len().min(2000)];
-            return Ok(format!("No parsed results for '{}'. Raw snippet:\n{}", query, snippet));
-        }
-        Ok(format!("Search results for '{}':\n  {}", query, results.join("\n  ")))
+
+        search_duckduckgo(query).await
     }
 }

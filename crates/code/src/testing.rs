@@ -161,5 +161,7 @@ pub fn test_config() -> crate::config::Config {
         tool_timeout_secs: 30,
         agents: std::collections::HashMap::new(),
         mcp_servers: Vec::new(),
+        search_provider: None,
+        search_api_key: None,
     }
 }

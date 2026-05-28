@@ -33,6 +33,10 @@ pub struct Config {
     pub agents: std::collections::HashMap<String, AgentConfig>,
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
+    #[serde(default)]
+    pub search_provider: Option<String>,
+    #[serde(default)]
+    pub search_api_key: Option<String>,
 }
 
 fn default_max_rounds() -> u32 { 20 }
@@ -85,6 +89,8 @@ impl Default for Config {
             tool_timeout_secs: default_tool_timeout(),
             agents: std::collections::HashMap::new(),
             mcp_servers: Vec::new(),
+            search_provider: None,
+            search_api_key: None,
         }
     }
 }
