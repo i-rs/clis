@@ -131,13 +131,24 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             }
         }
         AgentEvent::ToolCallStart { id: _id, name, args } => {
-            if matches!(name.as_str(), "write" | "edit")
-                && let Some(path) = args.get("path").and_then(|v| v.as_str()) {
+            let path_key = args.get("file_path").or_else(|| args.get("path")).and_then(|v| v.as_str());
+            if matches!(name.as_str(), "write" | "edit" | "delete")
+                && let Some(path) = path_key {
                     app.file_changes.insert(path.to_string());
-                    if let Ok(content) = std::fs::read_to_string(path) {
+                    if !matches!(name.as_str(), "delete")
+                        && let Ok(content) = std::fs::read_to_string(path)
+                    {
                         app.last_file_states.push((path.to_string(), content));
                     }
                 }
+            if name.as_str() == "rename"
+                && let Some(from) = args.get("from").and_then(|v| v.as_str())
+            {
+                app.file_changes.insert(from.to_string());
+                if let Some(to) = args.get("to").and_then(|v| v.as_str()) {
+                    app.file_changes.insert(to.to_string());
+                }
+            }
             let info = ToolCallInfo {
                 name,
                 args: serde_json::to_string_pretty(&args).unwrap_or_default(),
@@ -170,7 +181,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             for tc in &streamed_tc {
                 let display = match &tc.result {
                     Some(r) => {
-                        let preview: String = r.chars().take(500).collect();
+                        let preview: String = r.chars().take(2000).collect();
                         if preview.len() < r.len() {
                             format!("{}\n{}...", tc.name, preview)
                         } else {
@@ -200,6 +211,30 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                     content,
                     reasoning,
                     tool_calls,
+                });
+            }
+            if !app.file_changes.is_empty() {
+                let mut files: Vec<&String> = app.file_changes.iter().collect();
+                files.sort();
+                let mut summary = format!("── 完成 ──\n📄 {} 个文件:", files.len());
+                for f in &files {
+                    summary.push_str(&format!("\n  {}", f));
+                }
+                if !streamed_tc.is_empty() {
+                    let mut tool_counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+                    for tc in &streamed_tc {
+                        *tool_counts.entry(tc.name.as_str()).or_insert(0) += 1;
+                    }
+                    let tool_str: Vec<String> = tool_counts.iter()
+                        .map(|(n, c)| format!("{} ×{}", n, c))
+                        .collect();
+                    summary.push_str(&format!("\n🔧 {}", tool_str.join("  ")));
+                }
+                app.messages.push(ChatMessage {
+                    role: "system".into(),
+                    content: summary,
+                    reasoning: String::new(),
+                    tool_calls: None,
                 });
             }
             app.scroll_offset = 0;

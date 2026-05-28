@@ -300,16 +300,16 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     ),
                 ]));
                 if !tool_result.is_empty() {
-                    let preview: String = tool_result.chars().take(300).collect();
-                    for line in preview.lines().take(4) {
+                    let preview: String = tool_result.chars().take(1200).collect();
+                    for line in preview.lines().take(12) {
                         lines.push(Line::from(Span::styled(
                             format!("  {}", line),
                             Style::default().fg(Color::Rgb(180, 150, 100)),
                         )));
                     }
-                    if preview.len() < tool_result.len() || tool_result.lines().count() > 4 {
+                    if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
                         lines.push(Line::from(Span::styled(
-                            "  ... (truncated)",
+                            format!("  ... ({} more bytes, press ↑ to scroll)", tool_result.len().saturating_sub(preview.len())),
                             Style::default().fg(Color::DarkGray),
                         )));
                     }
