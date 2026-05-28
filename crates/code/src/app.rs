@@ -54,6 +54,7 @@ pub struct App {
     pub show_debug: bool,
     pub debug_scroll: usize,
     pub should_quit: bool,
+    pub tool_names: Vec<String>,
 }
 
 impl App {
@@ -81,6 +82,7 @@ impl App {
             show_debug: false,
             debug_scroll: 0,
             should_quit: false,
+            tool_names: Vec::new(),
         }
     }
 

@@ -28,6 +28,12 @@ pub enum Commands {
     /// Manage configuration
     #[command(subcommand)]
     Config(ConfigCommands),
+    /// Search conversation history
+    Search {
+        query: String,
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+    },
 }
 
 #[derive(Subcommand, Debug)]

@@ -7,6 +7,8 @@ mod agent;
 mod tools;
 mod provider;
 mod protocol;
+mod memory;
+mod convstore;
 mod diff;
 mod session;
 mod utils;
@@ -32,7 +34,11 @@ async fn main() -> anyhow::Result<()> {
                     println!("   Run:  i-rs-code config init");
                     println!();
                 }
-                let mut app = app::App::new(config, session.clone());
+                let mut app = app::App::new(config.clone(), session.clone());
+                let tools = tools::ToolRegistry::new(&config)?;
+                app.tool_names = tools.schemas().iter()
+                    .filter_map(|s| s.get("function").and_then(|f| f.get("name")).and_then(|n| n.as_str()).map(String::from))
+                    .collect();
                 if let Some(ref sid) = session {
                     let sessions_dir = config::i_rs_code_dir().join("sessions");
                     if let Ok(s) = session::Session::load(sid, &sessions_dir) {
@@ -81,6 +87,19 @@ async fn main() -> anyhow::Result<()> {
             }
             ConfigCommands::Set { key, value } => {
                 run_config_set(config, &key, &value).await?;
+            }
+        },
+        cli::Commands::Search { query, limit } => {
+            let sessions_dir = config::i_rs_code_dir().join("sessions");
+            let store = convstore::ConvStore::new(sessions_dir);
+            let results = store.search(&query, limit);
+            if results.is_empty() {
+                println!("No results found for: {}", query);
+            } else {
+                println!("Found {} results:", results.len());
+                for (i, r) in results.iter().enumerate() {
+                    println!("  {}. [{}] {} ({})", i + 1, r.message_type, r.excerpt, r.session_id);
+                }
             }
         },
     }

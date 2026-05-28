@@ -312,11 +312,37 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             });
         }
         KeyCode::Tab => {
-            app.insert_char(' ');
-            app.insert_char(' ');
+            let input = &app.input;
+            let trimmed = input.trim();
+            let matches: Vec<&str> = app.tool_names.iter()
+                .filter(|name| !trimmed.is_empty() && name.starts_with(trimmed))
+                .map(String::as_str)
+                .collect();
+            if matches.len() == 1 {
+                app.input = format!("{} ", matches[0]);
+                app.cursor_pos = app.input.len();
+            } else if matches.len() > 1 {
+                let common = longest_common_prefix(&matches);
+                if common.len() > trimmed.len() {
+                    app.input = common.clone();
+                    app.cursor_pos = common.len();
+                }
+            }
         }
         _ => {}
     }
+}
+
+#[cfg(feature = "tui")]
+fn longest_common_prefix(strs: &[&str]) -> String {
+    if strs.is_empty() { return String::new(); }
+    let mut prefix = strs[0].to_string();
+    for s in &strs[1..] {
+        while !s.starts_with(&prefix) {
+            prefix.pop();
+        }
+    }
+    prefix
 }
 
 #[cfg(feature = "tui")]
