@@ -9,6 +9,7 @@ pub mod delete;
 pub mod rename;
 pub mod lsp;
 pub mod pty;
+pub mod mcp;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -60,6 +61,7 @@ impl ToolRegistry {
         tools.insert("lsp_references".into(), Arc::new(lsp::LspReferencesTool));
         tools.insert("pty_exec".into(), Arc::new(pty::PtyExecTool));
         tools.insert("pty_interrupt".into(), Arc::new(pty::PtyInterruptTool));
+        tools.insert("mcp_connect".into(), Arc::new(mcp::McpConnectTool));
 
         Ok(Self { tools })
     }

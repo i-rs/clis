@@ -1,4 +1,5 @@
 use crate::provider::*;
+use crate::router::{ExecutionMode, build_plan_prompt, classify_complexity};
 use crate::tools::ToolRegistry;
 use super::event::AgentEvent;
 use serde_json::Value;
@@ -7,6 +8,46 @@ use tokio::sync::mpsc;
 
 const MAX_PROVIDER_RETRIES: u32 = 2;
 const MAX_TOOL_RETRIES: u32 = 2;
+
+pub enum PlanResult {
+    Plan(String),
+    Direct(String),
+}
+
+pub async fn determine_execution_mode(
+    task: &str,
+    provider: &dyn LlmProvider,
+) -> anyhow::Result<(ExecutionMode, Option<String>)> {
+    let complexity = classify_complexity(task);
+    if complexity.execution_mode() == ExecutionMode::ReAct {
+        return Ok((ExecutionMode::ReAct, None));
+    }
+
+    let plan = generate_plan(provider, task).await?;
+    Ok((ExecutionMode::PlanThenExecute, Some(plan)))
+}
+
+pub async fn generate_plan(
+    provider: &dyn LlmProvider,
+    task: &str,
+) -> anyhow::Result<String> {
+    let prompt = build_plan_prompt(task);
+    let messages = vec![LlmMessage::User(prompt)];
+    let tool_defs: Vec<Value> = Vec::new();
+    let mut rx = provider.stream(&messages, &tool_defs).await;
+    let mut plan = String::new();
+
+    while let Some(event) = rx.recv().await {
+        match event.kind {
+            StreamEventKind::Token(t) => plan.push_str(&t),
+            StreamEventKind::Done { .. } => break,
+            StreamEventKind::Error(e) => anyhow::bail!("plan generation: {}", e),
+            _ => {}
+        }
+    }
+
+    Ok(plan)
+}
 
 fn is_transient_error(e: &str) -> bool {
     let lower = e.to_lowercase();

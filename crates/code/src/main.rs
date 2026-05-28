@@ -21,6 +21,7 @@ mod debug;
 mod testing;
 mod lsp;
 mod pty;
+mod mcp;
 mod prompt;
 mod tui;
 
