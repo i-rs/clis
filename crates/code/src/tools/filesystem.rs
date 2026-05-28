@@ -327,3 +327,49 @@ impl Tool for LsTool {
         Ok(format!("{}:\n{}", path, items.join("\n")))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_safe_path_rejects_traversal() {
+        let err = resolve_safe_path("../etc/passwd").unwrap_err().to_string();
+        assert!(err.contains("Path traversal") || err.contains("outside workspace"));
+    }
+
+    #[test]
+    fn test_resolve_safe_path_rejects_outside_workspace() {
+        // On most systems, /tmp is outside the workspace
+        let result = resolve_safe_path("/tmp");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_safe_path_accepts_relative() {
+        let result = resolve_safe_path(".");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_path_rejects_absolute_outside() {
+        let result = check_path("/etc/passwd");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_check_path_rejects_traversal() {
+        let result = check_path("foo/../../etc");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tool_names() {
+        assert_eq!(ReadTool.name(), "read");
+        assert_eq!(WriteTool.name(), "write");
+        assert_eq!(EditTool.name(), "edit");
+        assert_eq!(GlobTool.name(), "glob");
+        assert_eq!(GrepTool.name(), "grep");
+        assert_eq!(LsTool.name(), "ls");
+    }
+}

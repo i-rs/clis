@@ -86,3 +86,39 @@ impl ToolRegistry {
         self.tools.values().map(|t| t.schema()).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_empty_registers_nothing() {
+        let reg = ToolRegistry::new_empty();
+        assert!(reg.all_tools().is_empty());
+        assert!(reg.schemas().is_empty());
+        assert!(reg.get("read").is_none());
+    }
+
+    #[test]
+    fn test_register_and_get() {
+        let mut reg = ToolRegistry::new_empty();
+        let tool = Arc::new(super::filesystem::ReadTool);
+        reg.register(tool);
+        assert!(reg.get("read").is_some());
+        assert_eq!(reg.all_tools().len(), 1);
+        assert_eq!(reg.schemas().len(), 1);
+    }
+
+    #[test]
+    fn test_register_overwrites() {
+        let mut reg = ToolRegistry::new_empty();
+        let tool1 = Arc::new(super::filesystem::ReadTool);
+        let tool2 = Arc::new(super::bash::BashTool);
+        reg.register(tool1);
+        reg.register(tool2);
+        assert_eq!(reg.all_tools().len(), 2);
+        let bash_schema = reg.schemas().into_iter()
+            .find(|s| s["function"]["name"] == "bash");
+        assert!(bash_schema.is_some());
+    }
+}

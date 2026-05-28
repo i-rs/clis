@@ -432,6 +432,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_determine_execution_mode_simple_is_react() {
+        let provider = MockLlmProvider::with_response("");
+        let (mode, plan) = determine_execution_mode("read file", &provider).await.unwrap();
+        assert_eq!(mode, ExecutionMode::ReAct);
+        assert!(plan.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_determine_execution_mode_heavy_is_plan() {
+        let provider = MockLlmProvider::with_response("1. Read the file\n2. Analyze");
+        let (mode, plan) = determine_execution_mode("重构这个模块", &provider).await.unwrap();
+        assert_eq!(mode, ExecutionMode::PlanThenExecute);
+        assert!(plan.is_some());
+        assert!(plan.unwrap().contains("Read the file"));
+    }
+
+    #[tokio::test]
+    async fn test_generate_plan_returns_plan_text() {
+        let provider = MockLlmProvider::with_response("Step 1: Do this\nStep 2: Do that");
+        let plan = generate_plan(&provider, "implement feature").await.unwrap();
+        assert!(plan.contains("Step 1"));
+    }
+
+    #[tokio::test]
     async fn test_react_loop_simple_response() {
         let provider = MockLlmProvider::with_response("Hello, world!");
         let tools = mock_tool_registry();

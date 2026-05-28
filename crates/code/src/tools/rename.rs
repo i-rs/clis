@@ -3,6 +3,30 @@ use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
 use super::filesystem::resolve_safe_path;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rename_name_and_schema() {
+        let tool = RenameTool;
+        assert_eq!(tool.name(), "rename");
+        let params = &tool.schema()["function"]["parameters"];
+        assert!(params["properties"]["from"].is_object());
+        assert!(params["properties"]["to"].is_object());
+        assert!(params["required"].as_array().unwrap().contains(&json!("from")));
+        assert!(params["required"].as_array().unwrap().contains(&json!("to")));
+    }
+
+    #[tokio::test]
+    async fn test_rename_missing_args_rejected() {
+        let tool = RenameTool;
+        let args = Map::new();
+        let err = tool.call(&args).await.unwrap_err().to_string();
+        assert!(err.contains("from required") || err.contains("to required"));
+    }
+}
+
 pub struct RenameTool;
 
 #[async_trait]
