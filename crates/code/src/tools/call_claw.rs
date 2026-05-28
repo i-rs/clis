@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{json, Value, Map};
+use crate::protocol::handler::AGENT_MODE;
 use crate::tools::{Tool, ToolResult};
 
 pub struct CallClawTool;
@@ -36,7 +37,7 @@ impl Tool for CallClawTool {
 
         // In agent mode, send to claw via protocol module.
         // In standalone mode, return a message asking the user.
-        if std::env::var("I_RS_CODE_AGENT_MODE").is_ok() {
+        if AGENT_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             // Protocol layer handles this - but we need to signal from here.
             // The agent loop will detect this response and create the protocol event.
             Ok(json!({

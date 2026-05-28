@@ -16,25 +16,54 @@ pub fn resolve_safe_path(path: &str) -> anyhow::Result<PathBuf> {
     if p.components().any(|c| c.as_os_str() == "..") {
         anyhow::bail!("Path traversal detected: {}", path);
     }
-    if p.is_absolute() {
-        let cwd = std::env::current_dir()?;
-        if !p.canonicalize()?.starts_with(&cwd) {
+    let cwd = std::env::current_dir()?;
+    // Resolve relative paths against cwd
+    let absolute = if p.is_relative() {
+        cwd.join(p)
+    } else {
+        p.to_path_buf()
+    };
+    // For existing paths, canonicalize and verify
+    if absolute.exists() {
+        let canonical = absolute.canonicalize()?;
+        if !canonical.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
+        return Ok(canonical);
+    }
+    // For non-existent paths, verify parent directory
+    if let Some(parent) = absolute.parent()
+        && parent.exists()
+    {
+        let canonical_parent = parent.canonicalize()?;
+        if !canonical_parent.starts_with(&cwd) {
             anyhow::bail!("Access denied: path outside workspace: {}", path);
         }
     }
-    Ok(p.canonicalize().unwrap_or_else(|_| p.to_path_buf()))
+    Ok(absolute)
 }
 
 fn check_path(path: &str) -> anyhow::Result<()> {
     let p = Path::new(path);
-    if p.is_absolute() {
-        let cwd = std::env::current_dir()?;
-        if !p.canonicalize()?.starts_with(&cwd) {
-            anyhow::bail!("Access denied: path outside workspace: {}", path);
-        }
-    }
     if p.components().any(|c| c.as_os_str() == "..") {
         anyhow::bail!("Path traversal detected: {}", path);
+    }
+    let cwd = std::env::current_dir()?;
+    let absolute = if p.is_relative() { cwd.join(p) } else { p.to_path_buf() };
+    if absolute.exists() {
+        let canonical = absolute.canonicalize()?;
+        if !canonical.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
+        return Ok(());
+    }
+    if let Some(parent) = absolute.parent()
+        && parent.exists()
+    {
+        let canonical_parent = parent.canonicalize()?;
+        if !canonical_parent.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
     }
     Ok(())
 }
@@ -64,7 +93,7 @@ impl Tool for ReadTool {
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         check_path(path)?;
-        let content = std::fs::read_to_string(path)?;
+        let content = tokio::fs::read_to_string(path).await?;
 
         let total_lines = content.lines().count();
         let offset = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(1).max(1) as usize;
@@ -114,16 +143,16 @@ impl Tool for WriteTool {
         let content = args.get("content").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("content required"))?;
         check_path(path)?;
 
-        let old_content = if Path::new(path).exists() {
-            std::fs::read_to_string(path).unwrap_or_default()
+        let old_content = if tokio::fs::metadata(path).await.is_ok() {
+            tokio::fs::read_to_string(path).await.unwrap_or_default()
         } else {
             String::new()
         };
 
         if let Some(parent) = Path::new(path).parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
-        std::fs::write(path, content)?;
+        tokio::fs::write(path, content).await?;
 
         if old_content.is_empty() {
             Ok(format!("Created {} ({} bytes)\n```{}\n```", path, content.len(), content))
@@ -166,7 +195,7 @@ impl Tool for EditTool {
         let new = args.get("new_string").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("new_string required"))?;
         let replace_all = args.get("replace_all").and_then(|v| v.as_bool()).unwrap_or(false);
         check_path(path)?;
-        let content = std::fs::read_to_string(path)?;
+        let content = tokio::fs::read_to_string(path).await?;
         let count = content.matches(old).count();
         if count == 0 {
             anyhow::bail!("old_string not found in {}", path);
@@ -182,7 +211,7 @@ impl Tool for EditTool {
         };
 
         let diff = crate::diff::diff_text(&content, &new_content);
-        std::fs::write(path, &new_content)?;
+        tokio::fs::write(path, &new_content).await?;
 
         Ok(format!(
             "Edited {} (+{} -{}{})\n```diff\n{}\n```",
@@ -217,21 +246,24 @@ impl Tool for GlobTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?;
-        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
-        let glob = globset::Glob::new(pattern)?;
-        let matcher = glob.compile_matcher();
-        let mut results = Vec::new();
-        for entry in walkdir::WalkDir::new(root).max_depth(10).into_iter().filter_map(|e| e.ok()) {
-            if entry.file_type().is_file() && matcher.is_match(entry.path()) {
-                results.push(entry.path().to_string_lossy().to_string());
+        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?.to_string();
+        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".").to_string();
+        tokio::task::spawn_blocking(move || {
+            let glob = globset::Glob::new(&pattern)?;
+            let matcher = glob.compile_matcher();
+            let mut results = Vec::new();
+            for entry in ignore::WalkBuilder::new(&root).max_depth(Some(10)).build().flatten() {
+                if entry.file_type().map(|t| t.is_file()).unwrap_or(false) && matcher.is_match(entry.path()) {
+                    results.push(entry.path().to_string_lossy().to_string());
+                }
             }
-        }
-        results.sort();
-        if results.is_empty() {
-            return Ok("No files found".into());
-        }
-        Ok(format!("Found {} files:\n{}", results.len(), results.join("\n")))
+            results.sort();
+            if results.is_empty() {
+                Ok("No files found".into())
+            } else {
+                Ok(format!("Found {} files:\n{}", results.len(), results.join("\n")))
+            }
+        }).await?
     }
 }
 
@@ -258,38 +290,40 @@ impl Tool for GrepTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?;
-        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
-        let re = regex::Regex::new(pattern)?;
+        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?.to_string();
+        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".").to_string();
+        tokio::task::spawn_blocking(move || {
+            let re = regex::Regex::new(&pattern)?;
+            let lines = std::sync::Mutex::new(Vec::new());
+            let walker = ignore::WalkBuilder::new(&root)
+                .hidden(false)
+                .git_ignore(true)
+                .build();
 
-        let lines = std::sync::Mutex::new(Vec::new());
-        let walker = ignore::WalkBuilder::new(root)
-            .hidden(false)
-            .git_ignore(true)
-            .build();
-
-        for entry in walker.flatten() {
-            if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
-                continue;
-            }
-            let path = entry.path();
-            if let Ok(content) = std::fs::read_to_string(path) {
-                for (i, line) in content.lines().enumerate() {
-                    if re.is_match(line) {
-                        let mut l = lines.lock().unwrap();
-                        l.push(format!("{}:{}:{}", path.display(), i + 1, line));
-                        if l.len() >= 50 {
-                            break;
+            for entry in walker.flatten() {
+                if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                    continue;
+                }
+                let path = entry.path().to_owned();
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    for (i, line) in content.lines().enumerate() {
+                        if re.is_match(line) {
+                            let mut l = lines.lock().unwrap();
+                            l.push(format!("{}:{}:{}", path.display(), i + 1, line));
+                            if l.len() >= 50 {
+                                break;
+                            }
                         }
                     }
                 }
             }
-        }
-        let results = lines.into_inner().unwrap();
-        if results.is_empty() {
-            return Ok("No matches found".into());
-        }
-        Ok(format!("Found {} matches:\n{}", results.len(), results.join("\n")))
+            let results = lines.into_inner().unwrap();
+            if results.is_empty() {
+                Ok("No matches found".into())
+            } else {
+                Ok(format!("Found {} matches:\n{}", results.len(), results.join("\n")))
+            }
+        }).await?
     }
 }
 
@@ -316,11 +350,10 @@ impl Tool for LsTool {
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
         check_path(path)?;
-        let entries = std::fs::read_dir(path)?;
+        let mut entries = tokio::fs::read_dir(path).await?;
         let mut items = Vec::new();
-        for entry in entries {
-            let entry = entry?;
-            let ftype = if entry.file_type()?.is_dir() { "dir" } else { "file" };
+        while let Some(entry) = entries.next_entry().await? {
+            let ftype = if entry.file_type().await?.is_dir() { "dir" } else { "file" };
             items.push(format!("{}  {}", ftype, entry.file_name().to_string_lossy()));
         }
         items.sort();

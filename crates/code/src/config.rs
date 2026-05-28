@@ -103,11 +103,11 @@ impl Config {
             Ok(toml::from_str(&content)?)
         } else {
             if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).ok();
+                std::fs::create_dir_all(parent)?;
             }
             let config = Config::default();
             let content = toml::to_string_pretty(&config)?;
-            std::fs::write(&path, &content).ok();
+            std::fs::write(&path, &content)?;
             Ok(config)
         }
     }

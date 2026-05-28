@@ -1,10 +1,11 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use crate::agent::Agent;
 use crate::protocol::{CodeEvent, ClawTask, transport::Transport};
 
+pub static AGENT_MODE: AtomicBool = AtomicBool::new(false);
+
 pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<()> {
-    // Set agent mode flag so tools know they're running under claw
-    // SAFETY: called once at startup, no concurrent access
-    unsafe { std::env::set_var("I_RS_CODE_AGENT_MODE", "1"); }
+    AGENT_MODE.store(true, Ordering::SeqCst);
 
     // Notify claw we're ready
     Transport::send_event(&CodeEvent::progress(task_id, "ready", "i-rs-code agent ready"))?;

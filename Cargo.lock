@@ -2263,7 +2263,6 @@ dependencies = [
  "globset",
  "ignore",
  "lsp-types",
- "once_cell",
  "owo-colors 4.3.0",
  "ratatui",
  "regex",
@@ -2274,9 +2273,7 @@ dependencies = [
  "tokio",
  "toml 1.1.2+spec-1.1.0",
  "unicode-width 0.2.0",
- "url",
  "uuid",
- "walkdir",
 ]
 
 [[package]]

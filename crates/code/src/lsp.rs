@@ -1,10 +1,10 @@
 use lsp_types::*;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 
-static CLIENT_CAPS: Lazy<ClientCapabilities> = Lazy::new(ClientCapabilities::default);
+static CLIENT_CAPS: LazyLock<ClientCapabilities> = LazyLock::new(ClientCapabilities::default);
 
 pub struct LspSession {
     process: Option<Child>,

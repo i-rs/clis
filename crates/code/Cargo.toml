@@ -24,13 +24,11 @@ globset = "0.4"
 ignore = "0.4"
 similar = "2"
 regex = "1"
-walkdir = "2"
 ratatui = { version = "0.30", optional = true }
 crossterm = { version = "0.29", optional = true }
 unicode-width = "0.2"
 lsp-types = "0.96"
-once_cell = "1"
-url = "2"
+
 
 
 [features]

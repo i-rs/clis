@@ -26,8 +26,10 @@ impl Tool for GitTool {
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let cmd = args.get("command").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("command required"))?;
-        let output = tokio::process::Command::new("git")
-            .args(cmd.split_whitespace())
+        let cwd = std::env::current_dir()?;
+        // Use sh -c to handle quoted args properly (e.g., commit -m "my message")
+        let output = tokio::process::Command::new("sh")
+            .args(["-c", &format!("cd {} && git {}", cwd.to_string_lossy(), cmd)])
             .output()
             .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -35,6 +37,9 @@ impl Tool for GitTool {
         let mut result = format!("$ git {}\n", cmd);
         if !stdout.is_empty() { result.push_str(&stdout); }
         if !stderr.is_empty() { result.push_str(&stderr); }
+        if !output.status.success() {
+            result.push_str(&format!("exit code: {}", output.status.code().unwrap_or(-1)));
+        }
         Ok(result)
     }
 }

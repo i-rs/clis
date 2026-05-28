@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use serde_json::{json, Map, Value};
 
 use crate::mcp::McpManager;
 use crate::tools::{Tool, ToolResult};
 
-static MCP_MANAGER: Lazy<McpManager> = Lazy::new(McpManager::new);
+static MCP_MANAGER: LazyLock<McpManager> = LazyLock::new(McpManager::new);
 
 pub struct McpConnectTool;
 

@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::thread;
 
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -37,53 +39,97 @@ impl Inner {
 
         let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
         let stderr = child.stderr.take().ok_or_else(|| anyhow::anyhow!("no stderr"))?;
-        let mut out_reader = BufReader::new(stdout);
-        let mut err_reader = BufReader::new(stderr);
+
+        let (tx, rx) = mpsc::channel::<String>();
+
+        thread::spawn(move || {
+            let mut out_reader = BufReader::new(stdout);
+            let mut line = String::new();
+            while let Ok(n) = out_reader.read_line(&mut line) {
+                if n == 0 { break; }
+                let _ = tx.send(line.clone());
+                line.clear();
+            }
+        });
+
+        let (err_tx, err_rx) = mpsc::channel::<String>();
+        let err_tx_clone = err_tx.clone();
+        thread::spawn(move || {
+            let mut err_reader = BufReader::new(stderr);
+            let mut line = String::new();
+            while let Ok(n) = err_reader.read_line(&mut line) {
+                if n == 0 { break; }
+                let _ = err_tx_clone.send(line.clone());
+                line.clear();
+            }
+        });
 
         let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+        let poll_interval = Duration::from_millis(50);
         let mut output = String::new();
-        let mut buf = String::new();
 
         loop {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() {
+            if Instant::now() >= deadline {
                 break;
             }
 
-            buf.clear();
-            match out_reader.read_line(&mut buf) {
-                Ok(0) => break,
-                Ok(_) => {
-                    let line = buf.trim_end();
-                    if line.starts_with("__PTY_EXIT_") {
-                        child.stdout = Some(out_reader.into_inner());
-                        child.stderr = Some(err_reader.into_inner());
+            match rx.recv_timeout(poll_interval) {
+                Ok(line) => {
+                    let trimmed = line.trim_end().to_string();
+                    if trimmed.starts_with("__PTY_EXIT_") {
+                        drain_remaining(&rx, &err_rx, &mut output, deadline);
+                        child.stdout = None;
+                        child.stderr = None;
                         return Ok(output);
                     }
                     if !output.is_empty() { output.push('\n'); }
-                    output.push_str(line);
-                    if output.len() > MAX_OUTPUT {
-                        output.truncate(MAX_OUTPUT);
+                    output.push_str(&trimmed);
+                    if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    while let Ok(line) = err_rx.try_recv() {
+                        let trimmed = line.trim_end().to_string();
+                        if !output.is_empty() { output.push('\n'); }
+                        output.push_str(&trimmed);
+                        if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
                     }
                 }
-                Err(_) => break,
-            }
-
-            buf.clear();
-            if let Ok(n) = err_reader.read_line(&mut buf)
-                && n > 0 {
-                    let line = buf.trim_end();
-                    if !output.is_empty() { output.push('\n'); }
-                    output.push_str(line);
-                    if output.len() > MAX_OUTPUT {
-                        output.truncate(MAX_OUTPUT);
-                    }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
 
-        child.stdout = Some(out_reader.into_inner());
-        child.stderr = Some(err_reader.into_inner());
+        drain_remaining(&rx, &err_rx, &mut output, deadline);
+        child.stdout = None;
+        child.stderr = None;
         Ok(output)
+    }
+}
+
+fn drain_remaining(
+    rx: &mpsc::Receiver<String>,
+    err_rx: &mpsc::Receiver<String>,
+    output: &mut String,
+    deadline: Instant,
+) {
+    let poll = Duration::from_millis(50);
+    while Instant::now() < deadline {
+        let mut got_any = false;
+        while let Ok(line) = rx.try_recv() {
+            got_any = true;
+            let trimmed = line.trim_end().to_string();
+            if !output.is_empty() { output.push('\n'); }
+            output.push_str(&trimmed);
+            if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+        }
+        while let Ok(line) = err_rx.try_recv() {
+            got_any = true;
+            let trimmed = line.trim_end().to_string();
+            if !output.is_empty() { output.push('\n'); }
+            output.push_str(&trimmed);
+            if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+        }
+        if !got_any { break; }
+        std::thread::sleep(poll);
     }
 }
 

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{json, Value, Map};
+use crate::protocol::handler::AGENT_MODE;
 use crate::tools::{Tool, ToolResult};
 use crate::config::Config;
 
@@ -44,7 +45,7 @@ impl Tool for RegisterTool {
         let binary_path = args.get("binary_path").and_then(|v| v.as_str()).unwrap_or("");
 
         // In agent mode, output tool_created event for claw
-        if std::env::var("I_RS_CODE_AGENT_MODE").is_ok() {
+        if AGENT_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             return Ok(json!({
                 "requires_registration": true,
                 "tool": {

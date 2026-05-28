@@ -497,10 +497,9 @@ mod tests {
         let messages = vec![LlmMessage::User("Test".into())];
         let (tx, mut rx) = mpsc::channel(16);
 
-        let mut msgs = messages.clone();
         let text = {
             let (t, _) = react_loop_streaming(
-                &provider, &tools, msgs, &tool_defs, tx, 5, 30
+                &provider, &tools, messages, &tool_defs, tx, 5, 30
             ).await.expect("streaming should succeed");
             t
         };

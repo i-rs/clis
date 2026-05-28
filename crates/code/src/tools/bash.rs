@@ -30,18 +30,17 @@ impl Tool for BashTool {
         let desc = args.get("description").and_then(|v| v.as_str()).unwrap_or("");
 
         let blocked_patterns = [
-            "rm -rf /",
-            "rm -rf --no-preserve-root",
-            "rm -rf /*",
-            "mkfs",
-            "dd if=",
-            ":(){ :|:& };:",
-            "> /dev/sd",
-            "chmod -R 777 /",
-            "chmod 777 /",
-            "sudo ",
-            "wget -O /",
-            "curl -o /",
+            "rm -rf /", "rm -rf --no-preserve-root", "rm -rf /*",
+            "rm -rf $HOME", "rm -rf ~",
+            "mkfs", "dd if=", "dd of=",
+            ":(){", "> /dev/sd", "> /dev/nvme", "> /dev/disk",
+            "chmod -R 777 /", "chmod 777 /", "chmod 000 ",
+            "chown -R", "sudo",
+            "wget -O /", "curl -o /", "wget -O /tmp/",
+            "mv / ", "cp / ",
+            "poweroff", "shutdown", "reboot", "halt",
+            "init 0", "init 6",
+            "systemctl poweroff", "systemctl reboot", "systemctl halt",
         ];
         for b in &blocked_patterns {
             if cmd.contains(b) {

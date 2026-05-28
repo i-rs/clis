@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use serde_json::{json, Map, Value};
 
 use crate::pty::PtyManager;
 use crate::tools::{Tool, ToolResult};
 
-static PTY_MANAGER: Lazy<PtyManager> = Lazy::new(PtyManager::new);
+static PTY_MANAGER: LazyLock<PtyManager> = LazyLock::new(PtyManager::new);
 
 pub struct PtyExecTool;
 pub struct PtyInterruptTool;

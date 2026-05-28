@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
+use std::net::ToSocketAddrs;
+use std::sync::LazyLock;
 use serde_json::{json, Value, Map};
 use std::time::Instant;
 use tokio::sync::Mutex;
@@ -9,14 +10,38 @@ use crate::tools::{Tool, ToolResult};
 const MAX_RESULTS: usize = 10;
 const RATE_LIMIT_MS: u64 = 1000;
 
-static LAST_REQUEST: Lazy<Mutex<Instant>> = Lazy::new(|| Mutex::new(Instant::now()));
+static LAST_REQUEST: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
 
 fn is_private_url(url: &str) -> bool {
     if url.starts_with("file://") || url.starts_with("ftp://") { return true; }
     let url_str = url.replace("http://", "").replace("https://", "");
     let host = url_str.split('/').next().unwrap_or("");
-    let private_prefixes = ["10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "192.168.", "127.", "169.254.", "localhost", "[::1]", "0.0.0.0"];
-    private_prefixes.iter().any(|p| host.starts_with(p) || host == *p)
+
+    let private_prefixes = [
+        "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.",
+        "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.",
+        "172.29.", "172.30.", "172.31.", "192.168.", "127.", "169.254.",
+        "localhost", "[::1]", "0.0.0.0",
+    ];
+
+    if private_prefixes.iter().any(|p| host.starts_with(p) || host == *p) {
+        return true;
+    }
+
+    if let Ok(addrs) = (host, 0).to_socket_addrs() {
+        for addr in addrs {
+            let ip = addr.ip();
+            let blocked = match ip {
+                std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
+                std::net::IpAddr::V6(v6) => v6.is_loopback(),
+            };
+            if blocked || ip.is_unspecified() {
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 async fn rate_limit() {

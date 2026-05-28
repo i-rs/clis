@@ -14,6 +14,10 @@ pub fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
     } else {
-        format!("{}...", &s[..max])
+        let mut end = max.min(s.len());
+        while !s.is_char_boundary(end) {
+            end = end.saturating_sub(1);
+        }
+        format!("{}...", &s[..end])
     }
 }

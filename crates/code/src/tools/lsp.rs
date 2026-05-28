@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
 use tokio::sync::Mutex;
 
-static LSP_SESSION: Lazy<Mutex<crate::lsp::LspSession>> = Lazy::new(|| {
+static LSP_SESSION: LazyLock<Mutex<crate::lsp::LspSession>> = LazyLock::new(|| {
     Mutex::new(crate::lsp::LspSession::new())
 });
 
