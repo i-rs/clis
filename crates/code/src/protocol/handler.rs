@@ -43,6 +43,7 @@ pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<
             true,
             agent.config.max_rounds,
             agent.config.tool_timeout_secs,
+            &mut agent.memory,
         ).await?;
 
         messages = new_messages;

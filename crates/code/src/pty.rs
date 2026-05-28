@@ -14,55 +14,69 @@ const MAX_OUTPUT: usize = 2_000_000;
 struct Inner {
     child: Option<Child>,
     stdin: Option<ChildStdin>,
+    stdout_rx: mpsc::Receiver<String>,
+    stderr_rx: mpsc::Receiver<String>,
 }
 
 impl Inner {
     fn spawn(cwd: &Path) -> anyhow::Result<Self> {
-        let mut cmd = Command::new("sh");
-        cmd.arg("-s")
+        let mut child = Command::new("sh")
+            .arg("-s")
             .current_dir(cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut child = cmd.spawn()?;
+            .stderr(Stdio::piped())
+            .spawn()?;
+
         let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
-        Ok(Self { child: Some(child), stdin: Some(stdin) })
+        let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+        let stderr = child.stderr.take().ok_or_else(|| anyhow::anyhow!("no stderr"))?;
+
+        let (stdout_tx, stdout_rx) = mpsc::channel::<String>();
+        let (stderr_tx, stderr_rx) = mpsc::channel::<String>();
+
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                match line {
+                    Ok(l) => {
+                        if stdout_tx.send(l).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                match line {
+                    Ok(l) => {
+                        if stderr_tx.send(l).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        Ok(Self {
+            child: Some(child),
+            stdin: Some(stdin),
+            stdout_rx,
+            stderr_rx,
+        })
     }
 
     fn exec(&mut self, command: &str, timeout_secs: u64) -> anyhow::Result<String> {
-        let child = self.child.as_mut().ok_or_else(|| anyhow::anyhow!("no child"))?;
         let stdin = self.stdin.as_mut().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
 
         writeln!(stdin, "{}", command)?;
         writeln!(stdin, "echo __PTY_EXIT_$?")?;
         stdin.flush()?;
-
-        let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
-        let stderr = child.stderr.take().ok_or_else(|| anyhow::anyhow!("no stderr"))?;
-
-        let (tx, rx) = mpsc::channel::<String>();
-
-        thread::spawn(move || {
-            let mut out_reader = BufReader::new(stdout);
-            let mut line = String::new();
-            while let Ok(n) = out_reader.read_line(&mut line) {
-                if n == 0 { break; }
-                let _ = tx.send(line.clone());
-                line.clear();
-            }
-        });
-
-        let (err_tx, err_rx) = mpsc::channel::<String>();
-        let err_tx_clone = err_tx.clone();
-        thread::spawn(move || {
-            let mut err_reader = BufReader::new(stderr);
-            let mut line = String::new();
-            while let Ok(n) = err_reader.read_line(&mut line) {
-                if n == 0 { break; }
-                let _ = err_tx_clone.send(line.clone());
-                line.clear();
-            }
-        });
 
         let deadline = Instant::now() + Duration::from_secs(timeout_secs);
         let poll_interval = Duration::from_millis(50);
@@ -73,13 +87,12 @@ impl Inner {
                 break;
             }
 
-            match rx.recv_timeout(poll_interval) {
+            match self.stdout_rx.recv_timeout(poll_interval) {
                 Ok(line) => {
                     let trimmed = line.trim_end().to_string();
                     if trimmed.starts_with("__PTY_EXIT_") {
-                        drain_remaining(&rx, &err_rx, &mut output, deadline);
-                        child.stdout = None;
-                        child.stderr = None;
+                        let extra = Duration::from_secs(5);
+                        drain_remaining(&self.stdout_rx, &self.stderr_rx, &mut output, Instant::now() + extra);
                         return Ok(output);
                     }
                     if !output.is_empty() { output.push('\n'); }
@@ -87,7 +100,7 @@ impl Inner {
                     if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    while let Ok(line) = err_rx.try_recv() {
+                    while let Ok(line) = self.stderr_rx.try_recv() {
                         let trimmed = line.trim_end().to_string();
                         if !output.is_empty() { output.push('\n'); }
                         output.push_str(&trimmed);
@@ -98,30 +111,41 @@ impl Inner {
             }
         }
 
-        drain_remaining(&rx, &err_rx, &mut output, deadline);
-        child.stdout = None;
-        child.stderr = None;
+        // Timeout: drain remaining lines so next call starts clean
+        let drain_deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            if Instant::now() > drain_deadline { break; }
+            match self.stdout_rx.recv_timeout(Duration::from_millis(50)) {
+                Ok(line) => {
+                    if line.trim_end() == "__PTY_EXIT_$?" { break; }
+                    if line.trim_end().starts_with("__PTY_EXIT_") { break; }
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => break,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+
         Ok(output)
     }
 }
 
 fn drain_remaining(
-    rx: &mpsc::Receiver<String>,
-    err_rx: &mpsc::Receiver<String>,
+    stdout_rx: &mpsc::Receiver<String>,
+    stderr_rx: &mpsc::Receiver<String>,
     output: &mut String,
     deadline: Instant,
 ) {
     let poll = Duration::from_millis(50);
     while Instant::now() < deadline {
         let mut got_any = false;
-        while let Ok(line) = rx.try_recv() {
+        while let Ok(line) = stdout_rx.try_recv() {
             got_any = true;
             let trimmed = line.trim_end().to_string();
             if !output.is_empty() { output.push('\n'); }
             output.push_str(&trimmed);
             if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
         }
-        while let Ok(line) = err_rx.try_recv() {
+        while let Ok(line) = stderr_rx.try_recv() {
             got_any = true;
             let trimmed = line.trim_end().to_string();
             if !output.is_empty() { output.push('\n'); }

@@ -4,6 +4,7 @@ pub mod event;
 pub mod session_trait;
 
 use crate::config::{Config, ProjectInfo};
+use crate::memory::CrossSessionMemory;
 use crate::provider::{LlmProvider, LlmMessage};
 use crate::tools::ToolRegistry;
 use tokio::sync::mpsc;
@@ -14,6 +15,7 @@ pub struct Agent {
     pub tools: ToolRegistry,
     pub messages: Vec<LlmMessage>,
     pub json_output: bool,
+    pub memory: Option<CrossSessionMemory>,
 }
 
 impl Agent {
@@ -23,12 +25,14 @@ impl Agent {
         tools: ToolRegistry,
         json_output: bool,
     ) -> Self {
+        let memory = CrossSessionMemory::new(&crate::config::i_rs_code_dir());
         let agent = Self {
             config,
             provider,
             tools,
             messages: Vec::new(),
             json_output,
+            memory: Some(memory),
         };
         if let Some(max_cost) = agent.config.max_cost_per_session {
             let budget = (max_cost * 1_000_000.0) as u64;
@@ -58,9 +62,14 @@ impl Agent {
             self.json_output,
             self.config.max_rounds,
             self.config.tool_timeout_secs,
+            &mut self.memory,
         ).await?;
 
         self.messages = new_messages;
+
+        if let Some(mem) = self.memory.as_mut() {
+            let _ = mem.flush();
+        }
 
         if self.json_output && !final_text.is_empty() {
             let event = serde_json::json!({"event": "done", "content": final_text});
@@ -92,9 +101,15 @@ impl Agent {
             event_tx,
             self.config.max_rounds,
             self.config.tool_timeout_secs,
+            &mut self.memory,
         ).await?;
 
         self.messages = new_messages;
+
+        if let Some(mem) = self.memory.as_mut() {
+            let _ = mem.flush();
+        }
+
         Ok(final_text)
     }
 }
@@ -166,8 +181,12 @@ impl ChatSession for Agent {
             let (final_text, new_messages) = engine::react_loop(
                 &*self.provider, &self.tools, msgs, &tool_defs,
                 self.json_output, self.config.max_rounds, self.config.tool_timeout_secs,
+                &mut self.memory,
             ).await?;
             self.messages = new_messages.clone();
+            if let Some(mem) = self.memory.as_mut() {
+                let _ = mem.flush();
+            }
             Ok(ChatOutput { text: final_text, messages: new_messages, usage: None })
         })
     }
@@ -187,8 +206,12 @@ impl StreamingChatSession for Agent {
             let (final_text, new_messages) = engine::react_loop_streaming(
                 &*self.provider, &self.tools, msgs, &tool_defs,
                 event_tx, self.config.max_rounds, self.config.tool_timeout_secs,
+                &mut self.memory,
             ).await?;
             self.messages = new_messages.clone();
+            if let Some(mem) = self.memory.as_mut() {
+                let _ = mem.flush();
+            }
             Ok(ChatOutput { text: final_text, messages: new_messages, usage: None })
         })
     }

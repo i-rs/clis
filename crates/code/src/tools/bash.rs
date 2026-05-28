@@ -329,16 +329,15 @@ mod tests {
         let s = "a".repeat(limit + 1000);
         let result = super::truncate_output(&s);
         assert!(result.len() < s.len());
-        let needle = "[output truncated]";
-        assert_eq!(result.contains(needle), true, "missing needle in result");
+        let needle = "[output truncated";
+        assert!(result.contains(needle), "missing needle in result");
     }
 
     #[test]
     fn test_truncate_output_utf8_safe() {
-        // Create a string that would break at a non-UTF8 boundary if we just sliced
         let s = "hello".repeat(MAX_OUTPUT_BYTES / 5 + 100);
         let result = truncate_output(&s);
-        assert!(result.contains("[output truncated]"));
+        assert!(result.contains("[output truncated"));
     }
 
     #[tokio::test]

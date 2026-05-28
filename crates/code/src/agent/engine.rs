@@ -1,3 +1,4 @@
+use crate::memory::CrossSessionMemory;
 use crate::provider::*;
 use crate::router::{ExecutionMode, build_plan_prompt, classify_complexity};
 use crate::tools::ToolRegistry;
@@ -76,14 +77,15 @@ async fn execute_tools(
     tools: &ToolRegistry,
     retry_counts: &mut HashMap<String, u32>,
     tool_timeout_secs: u64,
+    memory: &mut Option<CrossSessionMemory>,
 ) -> ToolExecResult {
     let mut tool_messages = Vec::new();
 
     for tc in pending_tool_calls {
-        let retry_count = retry_counts.entry(tc.id.clone()).or_insert(0);
         let mut result_str = String::new();
+        let current_retries = *retry_counts.get(&tc.id).unwrap_or(&0);
 
-        for attempt in 0..=*retry_count {
+        for attempt in 0..=current_retries {
             if attempt > 0 {
                 tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
             }
@@ -117,6 +119,13 @@ async fn execute_tools(
             }
         }
 
+        if result_str.starts_with("Error:") {
+            retry_counts.insert(tc.id.clone(), current_retries + 1);
+        }
+
+        if let Some(mem) = memory {
+            mem.record_tool_use(&tc.name);
+        }
         tool_messages.push((tc.name.clone(), tc.id.clone(), result_str));
     }
     ToolExecResult { tool_messages }
@@ -262,6 +271,7 @@ async fn react_loop_inner(
     tool_timeout_secs: u64,
     mut cancel_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     hooks: Option<&dyn LoopHooks>,
+    memory: &mut Option<CrossSessionMemory>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
@@ -354,7 +364,7 @@ async fn react_loop_inner(
 
         if pending_tool_calls.is_empty() { break; }
 
-        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs).await;
+        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs, memory).await;
 
         for (name, call_id, result_str) in &tool_messages {
             output.emit_tool_call_end(name, call_id, result_str).await;
@@ -392,6 +402,7 @@ async fn react_loop_inner(
     Ok((final_text, messages))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn react_loop(
     provider: &dyn LlmProvider,
     tools: &ToolRegistry,
@@ -400,11 +411,13 @@ pub async fn react_loop(
     json_output: bool,
     max_rounds: u32,
     tool_timeout_secs: u64,
+    memory: &mut Option<CrossSessionMemory>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let output = OutputMode::Stdout { json_output };
-    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None).await
+    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None, memory).await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn react_loop_streaming(
     provider: &dyn LlmProvider,
     tools: &ToolRegistry,
@@ -413,9 +426,10 @@ pub async fn react_loop_streaming(
     event_tx: mpsc::Sender<AgentEvent>,
     max_rounds: u32,
     tool_timeout_secs: u64,
+    memory: &mut Option<CrossSessionMemory>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let output = OutputMode::Channel { event_tx: &event_tx };
-    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None).await
+    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None, memory).await
 }
 
 #[cfg(test)]
@@ -467,7 +481,7 @@ mod tests {
         let messages = vec![LlmMessage::User("Say hello".into())];
 
         let (text, _msgs) = react_loop(
-            &provider, &tools, messages, &tool_defs, false, 5, 30
+            &provider, &tools, messages, &tool_defs, false, 5, 30, &mut None
         ).await.expect("react_loop should succeed");
 
         assert!(text.contains("Hello"), "Expected 'Hello' in response, got: {}", text);
@@ -484,7 +498,7 @@ mod tests {
         let messages = vec![LlmMessage::User("Read test.txt".into())];
 
         let (text, msgs) = react_loop(
-            &provider, &tools, messages, &tool_defs, false, 5, 30
+            &provider, &tools, messages, &tool_defs, false, 5, 30, &mut None
         ).await.expect("react_loop should succeed");
 
         assert!(text.contains("Let me check"), "Response should contain initial text");
@@ -505,7 +519,7 @@ mod tests {
         let messages = vec![LlmMessage::User("Test".into())];
 
         let (_text, msgs) = react_loop(
-            &provider, &registry, messages, &tool_defs, false, 3, 5
+            &provider, &registry, messages, &tool_defs, false, 3, 5, &mut None
         ).await.expect("react_loop should not bail on tool errors");
 
         let has_over_limit = msgs.iter().any(|m| matches!(m, LlmMessage::System(s) if s.contains("工具连续")));
@@ -520,7 +534,7 @@ mod tests {
         let messages = vec![LlmMessage::User("Loop test".into())];
 
         let (_text, _msgs) = react_loop(
-            &provider, &tools, messages, &tool_defs, false, 1, 30
+            &provider, &tools, messages, &tool_defs, false, 1, 30, &mut None
         ).await.expect("react_loop with max_rounds=1 should not infinite loop");
     }
 
@@ -534,7 +548,7 @@ mod tests {
 
         let text = {
             let (t, _) = react_loop_streaming(
-                &provider, &tools, messages, &tool_defs, tx, 5, 30
+                &provider, &tools, messages, &tool_defs, tx, 5, 30, &mut None
             ).await.expect("streaming should succeed");
             t
         };

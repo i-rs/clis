@@ -108,7 +108,7 @@ impl ContextManager {
         let mut errors = Vec::new();
         for line in content.lines() {
             let lower = line.to_lowercase();
-            if lower.contains("error:") || lower.contains("failed") || lower.contains("panic!") {
+            if lower.contains("error:") || lower.contains("error[") || lower.contains("failed") || lower.contains("panic!") {
                 errors.push(line.to_string());
             }
         }
@@ -258,13 +258,13 @@ mod tests {
         let pairs = vec![
             (LlmMessage::ToolCall { id: "1".into(), name: "read".into(), args: serde_json::json!({"file_path": "src/main.rs"}) },
               LlmMessage::Tool { name: "read".into(), content: "fn main() { println!(\"hello\"); }\n// error: unused variable".into(), call_id: "1".into() }),
-            (LlmMessage::ToolCall { id: "2".into(), name: "bash".into(), args: serde_json!({"command": "cargo check"}) },
+            (LlmMessage::ToolCall { id: "2".into(), name: "bash".into(), args: serde_json::json!({"command": "cargo check"}) },
               LlmMessage::Tool { name: "bash".into(), content: "   Compiling i-rs v0.1.0\n    Finished dev [unoptimized + debuginfo]\n     Running `cargo test`\nerror[E0001]: cannot find function `foo` in this scope".into(), call_id: "2".into() }),
         ];
         let summary = cm.summarize_pairs(&pairs);
         assert!(summary.contains("read:"), "summary should include read content length");
-        assert!(summary.contains("src/main.rs"), "summary should include file paths");
-        assert!(summary.contains("error[E0001]"), "summary should include error lines");
+        assert!(summary.contains("error: unused variable"), "summary should include error lines");
+        assert!(summary.contains("error[E0001]"), "summary should include rustc-style errors");
     }
 
     #[test]

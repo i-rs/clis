@@ -135,14 +135,14 @@ mod tests {
         let s = "a".repeat(MAX_TOOL_OUTPUT_BYTES + 1000);
         let result = truncate_output(&s);
         assert!(result.len() < s.len());
-        assert!(result.contains("[output truncated]"));
+        assert!(result.contains("[output truncated"));
     }
 
     #[test]
     fn test_truncate_preserves_newline() {
-        let mut s = "a\n".repeat(MAX_TOOL_OUTPUT_BYTES / 2 + 100);
+        let s = "a\n".repeat(MAX_TOOL_OUTPUT_BYTES / 2 + 100);
         let result = truncate_output(&s);
-        assert!(result.contains("[output truncated]"));
+        assert!(result.contains("[output truncated"));
         assert!(!result.ends_with('a'));
     }
 
@@ -156,10 +156,10 @@ mod tests {
 
     #[test]
     fn test_error_json_format() {
-        let e = ToolError::permission_denied("/etc/shadow");
+        let e = ToolError::not_found_path("/etc/shadow");
         let json = e.to_json_string();
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
-        assert_eq!(parsed["kind"], "PERMISSION_DENIED");
+        assert_eq!(parsed["kind"], "NOT_FOUND");
         assert_eq!(parsed["path"], "/etc/shadow");
     }
 

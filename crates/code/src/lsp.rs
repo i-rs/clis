@@ -161,30 +161,32 @@ impl LspSession {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let target_uri = path_to_uri(file_path)?;
-        let deadline = std::time::Instant::now() + LSP_DIAGNOSTICS_TIMEOUT;
 
         loop {
-            if std::time::Instant::now() > deadline {
-                return Ok(Vec::new());
-            }
-            let msg = read_lsp_message(self.reader.as_mut().expect("LSP reader not initialized")).await?;
-            if msg["method"] == "textDocument/publishDiagnostics"
-                && let Some(uri_val) = msg["params"]["uri"].as_str() {
-                    let msg_uri: lsp_types::Uri = uri_val.parse()?;
-                    if msg_uri == target_uri {
-                        let diags: Vec<Diagnostic> = serde_json::from_value(msg["params"]["diagnostics"].clone())?;
-                        return Ok(diags.iter().map(|d| {
-                            let sev = match d.severity {
-                                Some(DiagnosticSeverity::ERROR) => "error",
-                                Some(DiagnosticSeverity::WARNING) => "warning",
-                                Some(DiagnosticSeverity::INFORMATION) => "info",
-                                _ => "note",
-                            };
-                            let msg = &d.message;
-                            format!("  {}:{}: {}: {}", d.range.start.line + 1, d.range.start.character + 1, sev, msg)
-                        }).collect());
-                    }
+            let read = read_lsp_message(self.reader.as_mut().expect("LSP reader not initialized"));
+            match tokio::time::timeout(LSP_DIAGNOSTICS_TIMEOUT, read).await {
+                Ok(Ok(msg)) => {
+                    if msg["method"] == "textDocument/publishDiagnostics"
+                        && let Some(uri_val) = msg["params"]["uri"].as_str() {
+                            let msg_uri: lsp_types::Uri = uri_val.parse()?;
+                            if msg_uri == target_uri {
+                                let diags: Vec<Diagnostic> = serde_json::from_value(msg["params"]["diagnostics"].clone())?;
+                                return Ok(diags.iter().map(|d| {
+                                    let sev = match d.severity {
+                                        Some(DiagnosticSeverity::ERROR) => "error",
+                                        Some(DiagnosticSeverity::WARNING) => "warning",
+                                        Some(DiagnosticSeverity::INFORMATION) => "info",
+                                        _ => "note",
+                                    };
+                                    let msg = &d.message;
+                                    format!("  {}:{}: {}: {}", d.range.start.line + 1, d.range.start.character + 1, sev, msg)
+                                }).collect());
+                            }
+                        }
                 }
+                Ok(Err(e)) => return Err(e),
+                Err(_) => return Ok(Vec::new()),
+            }
         }
     }
 
@@ -375,21 +377,23 @@ impl LspSession {
         self.write_message(&request).await?;
 
         let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("no reader"))?;
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
 
         loop {
-            if std::time::Instant::now() > deadline {
-                anyhow::bail!("LSP request timed out (id={})", id);
-            }
-            let msg = read_lsp_message(reader).await?;
-            if msg["id"].as_u64() == Some(id as u64) {
-                if let Some(result) = msg.get("result") {
-                    return Ok(serde_json::from_value(result.clone())?);
+            let read = read_lsp_message(reader);
+            match tokio::time::timeout(LSP_REQUEST_TIMEOUT, read).await {
+                Ok(Ok(msg)) => {
+                    if msg["id"].as_u64() == Some(id as u64) {
+                        if let Some(result) = msg.get("result") {
+                            return Ok(serde_json::from_value(result.clone())?);
+                        }
+                        if let Some(error) = msg.get("error") {
+                            anyhow::bail!("LSP error: {}", error["message"].as_str().unwrap_or("unknown"));
+                        }
+                        anyhow::bail!("LSP response missing result/error");
+                    }
                 }
-                if let Some(error) = msg.get("error") {
-                    anyhow::bail!("LSP error: {}", error["message"].as_str().unwrap_or("unknown"));
-                }
-                anyhow::bail!("LSP response missing result/error");
+                Ok(Err(e)) => return Err(e),
+                Err(_) => anyhow::bail!("LSP request timed out (id={})", id),
             }
         }
     }

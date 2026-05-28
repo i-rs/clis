@@ -408,3 +408,237 @@ impl LlmProvider for AnthropicProvider {
         Ok(LlmResponse { content, reasoning: String::new(), tool_calls, usage })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_messages_simple_user() {
+        let msgs = vec![LlmMessage::User("hello".into())];
+        let (system, anthro_msgs) = AnthropicProvider::build_messages(&msgs);
+        assert!(system.is_none());
+        assert_eq!(anthro_msgs.len(), 1);
+        assert_eq!(anthro_msgs[0]["role"], "user");
+        assert_eq!(anthro_msgs[0]["content"], "hello");
+    }
+
+    #[test]
+    fn test_build_messages_with_system() {
+        let msgs = vec![
+            LlmMessage::System("You are Claude".into()),
+            LlmMessage::User("hello".into()),
+        ];
+        let (system, anthro_msgs) = AnthropicProvider::build_messages(&msgs);
+        assert_eq!(system.unwrap(), "You are Claude");
+        assert_eq!(anthro_msgs.len(), 1);
+    }
+
+    #[test]
+    fn test_build_messages_with_tool_use() {
+        let msgs = vec![
+            LlmMessage::User("run cargo check".into()),
+            LlmMessage::ToolCall {
+                id: "call-1".into(),
+                name: "bash".into(),
+                args: serde_json::json!({"command": "cargo check"}),
+            },
+            LlmMessage::Tool {
+                name: "bash".into(),
+                content: "Compiling...\nFinished".into(),
+                call_id: "call-1".into(),
+            },
+        ];
+        let (_system, anthro_msgs) = AnthropicProvider::build_messages(&msgs);
+        assert_eq!(anthro_msgs.len(), 3);
+        assert_eq!(anthro_msgs[0]["role"], "user");
+        assert_eq!(anthro_msgs[1]["role"], "assistant");
+        assert_eq!(anthro_msgs[1]["content"][0]["type"], "tool_use");
+        assert_eq!(anthro_msgs[1]["content"][0]["id"], "call-1");
+        assert_eq!(anthro_msgs[2]["role"], "user");
+        assert_eq!(anthro_msgs[2]["content"][0]["type"], "tool_result");
+        assert_eq!(anthro_msgs[2]["content"][0]["tool_use_id"], "call-1");
+    }
+
+    #[test]
+    fn test_build_messages_assistant_with_reasoning() {
+        let msgs = vec![LlmMessage::AssistantWithReasoning {
+            content: "Let me check".into(),
+            reasoning: "I need to find the bug".into(),
+            tool_calls: vec![],
+        }];
+        let (_system, anthro_msgs) = AnthropicProvider::build_messages(&msgs);
+        assert_eq!(anthro_msgs.len(), 1);
+        let content = anthro_msgs[0]["content"].as_array().unwrap();
+        assert_eq!(content[0]["type"], "thinking");
+        assert_eq!(content[1]["type"], "text");
+        assert_eq!(content[1]["text"], "Let me check");
+    }
+
+    #[test]
+    fn test_convert_tool_schemas_empty() {
+        let result = AnthropicProvider::convert_tool_schemas(&[]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_convert_tool_schemas_single() {
+        let defs = vec![serde_json::json!({
+            "type": "function",
+            "function": {
+                "name": "read",
+                "description": "Read a file",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {"type": "string"}
+                    }
+                }
+            }
+        })];
+        let result = AnthropicProvider::convert_tool_schemas(&defs);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["name"], "read");
+        assert_eq!(result[0]["description"], "Read a file");
+        assert!(result[0]["input_schema"].is_object());
+    }
+
+    #[test]
+    fn test_parse_sse_message_start() {
+        let data = r#"{"message": {"usage": {"input_tokens": 10, "output_tokens": 5}}}"#;
+        let event = AnthropicProvider::parse_sse_event("message_start", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::MessageStart { usage } => {
+                let u = usage.unwrap();
+                assert_eq!(u.input_tokens, 10);
+                assert_eq!(u.output_tokens, 5);
+            }
+            _ => panic!("expected MessageStart"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_content_block_start_text() {
+        let data = r#"{"index": 0, "content_block": {"type": "text"}}"#;
+        let event = AnthropicProvider::parse_sse_event("content_block_start", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::ContentBlockStart { index, block_type, tool_use_id, tool_use_name } => {
+                assert_eq!(index, 0);
+                assert_eq!(block_type, "text");
+                assert!(tool_use_id.is_none());
+                assert!(tool_use_name.is_none());
+            }
+            _ => panic!("expected ContentBlockStart"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_content_block_start_tool_use() {
+        let data = r#"{"index": 1, "content_block": {"type": "tool_use", "id": "tu-1", "name": "bash"}}"#;
+        let event = AnthropicProvider::parse_sse_event("content_block_start", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::ContentBlockStart { index, block_type, tool_use_id, tool_use_name } => {
+                assert_eq!(index, 1);
+                assert_eq!(block_type, "tool_use");
+                assert_eq!(tool_use_id.unwrap(), "tu-1");
+                assert_eq!(tool_use_name.unwrap(), "bash");
+            }
+            _ => panic!("expected ContentBlockStart"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_text_delta() {
+        let data = r#"{"index": 0, "delta": {"type": "text_delta", "text": "Hello"}}"#;
+        let event = AnthropicProvider::parse_sse_event("content_block_delta", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::ContentBlockDelta { index, text, partial_json } => {
+                assert_eq!(index, 0);
+                assert_eq!(text.unwrap(), "Hello");
+                assert!(partial_json.is_none());
+            }
+            _ => panic!("expected ContentBlockDelta"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_input_json_delta() {
+        let data = r#"{"index": 1, "delta": {"type": "input_json_delta", "partial_json": "{\"command\":\"check\"}"}}"#;
+        let event = AnthropicProvider::parse_sse_event("content_block_delta", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::ContentBlockDelta { index, text, partial_json } => {
+                assert_eq!(index, 1);
+                assert!(text.is_none());
+                assert!(partial_json.unwrap().contains("command"));
+            }
+            _ => panic!("expected ContentBlockDelta"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_content_block_stop() {
+        let data = r#"{"index": 0}"#;
+        let event = AnthropicProvider::parse_sse_event("content_block_stop", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::ContentBlockStop { index } => {
+                assert_eq!(index, 0);
+            }
+            _ => panic!("expected ContentBlockStop"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_message_delta() {
+        let data = r#"{"delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 50}}"#;
+        let event = AnthropicProvider::parse_sse_event("message_delta", data);
+        assert!(event.is_some());
+        match event.unwrap() {
+            AnthropicEvent::MessageDelta { stop_reason, usage } => {
+                assert_eq!(stop_reason, "end_turn");
+                assert_eq!(usage.unwrap().output_tokens, 50);
+            }
+            _ => panic!("expected MessageDelta"),
+        }
+    }
+
+    #[test]
+    fn test_parse_sse_message_stop() {
+        let data = r#"{}"#;
+        let event = AnthropicProvider::parse_sse_event("message_stop", data);
+        assert!(matches!(event.unwrap(), AnthropicEvent::MessageStop));
+    }
+
+    #[test]
+    fn test_parse_sse_ping() {
+        let data = r#"{}"#;
+        let event = AnthropicProvider::parse_sse_event("ping", data);
+        assert!(matches!(event.unwrap(), AnthropicEvent::Ping));
+    }
+
+    #[test]
+    fn test_parse_sse_unknown_event_returns_none() {
+        let data = r#"{}"#;
+        let event = AnthropicProvider::parse_sse_event("unknown_event", data);
+        assert!(event.is_none());
+    }
+
+    #[test]
+    fn test_parse_sse_invalid_json_returns_none() {
+        let event = AnthropicProvider::parse_sse_event("message_start", "not json");
+        assert!(event.is_none());
+    }
+
+    #[test]
+    fn test_build_messages_unknown_variant_skipped() {
+        let msgs = vec![LlmMessage::System("test".into())];
+        let (system, anthro_msgs) = AnthropicProvider::build_messages(&msgs);
+        assert_eq!(system.unwrap(), "test");
+        assert!(anthro_msgs.is_empty());
+    }
+}
