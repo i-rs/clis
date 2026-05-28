@@ -95,9 +95,7 @@ impl ContextManager {
     fn extract_paths(content: &str) -> Vec<String> {
         let mut paths = Vec::new();
         for word in content.split(|c: char| c.is_whitespace() || c == ':' || c == '(' || c == ')' || c == '{' || c == '}') {
-            if word.starts_with('/') && word.contains('.') {
-                paths.push(word.to_string());
-            } else if word.starts_with("./") && word.len() > 2 {
+            if (word.starts_with('/') && word.contains('.')) || (word.starts_with("./") && word.len() > 2) {
                 paths.push(word.to_string());
             }
         }

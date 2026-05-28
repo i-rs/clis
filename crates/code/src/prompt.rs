@@ -96,22 +96,20 @@ pub fn build_context(project_info: &ProjectInfo) -> String {
         }
     }
 
-    if project_info.has_cargo {
-        if let Ok(output) = std::process::Command::new("cargo")
+    if project_info.has_cargo
+        && let Ok(output) = std::process::Command::new("cargo")
             .args(["metadata", "--format-version=1", "--no-deps"])
             .output()
+        && output.status.success()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&stdout)
+            && let Some(workspace_members) = meta["workspace_members"].as_array()
         {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&stdout) {
-                    if let Some(workspace_members) = meta["workspace_members"].as_array() {
-                        ctx.push_str(&format!("Workspace crates ({}):\n", workspace_members.len()));
-                        for member in workspace_members.iter().take(15) {
-                            if let Some(name) = member.as_str() {
-                                ctx.push_str(&format!("  {}\n", name));
-                            }
-                        }
-                    }
+            ctx.push_str(&format!("Workspace crates ({}):\n", workspace_members.len()));
+            for member in workspace_members.iter().take(15) {
+                if let Some(name) = member.as_str() {
+                    ctx.push_str(&format!("  {}\n", name));
                 }
             }
         }

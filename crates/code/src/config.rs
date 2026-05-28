@@ -102,7 +102,7 @@ impl ProjectInfo {
             std::fs::read_to_string(&agents_md).ok()
         } else {
             cwd.join(".cursor/rules").exists().then(|| {
-                std::fs::read_dir(&cwd.join(".cursor/rules"))
+                std::fs::read_dir(cwd.join(".cursor/rules"))
                     .ok()
                     .map(|entries| {
                         entries.filter_map(|e| e.ok())

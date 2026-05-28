@@ -183,8 +183,7 @@ impl Tool for BashTool {
         let timeout_secs = args.get("timeout_secs")
             .and_then(|v| v.as_u64())
             .unwrap_or(DEFAULT_TIMEOUT_SECS)
-            .min(600)
-            .max(1);
+            .clamp(1, 600);
 
         // Whitelist check
         if let Err(reason) = is_command_allowed(cmd) {
