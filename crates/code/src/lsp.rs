@@ -526,3 +526,143 @@ fn format_symbol_tree(sym: &DocumentSymbol, depth: usize, lines: &mut Vec<String
         format_symbol_tree(child, depth + 1, lines);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_language_rust() {
+        assert_eq!(detect_language("main.rs"), "rust");
+        assert_eq!(detect_language("lib.rs"), "rust");
+    }
+
+    #[test]
+    fn test_detect_language_typescript() {
+        assert_eq!(detect_language("app.ts"), "typescript");
+        assert_eq!(detect_language("component.tsx"), "typescriptreact");
+    }
+
+    #[test]
+    fn test_detect_language_javascript() {
+        assert_eq!(detect_language("index.js"), "javascript");
+        assert_eq!(detect_language("app.jsx"), "javascriptreact");
+    }
+
+    #[test]
+    fn test_detect_language_python() {
+        assert_eq!(detect_language("main.py"), "python");
+        assert_eq!(detect_language("util.pyi"), "python");
+    }
+
+    #[test]
+    fn test_detect_language_go() {
+        assert_eq!(detect_language("server.go"), "go");
+    }
+
+    #[test]
+    fn test_detect_language_markdown() {
+        assert_eq!(detect_language("README.md"), "markdown");
+    }
+
+    #[test]
+    fn test_detect_language_unknown() {
+        assert_eq!(detect_language("Makefile"), "plaintext");
+        assert_eq!(detect_language(""), "plaintext");
+    }
+
+    #[test]
+    fn test_symbol_kind_icons() {
+        assert_eq!(symbol_kind_icon(SymbolKind::FILE), "");
+        assert_eq!(symbol_kind_icon(SymbolKind::MODULE), "[M]");
+        assert_eq!(symbol_kind_icon(SymbolKind::FUNCTION), "[fn]");
+        assert_eq!(symbol_kind_icon(SymbolKind::STRUCT), "[S]");
+        assert_eq!(symbol_kind_icon(SymbolKind::ENUM), "[E]");
+        assert_eq!(symbol_kind_icon(SymbolKind::CLASS), "[C]");
+    }
+
+    #[test]
+    fn test_symbol_kind_icon_unknown() {
+        assert_eq!(symbol_kind_icon(SymbolKind::TYPE_PARAMETER), "[T]");
+    }
+
+    #[test]
+    fn test_format_symbol_tree_flat() {
+        let sym = DocumentSymbol {
+            name: "main".into(),
+            kind: SymbolKind::FUNCTION,
+            range: lsp_types::Range {
+                start: lsp_types::Position { line: 0, character: 0 },
+                end: lsp_types::Position { line: 10, character: 0 },
+            },
+            selection_range: lsp_types::Range {
+                start: lsp_types::Position { line: 0, character: 0 },
+                end: lsp_types::Position { line: 10, character: 0 },
+            },
+            detail: Some("fn main()".into()),
+            children: None,
+            tags: None,
+            deprecated: None,
+        };
+        let mut lines = Vec::new();
+        format_symbol_tree(&sym, 0, &mut lines);
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("L1: main"));
+    }
+
+    #[test]
+    fn test_format_symbol_tree_nested() {
+        let child = DocumentSymbol {
+            name: "inner_fn".into(),
+            kind: SymbolKind::FUNCTION,
+            range: lsp_types::Range {
+                start: lsp_types::Position { line: 2, character: 0 },
+                end: lsp_types::Position { line: 5, character: 0 },
+            },
+            selection_range: lsp_types::Range {
+                start: lsp_types::Position { line: 2, character: 0 },
+                end: lsp_types::Position { line: 5, character: 0 },
+            },
+            detail: None,
+            children: None,
+            tags: None,
+            deprecated: None,
+        };
+        let parent = DocumentSymbol {
+            name: "mod".into(),
+            kind: SymbolKind::MODULE,
+            range: lsp_types::Range {
+                start: lsp_types::Position { line: 0, character: 0 },
+                end: lsp_types::Position { line: 10, character: 0 },
+            },
+            selection_range: lsp_types::Range {
+                start: lsp_types::Position { line: 0, character: 0 },
+                end: lsp_types::Position { line: 10, character: 0 },
+            },
+            detail: None,
+            children: Some(vec![child]),
+            tags: None,
+            deprecated: None,
+        };
+        let mut lines = Vec::new();
+        format_symbol_tree(&parent, 0, &mut lines);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("[M]"));
+        assert!(lines[0].contains("L1: mod"));
+        assert!(lines[1].contains("L3: inner_fn"));
+    }
+
+    #[test]
+    fn test_format_location_basic() {
+        let loc = Location {
+            uri: "file:///src/main.rs".parse().unwrap(),
+            range: lsp_types::Range {
+                start: lsp_types::Position { line: 4, character: 0 },
+                end: lsp_types::Position { line: 4, character: 10 },
+            },
+        };
+        let result = format_location(&loc);
+        assert!(result.contains("5:1-5:11"));
+        assert!(result.contains("main.rs"));
+    }
+}

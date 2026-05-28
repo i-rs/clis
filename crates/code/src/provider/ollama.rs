@@ -169,3 +169,42 @@ impl LlmProvider for OllamaProvider {
         Ok(LlmResponse { content, reasoning: String::new(), tool_calls, usage })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_provider_name() {
+        let config = Config::default();
+        let provider = OllamaProvider::new(&config).unwrap();
+        assert_eq!(provider.name(), "ollama");
+    }
+
+    #[test]
+    fn test_provider_base_url_default() {
+        let config = Config::default();
+        let provider = OllamaProvider::new(&config).unwrap();
+        assert_eq!(provider.base_url, "http://localhost:11434/v1");
+    }
+
+    #[test]
+    fn test_provider_base_url_custom() {
+        let config = Config {
+            base_url: Some("http://10.0.0.1:11434/v1".into()),
+            ..Config::default()
+        };
+        let provider = OllamaProvider::new(&config).unwrap();
+        assert_eq!(provider.base_url, "http://10.0.0.1:11434/v1");
+    }
+
+    #[test]
+    fn test_provider_model_uses_effective() {
+        let config = Config {
+            model: Some("llama3".into()),
+            ..Config::default()
+        };
+        let provider = OllamaProvider::new(&config).unwrap();
+        assert_eq!(provider.model, "llama3");
+    }
+}
