@@ -24,7 +24,7 @@ impl OpenAiProvider {
         })
     }
 
-    fn build_messages(msgs: &[LlmMessage]) -> Vec<Value> {
+    pub fn build_messages(msgs: &[LlmMessage]) -> Vec<Value> {
         let mut out = Vec::new();
         for msg in msgs {
             match msg {

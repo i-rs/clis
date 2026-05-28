@@ -1,5 +1,6 @@
 pub mod openai;
 pub mod anthropic;
+pub mod ollama;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -63,6 +64,7 @@ pub fn create_provider(config: &Config) -> anyhow::Result<Box<dyn LlmProvider>> 
     match config.provider.as_str() {
         "openai" => Ok(Box::new(openai::OpenAiProvider::new(config)?)),
         "anthropic" => Ok(Box::new(anthropic::AnthropicProvider::new(config)?)),
-        name => anyhow::bail!("Unknown provider: {}. Supported: openai, anthropic", name),
+        "ollama" => Ok(Box::new(ollama::OllamaProvider::new(config)?)),
+        name => anyhow::bail!("Unknown provider: {}. Supported: openai, anthropic, ollama", name),
     }
 }
