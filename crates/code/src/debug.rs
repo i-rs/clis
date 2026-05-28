@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, OnceLock};
 
 #[derive(Debug, Clone)]
 pub struct HttpLogEntry {
@@ -33,37 +33,34 @@ impl HttpLogEntry {
     }
 }
 
-static HTTP_LOG: Mutex<Vec<HttpLogEntry>> = Mutex::new(Vec::new());
+struct HttpLog(Vec<HttpLogEntry>);
+
+fn http_log() -> &'static Arc<Mutex<HttpLog>> {
+    static LOG: OnceLock<Arc<Mutex<HttpLog>>> = OnceLock::new();
+    LOG.get_or_init(|| Arc::new(Mutex::new(HttpLog(Vec::new()))))
+}
 
 pub fn push_log(entry: HttpLogEntry) {
-    if let Ok(mut log) = HTTP_LOG.lock() {
-        log.push(entry);
-        if log.len() > 200 {
-            log.remove(0);
+    if let Ok(mut log) = http_log().lock() {
+        log.0.push(entry);
+        if log.0.len() > 200 {
+            log.0.remove(0);
         }
     }
 }
 
 pub fn get_log() -> Vec<HttpLogEntry> {
-    if let Ok(log) = HTTP_LOG.lock() {
-        log.clone()
-    } else {
-        Vec::new()
-    }
+    http_log().lock().map(|log| log.0.clone()).unwrap_or_default()
 }
 
 pub fn clear_log() {
-    if let Ok(mut log) = HTTP_LOG.lock() {
-        log.clear();
+    if let Ok(mut log) = http_log().lock() {
+        log.0.clear();
     }
 }
 
 pub fn log_count() -> usize {
-    if let Ok(log) = HTTP_LOG.lock() {
-        log.len()
-    } else {
-        0
-    }
+    http_log().lock().map(|log| log.0.len()).unwrap_or(0)
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
-use std::time::Instant;
 
 use crate::mcp::McpManager;
 use crate::pty::PtyManager;
@@ -16,6 +16,8 @@ pub static LAST_WEB_REQUEST: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::
 static TOTAL_INPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
 static TOTAL_OUTPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
 static SESSION_TOKEN_BUDGET: AtomicU64 = AtomicU64::new(0);
+static LAST_API_CALL: LazyLock<std::sync::Mutex<Instant>> = LazyLock::new(|| std::sync::Mutex::new(Instant::now()));
+static MIN_REQUEST_INTERVAL_MS: u64 = 1000;
 
 pub fn session_token_budget() -> u64 {
     SESSION_TOKEN_BUDGET.load(Ordering::Relaxed)
@@ -43,4 +45,21 @@ pub fn exceeds_token_budget() -> bool {
 pub fn reset_usage() {
     TOTAL_INPUT_TOKENS.store(0, Ordering::Relaxed);
     TOTAL_OUTPUT_TOKENS.store(0, Ordering::Relaxed);
+}
+
+pub async fn rate_limit_wait() {
+    let interval = Duration::from_millis(MIN_REQUEST_INTERVAL_MS);
+    loop {
+        let now = Instant::now();
+        let last = {
+            let guard = LAST_API_CALL.lock().unwrap();
+            *guard
+        };
+        let elapsed = now.saturating_duration_since(last);
+        if elapsed >= interval {
+            *LAST_API_CALL.lock().unwrap() = now;
+            return;
+        }
+        tokio::time::sleep(interval - elapsed).await;
+    }
 }

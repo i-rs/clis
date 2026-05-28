@@ -29,17 +29,17 @@ pub enum ExecutionMode {
 }
 
 pub fn classify_complexity(task: &str) -> TaskComplexity {
-    let task_lower = task.to_lowercase();
-
     let heavy_keywords = [
         "refactor", "重构", "rewrite", "重写",
         "migrate", "迁移", "implement", "实现",
         "all tests", "全量测试", "整个项目",
         "分析", "analyze", "review",
         "design", "设计", "架构",
+        "optimize", "优化", "性能",
+        "secure", "安全", "加固",
     ];
     for kw in &heavy_keywords {
-        if task_lower.contains(kw) {
+        if task.to_lowercase().contains(kw) {
             return TaskComplexity::Heavy;
         }
     }
@@ -50,7 +50,7 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
         "多个文件", "multiple files",
     ];
     for kw in &complex_keywords {
-        if task_lower.contains(kw) {
+        if task.to_lowercase().contains(kw) {
             return TaskComplexity::Complex;
         }
     }

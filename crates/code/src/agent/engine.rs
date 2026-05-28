@@ -13,23 +13,13 @@ pub trait LoopHooks: Send + Sync {
     fn on_round_start(&self, _round: u32, _messages: &[LlmMessage]) {}
     fn on_tool_result(&self, _name: &str, _result: &str) {}
     fn on_done(&self, _rounds: u32, _usage: &Option<Usage>) {}
+    fn on_round_complete(&self, _round: u32, _messages: &[LlmMessage]) {}
 }
 
 const MODEL_CONTEXT_LIMIT: usize = 128_000;
 
 fn estimate_tokens(messages: &[LlmMessage], _tool_defs: &[Value]) -> usize {
-    let mut total = 0usize;
-    for msg in messages {
-        match msg {
-            LlmMessage::System(s) | LlmMessage::User(s) | LlmMessage::Assistant(s) => total += s.len() / 4,
-            LlmMessage::AssistantWithReasoning { content, reasoning, .. } => {
-                total += content.len() / 4 + reasoning.len() / 4;
-            }
-            LlmMessage::Tool { content, .. } => total += content.len() / 4,
-            LlmMessage::ToolCall { args, .. } => total += args.to_string().len() / 4,
-        }
-    }
-    total
+    super::context::ContextManager::estimate_tokens(messages)
 }
 
 fn exceeds_budget(messages: &[LlmMessage], tool_defs: &[Value]) -> bool {
@@ -87,42 +77,46 @@ async fn execute_tools(
     retry_counts: &mut HashMap<String, u32>,
     tool_timeout_secs: u64,
 ) -> ToolExecResult {
-    let handles: Vec<_> = pending_tool_calls.iter().map(|tc| {
-        let tool = tools.get(&tc.name);
-        let tc = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
-        tokio::spawn(async move {
-            let result = if let Some(tool) = tool {
-                match tc.args.as_object() {
-                    Some(obj) => tool.call(obj).await,
-                    None => tool.call(&serde_json::Map::new()).await,
-                }
-            } else {
-                Err(anyhow::anyhow!("Unknown tool: {}", tc.name))
-            };
-            (tc, result)
-        })
-    }).collect();
-
-    let tc_list: Vec<ToolCall> = pending_tool_calls.to_vec();
     let mut tool_messages = Vec::new();
 
-    for (i, handle) in handles.into_iter().enumerate() {
-        let tc = &tc_list[i];
-        let result_str = match tokio::time::timeout(std::time::Duration::from_secs(tool_timeout_secs), handle).await {
-            Ok(Ok(inner)) => match &inner.1 {
-                Ok(s) => s.clone(),
-                Err(e) => format!("Error: {}", e),
-            },
-            Ok(Err(join_err)) => format!("Error: tool task panicked: {}", join_err),
-            Err(_) => format!("Error: tool execution timed out ({}s)", tool_timeout_secs),
-        };
+    for tc in pending_tool_calls {
+        let retry_count = retry_counts.entry(tc.id.clone()).or_insert(0);
+        let mut result_str = String::new();
 
-        if result_str.starts_with("Error:") {
-            let count = retry_counts.entry(tc.id.clone()).or_insert(0);
-            *count += 1;
-        } else {
-            retry_counts.remove(&tc.id);
+        for attempt in 0..=*retry_count {
+            if attempt > 0 {
+                tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
+            }
+
+            let tool = tools.get(&tc.name);
+            let tc_clone = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
+
+            let handle = tokio::spawn(async move {
+                if let Some(tool) = tool {
+                    match tc_clone.args.as_object() {
+                        Some(obj) => tool.call(obj).await,
+                        None => tool.call(&serde_json::Map::new()).await,
+                    }
+                } else {
+                    Err(anyhow::anyhow!("Unknown tool: {}", tc_clone.name))
+                }
+            });
+
+            result_str = match tokio::time::timeout(std::time::Duration::from_secs(tool_timeout_secs), handle).await {
+                Ok(Ok(inner)) => match inner {
+                    Ok(s) => crate::error::truncate_output(&s),
+                    Err(e) => format!("Error: {}", e),
+                },
+                Ok(Err(join_err)) => format!("Error: tool task panicked: {}", join_err),
+                Err(_) => format!("Error: tool execution timed out ({}s)", tool_timeout_secs),
+            };
+
+            if !result_str.starts_with("Error:") {
+                retry_counts.remove(&tc.id);
+                break;
+            }
         }
+
         tool_messages.push((tc.name.clone(), tc.id.clone(), result_str));
     }
     ToolExecResult { tool_messages }
@@ -285,6 +279,7 @@ async fn react_loop_inner(
         if exceeds_budget(&messages, tool_defs) {
             messages = ctx.compress(&messages);
         }
+        crate::runtime::rate_limit_wait().await;
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
         let mut reasoning = String::new();
@@ -387,6 +382,8 @@ async fn react_loop_inner(
         if let Some(sys_msg) = build_over_limit_message(&retry_counts) {
             messages.push(LlmMessage::System(sys_msg));
         }
+
+        if let Some(h) = hooks { h.on_round_complete(_round, &messages); }
     }
 
     let _estimated = super::context::ContextManager::estimate_tokens(&messages) as f64 / 128_000.0;
