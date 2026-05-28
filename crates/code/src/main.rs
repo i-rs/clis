@@ -1,6 +1,7 @@
 // Some modules are only exercised through specific feature paths or CLI subcommands.
 #![allow(dead_code)]
 
+pub mod error;
 mod cli;
 mod config;
 mod app;
