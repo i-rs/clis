@@ -84,7 +84,7 @@ pub fn render_transcript(frame: &mut Frame, app: &App) {
                     lines.push(Line::from(Span::raw(line.to_string())));
                 }
             }
-            AgentMessage::Assistant { content, reasoning, tool_calls } => {
+            AgentMessage::Assistant { content, reasoning, tool_calls, reasoning_expanded: _ } => {
                 lines.push(Line::from(Span::styled("── Assistant ──", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))));
                 if !reasoning.is_empty() {
                     for line in reasoning.lines() {
@@ -195,18 +195,6 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         vec![]
     };
 
-    let reasoning_indicator = if !app.show_reasoning {
-        vec![
-            Span::raw(" "),
-            Span::styled("R▼", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Blue)),
-        ]
-    } else {
-        vec![
-            Span::raw(" "),
-            Span::styled("R▲", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Blue)),
-        ]
-    };
-
     let mut spans = vec![
         Span::styled(" i-rs-code ", Style::default().fg(Color::White).bg(Color::Blue)),
         Span::styled(format!(" v{} ", app.version), Style::default().fg(Color::Cyan).bg(Color::Blue)),
@@ -214,7 +202,6 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         Span::styled(dir, Style::default().fg(Color::White).bg(Color::Blue)),
     ];
     spans.extend(context_text);
-    spans.extend(reasoning_indicator);
     spans.push(Span::raw(" "));
     spans.push(Span::styled("[?]", Style::default().fg(Color::Rgb(200, 200, 100)).bg(Color::Blue)));
 
@@ -317,13 +304,13 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     lines.push(Line::from(Span::raw(format!(" {}", line))));
                 }
             }
-            AgentMessage::Assistant { content, reasoning, tool_calls: _ } => {
+            AgentMessage::Assistant { content, reasoning, tool_calls: _, reasoning_expanded } => {
                 last_was_tool = false;
                 lines.push(Line::from(vec![
                     Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
                 ]));
                 if !reasoning.is_empty() {
-                    if app.show_reasoning {
+                    if *reasoning_expanded {
                         lines.push(Line::from(vec![
                             Span::styled(" ▼ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
                             Span::styled(" 思考过程（按 r 折叠）", Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC)),
@@ -405,10 +392,22 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             AgentMessage::System { content } => {
                 last_was_tool = false;
                 for line in content.lines() {
-                    lines.push(Line::from(Span::styled(
-                        format!(" {}", line),
-                        Style::default().fg(Color::Rgb(100, 100, 120)),
-                    )));
+                    if line.starts_with("──") {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::default().fg(Color::Rgb(80, 180, 80)).add_modifier(Modifier::BOLD),
+                        )));
+                    } else if line.starts_with("📄") || line.starts_with("🔧") {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::default().fg(Color::Rgb(180, 180, 100)),
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::default().fg(Color::Rgb(100, 100, 120)),
+                        )));
+                    }
                 }
             }
             AgentMessage::Separator { label } => {
@@ -490,11 +489,11 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             }
         }
 
-        // 5. Cursor
+        // 5. Cursor (only when content streaming; not when tool executing or reasoning active)
         if s.current_tool.is_none() && !s.content.is_empty() {
             lines.push(Line::from(""));
             lines.push(Line::from(vec![Span::styled(" ▊", Style::default().fg(Color::Green))]));
-        } else if s.current_tool.is_none() && s.content.is_empty() {
+        } else if s.current_tool.is_none() && s.reasoning.is_empty() && s.content.is_empty() {
             lines.push(Line::from(vec![Span::styled(" ╎ ...", Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))]));
         }
     }

@@ -45,6 +45,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             ),
             reasoning: String::new(),
             tool_calls: None,
+            reasoning_expanded: false,
         });
     }
 
@@ -137,19 +138,20 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             let path_key = args.get("file_path").or_else(|| args.get("path")).and_then(|v| v.as_str());
             if matches!(name.as_str(), "write" | "edit" | "delete")
                 && let Some(path) = path_key {
-                    app.file_changes.insert(path.to_string());
+                    let rel = make_relative(&app.current_dir, path);
+                    app.file_changes.insert(rel.clone());
                     if !matches!(name.as_str(), "delete")
                         && let Ok(content) = std::fs::read_to_string(path)
                     {
-                        app.last_file_states.push((path.to_string(), content));
+                        app.last_file_states.push((rel, content));
                     }
                 }
             if name.as_str() == "rename"
                 && let Some(from) = args.get("from").and_then(|v| v.as_str())
             {
-                app.file_changes.insert(from.to_string());
+                app.file_changes.insert(make_relative(&app.current_dir, from));
                 if let Some(to) = args.get("to").and_then(|v| v.as_str()) {
-                    app.file_changes.insert(to.to_string());
+                    app.file_changes.insert(make_relative(&app.current_dir, to));
                 }
             }
             let info = ToolCallInfo {
@@ -210,6 +212,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                     content,
                     reasoning,
                     tool_calls,
+                    reasoning_expanded: false,
                 });
             }
 
@@ -256,6 +259,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 content: msg,
                 reasoning,
                 tool_calls: None,
+                reasoning_expanded: false,
             });
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
@@ -310,6 +314,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                             content: format!("{}\n\n[Cancelled]", content),
                             reasoning,
                             tool_calls: None,
+                            reasoning_expanded: false,
                         });
                     }
                     return;
@@ -327,7 +332,12 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
 
     match key.code {
         KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
-            app.show_reasoning = !app.show_reasoning;
+            for msg in app.messages.iter_mut().rev() {
+                if let AgentMessage::Assistant { reasoning_expanded, .. } = msg {
+                    *reasoning_expanded = !*reasoning_expanded;
+                    break;
+                }
+            }
         }
         KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
             app.show_transcript = !app.show_transcript;
@@ -497,6 +507,12 @@ async fn run_streaming_agent(
 #[cfg(not(feature = "tui"))]
 pub async fn run(_app: crate::app::App) -> anyhow::Result<()> {
     anyhow::bail!("TUI feature not enabled. Build with --features tui")
+}
+
+#[cfg(feature = "tui")]
+fn make_relative(base: &str, path: &str) -> String {
+    use std::path::Path;
+    Path::new(path).strip_prefix(base).map(|p| p.display().to_string()).unwrap_or_else(|_| path.to_string())
 }
 
 #[cfg(feature = "tui")]

@@ -8,7 +8,7 @@ pub enum AgentMessage {
     #[serde(rename = "user")]
     User { content: String },
     #[serde(rename = "assistant")]
-    Assistant { content: String, reasoning: String, tool_calls: Option<Vec<serde_json::Value>> },
+    Assistant { content: String, reasoning: String, tool_calls: Option<Vec<serde_json::Value>>, #[serde(default)] reasoning_expanded: bool },
     #[serde(rename = "tool")]
     ToolResult { content: String },
     #[serde(rename = "system")]
@@ -24,7 +24,7 @@ impl AgentMessage {
         Self::User { content: content.into() }
     }
     pub fn assistant(content: impl Into<String>) -> Self {
-        Self::Assistant { content: content.into(), reasoning: String::new(), tool_calls: None }
+        Self::Assistant { content: content.into(), reasoning: String::new(), tool_calls: None, reasoning_expanded: false }
     }
     pub fn tool(name: impl Into<String>, content: impl Into<String>) -> Self {
         Self::ToolResult { content: format!("{}\n{}", name.into(), content.into()) }
@@ -82,7 +82,6 @@ pub struct App {
     pub tool_names: Vec<String>,
     pub last_file_states: Vec<(String, String)>,
     pub context_usage: Option<f64>,
-    pub show_reasoning: bool,
     pub status_message: Option<String>,
     pub show_transcript: bool,
     pub transcript_scroll: usize,
@@ -117,7 +116,6 @@ impl App {
             tool_names: Vec::new(),
             last_file_states: Vec::new(),
             context_usage: None,
-            show_reasoning: false,
             status_message: None,
             show_transcript: false,
             transcript_scroll: 0,
