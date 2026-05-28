@@ -24,6 +24,34 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all --check
 
+  test-code-agent:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        run: rustup update stable && rustup component add clippy rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test (i-rs-code)
+        run: cargo test -p i-rs-code -- --test-threads=1
+      - name: cargo clippy (i-rs-code)
+        run: cargo clippy -p i-rs-code -- -D warnings
+      - name: cargo fmt (i-rs-code)
+        run: cargo fmt -p i-rs-code --check
+
+  test-core-claw-api:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        run: rustup update stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test (i-rs-core)
+        run: cargo test -p i-rs-core
+      - name: cargo test (i-rs-claw)
+        run: cargo test -p i-rs-claw -- --test-threads=1
+      - name: cargo test (i-rs-api)
+        run: cargo test -p i-rs-api
+
   claw-features:
     strategy:
       matrix:
