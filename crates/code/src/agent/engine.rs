@@ -106,7 +106,7 @@ async fn execute_tools(
 
             result_str = match tokio::time::timeout(std::time::Duration::from_secs(tool_timeout_secs), handle).await {
                 Ok(Ok(inner)) => match inner {
-                    Ok(s) => crate::error::truncate_output(&s),
+                    Ok(s) => crate::utils::truncate_output(&s, crate::error::MAX_TOOL_OUTPUT_BYTES),
                     Err(e) => format!("Error: {}", e),
                 },
                 Ok(Err(join_err)) => format!("Error: tool task panicked: {}", join_err),

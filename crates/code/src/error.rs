@@ -81,20 +81,7 @@ impl ToolError {
 }
 
 pub fn truncate_output(s: &str) -> String {
-    if s.len() <= MAX_TOOL_OUTPUT_BYTES {
-        return s.to_string();
-    }
-    let mut end = MAX_TOOL_OUTPUT_BYTES;
-    if let Some(pos) = s[..end].rfind('\n') {
-        end = pos + 1;
-    }
-    let truncated = &s[..end];
-    format!(
-        "{}\n\n[output truncated: {} bytes omitted, total {} bytes]",
-        truncated,
-        s.len() - truncated.len(),
-        s.len()
-    )
+    crate::utils::truncate_output(s, MAX_TOOL_OUTPUT_BYTES)
 }
 
 impl From<anyhow::Error> for ToolError {

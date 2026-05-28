@@ -82,8 +82,10 @@ impl Tool for BatchEditTool {
             }
             let new_content = content.replacen(old, new, 1);
             let tmp_path = format!("{}.batchtmp", file);
+            let _ = tokio::fs::remove_file(&tmp_path).await;
             tokio::fs::write(&tmp_path, &new_content).await?;
             tokio::fs::rename(&tmp_path, file).await?;
+            let _ = tokio::fs::remove_file(&tmp_path).await;
             results.push(format!("{}: ok", file));
         }
 

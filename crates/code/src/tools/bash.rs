@@ -7,23 +7,8 @@ const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 /// Default command timeout in seconds
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
 
-/// Truncate a string if it exceeds MAX_OUTPUT_BYTES, preserving UTF-8 boundaries.
 fn truncate_output(s: &str) -> String {
-    if s.len() <= MAX_OUTPUT_BYTES {
-        return s.to_string();
-    }
-    let mut end = MAX_OUTPUT_BYTES;
-    // Find last newline before the limit to avoid breaking mid-line
-    if let Some(pos) = s[..end].rfind('\n') {
-        end = pos + 1;
-    }
-    let truncated = &s[..end];
-    format!(
-        "{}\n\n[output truncated: {} bytes omitted, total {} bytes]",
-        truncated,
-        s.len() - truncated.len(),
-        s.len()
-    )
+    crate::utils::truncate_output(s, MAX_OUTPUT_BYTES)
 }
 
 /// Whitelisted command prefixes (safe to execute)

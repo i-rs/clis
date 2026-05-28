@@ -34,6 +34,13 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load()?;
 
+    if cli.debug {
+        crate::runtime::set_debug(true);
+    }
+    if cli.verbose {
+        crate::runtime::set_verbose(true);
+    }
+
     match cli.command {
         cli::Commands::Tui { session } => {
             #[cfg(feature = "tui")]

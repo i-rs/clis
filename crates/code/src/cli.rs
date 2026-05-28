@@ -5,6 +5,12 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+
+    #[arg(short, long, global = true, help = "Show debug-level logs")]
+    pub debug: bool,
+
+    #[arg(short, long, global = true, help = "Show verbose output")]
+    pub verbose: bool,
 }
 
 #[derive(Subcommand, Debug)]

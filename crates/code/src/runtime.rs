@@ -18,6 +18,24 @@ static TOTAL_OUTPUT_TOKENS: AtomicU64 = AtomicU64::new(0);
 static SESSION_TOKEN_BUDGET: AtomicU64 = AtomicU64::new(0);
 static LAST_API_CALL: LazyLock<std::sync::Mutex<Instant>> = LazyLock::new(|| std::sync::Mutex::new(Instant::now()));
 static MIN_REQUEST_INTERVAL_MS: u64 = 1000;
+static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
+static VERBOSE_MODE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_debug(enabled: bool) {
+    DEBUG_MODE.store(enabled, Ordering::Relaxed);
+}
+
+pub fn is_debug() -> bool {
+    DEBUG_MODE.load(Ordering::Relaxed)
+}
+
+pub fn set_verbose(enabled: bool) {
+    VERBOSE_MODE.store(enabled, Ordering::Relaxed);
+}
+
+pub fn is_verbose() -> bool {
+    VERBOSE_MODE.load(Ordering::Relaxed)
+}
 
 pub fn session_token_budget() -> u64 {
     SESSION_TOKEN_BUDGET.load(Ordering::Relaxed)
