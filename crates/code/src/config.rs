@@ -31,11 +31,30 @@ pub struct Config {
     pub tool_timeout_secs: u64,
     #[serde(default)]
     pub agents: std::collections::HashMap<String, AgentConfig>,
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerConfig>,
 }
 
 fn default_max_rounds() -> u32 { 20 }
 fn default_max_tool_retries() -> u32 { 2 }
 fn default_tool_timeout() -> u64 { 120 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    pub name: String,
+    #[serde(default = "default_mcp_transport")]
+    pub transport_type: String,
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Option<Vec<String>>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub env: Option<Vec<String>>,
+}
+
+fn default_mcp_transport() -> String { "stdio".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
@@ -65,6 +84,7 @@ impl Default for Config {
             max_tool_retries: default_max_tool_retries(),
             tool_timeout_secs: default_tool_timeout(),
             agents: std::collections::HashMap::new(),
+            mcp_servers: Vec::new(),
         }
     }
 }

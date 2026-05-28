@@ -9,6 +9,7 @@ mod provider;
 mod protocol;
 mod memory;
 mod convstore;
+mod router;
 mod diff;
 mod session;
 mod utils;
