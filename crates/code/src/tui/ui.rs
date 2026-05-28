@@ -1,3 +1,4 @@
+use std::sync::atomic::Ordering;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -15,7 +16,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(1),
             Constraint::Min(1),
-            Constraint::Length(app.input.content.lines().count().clamp(1, 8) as u16 + 2),
+            Constraint::Length((app.input.content.lines().count() + 1).clamp(2, 8) as u16 + 2),
         ])
         .split(area);
 
@@ -68,6 +69,10 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
             Style::default().fg(Color::White),
         )),
         Line::from(Span::styled(
+            "  r             展开/折叠 AI 思考过程",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(Span::styled(
             "  Tab           插入缩进 (2 spaces)",
             Style::default().fg(Color::White),
         )),
@@ -108,6 +113,18 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         vec![]
     };
 
+    let reasoning_indicator = if !app.show_reasoning {
+        vec![
+            Span::raw(" "),
+            Span::styled("R▼", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Blue)),
+        ]
+    } else {
+        vec![
+            Span::raw(" "),
+            Span::styled("R▲", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Blue)),
+        ]
+    };
+
     let mut spans = vec![
         Span::styled(" i-rs-code ", Style::default().fg(Color::White).bg(Color::Blue)),
         Span::styled(
@@ -118,6 +135,9 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         Span::styled(dir, Style::default().fg(Color::White).bg(Color::Blue)),
     ];
     spans.extend(context_text);
+    spans.extend(reasoning_indicator);
+    spans.push(Span::raw(" "));
+    spans.push(Span::styled("[?]", Style::default().fg(Color::Rgb(200, 200, 100)).bg(Color::Blue)));
 
     let text = Line::from(spans);
     let bar = Paragraph::new(text).style(Style::default().bg(Color::Blue));
@@ -249,11 +269,22 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Span::styled(" AI ", Style::default().fg(Color::White).bg(Color::Green)),
                 ]));
                 if !msg.reasoning.is_empty() {
-                    for line in msg.reasoning.lines() {
-                        lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
-                        )));
+                    if app.show_reasoning {
+                        lines.push(Line::from(vec![
+                            Span::styled(" ▼ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
+                            Span::styled(" 思考过程（按 r 折叠）", Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC)),
+                        ]));
+                        for line in msg.reasoning.lines() {
+                            lines.push(Line::from(Span::styled(
+                                format!(" {}", line),
+                                Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
+                            )));
+                        }
+                    } else {
+                        lines.push(Line::from(vec![
+                            Span::styled(" ▶ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
+                            Span::styled(" 思考过程（按 r 展开）", Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC)),
+                        ]));
                     }
                 }
                 for line in msg.content.lines() {
@@ -261,14 +292,27 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 }
             }
             "tool" => {
+                let (tool_name, tool_result) = msg.content.split_once('\n').unwrap_or(("", &msg.content));
                 lines.push(Line::from(vec![
-                    Span::styled(" Tool ", Style::default().fg(Color::Black).bg(Color::Yellow)),
+                    Span::styled(
+                        format!(" {} ", if !tool_name.is_empty() { tool_name } else { "Tool" }),
+                        Style::default().fg(Color::Black).bg(Color::Yellow),
+                    ),
                 ]));
-                let preview: String = msg.content.chars().take(200).collect();
-                if preview.len() < msg.content.len() {
-                    lines.push(Line::from(Span::raw(format!(" {}...", preview))));
-                } else {
-                    lines.push(Line::from(Span::raw(format!(" {}", preview))));
+                if !tool_result.is_empty() {
+                    let preview: String = tool_result.chars().take(300).collect();
+                    for line in preview.lines().take(4) {
+                        lines.push(Line::from(Span::styled(
+                            format!("  {}", line),
+                            Style::default().fg(Color::Rgb(180, 150, 100)),
+                        )));
+                    }
+                    if preview.len() < tool_result.len() || tool_result.lines().count() > 4 {
+                        lines.push(Line::from(Span::styled(
+                            "  ... (truncated)",
+                            Style::default().fg(Color::DarkGray),
+                        )));
+                    }
                 }
             }
             _ => {
@@ -467,6 +511,31 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     }
     items.push(Line::from(""));
 
+    // LSP status
+    let (lsp_label, lsp_color) = if crate::runtime::LSP_INITIALIZED.load(Ordering::Relaxed) {
+        ("rust-analyzer ✓", Color::Green)
+    } else {
+        ("rust-analyzer ...", Color::Yellow)
+    };
+    items.push(Line::from(vec![
+        Span::styled("LSP ", Style::default().fg(Color::Gray)),
+        Span::styled(lsp_label, Style::default().fg(lsp_color)),
+    ]));
+    items.push(Line::from(""));
+
+    // Status message (retry, progress)
+    if let Some(ref msg) = app.status_message {
+        let preview: String = msg.chars().take(inner.width.saturating_sub(4) as usize).collect();
+        items.push(Line::from(vec![
+            Span::styled("Status ", Style::default().fg(Color::Gray)),
+        ]));
+        items.push(Line::from(Span::styled(
+            format!(" {}", preview),
+            Style::default().fg(Color::Yellow),
+        )));
+        items.push(Line::from(""));
+    }
+
     let mode_text = match app.mode {
         AppMode::Idle => "Idle",
         AppMode::Waiting => "Waiting...",
@@ -543,21 +612,25 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
 
     let prefix = "> ";
 
+    let hint = Line::from(Span::styled(
+        "  [?] 键盘快捷键  [Enter] 发送  [Esc] 退出  [Ctrl+C] 取消  [Ctrl+Z] 撤销",
+        Style::default().fg(Color::Rgb(80, 80, 90)),
+    ));
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
-        vec![Line::from(vec![
-            Span::styled("⏳ ", Style::default().fg(Color::Rgb(113, 113, 122))),
-            Span::styled(&app.input.content, Style::default().fg(Color::Rgb(113, 113, 122))),
-        ])]
+        vec![
+            Line::from(vec![
+                Span::styled("⏳ ", Style::default().fg(Color::Rgb(113, 113, 122))),
+                Span::styled(&app.input.content, Style::default().fg(Color::Rgb(113, 113, 122))),
+            ]),
+            hint,
+        ]
     } else if app.input.content.is_empty() {
         vec![
             Line::from(Span::styled(
                 format!("{}输入消息...", prefix),
                 Style::default().fg(Color::Rgb(113, 113, 122)),
             )),
-            Line::from(Span::styled(
-                "  [Enter] 发送  [Esc] 退出  [?] 帮助",
-                Style::default().fg(Color::Rgb(80, 80, 90)),
-            )),
+            hint,
         ]
     } else {
         let mut result: Vec<Line> = app.input.content.lines().enumerate().map(|(i, line)| {
@@ -567,10 +640,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(Color::Rgb(250, 250, 250)),
             ))
         }).collect();
-        result.push(Line::from(Span::styled(
-            "  [Enter] 发送  [?] 帮助",
-            Style::default().fg(Color::Rgb(80, 80, 90)),
-        )));
+        result.push(hint);
         result
     };
 

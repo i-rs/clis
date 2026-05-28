@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 
-const MAX_PROVIDER_RETRIES: u32 = 2;
+const MAX_PROVIDER_RETRIES: u32 = 3;
 const MAX_TOOL_RETRIES: u32 = 2;
 
 pub trait LoopHooks: Send + Sync {
@@ -314,7 +314,7 @@ async fn react_loop_inner(
                     had_error = true;
                     if is_transient_error(&e) && provider_errors < MAX_PROVIDER_RETRIES {
                         provider_errors += 1;
-                        let wait = 3 * provider_errors as u64;
+                        let wait = 5 * provider_errors as u64;
                         output.emit_retry(wait, provider_errors).await?;
                         tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
                         continue;

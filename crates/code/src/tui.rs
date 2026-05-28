@@ -155,14 +155,37 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                 s.tool_calls.push(tool);
             }
         }
-        AgentEvent::Status(_msg) => {
-            // Status updates for provider retry etc. Could display in TUI status bar.
+        AgentEvent::Status(msg) => {
+            app.status_message = Some(msg);
         }
         AgentEvent::FileChanged { path } => {
             app.file_changes.insert(path);
         }
         AgentEvent::Done { usage, messages, context_pct } => {
+            app.status_message = None;
+            let streamed_tc = app.streaming.as_ref()
+                .map(|s| s.tool_calls.clone())
+                .unwrap_or_default();
             let (content, reasoning) = app.finish_streaming();
+            for tc in &streamed_tc {
+                let display = match &tc.result {
+                    Some(r) => {
+                        let preview: String = r.chars().take(500).collect();
+                        if preview.len() < r.len() {
+                            format!("{}\n{}...", tc.name, preview)
+                        } else {
+                            format!("{}\n{}", tc.name, preview)
+                        }
+                    }
+                    None => format!("{}\n(no result)", tc.name),
+                };
+                app.messages.push(ChatMessage {
+                    role: "tool".into(),
+                    content: display,
+                    reasoning: String::new(),
+                    tool_calls: None,
+                });
+            }
             if !messages.is_empty() {
                 app.agent_messages = messages.clone();
             }
@@ -171,18 +194,21 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             }
             app.context_usage = Some(context_pct);
             let tool_calls = extract_tool_calls(&messages);
-            app.messages.push(ChatMessage {
-                role: "assistant".into(),
-                content,
-                reasoning,
-                tool_calls,
-            });
+            if !content.is_empty() || !reasoning.is_empty() || tool_calls.is_some() {
+                app.messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content,
+                    reasoning,
+                    tool_calls,
+                });
+            }
             app.scroll_offset = 0;
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
         }
         AgentEvent::Error(e) => {
+            app.status_message = None;
             let (content, reasoning) = app.finish_streaming();
             let msg = if !content.is_empty() {
                 format!("{}\n\nError: {}", content, e)
@@ -243,6 +269,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     }
 
     match key.code {
+        KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+            app.show_reasoning = !app.show_reasoning;
+        }
         KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
             if let Some((path, content)) = app.last_file_states.pop() {
                 match std::fs::write(&path, &content) {

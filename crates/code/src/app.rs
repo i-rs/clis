@@ -60,6 +60,10 @@ pub struct App {
     pub tool_names: Vec<String>,
     pub last_file_states: Vec<(String, String)>,
     pub context_usage: Option<f64>,
+    /// When false, reasoning blocks are collapsed to a single-line indicator.
+    pub show_reasoning: bool,
+    /// Transient status message (retry, progress), shown in status panel
+    pub status_message: Option<String>,
 }
 
 impl App {
@@ -90,6 +94,8 @@ impl App {
             tool_names: Vec::new(),
             last_file_states: Vec::new(),
             context_usage: None,
+            show_reasoning: false,
+            status_message: None,
         }
     }
 

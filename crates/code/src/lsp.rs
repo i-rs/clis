@@ -1,5 +1,6 @@
 use lsp_types::*;
 use std::sync::LazyLock;
+use std::sync::atomic::Ordering;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
@@ -59,7 +60,12 @@ impl LspSession {
         let _result: InitializeResult = self.send_request("initialize", params).await?;
         self.send_notification("initialized", serde_json::json!({})).await?;
         self.initialized = true;
+        crate::runtime::LSP_INITIALIZED.store(true, Ordering::Relaxed);
         Ok(())
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        self.initialized
     }
 
     pub async fn get_diagnostics(&mut self, file_path: &str) -> anyhow::Result<Vec<String>> {
