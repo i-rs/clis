@@ -8,7 +8,7 @@ use ratatui::{
 };
 use crate::app::{AgentMessage, App, AppMode};
 
-const SIDEBAR_WIDTH: u16 = 32;
+const SIDEBAR_WIDTH: u16 = 38;
 
 fn tool_glyph(name: &str) -> &'static str {
     match name {
@@ -487,22 +487,26 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
-    let sidebar_bg = Style::default().bg(Color::Rgb(25, 25, 35));
-    frame.render_widget(Clear, area);
-    // Fill background
-    let bg_paragraph = Paragraph::new(Text::from(vec![Line::from("")])).style(sidebar_bg);
-    frame.render_widget(bg_paragraph, area);
-
     let mut items: Vec<Line> = Vec::new();
     let w = (area.width as usize).saturating_sub(2);
+
+    // Left separator
+    let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
+        "▕",
+        Style::default().fg(Color::Rgb(50, 50, 60)),
+    ))])).style(Style::default().bg(Color::Rgb(22, 22, 28)));
+    let sep_area = Rect { x: area.x, y: area.y, width: 1, height: area.height };
+    frame.render_widget(sep_line, sep_area);
+
+    let inner = Rect { x: area.x + 1, y: area.y, width: area.width.saturating_sub(1), height: area.height };
 
     // Header
     items.push(Line::from(Span::styled(
         " ⚙ Status ",
-        Style::default().fg(Color::Rgb(150, 150, 160)).bg(Color::Rgb(25, 25, 35)),
+        Style::default().fg(Color::Rgb(150, 150, 160)),
     )));
     items.push(Line::from(Span::styled(
-        "─".repeat(area.width.saturating_sub(1) as usize),
+        "─".repeat(inner.width.saturating_sub(1) as usize),
         Style::default().fg(Color::Rgb(50, 50, 60)),
     )));
 
@@ -635,39 +639,35 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     if let Some(ref s) = app.streaming {
-        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(Color::Rgb(80, 80, 90)).bg(Color::Rgb(25, 25, 35)))));
+        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
         items.push(Line::from(Span::styled(
             format!(" {}c · {}t", s.content.len(), s.tool_calls.len()),
-            Style::default().fg(Color::Cyan).bg(Color::Rgb(25, 25, 35)),
+            Style::default().fg(Color::Cyan),
         )));
         if s.current_tool.is_some() {
-            items.push(Line::from(Span::styled(" ▸ executing...", Style::default().fg(Color::Yellow).bg(Color::Rgb(25, 25, 35)))));
+            items.push(Line::from(Span::styled(" ▸ executing...", Style::default().fg(Color::Yellow))));
         }
         items.push(Line::from(""));
     }
 
     if let Some(ref msg) = app.status_message {
-        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)).bg(Color::Rgb(25, 25, 35)))));
+        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
         let preview: String = msg.chars().take(w.saturating_sub(2)).collect();
-        items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow).bg(Color::Rgb(25, 25, 35)))));
+        items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
     }
 
-    let paragraph = Paragraph::new(Text::from(items)).style(Style::default().bg(Color::Rgb(25, 25, 35)));
-    frame.render_widget(paragraph, area);
+    let paragraph = Paragraph::new(Text::from(items));
+    frame.render_widget(paragraph, inner);
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let input_bg = if matches!(app.mode, AppMode::Waiting) {
-        Style::default().bg(Color::Rgb(20, 20, 25))
-    } else {
-        Style::default().bg(Color::Rgb(18, 18, 22))
-    };
+    let input_bg = Style::default().bg(Color::Rgb(30, 30, 38));
     frame.render_widget(Clear, area);
     let bg_fill = Paragraph::new(Text::from(vec![Line::from("")])).style(input_bg);
     frame.render_widget(bg_fill, area);
 
     // Top separator line
-    let sep_color = if matches!(app.mode, AppMode::Waiting) { Color::Rgb(60, 60, 70) } else { Color::Rgb(40, 40, 50) };
+    let sep_color = if matches!(app.mode, AppMode::Waiting) { Color::Rgb(60, 60, 70) } else { Color::Rgb(42, 42, 50) };
     let sep = Span::styled("─".repeat(area.width as usize), Style::default().fg(sep_color));
     let sep_line = Paragraph::new(Text::from(vec![Line::from(sep)])).style(input_bg);
     let sep_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
