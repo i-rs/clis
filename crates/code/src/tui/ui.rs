@@ -44,31 +44,45 @@ fn render_diff_line(line: &str) -> Vec<Span<'static>> {
     }
 }
 
+fn fmt_count(n: u32) -> String {
+    if n >= 1_000_000 {
+        format!("{:.1}M", n as f64 / 1_000_000.0)
+    } else if n >= 1_000 {
+        format!("{:.1}k", n as f64 / 1_000.0)
+    } else {
+        n.to_string()
+    }
+}
+
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
-    // Left-right layout: sidebar full height on the right
-    let left_right = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(1), Constraint::Length(SIDEBAR_WIDTH)])
-        .split(area);
-
-    // Left column: Title + Chat + Input
     let input_lines = (app.input.content.lines().count() + 1).clamp(2, 8) as u16 + 2;
-    let left_chunks = Layout::default()
+
+    // Top-level vertical: Title | Content+Sidebar | Input
+    let vert = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
             Constraint::Min(1),
             Constraint::Length(input_lines),
         ])
-        .split(left_right[0]);
+        .split(area);
 
-    // Right column: Sidebar (full height)
-    render_sidebar(frame, left_right[1], app);
-    render_title_bar(frame, left_chunks[0], app);
-    render_chat(frame, left_chunks[1], app);
-    render_input_bar(frame, left_chunks[2], app);
+    // Title bar full width
+    render_title_bar(frame, vert[0], app);
+
+    // Below title: horizontal split for chat + sidebar
+    let horiz = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(1), Constraint::Length(SIDEBAR_WIDTH)])
+        .split(vert[1]);
+
+    render_chat(frame, horiz[0], app);
+    render_sidebar(frame, horiz[1], app);
+
+    // Input bar full width
+    render_input_bar(frame, vert[2], app);
 
     if app.show_shortcuts {
         render_shortcuts_overlay(frame, area);
@@ -448,49 +462,81 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let block = Block::default()
-        .title(" Status ")
+        .title(" ⚙ Status ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
     let mut items = Vec::new();
+    let w = inner.width as usize;
 
-    // --- Session ---
-    items.push(Line::from(Span::styled("Session", Style::default().fg(Color::Gray))));
-    let sid = app.session_id.as_deref().unwrap_or("-");
-    let sid_short = if sid.len() > 12 { format!("{}..", &sid[..12]) } else { sid.to_string() };
-    items.push(Line::from(Span::styled(format!(" {}", sid_short), Style::default().fg(Color::Rgb(150, 150, 150)))));
+    // --- Directory ---
+    items.push(Line::from(Span::styled("─ Dir ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    let dir = if app.current_dir.len() > w.saturating_sub(2) {
+        format!("..{}", &app.current_dir[app.current_dir.len().saturating_sub(w.saturating_sub(4))..])
+    } else {
+        app.current_dir.clone()
+    };
+    items.push(Line::from(Span::styled(format!(" {}", dir), Style::default().fg(Color::White))));
+    items.push(Line::from(""));
+
+    // --- Session & Version ---
+    items.push(Line::from(Span::styled("─ Session ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    let sid = app.session_id.as_deref().unwrap_or("new");
+    let sid_short = if sid.len() > 10 { format!("{}..", &sid[..10]) } else { sid.to_string() };
+    items.push(Line::from(vec![
+        Span::styled(" id ", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(sid_short, Style::default().fg(Color::Rgb(150, 150, 150))),
+    ]));
+    items.push(Line::from(vec![
+        Span::styled(" ver", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(format!(" {}", app.version), Style::default().fg(Color::Cyan)),
+    ]));
     items.push(Line::from(""));
 
     // --- Model ---
-    items.push(Line::from(vec![Span::styled("Model", Style::default().fg(Color::Gray))]));
-    items.push(Line::from(Span::styled(format!(" {}", app.config.effective_model()), Style::default().fg(Color::Cyan))));
+    items.push(Line::from(Span::styled("─ Model ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    let model = app.config.effective_model();
+    let model_short = if model.len() > w.saturating_sub(2) { format!("{}..", &model[..w.saturating_sub(4)]) } else { model.to_string() };
+    items.push(Line::from(vec![
+        Span::styled(" ▸ ", Style::default().fg(Color::Cyan)),
+        Span::styled(model_short, Style::default().fg(Color::White)),
+    ]));
     items.push(Line::from(""));
 
-    // --- Tokens (live during streaming) ---
+    // --- Tokens ---
+    items.push(Line::from(Span::styled("─ Tokens ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
     let (tok_in, tok_out) = if let Some(ref s) = app.streaming {
-        // During streaming, show current stream length as approximate output
         (app.token_usage.input, app.token_usage.output + s.content.len() as u32)
     } else {
         (app.token_usage.input, app.token_usage.output)
     };
-    items.push(Line::from(vec![Span::styled("Tokens", Style::default().fg(Color::Gray))]));
-    items.push(Line::from(Span::styled(format!(" I:{} O:{}", tok_in, tok_out), Style::default().fg(Color::Rgb(150, 200, 150)))));
+    items.push(Line::from(Span::styled(
+        format!(" IN  {}    OUT  {}", fmt_count(tok_in), fmt_count(tok_out)),
+        Style::default().fg(Color::Rgb(150, 200, 150)),
+    )));
     items.push(Line::from(""));
 
-    // --- Mode ---
+    // --- Mode + Messages ---
     let (mode_text, mode_color) = match app.mode {
-        AppMode::Idle => ("Idle", Color::Green),
-        AppMode::Waiting => ("Waiting...", Color::Yellow),
+        AppMode::Idle => ("idle", Color::Green),
+        AppMode::Waiting => ("busy", Color::Yellow),
     };
-    items.push(Line::from(vec![Span::styled("Mode", Style::default().fg(Color::Gray))]));
-    items.push(Line::from(Span::styled(format!(" {}", mode_text), Style::default().fg(mode_color))));
+    items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(vec![
+        Span::styled(" mode ", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(mode_text, Style::default().fg(mode_color)),
+    ]));
+    items.push(Line::from(vec![
+        Span::styled(" msgs", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(format!(" {}", app.messages.len()), Style::default().fg(Color::Rgb(150, 150, 150))),
+    ]));
     items.push(Line::from(""));
 
     // --- Changes ---
     let change_count = app.file_changes.len();
-    items.push(Line::from(vec![Span::styled("Changes", Style::default().fg(Color::Gray))]));
+    items.push(Line::from(Span::styled("─ Changes ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
     if change_count == 0 {
         items.push(Line::from(Span::styled(" none", Style::default().fg(Color::DarkGray))));
     } else {
@@ -498,51 +544,57 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         let mut changes: Vec<&String> = app.file_changes.iter().collect();
         changes.sort();
         for path in changes.iter().take(4) {
-            let display = if path.len() > inner.width as usize - 4 {
-                format!(" ..{}", &path[path.len().saturating_sub(inner.width as usize - 6)..])
+            let display = if path.len() > w.saturating_sub(4) {
+                format!(" ..{}", &path[path.len().saturating_sub(w.saturating_sub(6))..])
             } else {
                 format!(" {}", path)
             };
             items.push(Line::from(Span::styled(display, Style::default().fg(Color::Yellow))));
         }
         if change_count > 4 {
-            items.push(Line::from(Span::styled(format!(" ... +{}", change_count - 4), Style::default().fg(Color::DarkGray))));
+            items.push(Line::from(Span::styled(format!(" … +{}", change_count - 4), Style::default().fg(Color::DarkGray))));
         }
     }
     items.push(Line::from(""));
 
     // --- LSP ---
+    items.push(Line::from(Span::styled("─ LSP ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
     let (lsp_label, lsp_color) = if crate::runtime::LSP_INITIALIZED.load(Ordering::Relaxed) {
-        ("✓ initialized", Color::Green)
+        ("✓ ready", Color::Green)
     } else {
-        ("... waiting", Color::Yellow)
+        ("… waiting", Color::Yellow)
     };
-    items.push(Line::from(vec![Span::styled("LSP", Style::default().fg(Color::Gray))]));
-    items.push(Line::from(Span::styled(format!(" rust-analyzer {}", lsp_label), Style::default().fg(lsp_color))));
+    items.push(Line::from(vec![
+        Span::styled(" ra ", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(lsp_label, Style::default().fg(lsp_color)),
+    ]));
     items.push(Line::from(""));
 
     // --- MCP ---
-    items.push(Line::from(vec![Span::styled("MCP", Style::default().fg(Color::Gray))]));
-    items.push(Line::from(Span::styled(" (via config)", Style::default().fg(Color::DarkGray))));
+    items.push(Line::from(Span::styled("─ MCP ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(vec![
+        Span::styled(" srv", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(" config-based", Style::default().fg(Color::DarkGray)),
+    ]));
     items.push(Line::from(""));
 
     // --- Streaming ---
     if let Some(ref s) = app.streaming {
-        items.push(Line::from(vec![Span::styled("Streaming", Style::default().fg(Color::Gray))]));
+        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
         items.push(Line::from(Span::styled(
-            format!(" {} chars · {} tools", s.content.len(), s.tool_calls.len()),
+            format!(" {}c · {} tools", s.content.len(), s.tool_calls.len()),
             Style::default().fg(Color::Cyan),
         )));
         if s.current_tool.is_some() {
-            items.push(Line::from(Span::styled(" ▸ tool executing...", Style::default().fg(Color::Yellow))));
+            items.push(Line::from(Span::styled(" ▸ executing...", Style::default().fg(Color::Yellow))));
         }
+        items.push(Line::from(""));
     }
 
     // --- Status ---
     if let Some(ref msg) = app.status_message {
-        items.push(Line::from(""));
-        items.push(Line::from(vec![Span::styled("Status", Style::default().fg(Color::Gray))]));
-        let preview: String = msg.chars().take(inner.width.saturating_sub(4) as usize).collect();
+        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+        let preview: String = msg.chars().take(w.saturating_sub(4)).collect();
         items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
     }
 
