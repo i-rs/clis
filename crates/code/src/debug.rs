@@ -65,3 +65,41 @@ pub fn log_count() -> usize {
         0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_push_log_and_get_log() {
+        clear_log();
+        let entry = HttpLogEntry {
+            url: "https://example.com".into(),
+            request_body: "{}".into(),
+            response_status: 200,
+            response_body_preview: "ok".into(),
+            duration_ms: 100,
+            timestamp: "2024-01-01".into(),
+        };
+        push_log(entry);
+        let logs = get_log();
+        assert!(!logs.is_empty(), "should have at least one log entry");
+        assert_eq!(logs[0].url, "https://example.com");
+    }
+
+    #[test]
+    fn test_clear_log() {
+        clear_log();
+        push_log(HttpLogEntry {
+            url: "test".into(),
+            request_body: String::new(),
+            response_status: 200,
+            response_body_preview: String::new(),
+            duration_ms: 0,
+            timestamp: String::new(),
+        });
+        assert!(log_count() > 0, "should have entries before clear");
+        clear_log();
+        assert_eq!(log_count(), 0, "should be empty after clear");
+    }
+}

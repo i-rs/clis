@@ -296,3 +296,61 @@ impl LlmProvider for OpenAiProvider {
         Ok(LlmResponse { content, reasoning, tool_calls, usage })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_messages_system() {
+        let msgs = vec![LlmMessage::System("You are a helper".into())];
+        let result = OpenAiProvider::build_messages(&msgs);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["role"], "system");
+        assert_eq!(result[0]["content"], "You are a helper");
+    }
+
+    #[test]
+    fn test_build_messages_user() {
+        let msgs = vec![LlmMessage::User("Hello".into())];
+        let result = OpenAiProvider::build_messages(&msgs);
+        assert_eq!(result[0]["role"], "user");
+    }
+
+    #[test]
+    fn test_build_messages_assistant_with_reasoning() {
+        let msgs = vec![LlmMessage::AssistantWithReasoning {
+            content: "Answer".into(),
+            reasoning: "Thinking...".into(),
+            tool_calls: vec![],
+        }];
+        let result = OpenAiProvider::build_messages(&msgs);
+        assert_eq!(result[0]["role"], "assistant");
+        assert_eq!(result[0]["reasoning_content"], "Thinking...");
+    }
+
+    #[test]
+    fn test_build_messages_tool_call() {
+        let msgs = vec![LlmMessage::ToolCall {
+            id: "call-1".into(),
+            name: "read".into(),
+            args: serde_json::json!({"file_path": "test.txt"}),
+        }];
+        let result = OpenAiProvider::build_messages(&msgs);
+        assert_eq!(result[0]["role"], "assistant");
+        assert!(result[0]["tool_calls"].is_array());
+        assert_eq!(result[0]["tool_calls"][0]["function"]["name"], "read");
+    }
+
+    #[test]
+    fn test_build_messages_tool_result() {
+        let msgs = vec![LlmMessage::Tool {
+            name: "read".into(),
+            content: "file content".into(),
+            call_id: "call-1".into(),
+        }];
+        let result = OpenAiProvider::build_messages(&msgs);
+        assert_eq!(result[0]["role"], "tool");
+        assert_eq!(result[0]["content"], "file content");
+    }
+}

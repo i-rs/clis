@@ -372,3 +372,88 @@ pub async fn react_loop_streaming(
     event_tx.send(AgentEvent::Done { usage: Some(total_usage), messages: messages.clone(), context_pct: _estimated }).await.ok();
     Ok((final_text, messages))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::*;
+    use crate::tools::ToolRegistry;
+
+    fn make_tool_def(name: &str) -> Value {
+        serde_json::json!({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": "test tool",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn test_react_loop_simple_response() {
+        let provider = MockLlmProvider::with_response("Hello, world!");
+        let tools = mock_tool_registry();
+        let tool_defs = vec![make_tool_def("read")];
+        let messages = vec![LlmMessage::User("Say hello".into())];
+
+        let (text, _msgs) = react_loop(
+            &provider, &tools, messages, &tool_defs, false, 5, 30
+        ).await.expect("react_loop should succeed");
+
+        assert!(text.contains("Hello"), "Expected 'Hello' in response, got: {}", text);
+    }
+
+    #[tokio::test]
+    async fn test_react_loop_tool_call_then_response() {
+        let provider = MockLlmProvider::with_text_and_tool(
+            "Let me check...",
+            "read", "call-1", r#"{"file_path": "test.txt"}"#,
+        );
+        let tools = mock_tool_registry();
+        let tool_defs = vec![make_tool_def("read")];
+        let messages = vec![LlmMessage::User("Read test.txt".into())];
+
+        let (text, msgs) = react_loop(
+            &provider, &tools, messages, &tool_defs, false, 5, 30
+        ).await.expect("react_loop should succeed");
+
+        assert!(text.contains("Let me check"), "Response should contain initial text");
+        let has_tool_result = msgs.iter().any(|m| matches!(m, LlmMessage::Tool { .. }));
+        assert!(has_tool_result, "Tool result should be in message history");
+    }
+
+    #[tokio::test]
+    async fn test_react_loop_tool_error_triggers_over_limit() {
+        let failing_tool = MockTool::with_error("read", "File not found");
+        let mut registry = ToolRegistry::new_empty();
+        registry.register(std::sync::Arc::new(failing_tool));
+        let echo_tool = MockTool::new("bash", "done");
+        registry.register(std::sync::Arc::new(echo_tool));
+
+        let provider = MockLlmProvider::with_tool_only("read", "call-1", r#"{"file_path": "missing.txt"}"#);
+        let tool_defs = vec![make_tool_def("read"), make_tool_def("bash")];
+        let messages = vec![LlmMessage::User("Test".into())];
+
+        let (_text, msgs) = react_loop(
+            &provider, &registry, messages, &tool_defs, false, 3, 5
+        ).await.expect("react_loop should not bail on tool errors");
+
+        let has_over_limit = msgs.iter().any(|m| matches!(m, LlmMessage::System(s) if s.contains("工具连续")));
+        assert!(has_over_limit, "Over-limit reflection prompt should be injected");
+    }
+
+    #[tokio::test]
+    async fn test_react_loop_max_rounds_limits_loop() {
+        let provider = MockLlmProvider::with_tool_only("read", "call-1", r#"{"file_path": "test.txt"}"#);
+        let tools = mock_tool_registry();
+        let tool_defs = vec![make_tool_def("read")];
+        let messages = vec![LlmMessage::User("Loop test".into())];
+
+        let (_text, _msgs) = react_loop(
+            &provider, &tools, messages, &tool_defs, false, 1, 30
+        ).await.expect("react_loop with max_rounds=1 should not infinite loop");
+
+        // Success if it returned (not hung)
+    }
+}

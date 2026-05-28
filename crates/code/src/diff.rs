@@ -38,3 +38,41 @@ pub fn diff_text(old: &str, new: &str) -> DiffOutput {
         lines_removed,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diff_text_no_change() {
+        let text = "hello\nworld\n";
+        let result = diff_text(text, text);
+        assert_eq!(result.lines_added, 0);
+        assert_eq!(result.lines_removed, 0);
+    }
+
+    #[test]
+    fn test_diff_text_add_line() {
+        let old = "hello\n";
+        let new = "hello\nworld\n";
+        let result = diff_text(old, new);
+        assert_eq!(result.lines_added, 1);
+    }
+
+    #[test]
+    fn test_diff_text_remove_line() {
+        let old = "hello\nworld\n";
+        let new = "hello\n";
+        let result = diff_text(old, new);
+        assert_eq!(result.lines_removed, 1);
+    }
+
+    #[test]
+    fn test_diff_text_modify() {
+        let old = "hello\nworld\n";
+        let new = "hello\nrust\n";
+        let result = diff_text(old, new);
+        assert!(result.lines_added > 0 || result.lines_removed > 0);
+        assert!(result.patch.contains("rust"));
+    }
+}

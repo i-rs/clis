@@ -59,6 +59,11 @@ impl MockLlmProvider {
         }
     }
 
+    pub fn with_error(mut self, error: &str) -> Self {
+        self.events.push(StreamEventKind::Error(error.to_string()));
+        self
+    }
+
     pub fn with_text_and_tool(text: &str, name: &str, id: &str, args_json: &str) -> Self {
         let args: Value = serde_json::from_str(args_json).unwrap_or_default();
         Self {
