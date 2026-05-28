@@ -181,6 +181,9 @@ fn handle_event(event: AgentEvent, app: &mut App) {
         AgentEvent::FileChanged { path } => {
             app.file_changes.insert(path);
         }
+        AgentEvent::Plan { steps } => {
+            app.plan = steps;
+        }
         AgentEvent::Done { usage, messages, context_pct } => {
             app.status_message = None;
             let streamed_tc = app.streaming.as_ref()

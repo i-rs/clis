@@ -88,6 +88,33 @@ async fn react_loop_inner(
     let mut provider_errors: u32 = 0;
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
 
+    // Plan-then-execute: generate plan for complex tasks
+    if let Some(first_user_msg) = messages.iter().find_map(|m| match m {
+        LlmMessage::User(text) => Some(text.clone()),
+        _ => None,
+    }) {
+        let complexity = crate::router::classify_complexity(&first_user_msg);
+        if complexity.execution_mode() == crate::router::ExecutionMode::PlanThenExecute {
+            match generate_plan(provider, &first_user_msg).await {
+                Ok(plan) if !plan.is_empty() => {
+                    let steps: Vec<String> = plan.lines()
+                        .filter(|l| l.trim().starts_with(|c: char| c.is_ascii_digit()))
+                        .map(|l| l.trim().to_string())
+                        .collect();
+                    if !steps.is_empty() {
+                        let plan_header = format!(
+                            "## Execution Plan\n{}\n\nFollow this plan step by step. Mark steps complete as you finish them.",
+                            steps.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n")
+                        );
+                        messages.insert(0, LlmMessage::System(plan_header));
+                        output.emit_plan(steps).await;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     for _round in 0..max_rounds {
         if let Some(ref mut rx) = cancel_rx
             && rx.try_recv().is_ok()

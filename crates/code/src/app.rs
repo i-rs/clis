@@ -86,6 +86,7 @@ pub struct App {
     pub show_transcript: bool,
     pub transcript_scroll: usize,
     pub selected_message: Option<usize>,
+    pub plan: Vec<String>,
 }
 
 impl App {
@@ -121,6 +122,7 @@ impl App {
             show_transcript: false,
             transcript_scroll: 0,
             selected_message: None,
+            plan: Vec::new(),
         }
     }
 

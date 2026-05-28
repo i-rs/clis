@@ -616,6 +616,19 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     ]));
     items.push(Line::from(""));
 
+    // --- Plan ---
+    if !app.plan.is_empty() {
+        items.push(Line::from(Span::styled("─ Plan ─", Style::default().fg(C_DIM))));
+        for step in app.plan.iter().take(8) {
+            let preview: String = step.chars().take(w.saturating_sub(6)).collect();
+            items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Cyan))));
+        }
+        if app.plan.len() > 8 {
+            items.push(Line::from(Span::styled(format!(" +{} more", app.plan.len() - 8), Style::default().fg(C_DIM))));
+        }
+        items.push(Line::from(""));
+    }
+
     // --- Streaming ---
     if let Some(ref s) = app.streaming {
         items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(C_DIM))));

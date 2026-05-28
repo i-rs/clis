@@ -117,4 +117,10 @@ impl OutputMode<'_> {
             }).await.ok();
         }
     }
+
+    pub(crate) async fn emit_plan(&self, steps: Vec<String>) {
+        if let Self::Channel { event_tx } = self {
+            event_tx.send(AgentEvent::Plan { steps }).await.ok();
+        }
+    }
 }
