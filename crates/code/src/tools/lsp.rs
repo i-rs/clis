@@ -1,12 +1,7 @@
 use async_trait::async_trait;
-use std::sync::LazyLock;
 use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
-use tokio::sync::Mutex;
-
-static LSP_SESSION: LazyLock<Mutex<crate::lsp::LspSession>> = LazyLock::new(|| {
-    Mutex::new(crate::lsp::LspSession::new())
-});
+use crate::runtime::LSP_SESSION;
 
 pub struct LspDiagnosticsTool;
 pub struct LspDefinitionTool;

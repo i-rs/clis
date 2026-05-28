@@ -1,16 +1,13 @@
 use async_trait::async_trait;
 use std::net::ToSocketAddrs;
-use std::sync::LazyLock;
 use serde_json::{json, Value, Map};
 use std::time::Instant;
-use tokio::sync::Mutex;
 use crate::config::Config;
+use crate::runtime::LAST_WEB_REQUEST;
 use crate::tools::{Tool, ToolResult};
 
 const MAX_RESULTS: usize = 10;
 const RATE_LIMIT_MS: u64 = 1000;
-
-static LAST_REQUEST: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
 
 fn is_private_url(url: &str) -> bool {
     if url.starts_with("file://") || url.starts_with("ftp://") { return true; }
@@ -45,7 +42,7 @@ fn is_private_url(url: &str) -> bool {
 }
 
 async fn rate_limit() {
-    let mut last = LAST_REQUEST.lock().await;
+    let mut last = LAST_WEB_REQUEST.lock().await;
     let elapsed = last.elapsed().as_millis() as u64;
     if elapsed < RATE_LIMIT_MS {
         tokio::time::sleep(std::time::Duration::from_millis(RATE_LIMIT_MS - elapsed)).await;

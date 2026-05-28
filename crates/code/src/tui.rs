@@ -1,4 +1,6 @@
 #[cfg(feature = "tui")]
+pub mod input;
+#[cfg(feature = "tui")]
 pub mod ui;
 
 #[cfg(feature = "tui")]
@@ -59,7 +61,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                 }
                 Event::Paste(data) => {
                     for c in data.chars() {
-                        app.insert_char(c);
+                        app.input.insert_char(c);
                     }
                 }
                 Event::Mouse(mouse) => {
@@ -306,45 +308,39 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                         return;
                     }
                     'a' | 'A' => {
-                        app.move_cursor_home();
+                        app.input.cursor_pos = 0;
                         return;
                     }
                     'e' | 'E' => {
-                        app.move_cursor_end();
+                        app.input.cursor_pos = app.input.content.len();
                         return;
                     }
                     'u' | 'U' => {
                         app.input.clear();
-                        app.cursor_pos = 0;
                         return;
                     }
                     _ => {}
                 }
             }
-            app.insert_char(c);
+            app.input.insert_char(c);
         }
-        KeyCode::Backspace => app.delete_char(),
-        KeyCode::Delete if app.cursor_pos < app.input.len() => {
-            let len = app.input[app.cursor_pos..]
-                .chars()
-                .next()
-                .map(|c| c.len_utf8())
-                .unwrap_or(1);
-            app.input.drain(app.cursor_pos..app.cursor_pos + len);
+        KeyCode::Backspace => app.input.delete_char(),
+        KeyCode::Delete if app.input.cursor_pos < app.input.content.len() => {
+            app.input.delete_forward();
         }
-        KeyCode::Left => app.move_cursor_left(),
-        KeyCode::Right => app.move_cursor_right(),
-        KeyCode::Home => app.move_cursor_home(),
-        KeyCode::End => app.move_cursor_end(),
+        KeyCode::Left => app.input.move_left(),
+        KeyCode::Right => app.input.move_right(),
+        KeyCode::Home => { app.input.cursor_pos = 0; }
+        KeyCode::End => { app.input.cursor_pos = app.input.content.len(); }
         KeyCode::Up => app.scroll_up(),
         KeyCode::Down => app.scroll_down(),
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_sub(10),
-        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.insert_char('\n'),
-        KeyCode::Enter if !app.input.is_empty() => {
-            let prompt = std::mem::take(&mut app.input);
+        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.input.insert_char('\n'),
+        KeyCode::Enter if !app.input.content.is_empty() => {
+            let prompt = std::mem::take(&mut app.input.content);
             let expanded = expand_file_refs(&prompt);
-            app.cursor_pos = 0;
+            app.input.cursor_pos = 0;
             app.messages.push(ChatMessage {
                 role: "user".into(),
                 content: prompt.clone(),
@@ -366,20 +362,20 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             }));
         }
         KeyCode::Tab => {
-            let input = &app.input;
+            let input = &app.input.content;
             let trimmed = input.trim();
             let matches: Vec<&str> = app.tool_names.iter()
                 .filter(|name| !trimmed.is_empty() && name.starts_with(trimmed))
                 .map(String::as_str)
                 .collect();
             if matches.len() == 1 {
-                app.input = format!("{} ", matches[0]);
-                app.cursor_pos = app.input.len();
+                app.input.content = format!("{} ", matches[0]);
+                app.input.cursor_pos = app.input.content.len();
             } else if matches.len() > 1 {
                 let common = longest_common_prefix(&matches);
                 if common.len() > trimmed.len() {
-                    app.input = common.clone();
-                    app.cursor_pos = common.len();
+                    app.input.content = common.clone();
+                    app.input.cursor_pos = common.len();
                 }
             }
         }

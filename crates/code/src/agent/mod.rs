@@ -1,6 +1,7 @@
 pub mod engine;
 pub mod context;
 pub mod event;
+pub mod session_trait;
 
 use crate::config::Config;
 use crate::provider::{LlmProvider, LlmMessage};
@@ -137,4 +138,47 @@ fn build_messages(
     }
     msgs.push(LlmMessage::User(prompt.to_string()));
     msgs
+}
+
+use session_trait::{ChatInput, ChatOutput, ChatSession, StreamingChatSession};
+use std::pin::Pin;
+use std::future::Future;
+
+impl ChatSession for Agent {
+    fn run(
+        &mut self,
+        input: ChatInput,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ChatOutput>> + Send + '_>> {
+        Box::pin(async move {
+            let system_text = crate::prompt::SYSTEM;
+            let tool_defs = self.tools.schemas();
+            let msgs = build_messages(&input.history, system_text, &input.prompt);
+            let (final_text, new_messages) = engine::react_loop(
+                &*self.provider, &self.tools, msgs, &tool_defs,
+                self.json_output, self.config.max_rounds, self.config.tool_timeout_secs,
+            ).await?;
+            self.messages = new_messages.clone();
+            Ok(ChatOutput { text: final_text, messages: new_messages, usage: None })
+        })
+    }
+}
+
+impl StreamingChatSession for Agent {
+    fn run_streaming(
+        &mut self,
+        input: ChatInput,
+        event_tx: mpsc::Sender<event::AgentEvent>,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ChatOutput>> + Send + '_>> {
+        Box::pin(async move {
+            let system_text = crate::prompt::SYSTEM;
+            let tool_defs = self.tools.schemas();
+            let msgs = build_messages(&input.history, system_text, &input.prompt);
+            let (final_text, new_messages) = engine::react_loop_streaming(
+                &*self.provider, &self.tools, msgs, &tool_defs,
+                event_tx, self.config.max_rounds, self.config.tool_timeout_secs,
+            ).await?;
+            self.messages = new_messages.clone();
+            Ok(ChatOutput { text: final_text, messages: new_messages, usage: None })
+        })
+    }
 }

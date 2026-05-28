@@ -9,6 +9,33 @@ use tokio::sync::mpsc;
 const MAX_PROVIDER_RETRIES: u32 = 2;
 const MAX_TOOL_RETRIES: u32 = 2;
 
+pub trait LoopHooks: Send + Sync {
+    fn on_round_start(&self, _round: u32, _messages: &[LlmMessage]) {}
+    fn on_tool_result(&self, _name: &str, _result: &str) {}
+    fn on_done(&self, _rounds: u32, _usage: &Option<Usage>) {}
+}
+
+const MODEL_CONTEXT_LIMIT: usize = 128_000;
+
+fn estimate_tokens(messages: &[LlmMessage], _tool_defs: &[Value]) -> usize {
+    let mut total = 0usize;
+    for msg in messages {
+        match msg {
+            LlmMessage::System(s) | LlmMessage::User(s) | LlmMessage::Assistant(s) => total += s.len() / 4,
+            LlmMessage::AssistantWithReasoning { content, reasoning, .. } => {
+                total += content.len() / 4 + reasoning.len() / 4;
+            }
+            LlmMessage::Tool { content, .. } => total += content.len() / 4,
+            LlmMessage::ToolCall { args, .. } => total += args.to_string().len() / 4,
+        }
+    }
+    total
+}
+
+fn exceeds_budget(messages: &[LlmMessage], tool_defs: &[Value]) -> bool {
+    estimate_tokens(messages, tool_defs) > MODEL_CONTEXT_LIMIT * 8 / 10
+}
+
 pub enum PlanResult {
     Plan(String),
     Direct(String),
@@ -47,17 +74,7 @@ pub async fn generate_plan(
 }
 
 fn is_transient_error(e: &str) -> bool {
-    let lower = e.to_lowercase();
-    lower.contains("限流")
-        || lower.contains("rate")
-        || lower.contains("timeout")
-        || lower.contains("502")
-        || lower.contains("503")
-        || lower.contains("504")
-        || lower.contains("连接")
-        || lower.contains("connection")
-        || lower.contains("econnreset")
-        || lower.contains("econnrefused")
+    crate::provider::error::ProviderError::from_message(e).is_retryable()
 }
 
 struct ToolExecResult {
@@ -240,6 +257,7 @@ impl OutputMode<'_> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn react_loop_inner(
     provider: &dyn LlmProvider,
     tools: &ToolRegistry,
@@ -248,6 +266,8 @@ async fn react_loop_inner(
     output: OutputMode<'_>,
     max_rounds: u32,
     tool_timeout_secs: u64,
+    mut cancel_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    hooks: Option<&dyn LoopHooks>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let mut final_text = String::new();
     let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
@@ -256,7 +276,13 @@ async fn react_loop_inner(
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
 
     for _round in 0..max_rounds {
-        if ctx.should_compress(&messages) {
+        if let Some(ref mut rx) = cancel_rx
+            && rx.try_recv().is_ok()
+        {
+            anyhow::bail!("cancelled");
+        }
+        if let Some(h) = hooks { h.on_round_start(_round, &messages); }
+        if exceeds_budget(&messages, tool_defs) {
             messages = ctx.compress(&messages);
         }
         let mut rx = provider.stream(&messages, tool_defs).await;
@@ -342,6 +368,7 @@ async fn react_loop_inner(
                 }
 
             output.emit_tool_result(call_id, name, result_str);
+            if let Some(h) = hooks { h.on_tool_result(name, result_str); }
             messages.push(LlmMessage::Tool {
                 name: name.clone(), content: result_str.clone(), call_id: call_id.clone(),
             });
@@ -353,6 +380,7 @@ async fn react_loop_inner(
     }
 
     let _estimated = super::context::ContextManager::estimate_tokens(&messages) as f64 / 128_000.0;
+    if let Some(h) = hooks { h.on_done(max_rounds, &Some(total_usage.clone())); }
     output.emit_done(Some(total_usage), &messages, _estimated).await;
     Ok((final_text, messages))
 }
@@ -367,7 +395,7 @@ pub async fn react_loop(
     tool_timeout_secs: u64,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let output = OutputMode::Stdout { json_output };
-    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs).await
+    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None).await
 }
 
 pub async fn react_loop_streaming(
@@ -380,7 +408,7 @@ pub async fn react_loop_streaming(
     tool_timeout_secs: u64,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let output = OutputMode::Channel { event_tx: &event_tx };
-    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs).await
+    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None).await
 }
 
 #[cfg(test)]

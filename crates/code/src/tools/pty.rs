@@ -1,11 +1,8 @@
 use async_trait::async_trait;
-use std::sync::LazyLock;
 use serde_json::{json, Map, Value};
 
-use crate::pty::PtyManager;
+use crate::runtime::PTY_MANAGER;
 use crate::tools::{Tool, ToolResult};
-
-static PTY_MANAGER: LazyLock<PtyManager> = LazyLock::new(PtyManager::new);
 
 pub struct PtyExecTool;
 pub struct PtyInterruptTool;

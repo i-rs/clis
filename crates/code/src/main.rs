@@ -21,6 +21,7 @@ mod lsp;
 mod pty;
 mod mcp;
 mod prompt;
+mod runtime;
 mod tui;
 
 use clap::Parser;

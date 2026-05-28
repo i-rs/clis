@@ -37,6 +37,8 @@ pub struct Config {
     pub search_provider: Option<String>,
     #[serde(default)]
     pub search_api_key: Option<String>,
+    #[serde(default)]
+    pub max_cost_per_session: Option<f64>,
 }
 
 fn default_max_rounds() -> u32 { 20 }
@@ -91,6 +93,7 @@ impl Default for Config {
             mcp_servers: Vec::new(),
             search_provider: None,
             search_api_key: None,
+            max_cost_per_session: None,
         }
     }
 }

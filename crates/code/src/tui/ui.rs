@@ -15,7 +15,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(1),
             Constraint::Min(1),
-            Constraint::Length(app.input.lines().count().clamp(1, 8) as u16 + 2),
+            Constraint::Length(app.input.content.lines().count().clamp(1, 8) as u16 + 2),
         ])
         .split(area);
 
@@ -528,7 +528,7 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App) {
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let border_color = if matches!(app.mode, AppMode::Waiting) {
         Color::DarkGray
-    } else if app.input.is_empty() {
+    } else if app.input.content.is_empty() {
         Color::Rgb(80, 80, 90)
     } else {
         Color::Cyan
@@ -546,9 +546,9 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
         vec![Line::from(vec![
             Span::styled("⏳ ", Style::default().fg(Color::Rgb(113, 113, 122))),
-            Span::styled(&app.input, Style::default().fg(Color::Rgb(113, 113, 122))),
+            Span::styled(&app.input.content, Style::default().fg(Color::Rgb(113, 113, 122))),
         ])]
-    } else if app.input.is_empty() {
+    } else if app.input.content.is_empty() {
         vec![
             Line::from(Span::styled(
                 format!("{}输入消息...", prefix),
@@ -560,7 +560,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
             )),
         ]
     } else {
-        let mut result: Vec<Line> = app.input.lines().enumerate().map(|(i, line)| {
+        let mut result: Vec<Line> = app.input.content.lines().enumerate().map(|(i, line)| {
             let p = if i == 0 { prefix } else { "  " };
             Line::from(Span::styled(
                 format!("{}{}", p, line),
@@ -578,8 +578,8 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(input_widget, inner);
 
     let prefix_width = unicode_width::UnicodeWidthStr::width(prefix) as u16;
-    if matches!(app.mode, AppMode::Idle) && !app.input.is_empty() {
-        let input_before = &app.input[..app.cursor_pos];
+    if matches!(app.mode, AppMode::Idle) && !app.input.content.is_empty() {
+        let input_before = &app.input.content[..app.input.cursor_pos];
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
         let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);

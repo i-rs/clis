@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::tui::input::InputState;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -37,9 +38,10 @@ pub struct StreamingState {
 
 pub struct App {
     pub config: Config,
-    pub input: String,
-    pub cursor_pos: usize,
+    pub input: InputState,
     pub messages: Vec<ChatMessage>,
+    /// API-format message history, synced from AgentEvent::Done.
+    /// Used as history input for the next LLM call.
     pub agent_messages: Vec<crate::provider::LlmMessage>,
     pub scroll_offset: usize,
     pub file_changes: HashSet<String>,
@@ -68,8 +70,7 @@ impl App {
 
         Self {
             config,
-            input: String::new(),
-            cursor_pos: 0,
+            input: InputState::new(),
             messages: Vec::new(),
             agent_messages: Vec::new(),
             scroll_offset: 0,
@@ -113,53 +114,6 @@ impl App {
             Some(s) => (s.content, s.reasoning),
             None => (String::new(), String::new()),
         }
-    }
-
-    pub fn insert_char(&mut self, c: char) {
-        self.input.insert(self.cursor_pos, c);
-        self.cursor_pos += c.len_utf8();
-    }
-
-    pub fn delete_char(&mut self) {
-        if self.cursor_pos > 0 {
-            let len = self.input[..self.cursor_pos]
-                .chars()
-                .last()
-                .map(|c| c.len_utf8())
-                .unwrap_or(1);
-            self.cursor_pos -= len;
-            self.input.remove(self.cursor_pos);
-        }
-    }
-
-    pub fn move_cursor_left(&mut self) {
-        if self.cursor_pos > 0 {
-            let len = self.input[..self.cursor_pos]
-                .chars()
-                .last()
-                .map(|c| c.len_utf8())
-                .unwrap_or(1);
-            self.cursor_pos -= len;
-        }
-    }
-
-    pub fn move_cursor_right(&mut self) {
-        if self.cursor_pos < self.input.len() {
-            let len = self.input[self.cursor_pos..]
-                .chars()
-                .next()
-                .map(|c| c.len_utf8())
-                .unwrap_or(1);
-            self.cursor_pos += len;
-        }
-    }
-
-    pub fn move_cursor_home(&mut self) {
-        self.cursor_pos = 0;
-    }
-
-    pub fn move_cursor_end(&mut self) {
-        self.cursor_pos = self.input.len();
     }
 
     pub fn scroll_up(&mut self) {

@@ -163,5 +163,6 @@ pub fn test_config() -> crate::config::Config {
         mcp_servers: Vec::new(),
         search_provider: None,
         search_api_key: None,
+        max_cost_per_session: None,
     }
 }
