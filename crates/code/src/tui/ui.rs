@@ -10,6 +10,27 @@ use crate::app::{AgentMessage, App, AppMode};
 
 const SIDEBAR_WIDTH: u16 = 38;
 
+const C_BG: Color = Color::Rgb(16, 16, 20);
+const C_BG_INPUT: Color = Color::Rgb(22, 22, 28);
+const C_BG_TITLE: Color = Color::Rgb(22, 22, 28);
+const C_BG_USER: Color = Color::Rgb(30, 64, 175);
+const C_BG_AI: Color = Color::Rgb(22, 101, 52);
+const C_BG_TOOL: Color = Color::Rgb(113, 63, 18);
+const C_BG_REASON: Color = Color::Rgb(30, 30, 26);
+const C_SEP: Color = Color::Rgb(40, 40, 48);
+const C_TEXT: Color = Color::Rgb(229, 229, 234);
+const C_DIM: Color = Color::Rgb(113, 113, 122);
+const C_ACCENT: Color = Color::Rgb(14, 165, 233);
+const C_GREEN: Color = Color::Rgb(34, 197, 94);
+const C_YELLOW: Color = Color::Rgb(234, 179, 8);
+const C_TOOL_OUTPUT: Color = Color::Rgb(210, 180, 140);
+const C_LABEL: Color = Color::Rgb(100, 100, 110);
+const C_RAIL: Color = Color::Rgb(55, 55, 65);
+const C_DIFF_GREEN: Color = Color::Rgb(140, 200, 140);
+const C_DIFF_RED: Color = Color::Rgb(200, 140, 140);
+const C_FILE_EDIT: Color = Color::Rgb(200, 160, 200);
+const C_SUMMARY_GREEN: Color = Color::Rgb(80, 180, 80);
+
 fn tool_glyph(name: &str) -> &'static str {
     match name {
         "write" | "edit" | "create" => "◆",
@@ -43,10 +64,10 @@ fn is_diff_like(text: &str) -> bool {
 fn render_diff_line(line: &str) -> Vec<Span<'static>> {
     if let Some(rest) = line.strip_prefix("+") {
         vec![Span::styled("+", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-             Span::styled(rest.to_string(), Style::default().fg(Color::Rgb(140, 200, 140)))]
+             Span::styled(rest.to_string(), Style::default().fg(C_DIFF_GREEN))]
     } else if let Some(rest) = line.strip_prefix("-") {
         vec![Span::styled("-", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-             Span::styled(rest.to_string(), Style::default().fg(Color::Rgb(200, 140, 140)))]
+             Span::styled(rest.to_string(), Style::default().fg(C_DIFF_RED))]
     } else if line.starts_with("@@") {
         vec![Span::styled(line.to_string(), Style::default().fg(Color::Cyan))]
     } else {
@@ -125,7 +146,7 @@ pub fn render_transcript(frame: &mut Frame, app: &App) {
                 lines.push(Line::from(Span::styled("── Assistant ──", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))));
                 if !reasoning.is_empty() {
                     for line in reasoning.lines() {
-                        lines.push(Line::from(Span::styled(line.to_string(), Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC))));
+                        lines.push(Line::from(Span::styled(line.to_string(), Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC))));
                     }
                 }
                 for line in content.lines() {
@@ -157,7 +178,7 @@ pub fn render_transcript(frame: &mut Frame, app: &App) {
                 }
             }
             AgentMessage::System { content } => {
-                lines.push(Line::from(Span::styled("── System ──", Style::default().fg(Color::Rgb(113, 113, 122)))));
+                lines.push(Line::from(Span::styled("── System ──", Style::default().fg(C_DIM))));
                 for line in content.lines() {
                     lines.push(Line::from(Span::raw(line.to_string())));
                 }
@@ -199,7 +220,7 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
         Line::from(Span::styled("  ↑ / ↓ / PgUp  滚动聊天", Style::default().fg(Color::White))),
         Line::from(Span::styled("  Tab           工具名补全", Style::default().fg(Color::White))),
         Line::from(""),
-        Line::from(Span::styled("     Press any key to close", Style::default().fg(Color::Rgb(113, 113, 122)))),
+        Line::from(Span::styled("     Press any key to close", Style::default().fg(C_DIM))),
     ];
 
     let block = Block::default()
@@ -229,7 +250,7 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
     };
 
     let sel_text = app.selected_message.map(|idx| {
-        Span::styled(format!("#{}", idx), Style::default().fg(Color::Rgb(200, 200, 100)).bg(Color::Blue))
+        Span::styled(format!("#{}", idx), Style::default().fg(C_YELLOW).bg(Color::Blue))
     });
 
     let mut spans = vec![
@@ -244,7 +265,7 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         spans.push(s);
     }
     spans.push(Span::raw(" "));
-    spans.push(Span::styled("[?]", Style::default().fg(Color::Rgb(200, 200, 100)).bg(Color::Blue)));
+    spans.push(Span::styled("[?]", Style::default().fg(C_YELLOW).bg(Color::Blue)));
 
     let text = Line::from(spans);
     let bar = Paragraph::new(text).style(Style::default().bg(Color::Blue));
@@ -279,19 +300,19 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 if !reasoning.is_empty() {
                     if *reasoning_expanded {
                         lines.push(Line::from(vec![
-                            Span::styled(" ▼ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
-                            Span::styled(" 思考过程（按 r 折叠）", Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC)),
+                            Span::styled(" ▼ ", Style::default().fg(C_YELLOW).bg(C_BG_REASON)),
+                            Span::styled(" 思考过程（按 r 折叠）", Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC)),
                         ]));
                         for line in reasoning.lines() {
                             lines.push(Line::from(Span::styled(
                                 format!(" {}", line),
-                                Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
+                                Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
                             )));
                         }
                     } else {
                         lines.push(Line::from(vec![
-                            Span::styled(" ▶ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
-                            Span::styled(" 思考过程（按 r 展开）", Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC)),
+                            Span::styled(" ▶ ", Style::default().fg(C_YELLOW).bg(C_BG_REASON)),
+                            Span::styled(" 思考过程（按 r 展开）", Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC)),
                         ]));
                     }
                 }
@@ -324,7 +345,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         } else {
                             lines.push(Line::from(Span::styled(
                                 format!(" {} {}", prefix, line),
-                                Style::default().fg(Color::Rgb(180, 150, 100)),
+                                Style::default().fg(C_TOOL_OUTPUT),
                             )));
                         }
                     }
@@ -349,7 +370,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         let diff_spans = render_diff_line(line);
                         lines.push(Line::from(diff_spans));
                     } else {
-                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(Color::Rgb(200, 160, 200)))));
+                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(C_FILE_EDIT))));
                     }
                 }
             }
@@ -357,18 +378,18 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 last_was_tool = false;
                 for line in content.lines() {
                     if line.starts_with("──") {
-                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(Color::Rgb(80, 180, 80)).add_modifier(Modifier::BOLD))));
+                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(C_SUMMARY_GREEN).add_modifier(Modifier::BOLD))));
                     } else if line.starts_with("📄") || line.starts_with("🔧") {
-                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(Color::Rgb(180, 180, 100)))));
+                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(C_YELLOW))));
                     } else {
-                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(Color::Rgb(100, 100, 120)))));
+                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::default().fg(C_DIM))));
                     }
                 }
             }
             AgentMessage::Separator { label } => {
                 last_was_tool = false;
                 let sep = if label.is_empty() { " ── done ── ".to_string() } else { format!(" ── {} ── ", label) };
-                lines.push(Line::from(Span::styled(sep, Style::default().fg(Color::Rgb(60, 60, 70)))));
+                lines.push(Line::from(Span::styled(sep, Style::default().fg(C_SEP))));
             }
         }
         lines.push(Line::from(""));
@@ -419,22 +440,22 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 if start > 0 {
                     lines.push(Line::from(Span::styled(
                         format!(" ╎ … {} earlier lines", start),
-                        Style::default().fg(Color::Rgb(150, 150, 100)).add_modifier(Modifier::ITALIC),
+                        Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
                     )));
                 }
                 for line in &reasoning_lines[start..] {
                     lines.push(Line::from(Span::styled(
                         format!(" ╎ {}", line),
-                        Style::default().fg(Color::Rgb(113, 113, 122)).add_modifier(Modifier::ITALIC),
+                        Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
                     )));
                 }
             } else {
                 // Thinking done: show folded summary (r to expand in final message)
                 lines.push(Line::from(vec![
-                    Span::styled(" ▶ ", Style::default().fg(Color::Rgb(180, 180, 100)).bg(Color::Rgb(30, 30, 30))),
+                    Span::styled(" ▶ ", Style::default().fg(C_YELLOW).bg(C_BG_REASON)),
                     Span::styled(
                         format!(" 思考过程已完成 · {}行（按 r 查看完整思考）", total),
-                        Style::default().fg(Color::Rgb(120, 120, 120)).add_modifier(Modifier::ITALIC),
+                        Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
                     ),
                 ]));
             }
@@ -467,12 +488,12 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     if scroll > 0 && hidden_msgs > 0 {
         let mut header = vec![Line::from(Span::styled(
             format!(" ↑ {} 条历史消息 ", hidden_msgs),
-            Style::default().fg(Color::Rgb(80, 80, 90)),
+            Style::default().fg(C_DIM),
         ))];
         if let Some(idx) = app.selected_message {
             header.push(Line::from(Span::styled(
                 format!(" 📍 #{}  ", idx),
-                Style::default().fg(Color::Rgb(200, 200, 100)),
+                Style::default().fg(C_YELLOW),
             )));
         }
         for h in header {
@@ -493,8 +514,8 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // Left separator
     let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
         "▕",
-        Style::default().fg(Color::Rgb(50, 50, 60)),
-    ))])).style(Style::default().bg(Color::Rgb(22, 22, 28)));
+        Style::default().fg(C_SEP),
+    ))])).style(Style::default().bg(C_BG_INPUT));
     let sep_area = Rect { x: area.x, y: area.y, width: 1, height: area.height };
     frame.render_widget(sep_line, sep_area);
 
@@ -503,15 +524,15 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // Header
     items.push(Line::from(Span::styled(
         " ⚙ Status ",
-        Style::default().fg(Color::Rgb(150, 150, 160)),
+        Style::default().fg(C_LABEL),
     )));
     items.push(Line::from(Span::styled(
         "─".repeat(inner.width.saturating_sub(1) as usize),
-        Style::default().fg(Color::Rgb(50, 50, 60)),
+        Style::default().fg(C_SEP),
     )));
 
     // --- Directory ---
-    items.push(Line::from(Span::styled("─ Dir ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ Dir ─", Style::default().fg(C_DIM))));
     let short = short_path(&app.current_dir);
     let dir = if short.len() > w.saturating_sub(2) {
         format!("..{}", &short[short.len().saturating_sub(w.saturating_sub(4))..])
@@ -522,21 +543,21 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     items.push(Line::from(""));
 
     // --- Session & Version ---
-    items.push(Line::from(Span::styled("─ Session ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ Session ─", Style::default().fg(C_DIM))));
     let sid = app.session_id.as_deref().unwrap_or("new");
     let sid_short = if sid.len() > 10 { format!("{}..", &sid[..10]) } else { sid.to_string() };
     items.push(Line::from(vec![
-        Span::styled(" id ", Style::default().fg(Color::Rgb(100, 100, 110))),
-        Span::styled(sid_short, Style::default().fg(Color::Rgb(150, 150, 150))),
+        Span::styled(" id ", Style::default().fg(C_LABEL)),
+        Span::styled(sid_short, Style::default().fg(C_DIM)),
     ]));
     items.push(Line::from(vec![
-        Span::styled(" ver", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(" ver", Style::default().fg(C_LABEL)),
         Span::styled(format!(" {}", app.version), Style::default().fg(Color::Cyan)),
     ]));
     items.push(Line::from(""));
 
     // --- Model ---
-    items.push(Line::from(Span::styled("─ Model ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ Model ─", Style::default().fg(C_DIM))));
     let model = app.config.effective_model();
     let model_short = if model.len() > w.saturating_sub(2) { format!("{}..", &model[..w.saturating_sub(4)]) } else { model.to_string() };
     items.push(Line::from(vec![
@@ -546,7 +567,7 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     items.push(Line::from(""));
 
     // --- Tokens ---
-    items.push(Line::from(Span::styled("─ Tokens ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ Tokens ─", Style::default().fg(C_DIM))));
     let (tok_in, tok_out) = if let Some(ref s) = app.streaming {
         (app.token_usage.input, app.token_usage.output + s.content.len() as u32)
     } else {
@@ -563,20 +584,20 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         AppMode::Idle => ("idle", Color::Green),
         AppMode::Waiting => ("busy", Color::Yellow),
     };
-    items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(C_DIM))));
     items.push(Line::from(vec![
-        Span::styled(" mode ", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(" mode ", Style::default().fg(C_LABEL)),
         Span::styled(mode_text, Style::default().fg(mode_color)),
     ]));
     items.push(Line::from(vec![
-        Span::styled(" msgs", Style::default().fg(Color::Rgb(100, 100, 110))),
-        Span::styled(format!(" {}", app.messages.len()), Style::default().fg(Color::Rgb(150, 150, 150))),
+        Span::styled(" msgs", Style::default().fg(C_LABEL)),
+        Span::styled(format!(" {}", app.messages.len()), Style::default().fg(C_DIM)),
     ]));
     items.push(Line::from(""));
 
     // --- Changes ---
     let change_count = app.file_changes.len();
-    items.push(Line::from(Span::styled("─ Changes ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ Changes ─", Style::default().fg(C_DIM))));
     if change_count == 0 {
         items.push(Line::from(Span::styled(" none", Style::default().fg(Color::DarkGray))));
     } else {
@@ -598,29 +619,29 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     items.push(Line::from(""));
 
     // --- LSP ---
-    items.push(Line::from(Span::styled("─ LSP ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ LSP ─", Style::default().fg(C_DIM))));
     let (lsp_label, lsp_color) = if crate::runtime::LSP_INITIALIZED.load(Ordering::Relaxed) {
         ("✓ ready", Color::Green)
     } else {
         ("… waiting", Color::Yellow)
     };
     items.push(Line::from(vec![
-        Span::styled(" ra ", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(" ra ", Style::default().fg(C_LABEL)),
         Span::styled(lsp_label, Style::default().fg(lsp_color)),
     ]));
     items.push(Line::from(""));
 
     // --- MCP ---
-    items.push(Line::from(Span::styled("─ MCP ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+    items.push(Line::from(Span::styled("─ MCP ─", Style::default().fg(C_DIM))));
     items.push(Line::from(vec![
-        Span::styled(" srv", Style::default().fg(Color::Rgb(100, 100, 110))),
+        Span::styled(" srv", Style::default().fg(C_LABEL)),
         Span::styled(" config-based", Style::default().fg(Color::DarkGray)),
     ]));
     items.push(Line::from(""));
 
     // --- Streaming ---
     if let Some(ref s) = app.streaming {
-        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(C_DIM))));
         items.push(Line::from(Span::styled(
             format!(" {}c · {} tools", s.content.len(), s.tool_calls.len()),
             Style::default().fg(Color::Cyan),
@@ -633,13 +654,13 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 
     // --- Status ---
     if let Some(ref msg) = app.status_message {
-        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(C_DIM))));
         let preview: String = msg.chars().take(w.saturating_sub(4)).collect();
         items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
     }
 
     if let Some(ref s) = app.streaming {
-        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+        items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(C_DIM))));
         items.push(Line::from(Span::styled(
             format!(" {}c · {}t", s.content.len(), s.tool_calls.len()),
             Style::default().fg(Color::Cyan),
@@ -651,7 +672,7 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     if let Some(ref msg) = app.status_message {
-        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(Color::Rgb(80, 80, 90)))));
+        items.push(Line::from(Span::styled("─ Status ─", Style::default().fg(C_DIM))));
         let preview: String = msg.chars().take(w.saturating_sub(2)).collect();
         items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
     }
@@ -661,13 +682,13 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let input_bg = Style::default().bg(Color::Rgb(30, 30, 38));
+    let input_bg = Style::default().bg(C_BG_INPUT);
     frame.render_widget(Clear, area);
     let bg_fill = Paragraph::new(Text::from(vec![Line::from("")])).style(input_bg);
     frame.render_widget(bg_fill, area);
 
     // Top separator line
-    let sep_color = if matches!(app.mode, AppMode::Waiting) { Color::Rgb(60, 60, 70) } else { Color::Rgb(42, 42, 50) };
+    let sep_color = if matches!(app.mode, AppMode::Waiting) { C_SEP } else { Color::Rgb(42, 42, 50) };
     let sep = Span::styled("─".repeat(area.width as usize), Style::default().fg(sep_color));
     let sep_line = Paragraph::new(Text::from(vec![Line::from(sep)])).style(input_bg);
     let sep_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
@@ -678,19 +699,19 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
 
     let hint = Line::from(Span::styled(
         "  [?] 键盘快捷键  [Enter] 发送  [Esc] 退出  [Ctrl+C] 取消  [Ctrl+Z] 撤销  [Ctrl+T] 转录  [[] []] 选择",
-        Style::default().fg(Color::Rgb(80, 80, 90)),
+        Style::default().fg(C_DIM),
     ));
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
         vec![
             Line::from(vec![
-                Span::styled("⏳ ", Style::default().fg(Color::Rgb(113, 113, 122))),
-                Span::styled(&app.input.content, Style::default().fg(Color::Rgb(113, 113, 122))),
+                Span::styled("⏳ ", Style::default().fg(C_DIM)),
+                Span::styled(&app.input.content, Style::default().fg(C_DIM)),
             ]),
             hint,
         ]
     } else if app.input.content.is_empty() {
         vec![
-            Line::from(Span::styled(format!("{}输入消息...", prefix), Style::default().fg(Color::Rgb(113, 113, 122)))),
+            Line::from(Span::styled(format!("{}输入消息...", prefix), Style::default().fg(C_DIM))),
             hint,
         ]
     } else {
