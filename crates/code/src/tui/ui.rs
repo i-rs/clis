@@ -1,9 +1,9 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Margin, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 use crate::app::{AgentMessage, App, AppMode};
 use crate::tui::colors::*;
@@ -432,18 +432,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         .wrap(Wrap { trim: false })
         .scroll((scroll as u16, 0));
     frame.render_widget(paragraph, area);
-
-    // Scrollbar on the right edge of the chat area
-    if content_len > area.height as usize {
-        let mut scrollbar_state = ScrollbarState::new(content_len)
-            .position(scroll)
-            .viewport_content_length(area.height as usize);
-        frame.render_stateful_widget(
-            Scrollbar::new(ScrollbarOrientation::VerticalRight),
-            area.inner(Margin::new(0, 0)),
-            &mut scrollbar_state,
-        );
-    }
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {

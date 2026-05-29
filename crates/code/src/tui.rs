@@ -142,7 +142,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         }
     }
 
-    let stats = if app.messages.len() > 1 {
+    let stats = if app.messages.iter().any(|m| matches!(m, AgentMessage::User { .. })) {
         let tool_count: usize = app.messages.iter().filter(|m| matches!(m, AgentMessage::ToolResult { .. })).count();
         let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let sessions_dir = crate::config::i_rs_code_dir().join("sessions");
@@ -418,10 +418,42 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     // Slash commands: intercept BEFORE the main key match to guarantee local execution.
     // These are local commands (/clear, /help, /model, etc.) and MUST NOT be sent to the LLM.
     // Check both KeyCode::Enter and KeyCode::Char('\r')/('\n') for terminal compatibility.
+    if app.show_slash_picker
+        && (key.code == KeyCode::Enter
+            || key.code == KeyCode::Char('\r')
+            || key.code == KeyCode::Char('\n'))
+        && matches!(app.mode, AppMode::Idle)
+    {
+        let commands = ui::filtered_slash_commands(app);
+        if let Some(selected) = commands.get(app.slash_selected) {
+            let cmd_str = format!("/{}", selected.name);
+            app.show_slash_picker = false;
+            app.input.clear();
+            app.input.push_history(&cmd_str);
+            match slash_command::parse(&cmd_str) {
+                Ok(cmd) => {
+                    let msgs = slash_command::execute(cmd, app).await;
+                    app.messages.extend(msgs);
+                    app.auto_scroll = true;
+                }
+                Err(e) => {
+                    app.messages.push(AgentMessage::system(e));
+                    app.auto_scroll = true;
+                }
+            }
+        } else {
+            app.show_slash_picker = false;
+            app.input.clear();
+        }
+        app.needs_redraw = true;
+        return;
+    }
+
     if (key.code == KeyCode::Enter
         || key.code == KeyCode::Char('\r')
         || key.code == KeyCode::Char('\n'))
         && matches!(app.mode, AppMode::Idle)
+        && !app.show_slash_picker
         && !app.input.content.is_empty()
         && app.input.content.trim().starts_with('/')
     {
@@ -433,11 +465,14 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             Ok(cmd) => {
                 let msgs = slash_command::execute(cmd, app).await;
                 app.messages.extend(msgs);
+                app.auto_scroll = true;
             }
             Err(e) => {
                 app.messages.push(AgentMessage::system(e));
+                app.auto_scroll = true;
             }
         }
+        app.needs_redraw = true;
         return;
     }
 
@@ -593,7 +628,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => { app.input.insert_char('\n'); app.needs_redraw = true; }
-        KeyCode::Enter if !app.input.content.is_empty() => {
+        KeyCode::Enter if matches!(app.mode, AppMode::Idle) && !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);
             app.input.push_history(&prompt);
             let expanded = expand_file_refs(&prompt).await;
