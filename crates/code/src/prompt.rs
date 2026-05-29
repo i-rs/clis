@@ -211,7 +211,35 @@ Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_se
 
 After completing changes, briefly summarize what was done in Chinese.";
 
+fn system_prompt_cache_key(project_info: &ProjectInfo) -> String {
+    let ctx_key = cache_key();
+    let mtime = system_prompt_path()
+        .metadata()
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs())
+        .unwrap_or(0);
+    let agent_len = project_info.agents_md_content.as_ref().map(|s| s.len()).unwrap_or(0);
+    format!("{}:{}:{}", ctx_key, mtime, agent_len)
+}
+
+static SYSTEM_PROMPT_CACHE: Mutex<Option<(String, String)>> = Mutex::new(None);
+
 pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
+    let key = system_prompt_cache_key(project_info);
+    let mut guard = SYSTEM_PROMPT_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((ref cached_key, ref cached_prompt)) = *guard {
+        if cached_key == &key {
+            return cached_prompt.clone();
+        }
+    }
+
+    let prompt = build_system_prompt_inner(project_info);
+    *guard = Some((key, prompt.clone()));
+    prompt
+}
+
+fn build_system_prompt_inner(project_info: &ProjectInfo) -> String {
     let base = load_system_prompt();
     let mut prompt = base;
 
