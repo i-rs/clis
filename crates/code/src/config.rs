@@ -173,7 +173,8 @@ impl Config {
         let path = config_path();
         let mut config = if path.exists() {
             let content = std::fs::read_to_string(&path)?;
-            toml::from_str(&content)?
+            let c: Config = toml::from_str(&content)?;
+            c
         } else {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;
@@ -183,6 +184,24 @@ impl Config {
             std::fs::write(&path, &content)?;
             config
         };
+
+        if !matches!(config.provider.as_str(), "openai" | "anthropic" | "ollama") {
+            anyhow::bail!("Unknown provider: '{}'. Supported: openai, anthropic, ollama", config.provider);
+        }
+
+        if let Some(max_cost) = config.max_cost_per_session {
+            if max_cost <= 0.0 || max_cost > 1000.0 {
+                config.max_cost_per_session = None;
+            }
+        }
+
+        if config.max_rounds == 0 || config.max_rounds > 100 {
+            config.max_rounds = 20;
+        }
+
+        if config.tool_timeout_secs == 0 {
+            config.tool_timeout_secs = 120;
+        }
 
         if let Ok(key) = std::env::var("I_RS_CODE_API_KEY") {
             if !key.is_empty() {

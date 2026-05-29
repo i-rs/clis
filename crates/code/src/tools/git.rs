@@ -50,3 +50,20 @@ impl Tool for GitTool {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_name_non_empty() {
+        let tool = GitTool;
+        assert!(!tool.name().is_empty());
+    }
+
+    #[test]
+    fn test_description_non_empty() {
+        let tool = GitTool;
+        assert!(!tool.description().is_empty());
+    }
+}

@@ -1,3 +1,4 @@
+use crate::agent::tool_cache::ToolResultCache;
 use crate::memory::CrossSessionMemory;
 use crate::provider::*;
 use crate::router::{ExecutionMode, build_plan_prompt, classify_complexity};
@@ -7,6 +8,7 @@ use super::output::OutputMode;
 use super::tool_exec::{execute_tools, build_over_limit_message, ToolExecResult};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 const MAX_PROVIDER_RETRIES: u32 = 3;
@@ -87,6 +89,7 @@ async fn react_loop_inner(
     let ctx = super::context::ContextManager::new();
     let mut provider_errors: u32 = 0;
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
+    let tool_cache = Arc::new(Mutex::new(ToolResultCache::new()));
 
     // Plan-then-execute: generate plan for complex tasks
     if let Some(first_user_msg) = messages.iter().find_map(|m| match m {
@@ -126,6 +129,18 @@ async fn react_loop_inner(
             messages = ctx.compress(&messages);
         }
         crate::runtime::rate_limit_wait().await;
+        if _round == 0 && crate::runtime::is_verbose() {
+            let first_msg = messages.iter().find_map(|m| match m {
+                LlmMessage::User(t) => Some(t.as_str()),
+                _ => None,
+            });
+            if let Some(text) = first_msg {
+                let complexity = crate::router::classify_complexity(text);
+                if let Some(model) = complexity.recommended_model() {
+                    eprintln!("[router] complexity={:?} recommended={}", complexity, model);
+                }
+            }
+        }
         let mut rx = provider.stream(&messages, tool_defs).await;
         let mut content = String::new();
         let mut reasoning = String::new();
@@ -155,7 +170,13 @@ async fn react_loop_inner(
                     had_error = true;
                     if is_transient_error(&e) && provider_errors < MAX_PROVIDER_RETRIES {
                         provider_errors += 1;
-                        let wait = 5 * provider_errors as u64;
+                        let base_delay = 2u64;
+                        let delay = base_delay.saturating_mul(1 << provider_errors);
+                        let jitter = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() % 1000;
+                        let wait = delay + jitter as u64;
                         output.emit_retry(wait, provider_errors).await?;
                         tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
                         continue;
@@ -172,13 +193,21 @@ async fn react_loop_inner(
         if let Some(u) = round_usage {
             total_usage.input_tokens = total_usage.input_tokens.saturating_add(u.input_tokens);
             total_usage.output_tokens = total_usage.output_tokens.saturating_add(u.output_tokens);
-            crate::runtime::add_usage(u.input_tokens, u.output_tokens);
+            crate::runtime::add_usage_with_cost(provider.name(), u.input_tokens, u.output_tokens);
             if crate::runtime::exceeds_token_budget() {
                 let used = crate::runtime::total_usage_tokens();
                 let budget = crate::runtime::session_token_budget();
                 output.emit_tool_result("", "budget", &format!(
                     "Token budget exceeded: {} / {}. Stopping.",
                     used, budget
+                ));
+                break;
+            }
+            if crate::runtime::exceeds_cost_budget() {
+                let cost = crate::runtime::total_cost_cents();
+                output.emit_tool_result("", "budget", &format!(
+                    "Cost budget exceeded: ${:.2}. Stopping.",
+                    cost as f64 / 100.0
                 ));
                 break;
             }
@@ -200,7 +229,7 @@ async fn react_loop_inner(
 
         if pending_tool_calls.is_empty() { break; }
 
-        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs, memory).await;
+        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs, memory, Some(&tool_cache)).await;
 
         for (name, call_id, result_str) in &tool_messages {
             output.emit_tool_call_end(name, call_id, result_str).await;
@@ -227,6 +256,16 @@ async fn react_loop_inner(
 
         if let Some(sys_msg) = build_over_limit_message(&retry_counts) {
             messages.push(LlmMessage::System(sys_msg));
+        }
+
+        // M5: After verify tool returns FAIL, inject fix instruction
+        for (name, _call_id, result_str) in &tool_messages {
+            if name == "verify" && result_str.contains("FAIL") {
+                messages.push(LlmMessage::System(
+                    "The verification above failed. Please fix the reported errors, then run verify again to confirm. Do not ask for permission — just fix the issues.".into()
+                ));
+                break;
+            }
         }
 
         if let Some(h) = hooks { h.on_round_complete(_round, &messages); }

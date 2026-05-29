@@ -20,13 +20,6 @@ pub enum LlmMessage {
     ToolCall { id: String, name: String, args: Value },
 }
 
-pub struct LlmResponse {
-    pub content: Option<String>,
-    pub reasoning: String,
-    pub tool_calls: Vec<ToolCall>,
-    pub usage: Option<Usage>,
-}
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ToolCall {
     pub id: String,
@@ -59,6 +52,14 @@ pub trait LlmProvider: Send + Sync {
     fn name(&self) -> &str;
     async fn stream(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> StreamRx;
     async fn chat(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> anyhow::Result<LlmResponse>;
+}
+
+#[derive(Debug, Clone)]
+pub struct LlmResponse {
+    pub content: Option<String>,
+    pub reasoning: String,
+    pub tool_calls: Vec<ToolCall>,
+    pub usage: Option<Usage>,
 }
 
 pub fn create_provider(config: &Config) -> anyhow::Result<Box<dyn LlmProvider>> {

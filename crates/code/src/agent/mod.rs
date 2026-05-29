@@ -4,6 +4,7 @@ pub mod event;
 pub mod output;
 pub mod session_trait;
 pub mod tool_exec;
+pub mod tool_cache;
 
 use crate::config::{Config, ProjectInfo};
 use crate::memory::CrossSessionMemory;
@@ -27,7 +28,16 @@ impl Agent {
         tools: ToolRegistry,
         json_output: bool,
     ) -> Self {
-        let memory = CrossSessionMemory::new(&crate::config::i_rs_code_dir());
+        let project_hash = std::env::current_dir()
+            .ok()
+            .and_then(|d| d.to_str().map(|s| {
+                use std::hash::{Hash, Hasher};
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                s.hash(&mut hasher);
+                format!("{:x}", hasher.finish())
+            }))
+            .unwrap_or_default();
+        let memory = CrossSessionMemory::new(&crate::config::i_rs_code_dir(), &project_hash);
         let agent = Self {
             config,
             provider,
@@ -37,8 +47,7 @@ impl Agent {
             memory: Some(memory),
         };
         if let Some(max_cost) = agent.config.max_cost_per_session {
-            let budget = (max_cost * 1_000_000.0) as u64;
-            crate::runtime::set_session_token_budget(budget);
+            crate::runtime::set_max_cost_dollars(max_cost);
             crate::runtime::reset_usage();
         }
         agent

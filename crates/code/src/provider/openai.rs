@@ -224,76 +224,30 @@ impl LlmProvider for OpenAiProvider {
         rx
     }
 
-    async fn chat(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> anyhow::Result<LlmResponse> {
-        let client = self.client.clone();
-        let url = format!("{}/chat/completions", self.base_url);
-        let api_key = self.api_key.clone();
-        let model = self.model.clone();
-        let msgs = Self::build_messages(messages);
-
-        let mut body = json!({
-            "model": model,
-            "messages": msgs,
-        });
-        if !tool_defs.is_empty() {
-            body["tools"] = json!(tool_defs);
-                body["tool_choice"] = json!("auto");
+    async fn chat(
+        &self,
+        messages: &[LlmMessage],
+        tool_defs: &[Value],
+    ) -> anyhow::Result<LlmResponse> {
+        let mut rx = self.stream(messages, tool_defs).await;
+        let mut content = String::new();
+        let mut tool_calls = Vec::new();
+        let mut usage = None;
+        while let Some(event) = rx.recv().await {
+            match event.kind {
+                StreamEventKind::Token(t) => content.push_str(&t),
+                StreamEventKind::ToolCall { id, name, args } => tool_calls.push(ToolCall { id, name, args }),
+                StreamEventKind::Done { usage: u, .. } => usage = u,
+                StreamEventKind::Error(e) => anyhow::bail!("chat error: {}", e),
+                StreamEventKind::Reasoning(_) => {}
             }
-
-        let log_body = serde_json::to_string(&body).unwrap_or_default();
-        let log_url = url.clone();
-        let start = std::time::Instant::now();
-
-        let res = client.post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&body)
-            .send()
-            .await?;
-
-        if !res.status().is_success() {
-            let status = res.status();
-            let body_text = res.text().await.unwrap_or_default();
-            crate::debug::push_log(crate::debug::HttpLogEntry {
-                url: log_url,
-                request_body: log_body,
-                response_status: status.as_u16(),
-                response_body_preview: body_text.clone(),
-                duration_ms: start.elapsed().as_millis() as u64,
-                timestamp: chrono::Utc::now().to_rfc3339(),
-            });
-            anyhow::bail!("API error ({}): {}", status, body_text);
         }
-
-        let val: Value = res.json().await?;
-        let body_text = serde_json::to_string(&val).unwrap_or_default();
-
-        crate::debug::push_log(crate::debug::HttpLogEntry {
-            url: log_url,
-            request_body: log_body,
-            response_status: 200,
-            response_body_preview: body_text.chars().take(500).collect(),
-            duration_ms: start.elapsed().as_millis() as u64,
-            timestamp: chrono::Utc::now().to_rfc3339(),
-        });
-
-        let choice = val["choices"][0]["message"].clone();
-        let content = choice["content"].as_str().map(|s| s.to_string());
-        let reasoning = choice["reasoning_content"].as_str().map(|s| s.to_string()).unwrap_or_default();
-        let tool_calls = if let Some(tcs) = choice["tool_calls"].as_array() {
-            tcs.iter().map(|tc| ToolCall {
-                id: tc["id"].as_str().unwrap_or("").to_string(),
-                name: tc["function"]["name"].as_str().unwrap_or("").to_string(),
-                args: serde_json::from_str(tc["function"]["arguments"].as_str().unwrap_or("{}")).unwrap_or_default(),
-            }).collect()
-        } else {
-            Vec::new()
-        };
-        let usage = val.get("usage").map(|u| Usage {
-            input_tokens: u["prompt_tokens"].as_u64().unwrap_or(0) as u32,
-            output_tokens: u["completion_tokens"].as_u64().unwrap_or(0) as u32,
-        });
-
-        Ok(LlmResponse { content, reasoning, tool_calls, usage })
+        Ok(LlmResponse {
+            content: if content.is_empty() { None } else { Some(content) },
+            reasoning: String::new(),
+            tool_calls,
+            usage,
+        })
     }
 }
 

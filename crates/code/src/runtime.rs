@@ -10,6 +10,8 @@ use crate::pty::PtyManager;
 struct RuntimeInner {
     total_input_tokens: u64,
     total_output_tokens: u64,
+    total_cost_cents: u64,
+    max_cost_cents: u64,
     session_token_budget: u64,
     last_api_call: Instant,
     debug_mode: bool,
@@ -21,6 +23,8 @@ impl RuntimeInner {
         Self {
             total_input_tokens: 0,
             total_output_tokens: 0,
+            total_cost_cents: 0,
+            max_cost_cents: 0,
             session_token_budget: 0,
             last_api_call: Instant::now(),
             debug_mode: false,
@@ -104,6 +108,46 @@ pub fn add_usage(input: u32, output: u32) {
         r.total_input_tokens += input as u64;
         r.total_output_tokens += output as u64;
     });
+}
+
+pub fn add_usage_with_cost(model: &str, input: u32, output: u32) {
+    let (in_per_1k, out_per_1k) = model_pricing(model);
+    let cost = (input as f64 / 1000.0) * in_per_1k + (output as f64 / 1000.0) * out_per_1k;
+    with_runtime(|r| {
+        r.total_input_tokens += input as u64;
+        r.total_output_tokens += output as u64;
+        r.total_cost_cents += (cost * 100.0) as u64;
+    });
+}
+
+pub fn total_cost_cents() -> u64 {
+    with_runtime(|r| r.total_cost_cents)
+}
+
+pub fn set_max_cost_dollars(dollars: f64) {
+    with_runtime(|r| r.max_cost_cents = (dollars * 100.0) as u64);
+}
+
+pub fn exceeds_cost_budget() -> bool {
+    with_runtime(|r| {
+        r.max_cost_cents > 0 && r.total_cost_cents >= r.max_cost_cents
+    })
+}
+
+fn model_pricing(model: &str) -> (f64, f64) {
+    match model {
+        "gpt-4o" => (2.5, 10.0),
+        "gpt-4o-mini" => (0.15, 0.6),
+        "gpt-4-turbo" => (10.0, 30.0),
+        "gpt-4" => (30.0, 60.0),
+        "gpt-3.5-turbo" => (0.5, 1.5),
+        "o1" | "o1-mini" | "o3" | "o3-mini" => (15.0, 60.0),
+        "claude-sonnet-4-20250514" | "claude-sonnet-4-5-20250514" => (3.0, 15.0),
+        "claude-3-5-sonnet-20241022" => (3.0, 15.0),
+        "claude-3-opus-20240229" => (15.0, 75.0),
+        "claude-3-haiku-20240307" => (0.25, 1.25),
+        _ => (1.0, 3.0),
+    }
 }
 
 pub fn total_usage_tokens() -> u64 {

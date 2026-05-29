@@ -190,10 +190,16 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                     app.file_changes.insert(make_relative(&app.current_dir, to));
                 }
             }
+            let diff = if name.as_str() == "edit" {
+                compute_diff_from_args(&args)
+            } else {
+                None
+            };
             let info = ToolCallInfo {
                 name,
                 args: serde_json::to_string_pretty(&args).unwrap_or_default(),
                 result: None,
+                diff,
             };
             if let Some(ref mut s) = app.streaming {
                 s.current_tool = Some(info);
@@ -209,9 +215,6 @@ fn handle_event(event: AgentEvent, app: &mut App) {
         }
         AgentEvent::Status(msg) => {
             app.status_message = Some(msg);
-        }
-        AgentEvent::FileChanged { path } => {
-            app.file_changes.insert(path);
         }
         AgentEvent::Plan { steps } => {
             app.plan = steps;
@@ -469,7 +472,12 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Char(c) => {
             if key.modifiers == KeyModifiers::CONTROL {
                 match c {
-                    'c' => { app.should_quit = true; return; }
+                    'c' if matches!(app.mode, AppMode::Idle) => {
+                        app.messages.push(AgentMessage::system(
+                            "Press Ctrl+D (or Esc/q) to quit. Ctrl+C doesn't exit."
+                        ));
+                        return;
+                    }
                     'a' | 'A' => { app.input.cursor_pos = 0; return; }
                     'e' | 'E' => { app.input.cursor_pos = app.input.content.len(); return; }
                     'u' | 'U' => { app.input.clear(); return; }
@@ -486,6 +494,12 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Right => app.input.move_right(),
         KeyCode::Home => { app.input.cursor_pos = 0; }
         KeyCode::End => { app.input.cursor_pos = app.input.content.len(); }
+        KeyCode::Up if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+            app.input.history_up();
+        }
+        KeyCode::Down if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+            app.input.history_down();
+        }
         KeyCode::Up => app.scroll_up(),
         KeyCode::Down => app.scroll_down(),
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
@@ -493,6 +507,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.input.insert_char('\n'),
         KeyCode::Enter if !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);
+            app.input.push_history(&prompt);
             let expanded = expand_file_refs(&prompt).await;
             app.input.cursor_pos = 0;
             app.messages.push(AgentMessage::user(&prompt));
@@ -614,4 +629,17 @@ async fn expand_file_refs(input: &str) -> String {
     }
     result.push_str(remaining);
     result
+}
+
+fn compute_diff_from_args(args: &serde_json::Value) -> Option<String> {
+    let old = args.get("old_string").and_then(|v| v.as_str())?;
+    let new = args.get("new_string").and_then(|v| v.as_str())?;
+    if old == new { return None; }
+    let diff = crate::diff::diff_text(old, new);
+    let mut lines: Vec<&str> = diff.patch.lines().collect();
+    if lines.len() > 20 {
+        lines.truncate(20);
+        lines.push("... (diff truncated)");
+    }
+    Some(lines.join("\n"))
 }

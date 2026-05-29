@@ -50,6 +50,7 @@ pub struct ToolCallInfo {
     pub name: String,
     pub args: String,
     pub result: Option<String>,
+    pub diff: Option<String>,
 }
 
 pub struct StreamingState {

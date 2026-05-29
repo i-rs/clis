@@ -99,6 +99,10 @@ pub fn render(frame: &mut Frame, app: &App) {
     if app.show_shortcuts {
         render_shortcuts_overlay(frame, area);
     }
+
+    if app.show_debug {
+        render_debug_overlay(frame, area, app);
+    }
 }
 
 pub fn render_transcript(frame: &mut Frame, app: &App) {
@@ -207,6 +211,42 @@ fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
     let paragraph = Paragraph::new(Text::from(items))
         .block(block)
         .alignment(Alignment::Center);
+    frame.render_widget(paragraph, overlay);
+}
+
+fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &App) {
+    let w = area.width.saturating_sub(4).min(80);
+    let h = area.height.saturating_sub(4).min(30);
+    let x = (area.width - w) / 2;
+    let y = (area.height - h) / 2;
+    let overlay = Rect { x, y, width: w, height: h };
+
+    frame.render_widget(Clear, overlay);
+
+    let logs = crate::debug::get_log();
+    let scroll = app.debug_scroll.min(logs.len().saturating_sub(1));
+    let visible: Vec<Line> = logs.iter().skip(scroll).take((h as usize).saturating_sub(3)).map(|entry| {
+        let status_style = match entry.response_status {
+            200 => Style::default().fg(Color::Green),
+            s if s >= 400 => Style::default().fg(Color::Red),
+            _ => Style::default().fg(Color::Yellow),
+        };
+        Line::from(vec![
+            Span::styled(format!("{} ", entry.time_short()), Style::default().fg(C_DIM)),
+            Span::styled(entry.status_label(), status_style),
+            Span::raw(format!(" {} ({}ms)", entry.path(), entry.duration_ms)),
+        ])
+    }).collect();
+
+    let block = Block::default()
+        .title(" Debug Log (Ctrl+D close, Ctrl+L clear, ↑↓ scroll) ")
+        .title_alignment(Alignment::Center)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+
+    let paragraph = Paragraph::new(Text::from(visible))
+        .block(block)
+        .scroll((if scroll > 0 { scroll as u16 } else { 0 }, 0));
     frame.render_widget(paragraph, overlay);
 }
 
@@ -393,6 +433,22 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             let preview: String = tool.args.chars().take(area.width.saturating_sub(8) as usize).collect();
             for line in preview.lines() {
                 lines.push(Line::from(Span::styled(format!("   └ {}", line), Style::default().fg(Color::DarkGray))));
+            }
+            if let Some(ref diff) = tool.diff {
+                let diff_lines: Vec<&str> = diff.lines().collect();
+                let show = if diff_lines.len() > 10 { &diff_lines[..10] } else { &diff_lines[..] };
+                for line in show {
+                    let (sign, rest) = line.split_at(1);
+                    let style = match sign {
+                        "+" => Style::default().fg(Color::Green),
+                        "-" => Style::default().fg(Color::Red),
+                        _ => Style::default().fg(Color::DarkGray),
+                    };
+                    lines.push(Line::from(Span::styled(format!("   {}", line), style)));
+                }
+                if diff_lines.len() > 10 {
+                    lines.push(Line::from(Span::styled("   ... (diff truncated)", Style::default().fg(Color::DarkGray))));
+                }
             }
         }
 

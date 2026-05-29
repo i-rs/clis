@@ -342,9 +342,10 @@ async fn call(&self, args: &Map<String, Value>) -> ToolResult {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     for (i, line) in content.lines().enumerate() {
                         if re.is_match(line) {
-                            let mut l = lines.lock().unwrap();
+                        let mut l = lines.lock().unwrap_or_else(|e| e.into_inner());
                             l.push(format!("{}:{}:{}", path.display(), i + 1, line));
-                            if l.len() >= 50 {
+                            if l.len() >= 200 {
+                                l.push("[results truncated — use offset/limit to refine]".into());
                                 break;
                             }
                         }

@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::process::Stdio;
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
-use tokio::sync::Mutex;
+use tokio::sync::Mutex as AsyncMutex;
 
 const MCP_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -49,6 +50,8 @@ impl McpConnection {
             "clientInfo": { "name": "i-rs-code", "version": "0.1" },
         })).await?;
 
+        conn.send_notification("notifications/initialized", serde_json::json!({})).await?;
+
         let tools_result: Value = conn.send_request("tools/list", serde_json::json!({})).await?;
         if let Some(tools_array) = tools_result.get("tools").and_then(|v| v.as_array()) {
             for tool_val in tools_array {
@@ -60,10 +63,6 @@ impl McpConnection {
         }
 
         Ok(conn)
-    }
-
-    pub fn server_count(&self) -> usize {
-        0 // async, can't lock from sync context; shown via status instead
     }
 
     pub fn discovered_tools(&self) -> &[McpToolDef] {
@@ -107,6 +106,15 @@ impl McpConnection {
         }
     }
 
+    async fn send_notification(&mut self, method: &str, params: Value) -> anyhow::Result<()> {
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+        });
+        self.write_message(&request).await
+    }
+
     async fn write_message(&mut self, msg: &Value) -> anyhow::Result<()> {
         let content = serde_json::to_string(msg)?;
         let header = format!("Content-Length: {}\r\n\r\n", content.len());
@@ -128,7 +136,7 @@ impl Drop for McpConnection {
 }
 
 pub struct McpManager {
-    connections: Mutex<HashMap<String, McpConnection>>,
+    connections: Mutex<HashMap<String, Arc<AsyncMutex<McpConnection>>>>,
 }
 
 impl McpManager {
@@ -139,26 +147,26 @@ impl McpManager {
     pub async fn connect(&self, name: &str, command: &str, args: &[String]) -> anyhow::Result<()> {
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let conn = McpConnection::connect(command, &args_refs).await?;
-        let mut map = self.connections.lock().await;
-        map.insert(name.to_string(), conn);
+        let mut map = self.connections.lock().unwrap();
+        map.insert(name.to_string(), Arc::new(AsyncMutex::new(conn)));
         Ok(())
     }
 
     pub async fn discover_tools(&self, name: &str) -> anyhow::Result<Vec<McpToolDef>> {
-        let map = self.connections.lock().await;
-        if let Some(conn) = map.get(name) {
-            Ok(conn.discovered_tools().to_vec())
-        } else {
-            Err(anyhow::anyhow!("no MCP connection: {}", name))
-        }
+        let conn = {
+            let map = self.connections.lock().unwrap();
+            map.get(name).cloned().ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", name))?
+        };
+        let session = conn.lock().await;
+        Ok(session.discovered_tools().to_vec())
     }
 
     pub async fn call_tool(&self, server_name: &str, tool_name: &str, args: Value) -> anyhow::Result<Value> {
-        let mut map = self.connections.lock().await;
-        if let Some(conn) = map.get_mut(server_name) {
-            conn.call_tool(tool_name, args).await
-        } else {
-            Err(anyhow::anyhow!("no MCP connection: {}", server_name))
-        }
+        let conn = {
+            let map = self.connections.lock().unwrap();
+            map.get(server_name).cloned().ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", server_name))?
+        };
+        let mut session = conn.lock().await;
+        session.call_tool(tool_name, args).await
     }
 }

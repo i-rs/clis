@@ -46,6 +46,11 @@ impl Tool for BatchEditTool {
             return Ok("No edits provided".into());
         }
 
+        struct Backup {
+            path: String,
+            original: String,
+        }
+
         let mut edits: Vec<(String, String, String)> = Vec::new();
         for (i, edit_val) in edits_val.iter().enumerate() {
             let file = edit_val.get("file_path").and_then(|v| v.as_str())
@@ -61,34 +66,53 @@ impl Tool for BatchEditTool {
             edits.push((file.to_string(), old.to_string(), new.to_string()));
         }
 
-        let mut backups: Vec<(String, String)> = Vec::new();
-        for (file, _old, _) in &edits {
-            let content = tokio::fs::read_to_string(file).await
-                .map_err(|e| ToolError::not_found_path(format!("backup read failed for {}: {}", file, e)))?;
-            backups.push((file.clone(), content));
+        let mut backups: Vec<Backup> = Vec::new();
+        for (file, _, _) in &edits {
+            match tokio::fs::read_to_string(file).await {
+                Ok(content) => backups.push(Backup { path: file.clone(), original: content }),
+                Err(e) => return Err(ToolError::not_found_path(format!("backup read failed for {}: {}", file, e)).into()),
+            }
         }
 
-        let mut results = Vec::new();
-        for (file, old, new) in &edits {
-            let content = tokio::fs::read_to_string(file).await
-                .map_err(|e| anyhow::anyhow!("read failed for {}: {}", file, e))?;
-            if !content.contains(old.as_str()) {
-                results.push(format!("{}: old_string not found (skipped)", file));
-                continue;
+        let mut applied_count = 0usize;
+        let result = apply_edits(&edits, &mut applied_count).await;
+
+        if result.is_err() {
+            for backup in &backups {
+                let _ = tokio::fs::write(&backup.path, &backup.original).await;
             }
-            let count = content.matches(old.as_str()).count();
-            if count > 1 {
-                return Err(ToolError::invalid_args(format!("{} has {} matches for batch edit. Use non-ambiguous old_string.", file, count)).into());
+            let tmp_files: Vec<String> = edits.iter()
+                .map(|(f, _, _)| format!("{}.batchtmp", f)).collect();
+            for tf in &tmp_files {
+                let _ = tokio::fs::remove_file(tf).await;
             }
-            let new_content = content.replacen(old, new, 1);
-            let tmp_path = format!("{}.batchtmp", file);
-            let _ = tokio::fs::remove_file(&tmp_path).await;
-            tokio::fs::write(&tmp_path, &new_content).await?;
-            tokio::fs::rename(&tmp_path, file).await?;
-            let _ = tokio::fs::remove_file(&tmp_path).await;
-            results.push(format!("{}: ok", file));
         }
 
-        Ok(format!("Batch edit ({} operations):\n{}", edits.len(), results.join("\n")))
+        result
     }
+}
+
+async fn apply_edits(edits: &[(String, String, String)], applied_count: &mut usize) -> ToolResult {
+    let mut results = Vec::new();
+    for (file, old, new) in edits {
+        let content = tokio::fs::read_to_string(file).await
+            .map_err(|e| anyhow::anyhow!("read failed for {}: {}", file, e))?;
+        if !content.contains(old.as_str()) {
+            results.push(format!("{}: old_string not found (skipped)", file));
+            continue;
+        }
+        let count = content.matches(old.as_str()).count();
+        if count > 1 {
+            return Err(ToolError::invalid_args(format!("{} has {} matches. Use non-ambiguous old_string.", file, count)).into());
+        }
+        let new_content = content.replacen(old, new, 1);
+        let tmp_path = format!("{}.batchtmp", file);
+        tokio::fs::write(&tmp_path, &new_content).await?;
+        tokio::fs::rename(&tmp_path, file).await?;
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        *applied_count += 1;
+        results.push(format!("{}: ok", file));
+    }
+
+    Ok(format!("Batch edit ({} operations):\n{}", edits.len(), results.join("\n")))
 }

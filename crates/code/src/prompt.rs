@@ -1,14 +1,29 @@
 use crate::config::ProjectInfo;
-use std::sync::OnceLock;
+use std::sync::Mutex;
 
 struct BuildContextCache {
+    key: String,
     dir: String,
     branch: String,
     git_status: String,
     workspace_crates: String,
 }
 
-static CONTEXT_CACHE: OnceLock<BuildContextCache> = OnceLock::new();
+static CONTEXT_CACHE: Mutex<Option<BuildContextCache>> = Mutex::new(None);
+
+fn cache_key() -> String {
+    let dir = std::env::current_dir()
+        .map(|d| d.display().to_string())
+        .unwrap_or_default();
+    let head = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|h| !h.is_empty())
+        .unwrap_or_default();
+    format!("{}::{}", dir, head)
+}
 
 fn build_cached_context(project_info: &ProjectInfo) -> BuildContextCache {
     let dir = std::env::current_dir()
@@ -59,7 +74,39 @@ fn build_cached_context(project_info: &ProjectInfo) -> BuildContextCache {
         String::new()
     };
 
-    BuildContextCache { dir, branch, git_status, workspace_crates }
+    BuildContextCache { key: cache_key(), dir, branch, git_status, workspace_crates }
+}
+
+pub fn build_context(project_info: &ProjectInfo) -> String {
+    let key = cache_key();
+    let mut cache_guard = CONTEXT_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let should_rebuild = match cache_guard.as_ref() {
+        Some(cached) => cached.key != key,
+        None => true,
+    };
+    if should_rebuild {
+        *cache_guard = Some(build_cached_context(project_info));
+    }
+    let cache = cache_guard.as_ref().unwrap();
+
+    let mut ctx = String::new();
+
+    if !cache.dir.is_empty() {
+        ctx.push_str(&format!("Working directory: {}\n", cache.dir));
+    }
+    ctx.push_str(&format!("Project type: {}\n", project_info.project_type));
+    if !cache.branch.is_empty() {
+        ctx.push_str(&format!("Git branch: {}\n", cache.branch));
+    }
+    if !cache.git_status.is_empty() {
+        let lines: Vec<&str> = cache.git_status.lines().take(20).collect();
+        ctx.push_str(&format!("Git status:\n{}\n", lines.join("\n")));
+    }
+    if !cache.workspace_crates.is_empty() {
+        ctx.push_str(&cache.workspace_crates);
+    }
+
+    ctx
 }
 
 pub const SYSTEM: &str = "\
@@ -88,67 +135,31 @@ Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_se
 - `glob <pattern> [path]` -- find files by pattern
 - `ls [path]` -- list directory
 - `bash <command> <description>` -- run shell command
-- `verify [package] [skip_*]` -- run check/clippy/test/fmt chain, stops at first failure
-- `lsp_diagnostics <file>` -- get compiler errors/warnings
-- `lsp_definition <file> <line> <char>` -- go to symbol definition
-- `lsp_references <file> <line> <char>` -- find all usages
-- `lsp_hover <file> <line> <char>` -- get type/docs for symbol
-- `lsp_rename <file> <line> <char> <new_name>` -- rename symbol across workspace
-- `lsp_symbols <file>` -- document outline (functions, structs, etc.)
-- `create_crate <name> [description]` -- scaffold an i-rs CLI crate
+- `git <args>` -- run git command
+- `web_fetch <url>` -- fetch web page content
+- `web_search <query>` -- search the web
+- `create_crate <name> <description>` -- bootstrap a new Rust crate (i-rs project)
+- `verify [package]` -- run check, clippy, test, fmt
+- `lsp_diagnostics` -- get code diagnostics
+- `lsp_definition` -- go to definition
+- `lsp_references` -- find references
+- `lsp_hover` -- hover info
+- `lsp_rename` -- rename symbol
+- `lsp_symbols` -- list workspace symbols
+- `lsp_completion` -- get completions
 
-## Rust Project Rules
-- After any code change, run `cargo check` to verify
-- Run `cargo clippy -- -D warnings` if available
-- Run `cargo test` to verify tests pass
-- Read `Cargo.toml` to understand dependencies before adding new ones
-- Follow existing code patterns and style in the project
-- Workspace: use `--workspace` or `-p <package>` flags as needed
-
-## Multi-File Changes
-- Change interfaces first (struct/trait/enum), then update implementations
-- Read all affected files before making changes
-- Use `grep` to find all references before renaming
-- Use `lsp_rename` for safe symbol renaming across the workspace
-- Verify each file compiles before moving to the next
-
-## Error Recovery
-- Read compiler errors carefully, they tell you exactly what's wrong
-- Fix one error at a time, re-check after each fix
-- If a tool fails, read the error and try a different approach
-- Use `bash git diff` to review your changes before committing
-
-## NEVER
-- Do NOT say \"let me\" or \"I'll\" -- call the tool directly
-- Do NOT respond with text when you should be using a tool
-- Do NOT ask the user to run commands -- use bash yourself
+## Communication
+- When you encounter errors, read the error output and think about what might be wrong
+- Use `read` to check files before editing them
+- Use `grep` to find relevant code patterns
+- Output in Chinese only for the final summary
+- Do NOT make up file paths — always verify with read/glob
+- Do NOT make up command output — always run commands to verify
 - Do NOT explain what you're about to do -- just do it
 - Do NOT read entire large files when offset/limit would suffice
 - Do NOT output thinking/reasoning about what tool to use -- just call it
 
 After completing changes, briefly summarize what was done in Chinese.";
-
-pub fn build_context(project_info: &ProjectInfo) -> String {
-    let cache = CONTEXT_CACHE.get_or_init(|| build_cached_context(project_info));
-    let mut ctx = String::new();
-
-    if !cache.dir.is_empty() {
-        ctx.push_str(&format!("Working directory: {}\n", cache.dir));
-    }
-    ctx.push_str(&format!("Project type: {}\n", project_info.project_type));
-    if !cache.branch.is_empty() {
-        ctx.push_str(&format!("Git branch: {}\n", cache.branch));
-    }
-    if !cache.git_status.is_empty() {
-        let lines: Vec<&str> = cache.git_status.lines().take(20).collect();
-        ctx.push_str(&format!("Git status:\n{}\n", lines.join("\n")));
-    }
-    if !cache.workspace_crates.is_empty() {
-        ctx.push_str(&cache.workspace_crates);
-    }
-
-    ctx
-}
 
 pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
     let mut prompt = SYSTEM.to_string();
@@ -166,4 +177,35 @@ pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
     }
 
     prompt
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ProjectInfo;
+
+    #[test]
+    fn test_build_context_non_empty() {
+        let info = ProjectInfo {
+            project_type: "rust".into(),
+            has_cargo: false,
+            has_package_json: false,
+            has_pyproject: false,
+            has_makefile: false,
+            has_agents_md: false,
+            has_cursor_rules: false,
+            agents_md_content: None,
+            cursor_rules_content: None,
+        };
+        let ctx = build_context(&info);
+        assert!(!ctx.is_empty(), "build_context should return a non-empty string");
+        assert!(ctx.contains("rust"), "should contain project type");
+    }
+
+    #[test]
+    fn test_system_prompt_contains_tools() {
+        assert!(SYSTEM.contains("read"));
+        assert!(SYSTEM.contains("write"));
+        assert!(SYSTEM.contains("edit"));
+    }
 }

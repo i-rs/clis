@@ -67,6 +67,29 @@ impl Session {
         ids.sort();
         Ok(ids)
     }
+
+    pub fn cleanup(sessions_dir: &Path, max_age_days: u64) -> anyhow::Result<usize> {
+        if !sessions_dir.exists() {
+            return Ok(0);
+        }
+        let threshold = chrono::Utc::now() - chrono::Duration::days(max_age_days as i64);
+        let mut removed = 0;
+        for entry in std::fs::read_dir(sessions_dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_file() {
+                let modified = entry.metadata()?.modified()?;
+                let secs = modified.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                let modified_dt = chrono::DateTime::<chrono::Utc>::from_timestamp(secs as i64, 0);
+                if let Some(modified_dt) = modified_dt {
+                    if modified_dt < threshold {
+                        let _ = std::fs::remove_file(entry.path());
+                        removed += 1;
+                    }
+                }
+            }
+        }
+        Ok(removed)
+    }
 }
 
 #[cfg(test)]

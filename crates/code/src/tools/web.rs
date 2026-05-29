@@ -49,6 +49,13 @@ async fn rate_limit() {
     *last = Instant::now();
 }
 
+static LINK_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r###"<a[^>]*class="result__a"[^>]*>(.*?)</a>"###).unwrap()
+});
+static TAG_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new("<[^>]*>").unwrap()
+});
+
 async fn search_duckduckgo(query: &str) -> anyhow::Result<String> {
     let encoded: String = query.chars().map(|c| match c {
         'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
@@ -65,11 +72,9 @@ async fn search_duckduckgo(query: &str) -> anyhow::Result<String> {
         .await?;
     let html = resp.text().await?;
     let mut results = Vec::new();
-    let link_re = regex::Regex::new(r###"<a[^>]*class="result__a"[^>]*>(.*?)</a>"###).unwrap();
-    let tag_re = regex::Regex::new("<[^>]*>").unwrap();
-    for cap in link_re.captures_iter(&html) {
+    for cap in LINK_RE.captures_iter(&html) {
         let title = cap[1].to_string();
-        let clean = tag_re.replace_all(&title, "");
+        let clean = TAG_RE.replace_all(&title, "");
         results.push(clean.to_string());
         if results.len() >= MAX_RESULTS {
             break;
@@ -223,5 +228,29 @@ impl Tool for WebSearchTool {
         }
 
         search_duckduckgo(query).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_private_url_private() {
+        assert!(is_private_url("http://localhost:3000/api"));
+        assert!(is_private_url("http://127.0.0.1"));
+        assert!(is_private_url("http://192.168.1.1/admin"));
+        assert!(is_private_url("http://10.0.0.5"));
+        assert!(is_private_url("file:///etc/passwd"));
+        assert!(is_private_url("ftp://internal.example.com"));
+        assert!(is_private_url("http://169.254.169.254/latest/meta-data"));
+    }
+
+    #[test]
+    fn test_is_private_url_public() {
+        assert!(!is_private_url("http://example.com"));
+        assert!(!is_private_url("https://github.com"));
+        assert!(!is_private_url("http://8.8.8.8"));
+        assert!(!is_private_url("https://api.openai.com/v1"));
     }
 }

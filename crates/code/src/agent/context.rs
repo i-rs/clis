@@ -249,7 +249,7 @@ mod tests {
     fn test_inject_memory() {
         let dir = std::env::temp_dir().join("i-rs-code-test-ctx-mem");
         let _ = std::fs::create_dir_all(&dir);
-        let mut mem = CrossSessionMemory::new(&dir);
+        let mut mem = CrossSessionMemory::new(&dir, "");
         mem.add_preference("use tabs");
         let msgs = vec![LlmMessage::User("hello".into())];
         let result = ContextManager::inject_memory(&msgs, &mem);

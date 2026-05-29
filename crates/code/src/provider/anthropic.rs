@@ -294,12 +294,17 @@ impl LlmProvider for AnthropicProvider {
                                     if index >= content_blocks.len() {
                                         content_blocks.resize(index + 1, ContentBlock::default());
                                     }
-                                    if let Some(t) = text {
-                                        content_blocks[index].text.push_str(&t);
-                                        tx.send(StreamEvent { kind: StreamEventKind::Token(t) }).await.ok();
+                                    if let Some(ref t) = text {
+                                        content_blocks[index].text.push_str(t);
+                                        tx.send(StreamEvent { kind: StreamEventKind::Token(t.clone()) }).await.ok();
                                     }
                                     if let Some(pj) = partial_json {
                                         content_blocks[index].partial_json.push_str(&pj);
+                                    }
+                                    if content_blocks[index].block_type == "thinking" {
+                                        if let Some(ref t) = text {
+                                            tx.send(StreamEvent { kind: StreamEventKind::Reasoning(t.clone()) }).await.ok();
+                                        }
                                     }
                                 }
                                 AnthropicEvent::ContentBlockStop { .. } => {}
@@ -341,71 +346,31 @@ impl LlmProvider for AnthropicProvider {
         rx
     }
 
-    async fn chat(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> anyhow::Result<LlmResponse> {
-        let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
-        let (system_prompt, anthro_msgs) = Self::build_messages(messages);
-        let anthro_tools = Self::convert_tool_schemas(tool_defs);
-
-        let mut body = json!({
-            "model": self.model,
-            "max_tokens": 8192,
-            "messages": anthro_msgs,
-        });
-
-        if let Some(sys) = &system_prompt {
-            body["system"] = json!(sys);
-        }
-        if !anthro_tools.is_empty() {
-            body["tools"] = json!(anthro_tools);
-        }
-
-        let res = self.client.post(&url)
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&body)
-            .send()
-            .await?;
-
-        if !res.status().is_success() {
-            let status = res.status();
-            let body_text = res.text().await.unwrap_or_default();
-            anyhow::bail!("Anthropic API error ({}): {}", status, body_text);
-        }
-
-        let val: Value = res.json().await?;
-        let _stop_reason = val["stop_reason"].as_str().unwrap_or("");
-
-        let mut text_parts = Vec::new();
+    async fn chat(
+        &self,
+        messages: &[LlmMessage],
+        tool_defs: &[Value],
+    ) -> anyhow::Result<LlmResponse> {
+        let mut rx = self.stream(messages, tool_defs).await;
+        let mut content = String::new();
+        let mut reasoning = String::new();
         let mut tool_calls = Vec::new();
-
-        if let Some(content_blocks) = val["content"].as_array() {
-            for block in content_blocks {
-                match block["type"].as_str() {
-                    Some("text") => {
-                        if let Some(t) = block["text"].as_str() {
-                            text_parts.push(t.to_string());
-                        }
-                    }
-                    Some("tool_use") => {
-                        tool_calls.push(ToolCall {
-                            id: block["id"].as_str().unwrap_or("").to_string(),
-                            name: block["name"].as_str().unwrap_or("").to_string(),
-                            args: block["input"].clone(),
-                        });
-                    }
-                    _ => {}
-                }
+        let mut usage = None;
+        while let Some(event) = rx.recv().await {
+            match event.kind {
+                StreamEventKind::Token(t) => content.push_str(&t),
+                StreamEventKind::Reasoning(r) => reasoning.push_str(&r),
+                StreamEventKind::ToolCall { id, name, args } => tool_calls.push(ToolCall { id, name, args }),
+                StreamEventKind::Done { usage: u, .. } => usage = u,
+                StreamEventKind::Error(e) => anyhow::bail!("chat error: {}", e),
             }
         }
-
-        let content = if text_parts.is_empty() { None } else { Some(text_parts.join("")) };
-
-        let usage = val.get("usage").map(|u| Usage {
-            input_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32,
-            output_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
-        });
-
-        Ok(LlmResponse { content, reasoning: String::new(), tool_calls, usage })
+        Ok(LlmResponse {
+            content: if content.is_empty() { None } else { Some(content) },
+            reasoning,
+            tool_calls,
+            usage,
+        })
     }
 }
 

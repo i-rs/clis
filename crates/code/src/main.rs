@@ -1,6 +1,3 @@
-// Some modules are only exercised through specific feature paths or CLI subcommands.
-#![allow(dead_code)]
-
 pub mod error;
 mod cli;
 mod config;
@@ -175,6 +172,11 @@ async fn run_config_init() -> anyhow::Result<()> {
     let trimmed = input.trim().to_string();
     if !trimmed.is_empty() {
         config.model = Some(trimmed);
+    }
+
+    let gitignore_path = crate::config::i_rs_code_dir().join(".gitignore");
+    if !gitignore_path.exists() {
+        let _ = std::fs::write(&gitignore_path, "*\n");
     }
 
     config.save()?;
