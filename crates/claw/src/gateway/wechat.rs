@@ -59,7 +59,7 @@ impl WeChatAdapter {
                 reqwest::Client::new()
             });
         let credentials_path = dirs::home_dir()
-            .map(|p| p.join(".i-rs-claw").join("claw").join("wechat_credentials.json"))
+            .map(|p| p.join(".i-rs").join("claw").join("claw").join("wechat_credentials.json"))
             .unwrap_or_else(|| PathBuf::from("./wechat_credentials.json"));
         Self {
             client,

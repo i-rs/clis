@@ -111,8 +111,8 @@ impl PluginManager {
     /// Create a new PluginManager and discover plugins.
     pub fn new() -> Self {
         let plugins_dir = dirs::home_dir()
-            .map(|h| h.join(".i-rs-claw").join("plugins"))
-            .unwrap_or_else(|| PathBuf::from(".i-rs-claw/plugins"));
+            .map(|h| h.join(".i-rs").join("claw").join("plugins"))
+            .unwrap_or_else(|| PathBuf::from(".i-rs/claw/plugins"));
 
         let state_path = plugins_dir.join("state.json");
         let state = PluginState::load(&state_path);

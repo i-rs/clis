@@ -123,7 +123,7 @@ pub fn test_core() -> (Config, crate::core::AppCore) {
     }
 
     // Create the expected directory structure
-    let claw_dir = dir.path().join(".i-rs-claw").join("claw");
+    let claw_dir = dir.path().join(".i-rs").join("claw").join("claw");
     std::fs::create_dir_all(&claw_dir).expect("创建 claw 数据目录失败");
 
     let config = test_config();
