@@ -76,45 +76,39 @@ impl LlmProvider for OllamaProvider {
                         return;
                     }
                 };
-                let chunk_str = String::from_utf8_lossy(&chunk);
-                buf.push_str(&chunk_str);
-                while let Some(pos) = buf.find('\n') {
-                    let line = buf[..pos].trim_end_matches('\r').to_string();
-                    buf = buf[pos + 1..].to_string();
-                    if line.is_empty() { continue; }
-                    if line == "data: [DONE]" { continue; }
-                    if let Some(data) = line.strip_prefix("data: ")
-                        && let Ok(val) = serde_json::from_str::<Value>(data) {
-                            if let Some(choices) = val["choices"].as_array() {
-                                for choice in choices {
-                                    let delta = &choice["delta"];
-                                    if let Some(content) = delta["content"].as_str()
-                                        && !content.is_empty() {
-                                            tx.send(StreamEvent { kind: StreamEventKind::Token(content.to_string()) }).await.ok();
+                for evt in crate::provider::sse::parse_sse(&mut buf, &chunk) {
+                    if evt.data == "[DONE]" { continue; }
+                    if let Ok(val) = serde_json::from_str::<Value>(&evt.data) {
+                        if let Some(choices) = val["choices"].as_array() {
+                            for choice in choices {
+                                let delta = &choice["delta"];
+                                if let Some(content) = delta["content"].as_str()
+                                    && !content.is_empty() {
+                                        tx.send(StreamEvent { kind: StreamEventKind::Token(content.to_string()) }).await.ok();
+                                    }
+                                if let Some(tcs) = delta["tool_calls"].as_array() {
+                                    for tc in tcs {
+                                        let idx = tc["index"].as_u64().unwrap_or(0) as u32;
+                                        let entry = tool_call_accum.entry(idx).or_insert_with(|| (String::new(), String::new(), String::new()));
+                                        if let Some(id) = tc["id"].as_str() {
+                                            entry.0 = id.to_string();
                                         }
-                                    if let Some(tcs) = delta["tool_calls"].as_array() {
-                                        for tc in tcs {
-                                            let idx = tc["index"].as_u64().unwrap_or(0) as u32;
-                                            let entry = tool_call_accum.entry(idx).or_insert_with(|| (String::new(), String::new(), String::new()));
-                                            if let Some(id) = tc["id"].as_str() {
-                                                entry.0 = id.to_string();
-                                            }
-                                            if let Some(name) = tc["function"]["name"].as_str() {
-                                                entry.1 = name.to_string();
-                                            }
-                                            if let Some(args) = tc["function"]["arguments"].as_str() {
-                                                entry.2.push_str(args);
-                                            }
+                                        if let Some(name) = tc["function"]["name"].as_str() {
+                                            entry.1 = name.to_string();
+                                        }
+                                        if let Some(args) = tc["function"]["arguments"].as_str() {
+                                            entry.2.push_str(args);
                                         }
                                     }
                                 }
                             }
-                            if val.get("usage").and_then(|u| u.as_object()).is_some() {
-                                let input = val["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
-                                let output = val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
-                                final_usage = Some(Usage { input_tokens: input, output_tokens: output });
-                            }
                         }
+                        if val.get("usage").and_then(|u| u.as_object()).is_some() {
+                            let input = val["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
+                            let output = val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
+                            final_usage = Some(Usage { input_tokens: input, output_tokens: output });
+                        }
+                    }
                 }
             }
             for idx in 0..tool_call_accum.len() as u32 {

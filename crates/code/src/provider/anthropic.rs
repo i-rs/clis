@@ -243,7 +243,6 @@ impl LlmProvider for AnthropicProvider {
 
             let mut stream = res.bytes_stream();
             let mut buf = String::new();
-            let mut current_event_type = String::new();
             let mut content_blocks: Vec<ContentBlock> = Vec::new();
             let mut total_usage: Option<Usage> = None;
             let mut stop_reason = String::new();
@@ -257,23 +256,13 @@ impl LlmProvider for AnthropicProvider {
                         return;
                     }
                 };
-                buf.push_str(&String::from_utf8_lossy(&chunk));
+                for evt in crate::provider::sse::parse_sse(&mut buf, &chunk) {
+                    let event_type = match evt.event_type {
+                        Some(et) => et,
+                        None => continue,
+                    };
 
-                while let Some(pos) = buf.find('\n') {
-                    let line = buf[..pos].trim().to_string();
-                    buf = buf[pos + 1..].to_string();
-                    if line.is_empty() { continue; }
-
-                    if let Some(evt) = line.strip_prefix("event: ") {
-                        current_event_type = evt.to_string();
-                        continue;
-                    }
-
-                    if let Some(data) = line.strip_prefix("data: ") {
-                        let event_type = std::mem::take(&mut current_event_type);
-                        if event_type.is_empty() { continue; }
-
-                        if let Some(event) = Self::parse_sse_event(&event_type, data) {
+                    if let Some(event) = Self::parse_sse_event(&event_type, &evt.data) {
                             match event {
                                 AnthropicEvent::MessageStart { usage } => {
                                     total_usage = usage;
@@ -323,7 +312,6 @@ impl LlmProvider for AnthropicProvider {
                             }
                         }
                     }
-                }
             }
 
             if stop_reason == "tool_use" {

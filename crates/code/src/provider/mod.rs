@@ -1,4 +1,5 @@
 pub mod error;
+pub mod sse;
 pub mod openai;
 pub mod anthropic;
 pub mod ollama;
