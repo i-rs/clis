@@ -516,13 +516,12 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let block = Block::default()
-        .title(" Slash Commands ")
-        .title_alignment(ratatui::layout::Alignment::Left)
-        .borders(Borders::ALL)
-        .border_style(Style::new().fg(C_ACCENT));
+        .borders(Borders::TOP)
+        .border_style(Style::new().fg(C_RAIL))
+        .padding(ratatui::widgets::Padding::new(1, 1, 0, 0))
+        .style(Style::new().bg(C_BG_INPUT));
 
     let paragraph = Paragraph::new(Text::from(items))
-        .block(block)
-        .style(Style::new().bg(C_BG_INPUT));
+        .block(block);
     frame.render_widget(paragraph, area);
 }
