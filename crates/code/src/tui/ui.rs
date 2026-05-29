@@ -30,8 +30,12 @@ fn tool_glyph(name: &str) -> &'static str {
 
 use super::utils::short_path;
 
-fn is_diff_like(text: &str) -> bool {
-    text.lines().any(|l| l.starts_with("--- ") || l.starts_with("+++ ") || l.starts_with("@@ "))
+fn is_diff_output(text: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let has_unified = lines.iter().any(|l| l.starts_with("--- ") || l.starts_with("+++ ") || l.starts_with("@@ "));
+    let has_plus = lines.iter().any(|l| l.starts_with('+') && !l.starts_with("+++"));
+    let has_minus = lines.iter().any(|l| l.starts_with('-') && !l.starts_with("---"));
+    has_unified || (has_plus && has_minus)
 }
 
 fn render_diff_line(line: &str) -> Vec<Span<'static>> {
@@ -218,7 +222,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 let content_lines = render_ai_content(content);
                 lines.extend(content_lines);
             }
-            AgentMessage::ToolResult { content } => {
+            AgentMessage::ToolResult { content, diff } => {
                 let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
                 let glyph = tool_glyph(tool_name);
                 let label = if tool_name.is_empty() { "Tool" } else { tool_name };
@@ -230,12 +234,13 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Span::styled(format!(" {} ", glyph), Style::new().fg(C_YELLOW)),
                     Span::styled(label, Style::new().fg(C_YELLOW).bold()),
                 ]));
+                let tool_has_diff = is_diff_output(tool_result);
                 if !tool_result.is_empty() {
                     let preview: String = tool_result.chars().take(1200).collect();
                     let result_lines: Vec<&str> = preview.lines().collect();
                     for (i, line) in result_lines.iter().enumerate().take(12) {
                         let prefix = if i == result_lines.len().saturating_sub(1).min(11) { "╰" } else { rail_mid };
-                        if is_diff_like(line) {
+                        if tool_has_diff {
                             let diff_spans = render_diff_line(line);
                             let mut spans = vec![Span::styled(format!(" {} ", prefix), Style::new().fg(Color::DarkGray))];
                             spans.extend(diff_spans);
@@ -254,6 +259,24 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         )));
                     }
                 }
+                if let Some(diff_text) = diff {
+                    if !diff_text.is_empty() {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {} ─ diff ─", rail_mid),
+                            Style::new().fg(C_DIM),
+                        )));
+                        for line in diff_text.lines().take(12) {
+                            let diff_spans = render_diff_line(line);
+                            lines.push(Line::from(diff_spans));
+                        }
+                        if diff_text.lines().count() > 12 {
+                            lines.push(Line::from(Span::styled(
+                                format!(" {} ... +{} more lines", rail_mid, diff_text.lines().count().saturating_sub(12)),
+                                Style::new().fg(Color::DarkGray),
+                            )));
+                        }
+                    }
+                }
                 last_was_tool = true;
             }
             AgentMessage::FileEdit { path, summary } => {
@@ -263,12 +286,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Span::styled(format!(" ✎ {} ", path), Style::new().fg(C_FILE_EDIT).bold()),
                 ]));
                 for line in summary.lines() {
-                    if is_diff_like(line) {
-                        let diff_spans = render_diff_line(line);
-                        lines.push(Line::from(diff_spans));
-                    } else {
-                        lines.push(Line::from(Span::styled(format!(" {}", line), Style::new().fg(C_FILE_EDIT))));
-                    }
+                    let diff_spans = render_diff_line(line);
+                    lines.push(Line::from(diff_spans));
                 }
             }
             AgentMessage::System { content } => {

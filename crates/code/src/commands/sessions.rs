@@ -71,7 +71,7 @@ pub async fn run_sessions_show(id: &str, full: bool) -> anyhow::Result<()> {
                 }
                 print_content(content, full);
             }
-            crate::app::AgentMessage::ToolResult { content } => {
+            crate::app::AgentMessage::ToolResult { content, .. } => {
                 println!("── [{}. Tool Result] ──", i + 1);
                 let preview: String = content.chars().take(300).collect();
                 if content.len() > 300 {
@@ -133,7 +133,7 @@ pub async fn run_sessions_export(id: &str) -> anyhow::Result<()> {
                 println!("{}", content);
                 println!();
             }
-            crate::app::AgentMessage::ToolResult { content } => {
+            crate::app::AgentMessage::ToolResult { content, .. } => {
                 println!("### Tool Result\n");
                 println!("```");
                 println!("{}", content);

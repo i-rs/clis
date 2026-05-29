@@ -10,7 +10,7 @@ pub enum AgentMessage {
     #[serde(rename = "assistant")]
     Assistant { content: String, reasoning: String, tool_calls: Option<Vec<serde_json::Value>>, #[serde(default)] reasoning_expanded: bool },
     #[serde(rename = "tool")]
-    ToolResult { content: String },
+    ToolResult { content: String, #[serde(default)] diff: Option<String> },
     #[serde(rename = "system")]
     System { content: String },
     #[serde(rename = "file_edit")]
@@ -26,9 +26,6 @@ impl AgentMessage {
     #[allow(dead_code)]
     pub fn assistant(content: impl Into<String>) -> Self {
         Self::Assistant { content: content.into(), reasoning: String::new(), tool_calls: None, reasoning_expanded: false }
-    }
-    pub fn tool(name: impl Into<String>, content: impl Into<String>) -> Self {
-        Self::ToolResult { content: format!("{}\n{}", name.into(), content.into()) }
     }
     pub fn system(content: impl Into<String>) -> Self {
         Self::System { content: content.into() }

@@ -46,7 +46,7 @@ pub fn render_transcript(frame: &mut Frame, app: &crate::app::App) {
                     }
                 }
             }
-            AgentMessage::ToolResult { content } => {
+            AgentMessage::ToolResult { content, .. } => {
                 let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
                 lines.push(Line::from(Span::styled(
                     format!("── {} ──", if tool_name.is_empty() { "Tool" } else { tool_name }),
