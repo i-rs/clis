@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
-use super::filesystem::resolve_safe_path;
+use super::fs::resolve_safe_path;
 
 #[cfg(test)]
 mod tests {

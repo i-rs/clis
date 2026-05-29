@@ -1,4 +1,4 @@
-pub mod filesystem;
+pub mod fs;
 pub mod bash;
 pub mod create_crate;
 pub mod call_claw;
@@ -43,12 +43,12 @@ impl ToolRegistry {
         let mut tools: HashMap<String, Arc<dyn Tool>> = HashMap::new();
 
         let file_tools: Vec<Arc<dyn Tool>> = vec![
-            Arc::new(filesystem::ReadTool),
-            Arc::new(filesystem::WriteTool),
-            Arc::new(filesystem::EditTool),
-            Arc::new(filesystem::GlobTool),
-            Arc::new(filesystem::GrepTool),
-            Arc::new(filesystem::LsTool),
+            Arc::new(fs::ReadTool),
+            Arc::new(fs::WriteTool),
+            Arc::new(fs::EditTool),
+            Arc::new(fs::GlobTool),
+            Arc::new(fs::GrepTool),
+            Arc::new(fs::LsTool),
         ];
         for t in file_tools {
             tools.insert(t.name().to_string(), t);
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_register_and_get() {
         let mut reg = ToolRegistry::new_empty();
-        let tool = Arc::new(super::filesystem::ReadTool);
+        let tool = Arc::new(super::fs::ReadTool);
         reg.register(tool);
         assert!(reg.get("read").is_some());
         assert_eq!(reg.all_tools().len(), 1);
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn test_register_overwrites() {
         let mut reg = ToolRegistry::new_empty();
-        let tool1 = Arc::new(super::filesystem::ReadTool);
+        let tool1 = Arc::new(super::fs::ReadTool);
         let tool2 = Arc::new(super::bash::BashTool);
         reg.register(tool1);
         reg.register(tool2);
