@@ -13,6 +13,7 @@ pub struct MockLlmProvider {
     name: String,
 }
 
+#[allow(dead_code)]
 impl MockLlmProvider {
     pub fn new() -> Self {
         Self { events: Vec::new(), name: "mock".into() }
@@ -144,25 +145,4 @@ pub fn mock_tool_registry() -> ToolRegistry {
     registry.register(Arc::new(MockTool::new("bash", "stdout:\nhello")));
     registry.register(Arc::new(MockTool::new("grep", "Found 2 matches:\nmain.rs:10:fn main()\nlib.rs:5:fn main()")));
     registry
-}
-
-/// Build a minimal config for testing
-pub fn test_config() -> crate::config::Config {
-    crate::config::Config {
-        provider: "mock".into(),
-        api_key: Some("test-key".into()),
-        base_url: None,
-        model: None,
-        workspace: None,
-        tools_dir: None,
-        bin_dir: None,
-        max_rounds: 5,
-        max_tool_retries: 2,
-        tool_timeout_secs: 30,
-        agents: std::collections::HashMap::new(),
-        mcp_servers: Vec::new(),
-        search_provider: None,
-        search_api_key: None,
-        max_cost_per_session: None,
-    }
 }

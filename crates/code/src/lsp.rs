@@ -576,6 +576,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_format_symbol_tree_flat() {
         let sym = DocumentSymbol {
             name: "main".into(),
@@ -600,6 +601,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_format_symbol_tree_nested() {
         let child = DocumentSymbol {
             name: "inner_fn".into(),

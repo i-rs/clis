@@ -63,7 +63,7 @@ mod tests {
     fn test_session_roundtrip() {
         let dir = std::env::temp_dir().join("i-rs-code-test-session-roundtrip");
         let _ = std::fs::remove_dir_all(&dir);
-        let mut s = Session {
+        let s = Session {
             id: uuid::Uuid::new_v4().to_string(),
             messages: vec![AgentMessage::user("hello"), AgentMessage::assistant("hi there")],
             agent_messages: Vec::new(),

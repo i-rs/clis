@@ -2,7 +2,6 @@ pub mod engine;
 pub mod context;
 pub mod event;
 pub mod output;
-pub mod session_trait;
 pub mod tool_exec;
 pub mod tool_cache;
 
@@ -175,55 +174,4 @@ fn build_messages(
     msgs
 }
 
-use session_trait::{ChatInput, ChatOutput, ChatSession, StreamingChatSession};
-use std::pin::Pin;
-use std::future::Future;
 
-impl ChatSession for Agent {
-    fn run(
-        &mut self,
-        input: ChatInput,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ChatOutput>> + Send + '_>> {
-        Box::pin(async move {
-            let project_info = ProjectInfo::detect();
-            let system_text = crate::prompt::build_system_prompt(&project_info);
-            let tool_defs = self.tools.schemas();
-            let msgs = build_messages(&input.history, &system_text, &project_info, &input.prompt);
-            let (final_text, new_messages) = engine::react_loop(
-                &*self.provider, &self.tools, msgs, &tool_defs,
-                self.json_output, self.config.max_rounds, self.config.tool_timeout_secs,
-                &mut self.memory,
-            ).await?;
-            self.messages = new_messages.clone();
-            if let Some(mem) = self.memory.as_mut() {
-                let _ = mem.flush();
-            }
-            Ok(ChatOutput { text: final_text, messages: new_messages, usage: None })
-        })
-    }
-}
-
-impl StreamingChatSession for Agent {
-    fn run_streaming(
-        &mut self,
-        input: ChatInput,
-        event_tx: mpsc::Sender<event::AgentEvent>,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ChatOutput>> + Send + '_>> {
-        Box::pin(async move {
-            let project_info = ProjectInfo::detect();
-            let system_text = crate::prompt::build_system_prompt(&project_info);
-            let tool_defs = self.tools.schemas();
-            let msgs = build_messages(&input.history, &system_text, &project_info, &input.prompt);
-            let (final_text, new_messages) = engine::react_loop_streaming(
-                &*self.provider, &self.tools, msgs, &tool_defs,
-                event_tx, self.config.max_rounds, self.config.tool_timeout_secs,
-                &mut self.memory,
-            ).await?;
-            self.messages = new_messages.clone();
-            if let Some(mem) = self.memory.as_mut() {
-                let _ = mem.flush();
-            }
-            Ok(ChatOutput { text: final_text, messages: new_messages, usage: None })
-        })
-    }
-}
