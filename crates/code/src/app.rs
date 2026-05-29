@@ -93,6 +93,8 @@ pub struct App {
     pub selected_message: Option<usize>,
     pub plan: Vec<String>,
     pub temperature: f64,
+    pub show_slash_picker: bool,
+    pub slash_selected: usize,
 }
 
 impl App {
@@ -133,6 +135,8 @@ impl App {
             selected_message: None,
             plan: Vec::new(),
             temperature: 0.7,
+            show_slash_picker: false,
+            slash_selected: 0,
         }
     }
 

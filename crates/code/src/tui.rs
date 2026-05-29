@@ -467,6 +467,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             } else if app.show_debug {
                 app.show_debug = false;
                 app.debug_scroll = 0;
+            } else if app.show_slash_picker {
+                app.show_slash_picker = false;
             } else {
                 app.should_quit = true;
             }
@@ -526,6 +528,17 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Right => { app.input.move_right(); app.needs_redraw = true; }
         KeyCode::Home => { app.input.cursor_pos = 0; app.needs_redraw = true; }
         KeyCode::End => { app.input.cursor_pos = app.input.content.len(); app.needs_redraw = true; }
+        KeyCode::Up if app.show_slash_picker => {
+            app.slash_selected = app.slash_selected.saturating_sub(1);
+            app.needs_redraw = true;
+        }
+        KeyCode::Down if app.show_slash_picker => {
+            let count = ui::filtered_slash_commands(app).len();
+            if count > 0 {
+                app.slash_selected = (app.slash_selected + 1).min(count.saturating_sub(1));
+                app.needs_redraw = true;
+            }
+        }
         KeyCode::Up if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
             app.input.history_up();
         }
@@ -613,6 +626,17 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             }
         }
         _ => {}
+    }
+
+    // Update slash picker visibility based on input content
+    if matches!(app.mode, AppMode::Idle) {
+        let starts_with_slash = !app.input.content.is_empty() && app.input.content.starts_with('/');
+        if starts_with_slash && !app.show_slash_picker {
+            app.show_slash_picker = true;
+            app.slash_selected = 0;
+        } else if !starts_with_slash && app.show_slash_picker {
+            app.show_slash_picker = false;
+        }
     }
 }
 

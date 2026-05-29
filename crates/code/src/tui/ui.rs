@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Layout, Margin, Rect},
     style::{Color, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
 };
 use crate::app::{AgentMessage, App, AppMode};
 use crate::tui::colors::*;
@@ -112,13 +112,24 @@ pub fn render(frame: &mut Frame, app: &App) {
         Constraint::Length(SIDEBAR_WIDTH),
     ]).areas(body);
 
-    let [chat_area, input_area] = Layout::vertical([
-        Constraint::Fill(1),
-        Constraint::Length(input_lines),
-    ]).areas(chat_body);
-
-    render_chat(frame, chat_area, app);
-    render_input_bar(frame, input_area, app);
+    if app.show_slash_picker {
+        let picker_height = filtered_slash_commands(app).len().min(8) as u16 + 2;
+        let [chat_area, picker_area, input_area] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(picker_height),
+            Constraint::Length(input_lines),
+        ]).areas(chat_body);
+        render_chat(frame, chat_area, app);
+        render_slash_picker(frame, picker_area, app);
+        render_input_bar(frame, input_area, app);
+    } else {
+        let [chat_area, input_area] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(input_lines),
+        ]).areas(chat_body);
+        render_chat(frame, chat_area, app);
+        render_input_bar(frame, input_area, app);
+    }
     crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
 
     if app.show_shortcuts {
@@ -475,4 +486,50 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         let cursor_y = inner.y;
         frame.set_cursor_position((cursor_x, cursor_y));
     }
+}
+
+pub fn filtered_slash_commands(app: &App) -> Vec<&'static crate::tui::slash_command::CmdHelp> {
+    let partial = app.input.content.trim().strip_prefix('/')
+        .unwrap_or("").to_lowercase();
+    crate::tui::slash_command::COMMANDS.iter()
+        .filter(|c| c.name.starts_with(&partial))
+        .collect()
+}
+
+fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
+    let commands = filtered_slash_commands(app);
+
+    let mut items: Vec<Line> = Vec::new();
+    for (i, cmd) in commands.iter().enumerate() {
+        let selected = i == app.slash_selected.min(commands.len().saturating_sub(1));
+        let marker = if selected { " ▌" } else { "  " };
+        let name_style = if selected {
+            Style::new().fg(Color::Cyan).bold()
+        } else {
+            Style::new().fg(Color::White)
+        };
+        let args = if cmd.args.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", cmd.args)
+        };
+
+        items.push(Line::from(vec![
+            Span::styled(marker, if selected { Style::new().fg(Color::Cyan) } else { Style::new().fg(C_DIM) }),
+            Span::styled(format!("/{}{}", cmd.name, args), name_style),
+            Span::raw("  "),
+            Span::styled(cmd.desc, Style::new().fg(C_DIM)),
+        ]));
+    }
+
+    let block = Block::default()
+        .title(" Slash Commands ")
+        .title_alignment(ratatui::layout::Alignment::Left)
+        .borders(Borders::ALL)
+        .border_style(Style::new().fg(C_ACCENT));
+
+    let paragraph = Paragraph::new(Text::from(items))
+        .block(block)
+        .style(Style::new().bg(C_BG_INPUT));
+    frame.render_widget(paragraph, area);
 }
