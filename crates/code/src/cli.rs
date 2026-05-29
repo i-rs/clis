@@ -58,6 +58,9 @@ pub enum Commands {
     /// Manage custom tool plugins
     #[command(subcommand)]
     Plugins(PluginsCommands),
+    /// Manage skill store
+    #[command(subcommand)]
+    Skill(SkillCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -112,6 +115,22 @@ pub enum PluginsCommands {
     List,
     /// Show plugin directories
     Dir,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SkillCommands {
+    /// List installed skills
+    List,
+    /// Show a skill's content
+    Get {
+        name: String,
+    },
+    /// Create a new skill
+    Create {
+        name: String,
+        #[arg(long, help = "Description of the skill")]
+        description: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

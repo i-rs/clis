@@ -164,6 +164,17 @@ After completing changes, briefly summarize what was done in Chinese.";
 pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
     let mut prompt = SYSTEM.to_string();
 
+    // Inject available skills for progressive disclosure
+    let store = crate::skill_store::SkillStore::new();
+    let skills = store.list();
+    if !skills.is_empty() {
+        prompt.push_str("\n\n## Available Skills\n");
+        prompt.push_str("Skills provide specialized instructions. Use the `skill` tool to load them on demand.\n");
+        prompt.push_str(&format!("Total: {} skill(s) installed.\n", skills.len()));
+        prompt.push_str("To see all skills, call the `skill` tool with action='list'.\n");
+        prompt.push_str("To load a skill, call `skill` with action='get' and name='<skill-name>'.\n");
+    }
+
     if let Some(content) = &project_info.agents_md_content {
         let truncated = if content.len() > 8000 {
             let head: String = content.chars().take(4000).collect();

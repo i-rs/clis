@@ -11,6 +11,7 @@ pub mod lsp;
 pub mod pty;
 pub mod test_runner;
 pub mod mcp;
+pub mod skill;
 pub mod verify;
 pub mod batch_edit;
 
@@ -74,7 +75,8 @@ impl ToolRegistry {
         tools.insert("mcp_connect".into(), Arc::new(mcp::McpConnectTool));
         tools.insert("verify".into(), Arc::new(verify::VerifyTool));
         tools.insert("batch_edit".into(), Arc::new(batch_edit::BatchEditTool));
-    tools.insert("test".into(), Arc::new(test_runner::TestRunnerTool));
+        tools.insert("test".into(), Arc::new(test_runner::TestRunnerTool));
+        tools.insert("skill".into(), Arc::new(skill::SkillTool));
 
         Ok(Self { tools })
     }
