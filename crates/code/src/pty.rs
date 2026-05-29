@@ -218,8 +218,4 @@ impl PtyManager {
             Err(anyhow::anyhow!("no such pty session: {}", id))
         }
     }
-
-    pub async fn remove_session(&self, id: &str) {
-        self.sessions.lock().await.remove(id);
-    }
 }

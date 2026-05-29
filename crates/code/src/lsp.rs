@@ -145,17 +145,6 @@ impl LspSession {
         }
     }
 
-    async fn ensure_initialized(&mut self) -> anyhow::Result<()> {
-        if self.initialized {
-            return Ok(());
-        }
-        self.ensure_initialized_for("main.rs").await
-    }
-
-    pub fn is_initialized(&self) -> bool {
-        self.initialized
-    }
-
     pub async fn get_diagnostics(&mut self, file_path: &str) -> anyhow::Result<Vec<String>> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;

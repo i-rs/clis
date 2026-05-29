@@ -1,5 +1,6 @@
 use similar::{ChangeTag, TextDiff};
 
+#[allow(dead_code)]
 pub struct DiffOutput {
     pub old: String,
     pub new: String,

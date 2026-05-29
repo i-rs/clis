@@ -43,7 +43,7 @@ pub enum StreamEventKind {
     Token(String),
     Reasoning(String),
     ToolCall { id: String, name: String, args: Value },
-    Done { content: Option<String>, usage: Option<Usage> },
+    Done { usage: Option<Usage> },
     Error(String),
 }
 
@@ -51,10 +51,12 @@ pub enum StreamEventKind {
 pub trait LlmProvider: Send + Sync {
     fn name(&self) -> &str;
     async fn stream(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> StreamRx;
+    #[allow(dead_code)]
     async fn chat(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> anyhow::Result<LlmResponse>;
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct LlmResponse {
     pub content: Option<String>,
     pub reasoning: String,

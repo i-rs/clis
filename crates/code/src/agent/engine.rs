@@ -30,11 +30,7 @@ fn exceeds_budget(messages: &[LlmMessage], tool_defs: &[Value]) -> bool {
     estimate_tokens(messages, tool_defs) > MODEL_CONTEXT_LIMIT * 8 / 10
 }
 
-pub enum PlanResult {
-    Plan(String),
-    Direct(String),
-}
-
+#[allow(dead_code)]
 pub async fn determine_execution_mode(
     task: &str,
     provider: &dyn LlmProvider,

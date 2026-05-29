@@ -124,7 +124,7 @@ impl LlmProvider for OllamaProvider {
                         tx.send(StreamEvent { kind: StreamEventKind::ToolCall { id, name, args: args_val } }).await.ok();
                     }
             }
-            tx.send(StreamEvent { kind: StreamEventKind::Done { content: None, usage: final_usage } }).await.ok();
+            tx.send(StreamEvent { kind: StreamEventKind::Done { usage: final_usage } }).await.ok();
         });
 
         rx

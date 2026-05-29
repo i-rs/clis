@@ -44,11 +44,6 @@ where
     f(inner)
 }
 
-pub fn reset_for_testing() {
-    *RUNTIME.lock().unwrap_or_else(|e| e.into_inner()) = Some(RuntimeInner::new());
-    LSP_INIT.store(false, Ordering::Relaxed);
-}
-
 static LSP_INIT: AtomicBool = AtomicBool::new(false);
 
 pub fn mark_lsp_initialized() {
@@ -83,10 +78,6 @@ pub fn set_debug(enabled: bool) {
     with_runtime(|r| r.debug_mode = enabled);
 }
 
-pub fn is_debug() -> bool {
-    with_runtime(|r| r.debug_mode)
-}
-
 pub fn set_verbose(enabled: bool) {
     with_runtime(|r| r.verbose_mode = enabled);
 }
@@ -97,17 +88,6 @@ pub fn is_verbose() -> bool {
 
 pub fn session_token_budget() -> u64 {
     with_runtime(|r| r.session_token_budget)
-}
-
-pub fn set_session_token_budget(budget: u64) {
-    with_runtime(|r| r.session_token_budget = budget);
-}
-
-pub fn add_usage(input: u32, output: u32) {
-    with_runtime(|r| {
-        r.total_input_tokens += input as u64;
-        r.total_output_tokens += output as u64;
-    });
 }
 
 pub fn add_usage_with_cost(model: &str, input: u32, output: u32) {

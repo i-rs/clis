@@ -14,17 +14,6 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new() -> Self {
-        let now = chrono::Utc::now().to_rfc3339();
-        Self {
-            id: uuid::Uuid::new_v4().to_string(),
-            messages: Vec::new(),
-            agent_messages: Vec::new(),
-            created_at: now.clone(),
-            updated_at: now,
-        }
-    }
-
     pub fn from_agent_messages(id: Option<String>, msgs: &[AgentMessage], agent_msgs: Vec<LlmMessage>) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
@@ -49,47 +38,6 @@ impl Session {
         let content = std::fs::read_to_string(&path)?;
         Ok(serde_json::from_str(&content)?)
     }
-
-    pub fn list(sessions_dir: &Path) -> anyhow::Result<Vec<String>> {
-        if !sessions_dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut ids = Vec::new();
-        for entry in std::fs::read_dir(sessions_dir)? {
-            let entry = entry?;
-            if entry.file_type()?.is_file()
-                && let Some(name) = entry.file_name().to_str()
-                && let Some(id) = name.strip_suffix(".json")
-            {
-                ids.push(id.to_string());
-            }
-        }
-        ids.sort();
-        Ok(ids)
-    }
-
-    pub fn cleanup(sessions_dir: &Path, max_age_days: u64) -> anyhow::Result<usize> {
-        if !sessions_dir.exists() {
-            return Ok(0);
-        }
-        let threshold = chrono::Utc::now() - chrono::Duration::days(max_age_days as i64);
-        let mut removed = 0;
-        for entry in std::fs::read_dir(sessions_dir)? {
-            let entry = entry?;
-            if entry.file_type()?.is_file() {
-                let modified = entry.metadata()?.modified()?;
-                let secs = modified.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                let modified_dt = chrono::DateTime::<chrono::Utc>::from_timestamp(secs as i64, 0);
-                if let Some(modified_dt) = modified_dt {
-                    if modified_dt < threshold {
-                        let _ = std::fs::remove_file(entry.path());
-                        removed += 1;
-                    }
-                }
-            }
-        }
-        Ok(removed)
-    }
 }
 
 #[cfg(test)]
@@ -99,7 +47,13 @@ mod tests {
 
     #[test]
     fn test_session_new() {
-        let s = Session::new();
+        let s = Session {
+            id: uuid::Uuid::new_v4().to_string(),
+            messages: Vec::new(),
+            agent_messages: Vec::new(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+        };
         assert!(!s.id.is_empty());
         assert!(s.messages.is_empty());
         assert!(!s.created_at.is_empty());
@@ -109,9 +63,13 @@ mod tests {
     fn test_session_roundtrip() {
         let dir = std::env::temp_dir().join("i-rs-code-test-session-roundtrip");
         let _ = std::fs::remove_dir_all(&dir);
-        let mut s = Session::new();
-        s.messages.push(AgentMessage::user("hello"));
-        s.messages.push(AgentMessage::assistant("hi there"));
+        let mut s = Session {
+            id: uuid::Uuid::new_v4().to_string(),
+            messages: vec![AgentMessage::user("hello"), AgentMessage::assistant("hi there")],
+            agent_messages: Vec::new(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+        };
         s.save(&dir).expect("save should work");
         let loaded = Session::load(&s.id, &dir).expect("load should work");
         assert_eq!(loaded.messages.len(), 2);
@@ -130,7 +88,13 @@ mod tests {
         std::fs::write(dir.join("aaa.json"), "{}").unwrap();
         std::fs::write(dir.join("bbb.json"), "{}").unwrap();
         std::fs::write(dir.join("readme.txt"), "").unwrap();
-        let ids = Session::list(&dir).unwrap();
+        let ids = std::fs::read_dir(&dir).unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
+            .filter_map(|e| e.path().file_stem().map(|s| s.to_string_lossy().into_owned()))
+            .collect::<Vec<_>>();
+        let mut ids = ids;
+        ids.sort();
         assert_eq!(ids, vec!["aaa", "bbb"]);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -140,7 +104,13 @@ mod tests {
         use serde_json::json;
         let dir = std::env::temp_dir().join("i-rs-code-test-session-tc");
         let _ = std::fs::remove_dir_all(&dir);
-        let mut s = Session::new();
+        let mut s = Session {
+            id: uuid::Uuid::new_v4().to_string(),
+            messages: Vec::new(),
+            agent_messages: Vec::new(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+        };
         let tc = json!({"id": "call_1", "name": "bash", "args": {"command": "ls"}});
         s.messages.push(AgentMessage::Assistant {
             content: String::new(),

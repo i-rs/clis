@@ -77,6 +77,7 @@ pub struct AgentConfig {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ProjectInfo {
     pub project_type: String,
     pub has_cargo: bool,
@@ -220,12 +221,14 @@ impl Config {
         self.base_url.as_deref().unwrap_or("https://api.openai.com/v1")
     }
 
+    #[allow(dead_code)]
     pub fn tools_dir(&self) -> PathBuf {
         self.tools_dir.as_ref().map(PathBuf::from).unwrap_or_else(|| {
             i_rs_code_dir().join("tools")
         })
     }
 
+    #[allow(dead_code)]
     pub fn bin_dir(&self) -> PathBuf {
         self.bin_dir.as_ref().map(PathBuf::from).unwrap_or_else(|| {
             i_rs_code_dir().join("bin")
@@ -246,6 +249,7 @@ impl Config {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn agent_config(&self, agent_id: &str) -> Config {
         if let Some(agent) = self.agents.get(agent_id) {
             Config {

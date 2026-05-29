@@ -87,6 +87,7 @@ impl CodeEvent {
         }
     }
 
+    #[allow(dead_code)]
     pub fn error(task_id: &str, content: &str) -> Self {
         Self {
             event: "error".into(),

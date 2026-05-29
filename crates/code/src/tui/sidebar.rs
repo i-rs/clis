@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span, Text},
-    widgets::{Paragraph},
+    widgets::{Clear, Paragraph},
 };
 use crate::app::App;
 use crate::tui::colors::*;
@@ -25,12 +25,27 @@ fn fmt_count(n: u32) -> String {
 }
 
 pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
+    // Sidebar background
+    frame.render_widget(Clear, area);
+    let bg = Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(C_BG_INPUT));
+    frame.render_widget(bg, area);
+
+    // Left separator between chat and sidebar
+    let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
+        "▕",
+        Style::default().fg(C_SEP),
+    ))])).style(Style::default().bg(C_BG));
+    let sep_area = Rect { x: area.x, y: area.y, width: 1, height: area.height };
+    frame.render_widget(sep_line, sep_area);
+
+    let inner = Rect { x: area.x + 1, y: area.y, width: area.width.saturating_sub(2), height: area.height };
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(1), Constraint::Length(1)])
-        .split(area);
-    let inner = chunks[0];
-    let w = inner.width.saturating_sub(3) as usize;
+        .split(inner);
+    let content_area = chunks[0];
+    let w = content_area.width.saturating_sub(2) as usize;
 
     let mut items: Vec<Line> = Vec::new();
 
@@ -40,7 +55,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         Style::default().fg(C_LABEL),
     )));
     items.push(Line::from(Span::styled(
-        "─".repeat(inner.width.saturating_sub(1) as usize),
+        "─".repeat(content_area.width.saturating_sub(1) as usize),
         Style::default().fg(C_SEP),
     )));
 
@@ -175,5 +190,5 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let paragraph = Paragraph::new(Text::from(items));
-    frame.render_widget(paragraph, inner);
+    frame.render_widget(paragraph, content_area);
 }

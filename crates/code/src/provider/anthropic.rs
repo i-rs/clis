@@ -149,8 +149,8 @@ impl AnthropicProvider {
                 }
             }
             "content_block_stop" => {
-                let index = parsed["index"].as_u64().unwrap_or(0) as usize;
-                Some(AnthropicEvent::ContentBlockStop { index })
+                let _index = parsed["index"].as_u64().unwrap_or(0) as usize;
+                Some(AnthropicEvent::ContentBlockStop)
             }
             "message_delta" => {
                 let delta = parsed.get("delta")?;
@@ -173,7 +173,7 @@ enum AnthropicEvent {
     MessageStart { usage: Option<Usage> },
     ContentBlockStart { index: usize, block_type: String, tool_use_id: Option<String>, tool_use_name: Option<String> },
     ContentBlockDelta { index: usize, text: Option<String>, partial_json: Option<String> },
-    ContentBlockStop { index: usize },
+    ContentBlockStop,
     MessageDelta { stop_reason: String, usage: Option<Usage> },
     MessageStop,
     Ping,
@@ -307,7 +307,7 @@ impl LlmProvider for AnthropicProvider {
                                         }
                                     }
                                 }
-                                AnthropicEvent::ContentBlockStop { .. } => {}
+                                AnthropicEvent::ContentBlockStop => {}
                                 AnthropicEvent::MessageDelta { stop_reason: sr, usage } => {
                                     stop_reason = sr;
                                     if let Some(u) = usage {
@@ -340,7 +340,7 @@ impl LlmProvider for AnthropicProvider {
                 }
             }
 
-            tx.send(StreamEvent { kind: StreamEventKind::Done { content: None, usage: total_usage } }).await.ok();
+            tx.send(StreamEvent { kind: StreamEventKind::Done { usage: total_usage } }).await.ok();
         });
 
         rx
@@ -551,8 +551,7 @@ mod tests {
         let event = AnthropicProvider::parse_sse_event("content_block_stop", data);
         assert!(event.is_some());
         match event.unwrap() {
-            AnthropicEvent::ContentBlockStop { index } => {
-                assert_eq!(index, 0);
+            AnthropicEvent::ContentBlockStop => {
             }
             _ => panic!("expected ContentBlockStop"),
         }

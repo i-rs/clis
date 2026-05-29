@@ -1,4 +1,5 @@
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ProviderError {
     RateLimited { retry_after_ms: Option<u64> },
     Timeout,

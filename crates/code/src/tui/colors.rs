@@ -4,7 +4,6 @@ pub const C_BG: Color = Color::Rgb(10, 10, 10);
 pub const C_BG_INPUT: Color = Color::Rgb(20, 20, 20);
 pub const C_BG_TITLE: Color = Color::Rgb(20, 20, 20);
 pub const C_SEP: Color = Color::Rgb(40, 40, 48);
-pub const C_TEXT: Color = Color::Rgb(229, 229, 234);
 pub const C_DIM: Color = Color::Rgb(113, 113, 122);
 pub const C_ACCENT: Color = Color::Rgb(14, 165, 233);
 pub const C_GREEN: Color = Color::Rgb(34, 197, 94);

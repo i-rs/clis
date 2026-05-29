@@ -55,16 +55,6 @@ fn render_diff_line(line: &str) -> Vec<Span<'static>> {
     }
 }
 
-fn fmt_count(n: u32) -> String {
-    if n >= 1_000_000 {
-        format!("{:.1}M", n as f64 / 1_000_000.0)
-    } else if n >= 1_000 {
-        format!("{:.1}k", n as f64 / 1_000.0)
-    } else {
-        n.to_string()
-    }
-}
-
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
@@ -279,8 +269,9 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
     spans.push(Span::styled("[?]", Style::default().fg(C_YELLOW)));
 
     let text = Line::from(spans);
+    let title_bg = Style::default().bg(C_BG_TITLE);
     frame.render_widget(Clear, area);
-    let bar = Paragraph::new(text);
+    let bar = Paragraph::new(text).style(title_bg);
     frame.render_widget(bar, area);
 
     // Bottom separator
@@ -438,7 +429,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 let diff_lines: Vec<&str> = diff.lines().collect();
                 let show = if diff_lines.len() > 10 { &diff_lines[..10] } else { &diff_lines[..] };
                 for line in show {
-                    let (sign, rest) = line.split_at(1);
+                    let (sign, _rest) = line.split_at(1);
                     let style = match sign {
                         "+" => Style::default().fg(Color::Green),
                         "-" => Style::default().fg(Color::Red),
@@ -513,6 +504,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let paragraph = Paragraph::new(Text::from(lines))
+        .style(Style::default().bg(C_BG))
         .block(Block::default().padding(ratatui::widgets::Padding::horizontal(1)))
         .wrap(Wrap { trim: false })
         .scroll((scroll as u16, 0));

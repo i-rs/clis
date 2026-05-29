@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::agent::Agent;
-use crate::protocol::{CodeEvent, ClawTask, transport::Transport};
+use crate::protocol::{CodeEvent, ClawTask, transport::{self}};
 
 pub static AGENT_MODE: AtomicBool = AtomicBool::new(false);
 
@@ -8,10 +8,10 @@ pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<
     AGENT_MODE.store(true, Ordering::SeqCst);
 
     // Notify claw we're ready
-    Transport::send_event(&CodeEvent::progress(task_id, "ready", "i-rs-code agent ready"))?;
+    transport::send_event(&CodeEvent::progress(task_id, "ready", "i-rs-code agent ready"))?;
 
     // Read task from stdin (sent by claw)
-    let line = Transport::read_line().await?;
+    let line = transport::read_line().await?;
     let task: ClawTask = serde_json::from_str(&line)?;
 
     if task.msg_type != "task" {
@@ -19,7 +19,7 @@ pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<
     }
 
     let prompt = task.prompt.unwrap_or_default();
-    Transport::send_event(&CodeEvent::progress(task_id, "processing", &format!("Starting task: {}", &prompt[..prompt.len().min(80)])))?;
+    transport::send_event(&CodeEvent::progress(task_id, "processing", &format!("Starting task: {}", &prompt[..prompt.len().min(80)])))?;
 
     // Run agent, intercepting claw requests
     agent.add_system_prompt("You are i-rs-code running under claw supervision. When you need help (build errors, design review, user approval), use the call_claw tool. After creating a tool, use register_tool to register it. Always verify your work with cargo check.");
@@ -56,11 +56,11 @@ pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<
                 let request_type = val.get("request_type").and_then(|v| v.as_str()).unwrap_or("info");
                 let content = val.get("content").and_then(|v| v.as_str()).unwrap_or("");
 
-                Transport::send_event(&CodeEvent::request(
+                transport::send_event(&CodeEvent::request(
                     task_id, "req-1", request_type, content, None,
                 ))?;
 
-                let respond_line = Transport::read_line().await?;
+                let respond_line = transport::read_line().await?;
                 let respond: ClawTask = serde_json::from_str(&respond_line)?;
 
                 if respond.msg_type == "respond" {
@@ -77,15 +77,15 @@ pub async fn run_agent_loop(agent: &mut Agent, task_id: &str) -> anyhow::Result<
                 && val.get("requires_registration").and_then(|v| v.as_bool()).unwrap_or(false)
                 && let Some(tool_info) = val.get("tool")
             {
-                Transport::send_event(&CodeEvent::tool_created(task_id, tool_info.clone()))?;
+                transport::send_event(&CodeEvent::tool_created(task_id, tool_info.clone()))?;
             }
         }
 
         // If we got here, the react loop finished normally
         if !final_text.is_empty() {
-            Transport::send_event(&CodeEvent::done(task_id, &final_text))?;
+            transport::send_event(&CodeEvent::done(task_id, &final_text))?;
         } else {
-            Transport::send_event(&CodeEvent::done(task_id, "Task completed"))?;
+            transport::send_event(&CodeEvent::done(task_id, "Task completed"))?;
         }
         break;
     }

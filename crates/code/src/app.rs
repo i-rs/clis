@@ -23,6 +23,7 @@ impl AgentMessage {
     pub fn user(content: impl Into<String>) -> Self {
         Self::User { content: content.into() }
     }
+    #[allow(dead_code)]
     pub fn assistant(content: impl Into<String>) -> Self {
         Self::Assistant { content: content.into(), reasoning: String::new(), tool_calls: None, reasoning_expanded: false }
     }
@@ -138,6 +139,7 @@ impl App {
         });
     }
 
+    #[allow(dead_code)]
     pub fn push_token(&mut self, token: &str) {
         if let Some(ref mut s) = self.streaming {
             s.content.push_str(token);

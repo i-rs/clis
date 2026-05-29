@@ -218,7 +218,7 @@ impl LlmProvider for OpenAiProvider {
                 timestamp: chrono::Utc::now().to_rfc3339(),
             });
 
-            tx.send(StreamEvent { kind: StreamEventKind::Done { content: None, usage: final_usage } }).await.ok();
+            tx.send(StreamEvent { kind: StreamEventKind::Done { usage: final_usage } }).await.ok();
         });
 
         rx

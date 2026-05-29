@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct HttpLogEntry {
     pub url: String,
     pub request_body: String,
@@ -59,10 +60,6 @@ pub fn clear_log() {
     }
 }
 
-pub fn log_count() -> usize {
-    http_log().lock().map(|log| log.0.len()).unwrap_or(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,8 +92,8 @@ mod tests {
             duration_ms: 0,
             timestamp: String::new(),
         });
-        assert!(log_count() > 0, "should have entries before clear");
+        assert!(get_log().len() > 0, "should have entries before clear");
         clear_log();
-        assert_eq!(log_count(), 0, "should be empty after clear");
+        assert_eq!(get_log().len(), 0, "should be empty after clear");
     }
 }

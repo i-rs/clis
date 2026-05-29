@@ -4,21 +4,16 @@ use crate::provider::LlmMessage;
 pub struct ContextManager {
     max_tokens: usize,
     project_dir: Option<std::path::PathBuf>,
-    memory: Option<CrossSessionMemory>,
 }
 
 impl ContextManager {
     pub fn new() -> Self {
-        Self { max_tokens: 128_000, project_dir: None, memory: None }
+        Self { max_tokens: 128_000, project_dir: None }
     }
 
+    #[allow(dead_code)]
     pub fn with_project_dir(mut self, dir: std::path::PathBuf) -> Self {
         self.project_dir = Some(dir);
-        self
-    }
-
-    pub fn with_memory(mut self, memory: CrossSessionMemory) -> Self {
-        self.memory = Some(memory);
         self
     }
 
@@ -26,10 +21,12 @@ impl ContextManager {
         crate::tokenizer::estimate_message_tokens(messages)
     }
 
+    #[allow(dead_code)]
     pub fn should_compress(&self, messages: &[LlmMessage]) -> bool {
         Self::estimate_tokens(messages) > self.max_tokens * 80 / 100
     }
 
+    #[allow(dead_code)]
     pub fn inject_memory(messages: &[LlmMessage], memory: &CrossSessionMemory) -> Vec<LlmMessage> {
         let mem_text = memory.format_for_prompt();
         if mem_text.is_empty() {

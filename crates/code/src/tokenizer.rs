@@ -15,16 +15,6 @@ pub fn count_tokens(text: &str) -> usize {
     bpe.encode_with_special_tokens(text).len()
 }
 
-pub fn count_tokens_for_model(model: &str, text: &str) -> usize {
-    if model.contains("claude") || model.contains("anthropic") {
-        (text.len() as f64 / 4.0).ceil() as usize
-    } else if model.contains("llama") || model.contains("ollama") {
-        (text.len() as f64 / 4.0).ceil() as usize
-    } else {
-        count_tokens(text)
-    }
-}
-
 pub fn estimate_message_tokens(messages: &[crate::provider::LlmMessage]) -> usize {
     let mut total = 0usize;
     for msg in messages {

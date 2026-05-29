@@ -59,6 +59,7 @@ impl CrossSessionMemory {
         self.dirty = true;
     }
 
+    #[cfg(test)]
     pub fn add_preference(&mut self, pref: &str) {
         if !self.preferences.iter().any(|p| p == pref) {
             self.preferences.push(pref.to_string());

@@ -42,7 +42,7 @@ impl MockLlmProvider {
         Self {
             events: vec![
                 StreamEventKind::Token(text.to_string()),
-                StreamEventKind::Done { content: None, usage: None },
+                StreamEventKind::Done { usage: None },
             ],
             name: "mock".into(),
         }
@@ -53,7 +53,7 @@ impl MockLlmProvider {
         Self {
             events: vec![
                 StreamEventKind::ToolCall { id: id.to_string(), name: name.to_string(), args },
-                StreamEventKind::Done { content: None, usage: None },
+                StreamEventKind::Done { usage: None },
             ],
             name: "mock".into(),
         }
@@ -70,7 +70,7 @@ impl MockLlmProvider {
             events: vec![
                 StreamEventKind::Token(text.to_string()),
                 StreamEventKind::ToolCall { id: id.to_string(), name: name.to_string(), args },
-                StreamEventKind::Done { content: None, usage: None },
+                StreamEventKind::Done { usage: None },
             ],
             name: "mock".into(),
         }

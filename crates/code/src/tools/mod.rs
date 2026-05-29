@@ -27,6 +27,7 @@ pub use crate::error::ToolError;
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
+    #[allow(dead_code)]
     fn description(&self) -> &str;
     fn schema(&self) -> Value;
     async fn call(&self, args: &Map<String, Value>) -> ToolResult;
@@ -78,10 +79,12 @@ impl ToolRegistry {
         Ok(Self { tools })
     }
 
+    #[allow(dead_code)]
     pub fn new_empty() -> Self {
         Self { tools: HashMap::new() }
     }
 
+    #[allow(dead_code)]
     pub fn register(&mut self, tool: Arc<dyn Tool>) {
         self.tools.insert(tool.name().to_string(), tool);
     }
