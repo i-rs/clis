@@ -428,21 +428,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let input_bg = Style::new().bg(C_BG_INPUT);
-    frame.render_widget(Clear, area);
-    let bg_fill = Paragraph::new(Text::from(vec![Line::from("")])).style(input_bg);
-    frame.render_widget(bg_fill, area);
-
-    // Top separator line
-    let sep_color = if matches!(app.mode, AppMode::Waiting) { C_SEP } else { Color::Rgb(42, 42, 50) };
-    let sep = Span::styled("─".repeat(area.width as usize), Style::new().fg(sep_color));
-    let sep_line = Paragraph::new(Text::from(vec![Line::from(sep)])).style(input_bg);
-    let sep_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
-    frame.render_widget(sep_line, sep_area);
-
-    let inner = Rect { x: area.x + 1, y: area.y + 1, width: area.width.saturating_sub(2), height: area.height.saturating_sub(1) };
     let prefix = "> ";
-
     let hint = Line::from(Span::styled(
         strings::STATUS_BAR,
         Style::new().fg(C_DIM),
@@ -469,9 +455,17 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         result
     };
 
-    let input_widget = Paragraph::new(lines).style(input_bg);
-    frame.render_widget(input_widget, inner);
+    let sep_color = if matches!(app.mode, AppMode::Waiting) { C_SEP } else { Color::Rgb(42, 42, 50) };
+    let block = Block::default()
+        .borders(Borders::TOP)
+        .border_style(Style::new().fg(sep_color))
+        .padding(ratatui::widgets::Padding::new(1, 1, 0, 0))
+        .style(Style::new().bg(C_BG_INPUT));
 
+    let input_widget = Paragraph::new(lines).block(block);
+    frame.render_widget(input_widget, area);
+
+    let inner = area.inner(Margin::new(1, 1));
     let prefix_width = unicode_width::UnicodeWidthStr::width(prefix) as u16;
     if matches!(app.mode, AppMode::Idle) && !app.input.content.is_empty() {
         let input_before = &app.input.content[..app.input.cursor_pos];
