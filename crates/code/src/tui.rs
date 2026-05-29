@@ -99,13 +99,23 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                     }
                 }
                 Event::Mouse(mouse) => {
+                    let sidebar_width = 38u16;
+                    let is_sidebar = terminal.size().map(|s| mouse.column > s.width.saturating_sub(sidebar_width)).unwrap_or(false);
                     match mouse.kind {
                         MouseEventKind::ScrollUp => {
-                            app.scroll_offset = app.scroll_offset.saturating_add(3);
-                            app.auto_scroll = false;
+                            if is_sidebar {
+                                app.sidebar_scroll = app.sidebar_scroll.saturating_sub(3);
+                            } else {
+                                app.scroll_offset = app.scroll_offset.saturating_sub(3);
+                                app.auto_scroll = false;
+                            }
                         }
                         MouseEventKind::ScrollDown => {
-                            app.scroll_offset = app.scroll_offset.saturating_sub(3);
+                            if is_sidebar {
+                                app.sidebar_scroll = app.sidebar_scroll.saturating_add(3);
+                            } else {
+                                app.scroll_offset = app.scroll_offset.saturating_add(3);
+                            }
                         }
                         _ => {}
                     }
@@ -282,9 +292,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
             // Separator
             app.messages.push(AgentMessage::Separator { label: String::new() });
 
-            if app.auto_scroll {
-                app.scroll_offset = 0;
-            }
+            // scroll_offset preserved when auto_scroll=false (absolute line semantics)
             if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
@@ -363,8 +371,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 }
                 KeyCode::Up => app.scroll_up(),
                 KeyCode::Down => app.scroll_down(),
-                KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
-                KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_sub(10),
+                KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
+                KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
                 _ => {}
             }
             return;
@@ -502,8 +510,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         }
         KeyCode::Up => app.scroll_up(),
         KeyCode::Down => app.scroll_down(),
-        KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_add(10),
-        KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_sub(10),
+        KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
+        KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.input.insert_char('\n'),
         KeyCode::Enter if !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);

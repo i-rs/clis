@@ -68,6 +68,7 @@ pub struct App {
     pub agent_messages: Vec<crate::provider::LlmMessage>,
     pub scroll_offset: usize,
     pub auto_scroll: bool,
+    pub sidebar_scroll: usize,
     pub file_changes: HashSet<String>,
     pub token_usage: TokenUsage,
     pub version: String,
@@ -105,6 +106,7 @@ impl App {
             agent_messages: Vec::new(),
             scroll_offset: 0,
             auto_scroll: true,
+            sidebar_scroll: 0,
             file_changes: HashSet::new(),
             token_usage: TokenUsage::default(),
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -155,12 +157,12 @@ impl App {
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(1);
+        self.scroll_offset = self.scroll_offset.saturating_sub(1);
         self.auto_scroll = false;
     }
 
     pub fn scroll_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+        self.scroll_offset = self.scroll_offset.saturating_add(1);
     }
 
     pub fn add_token_usage(&mut self, input: u32, output: u32) {

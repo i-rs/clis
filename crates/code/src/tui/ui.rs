@@ -477,17 +477,21 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    // Bottom padding
-    lines.push(Line::from(""));
-    lines.push(Line::from(""));
+    // Bottom padding (prevent messages touching input bar)
+    for _ in 0..4 {
+        lines.push(Line::from(""));
+    }
 
     let max_scroll = lines.len().saturating_sub(area.height as usize);
-    let scroll = if app.auto_scroll { max_scroll } else { max_scroll.saturating_sub(app.scroll_offset).min(max_scroll) };
+    let scroll = if app.auto_scroll {
+        max_scroll
+    } else {
+        app.scroll_offset.min(max_scroll)
+    };
 
-
-    // Show "↑ N 条历史消息" at the top if scrolled
+    // Show "↑ N 条历史消息" at the top if scrolled away from bottom
     let hidden_msgs = app.messages.len().saturating_sub(1);
-    if scroll > 0 && hidden_msgs > 0 {
+    if !app.auto_scroll && hidden_msgs > 0 {
         let mut header = vec![Line::from(Span::styled(
             strings::scrolled_up_hint(hidden_msgs),
             Style::default().fg(C_DIM),

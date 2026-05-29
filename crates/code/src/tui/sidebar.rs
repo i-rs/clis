@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span, Text},
-    widgets::{Clear, Paragraph},
+    widgets::{Clear, Paragraph, Wrap},
 };
 use crate::app::App;
 use crate::tui::colors::*;
@@ -189,6 +189,21 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(Span::styled(format!(" {}", preview), Style::default().fg(Color::Yellow))));
     }
 
-    let paragraph = Paragraph::new(Text::from(items));
+    let sidebar_max = items.len().saturating_sub(content_area.height as usize);
+    let sidebar_scroll = app.sidebar_scroll.min(sidebar_max);
+    if sidebar_max > 0 {
+        let scroll_indicator = if sidebar_scroll > 0 {
+            format!(" ⇡({}/{})", sidebar_scroll, sidebar_max)
+        } else {
+            "  (scroll: ↑↓)".to_string()
+        };
+        items.push(Line::from(Span::styled(
+            scroll_indicator,
+            Style::default().fg(C_LABEL),
+        )));
+    }
+    let paragraph = Paragraph::new(Text::from(items))
+        .wrap(Wrap { trim: false })
+        .scroll((sidebar_scroll as u16, 0));
     frame.render_widget(paragraph, content_area);
 }
