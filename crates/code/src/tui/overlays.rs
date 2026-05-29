@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Rect},
     style::{Color, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, Paragraph},
@@ -9,11 +9,10 @@ use crate::tui::colors::*;
 use super::strings;
 
 pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
-    let w = 56.min(area.width.saturating_sub(4));
-    let h = 22;
-    let x = (area.width - w) / 2;
-    let y = (area.height - h) / 2;
-    let overlay = Rect { x, y, width: w, height: h };
+    let overlay = area.centered(
+        Constraint::Length(56.min(area.width.saturating_sub(4))),
+        Constraint::Length(22),
+    );
 
     frame.render_widget(Clear, overlay);
 
@@ -45,9 +44,7 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
 pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App) {
     let w = area.width.saturating_sub(4).min(80);
     let h = area.height.saturating_sub(4).min(30);
-    let x = (area.width - w) / 2;
-    let y = (area.height - h) / 2;
-    let overlay = Rect { x, y, width: w, height: h };
+    let overlay = area.centered(Constraint::Length(w), Constraint::Length(h));
 
     frame.render_widget(Clear, overlay);
 

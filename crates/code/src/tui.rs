@@ -574,18 +574,36 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Tab => {
             let input = &app.input.content;
             let trimmed = input.trim();
-            let matches: Vec<&str> = app.tool_names.iter()
-                .filter(|name| !trimmed.is_empty() && name.starts_with(trimmed))
-                .map(String::as_str)
-                .collect();
-            if matches.len() == 1 {
-                app.input.content = format!("{} ", matches[0]);
-                app.input.cursor_pos = app.input.content.len();
-            } else if matches.len() > 1 {
-                let common = longest_common_prefix(&matches);
-                if common.len() > trimmed.len() {
-                    app.input.content = common.clone();
-                    app.input.cursor_pos = common.len();
+            if trimmed.starts_with('/') {
+                let partial = trimmed[1..].to_lowercase();
+                let cmd_names: Vec<&str> = crate::tui::slash_command::COMMANDS.iter()
+                    .map(|c| c.name)
+                    .filter(|name| name.starts_with(&partial))
+                    .collect();
+                if cmd_names.len() == 1 {
+                    app.input.content = format!("/{} ", cmd_names[0]);
+                    app.input.cursor_pos = app.input.content.len();
+                } else if cmd_names.len() > 1 {
+                    let common = longest_common_prefix(&cmd_names);
+                    if common.len() > partial.len() {
+                        app.input.content = format!("/{}", common);
+                        app.input.cursor_pos = app.input.content.len();
+                    }
+                }
+            } else {
+                let matches: Vec<&str> = app.tool_names.iter()
+                    .filter(|name| !trimmed.is_empty() && name.starts_with(trimmed))
+                    .map(String::as_str)
+                    .collect();
+                if matches.len() == 1 {
+                    app.input.content = format!("{} ", matches[0]);
+                    app.input.cursor_pos = app.input.content.len();
+                } else if matches.len() > 1 {
+                    let common = longest_common_prefix(&matches);
+                    if common.len() > trimmed.len() {
+                        app.input.content = common.clone();
+                        app.input.cursor_pos = common.len();
+                    }
                 }
             }
         }
