@@ -474,7 +474,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Char('?') if !app.show_debug => {
             app.show_shortcuts = !app.show_shortcuts;
         }
-        KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+        KeyCode::Char('b') if key.modifiers == KeyModifiers::CONTROL => {
             app.show_shortcuts = false;
             app.show_debug = !app.show_debug;
             if !app.show_debug {
@@ -501,7 +501,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 match c {
                     'c' if matches!(app.mode, AppMode::Idle) => {
                         app.messages.push(AgentMessage::system(
-                            "Press Ctrl+D (or Esc/q) to quit. Ctrl+C doesn't exit."
+                            "按 Esc 或 q 退出。Ctrl+C 不能退出，Ctrl+B 打开调试面板。"
                         ));
                         return;
                     }
@@ -512,15 +512,20 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 }
             }
             app.input.insert_char(c);
+            app.needs_redraw = true;
         }
-        KeyCode::Backspace => app.input.delete_char(),
+        KeyCode::Backspace => {
+            app.input.delete_char();
+            app.needs_redraw = true;
+        }
         KeyCode::Delete if app.input.cursor_pos < app.input.content.len() => {
             app.input.delete_forward();
+            app.needs_redraw = true;
         }
-        KeyCode::Left => app.input.move_left(),
-        KeyCode::Right => app.input.move_right(),
-        KeyCode::Home => { app.input.cursor_pos = 0; }
-        KeyCode::End => { app.input.cursor_pos = app.input.content.len(); }
+        KeyCode::Left => { app.input.move_left(); app.needs_redraw = true; }
+        KeyCode::Right => { app.input.move_right(); app.needs_redraw = true; }
+        KeyCode::Home => { app.input.cursor_pos = 0; app.needs_redraw = true; }
+        KeyCode::End => { app.input.cursor_pos = app.input.content.len(); app.needs_redraw = true; }
         KeyCode::Up if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
             app.input.history_up();
         }
@@ -531,7 +536,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Down => app.scroll_down(),
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
-        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.input.insert_char('\n'),
+        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => { app.input.insert_char('\n'); app.needs_redraw = true; }
         // Slash command dispatch (must come before normal Enter handler)
         KeyCode::Enter if !app.input.content.is_empty()
             && app.input.content.trim().starts_with('/')

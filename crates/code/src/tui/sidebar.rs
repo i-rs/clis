@@ -29,7 +29,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let sep_area = Rect { x: area.x, y: area.y, width: 1, height: area.height };
     frame.render_widget(sep_line, sep_area);
 
-    let inner = Rect { x: area.x + 1, y: area.y, width: area.width.saturating_sub(2), height: area.height };
+    let inner = Rect { x: area.x + 2, y: area.y, width: area.width.saturating_sub(3), height: area.height };
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)

@@ -64,7 +64,7 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
     }).collect();
 
     let block = Block::default()
-        .title(" Debug Log (Ctrl+D close, Ctrl+L clear, ↑↓ scroll) ")
+        .title(" Debug Log (Ctrl+B close, Ctrl+L clear, ↑↓ scroll) ")
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
         .border_style(Style::new().fg(Color::Yellow));
