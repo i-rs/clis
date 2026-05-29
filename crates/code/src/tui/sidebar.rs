@@ -8,16 +8,7 @@ use ratatui::{
 use crate::app::App;
 use crate::tui::colors::*;
 
-fn short_path(path: &str) -> String {
-    if let Some(home) = dirs::home_dir() {
-        let home_str = home.to_string_lossy();
-        if let Some(rest) = path.strip_prefix(&*home_str) {
-            return format!("~{}", rest);
-        }
-    }
-    path.to_string()
-}
-
+use super::utils::short_path;
 fn fmt_count(n: u32) -> String {
     if n < 1000 { n.to_string() }
     else if n < 1_000_000 { format!("{:.1}K", n as f64 / 1000.0) }

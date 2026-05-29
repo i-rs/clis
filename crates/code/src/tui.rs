@@ -7,6 +7,12 @@ pub mod sidebar;
 #[cfg(feature = "tui")]
 pub mod strings;
 #[cfg(feature = "tui")]
+pub mod utils;
+#[cfg(feature = "tui")]
+pub mod overlays;
+#[cfg(feature = "tui")]
+pub mod transcript;
+#[cfg(feature = "tui")]
 pub mod ui;
 
 #[cfg(feature = "tui")]
@@ -56,11 +62,12 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     }
 
     if app.git_baseline.is_none() {
-        let output = std::process::Command::new("git")
+        let git_output = tokio::process::Command::new("git")
             .args(["diff", "--stat"])
             .current_dir(&app.current_dir)
-            .output();
-        if let Ok(out) = output {
+            .output()
+            .await;
+        if let Ok(out) = git_output {
             if out.status.success() {
                 let stderr = String::from_utf8_lossy(&out.stderr);
                 let file_count = stderr.lines()
@@ -80,13 +87,16 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     }
 
     while !app.should_quit {
-        terminal.draw(|f| {
-            if app.show_transcript {
-                ui::render_transcript(f, &app);
-            } else {
-                ui::render(f, &app);
-            }
-        })?;
+        if app.needs_redraw {
+            terminal.draw(|f| {
+                if app.show_transcript {
+                    transcript::render_transcript(f, &app);
+                } else {
+                    ui::render(f, &app);
+                }
+            })?;
+            app.needs_redraw = false;
+        }
 
         if event::poll(Duration::from_millis(50))? {
             match event::read()? {
@@ -125,7 +135,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         }
 
         while let Ok(event) = event_rx.try_recv() {
-            handle_event(event, &mut app);
+            handle_event(event, &mut app).await;
         }
     }
 
@@ -168,7 +178,8 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 }
 
 #[cfg(feature = "tui")]
-fn handle_event(event: AgentEvent, app: &mut App) {
+async fn handle_event(event: AgentEvent, app: &mut App) {
+    app.needs_redraw = true;
     match event {
         AgentEvent::Token(t) => {
             if let Some(ref mut s) = app.streaming {
@@ -187,7 +198,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
                     let rel = make_relative(&app.current_dir, path);
                     app.file_changes.insert(rel.clone());
                     if !matches!(name.as_str(), "delete")
-                        && let Ok(content) = std::fs::read_to_string(path)
+                        && let Ok(content) = tokio::fs::read_to_string(path).await
                     {
                         app.last_file_states.push((rel, content));
                     }
@@ -320,6 +331,7 @@ fn handle_event(event: AgentEvent, app: &mut App) {
 
 #[cfg(feature = "tui")]
 async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentEvent>) {
+    app.needs_redraw = true;
     if app.show_shortcuts {
         app.show_shortcuts = false;
         return;
@@ -411,7 +423,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         }
         KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
             if let Some((path, content)) = app.last_file_states.pop() {
-                match std::fs::write(&path, &content) {
+                match tokio::fs::write(&path, &content).await {
                     Ok(_) => {
                         app.messages.push(AgentMessage::system(format!("Reverted {}", path)));
                     }
@@ -420,9 +432,10 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     }
                 }
             } else if let Some((commit_msg, files)) = app.git_baseline.take() {
-                let result = std::process::Command::new("git")
+                let result = tokio::process::Command::new("git")
                     .args(["stash", "push", "-m", &commit_msg])
-                    .output();
+                    .output()
+                    .await;
                 match result {
                     Ok(output) => {
                         if output.status.success() {
