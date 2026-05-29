@@ -48,7 +48,11 @@ impl ContextManager {
     }
 
     pub fn compress(&self, messages: &[LlmMessage]) -> Vec<LlmMessage> {
-        let processed = self.apply_path_compression(messages);
+        let processed = if self.project_dir.is_some() {
+            self.apply_path_compression(messages)
+        } else {
+            messages.to_vec()
+        };
 
         if Self::estimate_tokens(&processed) <= self.max_tokens * 80 / 100 {
             return processed;
@@ -118,8 +122,8 @@ impl ContextManager {
     fn summarize_pairs(&self, pairs: &[(LlmMessage, LlmMessage)]) -> String {
         let mut details: Vec<String> = Vec::new();
         for (_call, result) in pairs {
-            let (name, _call_id, content) = match &result {
-                LlmMessage::Tool { name, call_id, content } => (name.clone(), call_id.clone(), content),
+            let (name, content) = match &result {
+                LlmMessage::Tool { name, content, .. } => (name.as_str(), content.as_str()),
                     _ => continue,
             };
             details.push(format!("{}: {} chars", name, content.len()));
@@ -141,11 +145,11 @@ impl ContextManager {
     fn summarize_pairs_detailed(&self, pairs: &[(LlmMessage, LlmMessage)]) -> String {
         let mut details: Vec<String> = Vec::new();
         for (_call, result) in pairs {
-            let (name, _call_id, content) = match &result {
-                LlmMessage::Tool { name, call_id, content } => (name.clone(), call_id.clone(), content),
+            let (name, content) = match &result {
+                LlmMessage::Tool { name, content, .. } => (name.as_str(), content.as_str()),
                     _ => continue,
             };
-            let head = if content.len() > 500 { &content[..500] } else { content.as_str() };
+            let head = if content.len() > 500 { &content[..500] } else { content };
             details.push(format!("{}: {} chars\n  Preview: {}", name, content.len(), Self::smart_truncate(head, 400, 50)));
             let errors = Self::extract_error_lines(content);
             if !errors.is_empty() {

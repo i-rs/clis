@@ -227,13 +227,14 @@ async fn react_loop_inner(
 
         let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs, memory, Some(&tool_cache)).await;
 
+        // First pass: emit events (borrow)
         for (name, call_id, result_str) in &tool_messages {
             output.emit_tool_call_end(name, call_id, result_str).await;
 
             if let Ok(val) = serde_json::from_str::<Value>(result_str)
                 && val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
                     output.emit_request(&val);
-                    output.emit_done(Some(total_usage.clone()), &messages, 0.0).await;
+                    output.emit_done(Some(total_usage), &messages, 0.0).await;
                     return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
                 }
 
@@ -245,31 +246,35 @@ async fn react_loop_inner(
 
             output.emit_tool_result(call_id, name, result_str);
             if let Some(h) = hooks { h.on_tool_result(name, result_str); }
-            messages.push(LlmMessage::Tool {
-                name: name.clone(), content: result_str.clone(), call_id: call_id.clone(),
-            });
         }
 
-        if let Some(sys_msg) = build_over_limit_message(&retry_counts) {
+        let over_limit_msg = build_over_limit_message(&retry_counts);
+
+        // Check verify failure before consuming tool_messages
+        let verify_failed = tool_messages.iter().any(|(name, _, result)| name == "verify" && result.contains("FAIL"));
+
+        // Second pass: push messages (by value, avoid clones)
+        for (name, call_id, result_str) in tool_messages {
+            messages.push(LlmMessage::Tool { name, content: result_str, call_id });
+        }
+
+        if let Some(sys_msg) = over_limit_msg {
             messages.push(LlmMessage::System(sys_msg));
         }
 
-        // M5: After verify tool returns FAIL, inject fix instruction
-        for (name, _call_id, result_str) in &tool_messages {
-            if name == "verify" && result_str.contains("FAIL") {
-                messages.push(LlmMessage::System(
-                    "The verification above failed. Please fix the reported errors, then run verify again to confirm. Do not ask for permission — just fix the issues.".into()
-                ));
-                break;
-            }
+        if verify_failed {
+            messages.push(LlmMessage::System(
+                "The verification above failed. Please fix the reported errors, then run verify again to confirm. Do not ask for permission — just fix the issues.".into()
+            ));
         }
 
         if let Some(h) = hooks { h.on_round_complete(_round, &messages); }
     }
 
     let _estimated = super::context::ContextManager::estimate_tokens(&messages) as f64 / 128_000.0;
-    if let Some(h) = hooks { h.on_done(max_rounds, &Some(total_usage.clone())); }
-    output.emit_done(Some(total_usage), &messages, _estimated).await;
+    let usage = Some(total_usage);
+    if let Some(h) = hooks { h.on_done(max_rounds, &usage); }
+    output.emit_done(usage, &messages, _estimated).await;
     Ok((final_text, messages))
 }
 
