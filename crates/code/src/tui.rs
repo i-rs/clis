@@ -93,16 +93,13 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     }
 
     while !app.should_quit {
-        if app.needs_redraw {
-            terminal.draw(|f| {
-                if app.show_transcript {
-                    transcript::render_transcript(f, &app);
-                } else {
-                    ui::render(f, &app);
-                }
-            })?;
-            app.needs_redraw = false;
-        }
+        terminal.draw(|f| {
+            if app.show_transcript {
+                transcript::render_transcript(f, &app);
+            } else {
+                ui::render(f, &app);
+            }
+        })?;
 
         if event::poll(Duration::from_millis(50))? {
             match event::read()? {
