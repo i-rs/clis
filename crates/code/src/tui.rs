@@ -14,6 +14,8 @@ pub mod overlays;
 pub mod transcript;
 #[cfg(feature = "tui")]
 pub mod ui;
+#[cfg(feature = "tui")]
+pub mod highlight;
 
 #[cfg(feature = "tui")]
 use crate::agent::event::AgentEvent;

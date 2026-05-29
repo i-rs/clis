@@ -8,6 +8,7 @@ use ratatui::{
 use crate::app::{AgentMessage, App, AppMode};
 use crate::tui::colors::*;
 use super::strings;
+use super::highlight::highlight_code_block;
 
 const SIDEBAR_WIDTH: u16 = 38;
 
@@ -45,6 +46,53 @@ fn render_diff_line(line: &str) -> Vec<Span<'static>> {
     } else {
         vec![Span::raw(line.to_string())]
     }
+}
+
+fn render_ai_content(content: &str) -> Vec<Line<'static>> {
+    let mut result = Vec::new();
+    let mut in_code = false;
+    let mut code_lang = String::new();
+    let mut code_buffer = String::new();
+
+    for line in content.lines() {
+        if line.starts_with("```") {
+            if in_code {
+                let lang = if code_lang.is_empty() { None } else { Some(code_lang.as_str()) };
+                let highlighted = highlight_code_block(&code_buffer, lang);
+                for hl_line in highlighted {
+                    let mut spans = vec![Span::raw(" ")];
+                    spans.extend(hl_line);
+                    result.push(Line::from(spans));
+                }
+                code_buffer.clear();
+                code_lang.clear();
+                in_code = false;
+            } else {
+                in_code = true;
+                code_lang = line[3..].trim().to_string();
+            }
+            continue;
+        }
+
+        if in_code {
+            code_buffer.push_str(line);
+            code_buffer.push('\n');
+        } else {
+            result.push(Line::from(Span::raw(format!(" {}", line))));
+        }
+    }
+
+    if in_code && !code_buffer.is_empty() {
+        let lang = if code_lang.is_empty() { None } else { Some(code_lang.as_str()) };
+        let highlighted = highlight_code_block(&code_buffer, lang);
+        for hl_line in highlighted {
+            let mut spans = vec![Span::raw(" ")];
+            spans.extend(hl_line);
+            result.push(Line::from(spans));
+        }
+    }
+
+    result
 }
 
 pub fn render(frame: &mut Frame, app: &App) {
@@ -161,9 +209,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         Style::default().fg(C_YELLOW),
                     )));
                 }
-                for line in content.lines() {
-                    lines.push(Line::from(Span::raw(format!(" {}", line))));
-                }
+                let content_lines = render_ai_content(content);
+                lines.extend(content_lines);
             }
             AgentMessage::ToolResult { content } => {
                 let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
@@ -311,9 +358,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
 
         if !s.content.is_empty() {
-            for line in s.content.lines() {
-                lines.push(Line::from(Span::raw(format!(" {}", line))));
-            }
+            let content_lines = render_ai_content(&s.content);
+            lines.extend(content_lines);
         }
 
         if s.current_tool.is_none() && !s.content.is_empty() {
