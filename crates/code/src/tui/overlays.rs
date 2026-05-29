@@ -21,12 +21,12 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
         .chain(strings::SHORTCUTS.iter().map(|(key, label)| {
             Line::from(Span::styled(
                 format!("  {:<14} {}", key, label),
-                Style::default().fg(Color::White),
+                Style::new().fg(Color::White),
             ))
         }))
         .chain(std::iter::once(Line::from("")))
         .chain(std::iter::once(Line::from(Span::styled(
-            "     Press any key to close", Style::default().fg(C_DIM),
+            "     Press any key to close", Style::new().fg(C_DIM),
         ))))
         .collect();
 
@@ -34,7 +34,7 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
         .title(format!(" {} ", strings::SHORTCUT_TITLE))
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::new().fg(Color::Cyan));
 
     let paragraph = Paragraph::new(Text::from(items))
         .block(block)
@@ -55,12 +55,12 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
     let scroll = app.debug_scroll.min(logs.len().saturating_sub(1));
     let visible: Vec<Line> = logs.iter().skip(scroll).take((h as usize).saturating_sub(3)).map(|entry| {
         let status_style = match entry.response_status {
-            200 => Style::default().fg(Color::Green),
-            s if s >= 400 => Style::default().fg(Color::Red),
-            _ => Style::default().fg(Color::Yellow),
+            200 => Style::new().fg(Color::Green),
+            s if s >= 400 => Style::new().fg(Color::Red),
+            _ => Style::new().fg(Color::Yellow),
         };
         Line::from(vec![
-            Span::styled(format!("{} ", entry.time_short()), Style::default().fg(C_DIM)),
+            Span::styled(format!("{} ", entry.time_short()), Style::new().fg(C_DIM)),
             Span::styled(entry.status_label(), status_style),
             Span::raw(format!(" {} ({}ms)", entry.path(), entry.duration_ms)),
         ])
@@ -70,7 +70,7 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
         .title(" Debug Log (Ctrl+D close, Ctrl+L clear, ↑↓ scroll) ")
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(Style::new().fg(Color::Yellow));
 
     let paragraph = Paragraph::new(Text::from(visible))
         .block(block)
