@@ -151,7 +151,8 @@ impl AppCore {
     pub fn new(config: Config) -> anyhow::Result<Self> {
         let claw_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?
-            .join(".i-rs-claw")
+            .join(".i-rs")
+            .join("claw")
             .join("claw");
 
         // Migrate legacy data to agents/default/ if needed
@@ -335,7 +336,7 @@ impl AppCore {
     pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
-        Ok(home.join(".i-rs-claw").join("claw"))
+        Ok(home.join(".i-rs").join("claw").join("claw"))
     }
 }
 

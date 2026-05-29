@@ -371,7 +371,7 @@ impl Config {
     fn config_path() -> anyhow::Result<std::path::PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
-        let dir = home.join(".i-rs-claw");
+        let dir = home.join(".i-rs").join("claw");
         Ok(dir.join("config.toml"))
     }
 
