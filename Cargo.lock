@@ -2294,6 +2294,7 @@ dependencies = [
  "ratatui",
  "regex",
  "reqwest",
+ "rmcp",
  "serde",
  "serde_json",
  "similar",

@@ -1,22 +1,22 @@
+//! MCP (Model Context Protocol) client using the official rmcp SDK.
+//!
+//! Replaces the previous hand-rolled JSON-RPC implementation with rmcp v1.7.0,
+//! providing standard protocol handling, proper error recovery, and automatic
+//! lifecycle management (initialize handshake, initialized notification, shutdown).
+
 use std::collections::HashMap;
-use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 
+use rmcp::{
+    ServiceExt,
+    model::CallToolRequestParams,
+    service::{RoleClient, RunningService},
+    transport::TokioChildProcess,
+};
 use serde_json::Value;
-use tokio::io::{AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command};
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::process::Command;
 
-const MCP_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
-
-pub struct McpConnection {
-    child: Option<Child>,
-    stdin: Option<tokio::process::ChildStdin>,
-    reader: Option<BufReader<tokio::process::ChildStdout>>,
-    next_id: u32,
-    tools: Vec<McpToolDef>,
-}
-
+/// A tool definition discovered from an MCP server.
 #[derive(Debug, Clone)]
 pub struct McpToolDef {
     pub name: String,
@@ -24,119 +24,15 @@ pub struct McpToolDef {
     pub input_schema: Value,
 }
 
-impl McpConnection {
-    pub async fn connect(command: &str, args: &[&str]) -> anyhow::Result<Self> {
-        let mut cmd = Command::new(command);
-        cmd.args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null());
-        let mut child = cmd.spawn()?;
-        let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
-        let reader = BufReader::new(stdout);
+type McpService = Arc<RunningService<RoleClient, ()>>;
 
-        let mut conn = Self {
-            child: Some(child),
-            stdin: Some(stdin),
-            reader: Some(reader),
-            next_id: 1,
-            tools: Vec::new(),
-        };
-
-        conn.send_request("initialize", serde_json::json!({
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": { "name": "i-rs-code", "version": "0.1" },
-        })).await?;
-
-        conn.send_notification("notifications/initialized", serde_json::json!({})).await?;
-
-        let tools_result: Value = conn.send_request("tools/list", serde_json::json!({})).await?;
-        if let Some(tools_array) = tools_result.get("tools").and_then(|v| v.as_array()) {
-            for tool_val in tools_array {
-                let name = tool_val.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let description = tool_val.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                let input_schema = tool_val.get("inputSchema").cloned().unwrap_or(Value::Null);
-                conn.tools.push(McpToolDef { name, description, input_schema });
-            }
-        }
-
-        Ok(conn)
-    }
-
-    pub fn discovered_tools(&self) -> &[McpToolDef] {
-        &self.tools
-    }
-
-    pub async fn call_tool(&mut self, name: &str, args: Value) -> anyhow::Result<Value> {
-        self.send_request("tools/call", serde_json::json!({
-            "name": name,
-            "arguments": args,
-        })).await
-    }
-
-    async fn send_request(&mut self, method: &str, params: Value) -> anyhow::Result<Value> {
-        let id = self.next_id;
-        self.next_id += 1;
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params,
-        });
-        self.write_message(&request).await?;
-
-        let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("no reader"))?;
-        loop {
-            let read = crate::protocol::transport::read_content_length_message(reader, "MCP");
-            let msg = tokio::time::timeout(MCP_REQUEST_TIMEOUT, read).await
-                .map_err(|_| anyhow::anyhow!("MCP request timed out (id={})", id))??;
-            if msg["id"].as_u64() == Some(id as u64) {
-                if let Some(result) = msg.get("result") {
-                    return Ok(result.clone());
-                }
-                if let Some(error) = msg.get("error") {
-                    let code = error.get("code").and_then(|v| v.as_u64()).unwrap_or(0);
-                    anyhow::bail!("MCP error: {}: {}",
-                        code, error.get("message").and_then(|v| v.as_str()).unwrap_or("unknown"));
-                }
-                anyhow::bail!("invalid MCP response");
-            }
-        }
-    }
-
-    async fn send_notification(&mut self, method: &str, params: Value) -> anyhow::Result<()> {
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-        });
-        self.write_message(&request).await
-    }
-
-    async fn write_message(&mut self, msg: &Value) -> anyhow::Result<()> {
-        let content = serde_json::to_string(msg)?;
-        let header = format!("Content-Length: {}\r\n\r\n", content.len());
-        if let Some(stdin) = &mut self.stdin {
-            stdin.write_all(header.as_bytes()).await?;
-            stdin.write_all(content.as_bytes()).await?;
-            stdin.flush().await?;
-        }
-        Ok(())
-    }
-}
-
-impl Drop for McpConnection {
-    fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            let _ = child.start_kill();
-        }
-    }
-}
-
+/// Manages MCP server connections using the rmcp SDK.
+///
+/// Thread-safe: connections are stored behind Arc, and the connection map
+/// is guarded by a std Mutex (fast path — only the HashMap lookup is locked,
+/// not the service calls themselves).
 pub struct McpManager {
-    connections: Mutex<HashMap<String, Arc<AsyncMutex<McpConnection>>>>,
+    connections: Mutex<HashMap<String, McpService>>,
 }
 
 impl McpManager {
@@ -144,29 +40,70 @@ impl McpManager {
         Self { connections: Mutex::new(HashMap::new()) }
     }
 
+    /// Connect to an MCP server via stdio subprocess.
+    /// The rmcp SDK handles the initialize handshake automatically.
     pub async fn connect(&self, name: &str, command: &str, args: &[String]) -> anyhow::Result<()> {
-        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        let conn = McpConnection::connect(command, &args_refs).await?;
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+        let transport = TokioChildProcess::new(cmd)
+            .map_err(|e| anyhow::anyhow!("Failed to spawn MCP process '{}': {}", name, e))?;
+
+        let service: RunningService<RoleClient, ()> = ()
+            .serve(transport)
+            .await
+            .map_err(|e| anyhow::anyhow!("MCP connection '{}' failed: {}", name, e))?;
+
         let mut map = self.connections.lock().unwrap();
-        map.insert(name.to_string(), Arc::new(AsyncMutex::new(conn)));
+        map.insert(name.to_string(), Arc::new(service));
         Ok(())
     }
 
+    /// Discover tools from an MCP server by querying tools/list.
     pub async fn discover_tools(&self, name: &str) -> anyhow::Result<Vec<McpToolDef>> {
-        let conn = {
+        let service = {
             let map = self.connections.lock().unwrap();
-            map.get(name).cloned().ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", name))?
+            map.get(name).cloned()
+                .ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", name))?
         };
-        let session = conn.lock().await;
-        Ok(session.discovered_tools().to_vec())
+
+        let tools = service
+            .list_all_tools()
+            .await
+            .map_err(|e| anyhow::anyhow!("MCP tool discovery failed: {}", e))?;
+
+        Ok(tools
+            .into_iter()
+            .map(|t| McpToolDef {
+                name: t.name.to_string(),
+                description: t.description.unwrap_or_default().to_string(),
+                input_schema: Value::Object((*t.input_schema).clone()),
+            })
+            .collect())
     }
 
+    /// Call a tool on an MCP server.
     pub async fn call_tool(&self, server_name: &str, tool_name: &str, args: Value) -> anyhow::Result<Value> {
-        let conn = {
+        let service = {
             let map = self.connections.lock().unwrap();
-            map.get(server_name).cloned().ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", server_name))?
+            map.get(server_name).cloned()
+                .ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", server_name))?
         };
-        let mut session = conn.lock().await;
-        session.call_tool(tool_name, args).await
+
+        let json_map = args
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("MCP tool arguments must be a JSON object"))?
+            .clone();
+
+        let params = CallToolRequestParams::new(tool_name.to_string())
+            .with_arguments(json_map);
+
+        let result = service
+            .call_tool(params)
+            .await
+            .map_err(|e| anyhow::anyhow!("MCP tool call failed: {}", e))?;
+
+        // Serialize the CallToolResult to a JSON Value for backward compatibility
+        Ok(serde_json::to_value(&result)
+            .unwrap_or_else(|_| Value::String(serde_json::to_string(&result).unwrap_or_default())))
     }
 }

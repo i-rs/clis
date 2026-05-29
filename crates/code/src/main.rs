@@ -556,8 +556,10 @@ async fn run_mcp_test(config: &Config, name: &str) -> anyhow::Result<()> {
     println!("  Command: {} {}", command, args.join(" "));
     println!();
 
-    let conn = crate::mcp::McpConnection::connect(command, &args).await?;
-    let tools = conn.discovered_tools().to_vec();
+    let mgr = crate::mcp::McpManager::new();
+    let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    mgr.connect(name, command, &args_owned).await?;
+    let tools = mgr.discover_tools(name).await?;
 
     if tools.is_empty() {
         println!("✓ Connected, but no tools discovered.");
