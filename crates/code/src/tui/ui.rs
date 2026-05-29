@@ -455,14 +455,12 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         result
     };
 
-    let border_color = if matches!(app.mode, AppMode::Waiting) || app.input.content.is_empty() {
-        C_SEP
-    } else {
-        C_ACCENT
-    };
+    let sep_color = if matches!(app.mode, AppMode::Waiting) { C_SEP } else { Color::Rgb(42, 42, 50) };
     let input_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::new().fg(border_color));
+        .borders(Borders::TOP)
+        .border_style(Style::new().fg(sep_color))
+        .padding(ratatui::widgets::Padding::horizontal(1))
+        .style(Style::new().bg(C_BG_INPUT));
 
     let input_widget = Paragraph::new(lines).block(input_block);
     frame.render_widget(input_widget, area);
