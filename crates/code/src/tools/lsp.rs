@@ -35,6 +35,7 @@ impl Tool for LspDiagnosticsTool {
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let mut session = crate::runtime::lsp_session().lock().await;
         let diags = session.get_diagnostics(file_path).await?;
+        crate::runtime::set_lsp_diagnostics(diags.len() as u64);
         if diags.is_empty() {
             Ok(format!("{}: no diagnostics", file_path))
         } else {

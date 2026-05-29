@@ -45,6 +45,7 @@ where
 }
 
 static LSP_INIT: AtomicBool = AtomicBool::new(false);
+static LSP_DIAG_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 pub fn mark_lsp_initialized() {
     LSP_INIT.store(true, Ordering::Relaxed);
@@ -54,9 +55,21 @@ pub fn is_lsp_initialized() -> bool {
     LSP_INIT.load(Ordering::Relaxed)
 }
 
+pub fn set_lsp_diagnostics(count: u64) {
+    LSP_DIAG_COUNT.store(count, Ordering::Relaxed);
+}
+
+pub fn lsp_diagnostics() -> u64 {
+    LSP_DIAG_COUNT.load(Ordering::Relaxed)
+}
+
 pub fn mcp_manager() -> &'static McpManager {
     static MCP: LazyLock<McpManager> = LazyLock::new(McpManager::new);
     &MCP
+}
+
+pub fn mcp_connected_servers() -> Vec<String> {
+    mcp_manager().connected_server_names()
 }
 
 pub fn pty_manager() -> &'static PtyManager {

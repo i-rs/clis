@@ -40,6 +40,12 @@ impl McpManager {
         Self { connections: Mutex::new(HashMap::new()) }
     }
 
+    /// List names of all connected MCP servers.
+    pub fn connected_server_names(&self) -> Vec<String> {
+        let map = self.connections.lock().unwrap();
+        map.keys().cloned().collect()
+    }
+
     /// Connect to an MCP server via stdio subprocess.
     /// The rmcp SDK handles the initialize handshake automatically.
     pub async fn connect(&self, name: &str, command: &str, args: &[String]) -> anyhow::Result<()> {

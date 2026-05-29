@@ -15,13 +15,21 @@ fn fmt_count(n: u32) -> String {
     else { format!("{:.1}M", n as f64 / 1_000_000.0) }
 }
 
+fn section_header(label: &'static str, width: usize) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(label, Style::default().fg(C_LABEL)),
+        Span::styled(
+            "─".repeat(width.saturating_sub(label.chars().count() + 1)),
+            Style::default().fg(C_SEP),
+        ),
+    ])
+}
+
 pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
-    // Sidebar background
     frame.render_widget(Clear, area);
     let bg = Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(C_BG_INPUT));
     frame.render_widget(bg, area);
 
-    // Left separator between chat and sidebar
     let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
         "▕",
         Style::default().fg(C_SEP),
@@ -41,14 +49,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let mut items: Vec<Line> = Vec::new();
 
     // Header
-    items.push(Line::from(Span::styled(
-        " ⚙ Status ",
-        Style::default().fg(C_LABEL),
-    )));
-    items.push(Line::from(Span::styled(
-        "─".repeat(content_area.width.saturating_sub(1) as usize),
-        Style::default().fg(C_SEP),
-    )));
+    items.push(section_header(" Status", content_area.width.saturating_sub(1) as usize));
 
     // Directory
     items.push(Line::from(Span::styled("─ Dir ─", Style::default().fg(C_DIM))));
@@ -87,15 +88,20 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 
     // Tokens
     items.push(Line::from(Span::styled("─ Tokens ─", Style::default().fg(C_DIM))));
-    let (tok_in, tok_out) = if let Some(ref s) = app.streaming {
-        (app.token_usage.input, app.token_usage.output + s.content.len() as u32)
-    } else {
-        (app.token_usage.input, app.token_usage.output)
-    };
+    let tok_in = app.token_usage.input;
+    let tok_out = app.token_usage.output;
     items.push(Line::from(Span::styled(
         format!(" IN  {}    OUT  {}", fmt_count(tok_in), fmt_count(tok_out)),
         Style::default().fg(Color::Rgb(150, 200, 150)),
     )));
+    if let Some(ref s) = app.streaming {
+        if !s.content.is_empty() {
+            items.push(Line::from(Span::styled(
+                format!(" streaming: ~{} chars", fmt_count(s.content.len() as u32)),
+                Style::default().fg(Color::Cyan),
+            )));
+        }
+    }
     items.push(Line::from(""));
 
     // Mode + Messages
@@ -128,23 +134,57 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 
     // LSP
     items.push(Line::from(Span::styled("─ LSP ─", Style::default().fg(C_DIM))));
-    let (lsp_label, lsp_color) = if crate::runtime::is_lsp_initialized() {
-        ("✓ ready", Color::Green)
+    if crate::runtime::is_lsp_initialized() {
+        let diag_count = crate::runtime::lsp_diagnostics();
+        let diag_label = if diag_count == 0 {
+            ("✓ clean", Color::Green)
+        } else {
+            ("● errors", Color::Red)
+        };
+        items.push(Line::from(vec![
+            Span::styled(" ra ", Style::default().fg(C_LABEL)),
+            Span::styled(diag_label.0, Style::default().fg(diag_label.1)),
+            if diag_count > 0 {
+                Span::styled(format!(" ({})", diag_count), Style::default().fg(Color::Red).bold())
+            } else {
+                Span::raw("")
+            },
+        ]));
     } else {
-        ("… waiting", Color::Yellow)
-    };
-    items.push(Line::from(vec![
-        Span::styled(" ra ", Style::default().fg(C_LABEL)),
-        Span::styled(lsp_label, Style::default().fg(lsp_color)),
-    ]));
+        items.push(Line::from(vec![
+            Span::styled(" ra ", Style::default().fg(C_LABEL)),
+            Span::styled("… waiting", Style::default().fg(Color::Yellow)),
+        ]));
+    }
     items.push(Line::from(""));
 
     // MCP
     items.push(Line::from(Span::styled("─ MCP ─", Style::default().fg(C_DIM))));
-    items.push(Line::from(vec![
-        Span::styled(" srv", Style::default().fg(C_LABEL)),
-        Span::styled(" config-based", Style::default().fg(Color::DarkGray)),
-    ]));
+    let mcp_servers = crate::runtime::mcp_connected_servers();
+    if mcp_servers.is_empty() {
+        items.push(Line::from(Span::styled(
+            " none connected",
+            Style::default().fg(Color::DarkGray),
+        )));
+    } else {
+        for srv in mcp_servers.iter().take(4) {
+            let name = if srv.len() > w.saturating_sub(4) {
+                format!("{}..", &srv[..w.saturating_sub(6)])
+            } else {
+                srv.clone()
+            };
+            items.push(Line::from(vec![
+                Span::styled(" ▸ ", Style::default().fg(Color::Cyan)),
+                Span::styled(name, Style::default().fg(Color::White)),
+            ]));
+        }
+        if mcp_servers.len() > 4 {
+            items.push(Line::from(Span::styled(
+                format!(" +{} more", mcp_servers.len() - 4),
+                Style::default().fg(C_DIM),
+            )));
+        }
+    }
     items.push(Line::from(""));
 
     // Plan
@@ -160,15 +200,35 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(""));
     }
 
-    // Streaming
+    // Streaming / Live
     if let Some(ref s) = app.streaming {
         items.push(Line::from(Span::styled("─ Live ─", Style::default().fg(C_DIM))));
         items.push(Line::from(Span::styled(
-            format!(" {}c · {} tools", s.content.len(), s.tool_calls.len()),
+            format!(" {} tools done", s.tool_calls.len()),
             Style::default().fg(Color::Cyan),
         )));
-        if s.current_tool.is_some() {
-            items.push(Line::from(Span::styled(" ▸ executing...", Style::default().fg(Color::Yellow))));
+        if let Some(ref tool) = s.current_tool {
+            items.push(Line::from(vec![
+                Span::styled(" ▸ ", Style::default().fg(Color::Yellow)),
+                Span::styled(&tool.name, Style::default().fg(Color::Yellow).bold()),
+            ]));
+            let args_preview: String = tool.args.chars().take(w.saturating_sub(4)).collect();
+            for line in args_preview.lines().take(3) {
+                items.push(Line::from(Span::styled(
+                    format!("   {}", line),
+                    Style::default().fg(Color::DarkGray),
+                )));
+            }
+        } else if !s.reasoning.is_empty() {
+            items.push(Line::from(Span::styled(
+                " thinking...",
+                Style::default().fg(Color::Cyan),
+            )));
+        } else if s.content.is_empty() {
+            items.push(Line::from(Span::styled(
+                " connecting...",
+                Style::default().fg(Color::Cyan),
+            )));
         }
         items.push(Line::from(""));
     }
@@ -184,9 +244,9 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let sidebar_scroll = app.sidebar_scroll.min(sidebar_max);
     if sidebar_max > 0 {
         let scroll_indicator = if sidebar_scroll > 0 {
-            format!(" ⇡({}/{})", sidebar_scroll, sidebar_max)
+            format!(" ⇡({}/{}) Ctrl↑↓", sidebar_scroll, sidebar_max)
         } else {
-            "  (scroll: ↑↓)".to_string()
+            " Ctrl↑↓ to scroll".to_string()
         };
         items.push(Line::from(Span::styled(
             scroll_indicator,
