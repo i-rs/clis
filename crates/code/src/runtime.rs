@@ -8,11 +8,6 @@ use crate::mcp::McpManager;
 use crate::pty::PtyManager;
 
 struct RuntimeInner {
-    mcp_manager: McpManager,
-    pty_manager: PtyManager,
-    lsp_session: LspSession,
-    lsp_initialized: bool,
-    last_web_request: Instant,
     total_input_tokens: u64,
     total_output_tokens: u64,
     session_token_budget: u64,
@@ -24,11 +19,6 @@ struct RuntimeInner {
 impl RuntimeInner {
     fn new() -> Self {
         Self {
-            mcp_manager: McpManager::new(),
-            pty_manager: PtyManager::new(),
-            lsp_session: LspSession::new(),
-            lsp_initialized: false,
-            last_web_request: Instant::now(),
             total_input_tokens: 0,
             total_output_tokens: 0,
             session_token_budget: 0,
@@ -45,14 +35,14 @@ fn with_runtime<F, R>(f: F) -> R
 where
     F: FnOnce(&mut RuntimeInner) -> R,
 {
-    let mut guard = RUNTIME.lock().unwrap();
+    let mut guard = RUNTIME.lock().unwrap_or_else(|e| e.into_inner());
     let inner = guard.as_mut().expect("Runtime not initialized");
     f(inner)
 }
 
 pub fn reset_for_testing() {
-    let mut guard = RUNTIME.lock().unwrap();
-    *guard = Some(RuntimeInner::new());
+    *RUNTIME.lock().unwrap_or_else(|e| e.into_inner()) = Some(RuntimeInner::new());
+    LSP_INIT.store(false, Ordering::Relaxed);
 }
 
 static LSP_INIT: AtomicBool = AtomicBool::new(false);

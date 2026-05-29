@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
                     let sessions_dir = config::i_rs_code_dir().join("sessions");
                     if let Ok(s) = session::Session::load(sid, &sessions_dir) {
                         app.messages = s.messages;
+                        app.agent_messages = s.agent_messages;
                     }
                 }
                 tui::run(app).await?;
@@ -156,7 +157,10 @@ async fn run_config_init() -> anyhow::Result<()> {
     prompt("API key", &masked.unwrap_or_else(|| "not set".into()), &mut input)?;
     let trimmed = input.trim().to_string();
     if !trimmed.is_empty() {
-        config.api_key = Some(trimmed);
+        config.api_key = Some(trimmed.clone());
+        if !trimmed.starts_with("$") {
+            eprintln!("\n  Warning: API key stored in plaintext. Consider using I_RS_CODE_API_KEY env var instead.");
+        }
     }
 
     // Base URL

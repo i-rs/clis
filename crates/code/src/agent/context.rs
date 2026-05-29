@@ -141,6 +141,28 @@ impl ContextManager {
         format!("Earlier tool results ({} pairs):\n{}", pairs.len(), details.join("\n"))
     }
 
+    fn summarize_pairs_detailed(&self, pairs: &[(LlmMessage, LlmMessage)]) -> String {
+        let mut details: Vec<String> = Vec::new();
+        for (_call, result) in pairs {
+            let (name, _call_id, content) = match &result {
+                LlmMessage::Tool { name, call_id, content } => (name.clone(), call_id.clone(), content),
+                    _ => continue,
+            };
+            let head = if content.len() > 500 { &content[..500] } else { content.as_str() };
+            details.push(format!("{}: {} chars\n  Preview: {}", name, content.len(), Self::smart_truncate(head, 400, 50)));
+            let errors = Self::extract_error_lines(content);
+            if !errors.is_empty() {
+                for e in &errors {
+                    details.push(format!("  Error: {}", e));
+                }
+            }
+        }
+        if details.is_empty() {
+            return String::new();
+        }
+        details.join("\n")
+    }
+
     fn compress_core(&self, messages: &[LlmMessage]) -> Vec<LlmMessage> {
         let msg_count = messages.len();
         let tool_call_count = messages.iter().filter(|m| matches!(m, LlmMessage::ToolCall { .. })).count();
@@ -194,7 +216,7 @@ impl ContextManager {
             ));
 
             if !early_pairs.is_empty() {
-                let early_summary = self.summarize_pairs(&early_pairs);
+                let early_summary = self.summarize_pairs_detailed(&early_pairs);
                 compressed.push(LlmMessage::Assistant(
                     format!("\n## Earlier tool calls ({})\n{}", early_pairs.len(), early_summary)
                 ));

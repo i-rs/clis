@@ -171,9 +171,9 @@ impl Default for Config {
 impl Config {
     pub fn load() -> anyhow::Result<Self> {
         let path = config_path();
-        if path.exists() {
+        let mut config = if path.exists() {
             let content = std::fs::read_to_string(&path)?;
-            Ok(toml::from_str(&content)?)
+            toml::from_str(&content)?
         } else {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;
@@ -181,8 +181,16 @@ impl Config {
             let config = Config::default();
             let content = toml::to_string_pretty(&config)?;
             std::fs::write(&path, &content)?;
-            Ok(config)
+            config
+        };
+
+        if let Ok(key) = std::env::var("I_RS_CODE_API_KEY") {
+            if !key.is_empty() {
+                config.api_key = Some(key);
+            }
         }
+
+        Ok(config)
     }
 
     pub fn effective_model(&self) -> &str {

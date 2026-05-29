@@ -16,55 +16,50 @@ pub(crate) async fn execute_tools(
     tool_timeout_secs: u64,
     memory: &mut Option<CrossSessionMemory>,
 ) -> ToolExecResult {
-    let mut tool_messages = Vec::new();
+    let mut tool_messages = Vec::with_capacity(pending_tool_calls.len());
 
+    let mut handles = Vec::with_capacity(pending_tool_calls.len());
     for tc in pending_tool_calls {
-        let mut result_str = String::new();
-        let current_retries = *retry_counts.get(&tc.id).unwrap_or(&0);
+        let tool = tools.get(&tc.name);
+        let tc_clone = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
 
-        for attempt in 0..=current_retries {
-            if attempt > 0 {
-                tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempt))).await;
-            }
-
-            let tool = tools.get(&tc.name);
-            let tc_clone = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
-
-            let handle = tokio::spawn(async move {
-                if let Some(tool) = tool {
-                    match tc_clone.args.as_object() {
-                        Some(obj) => tool.call(obj).await,
-                        None => tool.call(&serde_json::Map::new()).await,
-                    }
-                } else {
-                    Err(anyhow::anyhow!("Unknown tool: {}", tc_clone.name))
+        let handle = tokio::spawn(async move {
+            if let Some(tool) = tool {
+                match tc_clone.args.as_object() {
+                    Some(obj) => tool.call(obj).await,
+                    None => tool.call(&serde_json::Map::new()).await,
                 }
-            });
-
-            result_str = match tokio::time::timeout(std::time::Duration::from_secs(tool_timeout_secs), handle).await {
-                Ok(Ok(inner)) => match inner {
-                    Ok(s) => crate::utils::truncate_output(&s, crate::error::MAX_TOOL_OUTPUT_BYTES),
-                    Err(e) => format!("Error: {}", e),
-                },
-                Ok(Err(join_err)) => format!("Error: tool task panicked: {}", join_err),
-                Err(_) => format!("Error: tool execution timed out ({}s)", tool_timeout_secs),
-            };
-
-            if !result_str.starts_with("Error:") {
-                retry_counts.remove(&tc.id);
-                break;
+            } else {
+                Err(anyhow::anyhow!("Unknown tool: {}", tc_clone.name))
             }
-        }
+        });
+        handles.push((tc.id.clone(), tc.name.clone(), handle));
+    }
+
+    let timeout = std::time::Duration::from_secs(tool_timeout_secs);
+    for (id, name, handle) in handles {
+        let result_str = match tokio::time::timeout(timeout, handle).await {
+            Ok(Ok(inner)) => match inner {
+                Ok(s) => crate::utils::truncate_output(&s, crate::error::MAX_TOOL_OUTPUT_BYTES),
+                Err(e) => format!("Error: {}", e),
+            },
+            Ok(Err(join_err)) => format!("Error: tool task panicked: {}", join_err),
+            Err(_) => format!("Error: tool execution timed out ({}s)", tool_timeout_secs),
+        };
 
         if result_str.starts_with("Error:") {
-            retry_counts.insert(tc.id.clone(), current_retries + 1);
+            let current_retries = *retry_counts.get(&id).unwrap_or(&0);
+            retry_counts.insert(id.clone(), current_retries + 1);
+        } else {
+            retry_counts.remove(&id);
         }
 
         if let Some(mem) = memory {
-            mem.record_tool_use(&tc.name);
+            mem.record_tool_use(&name);
         }
-        tool_messages.push((tc.name.clone(), tc.id.clone(), result_str));
+        tool_messages.push((name.clone(), id.clone(), result_str));
     }
+
     ToolExecResult { tool_messages }
 }
 

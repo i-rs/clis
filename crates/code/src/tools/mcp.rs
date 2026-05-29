@@ -63,6 +63,7 @@ impl Tool for McpConnectTool {
                 server_name: server_name.to_string(),
                 tool_name: tool_def.name.clone(),
                 description: tool_def.description.clone(),
+                input_schema: tool_def.input_schema.clone(),
             });
             let key = format!("mcp:{}", tool_def.name);
             registry.insert(key, wrapper);
@@ -88,6 +89,7 @@ struct McpToolWrapper {
     server_name: String,
     tool_name: String,
     description: String,
+    input_schema: Value,
 }
 
 #[async_trait]
@@ -95,26 +97,22 @@ impl Tool for McpToolWrapper {
     fn name(&self) -> &str { &self.tool_name }
     fn description(&self) -> &str { &self.description }
     fn schema(&self) -> Value {
+        let params = if self.input_schema.is_null() || !self.input_schema.is_object() {
+            json!({"type": "object", "properties": {}})
+        } else {
+            self.input_schema.clone()
+        };
         json!({
             "type": "function",
             "function": {
                 "name": self.tool_name,
                 "description": self.description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "input": {
-                            "type": "object",
-                            "description": "Input parameters for this MCP tool"
-                        }
-                    },
-                    "required": ["input"]
-                }
+                "parameters": params
             }
         })
     }
-    async fn call(&self, _args: &Map<String, Value>) -> ToolResult {
-        let result = crate::runtime::mcp_manager().call_tool(&self.server_name, &self.tool_name, serde_json::Value::Object(_args.clone())).await?;
+    async fn call(&self, args: &Map<String, Value>) -> ToolResult {
+        let result = crate::runtime::mcp_manager().call_tool(&self.server_name, &self.tool_name, serde_json::Value::Object(args.clone())).await?;
         Ok(result.to_string())
     }
 }

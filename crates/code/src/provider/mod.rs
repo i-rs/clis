@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 
 pub type StreamRx = mpsc::Receiver<StreamEvent>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum LlmMessage {
     System(String),
     User(String),
@@ -27,14 +27,14 @@ pub struct LlmResponse {
     pub usage: Option<Usage>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
     pub args: Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Usage {
     pub input_tokens: u32,
     pub output_tokens: u32,

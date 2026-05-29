@@ -36,7 +36,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let (event_tx, mut event_rx) = mpsc::channel::<AgentEvent>(256);
+    let (event_tx, mut event_rx) = mpsc::channel::<AgentEvent>(1024);
 
     if app.messages.is_empty() {
         let version = app.version.clone();
@@ -53,6 +53,30 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             tool_calls: None,
             reasoning_expanded: false,
         });
+    }
+
+    if app.git_baseline.is_none() {
+        let output = std::process::Command::new("git")
+            .args(["diff", "--stat"])
+            .current_dir(&app.current_dir)
+            .output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                let file_count = stderr.lines()
+                    .filter(|l| l.contains(" file"))
+                    .next()
+                    .and_then(|l| l.split_whitespace().next())
+                    .and_then(|n| n.parse::<usize>().ok())
+                    .unwrap_or(0);
+                if file_count > 0 {
+                    app.git_baseline = Some((
+                        format!("i-rs-code-undo-{}", chrono::Utc::now().format("%Y%m%d%H%M%S")),
+                        file_count,
+                    ));
+                }
+            }
+        }
     }
 
     while !app.should_quit {
@@ -90,7 +114,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             }
         }
 
-        if let Ok(event) = event_rx.try_recv() {
+        while let Ok(event) = event_rx.try_recv() {
             handle_event(event, &mut app);
         }
     }
@@ -99,7 +123,11 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         let tool_count: usize = app.messages.iter().filter(|m| matches!(m, AgentMessage::ToolResult { .. })).count();
         let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let sessions_dir = crate::config::i_rs_code_dir().join("sessions");
-        let session = crate::session::Session::from_agent_messages(Some(session_id.clone()), &app.messages);
+        let session = crate::session::Session::from_agent_messages(
+            Some(session_id.clone()),
+            &app.messages,
+            std::mem::take(&mut app.agent_messages),
+        );
         if session.save(&sessions_dir).is_ok() {
             Some((session_id, app.messages.len(), tool_count))
         } else {
@@ -380,6 +408,27 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                         app.messages.push(AgentMessage::system(format!("Failed to revert {}: {}", path, e)));
                     }
                 }
+            } else if let Some((commit_msg, files)) = app.git_baseline.take() {
+                let result = std::process::Command::new("git")
+                    .args(["stash", "push", "-m", &commit_msg])
+                    .output();
+                match result {
+                    Ok(output) => {
+                        if output.status.success() {
+                            app.messages.push(AgentMessage::system(format!(
+                                "Reverted {} files to session start (git stash)", files
+                            )));
+                        } else {
+                            app.messages.push(AgentMessage::system(format!(
+                                "Git stash failed: {}",
+                                String::from_utf8_lossy(&output.stderr)
+                            )));
+                        }
+                    }
+                    Err(e) => {
+                        app.messages.push(AgentMessage::system(format!("Git stash failed: {}", e)));
+                    }
+                }
             }
         }
         KeyCode::Esc | KeyCode::Char('q') => {
@@ -444,7 +493,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.input.insert_char('\n'),
         KeyCode::Enter if !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);
-            let expanded = expand_file_refs(&prompt);
+            let expanded = expand_file_refs(&prompt).await;
             app.input.cursor_pos = 0;
             app.messages.push(AgentMessage::user(&prompt));
             app.start_streaming();
@@ -543,7 +592,7 @@ fn make_relative(base: &str, path: &str) -> String {
 }
 
 #[cfg(feature = "tui")]
-fn expand_file_refs(input: &str) -> String {
+async fn expand_file_refs(input: &str) -> String {
     let mut result = String::new();
     let mut remaining = input;
     while let Some(at_pos) = remaining.find('@') {
@@ -551,7 +600,7 @@ fn expand_file_refs(input: &str) -> String {
         let after = &remaining[at_pos + 1..];
         let end = after.find(|c: char| c.is_whitespace() || c == '\n').unwrap_or(after.len());
         let path = &after[..end];
-        match std::fs::read_to_string(path) {
+        match tokio::fs::read_to_string(path).await {
             Ok(content) => {
                 let preview: String = content.chars().take(3000).collect();
                 result.push_str(&format!("\n[File: {}]\n```\n{}\n```\n", path, preview));

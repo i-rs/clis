@@ -97,7 +97,7 @@ impl ToolRegistry {
     }
 
     pub fn schemas(&self) -> Vec<Value> {
-        self.tools.values().map(|t| t.schema()).collect()
+        self.all_tools().iter().map(|t| t.schema()).collect()
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::app::AgentMessage;
+use crate::provider::LlmMessage;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -6,6 +7,8 @@ use std::path::Path;
 pub struct Session {
     pub id: String,
     pub messages: Vec<AgentMessage>,
+    #[serde(default)]
+    pub agent_messages: Vec<LlmMessage>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -16,16 +19,18 @@ impl Session {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             messages: Vec::new(),
+            agent_messages: Vec::new(),
             created_at: now.clone(),
             updated_at: now,
         }
     }
 
-    pub fn from_agent_messages(id: Option<String>, msgs: &[AgentMessage]) -> Self {
+    pub fn from_agent_messages(id: Option<String>, msgs: &[AgentMessage], agent_msgs: Vec<LlmMessage>) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
             id: id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
             messages: msgs.to_vec(),
+            agent_messages: agent_msgs,
             created_at: now.clone(),
             updated_at: now,
         }
@@ -128,6 +133,25 @@ mod tests {
             }
             _ => panic!("expected Assistant"),
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_session_agent_messages_roundtrip() {
+        let dir = std::env::temp_dir().join("i-rs-code-test-session-agent-msgs");
+        let _ = std::fs::remove_dir_all(&dir);
+        let s = Session::from_agent_messages(
+            Some("test-id".into()),
+            &[AgentMessage::user("hello")],
+            vec![
+                crate::provider::LlmMessage::System("you are helpful".into()),
+                crate::provider::LlmMessage::User("hello".into()),
+            ],
+        );
+        s.save(&dir).expect("save should work");
+        let loaded = Session::load("test-id", &dir).expect("load should work");
+        assert_eq!(loaded.agent_messages.len(), 2);
+        assert!(matches!(&loaded.agent_messages[0], crate::provider::LlmMessage::System(_)));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

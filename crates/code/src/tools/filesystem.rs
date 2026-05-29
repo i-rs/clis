@@ -68,6 +68,27 @@ fn check_path(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn check_path_async(path: &str) -> anyhow::Result<()> {
+    check_path(path)?;
+    let p = Path::new(path);
+    let cwd = std::env::current_dir()?;
+    let absolute = if p.is_relative() { cwd.join(p) } else { p.to_path_buf() };
+    if absolute.try_exists().unwrap_or(false) {
+        let canonical = tokio::fs::canonicalize(&absolute).await?;
+        if !canonical.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
+    } else if let Some(parent) = absolute.parent()
+        && parent.try_exists().unwrap_or(false)
+    {
+        let canonical_parent = tokio::fs::canonicalize(parent).await?;
+        if !canonical_parent.starts_with(&cwd) {
+            anyhow::bail!("Access denied: path outside workspace: {}", path);
+        }
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl Tool for ReadTool {
     fn name(&self) -> &str { "read" }
@@ -92,7 +113,7 @@ impl Tool for ReadTool {
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        check_path(path)?;
+        check_path_async(path).await?;
         let content = tokio::fs::read_to_string(path).await?;
 
         let total_lines = content.lines().count();
@@ -141,7 +162,7 @@ impl Tool for WriteTool {
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let content = args.get("content").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("content required"))?;
-        check_path(path)?;
+        check_path_async(path).await?;
 
         let old_content = if tokio::fs::metadata(path).await.is_ok() {
             tokio::fs::read_to_string(path).await.unwrap_or_default()
@@ -197,7 +218,7 @@ impl Tool for EditTool {
         let old = args.get("old_string").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("old_string required"))?;
         let new = args.get("new_string").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("new_string required"))?;
         let replace_all = args.get("replace_all").and_then(|v| v.as_bool()).unwrap_or(false);
-        check_path(path)?;
+        check_path_async(path).await?;
         let content = tokio::fs::read_to_string(path).await?;
         let count = content.matches(old).count();
         if count == 0 {
@@ -362,7 +383,7 @@ impl Tool for LsTool {
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
         let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
-        check_path(path)?;
+        check_path_async(path).await?;
         let mut entries = tokio::fs::read_dir(path).await?;
         let mut items = Vec::new();
         while let Some(entry) = entries.next_entry().await? {

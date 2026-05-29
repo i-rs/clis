@@ -60,17 +60,22 @@ const BLOCKED_INTERACTIVE: &[&str] = &[
     "top", "htop",
 ];
 
-/// Dangerous patterns that are always blocked regardless of whitelist
-const BLOCKED_PATTERNS: &[&str] = &[
-    "rm -rf /", "rm -rf /*", "rm -rf ~",
-    "mkfs", "dd of=/dev/", "dd if=/dev/zero",
-    "> /dev/sd", "> /dev/nvme", "> /dev/disk",
-    "chmod -R 777 /", "chmod 777 /",
-    "poweroff", "shutdown", "reboot", "halt",
-    "init 0", "init 6",
-    "systemctl poweroff", "systemctl reboot", "systemctl halt",
-    ":(){",  // fork bomb
-];
+/// Dangerous patterns that are always blocked regardless of whitelist (regex-based)
+static BLOCKED_REGEX: std::sync::LazyLock<Vec<regex::Regex>> = std::sync::LazyLock::new(|| {
+    vec![
+        regex::Regex::new(r"rm\s+(?:-[a-zA-Z]*r\s+-[a-zA-Z]*f|-[a-zA-Z]*f\s+-[a-zA-Z]*r|-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\s+/").unwrap(),
+        regex::Regex::new(r"rm\s+-rf\s+~").unwrap(),
+        regex::Regex::new(r"rm\s+(?:-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\s+/\*").unwrap(),
+        regex::Regex::new(r"mkfs\b").unwrap(),
+        regex::Regex::new(r"dd\b.*of=/dev/").unwrap(),
+        regex::Regex::new(r">\s*/dev/(sd|nvme|disk|vd)").unwrap(),
+        regex::Regex::new(r"chmod\s+(-R\s+)?777\s+/").unwrap(),
+        regex::Regex::new(r"\b(poweroff|shutdown|reboot|halt)\b").unwrap(),
+        regex::Regex::new(r"init\s+[06]").unwrap(),
+        regex::Regex::new(r"systemctl\s+(poweroff|reboot|halt)").unwrap(),
+        regex::Regex::new(r":\(\)\{").unwrap(),
+    ]
+});
 
 /// Extract the first command name from a shell command string.
 fn extract_command(cmd: &str) -> &str {
@@ -83,14 +88,20 @@ fn extract_command(cmd: &str) -> &str {
     }
 }
 
+/// Normalize whitespace in a command for pattern matching.
+fn normalize_whitespace(cmd: &str) -> String {
+    cmd.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// Check if a command is allowed by the whitelist.
 fn is_command_allowed(cmd: &str) -> Result<(), String> {
     let command = extract_command(cmd);
 
-    // Always block dangerous patterns
-    for pattern in BLOCKED_PATTERNS {
-        if cmd.contains(pattern) {
-            return Err(format!("Dangerous pattern blocked: {}", pattern));
+    // Always block dangerous patterns (against normalized command)
+    let normalized = normalize_whitespace(cmd);
+    for re in BLOCKED_REGEX.iter() {
+        if re.is_match(&normalized) {
+            return Err(format!("Dangerous pattern blocked: {}", re.as_str()));
         }
     }
 
@@ -241,10 +252,11 @@ mod tests {
     fn test_blocked_dangerous_patterns() {
         let dangerous = vec![
             "rm -rf /", "rm -rf /*", "rm -rf ~",
+            "rm  -rf  /", "rm -r -f /", "rm  -r  -f  /",
             "mkfs.ext4 /dev/sda1",
             "dd of=/dev/sda",
             "echo x > /dev/sda",
-            "chmod -R 777 /",
+            "chmod -R 777 /", "chmod 777 /",
             "poweroff", "shutdown -h now",
             ":(){ :|:& };:",
         ];
@@ -294,6 +306,12 @@ mod tests {
         assert_eq!(extract_command("  git status"), "git");
         assert_eq!(extract_command("ls"), "ls");
         assert_eq!(extract_command("./script.sh"), "./script.sh");
+    }
+
+    #[test]
+    fn test_normalize_whitespace() {
+        assert_eq!(normalize_whitespace("rm  -rf  /"), "rm -rf /");
+        assert_eq!(normalize_whitespace("  cargo   check  "), "cargo check");
     }
 
     #[test]
