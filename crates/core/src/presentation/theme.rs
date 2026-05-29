@@ -68,9 +68,10 @@ impl Theme {
         if let Ok(dir) = std::env::var("CONFIG_DIR") {
             PathBuf::from(dir).join("theme.json")
         } else {
-            dirs::config_dir()
+            dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
-                .join("i-rs")
+                .join(".i-rs")
+                .join("data")
                 .join("theme.json")
         }
     }

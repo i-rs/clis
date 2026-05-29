@@ -9,13 +9,18 @@ pub struct Storage<T> {
     filename: String,
 }
 
+fn default_data_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".i-rs")
+        .join("data")
+}
+
 impl<T: Default> Default for Storage<T> {
     fn default() -> Self {
         Self {
             data: T::default(),
-            config_dir: dirs::config_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("i-rs"),
+            config_dir: default_data_dir(),
             filename: String::new(),
         }
     }
@@ -24,9 +29,7 @@ impl<T: Default> Default for Storage<T> {
 impl<T: Serialize + DeserializeOwned + Default> Storage<T> {
     #[must_use]
     pub fn new(filename: &str) -> Self {
-        let config_dir = dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("i-rs");
+        let config_dir = default_data_dir();
 
         if let Ok(env_dir) = std::env::var("CONFIG_DIR") {
             let env_path = PathBuf::from(env_dir);
