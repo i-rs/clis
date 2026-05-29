@@ -16,6 +16,8 @@ pub mod transcript;
 pub mod ui;
 #[cfg(feature = "tui")]
 pub mod highlight;
+#[cfg(feature = "tui")]
+pub mod slash_command;
 
 #[cfg(feature = "tui")]
 use crate::agent::event::AgentEvent;
@@ -52,7 +54,9 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             content: format!(
                 "Welcome to i-rs-code v{version}\n\n\
                  Type a message to start coding...\n\n\
-                 Available commands:\n  \
+                 Slash commands:\n  \
+                 /help  Show all available commands\n\n\
+                 Other commands:\n  \
                  i-rs-code chat <prompt>  One-shot conversation\n  \
                  i-rs-code config init    Interactive setup\n  \
                  i-rs-code config show    View configuration"
@@ -528,6 +532,25 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => app.input.insert_char('\n'),
+        // Slash command dispatch (must come before normal Enter handler)
+        KeyCode::Enter if !app.input.content.is_empty()
+            && app.input.content.trim().starts_with('/')
+            && matches!(app.mode, AppMode::Idle) =>
+        {
+            let prompt = std::mem::take(&mut app.input.content);
+            app.input.push_history(&prompt);
+            app.input.cursor_pos = 0;
+
+            match slash_command::parse(&prompt) {
+                Ok(cmd) => {
+                    let msgs = slash_command::execute(cmd, app).await;
+                    app.messages.extend(msgs);
+                }
+                Err(e) => {
+                    app.messages.push(AgentMessage::system(e));
+                }
+            }
+        }
         KeyCode::Enter if !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);
             app.input.push_history(&prompt);

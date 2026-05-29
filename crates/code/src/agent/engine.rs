@@ -68,6 +68,7 @@ fn is_transient_error(e: &str) -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[tracing::instrument(skip_all, fields(rounds = max_rounds))]
 async fn react_loop_inner(
     provider: &dyn LlmProvider,
     tools: &ToolRegistry,

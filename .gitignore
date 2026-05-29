@@ -41,3 +41,4 @@ crates/claw/examples/plugins/*/target/
 *.app/
 *.dSYM.zip
 *.dSYM
+.github/code/

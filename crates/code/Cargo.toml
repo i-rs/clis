@@ -32,6 +32,8 @@ syntect = { version = "5", optional = true, default-features = false, features =
 unicode-width = "0.2"
 lsp-types = "0.97.0"
 tiktoken-rs = "0.11.0"
+tracing.workspace = true
+tracing-subscriber.workspace = true
 rmcp = { version = "1.7.0", default-features = false, features = [
     "client",
     "transport-child-process",

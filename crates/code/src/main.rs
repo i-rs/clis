@@ -29,8 +29,20 @@ use clap::Parser;
 use cli::{Cli, Commands, ConfigCommands, SessionsCommands, McpCommands, PluginsCommands, SkillCommands, SystemPromptCommands};
 use config::Config;
 
+fn init_tracing() {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "info".into());
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .without_time()
+        .init();
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    init_tracing();
+
     let cli = Cli::parse();
     let config = Config::load()?;
 

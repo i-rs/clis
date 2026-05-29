@@ -92,6 +92,7 @@ pub struct App {
     pub transcript_scroll: usize,
     pub selected_message: Option<usize>,
     pub plan: Vec<String>,
+    pub temperature: f64,
 }
 
 impl App {
@@ -131,6 +132,7 @@ impl App {
             transcript_scroll: 0,
             selected_message: None,
             plan: Vec::new(),
+            temperature: 0.7,
         }
     }
 
