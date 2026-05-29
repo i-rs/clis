@@ -262,7 +262,10 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                     }
                     None => format!("{}\n(no result)", tc.name),
                 };
-                app.messages.push(AgentMessage::tool("", &display));
+                app.messages.push(AgentMessage::ToolResult {
+                    content: format!("\n{}", display),
+                    diff: tc.diff.clone(),
+                });
             }
 
             if !messages.is_empty() {
@@ -365,6 +368,14 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     match app.mode {
         AppMode::Waiting => {
             match key.code {
+                KeyCode::Up if key.modifiers == KeyModifiers::CONTROL => {
+                    app.sidebar_scroll = app.sidebar_scroll.saturating_sub(1);
+                    return;
+                }
+                KeyCode::Down if key.modifiers == KeyModifiers::CONTROL => {
+                    app.sidebar_scroll = app.sidebar_scroll.saturating_add(1);
+                    return;
+                }
                 KeyCode::Char('c') if key.modifiers == KeyModifiers::CONTROL => {
                     if let Some(tx) = app.cancel_tx.take() {
                         tx.send(()).ok();
@@ -392,7 +403,42 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             }
             return;
         }
-        AppMode::Idle => {}
+        AppMode::Idle => {
+            if key.code == KeyCode::Up && key.modifiers == KeyModifiers::CONTROL {
+                app.sidebar_scroll = app.sidebar_scroll.saturating_sub(1);
+                return;
+            }
+            if key.code == KeyCode::Down && key.modifiers == KeyModifiers::CONTROL {
+                app.sidebar_scroll = app.sidebar_scroll.saturating_add(1);
+                return;
+            }
+        }
+    }
+
+    // Slash commands: intercept BEFORE the main key match to guarantee local execution.
+    // These are local commands (/clear, /help, /model, etc.) and MUST NOT be sent to the LLM.
+    // Check both KeyCode::Enter and KeyCode::Char('\r')/('\n') for terminal compatibility.
+    if (key.code == KeyCode::Enter
+        || key.code == KeyCode::Char('\r')
+        || key.code == KeyCode::Char('\n'))
+        && matches!(app.mode, AppMode::Idle)
+        && !app.input.content.is_empty()
+        && app.input.content.trim().starts_with('/')
+    {
+        app.show_slash_picker = false;
+        let prompt = std::mem::take(&mut app.input.content);
+        app.input.push_history(&prompt);
+        app.input.cursor_pos = 0;
+        match slash_command::parse(&prompt) {
+            Ok(cmd) => {
+                let msgs = slash_command::execute(cmd, app).await;
+                app.messages.extend(msgs);
+            }
+            Err(e) => {
+                app.messages.push(AgentMessage::system(e));
+            }
+        }
+        return;
     }
 
     match key.code {
@@ -547,25 +593,6 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => { app.input.insert_char('\n'); app.needs_redraw = true; }
-        // Slash command dispatch (must come before normal Enter handler)
-        KeyCode::Enter if !app.input.content.is_empty()
-            && app.input.content.trim().starts_with('/')
-            && matches!(app.mode, AppMode::Idle) =>
-        {
-            let prompt = std::mem::take(&mut app.input.content);
-            app.input.push_history(&prompt);
-            app.input.cursor_pos = 0;
-
-            match slash_command::parse(&prompt) {
-                Ok(cmd) => {
-                    let msgs = slash_command::execute(cmd, app).await;
-                    app.messages.extend(msgs);
-                }
-                Err(e) => {
-                    app.messages.push(AgentMessage::system(e));
-                }
-            }
-        }
         KeyCode::Enter if !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);
             app.input.push_history(&prompt);

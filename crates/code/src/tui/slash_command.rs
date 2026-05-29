@@ -61,6 +61,7 @@ pub fn parse(input: &str) -> Result<SlashCommand, String> {
     let arg = parts.get(1).map(|s| s.trim()).unwrap_or("");
 
     match cmd.as_str() {
+        "" => Err("Type a command name after /. Examples: /help, /clear, /status".into()),
         "clear" => Ok(SlashCommand::Clear),
         "help" | "?" => Ok(SlashCommand::Help),
         "tools" => Ok(SlashCommand::Tools),
@@ -392,7 +393,7 @@ async fn cmd_export_md(app: &App) -> Vec<AgentMessage> {
                 md.push_str(content);
                 md.push_str("\n\n");
             }
-            AgentMessage::ToolResult { content } => {
+            AgentMessage::ToolResult { content, .. } => {
                 md.push_str("### Tool Result\n\n```\n");
                 md.push_str(content);
                 md.push_str("\n```\n\n");
