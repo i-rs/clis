@@ -4,7 +4,7 @@ use std::path::PathBuf;
 pub fn i_rs_code_dir() -> PathBuf {
     std::env::var("I_RS_CODE_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".i-rs-code"))
+        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".i-rs").join("code"))
 }
 
 pub fn config_path() -> PathBuf {
