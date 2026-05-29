@@ -34,6 +34,9 @@ pub enum Commands {
     /// Manage configuration
     #[command(subcommand)]
     Config(ConfigCommands),
+    /// System prompt management
+    #[command(subcommand)]
+    SystemPrompt(SystemPromptCommands),
     /// Search conversation history
     Search {
         query: String,
@@ -144,4 +147,17 @@ pub enum ConfigCommands {
         key: String,
         value: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SystemPromptCommands {
+    /// Show the current system prompt (from file or built-in default)
+    Show {
+        #[arg(long, help = "Show with dynamic context (project info, skills, etc.)")]
+        full: bool,
+    },
+    /// Reset the system prompt file to the built-in default
+    Reset,
+    /// Open the system prompt file directory
+    Dir,
 }

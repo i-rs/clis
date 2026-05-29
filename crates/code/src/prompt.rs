@@ -1,4 +1,5 @@
 use crate::config::ProjectInfo;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 struct BuildContextCache {
@@ -109,7 +110,55 @@ pub fn build_context(project_info: &ProjectInfo) -> String {
     ctx
 }
 
-pub const SYSTEM: &str = "\
+/// Directory containing prompt files.
+pub fn prompt_dir() -> PathBuf {
+    crate::config::i_rs_code_dir().join("prompts")
+}
+
+/// Path to the system prompt file.
+pub fn system_prompt_path() -> PathBuf {
+    prompt_dir().join("system.md")
+}
+
+/// Load the system prompt — from file if it exists, otherwise from the built-in default.
+/// Auto-creates the file on first access so the user can edit it.
+pub fn load_system_prompt() -> String {
+    let path = system_prompt_path();
+    if path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            let trimmed = content.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+    // Auto-create the file with the built-in default
+    let _ = ensure_prompt_file();
+    // Re-read from the file we just wrote; fallback if that fails
+    std::fs::read_to_string(&path).unwrap_or_else(|_| DEFAULT_SYSTEM.to_string())
+}
+
+/// Write the built-in default system prompt to the file, overwriting any existing content.
+pub fn write_default_prompt_file() -> anyhow::Result<PathBuf> {
+    let path = system_prompt_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, DEFAULT_SYSTEM)?;
+    Ok(path)
+}
+
+/// Ensure the prompt file exists (create from default if not).
+pub fn ensure_prompt_file() -> anyhow::Result<PathBuf> {
+    let path = system_prompt_path();
+    if !path.exists() {
+        write_default_prompt_file()
+    } else {
+        Ok(path)
+    }
+}
+
+pub const DEFAULT_SYSTEM: &str = "\
 You are i-rs-code, an expert coding AI agent.
 
 ## CRITICAL RULE -- You MUST use tools
@@ -118,7 +167,7 @@ If you only respond with text, nothing happens — no files are created, no code
 IMMEDIATELY call the appropriate tool. Do NOT explain what you will do — just do it.
 Your internal reasoning is for analysis only. After reasoning, you MUST output tool calls to take action.
 
-Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_search, create_crate, verify, lsp_diagnostics, lsp_definition, lsp_references, lsp_hover, lsp_rename, lsp_symbols, lsp_completion.
+Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_search, create_crate, verify, lsp_diagnostics, lsp_definition, lsp_references, lsp_hover, lsp_rename, lsp_symbols, lsp_completion, skill.
 
 ## Workflow
 1. UNDERSTAND -- use read/glob/grep/ls to understand current code
@@ -147,6 +196,7 @@ Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_se
 - `lsp_rename` -- rename symbol
 - `lsp_symbols` -- list workspace symbols
 - `lsp_completion` -- get completions
+- `skill` -- list or load skill documents
 
 ## Communication
 - When you encounter errors, read the error output and think about what might be wrong
@@ -162,17 +212,17 @@ Available tools: read, write, edit, grep, glob, ls, bash, git, web_fetch, web_se
 After completing changes, briefly summarize what was done in Chinese.";
 
 pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
-    let mut prompt = SYSTEM.to_string();
+    let base = load_system_prompt();
+    let mut prompt = base;
 
-    // Inject available skills for progressive disclosure
+    prompt.push_str("\n\n## Project Context\n");
+    prompt.push_str(&build_context(project_info));
+
     let store = crate::skill_store::SkillStore::new();
     let skills = store.list();
     if !skills.is_empty() {
-        prompt.push_str("\n\n## Available Skills\n");
-        prompt.push_str("Skills provide specialized instructions. Use the `skill` tool to load them on demand.\n");
-        prompt.push_str(&format!("Total: {} skill(s) installed.\n", skills.len()));
-        prompt.push_str("To see all skills, call the `skill` tool with action='list'.\n");
-        prompt.push_str("To load a skill, call `skill` with action='get' and name='<skill-name>'.\n");
+        prompt.push_str("\n## Available Skills\n");
+        prompt.push_str(&format!("{} skill(s) installed. Use `skill` tool with action='list' to see them, or action='get' name='<name>' to load one.\n", skills.len()));
     }
 
     if let Some(content) = &project_info.agents_md_content {
@@ -183,7 +233,7 @@ pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
         } else {
             content.clone()
         };
-        prompt.push_str("\n\n## Project Guidelines (from AGENTS.md)\n");
+        prompt.push_str("\n## Project Guidelines (from AGENTS.md)\n");
         prompt.push_str(&truncated);
     }
 
@@ -214,9 +264,24 @@ mod tests {
     }
 
     #[test]
-    fn test_system_prompt_contains_tools() {
-        assert!(SYSTEM.contains("read"));
-        assert!(SYSTEM.contains("write"));
-        assert!(SYSTEM.contains("edit"));
+    fn test_default_system_contains_tools() {
+        assert!(DEFAULT_SYSTEM.contains("read"));
+        assert!(DEFAULT_SYSTEM.contains("write"));
+        assert!(DEFAULT_SYSTEM.contains("skill"));
+    }
+
+    #[test]
+    fn test_load_system_prompt_fallback() {
+        let content = load_system_prompt();
+        assert!(content.contains("i-rs-code"));
+        assert!(content.contains("read"));
+    }
+
+    #[test]
+    fn test_prompt_paths() {
+        let dir = prompt_dir();
+        assert!(dir.to_string_lossy().contains("prompts"));
+        let path = system_prompt_path();
+        assert!(path.to_string_lossy().ends_with("system.md"));
     }
 }

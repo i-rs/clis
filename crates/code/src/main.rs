@@ -25,7 +25,7 @@ mod tokenizer;
 mod tui;
 
 use clap::Parser;
-use cli::{Cli, Commands, ConfigCommands, SessionsCommands, McpCommands, PluginsCommands, SkillCommands};
+use cli::{Cli, Commands, ConfigCommands, SessionsCommands, McpCommands, PluginsCommands, SkillCommands, SystemPromptCommands};
 use config::Config;
 
 #[tokio::main]
@@ -97,6 +97,30 @@ async fn main() -> anyhow::Result<()> {
             ConfigCommands::Set { key, value } => {
                 let config = config.clone();
                 run_config_set(config, key, value).await?;
+            }
+        },
+        Commands::SystemPrompt(cmd) => match cmd {
+            SystemPromptCommands::Show { full } => {
+                let (content, source) = if *full {
+                    let project_info = config::ProjectInfo::detect();
+                    (prompt::build_system_prompt(&project_info), "built dynamically".to_string())
+                } else {
+                    (prompt::load_system_prompt(), {
+                        let path = prompt::system_prompt_path();
+                        if path.exists() { format!("file: {:?}", path) } else { "built-in default".to_string() }
+                    })
+                };
+                println!("── System Prompt ({}) ──", source);
+                println!();
+                println!("{}", content);
+            }
+            SystemPromptCommands::Reset => {
+                let path = prompt::write_default_prompt_file()?;
+                println!("✓ System prompt reset to default at {:?}", path);
+            }
+            SystemPromptCommands::Dir => {
+                let dir = prompt::prompt_dir();
+                println!("{}", dir.display());
             }
         },
         Commands::Search { query, limit } => {
