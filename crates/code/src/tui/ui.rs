@@ -455,29 +455,30 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         result
     };
 
-    let sep_color = if matches!(app.mode, AppMode::Waiting) { C_SEP } else { Color::Rgb(42, 42, 50) };
-    let block = Block::default()
-        .borders(Borders::TOP)
-        .border_style(Style::new().fg(sep_color))
-        .padding(ratatui::widgets::Padding::new(1, 1, 0, 0))
-        .style(Style::new().bg(C_BG_INPUT));
+    let border_color = if matches!(app.mode, AppMode::Waiting) || app.input.content.is_empty() {
+        C_SEP
+    } else {
+        C_ACCENT
+    };
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::new().fg(border_color));
 
-    let input_widget = Paragraph::new(lines).block(block);
+    let input_widget = Paragraph::new(lines).block(input_block);
     frame.render_widget(input_widget, area);
 
-    let inner = area.inner(Margin::new(1, 1));
     let prefix_width = unicode_width::UnicodeWidthStr::width(prefix) as u16;
     if matches!(app.mode, AppMode::Idle) && !app.input.content.is_empty() {
         let input_before = &app.input.content[..app.input.cursor_pos];
         let line_idx = input_before.matches('\n').count();
         let current_line_start = input_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
         let pos_in_line = unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
-        let cursor_x = inner.x + prefix_width + pos_in_line as u16;
-        let cursor_y = inner.y + line_idx as u16;
+        let cursor_x = area.x + 1 + prefix_width + pos_in_line as u16;
+        let cursor_y = area.y + 1 + line_idx as u16;
         frame.set_cursor_position((cursor_x, cursor_y));
     } else if matches!(app.mode, AppMode::Idle) {
-        let cursor_x = inner.x + prefix_width;
-        let cursor_y = inner.y;
+        let cursor_x = area.x + 1 + prefix_width;
+        let cursor_y = area.y + 1;
         frame.set_cursor_position((cursor_x, cursor_y));
     }
 }
