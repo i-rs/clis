@@ -32,14 +32,9 @@ pub struct CrossSessionMemory {
 
 impl CrossSessionMemory {
     /// Create memory for a specific agent.
-    /// "default" agent reads from legacy `memory.json`; others from
     /// `claw_dir/agents/{agent_id}/memory.json`.
     pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
-        let path = if agent_id == "default" {
-            claw_dir.join("memory.json")
-        } else {
-            claw_dir.join("agents").join(agent_id).join("memory.json")
-        };
+        let path = claw_dir.join("agents").join(agent_id).join("memory.json");
         Self::new_with_path(path)
     }
 

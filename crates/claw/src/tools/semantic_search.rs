@@ -62,7 +62,7 @@ impl ClawTool for SemanticSearchTool {
         }
 
         let claw_dir = dirs::home_dir()
-            .map(|h| h.join(".i-rs").join("claw").join("claw"))
+            .map(|h| h.join(".i-rs").join("claw"))
             .ok_or_else(|| ClawError::NotFound("Cannot determine home directory".to_string()))?;
 
         let searcher = SemanticSearch::new(claw_dir);

@@ -109,7 +109,7 @@ impl crate::providers::LlmProvider for MockProvider {
 
 /// Create a test AppCore with a temporary data directory.
 ///
-/// Sets HOME to a temp dir so that `~/.i-rs-claw/claw/` paths
+/// Sets HOME to a temp dir so that `~/.i-rs/claw/` paths
 /// don't touch the real user's data. The temp dir is cleaned up
 /// on drop.
 #[allow(dead_code)]
@@ -123,7 +123,7 @@ pub fn test_core() -> (Config, crate::core::AppCore) {
     }
 
     // Create the expected directory structure
-    let claw_dir = dir.path().join(".i-rs").join("claw").join("claw");
+    let claw_dir = dir.path().join(".i-rs").join("claw");
     std::fs::create_dir_all(&claw_dir).expect("创建 claw 数据目录失败");
 
     let config = test_config();

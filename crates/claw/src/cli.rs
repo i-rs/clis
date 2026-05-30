@@ -334,7 +334,7 @@ pub fn run_tools() -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_session_list() -> anyhow::Result<()> {
-    let session_mgr = SessionManager::new(claw_dir().join("claw"));
+    let session_mgr = SessionManager::new(claw_dir());
 
     let sessions = session_mgr.sessions();
     if sessions.is_empty() {
@@ -848,7 +848,7 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
-    let claw_data_dir = claw_dir().join("claw");
+    let claw_data_dir = claw_dir();
     let cfg = crate::config::Config::load()?;
     let stats_mgr = crate::stats::StatsManager::new(&claw_data_dir, &cfg.stats);
 
@@ -916,7 +916,6 @@ fn skill_store() -> crate::skill_store::SkillStore {
     let claw_dir = dirs::home_dir()
         .expect("无法获取用户主目录")
         .join(".i-rs")
-        .join("claw")
         .join("claw");
     crate::skill_store::SkillStore::for_agent(&claw_dir, "default")
 }

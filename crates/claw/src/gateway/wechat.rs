@@ -27,7 +27,7 @@ struct WeChatCredentials {
 /// WeChat iLink Bot adapter using the official Bot API (personal WeChat).
 ///
 /// Authentication is via QR code scan on first run instead of a static token.
-/// Credentials are persisted to `~/.i-rs-claw/claw/wechat_credentials.json`.
+/// Credentials are persisted to `~/.i-rs/claw/wechat_credentials.json`.
 pub struct WeChatAdapter {
     client: reqwest::Client,
     credentials: Arc<Mutex<Option<WeChatCredentials>>>,
@@ -59,7 +59,7 @@ impl WeChatAdapter {
                 reqwest::Client::new()
             });
         let credentials_path = dirs::home_dir()
-            .map(|p| p.join(".i-rs").join("claw").join("claw").join("wechat_credentials.json"))
+                .map(|p| p.join(".i-rs").join("claw").join("wechat_credentials.json"))
             .unwrap_or_else(|| PathBuf::from("./wechat_credentials.json"));
         Self {
             client,

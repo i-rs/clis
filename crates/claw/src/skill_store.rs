@@ -107,14 +107,9 @@ pub struct SkillStore {
 
 impl SkillStore {
     /// Create skill store for a specific agent.
-    /// "default" reads from legacy `claw_dir/skills`; others from
     /// `claw_dir/agents/{agent_id}/skills`.
     pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
-        let skills_dir = if agent_id == "default" {
-            claw_dir.join("skills")
-        } else {
-            claw_dir.join("agents").join(agent_id).join("skills")
-        };
+        let skills_dir = claw_dir.join("agents").join(agent_id).join("skills");
         Self { skills_dir }
     }
 
@@ -635,7 +630,7 @@ type = "string"
     fn test_for_agent_default_path() {
         let claw_dir = PathBuf::from("/tmp/__i_rs_claw_test_path__");
         let store = SkillStore::for_agent(&claw_dir, "default");
-        assert_eq!(store.skills_dir, claw_dir.join("skills"));
+        assert_eq!(store.skills_dir, claw_dir.join("agents").join("default").join("skills"));
     }
 
     #[test]

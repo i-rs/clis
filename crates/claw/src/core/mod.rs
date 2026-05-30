@@ -12,7 +12,6 @@ use crate::skill_store::SkillStore;
 use crate::tool_cache::ToolDocCache;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::Path;
 use tokio::sync::mpsc;
 
 /// Runtime data for a single agent.
@@ -174,14 +173,9 @@ impl AppCore {
         let claw_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?
             .join(".i-rs")
-            .join("claw")
             .join("claw");
 
-        // Discover i-rs CLI tools from the user's configuration
         config.discover_i_rs_tools(&claw_dir);
-
-        // Migrate legacy data to agents/default/ if needed
-        Self::migrate_legacy_data(&claw_dir);
 
         let session_mgr = SessionManager::new(claw_dir.clone());
         let agent_store = AgentRuntimeStore::new(&config, &claw_dir);
@@ -206,39 +200,6 @@ impl AppCore {
         }
         self.stats_manager.flush();
         tracing::info!("AppCore shutdown complete");
-    }
-
-    /// Migrate legacy data files (memory.json, skills/, etc.) to agents/default/
-    /// on first run after upgrade.
-    fn migrate_legacy_data(claw_dir: &Path) {
-        let default_dir = claw_dir.join("agents").join("default");
-        let default_memory = default_dir.join("memory.json");
-        let legacy_memory = claw_dir.join("memory.json");
-
-        // Only migrate if legacy memory.json exists AND default doesn't
-        if legacy_memory.exists() && !default_memory.exists() {
-            let _ = std::fs::create_dir_all(&default_dir);
-            let _ = std::fs::copy(&legacy_memory, &default_memory);
-
-            // Migrate hot_docs_cache.json
-            let legacy_cache = claw_dir.join("hot_docs_cache.json");
-            let default_cache = default_dir.join("hot_docs_cache.json");
-            if legacy_cache.exists() && !default_cache.exists() {
-                let _ = std::fs::copy(&legacy_cache, &default_cache);
-            }
-
-            // Migrate skills directory
-            let legacy_skills = claw_dir.join("skills");
-            let default_skills = default_dir.join("skills");
-            if legacy_skills.exists() && !default_skills.exists() {
-                let _ = std::fs::create_dir_all(&default_skills);
-                if let Ok(entries) = std::fs::read_dir(&legacy_skills) {
-                    for entry in entries.flatten() {
-                        let _ = std::fs::copy(entry.path(), default_skills.join(entry.file_name()));
-                    }
-                }
-            }
-        }
     }
 
     /// Resolve the config for a given agent ID.
@@ -379,7 +340,7 @@ impl AppCore {
     pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
-        Ok(home.join(".i-rs").join("claw").join("claw"))
+        Ok(home.join(".i-rs").join("claw"))
     }
 }
 
@@ -512,44 +473,4 @@ mod tests {
         .expect("spawn_chat_for 不应 panic");
     }
 
-    #[test]
-    fn test_migrate_legacy_data() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("memory.json"), r#"{"key":"legacy"}"#).unwrap();
-
-        AppCore::migrate_legacy_data(dir.path());
-
-        let dest = dir.path().join("agents").join("default").join("memory.json");
-        assert!(dest.exists(), "旧版 memory.json 应被迁移到 agents/default/");
-        let content = std::fs::read_to_string(&dest).unwrap();
-        assert!(content.contains("legacy"), "迁移后内容应一致");
-    }
-
-    #[test]
-    fn test_migrate_legacy_data_noop_when_default_exists() {
-        let dir = tempfile::tempdir().unwrap();
-        let default_dir = dir.path().join("agents").join("default");
-        std::fs::create_dir_all(&default_dir).unwrap();
-        std::fs::write(default_dir.join("memory.json"), "new").unwrap();
-        std::fs::write(dir.path().join("memory.json"), "legacy").unwrap();
-
-        AppCore::migrate_legacy_data(dir.path());
-
-        let content = std::fs::read_to_string(default_dir.join("memory.json")).unwrap();
-        assert_eq!(content, "new", "已存在的 default 数据不应被覆盖");
-    }
-
-    #[test]
-    fn test_migrate_legacy_data_noop_when_no_legacy() {
-        let dir = tempfile::tempdir().unwrap();
-
-        AppCore::migrate_legacy_data(dir.path());
-
-        // 没有旧文件时不应创建目录
-        assert!(
-            !dir.path().join("agents").exists()
-                || dir.path().join("agents").read_dir().unwrap().next().is_none(),
-            "无旧数据时不应创建 agents 目录"
-        );
-    }
 }

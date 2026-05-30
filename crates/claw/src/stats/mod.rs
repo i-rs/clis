@@ -162,8 +162,8 @@ pub struct StatsManager {
 impl StatsManager {
     /// Create a new StatsManager.
     ///
-    /// `claw_dir` is the base directory for claw data (~/.i-rs-claw/claw).
-    /// Stats are stored at `{claw_dir}/stats/usage.jsonl`.
+/// `claw_dir` is the base directory for claw data (~/.i-rs/claw).
+/// Stats are stored at `{claw_dir}/stats/usage.jsonl`.
     pub fn new(claw_dir: &std::path::Path, config: &StatsConfig) -> Self {
         let store_path = claw_dir.join("stats").join("usage.jsonl");
         let mut pricing = ModelPricingTable::new();

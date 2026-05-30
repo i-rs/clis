@@ -19,14 +19,9 @@ pub struct ToolDocCache {
 #[allow(dead_code)]
 impl ToolDocCache {
     /// Create tool cache for a specific agent.
-    /// "default" uses legacy global cache dir; others use
     /// `claw_dir/agents/{agent_id}/`.
     pub fn for_agent(cache_dir: &Path, agent_id: &str) -> Self {
-        let dir = if agent_id == "default" {
-            cache_dir.to_path_buf()
-        } else {
-            cache_dir.join("agents").join(agent_id)
-        };
+        let dir = cache_dir.join("agents").join(agent_id);
         Self::new(dir)
     }
 
