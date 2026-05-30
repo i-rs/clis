@@ -52,8 +52,8 @@ impl super::ClawTool for IrsTool {
     }
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
-        let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
-        let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
+        let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("").to_string();
+        let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("").to_string();
         let cmd_args: Vec<String> = args
             .get("args")
             .and_then(|a| a.as_array())
@@ -63,8 +63,13 @@ impl super::ClawTool for IrsTool {
                     .collect()
             })
             .unwrap_or_default();
+        let timeout = ctx.config.cli_timeout_secs;
 
-        execute_cli(tool, cmd, &cmd_args, ctx.config.cli_timeout_secs)
+        tokio::task::spawn_blocking(move || {
+            execute_cli(&tool, &cmd, &cmd_args, timeout)
+        })
+        .await
+        .unwrap_or_else(|e| Err(ClawError::Execution(format!("CLI 执行任务失败: {}", e))))
     }
 }
 

@@ -198,7 +198,7 @@ impl EmbeddingIndex {
             let _ = std::fs::create_dir_all(parent);
         }
         if let Ok(content) = serde_json::to_string(&self.entries) {
-            let _ = std::fs::write(&self.path, content);
+            let _ = crate::utils::atomic_write(&self.path, &content);
         }
     }
 }

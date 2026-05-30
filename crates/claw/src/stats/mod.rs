@@ -272,9 +272,15 @@ impl StatsManager {
     }
 
     pub fn daily_history(&self, days: u32) -> Vec<DailyStats> {
-        let stats = self.query(StatsPeriod::Last30Days);
-        let cutoff = days as usize;
-        stats.daily_series.into_iter().take(cutoff).collect()
+        let from = chrono::Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap_or_default()
+            .and_utc()
+            .timestamp()
+            - (days as i64 + 1) * 86400;
+        let stats = self.query(StatsPeriod::Custom { from, to: i64::MAX });
+        stats.daily_series.into_iter().take(days as usize).collect()
     }
 
     /// Query aggregated stats for a time period.

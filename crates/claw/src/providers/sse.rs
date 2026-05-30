@@ -136,7 +136,7 @@ pub(crate) async fn openai_stream_chat_impl(
 
     if response.status().is_success() {
         let mut stream = response.bytes_stream();
-        let mut buf = String::new();
+        let mut buf: Vec<u8> = Vec::new();
         let mut tool_calls: Vec<ToolCallAcc> = Vec::new();
         let mut reasoning_buf = String::new();
         let mut content_buf = String::new();
@@ -144,12 +144,11 @@ pub(crate) async fn openai_stream_chat_impl(
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
-            buf.push_str(&String::from_utf8_lossy(&chunk));
+            buf.extend_from_slice(&chunk);
 
-            // Process complete SSE lines
-            while let Some(pos) = buf.find('\n') {
-                let line = buf[..pos].trim().to_string();
-                buf = buf[pos + 1..].to_string();
+            while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+                let line_bytes: Vec<u8> = buf.drain(..=pos).collect();
+                let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
 
                 if line.is_empty() {
                     continue;

@@ -262,7 +262,13 @@ impl SessionManager {
                 }
         let path = self.messages_path(&session_id);
         if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-        let line = serde_json::to_string(&entry).unwrap_or_default();
+        let line = match serde_json::to_string(&entry) {
+            Ok(l) => l,
+            Err(e) => {
+                tracing::error!("序列化消息失败: {}", e);
+                return;
+            }
+        };
         if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
             use std::io::Write;
             if let Err(e) = writeln!(file, "{}", line) {

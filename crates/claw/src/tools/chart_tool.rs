@@ -394,7 +394,7 @@ fn generate_line_chart(data: &[DataPoint], width: usize, height: usize) -> Strin
         output.push('│');
         for (i, point) in data.iter().enumerate() {
             let is_point = (point.value - min_val) >= (range * (chart_height - 1 - row) as f64 / chart_height as f64)
-                && (point.value - min_val) < (range * (chart_height - row) as f64 / chart_height as f64);
+                && (point.value - min_val) <= (range * (chart_height - row) as f64 / chart_height as f64 + 1e-10);
 
             // Check if there's a line to previous/next point
             let connects_left = i > 0

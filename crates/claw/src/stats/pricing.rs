@@ -49,9 +49,11 @@ impl ModelPricingTable {
         match self.inner.get(model) {
             Some(p) => p.estimate_cost(prompt_tokens, completion_tokens),
             None => {
-                // Try fuzzy prefix match for unknown model variants
-                let matched = self.inner.iter().find(|(key, _)| model.starts_with(key.as_str()));
-                match matched {
+                let mut candidates: Vec<_> = self.inner.iter()
+                    .filter(|(key, _)| model.starts_with(key.as_str()))
+                    .collect();
+                candidates.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+                match candidates.into_iter().next() {
                     Some((_, p)) => p.estimate_cost(prompt_tokens, completion_tokens),
                     None => 0.0,
                 }

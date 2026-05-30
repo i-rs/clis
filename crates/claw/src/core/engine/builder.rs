@@ -320,14 +320,16 @@ pub fn smart_compress(
             preserve.insert(idx - 1);
         }
     }
-    // Backward: if a tool_call is kept, ensure following tool result is kept.
-    for idx in (0..msgs.len().saturating_sub(1)).rev() {
-        if preserve.contains(&idx)
-            && msgs[idx].get("tool_calls").is_some()
-            && msgs[idx + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
-            && !preserve.contains(&(idx + 1))
-        {
-            preserve.insert(idx + 1);
+    // Backward: if a tool_call is kept, ensure ALL following tool results are kept.
+    for idx in 0..msgs.len() {
+        if preserve.contains(&idx) && msgs[idx].get("tool_calls").is_some() {
+            let mut j = idx + 1;
+            while j < msgs.len()
+                && msgs[j].get("role").and_then(|r| r.as_str()) == Some("tool")
+            {
+                preserve.insert(j);
+                j += 1;
+            }
         }
     }
 

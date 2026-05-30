@@ -123,7 +123,7 @@ pub async fn chat_loop(
                 let mut should_retry = false;
                 for result in &all_results {
                     if result.result.starts_with("错误:") {
-                        let count = retry_counts.entry(result.call.id.clone()).or_insert(0);
+                        let count = retry_counts.entry(result.call.name.clone()).or_insert(0);
                         *count += 1;
                         if *count <= max_retries {
                             should_retry = true;

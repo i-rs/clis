@@ -26,7 +26,7 @@ impl AnthropicProvider {
 
 /// Convert OpenAI-format messages to Anthropic Messages API format.
 fn openai_to_anthropic_messages(messages: &[Value]) -> (Option<String>, Vec<Value>) {
-    let mut system = None;
+    let mut system: Option<String> = None;
     let mut anthro_msgs: Vec<Value> = Vec::new();
     let mut user_blocks: Vec<Value> = Vec::new();
 
@@ -45,7 +45,13 @@ fn openai_to_anthropic_messages(messages: &[Value]) -> (Option<String>, Vec<Valu
         let role = msg["role"].as_str().unwrap_or("");
         match role {
             "system" => {
-                system = msg["content"].as_str().map(|s| s.to_string());
+                let content = msg["content"].as_str().unwrap_or("");
+                if let Some(ref mut s) = system {
+                    s.push_str("\n\n");
+                    s.push_str(content);
+                } else {
+                    system = Some(content.to_string());
+                }
             }
             "user" => {
                 flush_user(&mut user_blocks, &mut anthro_msgs);
@@ -303,7 +309,7 @@ impl LlmProvider for AnthropicProvider {
 
         // Parse Anthropic SSE event stream
         let mut stream = response.bytes_stream();
-        let mut buf = String::new();
+        let mut buf: Vec<u8> = Vec::new();
         let mut current_event_type = String::new();
 
         // Track content blocks by index
@@ -321,12 +327,11 @@ impl LlmProvider for AnthropicProvider {
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| anyhow::anyhow!("流读取失败: {}", e))?;
-            buf.push_str(&String::from_utf8_lossy(&chunk));
+            buf.extend_from_slice(&chunk);
 
-            // Process complete SSE lines
-            while let Some(pos) = buf.find('\n') {
-                let line = buf[..pos].trim().to_string();
-                buf = buf[pos + 1..].to_string();
+            while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+                let line_bytes: Vec<u8> = buf.drain(..=pos).collect();
+                let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
 
                 if line.is_empty() {
                     continue;
@@ -338,10 +343,8 @@ impl LlmProvider for AnthropicProvider {
                 }
 
                 if let Some(data_val) = line.strip_prefix("data: ") {
-                    let event_type = std::mem::take(&mut current_event_type);
-                    if event_type.is_empty() {
-                        continue;
-                    }
+                    let raw_event_type = std::mem::take(&mut current_event_type);
+                    let event_type = if raw_event_type.is_empty() { "message" } else { &raw_event_type };
 
                     if let Some(event) = Self::parse_anthropic_event(&event_type, data_val) {
                         match event {

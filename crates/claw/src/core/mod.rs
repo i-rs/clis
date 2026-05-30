@@ -359,6 +359,8 @@ impl AppCore {
 
         let mut msgs = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
 
+        let mut tool_call_counter: u32 = 0;
+
         for record in records {
             let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
             match msg_type {
@@ -376,11 +378,13 @@ impl AppCore {
                         record.get("args").and_then(|a| a.as_str()),
                         record.get("result").and_then(|r| r.as_str()),
                     ) {
+                        tool_call_counter += 1;
+                        let call_id = format!("call_{}_{}", name, tool_call_counter);
                         msgs.push(serde_json::json!({
                             "role": "assistant",
                             "content": null,
                             "tool_calls": [{
-                                "id": name,
+                                "id": call_id,
                                 "type": "function",
                                 "function": {
                                     "name": name,
@@ -390,7 +394,7 @@ impl AppCore {
                         }));
                         msgs.push(serde_json::json!({
                             "role": "tool",
-                            "tool_call_id": name,
+                            "tool_call_id": call_id,
                             "content": result
                         }));
                     }
