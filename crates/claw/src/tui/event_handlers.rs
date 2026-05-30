@@ -115,15 +115,32 @@ impl<'a> LlmEventHandler<'a> {
             }
         }
 
-        // Record tool usage for cross-session memory
+        // Record tool usage for cross-session memory (CLI tools only)
         let agent_id = self.app.current_agent.clone();
         if name == "i_rs" {
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args)
                 && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
             {
-                self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(tool);
+                if crate::tools::TOOL_INDEX.iter().any(|(n, _, _)| *n == tool) {
+                    self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(tool);
+                }
+
+                let cmd = parsed.get("command").and_then(|c| c.as_str());
+                if cmd == Some("skill")
+                    && parsed
+                        .get("args")
+                        .and_then(|a| a.as_array())
+                        .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
+                        .unwrap_or(false)
+                {
+                    let cache = self.app_core.agent_store.tool_cache_for_mut(&agent_id);
+                    cache.hot_docs.insert(tool.to_string(), result.to_string());
+                    cache.save_hot_docs();
+                }
             }
-        } else {
+        } else if crate::tools::TOOL_INDEX.iter().any(|(n, _, _)| *n == name)
+            || name.starts_with("skill_")
+        {
             self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(name);
         }
     }

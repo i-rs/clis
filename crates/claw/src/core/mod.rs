@@ -62,7 +62,25 @@ impl AgentRuntimeStore {
         for id in &agent_ids {
             runtimes.insert(id.clone(), AgentRuntime::new(config, claw_dir, id));
         }
-        Self { runtimes }
+        let mut store = Self { runtimes };
+        store.prefetch_hot_tools();
+        store
+    }
+
+    fn prefetch_hot_tools(&mut self) {
+        for (_id, rt) in &mut self.runtimes {
+            let mut tools: Vec<(String, usize)> = rt
+                .memory
+                .tool_frequency()
+                .iter()
+                .map(|(k, v)| (k.clone(), *v))
+                .collect();
+            tools.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+            let hot: Vec<String> = tools.into_iter().take(5).map(|(t, _)| t).collect();
+            if !hot.is_empty() {
+                rt.tool_cache.prefetch(&hot);
+            }
+        }
     }
 
     fn get(&self, agent_id: &str) -> &AgentRuntime {
@@ -89,6 +107,10 @@ impl AgentRuntimeStore {
 
     pub fn tool_cache_for(&self, agent_id: &str) -> &ToolDocCache {
         &self.get(agent_id).tool_cache
+    }
+
+    pub fn tool_cache_for_mut(&mut self, agent_id: &str) -> &mut ToolDocCache {
+        &mut self.get_mut(agent_id).tool_cache
     }
 
     pub fn skill_store_for(&self, agent_id: &str) -> &SkillStore {
