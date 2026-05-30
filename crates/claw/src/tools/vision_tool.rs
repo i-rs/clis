@@ -130,33 +130,6 @@ close access outFile"#,
 /// OCR via osascript using Apple's Vision framework (VNVNRequest).
 /// This uses a compiled Swift snippet approach.
 fn ocr_via_osascript() -> Result<String, ClawError> {
-    let temp_png = temp_path("vision_ocr.png");
-
-    // Save clipboard image to temp file using sips
-    let save_result = Command::new("osascript")
-        .args(["-e", &format!(
-            r#"try
-    set theImage to (the clipboard as picture)
-    set outFile to (POSIX file "{}")
-    tell application "System Events"
-        -- save via sips
-    end tell
-end try"#,
-            temp_png.display().to_string().replace("\"", "\\\"")
-        )])
-        .output();
-
-    if save_result.is_err() {
-        return Err(ClawError::Execution("无法保存剪贴板图片".to_string()));
-    }
-
-    // Use sips to convert clipboard to temp file
-    // Actually, sips can't read from clipboard directly.
-    // Let's use a different approach: write a small Swift script
-
-    // Simpler: use `osascript` to call Apple's built-in OCR via Vision framework
-    // This requires a compiled Swift executable or using `swift` interpreter
-
     let swift_code = r#"
 import Cocoa
 import Vision
@@ -206,7 +179,6 @@ if let text = extractText() {
     // Write the Swift code to a temp file and execute with `swift`
     let swift_path = temp_path("vision_ocr.swift");
     if std::fs::write(&swift_path, swift_code).is_err() {
-        let _ = std::fs::remove_file(&temp_png);
         return Err(ClawError::Execution("无法创建 OCR 临时脚本".to_string()));
     }
 
@@ -215,12 +187,10 @@ if let text = extractText() {
         .output()
         .map_err(|e| {
             let _ = std::fs::remove_file(&swift_path);
-            let _ = std::fs::remove_file(&temp_png);
             format!("Swift OCR 执行失败: {}", e)
         })?;
 
     let _ = std::fs::remove_file(&swift_path);
-    let _ = std::fs::remove_file(&temp_png);
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -244,6 +214,7 @@ fn temp_path(filename: &str) -> PathBuf {
     let mut path = std::env::temp_dir();
     path.push("i-rs-claw");
     let _ = std::fs::create_dir_all(&path);
-    path.push(filename);
+    let unique_name = format!("{}-{}", fastrand::u64(0..u64::MAX), filename);
+    path.push(unique_name);
     path
 }

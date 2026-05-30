@@ -146,10 +146,14 @@ impl EmbeddingIndex {
     /// Add entries to the index and persist.
     #[allow(dead_code)]
     pub fn add_entries(&mut self, new_entries: Vec<IndexEntry>) {
+        let existing_keys: std::collections::HashSet<String> = self
+            .entries
+            .iter()
+            .map(|e| format!("{}:{}", e.session_id, e.excerpt))
+            .collect();
         for entry in new_entries {
-            // Deduplicate by (session_id, excerpt)
             let key = format!("{}:{}", entry.session_id, entry.excerpt);
-            if !self.entries.iter().any(|e| format!("{}:{}", e.session_id, e.excerpt) == key) {
+            if !existing_keys.contains(&key) {
                 self.entries.push(entry);
             }
         }

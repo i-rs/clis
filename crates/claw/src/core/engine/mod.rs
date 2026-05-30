@@ -142,8 +142,13 @@ pub async fn chat_loop(
                         "content": "部分工具调用返回错误，请修正参数后重试。".to_string(),
                     }));
                 } else {
-                    // Add reflection for max-retries-exceeded errors, then push all results
                     for result in &all_results {
+                        let trimmed = utils::smart_truncate(&result.result, 500);
+                        msgs.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": result.call.id,
+                            "content": trimmed,
+                        }));
                         if result.result.starts_with("错误:") {
                             msgs.push(serde_json::json!({
                                 "role": "system",
@@ -151,18 +156,11 @@ pub async fn chat_loop(
                                     "工具 '{}' 连续 {} 次调用失败。请反思：\n\
                                      1. 参数是否正确？\n\
                                      2. 是否需要换一种方式完成用户请求？\n\
-                                     3. 是否不需要这个工具，用其他方式回答用户？\n\
-                                     错误信息：{}",
-                                    result.call.name, max_retries, result.result
+                                     3. 是否不需要这个工具，用其他方式回答用户？",
+                                    result.call.name, max_retries
                                 ),
                             }));
                         }
-                        let trimmed = utils::smart_truncate(&result.result, 500);
-                        msgs.push(serde_json::json!({
-                            "role": "tool",
-                            "tool_call_id": result.call.id,
-                            "content": trimmed,
-                        }));
                     }
                 }
                 // Continue loop: send tool results back to LLM

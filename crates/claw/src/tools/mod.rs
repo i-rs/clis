@@ -46,8 +46,9 @@ pub fn format_search_result(
     parts.push(header);
     parts.push(format!("类型: {}", message_type));
 
-    let display_excerpt = if excerpt.len() > 300 {
-        format!("{}...", &excerpt[..297])
+    let display_excerpt = if excerpt.chars().count() > 300 {
+        let truncated: String = excerpt.chars().take(297).collect();
+        format!("{}...", truncated)
     } else {
         excerpt.to_string()
     };

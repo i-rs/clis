@@ -190,8 +190,8 @@ impl StatsManager {
         buffer.push(record);
 
         if buffer.len() >= self.flush_threshold {
-            // Flush synchronously — fast since JSONL append is O(1) per record
             let records = std::mem::take(&mut *buffer);
+            drop(buffer);
             if let Err(e) = store::append_records(&self.store_path, &records) {
                 tracing::error!("刷写 token 统计失败: {}", e);
             }
@@ -249,7 +249,13 @@ impl StatsManager {
 
     /// Get today's summary from the store file + in-memory buffer.
     pub fn today_summary(&self) -> TodaySummary {
-        let mut records = match store::read_range(&self.store_path, None, None) {
+        let start_of_today = chrono::Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap_or_default()
+            .and_utc()
+            .timestamp();
+        let mut records = match store::read_range(&self.store_path, Some(start_of_today), None) {
             Ok(r) => r,
             Err(e) => {
                 tracing::warn!("读取 token 统计失败: {}", e);

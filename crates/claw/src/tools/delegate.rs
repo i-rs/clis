@@ -95,10 +95,13 @@ impl ClawTool for DelegateTool {
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
-        provider
-            .stream_chat(&messages, &[], &tx)
-            .await
-            .map_err(|e| ClawError::Execution(format!("子智能体调用失败: {}", e)))?;
+        let _chat_result = tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            provider.stream_chat(&messages, &[], &tx),
+        )
+        .await
+        .map_err(|_| ClawError::Execution("子智能体调用超时 (60s)".to_string()))?
+        .map_err(|e| ClawError::Execution(format!("子智能体调用失败: {}", e)))?;
 
         drop(tx);
 

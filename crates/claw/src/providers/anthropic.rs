@@ -443,7 +443,7 @@ impl LlmProvider for AnthropicProvider {
             prompt_tokens,
             completion_tokens,
             error: None,
-            request_body: body_json.clone(),
+            request_body: body_json.chars().take(2000).collect::<String>(),
         }));
 
         // Determine result type based on stop reason

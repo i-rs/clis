@@ -784,8 +784,9 @@ impl<'a> KeyEventHandler<'a> {
                             md.push_str(&format!("命令: `i-rs {} {}`\n\n", tool, cmd));
                         }
                     if !result.is_empty() {
-                        let preview = if result.len() > 500 {
-                            format!("{}...", &result[..500])
+                        let preview = if result.chars().count() > 500 {
+                            let truncated: String = result.chars().take(500).collect();
+                            format!("{}...", truncated)
                         } else {
                             result.clone()
                         };

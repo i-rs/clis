@@ -36,7 +36,12 @@ impl ProviderKind {
         match s.to_lowercase().as_str() {
             "anthropic" => ProviderKind::Anthropic,
             "ollama" => ProviderKind::Ollama,
-            _ => ProviderKind::OpenAI,
+            other => {
+                if other != "openai" && !other.is_empty() {
+                    tracing::warn!("未知 provider '{}', 回退到 OpenAI 兼容模式", other);
+                }
+                ProviderKind::OpenAI
+            }
         }
     }
 

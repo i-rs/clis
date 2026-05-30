@@ -195,6 +195,28 @@ impl McpClient {
     }
 
     /// Call a tool on this MCP server.
+    /// Uses spawn_blocking to avoid blocking the tokio worker pool.
+    pub async fn call_tool_async(&self, tool_name: &str, args: &Value) -> Result<String, ClawError> {
+        let json_map = args
+            .as_object()
+            .ok_or_else(|| ClawError::Validation("MCP 工具参数必须是 JSON 对象".to_string()))?;
+
+        let params = CallToolRequestParams::new(tool_name.to_string())
+            .with_arguments(json_map.clone());
+
+        let service = self.service.clone();
+        let result: CallToolResult = tokio::task::spawn_blocking(move || {
+            let rt = tokio::runtime::Handle::current();
+            rt.block_on(service.call_tool(params))
+        })
+        .await
+        .map_err(|e| ClawError::Mcp(format!("MCP 任务执行失败: {}", e)))?
+        .map_err(|e| ClawError::Mcp(format!("MCP 错误: {}", mcp_service_err(e))))?;
+
+        extract_text_from_call_result(result)
+    }
+
+    /// Synchronous wrapper for call_tool (used outside tokio context).
     pub fn call_tool(&self, tool_name: &str, args: &Value) -> Result<String, ClawError> {
         let json_map = args
             .as_object()
@@ -208,26 +230,28 @@ impl McpClient {
             .block_on(self.service.call_tool(params))
             .map_err(|e| ClawError::Mcp(format!("MCP 错误: {}", mcp_service_err(e))))?;
 
-        // Extract text from content items
-        let text_parts: Vec<String> = result
-            .content
-            .iter()
-            .filter_map(|c| match &c.raw {
-                RawContent::Text(t) => Some(t.text.clone()),
-                RawContent::Resource(r) => match &r.resource {
-                    ResourceContents::TextResourceContents { text, .. } => Some(text.clone()),
-                    _ => None,
-                },
-                _ => None,
-            })
-            .collect();
+        extract_text_from_call_result(result)
+    }
+}
 
-        if text_parts.is_empty() {
-            // Fallback: serialize entire result
-            Ok(serde_json::to_string(&result).unwrap_or_default())
-        } else {
-            Ok(text_parts.join("\n"))
-        }
+fn extract_text_from_call_result(result: CallToolResult) -> Result<String, ClawError> {
+    let text_parts: Vec<String> = result
+        .content
+        .iter()
+        .filter_map(|c| match &c.raw {
+            RawContent::Text(t) => Some(t.text.clone()),
+            RawContent::Resource(r) => match &r.resource {
+                ResourceContents::TextResourceContents { text, .. } => Some(text.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+
+    if text_parts.is_empty() {
+        Ok(serde_json::to_string(&result).unwrap_or_default())
+    } else {
+        Ok(text_parts.join("\n"))
     }
 }
 
@@ -360,31 +384,26 @@ impl McpRegistry {
     /// Returns the number of successfully reconnected clients.
     pub fn health_check_and_reconnect(&mut self) -> usize {
         let mut reconnected = 0;
-        let mut failed_indices: Vec<usize> = Vec::new();
 
-        for (i, client) in self.clients.iter().enumerate() {
-            if !client.health_check() {
-                tracing::warn!("MCP 客户端 '{}' 连接断开, 尝试重连...", client.name);
-                failed_indices.push(i);
-            }
-        }
+        let failed_indices: Vec<usize> = self
+            .clients
+            .iter()
+            .enumerate()
+            .filter(|(_, client)| !client.health_check())
+            .map(|(i, _)| i)
+            .collect();
 
-        for &idx in failed_indices.iter().rev() {
+        for idx in failed_indices {
             let old_client = &self.clients[idx];
+            tracing::warn!("MCP 客户端 '{}' 连接断开, 尝试重连...", old_client.name);
             match old_client.reconnect() {
                 Ok(new_client) => {
                     tracing::info!("MCP 客户端 '{}' 重连成功", new_client.name);
                     match new_client.list_tools() {
                         Ok(new_tools) => {
                             self.tools.retain(|(ci, _)| *ci != idx);
-                            for (ci, _) in &mut self.tools {
-                                if *ci > idx {
-                                    *ci -= 1;
-                                }
-                            }
-                            let new_idx = idx;
                             for td in new_tools {
-                                self.tools.push((new_idx, td));
+                                self.tools.push((idx, td));
                             }
                         }
                         Err(e) => {

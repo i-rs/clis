@@ -20,7 +20,7 @@ pub(crate) async fn execute_tool_call(
         for (client_idx, tool_def) in &mcp.tools {
             if tool_def.name == name
                 && let Some(client) = mcp.clients.get(*client_idx) {
-                    return client.call_tool(name, args).unwrap_or_else(|e| format!("MCP 错误: {}", e));
+                    return client.call_tool_async(name, args).await.unwrap_or_else(|e| format!("MCP 错误: {}", e));
                 }
         }
     }

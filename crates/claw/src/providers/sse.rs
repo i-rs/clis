@@ -249,7 +249,7 @@ pub(crate) async fn openai_stream_chat_impl(
             prompt_tokens,
             completion_tokens,
             error: None,
-            request_body: body_json.clone(),
+            request_body: body_json.chars().take(2000).collect::<String>(),
         }));
 
         if has_tool_calls {
@@ -280,7 +280,7 @@ pub(crate) async fn openai_stream_chat_impl(
             prompt_tokens: 0,
             completion_tokens: 0,
             error: Some(format!("HTTP {}: {}", status, text)),
-            request_body: body_json.clone(),
+            request_body: body_json.chars().take(2000).collect::<String>(),
         }));
         Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text))
     }

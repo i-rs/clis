@@ -4,6 +4,8 @@
 //! that can be shared by both the TUI chat loop and the Dashboard SSE chat loop.
 //! Hardcoded truncation values are replaced with configurable parameters.
 
+use std::sync::Arc;
+
 use crate::llm::{LlmEvent, ToolCallAcc};
 use crate::mcp::McpRegistry;
 use crate::skill_store::SkillDefinition;
@@ -11,7 +13,6 @@ use crate::utils;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-/// Result of a single tool call execution.
 pub struct ToolCallResult {
     pub call: ToolCallAcc,
     #[allow(dead_code)]
@@ -21,15 +22,10 @@ pub struct ToolCallResult {
     pub context_result: String,
 }
 
-/// Executes tool calls in parallel with configurable timeout and truncation.
-///
-/// Encapsulates:
-/// - Parallel spawn with timeout per tool call
-/// - Truncation sizes for display vs LLM context
 pub struct ToolCallExecutor {
     mcp: McpRegistry,
     tool_ctx: crate::tools::ToolContext,
-    skills: Vec<SkillDefinition>,
+    skills: Arc<[SkillDefinition]>,
     cli_timeout_secs: u64,
     truncate_display: usize,
     truncate_context: usize,
@@ -44,7 +40,7 @@ impl ToolCallExecutor {
         Self {
             mcp,
             tool_ctx,
-            skills,
+            skills: skills.into(),
             cli_timeout_secs: 30,
             truncate_display: 4096,
             truncate_context: 500,
@@ -122,8 +118,13 @@ impl ToolCallExecutor {
         // Collect all results in order
         let mut all_results: Vec<ToolCallResult> = Vec::with_capacity(handles.len());
         for handle in handles {
-            if let Ok((call, args, context_result)) = handle.await {
-                all_results.push(ToolCallResult { call, args, result: context_result.clone(), context_result });
+            match handle.await {
+                Ok((call, args, context_result)) => {
+                    all_results.push(ToolCallResult { call, args, result: context_result.clone(), context_result });
+                }
+                Err(e) => {
+                    tracing::error!("Tool task panicked: {}", e);
+                }
             }
         }
         all_results

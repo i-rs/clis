@@ -265,7 +265,11 @@ impl SessionManager {
         let line = serde_json::to_string(&entry).unwrap_or_default();
         if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
             use std::io::Write;
-            let _ = writeln!(file, "{}", line);
+            if let Err(e) = writeln!(file, "{}", line) {
+                tracing::error!("写入会话消息失败 ({}): {}", path.display(), e);
+            }
+        } else {
+            tracing::error!("无法打开会话文件: {}", path.display());
         }
         if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id) {
             meta.message_count += 1;

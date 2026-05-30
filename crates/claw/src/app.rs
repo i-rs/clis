@@ -124,8 +124,7 @@ impl InputState {
             .position(|(_, c)| !c.is_alphanumeric() && c != '_')
             .map(|p| {
                 let idx = trimmed.len() - p - 1;
-                let (_, c) = trimmed.char_indices().nth(idx).unwrap();
-                idx + c.len_utf8()
+                trimmed.char_indices().nth(idx).map(|(_, c)| idx + c.len_utf8()).unwrap_or(0)
             })
             .unwrap_or(0);
         self.text.drain(word_start..self.cursor);
@@ -187,8 +186,7 @@ impl InputState {
             .position(|(_, c)| !c.is_alphanumeric() && c != '_')
             .map(|p| {
                 let idx = trimmed.len() - p - 1;
-                let (_, c) = trimmed.char_indices().nth(idx).unwrap();
-                idx + c.len_utf8()
+                trimmed.char_indices().nth(idx).map(|(_, c)| idx + c.len_utf8()).unwrap_or(0)
             })
             .unwrap_or(0);
         self.cursor = new_pos;
