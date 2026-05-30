@@ -27,7 +27,7 @@ i-rs-clis/
 │   │       ├── store.rs        # SharedStore<T> (RwLock 封装)
 │   │       └── routes/         # 70 个路由模块 (CRUD + PATCH)
 │   ├── claw/                   # TUI 智能助理 (i-rs-claw)
-│   │   ├── src/               # 21 个源文件
+│   │   ├── src/               # 67 个源文件
 │   │   ├── prompts/            # LLM 系统提示词
 │   │   └── dashboard-ui/       # Dashboard 前端资源
 │   ├── mcp/                    # MCP 协议服务器 (i-rs-mcp)
@@ -766,7 +766,7 @@ pub fn router() -> Router<Arc<AppState>> {
 ## 10. 存储规范
 
 - **密码**: 必须存储在 OS keychain 中
-- **数据文件**: `~/.config/i-rs/{name}.json`
+- **数据文件**: `~/.i-rs/data/{name}.json`
 - **自定义路径**: `CONFIG_DIR` 环境变量
 - **存储结构**: 统一使用 `BTreeMap` (不用 HashMap)
 - **CRUD 方法**: 统一为 `add_entry`, `remove_entry`, `get_entry`, `get_entry_mut`
@@ -899,7 +899,7 @@ inherits = "release"
 |-------|--------|------|
 | i-rs-core | 21 单元测试 | validation + date 模块 |
 | i-rs-api | 32 集成测试 | CRUD、PATCH、404、BadRequest、数据导出/清空 |
-| i-rs-claw | 48 单元测试 | 会话管理、状态机、语义搜索、配置等 (需 `--test-threads=1` 避免 env var 竞争) |
+| i-rs-claw | 206 单元测试 | 会话管理、状态机、语义搜索、配置、chat_loop、工具等 (需 `--test-threads=1`) |
 
 ## 17. 文章与推广规范
 

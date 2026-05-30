@@ -15,7 +15,7 @@ Rust monorepo 包含 **75+ crate** + **3 个客户端**，覆盖三类产品形�
 | **客户端** | `IrsClawApp` | 原生客户端 (macOS / iPad / iOS, SwiftUI) |
 | **客户端** | `IrsClawMiniProgram` | 微信小程序客户端 |
 
-**Current state:** `cargo check` — 0 errors, 0 warnings. 21 unit tests in i-rs-core, 32 integration tests in i-rs-api, 48 unit tests in i-rs-claw.
+**Current state:** `cargo check` — 0 errors, 0 warnings. `cargo test -p i-rs-claw` — 206 tests, 0 failed. `cargo test -p i-rs-core` — 21 tests. `cargo test -p i-rs-api` — 32 integration tests.
 
 ## Project Structure
 
@@ -25,7 +25,7 @@ i-rs-clis/
 │   ├── clis/               # [CLI 工具] 70 个 i-rs-{name}
 │   │   └── i-rs/           # Meta CLI (统一入口)
 │   ├── claw/               # [智能助理] i-rs-claw TUI AI assistant
-│   │   ├── src/            # 21 个源文件
+│   │   ├── src/            # 67 个源文件
 │   │   ├── prompts/        # LLM 系统提示词
 │   │   └── dashboard-ui/   # Dashboard 前端 (嵌入资源)
 │   ├── cli-api/            # [REST API] i-rs-api Axum 服务器
@@ -164,7 +164,7 @@ crates/clis/i-rs-{name}/
 - **Output**: `render_table()` for tables, `output_list/output_item` for JSON
 - **JSON output**: All commands support `--json` global flag
 - **Password/keys**: OS keychain (keyring crate), NEVER in JSON
-- **Data location**: `~/.config/i-rs/` (override with `CONFIG_DIR`)
+- **Data location**: `~/.i-rs/data/` (override with `CONFIG_DIR` env var)
 - **Date handling**: chrono with `ts_seconds` serde format
 - **Cargo.lock**: MUST be committed
 - **No unwrap()**: Use `expect("msg")` or proper error handling
@@ -189,23 +189,41 @@ crates/claw/src/
 ├── main.rs            # 入口: CLI 子命令分发 (tui/config/chat/version)
 ├── cli.rs             # clap CLI 定义 + 子命令处理
 ├── app.rs             # App 状态结构体 (UI 消息列表、输入、会话列表等)
-├── config.rs          # ~/.i-rs-claw/config.toml 解析 + Agent 配置
+├── config.rs          # ~/.i-rs/claw/config.toml 解析 + Agent 配置
 ├── tui.rs             # TUI 主循环 (事件处理 + LLM 事件分发)
-├── ui.rs              # ratatui 渲染 (62KB, 整个 TUI 布局)
+├── ui/                # ratatui 渲染 (模块化拆分)
+│   ├── mod.rs
+│   ├── chat.rs
+│   └── utils.rs
 ├── llm.rs             # LlmEvent 枚举、流式事件类型
-├── provider.rs        # LLM 提供者抽象 (OpenAI/Anthropic/Ollama/Zhipu)
+├── providers/         # LLM 提供者 (OpenAI/Anthropic/Ollama/Zhipu)
+│   ├── mod.rs
+│   ├── sse.rs
+│   ├── openai.rs
+│   ├── anthropic.rs
+│   ├── ollama.rs
+│   └── zhipu.rs
 ├── mcp.rs             # MCP 协议客户端 (注册表 + 工具发现)
-├── tools/             # 内置工具注册表 (i_rs, filesystem, curl 等)
+├── tools/             # 内置工具注册表
 │   ├── mod.rs         # ToolRegistry + ToolContext
 │   ├── i_rs.rs        # i-rs CLI 工具包装
 │   ├── mcp_tools.rs   # MCP 工具Schema转换
-│   ├── search.rs      # 网页搜索工具
-│   ├── filesystem.rs  # 文件操作工具
-│   ├── curl.rs        # HTTP 请求工具
-│   └── delegate.rs    # 子 Agent 委托工具
+│   ├── web_search.rs  # 网页搜索工具
+│   ├── file_ops.rs    # 文件操作工具
+│   ├── delegate.rs    # 子 Agent 委托工具
+│   ├── chart_tool.rs  # 图表工具
+│   ├── skill_tool.rs  # 技能工具
+│   ├── user_memory.rs # 用户记忆工具
+│   ├── search_tools.rs# 搜索工具
+│   ├── semantic_search.rs
+│   ├── chat_search.rs # 会话搜索
+│   └── vision_tool.rs # 视觉工具
 ├── core/
 │   ├── mod.rs         # AppCore (统一的运行时状态)
-│   ├── engine.rs      # chat_loop (ReAct 循环) + 消息构建 + smart_compress
+│   ├── engine/        # chat_loop + 消息构建 + smart_compress
+│   │   ├── mod.rs
+│   │   ├── builder.rs
+│   │   └── execution.rs
 │   ├── context.rs     # ContextManager (自适应 token 压缩)
 │   ├── executor.rs    # ToolExecutor (超时/重试/并行)
 │   └── orchestrator.rs # Plan-then-Execute (实验性/配置可选)
@@ -219,15 +237,18 @@ crates/claw/src/
 ├── theme.rs           # 主题定制 (theme.json)
 ├── plugin.rs          # 插件自动发现
 ├── convstore.rs       # 会话搜索存储
+├── stats/             # Token 用量统计
+│   ├── mod.rs
+│   └── store.rs
 ├── utils.rs           # 工具函数 (ansi 处理, JSON 前缀查找, smart_truncate)
-├── gateway/           # 社交平台集成 (Telegram/WeChat/Discord)
+├── gateway/           # 社交平台集成 (Telegram/WeChat)
 │   ├── mod.rs
 │   ├── telegram.rs
 │   └── wechat.rs
 └── dashboard/         # Web Dashboard
     ├── mod.rs
-    ├── router.rs
-    └── api.rs
+    ├── routes.rs
+    └── assets.rs
 ```
 
 ### 核心架构
@@ -249,7 +270,7 @@ crates/claw/src/
 - `AppCore` 是全局单例，持有 `SessionManager`, `AgentRuntimeStore` (每 Agent 的 memory/tool_cache/skill_store/mcp)
 - `chat_loop` 是纯 ReAct: stream → 收到 tool_calls → 并行执行 → 结果塞回消息 → 再次请求 LLM → 直到 LLM 返回文本
 
-### Config 文件 (~/.i-rs-claw/config.toml)
+### Config 文件 (~/.i-rs/claw/config.toml)
 
 ```toml
 provider = "openai"
@@ -281,7 +302,7 @@ command = "npx @anthropic-ai/claude-code-mcp"
 2. **所有异步操作走 tokio** — `tokio::spawn` + `mpsc` 通道
 3. **LLM 流式事件** — 通过 `LlmEvent` 枚举传递给 TUI
 4. **工具添加** — 在 `tools/` 下新建文件，注册到 `ToolRegistry`
-5. **测试** — `cargo test -p i-rs-claw` (48 tests, 需要 `--test-threads=1` 避免 env var 竞争)
+5. **测试** — `cargo test -p i-rs-claw` (206 tests, 需要 `--test-threads=1` 避免 env var 竞争)
 6. **文档** — 无需 `docs/crates/` 或 `skills/`，无 README 要求
 7. **Dashboard 开发** — 需要 `dashboard` feature：`cargo check --features dashboard`
 
@@ -501,7 +522,7 @@ CI (cargo-dist) 自动构建并发布到 GitHub Releases / npm / Homebrew。
 - `docs/.vitepress/config.ts` — VitePress 侧边栏配置
 - `.github/workflows/check.yml` — CI
 - `.github/workflows/release.yml` — 发布自动化
-- `crates/claw/src/` — claw 源码（21 个文件，最大 crate）
+- `crates/claw/src/` — claw 源码（67 个源文件，最大 crate）
 - `crates/claw/prompts/system.md` — LLM 系统提示词
 - `crates/cli-api/src/update.rs` — 通用 JSON 合并/部分更新工具
 - `crates/mcp/src/main.rs` — MCP 服务器入口
