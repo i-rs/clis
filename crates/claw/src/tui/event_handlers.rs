@@ -230,6 +230,15 @@ impl<'a> KeyEventHandler<'a> {
             }
 
             // ── Overlay-toast dismissals (high priority) ─────────
+            KeyCode::Esc if self.app.overlay.show_feedback => {
+                self.app.overlay.show_feedback = false;
+            }
+            KeyCode::Char('y') if self.app.overlay.show_feedback => {
+                return self.handle_submit_feedback(true);
+            }
+            KeyCode::Char('n') if self.app.overlay.show_feedback => {
+                return self.handle_submit_feedback(false);
+            }
             KeyCode::Esc if self.app.overlay.show_tool_list => {
                 self.app.overlay.show_tool_list = false;
             }
@@ -319,6 +328,20 @@ impl<'a> KeyEventHandler<'a> {
                 if self.app.overlay.show_config {
                     self.app.overlay.show_help = false;
                     self.app.overlay.show_tool_list = false;
+                    self.app.overlay.show_feedback = false;
+                }
+            }
+
+            // ── Feedback shortcut ─────────────────────────────────
+            KeyCode::Char('f') if key.modifiers == KeyModifiers::CONTROL
+                && !self.app.is_processing() => {
+                self.app.overlay.show_feedback = !self.app.overlay.show_feedback;
+                if self.app.overlay.show_feedback {
+                    self.app.overlay.show_help = false;
+                    self.app.overlay.show_config = false;
+                    self.app.overlay.show_tool_list = false;
+                    self.app.overlay.show_agent_list = false;
+                    self.app.overlay.show_stats_history = false;
                 }
             }
 
@@ -512,6 +535,25 @@ impl<'a> KeyEventHandler<'a> {
             if idx >= self.app.messages.len() {
                 self.app.overlay.selected_message = if self.app.messages.is_empty() { None } else { Some(self.app.messages.len() - 1) };
             }
+        }
+        Action::Continue
+    }
+
+    fn handle_submit_feedback(&mut self, positive: bool) -> Action {
+        self.app.overlay.show_feedback = false;
+        self.app.messages.push(app::Message::Feedback {
+            positive,
+            message: None,
+        });
+        if let Some(sid) = self.app_core.session_mgr.current_id().map(|s| s.to_string()) {
+            self.app_core
+                .agent_store
+                .memory_for_mut(&self.app.current_agent)
+                .record_session_feedback(&sid, positive);
+            self.app_core
+                .agent_store
+                .memory_for_mut(&self.app.current_agent)
+                .flush();
         }
         Action::Continue
     }

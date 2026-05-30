@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::Rect,
+    layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, Paragraph},
@@ -82,6 +82,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme:
         ("Ctrl+H", "显示/隐藏帮助"),
         ("Ctrl+P", "Agent 切换器"),
         ("Ctrl+R", "HTTP 调试面板"),
+        ("Ctrl+F", "对回答进行反馈"),
         ("Ctrl+I", "查看配置信息"),
         ("Ctrl+L", "会话列表"),
         ("Ctrl+T", "查看可用工具"),
@@ -478,4 +479,36 @@ pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
         .map(|_| Line::from(Span::styled(&fill, Style::default().bg(Color::Rgb(8, 8, 15)))))
         .collect();
     f.render_widget(Paragraph::new(lines), area);
+}
+
+pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
+    let width = 44u16.min(area.width.saturating_sub(4));
+    let height = 6u16;
+    let x = (area.width - width) / 2;
+    let y = (area.height - height) / 2;
+    let popup = Rect::new(x, y, width, height);
+
+    let block = Block::default()
+        .title(" 对本次回答的反馈 ")
+        .title_style(Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(theme.accent()));
+
+    let inner = block.inner(popup);
+    let text = vec![
+        Line::from(Span::raw("")),
+        Line::from(vec![
+            Span::styled("  [y] ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled("👍 满意   ", Style::default().fg(theme.text())),
+            Span::styled("  [n] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled("👎 不满意", Style::default().fg(theme.text())),
+        ]),
+        Line::from(vec![
+            Span::styled("  [Esc] ", Style::default().fg(theme.text())),
+            Span::styled("取消", Style::default().fg(theme.text())),
+        ]),
+    ];
+
+    f.render_widget(block, popup);
+    f.render_widget(Paragraph::new(text).alignment(Alignment::Center), inner);
 }
