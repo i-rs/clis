@@ -270,11 +270,13 @@ pub async fn chat_loop(
     let mut round_count = 0u32;
     let mut consecutive_provider_errors: u32 = 0;
     const MAX_PROVIDER_RETRIES: u32 = 2;
+    const HARD_MAX_ROUNDS: u32 = 50;
 
     loop {
         round_count += 1;
-        if round_count > init.max_rounds {
-            let _ = tx.send(LlmEvent::Error(format!("已达最大执行轮数限制 ({}), 已停止循环。", init.max_rounds)));
+        let effective_max = init.max_rounds.min(HARD_MAX_ROUNDS);
+        if round_count > effective_max {
+            let _ = tx.send(LlmEvent::Error(format!("已达最大执行轮数限制 ({}), 已停止循环。", effective_max)));
             break;
         }
         let _ = tx.send(LlmEvent::NewRound);

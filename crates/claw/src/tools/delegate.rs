@@ -85,6 +85,11 @@ impl ClawTool for DelegateTool {
 
         messages.push(serde_json::json!({"role": "user", "content": task}));
 
+        tracing::debug!(
+            "委托任务给子智能体 '{}' (model: {}), 注意这将产生额外 API 费用",
+            agent_id, agent_config.model
+        );
+
         let provider = create_provider_for(
             &ctx.http_client,
             &agent_config.provider,

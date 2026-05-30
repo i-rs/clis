@@ -6,6 +6,7 @@ use ratatui::{
     widgets::{List, ListItem},
     Frame,
 };
+use std::sync::Arc;
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{App, Message};
@@ -15,7 +16,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     let text_width = (area.width as usize).saturating_sub(4).max(20);
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    let mut format_cache: std::collections::HashMap<usize, Vec<Line<'static>>> =
+    let mut format_cache: std::collections::HashMap<usize, Arc<Vec<Line<'static>>>> =
         std::collections::HashMap::new();
 
     // heights[0] = newest message height, heights[n-1] = oldest
@@ -209,7 +210,8 @@ fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String], scan
 
     // Now parse the ANSI slice and produce Spans
     let segment = &raw[raw_start..raw_end.min(raw.len())];
-    let text_segment = &plain[line_start..line_start + line.len().min(plain.len() - line_start)];
+    let text_end = line_start + line.len().min(plain.len().saturating_sub(line_start));
+    let text_segment = &plain[line_start..text_end];
 
     // If no ANSI in this segment, return plain white
     if !segment.contains("\x1b[") {
@@ -363,7 +365,7 @@ fn message_line_count(
     msg: &Message,
     text_width: usize,
     msg_index: usize,
-    format_cache: &mut std::collections::HashMap<usize, Vec<Line<'static>>>,
+    format_cache: &mut std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
 ) -> usize {
     match msg {
         Message::User { text } => {
@@ -390,7 +392,7 @@ fn message_line_count(
             let body_lines = {
                 let md_lines = format_cache
                     .entry(msg_index)
-                    .or_insert_with(|| render_markdown(text, text_width.saturating_sub(3)));
+                    .or_insert_with(|| Arc::new(render_markdown(text, text_width.saturating_sub(3))));
                 if !is_markdown(text) || md_lines.is_empty() {
                     wrapped_line_count(text, text_width)
                 } else {
@@ -424,7 +426,7 @@ fn message_line_count(
                 }
             // result lines — use cached format_json_result for accurate counting
             if !result.is_empty() {
-                let cached = format_cache.entry(msg_index).or_insert_with(|| utils::format_json_result(result, text_width).0);
+                let cached = format_cache.entry(msg_index).or_insert_with(|| Arc::new(utils::format_json_result(result, text_width).0));
                 lines += cached.len();
             }
             lines
@@ -623,7 +625,7 @@ fn build_message_item_with_skip(
     msg: &Message,
     text_width: usize,
     msg_index: usize,
-    format_cache: &std::collections::HashMap<usize, Vec<Line<'static>>>,
+    format_cache: &std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
     skip_lines: usize,
 ) -> ListItem<'static> {
     let is_selected = app.overlay.selection_mode && app.overlay.selected_message == Some(msg_index);
@@ -655,7 +657,7 @@ fn build_message_lines(
     msg: &Message,
     text_width: usize,
     msg_index: usize,
-    format_cache: &std::collections::HashMap<usize, Vec<Line<'static>>>,
+    format_cache: &std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
 ) -> Vec<Line<'static>> {
     match msg {
         Message::User { text } => {
@@ -738,7 +740,7 @@ fn build_message_lines(
                 // Use cached rendering from Pass 1 if available
                 let md_lines = format_cache
                     .get(&msg_index)
-                    .cloned()
+                    .map(|arc| (**arc).clone())
                     .unwrap_or_else(|| render_markdown(text, text_width.saturating_sub(3)));
                 if !is_markdown(text) || md_lines.is_empty() {
                     // Fallback to simple wrapping for plain text
@@ -828,7 +830,7 @@ fn build_message_lines(
             if is_expanded && !result.is_empty()
                 && let Some(cached_lines) = format_cache.get(&msg_index) {
                     if !cached_lines.is_empty() {
-                        lines.extend(cached_lines.clone());
+                        lines.extend((**cached_lines).clone());
                     } else if has_ansi(result) {
                         for line in ansi_to_lines(result, text_width) {
                             lines.push(line);

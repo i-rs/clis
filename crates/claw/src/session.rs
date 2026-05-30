@@ -277,6 +277,16 @@ impl SessionManager {
                 return;
             }
         };
+        // Update metadata before writing to ensure index is ahead of data.
+        // If crash after save_index but before writeln, index overcounts —
+        // recoverable by reloading the actual JSONL file.
+        if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id) {
+            meta.message_count += 1;
+            meta.updated_at = now_secs();
+        }
+        self.save_index();
+        // Write message after index is saved — worst case a recovered session
+        // has stale message_count (ignored on reload since load_messages reads JSONL).
         if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
             use std::io::Write;
             if let Err(e) = writeln!(file, "{}", line) {
@@ -285,11 +295,6 @@ impl SessionManager {
         } else {
             tracing::error!("无法打开会话文件: {}", path.display());
         }
-        if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id) {
-            meta.message_count += 1;
-            meta.updated_at = now_secs();
-        }
-        self.save_index();
     }
 
     pub fn load_messages(&self, id: &str, max_messages: usize) -> Vec<serde_json::Value> {

@@ -169,10 +169,15 @@ pub struct AppCore {
 impl AppCore {
     /// Create a new AppCore from configuration.
     /// Initializes session manager, per-agent runtime data, and i-rs tool discovery.
-    pub fn new(mut config: Config) -> anyhow::Result<Self> {
+    pub fn new(config: Config) -> anyhow::Result<Self> {
         let claw_dir = crate::utils::claw_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+        Self::with_claw_dir(config, claw_dir)
+    }
 
+    /// Create AppCore with an explicit claw data directory.
+    /// Used by tests to avoid relying on HOME env var.
+    pub fn with_claw_dir(mut config: Config, claw_dir: std::path::PathBuf) -> anyhow::Result<Self> {
         config.discover_i_rs_tools(&claw_dir);
 
         let session_mgr = SessionManager::new(claw_dir.clone());

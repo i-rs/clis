@@ -4,6 +4,8 @@
 //! - `test_config()`: minimal Config without file/env dependencies
 //! - `MockProvider`: deterministic mock for chat_loop testing
 //! - `test_core()`: AppCore with temporary data directory
+//!
+//! NOTE: This file is compiled only under #[cfg(test)] (see main.rs).
 
 use crate::config::Config;
 use crate::llm::{LlmEvent, StreamResult, TokenUsage};
@@ -109,25 +111,17 @@ impl crate::providers::LlmProvider for MockProvider {
 
 /// Create a test AppCore with a temporary data directory.
 ///
-/// Sets HOME to a temp dir so that `~/.i-rs/claw/` paths
+/// Uses `AppCore::with_claw_dir()` with a temp dir so tests
 /// don't touch the real user's data. The temp dir is cleaned up
 /// on drop.
 #[allow(dead_code)]
 pub fn test_core() -> (Config, crate::core::AppCore) {
     let dir = tempfile::tempdir().expect("创建临时目录失败");
-    let home = dir.path().to_str().unwrap().to_string();
-
-    // Override HOME for the duration of the test
-    unsafe {
-        std::env::set_var("HOME", &home);
-    }
-
-    // Create the expected directory structure
     let claw_dir = dir.path().join(".i-rs").join("claw");
     std::fs::create_dir_all(&claw_dir).expect("创建 claw 数据目录失败");
 
     let config = test_config();
-    let core = crate::core::AppCore::new(config.clone())
+    let core = crate::core::AppCore::with_claw_dir(config.clone(), claw_dir)
         .expect("AppCore 初始化失败");
 
     (config, core)

@@ -5,6 +5,15 @@ use serde_json::Value;
 use std::time::Instant;
 use tokio::sync::mpsc::UnboundedSender;
 
+/// Minimum backoff base for 429 rate-limit retries (ms).
+const RETRY_429_BASE_MS: u64 = 1000;
+/// Minimum backoff base for 5xx server error retries (ms).
+const RETRY_5XX_BASE_MS: u64 = 2000;
+/// Minimum backoff base for network error retries (ms).
+const RETRY_NETWORK_BASE_MS: u64 = 1000;
+/// Maximum jitter added to backoff (ms).
+const RETRY_JITTER_MS: u64 = 1000;
+
 /// Send an HTTP POST request with exponential backoff retry.
 ///
 /// Retry policy:
@@ -40,8 +49,8 @@ pub(crate) async fn send_with_retry(
                     ));
                 }
                 let wait_ms = parse_retry_after_ms(&r).unwrap_or_else(|| {
-                    let base = 1000u64 << attempt.min(4);
-                    base + fastrand::u64(0..500)
+                    (RETRY_429_BASE_MS << attempt.min(4).saturating_sub(1).min(60))
+                        + fastrand::u64(0..RETRY_JITTER_MS / 2)
                 });
                 tracing::warn!("API 限流 (429), 等待 {}ms 后重试 ({}/{})", wait_ms, attempt, max_attempts);
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
@@ -55,8 +64,8 @@ pub(crate) async fn send_with_retry(
                         "API 服务器错误 ({}) 重试{}次后仍失败: {}", status, attempt, text
                     ));
                 }
-                let base = 2000u64 << attempt.min(3);
-                let wait_ms = base + fastrand::u64(0..1000);
+                let wait_ms = (RETRY_5XX_BASE_MS << attempt.min(3).saturating_sub(1).min(60))
+                    + fastrand::u64(0..RETRY_JITTER_MS);
                 tracing::warn!("API 服务器错误 ({}), 等待 {}ms 后重试 ({}/{})", r.status(), wait_ms, attempt, max_attempts);
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
                 continue;
@@ -71,8 +80,8 @@ pub(crate) async fn send_with_retry(
                 if attempt >= max_attempts {
                     return Err(anyhow::anyhow!("API 请求失败 (重试{}次): {}", attempt, e));
                 }
-                let base = 1000u64 << attempt.min(3);
-                let wait_ms = base + fastrand::u64(0..500);
+                let wait_ms = (RETRY_NETWORK_BASE_MS << attempt.min(3).saturating_sub(1).min(60))
+                    + fastrand::u64(0..RETRY_JITTER_MS / 2);
                 tracing::warn!("API 网络错误, 等待 {}ms 后重试 ({}/{}): {}", wait_ms, attempt, max_attempts, e);
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
                 continue;

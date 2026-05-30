@@ -153,6 +153,9 @@ impl WeChatAdapter {
         }
     }
 
+    /// Maximum time to wait for QR scan before giving up.
+    const QR_LOGIN_TIMEOUT_SECS: u64 = 300;
+
     /// Perform QR code login flow.
     async fn qr_login(&self) -> Result<WeChatCredentials, String> {
         let client = &self.client;
@@ -184,8 +187,17 @@ impl WeChatAdapter {
         tracing::info!("[Gateway/WeChat] ================================================");
         tracing::info!("[Gateway/WeChat] Waiting for QR scan...");
 
-        // Step 3: Poll until scan confirmed
+        // Step 3: Poll until scan confirmed (with timeout)
+        let deadline = tokio::time::Instant::now()
+            + std::time::Duration::from_secs(Self::QR_LOGIN_TIMEOUT_SECS);
         loop {
+            if tokio::time::Instant::now() >= deadline {
+                return Err(format!(
+                    "QR 登录超时 ({}s)，请重新启动",
+                    Self::QR_LOGIN_TIMEOUT_SECS
+                ));
+            }
+
             let status_resp: serde_json::Value = client
                 .get(format!(
                     "{}/ilink/bot/get_qrcode_status?qrcode={}",

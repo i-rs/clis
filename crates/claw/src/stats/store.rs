@@ -1,7 +1,14 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
+use std::sync::Mutex;
 
 use super::TokenRecord;
+
+/// Guards sequential access to JSONL append operations.
+/// Prevents interleaved writes when multiple sessions/gateways
+/// append concurrently. `O_APPEND` is atomic per-write on macOS,
+/// but batch writes or concurrent prune+append could corrupt.
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 /// Number of records to keep in the index for range queries.
 #[allow(dead_code)]
@@ -78,7 +85,7 @@ fn extract_timestamp(line: &str) -> Option<i64> {
 /// Append a single TokenRecord as a JSON line to the store file.
 #[allow(dead_code)]
 pub(crate) fn append_record(path: &Path, record: &TokenRecord) -> std::io::Result<()> {
-    // Ensure parent directory exists
+    let _guard = WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -101,6 +108,7 @@ pub(crate) fn append_records(path: &Path, records: &[TokenRecord]) -> std::io::R
         return Ok(());
     }
 
+    let _guard = WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

@@ -38,10 +38,8 @@ impl Dashboard {
     }
 
     /// Run the dashboard server. Blocks until shutdown.
-    pub async fn run(self, core: Arc<crate::core::AppCore>) {
+    pub async fn run(self, core: crate::core::AppCore) {
         use axum::Router;
-
-        let inner = Arc::into_inner(core).expect("AppCore must have exactly one reference");
 
         let auth_token = if let Some(token) = self.config.auth_token.clone() {
             token
@@ -66,7 +64,7 @@ impl Dashboard {
             token
         };
 
-        let state = AppState::new(inner, auth_token.clone());
+        let state = AppState::new(core, auth_token.clone());
 
         let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth_guard);
 
@@ -190,18 +188,24 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use axum::routing::get;
     use axum::Router;
+    use tokio::sync::RwLock;
     use tower::ServiceExt;
 
     async fn ok_handler() -> &'static str {
         "ok"
     }
 
+    fn test_state() -> AppState {
+        let (_cfg, core) = crate::test_helpers::test_core();
+        AppState {
+            core: Arc::new(RwLock::new(core)),
+            auth_token: "secret".to_string(),
+        }
+    }
+
     #[tokio::test]
     async fn test_auth_valid_token() {
-        let state = AppState {
-            core: Arc::new(Mutex::new(crate::test_helpers::test_core().1)),
-            auth_token: "secret".to_string(),
-        };
+        let state = test_state();
         let app = Router::new()
             .route("/api/test", get(ok_handler))
             .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))
@@ -218,10 +222,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_missing_token() {
-        let state = AppState {
-            core: Arc::new(Mutex::new(crate::test_helpers::test_core().1)),
-            auth_token: "secret".to_string(),
-        };
+        let state = test_state();
         let app = Router::new()
             .route("/api/test", get(ok_handler))
             .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))
@@ -237,10 +238,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_wrong_token() {
-        let state = AppState {
-            core: Arc::new(Mutex::new(crate::test_helpers::test_core().1)),
-            auth_token: "secret".to_string(),
-        };
+        let state = test_state();
         let app = Router::new()
             .route("/api/test", get(ok_handler))
             .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))

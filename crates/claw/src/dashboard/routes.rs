@@ -11,13 +11,6 @@ use serde_json::Value;
 use std::convert::Infallible;
 use tokio::sync::mpsc;
 
-/// Lock the core for read access, returning early with an error on poison.
-/// Usage: `let core = lock_core!(state)` for read, `let mut core = lock_core!(state, mut)` for write.
-macro_rules! lock_core {
-    ($state:expr) => { $state.core.read().await };
-    ($state:expr, mut) => { $state.core.write().await };
-}
-
 // ── Response helpers ──
 
 #[derive(Serialize)]
@@ -54,7 +47,7 @@ pub async fn health() -> Json<ApiResponse<&'static str>> {
 
 /// Get current configuration (sanitized, no API keys).
 pub async fn get_config(State(state): State<AppState>) -> Json<ApiResponse<Value>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let sanitized = serde_json::json!({
         "provider": core.config.provider,
         "model": core.config.model,
@@ -72,7 +65,7 @@ pub async fn update_config(
     State(state): State<AppState>,
     Json(body): Json<Value>,
 ) -> Json<ApiResponse<Value>> {
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
 
     if let Some(p) = body.get("provider").and_then(|v| v.as_str()) {
         core.config.provider = p.to_string();
@@ -117,7 +110,7 @@ pub async fn send_message(
         .unwrap_or("default")
         .to_string();
 
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
 
     // Create or get a session
     let session_id = core
@@ -270,7 +263,7 @@ pub async fn chat_stream(
 pub async fn get_current_session(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Value>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let id = core.session_mgr.current_id().map(|s| s.to_string());
     match id {
         Some(ref sid) => {
@@ -323,7 +316,7 @@ pub async fn create_session(
         .and_then(|v| v.as_str())
         .unwrap_or("default");
 
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
     let id = core.session_mgr.create_session_for(agent_id);
     ApiResponse::ok(serde_json::json!({
         "id": id,
@@ -338,7 +331,7 @@ pub async fn switch_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
     if core.session_mgr.switch_to(&id) {
         let meta = core.session_mgr.session_meta(&id);
         ApiResponse::ok(serde_json::json!({
@@ -356,7 +349,7 @@ pub async fn switch_session(
 pub async fn list_sessions(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let sessions: Vec<Value> = core
         .session_mgr
         .sessions()
@@ -379,7 +372,7 @@ pub async fn get_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let messages = core.session_mgr.load_app_messages(&id, 100);
     let msgs: Vec<Value> = messages
         .iter()
@@ -416,7 +409,7 @@ pub async fn delete_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<&'static str>> {
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
     core.session_mgr.delete_session(&id);
     drop(core);
     ApiResponse::ok("deleted")
@@ -431,7 +424,7 @@ pub async fn post_session_feedback(
     let positive = body.get("positive").and_then(|v| v.as_bool()).unwrap_or(true);
     let feedback_msg = body.get("message").and_then(|v| v.as_str());
 
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
     let agent_id = core
         .session_mgr
         .session_meta(&id)
@@ -463,7 +456,7 @@ pub async fn post_session_feedback(
 pub async fn get_agents(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let agent_ids = core.config.all_agent_ids();
     let agents: Vec<Value> = agent_ids
         .iter()
@@ -492,7 +485,7 @@ pub async fn get_agent_detail(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let resolved = core.config.agent_config(&id);
     let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
     ApiResponse::ok(serde_json::json!({
@@ -518,7 +511,7 @@ pub async fn update_agent(
         return ApiResponse::err("Cannot update the default agent");
     }
 
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
 
     // Get existing agent config
     let existing = match core.config.agents.get(&id) {
@@ -571,7 +564,7 @@ pub async fn create_agent(
         _ => return ApiResponse::err("Missing or invalid 'id' field"),
     };
 
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
 
     // Check if agent already exists
     if core.config.agents.contains_key(&agent_id) {
@@ -631,7 +624,7 @@ pub async fn delete_agent(
         return ApiResponse::err("Cannot delete the default agent");
     }
 
-    let mut core = lock_core!(state, mut);
+    let mut core = state.core.write().await;
 
     // Remove from config
     if let Err(e) = core.config.remove_agent(&id) {
@@ -656,7 +649,7 @@ pub async fn delete_agent(
 pub async fn list_tools(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<Value>>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let enabled = if core.config.enabled_tools.is_empty() {
         None
     } else {
@@ -692,7 +685,7 @@ pub async fn list_plugins(
 pub async fn list_skills(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<crate::skill_store::SkillDefinition>>> {
-    let core = lock_core!(state);
+    let core = state.core.read().await;
     let store = core.agent_store.skill_store_for("default");
     let entries = store.list_skills();
     let skills: Vec<crate::skill_store::SkillDefinition> = entries

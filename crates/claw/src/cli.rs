@@ -501,21 +501,20 @@ pub fn run_dashboard() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(crate::core::AppCore::new(config.clone())?);
+    let core = crate::core::AppCore::new(config.clone())?;
 
     // Discover plugins and merge into MCP config
     if core.config.plugins_auto_discover {
         let plugin_mgr = crate::plugin::PluginManager::new();
         let plugin_configs = plugin_mgr.to_mcp_configs();
         if !plugin_configs.is_empty() {
-            // Plugin configs are already merged into mcp_servers at init
             tracing::info!("{} plugins discovered", plugin_configs.len(),);
         }
     }
 
     let dashboard = crate::dashboard::Dashboard::new(config.dashboard);
     println!(
-        "{}  {}\n",
+        " {}  {}\n",
         " 🔷 i-rs-claw Dashboard".bold().bright_blue(),
         "🚀 Server starting...".bright_green()
     );
