@@ -93,7 +93,7 @@ pub fn create_provider(client: &reqwest::Client, config: &crate::config::Config)
             config.base_url.clone(),
             config.model.clone(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), config.model.clone())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), config.base_url.clone(), config.model.clone())),
     }
 }
 
@@ -118,7 +118,7 @@ pub fn create_provider_for(
             base_url.to_string(),
             model.to_string(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), model.to_string())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), base_url.to_string(), model.to_string())),
     }
 }
 

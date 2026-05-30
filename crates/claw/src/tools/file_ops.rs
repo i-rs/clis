@@ -43,7 +43,7 @@ impl ClawTool for FileOpsTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let operation = args
             .get("operation")
             .and_then(|v| v.as_str())
@@ -62,15 +62,12 @@ impl ClawTool for FileOpsTool {
             return Err(ClawError::Validation("Please specify a file path".to_string()));
         }
 
-        // Load config for allowed directories
-        let cfg = crate::config::Config::load().map_err(|e| format!("加载配置失败: {}", e))?;
-
-        if cfg.allowed_dirs.is_empty() {
+        if ctx.config.allowed_dirs.is_empty() {
             return Err(ClawError::Validation("文件操作未启用：没有配置允许的目录。请运行 `i-rs-claw config` 设置 allowed_dirs。".to_string()));
         }
 
         // Resolve the path against the first allowed directory
-        let base = PathBuf::from(&cfg.allowed_dirs[0]);
+        let base = PathBuf::from(&ctx.config.allowed_dirs[0]);
         let target = if Path::new(path_str).is_absolute() {
             PathBuf::from(path_str)
         } else {
@@ -93,7 +90,7 @@ impl ClawTool for FileOpsTool {
             Err(e) => return Err(ClawError::Execution(format!("无法访问路径 '{}': {}", target.display(), e))),
         };
 
-        let allowed = cfg
+        let allowed = ctx.config
             .allowed_dirs
             .iter()
             .map(|d| PathBuf::from(d).canonicalize())
@@ -104,7 +101,7 @@ impl ClawTool for FileOpsTool {
             return Err(ClawError::Validation(format!(
                 "权限不足：路径 '{}' 不在允许的目录内。允许的目录: {}",
                 canonical_target.display(),
-                cfg.allowed_dirs.join(", ")
+                ctx.config.allowed_dirs.join(", ")
             )));
         }
 

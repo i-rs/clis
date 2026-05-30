@@ -34,7 +34,7 @@ impl ClawTool for WebSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
@@ -44,11 +44,8 @@ impl ClawTool for WebSearchTool {
             return Err(ClawError::Validation("Please provide a search query".to_string()));
         }
 
-        // Load config to check for custom search settings
-        let cfg = crate::config::Config::load().map_err(|e| format!("加载配置失败: {}", e))?;
-
-        if let Some(custom_url) = &cfg.search_base_url {
-            search_custom(custom_url, &cfg.search_api_key, query)
+        if let Some(custom_url) = &ctx.config.search_base_url {
+            search_custom(custom_url, &ctx.config.search_api_key, query)
         } else {
             search_duckduckgo(query)
         }

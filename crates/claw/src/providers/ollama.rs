@@ -15,16 +15,7 @@ pub struct OllamaProvider {
 }
 
 impl OllamaProvider {
-    pub fn new(client: reqwest::Client, model: String) -> Self {
-        Self {
-            client,
-            base_url: "http://localhost:11434/v1".to_string(),
-            model,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn with_url(client: reqwest::Client, base_url: String, model: String) -> Self {
+    pub fn new(client: reqwest::Client, base_url: String, model: String) -> Self {
         Self { client, base_url, model }
     }
 }

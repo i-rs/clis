@@ -170,10 +170,8 @@ impl AppCore {
     /// Create a new AppCore from configuration.
     /// Initializes session manager, per-agent runtime data, and i-rs tool discovery.
     pub fn new(mut config: Config) -> anyhow::Result<Self> {
-        let claw_dir = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?
-            .join(".i-rs")
-            .join("claw");
+        let claw_dir = crate::utils::claw_dir()
+            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
 
         config.discover_i_rs_tools(&claw_dir);
 
@@ -338,9 +336,7 @@ impl AppCore {
     /// Get the base directory for claw data.
     #[allow(dead_code)]
     pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
-        let home = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
-        Ok(home.join(".i-rs").join("claw"))
+        crate::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))
     }
 }
 

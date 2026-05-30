@@ -586,25 +586,33 @@ impl Config {
             }
         }
 
-        // Discover by running `i-rs-{name} skill summary` for each tool
+        let mut handles = Vec::with_capacity(self.i_rs_tools.len());
         for name in &self.i_rs_tools {
             let binary = format!("i-rs-{}", name);
-            let desc = match std::process::Command::new(&binary)
-                .arg("skill")
-                .arg("summary")
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .output()
-            {
-                Ok(output) if output.status.success() => {
-                    String::from_utf8_lossy(&output.stdout).trim().to_string()
-                }
-                _ => {
-                    tracing::warn!("i-rs 工具 '{}' (i-rs-{}) 未安装或 skill summary 失败，已跳过", name, name);
-                    continue;
-                }
-            };
-            self.i_rs_tool_index.insert(name.clone(), desc);
+            let name = name.clone();
+            handles.push(std::thread::spawn(move || {
+                let desc = match std::process::Command::new(&binary)
+                    .arg("skill")
+                    .arg("summary")
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .output()
+                {
+                    Ok(output) if output.status.success() => {
+                        String::from_utf8_lossy(&output.stdout).trim().to_string()
+                    }
+                    _ => {
+                        tracing::warn!("i-rs 工具 '{}' (i-rs-{}) 未安装或 skill summary 失败，已跳过", name, name);
+                        return (name, None);
+                    }
+                };
+                (name, Some(desc))
+            }));
+        }
+        for handle in handles {
+            if let Ok((name, Some(desc))) = handle.join() {
+                self.i_rs_tool_index.insert(name, desc);
+            }
         }
 
         // Write cache

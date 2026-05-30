@@ -44,8 +44,7 @@ impl ClawTool for ChatSearchTool {
             return Err(ClawError::Validation("Please provide a search query".to_string()));
         }
 
-        let claw_dir = dirs::home_dir()
-            .map(|h| h.join(".i-rs").join("claw"))
+        let claw_dir = crate::utils::claw_dir()
             .ok_or_else(|| ClawError::NotFound("Cannot determine home directory".to_string()))?;
 
         let store = crate::convstore::ConvStore::new(claw_dir);

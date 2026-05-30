@@ -913,10 +913,7 @@ pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
 }
 
 fn skill_store() -> crate::skill_store::SkillStore {
-    let claw_dir = dirs::home_dir()
-        .expect("无法获取用户主目录")
-        .join(".i-rs")
-        .join("claw");
+    let claw_dir = crate::utils::claw_dir().expect("无法获取用户主目录");
     crate::skill_store::SkillStore::for_agent(&claw_dir, "default")
 }
 
@@ -925,10 +922,7 @@ fn skill_store() -> crate::skill_store::SkillStore {
 // =============================================
 
 fn claw_dir() -> std::path::PathBuf {
-    dirs::home_dir()
-        .expect("无法获取用户主目录")
-        .join(".i-rs")
-        .join("claw")
+    crate::utils::claw_dir().expect("无法获取用户主目录")
 }
 
 /// Parse MCP server config from user input.

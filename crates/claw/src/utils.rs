@@ -1,5 +1,9 @@
 use std::path::Path;
 
+pub fn claw_dir() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|h| h.join(".i-rs").join("claw"))
+}
+
 /// Atomic file write: write to a temp file first, then atomically rename.
 /// This prevents data corruption if the process crashes mid-write.
 /// Returns `Ok(())` on success, `Err` with a description on failure.

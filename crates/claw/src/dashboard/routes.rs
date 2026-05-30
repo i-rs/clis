@@ -320,7 +320,7 @@ pub async fn chat_stream(
 
     let resolved = config.agent_config(&agent_id);
     let provider = crate::providers::create_provider_for(
-        &reqwest::Client::new(),
+        &crate::providers::shared_client(),
         &resolved.provider,
         &resolved.api_key,
         &resolved.base_url,
