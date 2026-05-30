@@ -22,6 +22,9 @@ pub struct CrossSessionMemory {
     /// Free-form user info facts (habits, preferences, etc.)
     #[serde(default)]
     user_info: Vec<String>,
+    /// Session feedback: session_id -> (positive_count, negative_count)
+    #[serde(default)]
+    session_feedback: HashMap<String, (u32, u32)>,
     /// Path to disk cache file
     #[serde(skip)]
     path: PathBuf,
@@ -48,6 +51,7 @@ impl CrossSessionMemory {
                 preferences: Vec::new(),
                 user_name: None,
                 user_info: Vec::new(),
+                session_feedback: HashMap::new(),
                 path: path.clone(),
                 dirty: false,
             }
@@ -134,6 +138,19 @@ impl CrossSessionMemory {
             self.preferences.push(p);
             self.dirty = true;
         }
+    }
+
+    /// Record session feedback (thumbs up/down).
+    /// Positive feedback increases the positive count, negative increases negative.
+    #[allow(dead_code)]
+    pub fn record_session_feedback(&mut self, session_id: &str, positive: bool) {
+        let (pos, neg) = self.session_feedback.entry(session_id.to_string()).or_insert((0, 0));
+        if positive {
+            *pos += 1;
+        } else {
+            *neg += 1;
+        }
+        self.dirty = true;
     }
 
     // =============================================
@@ -224,6 +241,7 @@ impl CrossSessionMemory {
             preferences: Vec::new(),
             user_name: None,
             user_info: Vec::new(),
+            session_feedback: HashMap::new(),
             path: path.clone(),
             dirty: false,
         }
@@ -241,6 +259,7 @@ mod tests {
             preferences: Vec::new(),
             user_name: None,
             user_info: Vec::new(),
+            session_feedback: HashMap::new(),
             path: std::env::temp_dir().join("i-rs-claw-test-memory.json"),
             dirty: false,
         }

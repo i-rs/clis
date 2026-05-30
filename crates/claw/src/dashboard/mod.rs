@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 use std::net::SocketAddr;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use owo_colors::OwoColorize;
 
@@ -14,14 +14,14 @@ pub use crate::config::DashboardConfig;
 /// Shared application state for all HTTP handlers.
 #[derive(Clone)]
 pub struct AppState {
-    pub core: Arc<Mutex<crate::core::AppCore>>,
+    pub core: Arc<RwLock<crate::core::AppCore>>,
     pub auth_token: String,
 }
 
 impl AppState {
     pub fn new(core: crate::core::AppCore, auth_token: String) -> Self {
         Self {
-            core: Arc::new(Mutex::new(core)),
+            core: Arc::new(RwLock::new(core)),
             auth_token,
         }
     }
@@ -89,6 +89,10 @@ impl Dashboard {
             .route(
                 "/api/sessions/{id}/switch",
                 axum::routing::post(routes::switch_session),
+            )
+            .route(
+                "/api/sessions/{id}/feedback",
+                axum::routing::post(routes::post_session_feedback),
             )
             .route("/api/tools", axum::routing::get(routes::list_tools))
             .route("/api/plugins", axum::routing::get(routes::list_plugins))

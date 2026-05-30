@@ -24,6 +24,22 @@ pub fn message_to_jsonl(msg: &Message) -> Value {
         Message::Evaluation { tool, valid, issues } => serde_json::json!({
             "type": "evaluation", "tool": tool, "valid": valid, "issues": issues,
         }),
+        Message::Quality { score, complete, references_valid, issues } => {
+            let mut obj = serde_json::json!({
+                "type": "quality", "complete": complete, "references_valid": references_valid, "issues": issues,
+            });
+            if let Some(s) = score {
+                obj["score"] = serde_json::Value::Number(serde_json::Number::from_f64(*s).unwrap_or(serde_json::Number::from(0)));
+            }
+            obj
+        }
+        Message::Feedback { positive, message } => {
+            let mut obj = serde_json::json!({ "type": "feedback", "positive": positive });
+            if let Some(msg) = message {
+                obj["message"] = Value::String(msg.clone());
+            }
+            obj
+        }
     }
 }
 
@@ -48,7 +64,78 @@ pub fn message_from_jsonl(v: &Value) -> Option<Message> {
             valid: v.get("valid").and_then(|v| v.as_bool()).unwrap_or(true),
             issues: v.get("issues").and_then(|i| i.as_array()).map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default(),
         }),
+        "quality" => Some(Message::Quality {
+            score: v.get("score").and_then(|s| s.as_f64()),
+            complete: v.get("complete").and_then(|c| c.as_bool()).unwrap_or(true),
+            references_valid: v.get("references_valid").and_then(|r| r.as_u64()).unwrap_or(0) as u32,
+            issues: v.get("issues").and_then(|i| i.as_array()).map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default(),
+        }),
+        "feedback" => Some(Message::Feedback {
+            positive: v.get("positive").and_then(|p| p.as_bool()).unwrap_or(true),
+            message: v.get("message").and_then(|m| m.as_str().map(String::from)),
+        }),
         _ => None,
+    }
+}
+
+/// Heuristic analysis of a final response against the executed tool calls.
+///
+/// Does lightweight checks without LLM calls:
+/// - Response references tools that were never called
+/// - Response acknowledges errors from tool results
+/// - Basic completeness: response text is non-empty after tool execution
+pub fn evaluate_response_heuristic(
+    response_text: &str,
+    tool_results: &[(&str, bool)], // (tool_name, success)
+) -> Message {
+    let mut issues = Vec::new();
+    let mut references_valid = 0u32;
+
+    // Check if response mentions tools that were never executed
+    let executed_tools: std::collections::HashSet<&str> = tool_results.iter().map(|(n, _)| *n).collect();
+    for (name, success) in tool_results {
+        if response_text.contains(*name) {
+            references_valid += 1;
+        }
+        if !success {
+            if response_text.contains("错误") || response_text.contains("失败") {
+                // Response acknowledges failures, good
+            } else {
+                issues.push(format!("工具 '{}' 执行失败，但回复未提及", name));
+            }
+        }
+    }
+
+    // Check for hallucinated tool mentions
+    let known_tool_patterns = ["weight", "height", "sleep", "mood", "todo", "run"];
+    for pattern in &known_tool_patterns {
+        if response_text.contains(*pattern)
+            && !executed_tools.contains(pattern)
+            && response_text.contains("i-rs")
+        {
+            issues.push(format!("回复提及未执行的工具: {}", pattern));
+        }
+    }
+
+    let complete = !response_text.trim().is_empty();
+    if !complete {
+        issues.push("回复为空".to_string());
+    }
+
+    let has_errors = !issues.is_empty();
+    let score = if has_errors {
+        Some(1.0 - (issues.len() as f64 * 0.2).min(0.8))
+    } else if complete {
+        Some(1.0)
+    } else {
+        Some(0.0)
+    };
+
+    Message::Quality {
+        score,
+        complete,
+        references_valid,
+        issues,
     }
 }
 
@@ -96,6 +183,22 @@ pub enum Message {
         tool: String,
         valid: bool,
         issues: Vec<String>,
+    },
+    /// Final response quality assessment (LLM-as-judge or heuristic)
+    Quality {
+        /// Overall quality score 0.0-1.0, present only for semantic evaluation
+        score: Option<f64>,
+        /// Completeness: did the response address all user requests?
+        complete: bool,
+        /// Number of tool results referenced correctly
+        references_valid: u32,
+        /// Number of potential issues found
+        issues: Vec<String>,
+    },
+    /// User feedback on the conversation (thumbs up/down)
+    Feedback {
+        positive: bool,
+        message: Option<String>,
     },
 }
 

@@ -19,7 +19,238 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-/// Main chat loop: stream, handle tool calls, continue until done
+// ── Pipeline stages for chat_loop ──
+
+/// One-time initialization: build tool schemas, inject context advisory,
+/// create the shared executor, and prepare retry counters.
+struct ChatLoopInit {
+    tool_schemas: Vec<Value>,
+    executor: crate::core::executor::ToolCallExecutor,
+    ctx_mgr: ContextManager,
+    max_retries: u32,
+    max_rounds: u32,
+    tool_frequency: HashMap<String, usize>,
+}
+
+fn prepare_loop(
+    provider: &dyn LlmProvider,
+    config: &Config,
+    msgs: &mut Vec<Value>,
+    mcp: &McpRegistry,
+    skills: &[SkillDefinition],
+    tool_frequency: HashMap<String, usize>,
+) -> ChatLoopInit {
+    let enabled = if config.enabled_tools.is_empty() {
+        None
+    } else {
+        Some(&config.enabled_tools)
+    };
+    let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
+    let tool_registry = Arc::new(crate::tools::ToolRegistry::with_skills(skills));
+    let mut tool_schemas = tool_registry.enabled_schemas(&i_rs_tool_names, enabled);
+    for (_name, (client_idx, tool_def)) in &mcp.tool_map {
+        if mcp.clients.get(*client_idx).is_some() {
+            let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
+            tool_schemas.push(schema);
+        }
+    }
+
+    let ctx_mgr = ContextManager::for_model(provider.model());
+    let advisory = ctx_mgr.context_advisory(msgs);
+    if !advisory.is_empty()
+        && msgs.first().and_then(|m| m.get("role").and_then(|r| r.as_str())) == Some("system")
+        && let Some(system_msg) = msgs.first_mut()
+            && let Some(content) = system_msg.get("content").and_then(|c| c.as_str()) {
+                system_msg["content"] = Value::String(format!("{}\n{}", content, advisory));
+            }
+
+    let tool_ctx = crate::tools::ToolContext {
+        config: config.clone(),
+        mcp: mcp.clone(),
+        http_client: crate::providers::shared_client(),
+    };
+    let executor = crate::core::executor::ToolCallExecutor::new(
+        tool_registry,
+        tool_ctx,
+        mcp.clone(),
+    )
+    .with_timeout(config.cli_timeout_secs)
+    .with_truncation(4096, 500);
+
+    ChatLoopInit {
+        tool_schemas,
+        executor,
+        ctx_mgr,
+        max_retries: config.max_tool_retries,
+        max_rounds: config.max_react_rounds,
+        tool_frequency,
+    }
+}
+
+/// Stage 1: Stream — send messages to LLM, return StreamResult.
+async fn stream_to_llm(
+    provider: &dyn LlmProvider,
+    msgs: &[Value],
+    tool_schemas: &[Value],
+    tx: &mpsc::UnboundedSender<LlmEvent>,
+) -> anyhow::Result<StreamResult> {
+    provider.stream_chat(msgs, tool_schemas, tx).await
+}
+
+/// Stage 2: Execute — dispatch tool calls through the executor, trace results.
+async fn dispatch_tools(
+    executor: &crate::core::executor::ToolCallExecutor,
+    calls: Vec<(crate::llm::ToolCallAcc, Value)>,
+    tx: &mpsc::UnboundedSender<LlmEvent>,
+    msgs: &mut Vec<Value>,
+    reasoning_content: &str,
+) -> Vec<crate::core::executor::ToolCallResult> {
+    // Build assistant tool_call message
+    let tool_calls_array: Vec<Value> = calls
+        .iter()
+        .map(|(tc, _)| {
+            serde_json::json!({
+                "id": tc.id, "type": "function",
+                "function": { "name": tc.name, "arguments": tc.arguments }
+            })
+        })
+        .collect();
+    let mut assistant_msg = serde_json::json!({
+        "role": "assistant", "content": null, "tool_calls": tool_calls_array,
+    });
+    if !reasoning_content.is_empty() {
+        assistant_msg["reasoning_content"] = Value::String(reasoning_content.to_string());
+    }
+    msgs.push(assistant_msg);
+
+    let total = calls.len();
+    let _ = tx.send(LlmEvent::Status(format!("⚡ 并行执行 {} 个工具...", total)));
+
+    executor.execute(calls, tx).await
+}
+
+/// Stage 3: Inject — push tool results into messages, decide whether to retry.
+/// Returns the backoff duration if a sleep is needed before continuing.
+fn inject_results(
+    results: &[crate::core::executor::ToolCallResult],
+    msgs: &mut Vec<Value>,
+    retry_counts: &mut HashMap<String, (u32, u32)>,
+    max_retries: u32,
+) -> Option<Duration> {
+    let mut should_retry = false;
+    for r in results {
+        if r.result.starts_with("错误:") {
+            let entry = retry_counts.entry(r.call.name.clone()).or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += 1;
+            if entry.0 <= max_retries {
+                should_retry = true;
+            }
+        } else if let Some(entry) = retry_counts.get_mut(&r.call.name) {
+            entry.1 = 0;
+        }
+    }
+
+    if should_retry {
+        for r in results {
+            msgs.push(serde_json::json!({
+                "role": "tool", "tool_call_id": r.call.id,
+                "content": utils::smart_truncate(&r.result, 500),
+            }));
+        }
+        // Exponential backoff based on consecutive failures
+        let max_consecutive = results
+            .iter()
+            .filter_map(|r| retry_counts.get(&r.call.name))
+            .map(|(_, c)| *c)
+            .max()
+            .unwrap_or(1);
+        let backoff_secs = 2u64.saturating_pow(max_consecutive.min(4));
+        msgs.push(serde_json::json!({
+            "role": "system",
+            "content": "部分工具调用返回错误，请修正参数后重试。",
+        }));
+        if backoff_secs > 1 {
+            Some(Duration::from_secs(backoff_secs))
+        } else {
+            None
+        }
+    } else {
+        for r in results {
+            let trimmed = utils::smart_truncate(&r.result, 500);
+            msgs.push(serde_json::json!({
+                "role": "tool", "tool_call_id": r.call.id, "content": trimmed,
+            }));
+            if r.result.starts_with("错误:") {
+                msgs.push(serde_json::json!({
+                    "role": "system",
+                    "content": format!(
+                        "工具 '{}' 连续 {} 次调用失败。请反思：\n\
+                         1. 参数是否正确？\n\
+                         2. 是否需要换一种方式完成用户请求？\n\
+                         3. 是否不需要这个工具，用其他方式回答用户？",
+                        r.call.name, max_retries
+                    ),
+                }));
+            }
+        }
+        None
+    }
+}
+
+/// Trace all tool call results with structured logging.
+fn trace_tool_results(
+    results: &[crate::core::executor::ToolCallResult],
+    start_time: std::time::Instant,
+) {
+    for r in results {
+        tracing::info!(
+            tool = %r.call.name,
+            args = %r.call.arguments,
+            success = !r.result.starts_with("错误:"),
+            elapsed_ms = %start_time.elapsed().as_millis(),
+            result_len = r.result.len(),
+            "工具调用"
+        );
+    }
+}
+
+/// Stage 4: Handle provider error — retry with backoff or give up.
+/// Returns true to continue retrying, false to break the loop.
+async fn handle_provider_error(
+    err: anyhow::Error,
+    consecutive_errors: &mut u32,
+    max_retries: u32,
+    tx: &mpsc::UnboundedSender<LlmEvent>,
+) -> bool {
+    let err_msg = format!("{}", err);
+    let is_transient = err_msg.starts_with("API 限流")
+        || err_msg.starts_with("API 服务器错误")
+        || err_msg.starts_with("API 请求失败");
+
+    if is_transient && *consecutive_errors < max_retries {
+        *consecutive_errors += 1;
+        let wait_secs = 2u64.saturating_pow((*consecutive_errors).min(5));
+        tracing::warn!(
+            "Provider 瞬态错误 ({}/{}), 等待 {}s 后重试: {}",
+            *consecutive_errors, max_retries, wait_secs, err_msg
+        );
+        let _ = tx.send(LlmEvent::Status(format!(
+            "⚠️ 网络波动，{}s 后重试 ({}/{})…", wait_secs, *consecutive_errors, max_retries
+        )));
+        tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+        true
+    } else {
+        let _ = tx.send(LlmEvent::Error(err_msg));
+        false
+    }
+}
+
+// ── Orchestrator ──
+
+/// Main chat loop: stream, handle tool calls, continue until done.
+///
+/// Pipeline: prepare → [stream → dispatch → inject → trace → compress] × N
 #[tracing::instrument(skip(provider, config, messages, tx, mcp, skills))]
 pub async fn chat_loop(
     provider: Box<dyn LlmProvider>,
@@ -28,79 +259,36 @@ pub async fn chat_loop(
     tx: mpsc::UnboundedSender<LlmEvent>,
     mcp: McpRegistry,
     skills: Vec<SkillDefinition>,
+    tool_frequency: HashMap<String, usize>,
 ) {
-    let enabled = if config.enabled_tools.is_empty() {
-        None
-    } else {
-        Some(&config.enabled_tools)
-    };
-    let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    // Build ToolRegistry once and share it via Arc
-    let tool_registry = Arc::new(crate::tools::ToolRegistry::with_skills(&skills));
-    let mut tool_schemas = tool_registry.enabled_schemas(&i_rs_tool_names, enabled);
-    // Append MCP tool schemas (O(1) via tool_map)
-    for (_name, (client_idx, tool_def)) in &mcp.tool_map {
-        if mcp.clients.get(*client_idx).is_some() {
-            let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
-            tool_schemas.push(schema);
-        }
-    }
     let mut msgs = messages;
-
-    // Inject context advisory into system prompt if near limit
-    let ctx_mgr = ContextManager::for_model(provider.model());
-    let advisory = ctx_mgr.context_advisory(&msgs);
-    if !advisory.is_empty() && msgs.first().and_then(|m| m.get("role").and_then(|r| r.as_str())) == Some("system") {
-        if let Some(system_msg) = msgs.first_mut() {
-            if let Some(content) = system_msg.get("content").and_then(|c| c.as_str()) {
-                system_msg["content"] = Value::String(format!("{}\n{}", content, advisory));
-            }
-        }
-    }
-
-    let tool_ctx = crate::tools::ToolContext {
-        config: config.clone(),
-        mcp: mcp.clone(),
-        http_client: crate::providers::shared_client(),
-    };
-    let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new(); // (fail_count, consecutive_failures)
-    let max_retries = config.max_tool_retries;
-    let max_rounds = config.max_react_rounds;
+    let init = prepare_loop(
+        provider.as_ref(), &config, &mut msgs, &mcp, &skills,
+        tool_frequency.clone(),
+    );
+    let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
-    #[allow(unused_assignments)]
     let mut consecutive_provider_errors: u32 = 0;
     const MAX_PROVIDER_RETRIES: u32 = 2;
 
-    // Create shared ToolCallExecutor with shared ToolRegistry
-    let executor = crate::core::executor::ToolCallExecutor::new(
-        tool_registry.clone(),
-        tool_ctx,
-        mcp.clone(),
-    )
-    .with_timeout(config.cli_timeout_secs)
-    .with_truncation(4096, 500);
-
     loop {
         round_count += 1;
-        if round_count > max_rounds {
-            let _ = tx.send(LlmEvent::Error(format!("已达最大执行轮数限制 ({}), 已停止循环。", max_rounds)));
+        if round_count > init.max_rounds {
+            let _ = tx.send(LlmEvent::Error(format!("已达最大执行轮数限制 ({}), 已停止循环。", init.max_rounds)));
             break;
         }
         let _ = tx.send(LlmEvent::NewRound);
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
-        let start_time = std::time::Instant::now();
-        match provider.stream_chat(&msgs, &tool_schemas, &tx).await {
+        let round_start = std::time::Instant::now();
+        match stream_to_llm(provider.as_ref(), &msgs, &init.tool_schemas, &tx).await {
             Ok(StreamResult::Text(usage, text, reasoning)) => {
                 #[allow(unused_assignments)]
                 { consecutive_provider_errors = 0; }
                 if !text.is_empty() || !reasoning.is_empty() {
-                    let mut msg = serde_json::json!({
-                        "role": "assistant",
-                        "content": text,
-                    });
+                    let mut msg = serde_json::json!({ "role": "assistant", "content": text });
                     if !reasoning.is_empty() {
-                        msg["reasoning_content"] = serde_json::Value::String(reasoning);
+                        msg["reasoning_content"] = Value::String(reasoning);
                     }
                     msgs.push(msg);
                 }
@@ -109,134 +297,25 @@ pub async fn chat_loop(
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
                 consecutive_provider_errors = 0;
-                let tool_calls_array: Vec<Value> = calls
-                    .iter()
-                    .map(|(tc, _)| {
-                        serde_json::json!({
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.name,
-                                "arguments": tc.arguments,
-                            }
-                        })
-                    })
-                    .collect();
+                let results = dispatch_tools(
+                    &init.executor, calls, &tx, &mut msgs, &reasoning_content,
+                ).await;
 
-                let mut assistant_msg = serde_json::json!({
-                    "role": "assistant",
-                    "content": null,
-                    "tool_calls": tool_calls_array,
-                });
-                if !reasoning_content.is_empty() {
-                    assistant_msg["reasoning_content"] = Value::String(reasoning_content);
-                }
-                msgs.push(assistant_msg);
-
-                let total = calls.len();
-                let _ = tx.send(LlmEvent::Status(format!("⚡ 并行执行 {} 个工具...", total)));
-
-                let all_results = executor.execute(calls, &tx).await;
-
-                // Check for errors and track retry counts with backoff
-                let mut should_retry = false;
-                for result in &all_results {
-                    if result.result.starts_with("错误:") {
-                        let entry = retry_counts.entry(result.call.name.clone()).or_insert((0, 0));
-                        entry.0 += 1;
-                        entry.1 += 1;
-                        if entry.0 <= max_retries {
-                            should_retry = true;
-                        }
-                    } else {
-                        // Reset consecutive failures on success
-                        if let Some(entry) = retry_counts.get_mut(&result.call.name) {
-                            entry.1 = 0;
-                        }
-                    }
+                if let Some(backoff) = inject_results(&results, &mut msgs, &mut retry_counts, init.max_retries) {
+                    let _ = tx.send(LlmEvent::Status(format!("⏳ 等待 {}s 后重试失败的工具...", backoff.as_secs())));
+                    tokio::time::sleep(backoff).await;
                 }
 
-                if should_retry {
-                    for result in &all_results {
-                        msgs.push(serde_json::json!({ "role": "tool", "tool_call_id": result.call.id, "content": utils::smart_truncate(&result.result, 500) }));
-                    }
-                    // Apply backoff before retrying: wait longer per consecutive failure
-                    let max_consecutive = all_results
-                        .iter()
-                        .filter_map(|r| retry_counts.get(&r.call.name))
-                        .map(|(_, consecutive)| *consecutive)
-                        .max()
-                        .unwrap_or(1);
-                    let backoff_secs = 2u64.saturating_pow(max_consecutive.min(4));
-                    if backoff_secs > 1 {
-                        let _ = tx.send(LlmEvent::Status(format!("⏳ 等待 {}s 后重试失败的工具...", backoff_secs)));
-                        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
-                    }
-                    msgs.push(serde_json::json!({
-                        "role": "system",
-                        "content": "部分工具调用返回错误，请修正参数后重试。".to_string(),
-                    }));
-                } else {
-                    for result in &all_results {
-                        let trimmed = utils::smart_truncate(&result.result, 500);
-                        msgs.push(serde_json::json!({
-                            "role": "tool",
-                            "tool_call_id": result.call.id,
-                            "content": trimmed,
-                        }));
-                        if result.result.starts_with("错误:") {
-                            msgs.push(serde_json::json!({
-                                "role": "system",
-                                "content": format!(
-                                    "工具 '{}' 连续 {} 次调用失败。请反思：\n\
-                                     1. 参数是否正确？\n\
-                                     2. 是否需要换一种方式完成用户请求？\n\
-                                     3. 是否不需要这个工具，用其他方式回答用户？",
-                                    result.call.name, max_retries
-                                ),
-                            }));
-                        }
-                    }
-                }
+                trace_tool_results(&results, round_start);
 
-                // Structured tracing for tool calls
-                for result in &all_results {
-                    tracing::info!(
-                        tool = %result.call.name,
-                        args = %result.call.arguments,
-                        success = !result.result.starts_with("错误:"),
-                        elapsed_ms = %start_time.elapsed().as_millis(),
-                        result_len = result.result.len(),
-                        "工具调用"
-                    );
-                }
-
-                // Compress messages after each tool round to stay within budget
                 if round_count > 1 {
-                    ctx_mgr.compress(&mut msgs, &HashMap::new());
+                    init.ctx_mgr.compress(&mut msgs, &init.tool_frequency);
                 }
             }
             Err(e) => {
-                let err_msg = format!("{}", e);
-                let is_transient = err_msg.starts_with("API 限流")
-                    || err_msg.starts_with("API 服务器错误")
-                    || err_msg.starts_with("API 请求失败");
-
-                if is_transient && consecutive_provider_errors < MAX_PROVIDER_RETRIES {
-                    consecutive_provider_errors += 1;
-                    let wait_secs = 3 * consecutive_provider_errors;
-                    tracing::warn!(
-                        "Provider 瞬态错误 ({}/{}), 等待 {}s 后重试: {}",
-                        consecutive_provider_errors, MAX_PROVIDER_RETRIES, wait_secs, err_msg
-                    );
-                    let _ = tx.send(LlmEvent::Status(format!(
-                        "⚠️ 网络波动，{}s 后重试 ({}/{})…", wait_secs, consecutive_provider_errors, MAX_PROVIDER_RETRIES
-                    )));
-                    tokio::time::sleep(Duration::from_secs(wait_secs as u64)).await;
-                    continue;
+                if !handle_provider_error(e, &mut consecutive_provider_errors, MAX_PROVIDER_RETRIES, &tx).await {
+                    break;
                 }
-                let _ = tx.send(LlmEvent::Error(err_msg));
-                break;
             }
         }
     }
@@ -543,7 +622,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
-        chat_loop(provider, config, messages, tx, mcp, vec![]).await;
+        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new()).await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
@@ -570,7 +649,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
-        chat_loop(provider, config, messages, tx, mcp, vec![]).await;
+        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new()).await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
@@ -590,7 +669,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "do work"})];
 
-        chat_loop(Box::new(AlwaysToolCall), config, messages, tx, mcp, vec![]).await;
+        chat_loop(Box::new(AlwaysToolCall), config, messages, tx, mcp, vec![], HashMap::new()).await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {

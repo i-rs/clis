@@ -294,9 +294,10 @@ impl AppCore {
 
         // Load executable skills as callable tools
         let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
+        let tool_frequency = self.agent_store.memory_for(agent_id).tool_frequency().clone();
 
         rt.spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills).await;
+            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency).await;
         });
     }
 
@@ -330,6 +331,49 @@ impl AppCore {
         let resolved = self.config.agent_config(agent_id);
         let ctx_mgr = context::ContextManager::for_model(&resolved.model);
         ctx_mgr.compress(msgs, memory.tool_frequency());
+    }
+
+    /// Run heuristic evaluation on the completed conversation and persist it.
+    /// Examines ToolCall results and the final assistant response.
+    /// Returns the Quality message for TUI rendering (None if no evaluation was done).
+    pub fn evaluate_completed_session(
+        &mut self,
+        session_id: &str,
+    ) -> Option<crate::app::Message> {
+        let messages = self.session_mgr.load_app_messages(session_id, 100);
+        let tool_results: Vec<(&str, bool)> = messages.iter()
+            .filter_map(|m| match m {
+                crate::app::Message::ToolCall { name, result, .. } => {
+                    Some((name.as_str(), !result.starts_with("错误:")))
+                }
+                _ => None,
+            })
+            .collect();
+        if tool_results.is_empty() {
+            return None;
+        }
+        let last_assistant = messages.iter().rev().find_map(|m| match m {
+            crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.as_str()),
+            _ => None,
+        })?;
+
+        let quality = crate::app::evaluate_response_heuristic(last_assistant, &tool_results);
+        let (score, complete, references_valid, issues) = match &quality {
+            crate::app::Message::Quality { score, complete, references_valid, issues } =>
+                (score.clone(), *complete, *references_valid, issues.clone()),
+            _ => (None, true, 0u32, Vec::new()),
+        };
+        self.session_mgr.append_message(
+            "quality",
+            &format!("score: {:?}, complete: {}", score, complete),
+            Some(serde_json::json!({
+                "score": score,
+                "complete": complete,
+                "references_valid": references_valid,
+                "issues": issues,
+            })),
+        );
+        Some(quality)
     }
 
     /// Build API messages from raw JSONL session records (no app::Message conversion).
@@ -427,9 +471,10 @@ impl AppCore {
         agent_config.enabled_tools = resolved.enabled_tools;
         let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
         let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
+        let tool_frequency = self.agent_store.memory_for(agent_id).tool_frequency().clone();
 
         tokio::spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills).await;
+            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency).await;
         });
     }
 

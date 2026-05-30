@@ -189,6 +189,11 @@ impl<'a> LlmEventHandler<'a> {
         // Flush pending memory writes
         self.app_core.agent_store.memory_for_mut(&self.app.current_agent).flush();
 
+        // Heuristic evaluation of final response (shared with Dashboard)
+        if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
+            self.app.messages.push(quality);
+        }
+
         Action::Continue
     }
 }
@@ -472,6 +477,7 @@ impl<'a> KeyEventHandler<'a> {
                     crate::app::Message::Error { text } => text.clone(),
                     crate::app::Message::Evaluation { tool, issues, .. } =>
                         format!("Tool Evaluation: {} | Issues: {}", tool, issues.join("; ")),
+                    _ => String::new(),
                 })
             })
         } else {
@@ -823,6 +829,25 @@ impl<'a> KeyEventHandler<'a> {
                         }
                         md.push_str("\n---\n\n");
                     }
+                }
+                crate::app::Message::Quality { score, complete, issues, .. } => {
+                    md.push_str("## 📊 回答质量\n\n");
+                    if let Some(s) = score {
+                        md.push_str(&format!("评分: {:.0}%\n", s * 100.0));
+                    }
+                    md.push_str(&format!("完整性: {}\n", if *complete { "✅" } else { "❌" }));
+                    for issue in issues {
+                        md.push_str(&format!("- {}\n", issue));
+                    }
+                    md.push_str("\n---\n\n");
+                }
+                crate::app::Message::Feedback { positive, message } => {
+                    let icon = if *positive { "👍" } else { "👎" };
+                    md.push_str(&format!("## {} 用户反馈\n\n", icon));
+                    if let Some(msg) = message {
+                        md.push_str(&format!("{}\n", msg));
+                    }
+                    md.push_str("\n---\n\n");
                 }
             }
         }

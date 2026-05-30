@@ -253,7 +253,7 @@ impl GatewayServer {
             &config.model,
         );
         tokio::spawn(async move {
-            crate::core::engine::chat_loop(provider, config, msgs, tx, mcp, Vec::new()).await;
+            crate::core::engine::chat_loop(provider, config, msgs, tx, mcp, Vec::new(), std::collections::HashMap::new()).await;
         });
 
         // Accumulate the response

@@ -436,6 +436,7 @@ fn message_line_count(
         Message::Evaluation { valid, issues, .. } => {
             if *valid { 0 } else { 1 + issues.len() }
         }
+        _ => 0,
     }
 }
 
@@ -642,6 +643,7 @@ fn build_message_item_with_skip(
             Message::ToolCall { .. } => Color::Rgb(25, 25, 35),
             Message::Error { .. } => Color::Rgb(35, 15, 15),
             Message::Evaluation { valid, .. } => if *valid { Color::Rgb(20, 35, 25) } else { Color::Rgb(40, 20, 15) },
+            _ => Color::Rgb(20, 20, 20),
         };
         item = item.style(Style::default().bg(bg));
     }
@@ -893,6 +895,58 @@ fn build_message_lines(
                 lines.push(Line::from(Span::styled(
                     format!("   • {}", issue),
                     Style::default().fg(text),
+                )));
+            }
+            lines.push(Line::from(Span::raw("")));
+            lines
+        }
+        Message::Quality { score, complete, issues, .. } => {
+            let accent = app.config.theme.accent();
+            let text = app.config.theme.text();
+            let mut lines = vec![
+                Line::from(vec![
+                    Span::styled(
+                        "📊 ",
+                        Style::default().fg(accent),
+                    ),
+                    Span::styled(
+                        "回答质量评估",
+                        Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+            ];
+            if let Some(s) = score {
+                lines.push(Line::from(Span::styled(
+                    format!("   评分: {:.0}%", s * 100.0),
+                    Style::default().fg(text),
+                )));
+            }
+            lines.push(Line::from(Span::styled(
+                format!("   完整性: {}", if *complete { "✅" } else { "❌" }),
+                Style::default().fg(text),
+            )));
+            for issue in issues {
+                lines.push(Line::from(Span::styled(
+                    format!("   • {}", issue),
+                    Style::default().fg(accent),
+                )));
+            }
+            lines.push(Line::from(Span::raw("")));
+            lines
+        }
+        Message::Feedback { positive, message } => {
+            let icon = if *positive { "👍" } else { "👎" };
+            let color = if *positive { app.config.theme.accent() } else { app.config.theme.error() };
+            let mut lines = vec![
+                Line::from(Span::styled(
+                    format!("{} 用户反馈", icon),
+                    Style::default().fg(color).add_modifier(Modifier::BOLD),
+                )),
+            ];
+            if let Some(msg) = message {
+                lines.push(Line::from(Span::styled(
+                    format!("   {}", msg),
+                    Style::default().fg(app.config.theme.text()),
                 )));
             }
             lines.push(Line::from(Span::raw("")));

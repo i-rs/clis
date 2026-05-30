@@ -11,12 +11,11 @@ use serde_json::Value;
 use std::convert::Infallible;
 use tokio::sync::mpsc;
 
-/// Lock the core mutex safely, returning early with an error on poison.
-/// Use this in handler functions that return `Json<ApiResponse<...>>`.
+/// Lock the core for read access, returning early with an error on poison.
+/// Usage: `let core = lock_core!(state)` for read, `let mut core = lock_core!(state, mut)` for write.
 macro_rules! lock_core {
-    ($state:expr) => {
-        $state.core.lock().await
-    };
+    ($state:expr) => { $state.core.read().await };
+    ($state:expr, mut) => { $state.core.write().await };
 }
 
 // ── Response helpers ──
@@ -73,7 +72,7 @@ pub async fn update_config(
     State(state): State<AppState>,
     Json(body): Json<Value>,
 ) -> Json<ApiResponse<Value>> {
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
 
     if let Some(p) = body.get("provider").and_then(|v| v.as_str()) {
         core.config.provider = p.to_string();
@@ -118,7 +117,7 @@ pub async fn send_message(
         .unwrap_or("default")
         .to_string();
 
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
 
     // Create or get a session
     let session_id = core
@@ -158,7 +157,7 @@ pub async fn chat_stream(
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
 
     {
-        let mut core = state.core.lock().await;
+        let mut core = state.core.write().await;
         core.session_mgr.switch_to(&session_id);
 
         let agent_id = core
@@ -184,7 +183,7 @@ pub async fn chat_stream(
                 let event = rx.recv().await?;
                 match event {
                     LlmEvent::ToolExecuted { name, args, result, step, total_steps } => {
-                        let mut core = state.core.lock().await;
+                        let mut core = state.core.write().await;
                         let i_rs_index = core.config.i_rs_tool_index.clone();
                         let agent_id = core
                             .session_mgr
@@ -205,7 +204,7 @@ pub async fn chat_stream(
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     LlmEvent::Done(msgs, usage) => {
-                        let mut core = state.core.lock().await;
+                        let mut core = state.core.write().await;
                         let agent_id = core
                             .session_mgr
                             .session_meta(&sid)
@@ -225,6 +224,7 @@ pub async fn chat_stream(
                             }
                         }
                         crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
+                        let _quality = core.evaluate_completed_session(&sid);
                         core.agent_store.memory_for_mut(&agent_id).flush();
                         drop(core);
 
@@ -234,7 +234,7 @@ pub async fn chat_stream(
                         return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
                     }
                     LlmEvent::Error(e) => {
-                        let mut core = state.core.lock().await;
+                        let mut core = state.core.write().await;
                         core.session_mgr.mark_error(&sid, &e);
                         drop(core);
 
@@ -323,7 +323,7 @@ pub async fn create_session(
         .and_then(|v| v.as_str())
         .unwrap_or("default");
 
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
     let id = core.session_mgr.create_session_for(agent_id);
     ApiResponse::ok(serde_json::json!({
         "id": id,
@@ -338,7 +338,7 @@ pub async fn switch_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<Value>> {
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
     if core.session_mgr.switch_to(&id) {
         let meta = core.session_mgr.session_meta(&id);
         ApiResponse::ok(serde_json::json!({
@@ -416,10 +416,47 @@ pub async fn delete_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<ApiResponse<&'static str>> {
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
     core.session_mgr.delete_session(&id);
     drop(core);
     ApiResponse::ok("deleted")
+}
+
+/// POST /api/sessions/{id}/feedback — record user feedback (thumbs up/down).
+pub async fn post_session_feedback(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Json<ApiResponse<&'static str>> {
+    let positive = body.get("positive").and_then(|v| v.as_bool()).unwrap_or(true);
+    let feedback_msg = body.get("message").and_then(|v| v.as_str());
+
+    let mut core = lock_core!(state, mut);
+    let agent_id = core
+        .session_mgr
+        .session_meta(&id)
+        .map(|m| m.agent_id.clone())
+        .unwrap_or_else(|| "default".to_string());
+
+    // Record in cross-session memory
+    core.agent_store
+        .memory_for_mut(&agent_id)
+        .record_session_feedback(&id, positive);
+
+    // Append feedback to session
+    core.session_mgr.append_message(
+        "feedback",
+        &format!("positive: {}", positive),
+        Some(serde_json::json!({
+            "positive": positive,
+            "message": feedback_msg,
+        })),
+    );
+
+    core.agent_store.memory_for_mut(&agent_id).flush();
+    drop(core);
+
+    ApiResponse::ok("ok")
 }
 
 /// List available agent profiles.
@@ -481,7 +518,7 @@ pub async fn update_agent(
         return ApiResponse::err("Cannot update the default agent");
     }
 
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
 
     // Get existing agent config
     let existing = match core.config.agents.get(&id) {
@@ -534,7 +571,7 @@ pub async fn create_agent(
         _ => return ApiResponse::err("Missing or invalid 'id' field"),
     };
 
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
 
     // Check if agent already exists
     if core.config.agents.contains_key(&agent_id) {
@@ -594,7 +631,7 @@ pub async fn delete_agent(
         return ApiResponse::err("Cannot delete the default agent");
     }
 
-    let mut core = lock_core!(state);
+    let mut core = lock_core!(state, mut);
 
     // Remove from config
     if let Err(e) = core.config.remove_agent(&id) {
