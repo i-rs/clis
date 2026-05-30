@@ -121,7 +121,7 @@ impl<'a> LlmEventHandler<'a> {
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args)
                 && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
             {
-                if crate::tools::TOOL_INDEX.iter().any(|(n, _, _)| *n == tool) {
+                if self.app_core.config.i_rs_tool_index.contains_key(tool) {
                     self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(tool);
                 }
 
@@ -138,7 +138,7 @@ impl<'a> LlmEventHandler<'a> {
                     cache.save_hot_docs();
                 }
             }
-        } else if crate::tools::TOOL_INDEX.iter().any(|(n, _, _)| *n == name)
+        } else if self.app_core.config.i_rs_tool_index.contains_key(name)
             || name.starts_with("skill_")
         {
             self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(name);
@@ -961,7 +961,7 @@ impl<'a> KeyEventHandler<'a> {
     // ── Tab completion ──────────────────────────────────────
 
     fn handle_tab_complete(&mut self) {
-        let completions = crate::completion::get_completions(&self.app.input.text, self.app.input.cursor);
+        let completions = crate::completion::get_completions(&self.app_core.config, &self.app.input.text, self.app.input.cursor);
         if !completions.is_empty() {
             if self.app.overlay.tab_completions.is_empty() {
                 self.app.overlay.tab_completions = completions;

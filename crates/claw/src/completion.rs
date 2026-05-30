@@ -1,5 +1,5 @@
 /// Tab completion for tool names and command names.
-use crate::tools::index::TOOL_INDEX;
+use crate::config::Config;
 
 /// Common commands shared across most tools.
 const COMMON_COMMANDS: &[&str] = &["add", "list", "get", "update", "delete"];
@@ -77,45 +77,32 @@ const EXTRA_COMMANDS: &[(&str, &[&str])] = &[
 ];
 
 /// Get completions for the current input context.
-/// Returns matching completions based on cursor position.
-pub fn get_completions(input: &str, cursor: usize) -> Vec<String> {
+/// Uses the config's i_rs_tools as the source of valid tool names.
+pub fn get_completions(config: &Config, input: &str, cursor: usize) -> Vec<String> {
     let input_before = &input[..cursor.min(input.len())];
-
-    // Parse: "i-rs weight l" → tool = "weight", prefix = "l"
-    // Parse: "weight l" → tool = "weight", prefix = "l"
-    // Parse: "l" → prefix = "l" (could be tool)
-    // Parse: "weight" → exact tool match, suggest commands
 
     let trimmed = input_before.trim();
     if trimmed.is_empty() {
-        // Show all tool names
-        return TOOL_INDEX.iter().map(|(name, _, _)| name.to_string()).collect();
+        return config.i_rs_tools.clone();
     }
 
     let parts: Vec<&str> = trimmed.split_whitespace().collect();
 
     match parts.len() {
-        0 => {
-            // Show all tool names
-            TOOL_INDEX.iter().map(|(name, _, _)| name.to_string()).collect()
-        }
+        0 => config.i_rs_tools.clone(),
         1 => {
             let word = parts[0];
-            // Check if it's a complete tool name
-            let is_complete_tool = TOOL_INDEX.iter().any(|(name, _, _)| *name == word);
+            let is_complete_tool = config.i_rs_tools.iter().any(|t| t == word);
             if is_complete_tool {
-                // Suggest common commands for this tool
                 get_tool_commands(word)
             } else {
-                // Suggest tool names matching the prefix
-                get_tool_completions(word)
+                get_tool_completions(config, word)
             }
         }
         _ => {
-            // Two or more words: "tool command_partial"
             let tool = parts[0];
             let prefix = parts[1..].join(" ");
-            if TOOL_INDEX.iter().any(|(name, _, _)| *name == tool) {
+            if config.i_rs_tools.iter().any(|t| t == tool) {
                 get_command_completions(tool, &prefix)
             } else {
                 Vec::new()
@@ -125,12 +112,13 @@ pub fn get_completions(input: &str, cursor: usize) -> Vec<String> {
 }
 
 /// Get tool names matching a prefix.
-fn get_tool_completions(prefix: &str) -> Vec<String> {
+fn get_tool_completions(config: &Config, prefix: &str) -> Vec<String> {
     let lower = prefix.to_lowercase();
-    let mut matches: Vec<String> = TOOL_INDEX
+    let mut matches: Vec<String> = config
+        .i_rs_tools
         .iter()
-        .filter(|(name, _, _)| name.starts_with(&lower))
-        .map(|(name, _, _)| name.to_string())
+        .filter(|name| name.starts_with(&lower))
+        .cloned()
         .collect();
     matches.sort();
     matches
@@ -170,16 +158,24 @@ fn get_tool_commands(tool: &str) -> Vec<String> {
 mod tests {
     use super::*;
 
+    fn test_config() -> Config {
+        let mut c = Config::new();
+        c.i_rs_tools = vec!["weight".to_string(), "mood".to_string(), "todo".to_string(), "sleep".to_string()];
+        c
+    }
+
     #[test]
     fn test_tool_completions_prefix() {
-        let results = get_completions("we", 2);
+        let config = test_config();
+        let results = get_completions(&config, "we", 2);
         assert!(results.contains(&"weight".to_string()));
         assert!(!results.contains(&"mood".to_string()));
     }
 
     #[test]
     fn test_tool_completions_exact_tool_shows_commands() {
-        let results = get_completions("weight", 6);
+        let config = test_config();
+        let results = get_completions(&config, "weight", 6);
         assert!(results.contains(&"add".to_string()));
         assert!(results.contains(&"list".to_string()));
         assert!(results.contains(&"stats".to_string()));
@@ -188,22 +184,24 @@ mod tests {
 
     #[test]
     fn test_command_completions_with_prefix() {
-        let results = get_completions("weight st", 9);
+        let config = test_config();
+        let results = get_completions(&config, "weight st", 9);
         assert!(results.contains(&"stats".to_string()));
         assert!(!results.contains(&"add".to_string()));
     }
 
     #[test]
     fn test_empty_input_shows_all_tools() {
-        let results = get_completions("", 0);
-        assert!(results.len() >= 60);
-        assert!(results.contains(&"kv".to_string()));
-        assert!(results.contains(&"mood".to_string()));
+        let config = test_config();
+        let results = get_completions(&config, "", 0);
+        assert!(results.len() >= 4);
+        assert!(results.contains(&"weight".to_string()));
     }
 
     #[test]
     fn test_unknown_tool() {
-        let results = get_completions("nonexistent too", 16);
+        let config = test_config();
+        let results = get_completions(&config, "nonexistent too", 16);
         assert!(results.is_empty());
     }
 }

@@ -4,13 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::mcp::McpServerConfig;
 
-pub const DEFAULT_TOOLS: &[&str] = &[
-    "kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo",
-];
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
-    /// Provider type: "openai", "anthropic", "ollama"
     #[serde(default = "default_provider")]
     pub provider: String,
     pub api_key: String,
@@ -18,9 +13,15 @@ pub struct Config {
     pub base_url: String,
     #[serde(default = "default_model")]
     pub model: String,
-    /// Set of tool names to enable. Empty = all enabled.
     #[serde(default)]
     pub enabled_tools: HashSet<String>,
+    /// i-rs CLI tools installed by the user (e.g. ["weight", "todo", "mood"]).
+    /// Empty = no i-rs tools available.
+    #[serde(default)]
+    pub i_rs_tools: Vec<String>,
+    /// Cached i-rs tool descriptions (name → description), populated at startup.
+    #[serde(default, skip_serializing)]
+    pub i_rs_tool_index: HashMap<String, String>,
     /// Optional search API key for custom search engine.
     /// If not set, falls back to DuckDuckGo (free, no key needed).
     #[serde(default)]
@@ -348,6 +349,8 @@ impl Config {
             base_url: default_base_url(),
             model: default_model(),
             enabled_tools: HashSet::new(),
+            i_rs_tools: Vec::new(),
+            i_rs_tool_index: HashMap::new(),
             search_api_key: None,
             search_base_url: None,
             allowed_dirs: Vec::new(),
@@ -558,6 +561,56 @@ impl Config {
             anyhow::bail!("Cannot remove the default agent");
         }
         self.agents.remove(id).ok_or_else(|| anyhow::anyhow!("Agent '{}' not found", id))
+    }
+
+    /// Discover i-rs CLI tools and cache their descriptions.
+    /// For each tool in `i_rs_tools`, runs `i-rs-{name} skill summary`
+    /// to get the description, and caches the result.
+    /// Uses a disk cache to avoid subprocess calls on every startup.
+    pub fn discover_i_rs_tools(&mut self, claw_dir: &std::path::Path) {
+        if self.i_rs_tools.is_empty() {
+            self.i_rs_tool_index.clear();
+            return;
+        }
+
+        let cache_path = claw_dir.join("i_rs_tool_index.json");
+
+        // Try loading from cache first
+        if let Ok(content) = std::fs::read_to_string(&cache_path) {
+            if let Ok(cached) = serde_json::from_str::<HashMap<String, String>>(&content) {
+                // Only use cache if it covers all configured tools
+                if self.i_rs_tools.iter().all(|t| cached.contains_key(t)) {
+                    self.i_rs_tool_index = cached;
+                    return;
+                }
+            }
+        }
+
+        // Discover by running `i-rs-{name} skill summary` for each tool
+        for name in &self.i_rs_tools {
+            let binary = format!("i-rs-{}", name);
+            let desc = match std::process::Command::new(&binary)
+                .arg("skill")
+                .arg("summary")
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .output()
+            {
+                Ok(output) if output.status.success() => {
+                    String::from_utf8_lossy(&output.stdout).trim().to_string()
+                }
+                _ => {
+                    tracing::warn!("i-rs 工具 '{}' (i-rs-{}) 未安装或 skill summary 失败，已跳过", name, name);
+                    continue;
+                }
+            };
+            self.i_rs_tool_index.insert(name.clone(), desc);
+        }
+
+        // Write cache
+        if let Ok(json) = serde_json::to_string(&self.i_rs_tool_index) {
+            let _ = crate::utils::atomic_write(&cache_path, &json);
+        }
     }
 }
 

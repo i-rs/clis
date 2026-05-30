@@ -169,13 +169,16 @@ pub struct AppCore {
 
 impl AppCore {
     /// Create a new AppCore from configuration.
-    /// Initializes session manager and per-agent runtime data.
-    pub fn new(config: Config) -> anyhow::Result<Self> {
+    /// Initializes session manager, per-agent runtime data, and i-rs tool discovery.
+    pub fn new(mut config: Config) -> anyhow::Result<Self> {
         let claw_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?
             .join(".i-rs")
             .join("claw")
             .join("claw");
+
+        // Discover i-rs CLI tools from the user's configuration
+        config.discover_i_rs_tools(&claw_dir);
 
         // Migrate legacy data to agents/default/ if needed
         Self::migrate_legacy_data(&claw_dir);
@@ -269,12 +272,7 @@ impl AppCore {
         agent_id: &str,
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
-        let enabled = if resolved.enabled_tools.is_empty() {
-            None
-        } else {
-            Some(&resolved.enabled_tools)
-        };
-        let tool_index = crate::tools::format_index(enabled);
+        let tool_index = self.build_irs_tool_index(&resolved);
 
         let memory = self.agent_store.memory_for(agent_id);
 
@@ -341,6 +339,29 @@ impl AppCore {
         rt.spawn(async move {
             engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills).await;
         });
+    }
+
+    /// Build the tool index string for system prompt from discovered i-rs tools.
+    pub fn build_irs_tool_index(&self, resolved: &crate::config::ResolvedAgentConfig) -> String {
+        if self.config.i_rs_tool_index.is_empty() {
+            return String::new();
+        }
+
+        let enabled = &resolved.enabled_tools;
+        let mut result = String::from("## i-rs 工具索引\n\n");
+        for name in &self.config.i_rs_tools {
+            if !enabled.is_empty() && !enabled.contains(name) {
+                continue;
+            }
+            if let Some(desc) = self.config.i_rs_tool_index.get(name) {
+                if !desc.is_empty() {
+                    result.push_str(&format!("- {}: {}\n", name, desc));
+                } else {
+                    result.push_str(&format!("- {}\n", name));
+                }
+            }
+        }
+        result
     }
 
     /// Compress API messages after a conversation turn completes.

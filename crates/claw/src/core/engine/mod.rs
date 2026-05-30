@@ -32,7 +32,8 @@ pub async fn chat_loop(
     } else {
         Some(&config.enabled_tools)
     };
-    let mut tool_schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(enabled);
+    let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
+    let mut tool_schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(&i_rs_tool_names, enabled);
     // Append MCP tool schemas if available
     for (client_idx, tool_def) in &mcp.tools {
         if let Some(_client) = mcp.clients.get(*client_idx) {

@@ -158,13 +158,12 @@ fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent
     let records = core.session_mgr.load_messages(session_id, 50);
     let resolved = core.config.agent_config(agent_id);
 
-    let system_prompt = resolved.system_prompt.unwrap_or_else(|| {
-        let enabled = if resolved.enabled_tools.is_empty() { None } else { Some(&resolved.enabled_tools) };
+    let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
         let memory = core.agent_store.memory_for(agent_id);
         let tool_cache = core.agent_store.tool_cache_for(agent_id);
         let skill_store = core.agent_store.skill_store_for(agent_id);
         crate::core::engine::builder::build_system_prompt(
-            &crate::tools::format_index(enabled),
+            &core.build_irs_tool_index(&resolved),
             &memory.format_hot_tools(tool_cache),
             &skill_store.format_skills(),
             &memory.format_user_memory(),
@@ -249,12 +248,14 @@ async fn dashboard_chat_loop(
 
     // Build tool schemas (same as chat_stream did before spawning)
     let tool_schemas = {
+        let core = state.core.lock().await;
+        let i_rs_tool_names: Vec<&str> = core.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
         let enabled = if enabled_tools.as_ref().is_none_or(|t| t.is_empty()) {
             None
         } else {
             enabled_tools.as_ref()
         };
-        let mut schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(enabled);
+        let mut schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(&i_rs_tool_names, enabled);
         // Append MCP tool schemas if available
         for (client_idx, tool_def) in &mcp.tools {
             if let Some(_client) = mcp.clients.get(*client_idx) {
@@ -897,7 +898,8 @@ pub async fn list_tools(
     } else {
         Some(&core.config.enabled_tools)
     };
-    let schemas = crate::tools::ToolRegistry::new().enabled_schemas(enabled);
+    let i_rs_tool_names: Vec<&str> = core.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
+    let schemas = crate::tools::ToolRegistry::new().enabled_schemas(&i_rs_tool_names, enabled);
     ApiResponse::ok(schemas)
 }
 

@@ -141,7 +141,7 @@ pub fn run_config() -> anyhow::Result<()> {
     }
 
     cfg.save()?;
-    let total_tools = crate::tools::TOOL_INDEX.len();
+    let total_tools = cfg.i_rs_tools.len();
     let enabled_count = if cfg.enabled_tools.is_empty() {
         total_tools
     } else {
@@ -184,19 +184,7 @@ pub fn run_config() -> anyhow::Result<()> {
 pub fn run_tools() -> anyhow::Result<()> {
     let mut cfg = Config::load()?;
 
-    // If no explicit tool selection exists (empty = all enabled in runtime),
-    // seed the UI with DEFAULT_TOOLS so only those 10 show as checked initially
-    if cfg.enabled_tools.is_empty() {
-        cfg.enabled_tools = crate::config::DEFAULT_TOOLS
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-    }
-
-    let all_tools: Vec<&str> = crate::tools::TOOL_INDEX
-        .iter()
-        .map(|(n, _, _)| *n)
-        .collect();
+    let all_tools: Vec<String> = cfg.i_rs_tools.clone();
     let total = all_tools.len();
 
     // ── TUI setup ──
@@ -246,33 +234,22 @@ pub fn run_tools() -> anyhow::Result<()> {
                     .iter()
                     .map(|name| {
                         let checked = cfg.enabled_tools.is_empty()
-                            || cfg.enabled_tools.contains(*name);
+                            || cfg.enabled_tools.contains(name);
                         let checkbox = if checked { "[✓]" } else { "[ ]" };
-                        let desc = crate::tools::TOOL_INDEX
-                            .iter()
-                            .find(|(n, _, _)| n == name)
-                            .map(|(_, d, _)| *d)
-                            .unwrap_or("");
                         let text = format!(" {} {}", checkbox, name);
-                        let line = Line::from(vec![
-                            Span::styled(
-                                text,
-                                Style::default().fg(if checked {
-                                    Color::Green
-                                } else {
-                                    Color::DarkGray
-                                })
-                                .add_modifier(if checked {
-                                    Modifier::BOLD
-                                } else {
-                                    Modifier::empty()
-                                }),
-                            ),
-                            Span::styled(
-                                format!("  — {}", desc),
-                                Style::default().fg(Color::DarkGray),
-                            ),
-                        ]);
+                        let line = Line::from(Span::styled(
+                            text,
+                            Style::default().fg(if checked {
+                                Color::Green
+                            } else {
+                                Color::DarkGray
+                            })
+                            .add_modifier(if checked {
+                                Modifier::BOLD
+                            } else {
+                                Modifier::empty()
+                            }),
+                        ));
                         ListItem::new(line)
                     })
                     .collect();
@@ -298,11 +275,7 @@ pub fn run_tools() -> anyhow::Result<()> {
                 KeyCode::Down if selection + 1 < total => selection += 1,
                 KeyCode::Char(' ') => {
                     dirty = true;
-                    let name = all_tools[selection];
-                    if cfg.enabled_tools.is_empty() {
-                        cfg.enabled_tools =
-                            all_tools.iter().map(|s| s.to_string()).collect();
-                    }
+                    let name = &all_tools[selection];
                     if cfg.enabled_tools.contains(name) {
                         cfg.enabled_tools.remove(name);
                     } else {

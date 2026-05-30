@@ -3,7 +3,6 @@ use std::process::Command;
 use std::time::Duration;
 
 use crate::error::ClawError;
-use crate::tools::index;
 use crate::tools::ToolContext;
 
 /// Safe working directory for CLI subprocesses.
@@ -12,7 +11,7 @@ fn safe_cwd() -> std::path::PathBuf {
     std::env::temp_dir()
 }
 
-/// Built-in tool that executes `i-rs <tool> <command>` CLI commands.
+/// Built-in tool that executes `i-rs-<tool> <command>` CLI commands directly.
 pub struct IrsTool;
 
 impl super::ClawTool for IrsTool {
@@ -31,7 +30,7 @@ impl super::ClawTool for IrsTool {
                 "tool": {
                     "type": "string",
                     "enum": enabled_cli_tools,
-                    "description": "i-rs 工具名称（i-rs 后的第一个参数，如 weight/run/sleep/mood/todo 等）。不熟悉的工具先调用 command=skill args=[\"teach\"] 学习一次，学完即可使用"
+                    "description": "i-rs 工具名称（如 weight/run/sleep/mood/todo 等）。不熟悉的工具先调用 command=skill args=[\"teach\"] 学习一次，学完即可使用"
                 },
                 "command": {
                     "type": "string",
@@ -68,21 +67,21 @@ impl super::ClawTool for IrsTool {
     }
 }
 
-/// Execute `i-rs <tool> <command> [args...]` and return the output.
+/// Execute `i-rs-<tool> <command> [args...]` and return the output.
 fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) -> Result<String, ClawError> {
+    let binary = format!("i-rs-{}", tool);
     let mut all_args = Vec::with_capacity(args.len() + 1);
     all_args.push(cmd.to_string());
     all_args.extend_from_slice(args);
 
-    let mut child = Command::new("i-rs")
-        .arg(tool)
+    let mut child = Command::new(&binary)
         .args(&all_args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .current_dir(safe_cwd())
         .spawn()
-        .map_err(|e| ClawError::Execution(format!("执行 i-rs {} {} 失败: {}", tool, cmd, e)))?;
+        .map_err(|e| ClawError::Execution(format!("执行 {} {} 失败: {}", binary, cmd, e)))?;
 
     let start = std::time::Instant::now();
 
@@ -134,43 +133,4 @@ fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) ->
     }
 }
 
-/// List enabled CLI tool names from TOOL_INDEX filtered by `enabled` set.
-pub fn enabled_cli_tool_names(enabled: Option<&std::collections::HashSet<String>>) -> Vec<&'static str> {
-    index::TOOL_INDEX
-        .iter()
-        .map(|(name, _, _)| *name)
-        .filter(|t| index::is_tool_enabled(t, enabled))
-        .collect()
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_enabled_cli_tool_names_all() {
-        let names = enabled_cli_tool_names(None);
-        assert!(names.len() > 50, "无过滤应返回所有工具");
-        assert!(names.contains(&"weight"));
-        assert!(names.contains(&"mood"));
-    }
-
-    #[test]
-    fn test_enabled_cli_tool_names_filtered() {
-        let mut enabled = std::collections::HashSet::new();
-        enabled.insert("weight".to_string());
-        let names = enabled_cli_tool_names(Some(&enabled));
-        assert!(names.contains(&"weight"));
-        assert!(!names.contains(&"mood"), "mood 应在过滤后移除");
-    }
-
-    #[test]
-    fn test_enabled_cli_tool_names_empty_set_all() {
-        let enabled = std::collections::HashSet::new();
-        let names = enabled_cli_tool_names(Some(&enabled));
-        assert!(
-            names.len() > 50,
-            "空集合应用作'all enabled'语义，返回所有工具"
-        );
-    }
-}

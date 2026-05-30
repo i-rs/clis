@@ -3,7 +3,6 @@ pub mod chat_search;
 pub mod delegate;
 pub mod file_ops;
 pub mod i_rs;
-pub mod index;
 pub mod mcp_tools;
 pub mod search_tools;
 pub mod semantic_search;
@@ -15,9 +14,6 @@ pub mod web_search;
 use crate::skill_store::SkillDefinition;
 use serde_json::Value;
 use std::collections::HashSet;
-
-// ── Backward-compatible re-exports ──
-pub use index::{format_index, TOOL_INDEX};
 
 /// Execution context passed to all tools during execution.
 /// Contains application state needed for advanced tool operations
@@ -101,9 +97,14 @@ impl ToolRegistry {
     }
 
     /// Get tool schemas for OpenAI-compatible chat completion APIs.
-    /// Filters CLI tools by `enabled` if provided (empty set = all).
-    pub fn enabled_schemas(&self, enabled: Option<&HashSet<String>>) -> Vec<Value> {
-        let enabled_cli = i_rs::enabled_cli_tool_names(enabled);
+    /// `i_rs_tool_names` is the list of discovered i-rs CLI tool names.
+    /// `enabled` further filters both built-in and i-rs tools (empty = all).
+    pub fn enabled_schemas(&self, i_rs_tool_names: &[&str], enabled: Option<&HashSet<String>>) -> Vec<Value> {
+        let enabled_cli: Vec<&str> = if let Some(enabled_set) = enabled {
+            i_rs_tool_names.iter().filter(|&&t| enabled_set.contains(t)).copied().collect()
+        } else {
+            i_rs_tool_names.to_vec()
+        };
         self.tools
             .iter()
             .map(|tool| {
@@ -161,7 +162,7 @@ mod tests {
     #[test]
     fn test_enabled_schemas_all() {
         let reg = ToolRegistry::new();
-        let schemas = reg.enabled_schemas(None);
+        let schemas = reg.enabled_schemas(&[], None);
         assert!(schemas.len() >= 5, "至少应有 5 个内置工具 schema");
         for schema in &schemas {
             assert_eq!(
