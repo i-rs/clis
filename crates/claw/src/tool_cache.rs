@@ -94,14 +94,20 @@ impl ToolDocCache {
     }
 
     /// Prefetch teaching docs for a set of tools and cache them.
+    /// Always fetches fresh docs from CLI; only writes to disk when content changed.
     pub fn prefetch(&mut self, tools: &[String]) {
+        let mut changed = false;
         for tool in tools {
-            if !self.hot_docs.contains_key(tool)
-                && let Some(doc) = Self::fetch_teach_doc(tool) {
-                    self.hot_docs.insert(tool.clone(), doc);
+            if let Some(doc) = Self::fetch_teach_doc(tool) {
+                if self.hot_docs.get(tool).map_or(true, |cached| cached != &doc) {
+                    self.hot_docs.insert(tool.to_string(), doc);
+                    changed = true;
                 }
+            }
         }
-        self.save_hot_docs();
+        if changed {
+            self.save_hot_docs();
+        }
     }
 
     // --- Disk cache ---
@@ -120,7 +126,7 @@ impl ToolDocCache {
         HashMap::new()
     }
 
-    fn save_hot_docs(&self) {
+    pub fn save_hot_docs(&self) {
         let path = Self::cache_path(&self.cache_dir);
         if let Ok(content) = serde_json::to_string(&self.hot_docs)
             && let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
