@@ -327,16 +327,204 @@ impl AppCore {
     /// Uses ContextManager for adaptive token-aware compression.
     pub fn compress_api_messages(&self, msgs: &mut Vec<Value>, agent_id: &str) {
         let memory = self.agent_store.memory_for(agent_id);
-        // Use ContextManager for adaptive compression based on token budget
         let resolved = self.config.agent_config(agent_id);
         let ctx_mgr = context::ContextManager::for_model(&resolved.model);
         ctx_mgr.compress(msgs, memory.tool_frequency());
+    }
+
+    /// Build API messages from raw JSONL session records (no app::Message conversion).
+    /// Used by Dashboard which doesn't maintain an App message list.
+    #[cfg(feature = "dashboard")]
+    pub fn build_messages_from_jsonl(
+        &self,
+        records: &[Value],
+        agent_id: &str,
+    ) -> Vec<Value> {
+        let resolved = self.config.agent_config(agent_id);
+        let tool_index = self.build_irs_tool_index(&resolved);
+        let memory = self.agent_store.memory_for(agent_id);
+
+        let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
+            engine::builder::build_system_prompt(
+                &tool_index,
+                &self.agent_store.tool_cache_for(agent_id).format_hot_tools(
+                    &memory.tool_frequency().keys().cloned().collect::<Vec<_>>(),
+                ),
+                &self.agent_store.skill_store_for(agent_id).format_skills(),
+                &memory.format_user_memory(),
+                &memory.format_user_profile(),
+                self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+            )
+        });
+
+        let mut msgs = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
+
+        for record in records {
+            let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            match msg_type {
+                "user" | "assistant" => {
+                    if let Some(text) = record.get("text").and_then(|t| t.as_str()) {
+                        msgs.push(serde_json::json!({
+                            "role": msg_type,
+                            "content": text
+                        }));
+                    }
+                }
+                "tool_call" => {
+                    if let (Some(name), Some(args), Some(result)) = (
+                        record.get("name").and_then(|n| n.as_str()),
+                        record.get("args").and_then(|a| a.as_str()),
+                        record.get("result").and_then(|r| r.as_str()),
+                    ) {
+                        msgs.push(serde_json::json!({
+                            "role": "assistant",
+                            "content": null,
+                            "tool_calls": [{
+                                "id": name,
+                                "type": "function",
+                                "function": {
+                                    "name": name,
+                                    "arguments": args
+                                }
+                            }]
+                        }));
+                        msgs.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": name,
+                            "content": result
+                        }));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        msgs
+    }
+
+    /// Spawn the LLM chat loop from an async context (no Runtime reference needed).
+    /// Uses `tokio::spawn` from the current tokio runtime.
+    #[cfg(feature = "dashboard")]
+    pub fn spawn_chat_for_async(
+        &self,
+        llm_tx: mpsc::UnboundedSender<LlmEvent>,
+        messages: Vec<Value>,
+        agent_id: &str,
+    ) {
+        let resolved = self.config.agent_config(agent_id);
+        let provider = crate::providers::create_provider_for(
+            &self.http_client,
+            &resolved.provider,
+            &resolved.api_key,
+            &resolved.base_url,
+            &resolved.model,
+        );
+        let mut agent_config = self.config.clone();
+        agent_config.enabled_tools = resolved.enabled_tools;
+        let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
+        let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
+
+        tokio::spawn(async move {
+            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills).await;
+        });
     }
 
     /// Get the base directory for claw data.
     #[allow(dead_code)]
     pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
         crate::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))
+    }
+}
+
+/// Convert API-format messages back to JSONL records for session persistence.
+/// Used by both TUI and Dashboard to avoid duplicating conversion logic.
+#[cfg(feature = "dashboard")]
+pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
+    let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
+    let mut i = 0;
+    while i < api_msgs.len() {
+        let m = &api_msgs[i];
+        let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
+        match role {
+            "user" => {
+                records.push(serde_json::json!({
+                    "type": "user",
+                    "text": m.get("content").and_then(|c| c.as_str()).unwrap_or(""),
+                }));
+                i += 1;
+            }
+            "assistant" => {
+                let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                let reasoning = m.get("reasoning_content").and_then(|r| r.as_str()).unwrap_or("");
+                if m.get("tool_calls").and_then(|t| t.as_array()).is_some() {
+                    if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
+                        for tc in tc_array {
+                            let name = tc.get("function")
+                                .and_then(|f| f.get("name"))
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("");
+                            let args = tc.get("function")
+                                .and_then(|f| f.get("arguments"))
+                                .and_then(|a| a.as_str())
+                                .unwrap_or("");
+                            let result = if i + 1 < api_msgs.len()
+                                && api_msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
+                            {
+                                api_msgs[i + 1].get("content")
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("")
+                                    .to_string()
+                            } else {
+                                String::new()
+                            };
+                            records.push(serde_json::json!({
+                                "type": "tool_call",
+                                "name": name,
+                                "args": args,
+                                "result": result,
+                            }));
+                        }
+                    }
+                    if !reasoning.is_empty() {
+                        records.push(serde_json::json!({
+                            "type": "assistant",
+                            "text": "",
+                            "reasoning": reasoning,
+                        }));
+                    }
+                    i += 2;
+                } else {
+                    let mut record = serde_json::json!({
+                        "type": "assistant",
+                        "text": if text == "null" { "" } else { text },
+                    });
+                    if !reasoning.is_empty() {
+                        record["reasoning"] = serde_json::Value::String(reasoning.to_string());
+                    }
+                    records.push(record);
+                    i += 1;
+                }
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+    records
+}
+
+/// Save API messages and their JSONL representation to the session.
+/// Unified persistence logic for both TUI and Dashboard.
+#[cfg(feature = "dashboard")]
+pub fn save_chat_result(
+    session_mgr: &mut SessionManager,
+    session_id: &str,
+    api_messages: &[Value],
+) {
+    session_mgr.save_api_messages(session_id, api_messages);
+    let records = api_msgs_to_jsonl(api_messages);
+    if !records.is_empty() {
+        session_mgr.save_all_messages(session_id, &records);
     }
 }
 

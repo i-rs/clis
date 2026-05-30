@@ -150,153 +150,14 @@ pub async fn send_message(
     }))
 }
 
-/// Build API-compatible messages from JSONL session records, using the
-/// system prompt and tool index for the given agent.
-fn build_dashboard_messages(core: &crate::core::AppCore, session_id: &str, agent_id: &str) -> Vec<Value> {
-    let records = core.session_mgr.load_messages(session_id, 50);
-    let resolved = core.config.agent_config(agent_id);
-
-    let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
-        let memory = core.agent_store.memory_for(agent_id);
-        let tool_cache = core.agent_store.tool_cache_for(agent_id);
-        let skill_store = core.agent_store.skill_store_for(agent_id);
-        crate::core::engine::builder::build_system_prompt(
-            &core.build_irs_tool_index(&resolved),
-            &memory.format_hot_tools(tool_cache),
-            &skill_store.format_skills(),
-            &memory.format_user_memory(),
-            &memory.format_user_profile(),
-            core.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
-        )
-    });
-
-    let mut msgs = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
-
-    for record in &records {
-        let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
-        match msg_type {
-            "user" | "assistant" => {
-                if let Some(text) = record.get("text").and_then(|t| t.as_str()) {
-                    msgs.push(serde_json::json!({
-                        "role": msg_type,
-                        "content": text
-                    }));
-                }
-            }
-            "tool_call" => {
-                if let (Some(name), Some(args), Some(result)) = (
-                    record.get("name").and_then(|n| n.as_str()),
-                    record.get("args").and_then(|a| a.as_str()),
-                    record.get("result").and_then(|r| r.as_str()),
-                ) {
-                    msgs.push(serde_json::json!({
-                        "role": "assistant",
-                        "content": null,
-                        "tool_calls": [{
-                            "id": record.get("name").and_then(|n| n.as_str()).unwrap_or(""),
-                            "type": "function",
-                            "function": {
-                                "name": name,
-                                "arguments": args
-                            }
-                        }]
-                    }));
-                    msgs.push(serde_json::json!({
-                        "role": "tool",
-                        "tool_call_id": name,
-                        "content": result
-                    }));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    msgs
-}
-
-// ── Helpers ──
-
-fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
-    let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
-    let mut i = 0;
-    while i < api_msgs.len() {
-        let m = &api_msgs[i];
-        let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
-        match role {
-            "user" => {
-                records.push(serde_json::json!({
-                    "type": "user",
-                    "text": m.get("content").and_then(|c| c.as_str()).unwrap_or(""),
-                }));
-                i += 1;
-            }
-            "assistant" => {
-                let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                let reasoning = m.get("reasoning_content").and_then(|r| r.as_str()).unwrap_or("");
-                if m.get("tool_calls").and_then(|t| t.as_array()).is_some() {
-                    if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
-                        for tc in tc_array {
-                            let name = tc.get("function")
-                                .and_then(|f| f.get("name"))
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("");
-                            let args = tc.get("function")
-                                .and_then(|f| f.get("arguments"))
-                                .and_then(|a| a.as_str())
-                                .unwrap_or("");
-                            let result = if i + 1 < api_msgs.len()
-                                && api_msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
-                            {
-                                api_msgs[i + 1].get("content")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("")
-                                    .to_string()
-                            } else {
-                                String::new()
-                            };
-                            records.push(serde_json::json!({
-                                "type": "tool_call",
-                                "name": name,
-                                "args": args,
-                                "result": result,
-                            }));
-                        }
-                    }
-                    if !reasoning.is_empty() {
-                        records.push(serde_json::json!({
-                            "type": "assistant",
-                            "text": "",
-                            "reasoning": reasoning,
-                        }));
-                    }
-                    i += 2;
-                } else {
-                    let mut record = serde_json::json!({
-                        "type": "assistant",
-                        "text": if text == "null" { "" } else { text },
-                    });
-                    if !reasoning.is_empty() {
-                        record["reasoning"] = serde_json::Value::String(reasoning.to_string());
-                    }
-                    records.push(record);
-                    i += 1;
-                }
-            }
-            _ => {
-                i += 1;
-            }
-        }
-    }
-    records
-}
-
 /// SSE stream for chat responses.
 pub async fn chat_stream(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> axum::response::Response {
-    let (msgs, config, agent_id, mcp, skills) = {
+    let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
+
+    {
         let mut core = state.core.lock().await;
         core.session_mgr.switch_to(&session_id);
 
@@ -306,40 +167,18 @@ pub async fn chat_stream(
             .map(|m| m.agent_id.clone())
             .unwrap_or_else(|| "default".to_string());
 
-        let msgs = build_dashboard_messages(&core, &session_id, &agent_id);
-        let resolved = core.config.agent_config(&agent_id);
+        let records = core.session_mgr.load_messages(&session_id, 50);
+        let msgs = core.build_messages_from_jsonl(&records, &agent_id);
 
-        let mut config = core.config.clone();
-        config.enabled_tools = resolved.enabled_tools;
-
-        let mcp = core.agent_store.mcp_registry_for(&agent_id).clone();
-        let skills = core.agent_store.skill_store_for(&agent_id).executable_skills();
-
-        (msgs, config, agent_id, mcp, skills)
-    };
-
-    let resolved = config.agent_config(&agent_id);
-    let provider = crate::providers::create_provider_for(
-        &crate::providers::shared_client(),
-        &resolved.provider,
-        &resolved.api_key,
-        &resolved.base_url,
-        &resolved.model,
-    );
-
-    let (tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
-
-    tokio::spawn(async move {
-        crate::core::engine::chat_loop(provider, config, msgs, tx, mcp, skills).await;
-    });
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id);
+    }
 
     let stream_state = state.clone();
     let stream_sid = session_id.clone();
-    let stream_agent = agent_id.clone();
 
     let stream = futures_util::stream::unfold(
-        (Some(rx), stream_state, stream_sid, stream_agent),
-        |(rx_opt, state, sid, agent_id)| async move {
+        (Some(rx), stream_state, stream_sid),
+        |(rx_opt, state, sid)| async move {
             let mut rx = rx_opt?;
             loop {
                 let event = rx.recv().await?;
@@ -347,6 +186,11 @@ pub async fn chat_stream(
                     LlmEvent::ToolExecuted { name, args, result, step, total_steps } => {
                         let mut core = state.core.lock().await;
                         let i_rs_index = core.config.i_rs_tool_index.clone();
+                        let agent_id = core
+                            .session_mgr
+                            .session_meta(&sid)
+                            .map(|m| m.agent_id.clone())
+                            .unwrap_or_else(|| "default".to_string());
                         crate::core::record_tool_memory(
                             &mut core.agent_store, &i_rs_index, &agent_id,
                             &name, &args, &result,
@@ -358,10 +202,15 @@ pub async fn chat_stream(
                             "step": step, "total_steps": total_steps,
                         })).unwrap_or_default();
                         let sse = Event::default().event("tool_executed").data(data);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     LlmEvent::Done(msgs, usage) => {
                         let mut core = state.core.lock().await;
+                        let agent_id = core
+                            .session_mgr
+                            .session_meta(&sid)
+                            .map(|m| m.agent_id.clone())
+                            .unwrap_or_else(|| "default".to_string());
                         if let Some(last) = msgs.last() {
                             if last.get("role").and_then(|r| r.as_str()) == Some("assistant") {
                                 let text = last.get("content").and_then(|c| c.as_str()).unwrap_or("");
@@ -375,18 +224,14 @@ pub async fn chat_stream(
                                 }
                             }
                         }
-                        core.session_mgr.save_api_messages(&sid, &msgs);
-                        let records = api_msgs_to_jsonl(&msgs);
-                        if !records.is_empty() {
-                            core.session_mgr.save_all_messages(&sid, &records);
-                        }
+                        crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
                         core.agent_store.memory_for_mut(&agent_id).flush();
                         drop(core);
 
                         let data = serde_json::to_string(&serde_json::json!({"usage": usage}))
                             .unwrap_or_default();
                         let sse = Event::default().event("done").data(data);
-                        return Some((Ok::<_, Infallible>(sse), (None, state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
                     }
                     LlmEvent::Error(e) => {
                         let mut core = state.core.lock().await;
@@ -394,23 +239,23 @@ pub async fn chat_stream(
                         drop(core);
 
                         let sse = Event::default().event("error").data(e);
-                        return Some((Ok::<_, Infallible>(sse), (None, state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
                     }
                     LlmEvent::Token(t) => {
                         let sse = Event::default().event("token").data(t);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     LlmEvent::Reasoning(t) => {
                         let sse = Event::default().event("reasoning").data(t);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     LlmEvent::Status(s) => {
                         let sse = Event::default().event("status").data(s);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     LlmEvent::NewRound => {
                         let sse = Event::default().event("new_round").data("");
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, agent_id)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     _ => continue,
                 }
