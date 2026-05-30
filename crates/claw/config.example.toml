@@ -23,9 +23,16 @@ model = "deepseek-v4-flash"
 
 # ── 工具管理 ────────────────────────────────────────────────────────────────
 #
-# enabled_tools:  启用的工具列表。留空 = 全部启用
-#                 如需限制工具范围，取消注释并编辑以下列表
-# enabled_tools = ["kv", "weight", "water", "sleep", "meal", "pig", "mood", "sit", "spark", "todo"]
+# i_rs_tools:  已安装的 i-rs CLI 工具名称列表。
+#              通过 `cargo install` / `npm install` / `curl` 等途径独立安装后，
+#              在此列出工具名（不加 i-rs- 前缀），claw 会在启动时自动发现。
+#              留空 = 没有 i-rs 工具可用。
+i_rs_tools = ["weight", "sleep", "mood", "todo", "water", "kv", "run", "exercise", "habit", "cycle", "dose", "pig", "grocery", "meal", "fast", "note", "bookmark", "remind", "birthday", "event", "time", "domain", "bestby", "sub", "ledger", "budget", "invest", "debt", "invoice", "goal", "contact", "car", "project", "read", "article", "vocab", "movie", "podcast", "quote", "snippet", "spark", "cal", "step", "wallet"]
+#
+# enabled_tools:  额外启用的内置工具（非 i-rs 工具）列表。
+#                 留空 = 全部启用。
+#                 如需限制，取消注释并编辑以下列表。
+# enabled_tools = ["web_search", "chart", "delegate"]
 
 
 # ── 搜索引擎 ────────────────────────────────────────────────────────────────
