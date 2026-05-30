@@ -89,60 +89,16 @@ impl<'a> LlmEventHandler<'a> {
             }
         }
 
-        // Save user information from update_user_memory tool
-        if name == "update_user_memory"
-            && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args)
-        {
-            if let Some(user_name) = parsed.get("user_name")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-            {
-                self.app_core.agent_store.memory_for_mut(&self.app.current_agent).set_user_name(user_name);
-            }
-            if let Some(info) = parsed.get("user_info").and_then(|v| v.as_array()) {
-                for item in info {
-                    if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                        self.app_core.agent_store.memory_for_mut(&self.app.current_agent).add_user_info(s);
-                    }
-                }
-            }
-            if let Some(prefs) = parsed.get("preferences").and_then(|v| v.as_array()) {
-                for item in prefs {
-                    if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                        self.app_core.agent_store.memory_for_mut(&self.app.current_agent).add_preference(s);
-                    }
-                }
-            }
-        }
-
-        // Record tool usage for cross-session memory (CLI tools only)
         let agent_id = self.app.current_agent.clone();
-        if name == "i_rs" {
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(args)
-                && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
-            {
-                if self.app_core.config.i_rs_tool_index.contains_key(tool) {
-                    self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(tool);
-                }
-
-                let cmd = parsed.get("command").and_then(|c| c.as_str());
-                if cmd == Some("skill")
-                    && parsed
-                        .get("args")
-                        .and_then(|a| a.as_array())
-                        .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
-                        .unwrap_or(false)
-                {
-                    let cache = self.app_core.agent_store.tool_cache_for_mut(&agent_id);
-                    cache.hot_docs.insert(tool.to_string(), result.to_string());
-                    cache.save_hot_docs();
-                }
-            }
-        } else if self.app_core.config.i_rs_tool_index.contains_key(name)
-            || name.starts_with("skill_")
-        {
-            self.app_core.agent_store.memory_for_mut(&agent_id).record_tool_use(name);
-        }
+        let i_rs_index = self.app_core.config.i_rs_tool_index.clone();
+        crate::core::record_tool_memory(
+            &mut self.app_core.agent_store,
+            &i_rs_index,
+            &agent_id,
+            name,
+            args,
+            result,
+        );
     }
 
     fn handle_error(&mut self, text: &str) {

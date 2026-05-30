@@ -233,6 +233,14 @@ async fn dashboard_chat_loop(
 ) {
     use crate::utils::smart_truncate;
 
+    let agent_id = {
+        let core = state.core.lock().await;
+        core.session_mgr
+            .session_meta(&session_id)
+            .map(|m| m.agent_id.clone())
+            .unwrap_or_else(|| "default".to_string())
+    };
+
     // Build ToolContext for tool execution
     let tool_ctx = {
         let core = state.core.lock().await;
@@ -301,6 +309,7 @@ async fn dashboard_chat_loop(
                 } else { None };
                 core.session_mgr.append_message("assistant", &text, extra);
                 core.session_mgr.save_api_messages(&session_id, &msgs);
+                core.agent_store.memory_for_mut(&agent_id).flush();
                 break;
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
@@ -335,6 +344,23 @@ async fn dashboard_chat_loop(
 
                 let all_results = executor.execute(calls, &tx).await;
 
+                {
+                    let mut core = state.core.lock().await;
+                    let i_rs_index = core.config.i_rs_tool_index.clone();
+                    for result in &all_results {
+                        let name = &result.call.name;
+                        let args_str = serde_json::to_string(&result.args).unwrap_or_default();
+                        crate::core::record_tool_memory(
+                            &mut core.agent_store,
+                            &i_rs_index,
+                            &agent_id,
+                            name,
+                            &args_str,
+                            &result.result,
+                        );
+                    }
+                }
+
                 // Push tool results to messages
                 for result in &all_results {
                     msgs.push(serde_json::json!({
@@ -353,7 +379,7 @@ async fn dashboard_chat_loop(
     }
 
     // Attempt to sync app messages to JSONL after the full loop
-    let core = state.core.lock().await;
+    let mut core = state.core.lock().await;
     if let Some(api_msgs) = core.session_mgr.load_api_messages(&session_id) {
         // Convert API msgs to JSONL records, preserving tool call info
         let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
@@ -437,6 +463,7 @@ async fn dashboard_chat_loop(
             core.session_mgr.save_all_messages(&session_id, &records);
         }
     }
+    core.agent_store.memory_for_mut(&agent_id).flush();
 }
 
 /// SSE stream for chat responses.
