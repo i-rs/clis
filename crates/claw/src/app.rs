@@ -5,6 +5,53 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
 
+/// JSON-serializable representation of a Message for persistence.
+pub fn message_to_jsonl(msg: &Message) -> Value {
+    match msg {
+        Message::User { text } => serde_json::json!({"type": "user", "text": text}),
+        Message::Assistant { text, reasoning } => {
+            let mut obj = serde_json::json!({"type": "assistant", "text": text});
+            if !reasoning.is_empty() {
+                obj["reasoning"] = Value::String(reasoning.clone());
+            }
+            obj
+        }
+        Message::ToolCall { name, args, result, step, total_steps } => serde_json::json!({
+            "type": "tool_call", "name": name, "args": args,
+            "result": result, "step": step, "total_steps": total_steps,
+        }),
+        Message::Error { text } => serde_json::json!({"type": "error", "text": text}),
+        Message::Evaluation { tool, valid, issues } => serde_json::json!({
+            "type": "evaluation", "tool": tool, "valid": valid, "issues": issues,
+        }),
+    }
+}
+
+pub fn message_from_jsonl(v: &Value) -> Option<Message> {
+    let msg_type = v.get("type").and_then(|t| t.as_str())?;
+    match msg_type {
+        "user" => Some(Message::User { text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string() }),
+        "assistant" => Some(Message::Assistant {
+            text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),
+            reasoning: v.get("reasoning").and_then(|r| r.as_str()).unwrap_or("").to_string(),
+        }),
+        "tool_call" => Some(Message::ToolCall {
+            name: v.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
+            args: v.get("args").and_then(|a| a.as_str()).unwrap_or("").to_string(),
+            result: v.get("result").and_then(|r| r.as_str()).unwrap_or("").to_string(),
+            step: v.get("step").and_then(|s| s.as_u64()).unwrap_or(0) as usize,
+            total_steps: v.get("total_steps").and_then(|s| s.as_u64()).unwrap_or(0) as usize,
+        }),
+        "error" => Some(Message::Error { text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string() }),
+        "evaluation" => Some(Message::Evaluation {
+            tool: v.get("tool").and_then(|t| t.as_str()).unwrap_or("").to_string(),
+            valid: v.get("valid").and_then(|v| v.as_bool()).unwrap_or(true),
+            issues: v.get("issues").and_then(|i| i.as_array()).map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default(),
+        }),
+        _ => None,
+    }
+}
+
 #[derive(Clone)]
 pub struct PluginEntry {
     pub name: String,
@@ -44,6 +91,12 @@ pub enum Message {
         total_steps: usize,
     },
     Error { text: String },
+    /// Evaluation feedback for a tool call result
+    Evaluation {
+        tool: String,
+        valid: bool,
+        issues: Vec<String>,
+    },
 }
 
 /// Input editing state (input text, cursor, history).

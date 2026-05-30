@@ -50,6 +50,15 @@ pub enum LlmEvent {
     HttpLog(HttpLogData),
     /// Token usage record for statistics persistence
     UsageRecord(TokenRecord),
+    /// Result evaluation: basic validation feedback on tool outputs
+    Evaluation {
+        /// Tool name evaluated
+        tool: String,
+        /// Whether the result looks valid
+        valid: bool,
+        /// List of issues found (empty if valid)
+        issues: Vec<String>,
+    },
 }
 
 #[derive(Default, Clone)]

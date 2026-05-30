@@ -87,7 +87,7 @@ pub trait ClawTool: Send + Sync {
 /// 1. Create `tools/my_tool.rs` with a struct implementing `ClawTool`
 /// 2. Add `Box::new(my_tool::MyTool)` to `ToolRegistry::new()`
 pub struct ToolRegistry {
-    tools: Vec<Box<dyn ClawTool>>,
+    pub tools: Vec<Box<dyn ClawTool>>,
 }
 
 impl ToolRegistry {
@@ -160,6 +160,7 @@ impl ToolRegistry {
     }
 
    /// Execute a tool by name.
+    #[allow(dead_code)]
     pub async fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
         match self.tools.iter().find(|t| t.name() == name) {
             Some(t) => t.execute(args, ctx).await,
@@ -168,6 +169,7 @@ impl ToolRegistry {
     }
 
     /// Check if a built-in tool exists.
+    #[allow(dead_code)]
     pub fn tool_exists(&self, name: &str) -> bool {
         self.tools.iter().any(|t| t.name() == name)
     }

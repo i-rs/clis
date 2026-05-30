@@ -433,6 +433,9 @@ fn message_line_count(
             // header + wrapped lines + trailing blank
             1 + wrapped_line_count(text, text_width) + 1
         }
+        Message::Evaluation { valid, issues, .. } => {
+            if *valid { 0 } else { 1 + issues.len() }
+        }
     }
 }
 
@@ -638,6 +641,7 @@ fn build_message_item_with_skip(
             Message::Assistant { .. } => Color::Rgb(25, 30, 45),
             Message::ToolCall { .. } => Color::Rgb(25, 25, 35),
             Message::Error { .. } => Color::Rgb(35, 15, 15),
+            Message::Evaluation { valid, .. } => if *valid { Color::Rgb(20, 35, 25) } else { Color::Rgb(40, 20, 15) },
         };
         item = item.style(Style::default().bg(bg));
     }
@@ -862,6 +866,33 @@ fn build_message_lines(
                 lines.push(Line::from(Span::styled(
                     format!("   {}", wrapped),
                     Style::default().fg(app.config.theme.error()),
+                )));
+            }
+            lines.push(Line::from(Span::raw("")));
+            lines
+        }
+        Message::Evaluation { tool, valid, issues } => {
+            if *valid { return Vec::new(); }
+            let accent = app.config.theme.accent();
+            let text = app.config.theme.text();
+            let mut lines = vec![
+                Line::from(vec![
+                    Span::styled(
+                        "⚠ ",
+                        Style::default().fg(accent),
+                    ),
+                    Span::styled(
+                        format!("工具结果检查: {}", tool),
+                        Style::default()
+                            .fg(accent)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+            ];
+            for issue in issues {
+                lines.push(Line::from(Span::styled(
+                    format!("   • {}", issue),
+                    Style::default().fg(text),
                 )));
             }
             lines.push(Line::from(Span::raw("")));

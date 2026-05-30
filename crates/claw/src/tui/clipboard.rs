@@ -6,35 +6,7 @@ pub(super) fn save_session_messages(
 ) {
     let records: Vec<serde_json::Value> = messages
         .iter()
-        .map(|m| match m {
-            crate::app::Message::User { text } => {
-                serde_json::json!({"type": "user", "text": text})
-            }
-            crate::app::Message::Assistant { text, reasoning } => {
-                let mut obj = serde_json::json!({"type": "assistant", "text": text});
-                if !reasoning.is_empty() {
-                    obj["reasoning"] = serde_json::Value::String(reasoning.clone());
-                }
-                obj
-            }
-            crate::app::Message::ToolCall {
-                name,
-                args,
-                result,
-                step,
-                total_steps,
-            } => serde_json::json!({
-                "type": "tool_call",
-                "name": name,
-                "args": args,
-                "result": result,
-                "step": step,
-                "total_steps": total_steps,
-            }),
-            crate::app::Message::Error { text } => {
-                serde_json::json!({"type": "error", "text": text})
-            }
-        })
+        .map(crate::app::message_to_jsonl)
         .collect();
     session_mgr.save_all_messages(session_id, &records);
     if let Some(msgs) = api_messages {

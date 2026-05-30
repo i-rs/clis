@@ -193,6 +193,9 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
             crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
                 msgs.push(serde_json::json!({"role": "assistant", "content": text}));
             }
+            crate::app::Message::Evaluation { tool, valid, issues } if !valid => {
+                tracing::info!(tool, issues = ?issues, "工具结果验证告警");
+            }
             _ => {}
         }
     }

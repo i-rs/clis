@@ -12,6 +12,7 @@ use rmcp::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::process::Command;
 
@@ -278,6 +279,10 @@ pub struct McpRegistry {
     pub clients: Vec<McpClient>,
     /// All discovered tools (flattened across all servers).
     pub tools: Vec<(usize, McpToolDefinition)>, // (client_index, tool_def)
+    /// O(1) tool name lookup → (client_index, tool_def).
+    /// Only the first occurrence of each tool name is kept (first-server wins).
+    #[allow(dead_code)]
+    pub tool_map: HashMap<String, (usize, McpToolDefinition)>,
     /// Shared tokio runtime for all MCP connections.
     #[allow(dead_code)]
     rt: Arc<tokio::runtime::Runtime>,
@@ -311,6 +316,7 @@ impl McpRegistry {
         );
         let mut clients = Vec::new();
         let mut tools = Vec::new();
+        let mut tool_map = HashMap::new();
 
         for server in servers.iter() {
             // Skip disabled servers
@@ -347,6 +353,8 @@ impl McpRegistry {
                 Ok(tool_defs) => {
                     let client_index = clients.len();
                     for td in tool_defs {
+                        // Only the first occurrence of each name is kept
+                        tool_map.entry(td.name.clone()).or_insert_with(|| (client_index, td.clone()));
                         tools.push((client_index, td));
                     }
                     clients.push(client);
@@ -365,7 +373,7 @@ impl McpRegistry {
             );
         }
 
-        Self { clients, tools, rt, server_configs: servers.to_vec() }
+        Self { clients, tools, tool_map, rt, server_configs: servers.to_vec() }
     }
 
     /// Get the number of discovered MCP tools.
@@ -402,7 +410,10 @@ impl McpRegistry {
                     match new_client.list_tools() {
                         Ok(new_tools) => {
                             self.tools.retain(|(ci, _)| *ci != idx);
+                            // Remove old tool_map entries for this client
+                            self.tool_map.retain(|_, (ci, _)| *ci != idx);
                             for td in new_tools {
+                                self.tool_map.entry(td.name.clone()).or_insert_with(|| (idx, td.clone()));
                                 self.tools.push((idx, td));
                             }
                         }
@@ -451,6 +462,7 @@ impl McpRegistry {
         Self {
             clients: Vec::new(),
             tools: Vec::new(),
+            tool_map: HashMap::new(),
             rt,
             server_configs: Vec::new(),
         }

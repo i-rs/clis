@@ -44,6 +44,9 @@ impl<'a> LlmEventHandler<'a> {
                 self.app.today_stats = self.app_core.stats_manager.today_summary();
             }
             LlmEvent::Done(msgs, usage) => return self.handle_done((*msgs).clone(), usage),
+            LlmEvent::Evaluation { tool, valid, issues } => {
+                self.handle_evaluation(&tool, valid, &issues);
+            }
         }
         Action::Continue
     }
@@ -105,6 +108,17 @@ impl<'a> LlmEventHandler<'a> {
         self.app.add_error(text);
         if let Some(sid) = self.app_core.session_mgr.current_id().map(|s| s.to_string()) {
             self.app_core.session_mgr.mark_error(&sid, text);
+        }
+    }
+
+    fn handle_evaluation(&mut self, tool: &str, valid: bool, issues: &[String]) {
+        self.app.messages.push(app::Message::Evaluation {
+            tool: tool.to_string(),
+            valid,
+            issues: issues.to_vec(),
+        });
+        if !valid {
+            tracing::info!(tool, issues = ?issues, "工具结果验证告警");
         }
     }
 
@@ -456,6 +470,8 @@ impl<'a> KeyEventHandler<'a> {
                     crate::app::Message::ToolCall { name, args, result, .. } =>
                         format!("Tool: {}\nArgs: {}\nResult: {}", name, args, result),
                     crate::app::Message::Error { text } => text.clone(),
+                    crate::app::Message::Evaluation { tool, issues, .. } =>
+                        format!("Tool Evaluation: {} | Issues: {}", tool, issues.join("; ")),
                 })
             })
         } else {
@@ -798,6 +814,15 @@ impl<'a> KeyEventHandler<'a> {
                     md.push_str("## ✗ 错误\n\n");
                     md.push_str(&format!("```\n{}\n```\n\n", text));
                     md.push_str("---\n\n");
+                }
+                crate::app::Message::Evaluation { tool, valid, issues } => {
+                    if !valid {
+                        md.push_str(&format!("## ⚠ 工具结果检查: `{}`\n\n", tool));
+                        for issue in issues {
+                            md.push_str(&format!("- {}\n", issue));
+                        }
+                        md.push_str("\n---\n\n");
+                    }
                 }
             }
         }

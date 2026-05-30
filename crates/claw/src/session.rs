@@ -228,6 +228,14 @@ impl SessionManager {
                 "tool_call" => md.push_str(&format!("*[工具调用: {}]*\n\n",
                     record.get("name").and_then(|n| n.as_str()).unwrap_or(""))),
                 "error" => md.push_str(&format!("**错误:** {}\n\n", text)),
+                "evaluation" => {
+                    let tool_name = record.get("tool").and_then(|v| v.as_str()).unwrap_or("");
+                    let valid = record.get("valid").and_then(|v| v.as_bool()).unwrap_or(true);
+                    let issues: Vec<String> = record.get("issues").and_then(|i| i.as_array()).map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+                    if !valid {
+                        md.push_str(&format!("**评测 ({}):** {}\n\n", tool_name, issues.join("; ")));
+                    }
+                }
                 _ => {}
             }
         }
@@ -297,23 +305,7 @@ impl SessionManager {
 
     pub fn load_app_messages(&self, id: &str, max_messages: usize) -> Vec<crate::app::Message> {
         self.load_messages(id, max_messages).into_iter().filter_map(|v| {
-            let msg_type = v.get("type").and_then(|t| t.as_str())?;
-            match msg_type {
-                "user" => Some(crate::app::Message::User { text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string() }),
-                "assistant" => Some(crate::app::Message::Assistant {
-                    text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),
-                    reasoning: v.get("reasoning").and_then(|r| r.as_str()).unwrap_or("").to_string(),
-                }),
-                "tool_call" => Some(crate::app::Message::ToolCall {
-                    name: v.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string(),
-                    args: v.get("args").and_then(|a| a.as_str()).unwrap_or("").to_string(),
-                    result: v.get("result").and_then(|r| r.as_str()).unwrap_or("").to_string(),
-                    step: v.get("step").and_then(|s| s.as_u64()).unwrap_or(0) as usize,
-                    total_steps: v.get("total_steps").and_then(|s| s.as_u64()).unwrap_or(0) as usize,
-                }),
-                "error" => Some(crate::app::Message::Error { text: v.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string() }),
-                _ => None,
-            }
+            crate::app::message_from_jsonl(&v)
         }).collect()
     }
 

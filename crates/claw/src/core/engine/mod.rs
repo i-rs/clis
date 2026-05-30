@@ -7,6 +7,7 @@ pub(crate) use builder::{
 pub(crate) use execution::execute_tool_call;
 
 use crate::config::Config;
+use crate::core::context::ContextManager;
 use crate::llm::{LlmEvent, StreamResult};
 use crate::mcp::McpRegistry;
 use crate::providers::LlmProvider;
@@ -15,6 +16,7 @@ use crate::utils;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Main chat loop: stream, handle tool calls, continue until done
@@ -33,21 +35,35 @@ pub async fn chat_loop(
         Some(&config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let mut tool_schemas = crate::tools::ToolRegistry::with_skills(&skills).enabled_schemas(&i_rs_tool_names, enabled);
-    // Append MCP tool schemas if available
-    for (client_idx, tool_def) in &mcp.tools {
-        if let Some(_client) = mcp.clients.get(*client_idx) {
+    // Build ToolRegistry once and share it via Arc
+    let tool_registry = Arc::new(crate::tools::ToolRegistry::with_skills(&skills));
+    let mut tool_schemas = tool_registry.enabled_schemas(&i_rs_tool_names, enabled);
+    // Append MCP tool schemas (O(1) via tool_map)
+    for (_name, (client_idx, tool_def)) in &mcp.tool_map {
+        if mcp.clients.get(*client_idx).is_some() {
             let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
             tool_schemas.push(schema);
         }
     }
     let mut msgs = messages;
+
+    // Inject context advisory into system prompt if near limit
+    let ctx_mgr = ContextManager::for_model(provider.model());
+    let advisory = ctx_mgr.context_advisory(&msgs);
+    if !advisory.is_empty() && msgs.first().and_then(|m| m.get("role").and_then(|r| r.as_str())) == Some("system") {
+        if let Some(system_msg) = msgs.first_mut() {
+            if let Some(content) = system_msg.get("content").and_then(|c| c.as_str()) {
+                system_msg["content"] = Value::String(format!("{}\n{}", content, advisory));
+            }
+        }
+    }
+
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
         mcp: mcp.clone(),
         http_client: crate::providers::shared_client(),
     };
-    let mut retry_counts: HashMap<String, u32> = HashMap::new();
+    let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new(); // (fail_count, consecutive_failures)
     let max_retries = config.max_tool_retries;
     let max_rounds = config.max_react_rounds;
     let mut round_count = 0u32;
@@ -55,10 +71,14 @@ pub async fn chat_loop(
     let mut consecutive_provider_errors: u32 = 0;
     const MAX_PROVIDER_RETRIES: u32 = 2;
 
-    // Create shared ToolCallExecutor with configurable parameters
-    let executor = crate::core::executor::ToolCallExecutor::new(tool_ctx, mcp.clone(), skills.clone())
-        .with_timeout(config.cli_timeout_secs)
-        .with_truncation(4096, 500);
+    // Create shared ToolCallExecutor with shared ToolRegistry
+    let executor = crate::core::executor::ToolCallExecutor::new(
+        tool_registry.clone(),
+        tool_ctx,
+        mcp.clone(),
+    )
+    .with_timeout(config.cli_timeout_secs)
+    .with_truncation(4096, 500);
 
     loop {
         round_count += 1;
@@ -69,6 +89,7 @@ pub async fn chat_loop(
         let _ = tx.send(LlmEvent::NewRound);
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
+        let start_time = std::time::Instant::now();
         match provider.stream_chat(&msgs, &tool_schemas, &tx).await {
             Ok(StreamResult::Text(usage, text, reasoning)) => {
                 #[allow(unused_assignments)]
@@ -107,36 +128,50 @@ pub async fn chat_loop(
                     "content": null,
                     "tool_calls": tool_calls_array,
                 });
-                // DeepSeek requires reasoning_content to be echoed back
                 if !reasoning_content.is_empty() {
                     assistant_msg["reasoning_content"] = Value::String(reasoning_content);
                 }
                 msgs.push(assistant_msg);
 
-                // Parallel execute all tool calls via ToolCallExecutor
                 let total = calls.len();
                 let _ = tx.send(LlmEvent::Status(format!("⚡ 并行执行 {} 个工具...", total)));
 
                 let all_results = executor.execute(calls, &tx).await;
 
-                // Check for errors and track retry counts
+                // Check for errors and track retry counts with backoff
                 let mut should_retry = false;
                 for result in &all_results {
                     if result.result.starts_with("错误:") {
-                        let count = retry_counts.entry(result.call.name.clone()).or_insert(0);
-                        *count += 1;
-                        if *count <= max_retries {
+                        let entry = retry_counts.entry(result.call.name.clone()).or_insert((0, 0));
+                        entry.0 += 1;
+                        entry.1 += 1;
+                        if entry.0 <= max_retries {
                             should_retry = true;
+                        }
+                    } else {
+                        // Reset consecutive failures on success
+                        if let Some(entry) = retry_counts.get_mut(&result.call.name) {
+                            entry.1 = 0;
                         }
                     }
                 }
 
                 if should_retry {
-                    // Push all results so LLM sees what succeeded/failed
                     for result in &all_results {
                         msgs.push(serde_json::json!({ "role": "tool", "tool_call_id": result.call.id, "content": utils::smart_truncate(&result.result, 500) }));
                     }
-                    // Add retry guidance
+                    // Apply backoff before retrying: wait longer per consecutive failure
+                    let max_consecutive = all_results
+                        .iter()
+                        .filter_map(|r| retry_counts.get(&r.call.name))
+                        .map(|(_, consecutive)| *consecutive)
+                        .max()
+                        .unwrap_or(1);
+                    let backoff_secs = 2u64.saturating_pow(max_consecutive.min(4));
+                    if backoff_secs > 1 {
+                        let _ = tx.send(LlmEvent::Status(format!("⏳ 等待 {}s 后重试失败的工具...", backoff_secs)));
+                        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                    }
                     msgs.push(serde_json::json!({
                         "role": "system",
                         "content": "部分工具调用返回错误，请修正参数后重试。".to_string(),
@@ -163,7 +198,23 @@ pub async fn chat_loop(
                         }
                     }
                 }
-                // Continue loop: send tool results back to LLM
+
+                // Structured tracing for tool calls
+                for result in &all_results {
+                    tracing::info!(
+                        tool = %result.call.name,
+                        args = %result.call.arguments,
+                        success = !result.result.starts_with("错误:"),
+                        elapsed_ms = %start_time.elapsed().as_millis(),
+                        result_len = result.result.len(),
+                        "工具调用"
+                    );
+                }
+
+                // Compress messages after each tool round to stay within budget
+                if round_count > 1 {
+                    ctx_mgr.compress(&mut msgs, &HashMap::new());
+                }
             }
             Err(e) => {
                 let err_msg = format!("{}", e);
@@ -181,7 +232,7 @@ pub async fn chat_loop(
                     let _ = tx.send(LlmEvent::Status(format!(
                         "⚠️ 网络波动，{}s 后重试 ({}/{})…", wait_secs, consecutive_provider_errors, MAX_PROVIDER_RETRIES
                     )));
-                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs as u64)).await;
+                    tokio::time::sleep(Duration::from_secs(wait_secs as u64)).await;
                     continue;
                 }
                 let _ = tx.send(LlmEvent::Error(err_msg));
