@@ -3,6 +3,33 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
+/// Estimate token count for a string, accounting for CJK characters.
+/// CJK characters are ~1-2 tokens each vs ~0.25 tokens per ASCII char.
+fn estimate_tokens(text: &str) -> usize {
+    let mut cjk_count = 0usize;
+    let mut ascii_len = 0usize;
+    for ch in text.chars() {
+        if is_cjk(ch) {
+            cjk_count += 1;
+        } else {
+            ascii_len += ch.len_utf8();
+        }
+    }
+    // CJK: ~1.5 tokens per character, ASCII: ~4 chars per token
+    cjk_count + (cjk_count / 2) + (ascii_len / 4)
+}
+
+fn is_cjk(ch: char) -> bool {
+    let cp = ch as u32;
+    (0x4E00..=0x9FFF).contains(&cp)      // CJK Unified Ideographs
+        || (0x3400..=0x4DBF).contains(&cp) // CJK Extension A
+        || (0x3000..=0x303F).contains(&cp) // CJK Symbols and Punctuation
+        || (0x3040..=0x309F).contains(&cp) // Hiragana
+        || (0x30A0..=0x30FF).contains(&cp) // Katakana
+        || (0xAC00..=0xD7AF).contains(&cp) // Hangul Syllables
+        || (0xFF00..=0xFFEF).contains(&cp) // Fullwidth Forms
+}
+
 /// Manages context window with token-aware compression.
 ///
 /// Enhances the existing smart_compress with:
@@ -50,34 +77,33 @@ impl ContextManager {
     }
 
     /// Count approximate tokens in a message list.
-    /// Uses simple heuristic: ~4 chars per token + message overhead.
+    /// Uses heuristic: ~4 chars per token for ASCII, ~1.5 chars per token for CJK,
+    /// plus message overhead.
     pub fn count_tokens(msgs: &[Value]) -> usize {
         let mut total = 0;
         for msg in msgs {
-            // Base message overhead (~25 tokens per message for metadata)
             total += 25;
 
             if let Some(content) = msg.get("content").and_then(|c| c.as_str()) {
-                total += content.len() / 4; // ~4 chars per token
+                total += estimate_tokens(content);
             }
             if let Some(role) = msg.get("role").and_then(|r| r.as_str()) {
                 total += role.len() / 4;
             }
-            // Tool calls add tokens
             if let Some(tcs) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                 for tc in tcs {
                     if let Some(func) = tc.get("function") {
                         if let Some(name) = func.get("name").and_then(|n| n.as_str()) {
-                            total += name.len() / 4;
+                            total += estimate_tokens(name);
                         }
                         if let Some(args) = func.get("arguments").and_then(|a| a.as_str()) {
-                            total += args.len() / 4;
+                            total += estimate_tokens(args);
                         }
                     }
                 }
             }
         }
-        total.max(100) // At least ~100 tokens
+        total.max(100)
     }
 
     /// Adaptive compression based on token budget.

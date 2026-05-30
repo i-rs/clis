@@ -44,6 +44,7 @@ fn default_schema() -> Value {
     })
 }
 
+#[async_trait::async_trait]
 impl ClawTool for SkillTool {
     fn name(&self) -> &str {
         &self.tool_name
@@ -59,7 +60,7 @@ impl ClawTool for SkillTool {
             .unwrap_or_else(default_schema)
     }
 
-    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         if self.content.is_empty() {
             Ok("技能已激活，但未包含具体指令内容。".to_string())
         } else {
@@ -137,8 +138,8 @@ mod tests {
         assert_eq!(schema["properties"]["x"]["type"], "string");
     }
 
-    #[test]
-    fn test_skill_tool_execute_with_content() {
+    #[tokio::test]
+    async fn test_skill_tool_execute_with_content() {
         let def = SkillDefinition {
             name: "s".to_string(),
             description: String::new(),
@@ -147,12 +148,12 @@ mod tests {
         };
         let tool = SkillTool::new(def);
         let ctx = ToolContext { config: crate::test_helpers::test_config(), mcp: crate::mcp::McpRegistry::empty_for_test(), http_client: crate::providers::shared_client(), };
-        let result = tool.execute(&json!({}), &ctx).unwrap();
+        let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert_eq!(result, "Execute this instruction");
     }
 
-    #[test]
-    fn test_skill_tool_execute_empty_content() {
+    #[tokio::test]
+    async fn test_skill_tool_execute_empty_content() {
         let def = SkillDefinition {
             name: "s".to_string(),
             description: String::new(),
@@ -161,7 +162,7 @@ mod tests {
         };
         let tool = SkillTool::new(def);
         let ctx = ToolContext { config: crate::test_helpers::test_config(), mcp: crate::mcp::McpRegistry::empty_for_test(), http_client: crate::providers::shared_client(), };
-        let result = tool.execute(&json!({}), &ctx).unwrap();
+        let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert!(result.contains("技能已激活"));
     }
 }

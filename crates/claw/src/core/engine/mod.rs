@@ -51,7 +51,8 @@ pub async fn chat_loop(
     let max_retries = config.max_tool_retries;
     let max_rounds = config.max_react_rounds;
     let mut round_count = 0u32;
-    let mut consecutive_provider_errors = 0u32;
+    #[allow(unused_assignments)]
+    let mut consecutive_provider_errors: u32 = 0;
     const MAX_PROVIDER_RETRIES: u32 = 2;
 
     // Create shared ToolCallExecutor with configurable parameters
@@ -70,6 +71,8 @@ pub async fn chat_loop(
 
         match provider.stream_chat(&msgs, &tool_schemas, &tx).await {
             Ok(StreamResult::Text(usage, text, reasoning)) => {
+                #[allow(unused_assignments)]
+                { consecutive_provider_errors = 0; }
                 if !text.is_empty() || !reasoning.is_empty() {
                     let mut msg = serde_json::json!({
                         "role": "assistant",

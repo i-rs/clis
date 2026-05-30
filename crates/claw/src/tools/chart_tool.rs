@@ -6,6 +6,7 @@ use super::{ClawTool, ToolContext};
 /// Chart tool: generates ASCII bar charts and line charts from i-rs CLI data.
 pub struct ChartTool;
 
+#[async_trait::async_trait]
 impl ClawTool for ChartTool {
     fn name(&self) -> &str {
         "chart"
@@ -69,7 +70,7 @@ impl ClawTool for ChartTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let tool = args
             .get("tool")
             .and_then(|v| v.as_str())
@@ -130,31 +131,17 @@ struct DataPoint {
 
 /// Run an i-rs CLI command and parse JSON output.
 fn run_i_rs_cli_json(tool: &str, command: &str, extra_args: &str) -> Result<Value, ClawError> {
-    let mut cmd = std::process::Command::new("i-rs");
-    cmd.arg(tool).arg(command).arg("--json");
-
+    let mut all_args: Vec<&str> = vec![tool, command, "--json"];
     if !extra_args.is_empty() {
         for arg in extra_args.split_whitespace() {
-            cmd.arg(arg);
+            all_args.push(arg);
         }
     }
 
-    let output = cmd
-        .output()
-        .map_err(|e| ClawError::Execution(format!("执行 i-rs {} {} 失败: {}", tool, command, e)))?;
+    let output = crate::utils::run_cli_command("i-rs", &all_args, 30)
+        .map_err(ClawError::Execution)?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(ClawError::Execution(format!(
-            "i-rs {} {} 返回错误: {}",
-            tool,
-            command,
-            stderr.trim()
-        )));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    serde_json::from_str(&stdout).map_err(|e| ClawError::Execution(format!("解析 JSON 输出失败: {}", e)))
+    serde_json::from_str(&output).map_err(|e| ClawError::Execution(format!("解析 JSON 输出失败: {}", e)))
 }
 
 /// Extract data points from JSON CLI result.

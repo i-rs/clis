@@ -6,6 +6,7 @@ use crate::tools::ToolContext;
 /// Built-in tool that searches the i-rs CLI tool index by keyword.
 pub struct SearchToolsTool;
 
+#[async_trait::async_trait]
 impl super::ClawTool for SearchToolsTool {
     fn name(&self) -> &str {
         "search_tools"
@@ -28,7 +29,7 @@ impl super::ClawTool for SearchToolsTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args.get("query").and_then(|q| q.as_str()).unwrap_or("");
         if query.is_empty() {
             return Ok("请输入搜索关键词".to_string());

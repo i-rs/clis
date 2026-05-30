@@ -14,6 +14,7 @@ fn safe_cwd() -> std::path::PathBuf {
 /// Built-in tool that executes `i-rs-<tool> <command>` CLI commands directly.
 pub struct IrsTool;
 
+#[async_trait::async_trait]
 impl super::ClawTool for IrsTool {
     fn name(&self) -> &str {
         "i_rs"
@@ -50,7 +51,7 @@ impl super::ClawTool for IrsTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("");
         let cmd_args: Vec<String> = args

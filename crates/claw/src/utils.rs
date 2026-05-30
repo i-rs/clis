@@ -4,6 +4,70 @@ pub fn claw_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir().map(|h| h.join(".i-rs").join("claw"))
 }
 
+/// Run a CLI command with timeout, returning stdout on success or an error string.
+/// Provides a unified subprocess invocation pattern across all tools.
+pub fn run_cli_command(
+    binary: &str,
+    args: &[&str],
+    timeout_secs: u64,
+) -> Result<String, String> {
+    let mut child = std::process::Command::new(binary)
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .current_dir(std::env::temp_dir())
+        .spawn()
+        .map_err(|e| format!("执行 {} 失败: {}", binary, e))?;
+
+    let start = std::time::Instant::now();
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let output = child.wait_with_output()
+                    .map_err(|e| format!("读取命令输出失败: {}", e))?;
+
+                let max_output = 10_000;
+                if status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let trimmed = stdout.trim();
+                    if trimmed.is_empty() {
+                        return Ok(r#"{"success":true}"#.to_string());
+                    } else if trimmed.len() > max_output {
+                        let preview: String = trimmed.chars().take(max_output).collect();
+                        return Ok(format!("{}...\n[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, trimmed.len(), max_output));
+                    } else {
+                        return Ok(trimmed.to_string());
+                    }
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let combined = if stderr.trim().is_empty() {
+                        stdout.trim().to_string()
+                    } else {
+                        stderr.trim().to_string()
+                    };
+                    if combined.len() > max_output {
+                        let preview: String = combined.chars().take(max_output).collect();
+                        return Err(format!("{}...\n[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, combined.len(), max_output));
+                    }
+                    return Err(combined);
+                }
+            }
+            Ok(None) => {
+                if start.elapsed() > std::time::Duration::from_secs(timeout_secs) {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!("命令执行超时 ({}s): {} {}", timeout_secs, binary, args.join(" ")));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(e) => return Err(format!("等待命令完成失败: {}", e)),
+        }
+    }
+}
+
 /// Atomic file write: write to a temp file first, then atomically rename.
 /// This prevents data corruption if the process crashes mid-write.
 /// Returns `Ok(())` on success, `Err` with a description on failure.

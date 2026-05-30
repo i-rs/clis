@@ -51,7 +51,7 @@ pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(Paragraph::new(lines), area);
 }
 
-pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
     if !app.is_processing() || app.status_text.is_empty() {
         return;
     }
@@ -62,13 +62,13 @@ pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App) {
     let label = Line::from(Span::styled(
         format!(" {}  {}", spinner, app.status_text),
         Style::default()
-            .fg(Color::Cyan)
+            .fg(theme.primary())
             .add_modifier(Modifier::BOLD),
     ));
     f.render_widget(label, area);
 }
 
-pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
+pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
     let popup_width = 50u16.min(area.width.saturating_sub(4));
     let popup_height = 28u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -120,22 +120,21 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
             continue;
         }
         if desc.is_empty() {
-            // Section header
             lines.push(Line::from(Span::styled(
                 *key,
                 Style::default()
-                    .fg(Color::Green)
+                    .fg(theme.secondary())
                     .add_modifier(Modifier::BOLD),
             )));
         } else {
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("  {:<18}", key),
-                    Style::default().fg(Color::Rgb(180, 180, 120)),
+                    Style::default().fg(theme.dim_text()),
                 ),
                 Span::styled(
                     desc.to_string(),
-                    Style::default().fg(Color::White),
+                    Style::default().fg(theme.text()),
                 ),
             ]));
         }
@@ -147,12 +146,12 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),  // Cyan primary
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
     let popup_width = 52u16.min(area.width.saturating_sub(4));
     let popup_height = 16u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -189,11 +188,11 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:<16}", label),
-                Style::default().fg(Color::Rgb(180, 180, 120)),
+                Style::default().fg(theme.dim_text()),
             ),
             Span::styled(
                 value.clone(),
-                Style::default().fg(Color::White),
+                Style::default().fg(theme.text()),
             ),
         ]));
     }
@@ -204,12 +203,12 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),  // Cyan primary
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
+pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App, theme: &crate::theme::Theme) {
     let popup_width = 60u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -230,9 +229,9 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:<16}", name),
-                Style::default().fg(Color::Rgb(180, 180, 120)).add_modifier(Modifier::BOLD),
+                Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD),
             ),
-            Span::styled(display_desc, Style::default().fg(Color::White)),
+            Span::styled(display_desc, Style::default().fg(theme.text())),
         ]));
     }
 
@@ -242,12 +241,12 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),  // Cyan primary
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
     let popup_width = 70u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -259,11 +258,11 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
     lines.push(Line::from(vec![
         Span::styled(
             "  当前 Agent: ",
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             &app.current_agent,
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            Style::default().fg(theme.secondary()).add_modifier(Modifier::BOLD),
         ),
     ]));
     lines.push(Line::from(vec![Span::raw("")]));
@@ -293,15 +292,15 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
                 "  "
             };
             let id_style = if selected {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Rgb(180, 180, 120)).add_modifier(Modifier::BOLD)
+                Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD)
             };
             lines.push(Line::from(vec![
                 Span::styled(format!("{} {:<14}", marker, id), id_style),
                 Span::styled(
                     format!(" {}@{}", provider, model),
-                    Style::default().fg(Color::White),
+                    Style::default().fg(theme.text()),
                 ),
                 Span::styled(caps, Style::default().fg(Color::DarkGray)),
             ]));
@@ -320,12 +319,12 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
     let popup_width = 55u16.min(area.width.saturating_sub(4));
     let popup_height = 16u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -335,18 +334,18 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
 
     lines.push(Line::from(vec![
-        Span::styled("  今日: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled("  今日: ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
         Span::styled(
             format!("{} 请求 | {}K tokens", app.today_stats.requests, app.today_stats.tokens / 1000),
-            Style::default().fg(Color::White),
+            Style::default().fg(theme.text()),
         ),
     ]));
     if app.today_stats.cost_usd > 0.001 {
         lines.push(Line::from(vec![
-            Span::styled("  费用: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("  费用: ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
             Span::styled(
                 format!("${:.4}", app.today_stats.cost_usd),
-                Style::default().fg(Color::Green),
+                Style::default().fg(theme.secondary()),
             ),
         ]));
     }
@@ -372,9 +371,9 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("  {:>5}  ", day.date),
-                    Style::default().fg(Color::Rgb(180, 180, 120)),
+                    Style::default().fg(theme.dim_text()),
                 ),
-                Span::styled(bar, Style::default().fg(Color::Cyan)),
+                Span::styled(bar, Style::default().fg(theme.primary())),
                 Span::styled(
                     format!(" {:>3}K", token_k),
                     Style::default().fg(Color::DarkGray),
@@ -389,12 +388,12 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
     let popup_width = 65u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -404,7 +403,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
 
     lines.push(Line::from(vec![
-        Span::styled("  技能 ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled("  技能 ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
     ]));
 
     if app.skill_list.is_empty() {
@@ -417,7 +416,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("    ✦ {:<18}", skill.name),
-                    Style::default().fg(Color::Rgb(180, 180, 120)).add_modifier(Modifier::BOLD),
+                    Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     skill.content.chars().take(30).collect::<String>(),
@@ -429,7 +428,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
 
     lines.push(Line::from(vec![Span::raw("")]));
     lines.push(Line::from(vec![
-        Span::styled("  插件 ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled("  插件 ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
     ]));
 
     if app.plugin_list.is_empty() {
@@ -439,7 +438,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
         )]));
     } else {
         for plugin in &app.plugin_list {
-            let status_color = if plugin.enabled { Color::Green } else { Color::DarkGray };
+            let status_color = if plugin.enabled { theme.secondary() } else { Color::DarkGray };
             let status = if plugin.enabled { "✓" } else { "✗" };
             lines.push(Line::from(vec![
                 Span::styled(
@@ -448,7 +447,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
                 ),
                 Span::styled(
                     &plugin.description,
-                    Style::default().fg(Color::White),
+                    Style::default().fg(theme.text()),
                 ),
             ]));
         }
@@ -466,7 +465,7 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App) {
             .title_alignment(ratatui::layout::Alignment::Center)
             .borders(Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Rgb(34, 211, 238))),
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }

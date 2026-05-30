@@ -68,7 +68,7 @@ pub fn render(f: &mut Frame, app: &App) {
         panels::render_plan(f, layout[idx], app);
         idx += 1;
     }
-    panels::render_processing(f, layout[idx], app);
+    panels::render_processing(f, layout[idx], app, &app.config.theme);
     idx += 1;
     input::render_input(f, layout[idx], app);
     idx += 1;
@@ -84,34 +84,36 @@ pub fn render(f: &mut Frame, app: &App) {
         sidebar::render_agent_picker(f, area, app);
     }
 
+    let theme = &app.config.theme;
+
     if app.overlay.show_help {
         panels::render_backdrop(f, area);
-        panels::render_help_panel(f, area);
+        panels::render_help_panel(f, area, theme);
     }
 
     if app.overlay.show_config {
         panels::render_backdrop(f, area);
-        panels::render_config_panel(f, area, app);
+        panels::render_config_panel(f, area, app, theme);
     }
 
     if app.overlay.show_tool_list {
         panels::render_backdrop(f, area);
-        panels::render_tool_list_panel(f, area, app);
+        panels::render_tool_list_panel(f, area, app, theme);
     }
 
     if app.overlay.show_agent_list {
         panels::render_backdrop(f, area);
-        panels::render_agent_list_panel(f, area, app);
+        panels::render_agent_list_panel(f, area, app, theme);
     }
 
     if app.overlay.show_stats_history {
         panels::render_backdrop(f, area);
-        panels::render_stats_history_panel(f, area, app);
+        panels::render_stats_history_panel(f, area, app, theme);
     }
 
     if app.overlay.show_plugin_list {
         panels::render_backdrop(f, area);
-        panels::render_plugin_list_panel(f, area, app);
+        panels::render_plugin_list_panel(f, area, app, theme);
     }
 
     if !app.overlay.tab_completions.is_empty() {

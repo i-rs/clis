@@ -11,6 +11,7 @@ use serde_json::Value;
 /// word importance and context.
 pub struct SemanticSearchTool;
 
+#[async_trait::async_trait]
 impl ClawTool for SemanticSearchTool {
     fn name(&self) -> &str {
         "semantic_search"
@@ -45,7 +46,7 @@ impl ClawTool for SemanticSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
@@ -79,31 +80,17 @@ impl ClawTool for SemanticSearchTool {
         for (i, sr) in results.iter().enumerate() {
             let score_pct = (sr.score * 100.0).clamp(0.0, 99.0);
             output.push_str(&format!(
-                "{}. [会话: {}] (相关度: {:.0}%)\n",
+                "{}. {}\n",
                 i + 1,
-                sr.result.session_title,
-                score_pct
+                crate::tools::format_search_result(
+                    &sr.result.session_title,
+                    &sr.result.message_type,
+                    &sr.result.excerpt,
+                    &sr.result.context_before,
+                    &sr.result.context_after,
+                    Some(score_pct),
+                ),
             ));
-            output.push_str(&format!("   类型: {}\n", sr.result.message_type));
-
-            // Show excerpt
-            let excerpt = if sr.result.excerpt.len() > 300 {
-                format!("{}...", &sr.result.excerpt[..297])
-            } else {
-                sr.result.excerpt.clone()
-            };
-            output.push_str(&format!("   内容: {}\n", excerpt));
-
-            // Context
-            if !sr.result.context_before.is_empty() {
-                let before = sr.result.context_before.join(" → ");
-                output.push_str(&format!("   前文: {}\n", before));
-            }
-            if !sr.result.context_after.is_empty() {
-                let after = sr.result.context_after.join(" → ");
-                output.push_str(&format!("   后文: {}\n", after));
-            }
-            output.push('\n');
         }
 
         Ok(output.trim().to_string())

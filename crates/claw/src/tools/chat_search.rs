@@ -9,6 +9,7 @@ use crate::tools::{ClawTool, ToolContext};
 /// recall information from previous conversations.
 pub struct ChatSearchTool;
 
+#[async_trait::async_trait]
 impl ClawTool for ChatSearchTool {
     fn name(&self) -> &str {
         "search_conversations"
@@ -34,7 +35,7 @@ impl ClawTool for ChatSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
@@ -59,22 +60,10 @@ impl ClawTool for ChatSearchTool {
 
         for (i, r) in results.iter().enumerate() {
             output.push_str(&format!(
-                "{}. [会话: {}]\n",
+                "{}. {}\n",
                 i + 1,
-                r.session_title
+                crate::tools::format_search_result(r.session_title.as_str(), &r.message_type, &r.excerpt, &r.context_before, &r.context_after, None),
             ));
-            output.push_str(&format!("   类型: {}\n", r.message_type));
-            output.push_str(&format!("   内容: {}\n", r.excerpt));
-
-            if !r.context_before.is_empty() {
-                let before = r.context_before.join(" → ");
-                output.push_str(&format!("   前文: {}\n", before));
-            }
-            if !r.context_after.is_empty() {
-                let after = r.context_after.join(" → ");
-                output.push_str(&format!("   后文: {}\n", after));
-            }
-            output.push('\n');
         }
 
         Ok(output.trim().to_string())

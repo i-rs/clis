@@ -349,53 +349,67 @@ pub fn record_tool_memory(
     result: &str,
 ) {
     if name == "update_user_memory" {
-        if let Ok(parsed) = serde_json::from_str::<Value>(args) {
-            if let Some(user_name) = parsed
-                .get("user_name")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-            {
-                agent_store.memory_for_mut(agent_id).set_user_name(user_name);
-            }
-            if let Some(info) = parsed.get("user_info").and_then(|v| v.as_array()) {
-                for item in info {
-                    if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                        agent_store.memory_for_mut(agent_id).add_user_info(s);
-                    }
+        persist_user_memory(agent_store, agent_id, args);
+    }
+
+    if name == "i_rs" {
+        track_i_rs_usage(agent_store, i_rs_tool_index, agent_id, args, result);
+    } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
+        agent_store.memory_for_mut(agent_id).record_tool_use(name);
+    }
+}
+
+fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args: &str) {
+    if let Ok(parsed) = serde_json::from_str::<Value>(args) {
+        if let Some(user_name) = parsed
+            .get("user_name")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+        {
+            agent_store.memory_for_mut(agent_id).set_user_name(user_name);
+        }
+        if let Some(info) = parsed.get("user_info").and_then(|v| v.as_array()) {
+            for item in info {
+                if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
+                    agent_store.memory_for_mut(agent_id).add_user_info(s);
                 }
             }
-            if let Some(prefs) = parsed.get("preferences").and_then(|v| v.as_array()) {
-                for item in prefs {
-                    if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                        agent_store.memory_for_mut(agent_id).add_preference(s);
-                    }
+        }
+        if let Some(prefs) = parsed.get("preferences").and_then(|v| v.as_array()) {
+            for item in prefs {
+                if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
+                    agent_store.memory_for_mut(agent_id).add_preference(s);
                 }
             }
         }
     }
+}
 
-    if name == "i_rs" {
-        if let Ok(parsed) = serde_json::from_str::<Value>(args) {
-            if let Some(tool) = parsed.get("tool").and_then(|t| t.as_str()) {
-                if i_rs_tool_index.contains_key(tool) {
-                    agent_store.memory_for_mut(agent_id).record_tool_use(tool);
-                }
-                let cmd = parsed.get("command").and_then(|c| c.as_str());
-                if cmd == Some("skill")
-                    && parsed
-                        .get("args")
-                        .and_then(|a| a.as_array())
-                        .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
-                        .unwrap_or(false)
-                {
-                    let cache = agent_store.tool_cache_for_mut(agent_id);
-                    cache.hot_docs.insert(tool.to_string(), result.to_string());
-                    cache.save_hot_docs();
-                }
+fn track_i_rs_usage(
+    agent_store: &mut AgentRuntimeStore,
+    i_rs_tool_index: &HashMap<String, String>,
+    agent_id: &str,
+    args: &str,
+    result: &str,
+) {
+    if let Ok(parsed) = serde_json::from_str::<Value>(args) {
+        if let Some(tool) = parsed.get("tool").and_then(|t| t.as_str()) {
+            if i_rs_tool_index.contains_key(tool) {
+                agent_store.memory_for_mut(agent_id).record_tool_use(tool);
+            }
+            let cmd = parsed.get("command").and_then(|c| c.as_str());
+            if cmd == Some("skill")
+                && parsed
+                    .get("args")
+                    .and_then(|a| a.as_array())
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
+                    .unwrap_or(false)
+            {
+                let cache = agent_store.tool_cache_for_mut(agent_id);
+                cache.hot_docs.insert(tool.to_string(), result.to_string());
+                cache.save_hot_docs();
             }
         }
-    } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
-        agent_store.memory_for_mut(agent_id).record_tool_use(name);
     }
 }
 

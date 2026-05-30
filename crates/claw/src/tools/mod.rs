@@ -26,9 +26,47 @@ pub struct ToolContext {
     pub http_client: reqwest::Client,
 }
 
+// ── Shared helpers ──
+
+/// Format a search result entry consistently across keyword and semantic search.
+pub fn format_search_result(
+    session_title: &str,
+    message_type: &str,
+    excerpt: &str,
+    context_before: &[String],
+    context_after: &[String],
+    score_pct: Option<f64>,
+) -> String {
+    let mut parts = Vec::new();
+
+    let header = match score_pct {
+        Some(pct) => format!("[会话: {}] (相关度: {:.0}%)", session_title, pct),
+        None => format!("[会话: {}]", session_title),
+    };
+    parts.push(header);
+    parts.push(format!("类型: {}", message_type));
+
+    let display_excerpt = if excerpt.len() > 300 {
+        format!("{}...", &excerpt[..297])
+    } else {
+        excerpt.to_string()
+    };
+    parts.push(format!("内容: {}", display_excerpt));
+
+    if !context_before.is_empty() {
+        parts.push(format!("前文: {}", context_before.join(" → ")));
+    }
+    if !context_after.is_empty() {
+        parts.push(format!("后文: {}", context_after.join(" → ")));
+    }
+
+    parts.join("\n   ")
+}
+
 // ── Built-in tool trait ──
 
 /// A built-in tool that the LLM can call.
+#[async_trait::async_trait]
 pub trait ClawTool: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
@@ -37,7 +75,7 @@ pub trait ClawTool: Send + Sync {
     /// (needed by IrsTool to generate the dynamic `tool.enum`).
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value;
     /// Execute this tool with the given arguments and execution context.
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError>;
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError>;
 }
 
 // ── Tool registry ──
@@ -121,12 +159,11 @@ impl ToolRegistry {
     }
 
    /// Execute a tool by name.
-    pub fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
-        self.tools
-            .iter()
-            .find(|t| t.name() == name)
-            .map(|t| t.execute(args, ctx))
-            .unwrap_or_else(|| Err(crate::error::ClawError::NotFound(format!("未知工具: {}", name))))
+    pub async fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
+        match self.tools.iter().find(|t| t.name() == name) {
+            Some(t) => t.execute(args, ctx).await,
+            None => Err(crate::error::ClawError::NotFound(format!("未知工具: {}", name))),
+        }
     }
 
     /// Check if a built-in tool exists.
@@ -190,15 +227,15 @@ mod tests {
         assert!(reg.tool_exists("i_rs"), "内置工具仍应存在");
     }
 
-    #[test]
-    fn test_tool_execute_unknown() {
+    #[tokio::test]
+    async fn test_tool_execute_unknown() {
         let reg = ToolRegistry::new();
         let ctx = ToolContext {
             config: crate::test_helpers::test_config(),
             mcp: crate::mcp::McpRegistry::empty_for_test(),
             http_client: crate::providers::shared_client(),
         };
-        let result = reg.execute("不存在", &json!({}), &ctx);
+        let result = reg.execute("不存在", &json!({}), &ctx).await;
         assert!(result.is_err(), "未知工具应返回错误");
     }
 }

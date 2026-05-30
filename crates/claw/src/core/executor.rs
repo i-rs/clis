@@ -17,6 +17,8 @@ pub struct ToolCallResult {
     #[allow(dead_code)]
     pub args: Value,
     pub result: String,
+    #[allow(dead_code)]
+    pub context_result: String,
 }
 
 /// Executes tool calls in parallel with configurable timeout and truncation.
@@ -84,43 +86,44 @@ impl ToolCallExecutor {
             let skills_for_spawn = self.skills.clone();
             let timeout_dur = std::time::Duration::from_secs(self.cli_timeout_secs.max(10));
             let trunc_display = self.truncate_display;
+            let trunc_context = self.truncate_context;
 
             handles.push(tokio::spawn(async move {
-                let ctx_for_blocking = ctx_for_spawn;
-                let skills_for_blocking = skills_for_spawn;
-                let result = match tokio::time::timeout(timeout_dur, tokio::task::spawn_blocking(move || {
+                let result = match tokio::time::timeout(timeout_dur, async {
                     crate::core::engine::execute_tool_call(
                         &tc_name,
                         &args_for_blocking,
-                        &skills_for_blocking,
+                        &skills_for_spawn,
                         Some(&mcp_for_exec),
-                        &ctx_for_blocking,
-                    )
-                }))
+                        &ctx_for_spawn,
+                    ).await
+                })
                 .await
                 {
-                    Ok(Ok(r)) => r,
-                    Ok(Err(e)) => format!("错误: 内部错误: {}", e),
+                    Ok(r) => r,
                     Err(_) => format!("错误: 工具执行超时 (>{:?})", timeout_dur),
                 };
+
+                let display_result = utils::smart_truncate(&result, trunc_display);
+                let context_result = utils::smart_truncate(&result, trunc_context);
 
                 let _ = tx.send(LlmEvent::ToolExecuted {
                     name: tc.name.clone(),
                     args: args_str,
-                    result: utils::smart_truncate(&result, trunc_display),
+                    result: display_result,
                     step,
                     total_steps: total,
                 });
 
-                (tc, args, result)
+                (tc, args, context_result)
             }));
         }
 
         // Collect all results in order
         let mut all_results: Vec<ToolCallResult> = Vec::with_capacity(handles.len());
         for handle in handles {
-            if let Ok((call, args, result)) = handle.await {
-                all_results.push(ToolCallResult { call, args, result });
+            if let Ok((call, args, context_result)) = handle.await {
+                all_results.push(ToolCallResult { call, args, result: context_result.clone(), context_result });
             }
         }
         all_results

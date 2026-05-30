@@ -9,6 +9,7 @@ use serde_json::Value;
 /// those for a custom search backend instead.
 pub struct WebSearchTool;
 
+#[async_trait::async_trait]
 impl ClawTool for WebSearchTool {
     fn name(&self) -> &str {
         "web_search"
@@ -34,7 +35,7 @@ impl ClawTool for WebSearchTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let query = args
             .get("query")
             .and_then(|q| q.as_str())
@@ -45,25 +46,28 @@ impl ClawTool for WebSearchTool {
         }
 
         if let Some(custom_url) = &ctx.config.search_base_url {
-            search_custom(custom_url, &ctx.config.search_api_key, query)
+            search_custom(custom_url, &ctx.config.search_api_key, query, &ctx.http_client).await
         } else {
-            search_duckduckgo(query)
+            search_duckduckgo(query, &ctx.http_client).await
         }
     }
 }
 
 /// Search using DuckDuckGo Instant Answer API (free, no API key).
-fn search_duckduckgo(query: &str) -> Result<String, ClawError> {
+async fn search_duckduckgo(query: &str, client: &reqwest::Client) -> Result<String, ClawError> {
     let url = format!(
         "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
         urlencode(query)
     );
 
-    let resp = reqwest::blocking::get(&url)
+    let resp = client.get(&url)
+        .send()
+        .await
         .map_err(|e| format!("搜索请求失败: {}", e))?;
 
     let data: Value = resp
         .json()
+        .await
         .map_err(|e| format!("解析响应失败: {}", e))?;
 
     let mut output = String::new();
@@ -162,11 +166,10 @@ fn search_duckduckgo(query: &str) -> Result<String, ClawError> {
 /// Search using a custom search API endpoint.
 /// The URL should accept query parameter `?q=QUERY`.
 /// If api_key is set, adds `Authorization: Bearer <key>` header.
-fn search_custom(base_url: &str, api_key: &Option<String>, query: &str) -> Result<String, ClawError> {
+async fn search_custom(base_url: &str, api_key: &Option<String>, query: &str, client: &reqwest::Client) -> Result<String, ClawError> {
     let separator = if base_url.contains('?') { "&" } else { "?" };
     let url = format!("{}{}q={}", base_url, separator, urlencode(query));
 
-    let client = reqwest::blocking::Client::new();
     let mut req = client.get(&url);
 
     if let Some(key) = api_key
@@ -176,10 +179,12 @@ fn search_custom(base_url: &str, api_key: &Option<String>, query: &str) -> Resul
 
     let resp = req
         .send()
+        .await
         .map_err(|e| format!("自定义搜索请求失败: {}", e))?;
 
     let text = resp
         .text()
+        .await
         .map_err(|e| format!("读取响应失败: {}", e))?;
 
     // Try parsing as JSON for structured output

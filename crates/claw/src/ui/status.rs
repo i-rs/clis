@@ -19,11 +19,11 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
 
     // Background color based on state
     let bg = if app.is_processing() {
-        Color::Rgb(15, 15, 30)  // Subtle blue tint when processing
+        Color::Rgb(15, 15, 30)
     } else if app.overlay.selection_mode {
-        Color::Rgb(30, 25, 15)  // Subtle amber tint in selection mode
+        Color::Rgb(30, 25, 15)
     } else {
-        app.config.theme.background()
+        theme.background()
     };
 
     // Fill full-width background
@@ -39,7 +39,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     if let Some(fb) = &app.overlay.copy_feedback {
         spans.push(Span::styled(
             format!(" {} ", fb),
-            Style::default().fg(Color::Rgb(52, 211, 153)).add_modifier(Modifier::BOLD),  // Green
+            Style::default().fg(theme.secondary()).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
             "│ ",
@@ -51,18 +51,18 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         // Selection mode indicator
         spans.push(Span::styled(
             " ● [选择模式] ".to_string(),
-            Style::default().fg(Color::Rgb(251, 191, 36)).add_modifier(Modifier::BOLD),  // Amber
+            Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
             "↑↓选择  Space展开  Ctrl+D删除  Ctrl+Shift+C复制  退出Esc",
-            Style::default().fg(Color::Rgb(113, 113, 122)),
+            Style::default().fg(theme.dim_text()),
         ));
     } else if app.is_processing() {
         const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
         let spinner = SPINNERS[f.count() % SPINNERS.len()];
         spans.push(Span::styled(
             format!(" {} {} ", spinner, app.status_text),
-            Style::default().fg(Color::Rgb(251, 191, 36)).add_modifier(Modifier::BOLD),  // Amber for active processing
+            Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),  // Amber for active processing
         ));
         // Separator
         spans.push(Span::styled(
@@ -82,11 +82,11 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         // Idle state — cyan dot + clean styling
         spans.push(Span::styled(
             " ● 就绪 ".to_string(),
-            Style::default().fg(Color::Rgb(34, 211, 238)).add_modifier(Modifier::BOLD),  // Cyan
+            Style::default().fg(theme.primary()).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
             format!("{} ", app.config.model),
-            Style::default().fg(Color::Rgb(180, 180, 200)),
+            Style::default().fg(theme.dim_text()),
         ));
         // Separator
         spans.push(Span::styled(
@@ -116,7 +116,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
                         app.today_stats.tokens / 1000,
                         cost,
                     ),
-                    Style::default().fg(Color::Rgb(251, 191, 36)),  // Amber
+                    Style::default().fg(theme.accent()),  // Amber
                 ));
             } else {
                 spans.push(Span::styled(
@@ -124,7 +124,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
                         app.today_stats.requests,
                         app.today_stats.tokens / 1000,
                     ),
-                    Style::default().fg(Color::Rgb(251, 191, 36)),  // Amber
+                    Style::default().fg(theme.accent()),
                 ));
             }
         }
@@ -135,41 +135,41 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
         spans.push(Span::styled(
             "Ctrl+Q ",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "Ctrl+N  ",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         if !app.overlay.show_sidebar && !app.http_logs.is_empty() {
                 spans.push(Span::styled(
                     "Ctrl+R  ",
-                    Style::default().fg(Color::Rgb(80, 80, 95)),
+                    Style::default().fg(theme.dim_text()),
                 ));
             }
         spans.push(Span::styled(
             "Ctrl+L  ",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "Ctrl+P ",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "  ",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "Ctrl+Shift+C",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "  Ctrl+S",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
         spans.push(Span::styled(
             "  Ctrl+H",
-            Style::default().fg(Color::Rgb(80, 80, 95)),
+            Style::default().fg(theme.dim_text()),
         ));
     }
 

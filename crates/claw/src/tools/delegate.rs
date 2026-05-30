@@ -11,6 +11,7 @@ use serde_json::Value;
 /// which runs a single LLM inference (no tools) and returns the result.
 pub struct DelegateTool;
 
+#[async_trait::async_trait]
 impl ClawTool for DelegateTool {
     fn name(&self) -> &str {
         "delegate_task"
@@ -43,7 +44,7 @@ impl ClawTool for DelegateTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let agent_id = args
             .get("agent_id")
             .and_then(|v| v.as_str())
@@ -59,10 +60,8 @@ impl ClawTool for DelegateTool {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty());
 
-        // Look up agent config by ID
         let agent_config = ctx.config.agent_config(agent_id);
 
-        // Build system prompt for the sub-agent
         let mut system_prompt = String::new();
         if let Some(sp) = &agent_config.system_prompt {
             system_prompt.push_str(sp);
@@ -77,7 +76,6 @@ impl ClawTool for DelegateTool {
             serde_json::json!({"role": "system", "content": system_prompt}),
         ];
 
-        // Inject optional context as a system message
         if let Some(c) = task_context {
             messages.push(serde_json::json!({
                 "role": "system",
@@ -87,7 +85,6 @@ impl ClawTool for DelegateTool {
 
         messages.push(serde_json::json!({"role": "user", "content": task}));
 
-        // Create provider for the sub-agent
         let provider = create_provider_for(
             &ctx.http_client,
             &agent_config.provider,
@@ -96,39 +93,33 @@ impl ClawTool for DelegateTool {
             &agent_config.model,
         );
 
-        // Run the LLM call on the existing tokio runtime
-        let result: Result<String, ClawError> = tokio::runtime::Handle::current().block_on(async {
-            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
-            provider
-                .stream_chat(&messages, &[], &tx)
-                .await
-                .map_err(|e| ClawError::Execution(format!("子智能体调用失败: {}", e)))?;
+        provider
+            .stream_chat(&messages, &[], &tx)
+            .await
+            .map_err(|e| ClawError::Execution(format!("子智能体调用失败: {}", e)))?;
 
-            // Drop sender so rx.recv() will eventually return None
-            drop(tx);
+        drop(tx);
 
-            let mut text = String::new();
-            let mut last_error = String::new();
+        let mut text = String::new();
+        let mut last_error = String::new();
 
-            while let Some(event) = rx.recv().await {
-                match event {
-                    LlmEvent::Token(t) => text.push_str(&t),
-                    LlmEvent::Error(e) => last_error = e,
-                    LlmEvent::Done(_, _) => break,
-                    _ => {}
-                }
+        while let Some(event) = rx.recv().await {
+            match event {
+                LlmEvent::Token(t) => text.push_str(&t),
+                LlmEvent::Error(e) => last_error = e,
+                LlmEvent::Done(_, _) => break,
+                _ => {}
             }
+        }
 
-            if text.is_empty() && !last_error.is_empty() {
-                Err(ClawError::Execution(last_error))
-            } else if text.is_empty() {
-                Err(ClawError::Execution("子智能体未返回任何内容".to_string()))
-            } else {
-                Ok(text)
-            }
-        });
-
-        result
+        if text.is_empty() && !last_error.is_empty() {
+            Err(ClawError::Execution(last_error))
+        } else if text.is_empty() {
+            Err(ClawError::Execution("子智能体未返回任何内容".to_string()))
+        } else {
+            Ok(text)
+        }
     }
 }

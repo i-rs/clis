@@ -10,6 +10,7 @@ use std::process::Command;
 /// (Apple Vision framework via Shortcuts or osascript).
 pub struct VisionTool;
 
+#[async_trait::async_trait]
 impl ClawTool for VisionTool {
     fn name(&self) -> &str {
         "read_clipboard_image"
@@ -28,7 +29,7 @@ impl ClawTool for VisionTool {
         })
     }
 
-    fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         read_clipboard_image_text()
     }
 }
@@ -83,27 +84,28 @@ end try
 
 /// OCR via macOS Shortcuts "Extract Text from Image" if installed.
 fn ocr_via_shortcuts() -> Result<String, ClawError> {
-    // Run the shortcut - if it exists, it will OCR the clipboard image
     let temp_png = temp_path("vision_clipboard.png");
 
-    // First save clipboard image to file
+    // Save clipboard image to file using osascript + Image Events
     let save_result = Command::new("osascript")
         .args(["-e", &format!(
-            r#"try
-    set theImage to (the clipboard as picture)
-    set outFile to (POSIX file "{}")
-    tell application "Image Events"
-        launch
-        set thisImage to open outFile
-        -- write image data
-    end tell
-end try"#,
+            r#"set theImage to (the clipboard as «class PNGf»)
+set outFile to open for access POSIX file "{}" with write permission
+write theImage to outFile
+close access outFile"#,
             temp_png.display().to_string().replace("\"", "\\\"")
         )])
         .output();
 
     if save_result.is_err() {
         return Err(ClawError::Execution("无法保存剪贴板图片".to_string()));
+    }
+
+    // Check the saved file exists and has content
+    let file_size = std::fs::metadata(&temp_png).map(|m| m.len()).unwrap_or(0);
+    if file_size == 0 {
+        let _ = std::fs::remove_file(&temp_png);
+        return Err(ClawError::Execution("剪贴板中无图片数据".to_string()));
     }
 
     // Try the "Extract Text from Image" shortcut

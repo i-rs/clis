@@ -1,17 +1,7 @@
 pub(super) fn check_reminders() -> Option<String> {
-    let output = std::process::Command::new("i-rs")
-        .arg("remind")
-        .arg("list")
-        .arg("--json")
-        .output()
-        .ok()?;
+    let output = crate::utils::run_cli_command("i-rs", &["remind", "list", "--json"], 10).ok()?;
 
-    if !output.status.success() {
-        return None;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value = serde_json::from_str(stdout.as_ref()).ok()?;
+    let parsed: serde_json::Value = serde_json::from_str(&output).ok()?;
 
     let items = parsed.get("data")?.as_array()?;
 

@@ -124,10 +124,11 @@ fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
     let plain = strip_ansi(text);
     let wrapped = utils::wrap_text(&plain, max_width.saturating_sub(3));
 
-    // For each wrapped line, create a Line with colored Spans
     let mut lines = Vec::new();
+    let mut scan_offset = 0;
     for w in &wrapped {
-        let spans = parse_ansi_line(text, &plain, w, &wrapped);
+        let spans = parse_ansi_line(text, &plain, w, &wrapped, scan_offset);
+        scan_offset = plain[scan_offset..].find(w).map(|i| scan_offset + i + w.len()).unwrap_or(scan_offset);
         lines.push(Line::from(if spans.is_empty() {
             vec![Span::styled(
                 format!("   {}", w),
@@ -163,10 +164,10 @@ fn strip_ansi(text: &str) -> String {
 
 /// Parse ANSI codes from `raw` and produce Spans for the given `line` text.
 /// `line` is a wrapped segment of the plain-text version.
-fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String]) -> Vec<Span<'static>> {
-    // Locate this line in the plain text
-    let line_start = match plain.find(line) {
-        Some(i) => i,
+/// `scan_offset` is the byte offset in `plain` where we should start searching.
+fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String], scan_offset: usize) -> Vec<Span<'static>> {
+    let line_start = match plain[scan_offset..].find(line) {
+        Some(i) => scan_offset + i,
         None => return vec![],
     };
 

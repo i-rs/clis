@@ -9,6 +9,7 @@ use crate::tools::{ClawTool, ToolContext};
 /// actual persistence happens in tui.rs when the ToolExecuted event is handled.
 pub struct UserMemoryTool;
 
+#[async_trait::async_trait]
 impl ClawTool for UserMemoryTool {
     fn name(&self) -> &str {
         "update_user_memory"
@@ -41,7 +42,7 @@ impl ClawTool for UserMemoryTool {
         })
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let mut saved: Vec<String> = Vec::new();
 
         if let Some(name) = args

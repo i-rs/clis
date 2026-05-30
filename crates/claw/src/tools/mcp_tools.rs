@@ -35,6 +35,7 @@ impl McpToolWrapper {
     }
 }
 
+#[async_trait::async_trait]
 impl ClawTool for McpToolWrapper {
     fn name(&self) -> &str {
         &self.definition.name
@@ -62,7 +63,7 @@ impl ClawTool for McpToolWrapper {
         adapted
     }
 
-    fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
         let result = self.client.call_tool(&self.definition.name, args)?;
         Ok(result)
     }

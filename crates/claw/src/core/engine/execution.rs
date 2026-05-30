@@ -4,21 +4,18 @@ use serde_json::Value;
 
 /// Execute a parsed tool call and return the result.
 /// Tries built-in tools first, then falls back to MCP-discovered tools.
-#[tracing::instrument(skip(args, skills, ctx))]
-pub(crate) fn execute_tool_call(
+pub(crate) async fn execute_tool_call(
     name: &str,
     args: &Value,
     skills: &[SkillDefinition],
     mcp: Option<&McpRegistry>,
     ctx: &crate::tools::ToolContext,
 ) -> String {
-    // Try built-in tools first (including skill tools)
     let registry = crate::tools::ToolRegistry::with_skills(skills);
     if registry.tool_exists(name) {
-        return registry.execute(name, args, ctx).unwrap_or_else(|e| e.to_string());
+        return registry.execute(name, args, ctx).await.unwrap_or_else(|e| e.to_string());
     }
 
-    // Try MCP-discovered tools (from the registry parameter)
     if let Some(mcp) = mcp {
         for (client_idx, tool_def) in &mcp.tools {
             if tool_def.name == name

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 /// File operations are disabled if no allowed directories are configured.
 pub struct FileOpsTool;
 
+#[async_trait::async_trait]
 impl ClawTool for FileOpsTool {
     fn name(&self) -> &str {
         "file_ops"
@@ -43,7 +44,7 @@ impl ClawTool for FileOpsTool {
         })
     }
 
-    fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let operation = args
             .get("operation")
             .and_then(|v| v.as_str())
