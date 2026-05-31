@@ -202,7 +202,41 @@ impl AppCore {
     pub fn with_claw_dir(mut config: Config, claw_dir: std::path::PathBuf) -> anyhow::Result<Self> {
         config.discover_i_rs_tools(&claw_dir);
 
-        let storage = std::sync::Arc::new(crate::storage::ClawStorage::file(claw_dir.clone()));
+        let storage = match config.storage.backend {
+            crate::storage::StorageBackend::Sqlite => {
+                #[cfg(feature = "sqlite")]
+                {
+                    let path = config.storage.sqlite_path.clone().unwrap_or_else(|| claw_dir.join("claw.db"));
+                    std::sync::Arc::new(block_on(ClawStorage::sqlite(path))?)
+                }
+                #[cfg(not(feature = "sqlite"))]
+                anyhow::bail!("storage.backend = \"sqlite\" 但未启用 sqlite feature（需编译时添加 --features sqlite）")
+            }
+            crate::storage::StorageBackend::Mysql => {
+                #[cfg(feature = "mysql")]
+                {
+                    let path = config.storage.sql_url.as_deref().unwrap_or("mysql://localhost:3306/i_rs_claw");
+                    std::sync::Arc::new(block_on(ClawStorage::mysql(path))?)
+                }
+                #[cfg(not(feature = "mysql"))]
+                anyhow::bail!("storage.backend = \"mysql\" 但未启用 mysql feature（需编译时添加 --features mysql）")
+            }
+            crate::storage::StorageBackend::Postgres => {
+                #[cfg(feature = "postgres")]
+                {
+                    let path = config.storage.sql_url.as_deref().unwrap_or("postgres://localhost:5432/i_rs_claw");
+                    std::sync::Arc::new(block_on(ClawStorage::postgres(path))?)
+                }
+                #[cfg(not(feature = "postgres"))]
+                anyhow::bail!("storage.backend = \"postgres\" 但未启用 postgres feature（需编译时添加 --features postgres）")
+            }
+            crate::storage::StorageBackend::Mongo => {
+                anyhow::bail!("storage.backend = \"mongodb\" 暂未实现")
+            }
+            crate::storage::StorageBackend::File => {
+                std::sync::Arc::new(ClawStorage::file(claw_dir.clone()))
+            }
+        };
 
         let session_mgr = SessionManager::with_storage(storage.clone());
         let agent_store = AgentRuntimeStore::new_with_storage(&config, &storage);
@@ -790,6 +824,21 @@ fn track_i_rs_usage(
                 cache.save_hot_docs();
             }
         }
+    }
+}
+
+/// Bridge sync → async for storage initialization.
+#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
+fn block_on<F: std::future::Future>(f: F) -> F::Output {
+    match tokio::runtime::Handle::try_current() {
+        Ok(_) => tokio::task::block_in_place(|| {
+            tokio::runtime::Runtime::new()
+                .expect("block_on: failed to create temporary runtime")
+                .block_on(f)
+        }),
+        Err(_) => tokio::runtime::Runtime::new()
+            .expect("block_on: failed to create temporary runtime")
+            .block_on(f),
     }
 }
 
