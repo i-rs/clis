@@ -71,10 +71,7 @@ impl PlatformAdapter for TelegramAdapter {
                                 if let Some(msg) = update.get("message") {
                                     let chat_id = msg["chat"]["id"].to_string();
                                     let user_id = msg["from"]["id"].to_string();
-                                    let text = msg["text"]
-                                        .as_str()
-                                        .unwrap_or("")
-                                        .to_string();
+                                    let text = msg["text"].as_str().unwrap_or("").to_string();
 
                                     if !text.is_empty() {
                                         let _ = event_tx.send(GatewayEvent::Message {

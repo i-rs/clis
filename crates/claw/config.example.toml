@@ -142,6 +142,24 @@ execution_mode = "React"
 # cli_timeout_secs = 30
 # max_conversation_turns = 8
 
+# ── 存储后端 ────────────────────────────────────────────────────────────────
+#
+# [storage]
+# backend = "file"                   # "file" (默认) | "sqlite" | "mysql" | "postgres" | "mongodb"
+#
+#   # 文件后端（默认）
+#   # file_dir = "~/.i-rs/claw"      # 数据目录，默认 ~/.i-rs/claw
+#
+#   # SQLite 后端（需编译 features: --features sqlite）
+#   # sqlite_path = "~/.i-rs/claw/claw.db"
+#
+#   # MySQL / PostgreSQL 后端（未实现，预留）
+#   # sql_url = "postgres://user:pass@localhost/claw"
+#
+#   # MongoDB 后端（未实现，预留）
+#   # mongo_url = "mongodb://localhost:27017"
+#   # mongo_database = "claw"
+
 # ── Gateway（社交平台接入）──────────────────────────────────────────────────
 #
 # [gateway]

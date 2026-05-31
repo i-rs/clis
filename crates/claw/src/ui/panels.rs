@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, Paragraph},
-    Frame,
 };
 
 use crate::app::App;
@@ -133,10 +133,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme:
                     format!("  {:<18}", key),
                     Style::default().fg(theme.dim_text()),
                 ),
-                Span::styled(
-                    desc.to_string(),
-                    Style::default().fg(theme.text()),
-                ),
+                Span::styled(desc.to_string(), Style::default().fg(theme.text())),
             ]));
         }
     }
@@ -152,7 +149,12 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme:
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_config_panel(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &crate::theme::Theme,
+) {
     let popup_width = 52u16.min(area.width.saturating_sub(4));
     let popup_height = 16u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -165,15 +167,32 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App, theme: &
         ("Provider".to_string(), config.provider.clone()),
         ("Model".to_string(), config.model.clone()),
         ("Base URL".to_string(), config.base_url.clone()),
-        ("Execution".to_string(), format!("{:?}", config.execution_mode)),
+        (
+            "Execution".to_string(),
+            format!("{:?}", config.execution_mode),
+        ),
         (String::new(), String::new()),
-        ("Tools".to_string(), if config.enabled_tools.is_empty() {
-            "全部启用".to_string()
-        } else {
-            format!("{} 个", config.enabled_tools.len())
-        }),
-        ("MCP Servers".to_string(), format!("{} 个", config.mcp_servers.len())),
-        ("Plugins".to_string(), if config.plugins_auto_discover { "自动发现" } else { "禁用" }.to_string()),
+        (
+            "Tools".to_string(),
+            if config.enabled_tools.is_empty() {
+                "全部启用".to_string()
+            } else {
+                format!("{} 个", config.enabled_tools.len())
+            },
+        ),
+        (
+            "MCP Servers".to_string(),
+            format!("{} 个", config.mcp_servers.len()),
+        ),
+        (
+            "Plugins".to_string(),
+            if config.plugins_auto_discover {
+                "自动发现"
+            } else {
+                "禁用"
+            }
+            .to_string(),
+        ),
         (String::new(), String::new()),
         ("今日请求".to_string(), format!("{} 次", stats.requests)),
         ("今日 Token".to_string(), format!("{} tok", stats.tokens)),
@@ -191,10 +210,7 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App, theme: &
                 format!("  {:<16}", label),
                 Style::default().fg(theme.dim_text()),
             ),
-            Span::styled(
-                value.clone(),
-                Style::default().fg(theme.text()),
-            ),
+            Span::styled(value.clone(), Style::default().fg(theme.text())),
         ]));
     }
 
@@ -209,7 +225,12 @@ pub(super) fn render_config_panel(f: &mut Frame, area: Rect, app: &App, theme: &
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_tool_list_panel(
+    f: &mut Frame,
+    area: Rect,
+    _app: &App,
+    theme: &crate::theme::Theme,
+) {
     let popup_width = 60u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -230,7 +251,9 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App, them
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:<16}", name),
-                Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.dim_text())
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(display_desc, Style::default().fg(theme.text())),
         ]));
@@ -247,7 +270,12 @@ pub(super) fn render_tool_list_panel(f: &mut Frame, area: Rect, _app: &App, them
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_agent_list_panel(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &crate::theme::Theme,
+) {
     let popup_width = 70u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -259,11 +287,15 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App, them
     lines.push(Line::from(vec![
         Span::styled(
             "  当前 Agent: ",
-            Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.accent())
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             &app.current_agent,
-            Style::default().fg(theme.secondary()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.secondary())
+                .add_modifier(Modifier::BOLD),
         ),
     ]));
     lines.push(Line::from(vec![Span::raw("")]));
@@ -293,9 +325,13 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App, them
                 "  "
             };
             let id_style = if selected {
-                Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(theme.accent())
+                    .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(theme.dim_text())
+                    .add_modifier(Modifier::BOLD)
             };
             lines.push(Line::from(vec![
                 Span::styled(format!("{} {:<14}", marker, id), id_style),
@@ -325,7 +361,12 @@ pub(super) fn render_agent_list_panel(f: &mut Frame, area: Rect, app: &App, them
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_stats_history_panel(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &crate::theme::Theme,
+) {
     let popup_width = 55u16.min(area.width.saturating_sub(4));
     let popup_height = 16u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -335,15 +376,29 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App, t
     let mut lines: Vec<Line> = Vec::new();
 
     lines.push(Line::from(vec![
-        Span::styled("  今日: ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
         Span::styled(
-            format!("{} 请求 | {}K tokens", app.today_stats.requests, app.today_stats.tokens / 1000),
+            "  今日: ",
+            Style::default()
+                .fg(theme.accent())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(
+                "{} 请求 | {}K tokens",
+                app.today_stats.requests,
+                app.today_stats.tokens / 1000
+            ),
             Style::default().fg(theme.text()),
         ),
     ]));
     if app.today_stats.cost_usd > 0.001 {
         lines.push(Line::from(vec![
-            Span::styled("  费用: ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  费用: ",
+                Style::default()
+                    .fg(theme.accent())
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(
                 format!("${:.4}", app.today_stats.cost_usd),
                 Style::default().fg(theme.secondary()),
@@ -358,7 +413,12 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App, t
             Style::default().fg(Color::DarkGray),
         )]));
     } else {
-        let max_tokens = app.stats_history.iter().map(|d| d.total_tokens).max().unwrap_or(1);
+        let max_tokens = app
+            .stats_history
+            .iter()
+            .map(|d| d.total_tokens)
+            .max()
+            .unwrap_or(1);
         let bar_width = (popup_width as usize).saturating_sub(22);
 
         for day in &app.stats_history {
@@ -394,7 +454,12 @@ pub(super) fn render_stats_history_panel(f: &mut Frame, area: Rect, app: &App, t
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_plugin_list_panel(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &crate::theme::Theme,
+) {
     let popup_width = 65u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -403,9 +468,12 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App, the
 
     let mut lines: Vec<Line> = Vec::new();
 
-    lines.push(Line::from(vec![
-        Span::styled("  技能 ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        "  技能 ",
+        Style::default()
+            .fg(theme.accent())
+            .add_modifier(Modifier::BOLD),
+    )]));
 
     if app.skill_list.is_empty() {
         lines.push(Line::from(vec![Span::styled(
@@ -417,7 +485,9 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App, the
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("    ✦ {:<18}", skill.name),
-                    Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(theme.dim_text())
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     skill.content.chars().take(30).collect::<String>(),
@@ -428,9 +498,12 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App, the
     }
 
     lines.push(Line::from(vec![Span::raw("")]));
-    lines.push(Line::from(vec![
-        Span::styled("  插件 ", Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD)),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        "  插件 ",
+        Style::default()
+            .fg(theme.accent())
+            .add_modifier(Modifier::BOLD),
+    )]));
 
     if app.plugin_list.is_empty() {
         lines.push(Line::from(vec![Span::styled(
@@ -439,17 +512,20 @@ pub(super) fn render_plugin_list_panel(f: &mut Frame, area: Rect, app: &App, the
         )]));
     } else {
         for plugin in &app.plugin_list {
-            let status_color = if plugin.enabled { theme.secondary() } else { Color::DarkGray };
+            let status_color = if plugin.enabled {
+                theme.secondary()
+            } else {
+                Color::DarkGray
+            };
             let status = if plugin.enabled { "✓" } else { "✗" };
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("    {} {:<16}", status, plugin.name),
-                    Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(status_color)
+                        .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(
-                    &plugin.description,
-                    Style::default().fg(theme.text()),
-                ),
+                Span::styled(&plugin.description, Style::default().fg(theme.text())),
             ]));
         }
     }
@@ -476,7 +552,12 @@ pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
     // Dark backdrop with subtle blue undertone
     let fill = " ".repeat(area.width as usize);
     let lines: Vec<Line> = (0..area.height)
-        .map(|_| Line::from(Span::styled(&fill, Style::default().bg(Color::Rgb(8, 8, 15)))))
+        .map(|_| {
+            Line::from(Span::styled(
+                &fill,
+                Style::default().bg(Color::Rgb(8, 8, 15)),
+            ))
+        })
         .collect();
     f.render_widget(Paragraph::new(lines), area);
 }
@@ -490,7 +571,11 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &crate::t
 
     let block = Block::default()
         .title(" 对本次回答的反馈 ")
-        .title_style(Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD))
+        .title_style(
+            Style::default()
+                .fg(theme.accent())
+                .add_modifier(Modifier::BOLD),
+        )
         .borders(Borders::ALL)
         .border_style(Style::default().fg(theme.accent()));
 
@@ -498,9 +583,17 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &crate::t
     let text = vec![
         Line::from(Span::raw("")),
         Line::from(vec![
-            Span::styled("  [y] ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  [y] ",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("👍 满意   ", Style::default().fg(theme.text())),
-            Span::styled("  [n] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  [n] ",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ),
             Span::styled("👎 不满意", Style::default().fg(theme.text())),
         ]),
         Line::from(vec![

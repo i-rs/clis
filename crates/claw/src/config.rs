@@ -79,6 +79,9 @@ pub struct Config {
     /// Custom color theme (loaded from theme.json, not serialized)
     #[serde(skip)]
     pub theme: crate::theme::Theme,
+    /// Storage backend configuration.
+    #[serde(default)]
+    pub storage: crate::storage::StorageConfig,
     /// Token usage statistics configuration.
     #[serde(default)]
     pub stats: crate::stats::StatsConfig,
@@ -91,10 +94,18 @@ pub struct Config {
     pub tz_offset: FixedOffset,
 }
 
-fn default_max_react_rounds() -> u32 { 20 }
-fn default_max_tool_retries() -> u32 { 2 }
-fn default_cli_timeout_secs() -> u64 { 30 }
-fn default_max_conversation_turns() -> usize { 8 }
+fn default_max_react_rounds() -> u32 {
+    20
+}
+fn default_max_tool_retries() -> u32 {
+    2
+}
+fn default_cli_timeout_secs() -> u64 {
+    30
+}
+fn default_max_conversation_turns() -> usize {
+    8
+}
 
 fn default_true() -> bool {
     true
@@ -180,24 +191,22 @@ impl Config {
     pub fn agent_config(&self, id: &str) -> ResolvedAgentConfig {
         let agent = self.agents.get(id).or_else(|| self.sub_agents.get(id));
 
-        let system_prompt = agent
-            .and_then(|a| a.system_prompt.clone())
-            .or_else(|| {
-                agent
-                    .and_then(|a| a.system_prompt_file.as_ref())
-                    .and_then(|path| {
-                        let p = if path.starts_with('/') {
-                            std::path::PathBuf::from(path)
-                        } else {
-                            // Relative to config directory
-                            Self::config_path()
-                                .ok()
-                                .and_then(|cp| cp.parent().map(|parent| parent.join(path)))
-                                .unwrap_or_else(|| std::path::PathBuf::from(path))
-                        };
-                        std::fs::read_to_string(&p).ok()
-                    })
-            });
+        let system_prompt = agent.and_then(|a| a.system_prompt.clone()).or_else(|| {
+            agent
+                .and_then(|a| a.system_prompt_file.as_ref())
+                .and_then(|path| {
+                    let p = if path.starts_with('/') {
+                        std::path::PathBuf::from(path)
+                    } else {
+                        // Relative to config directory
+                        Self::config_path()
+                            .ok()
+                            .and_then(|cp| cp.parent().map(|parent| parent.join(path)))
+                            .unwrap_or_else(|| std::path::PathBuf::from(path))
+                    };
+                    std::fs::read_to_string(&p).ok()
+                })
+        });
 
         ResolvedAgentConfig {
             agent_id: id.to_string(),
@@ -223,9 +232,7 @@ impl Config {
             allowed_dirs: agent
                 .and_then(|a| a.allowed_dirs.clone())
                 .unwrap_or_else(|| self.allowed_dirs.clone()),
-            capabilities: agent
-                .map(|a| a.capabilities.clone())
-                .unwrap_or_default(),
+            capabilities: agent.map(|a| a.capabilities.clone()).unwrap_or_default(),
         }
     }
 
@@ -375,6 +382,7 @@ impl Config {
             gateway: GatewayConfig::default(),
             dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),
+            storage: crate::storage::StorageConfig::default(),
             stats: crate::stats::StatsConfig::default(),
             timezone: None,
             tz_offset: crate::utils::system_tz_offset(),
@@ -382,8 +390,7 @@ impl Config {
     }
 
     fn config_path() -> anyhow::Result<std::path::PathBuf> {
-        let home = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+        let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
         let dir = home.join(".i-rs").join("claw");
         Ok(dir.join("config.toml"))
     }
@@ -401,8 +408,8 @@ impl Config {
         let content = std::fs::read_to_string(&config_path)
             .map_err(|e| anyhow::anyhow!("读取配置文件失败 {}: {}", config_path.display(), e))?;
 
-        let config: Config = toml::from_str(&content)
-            .map_err(|e| anyhow::anyhow!("解析配置文件失败: {}", e))?;
+        let config: Config =
+            toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析配置文件失败: {}", e))?;
 
         let mut config = config;
 
@@ -417,14 +424,17 @@ impl Config {
 
         // Override API key from environment variable if set
         if let Ok(env_key) = std::env::var("I_RS_CLAW_API_KEY")
-            && !env_key.is_empty() {
-                config.api_key = env_key;
-            }
+            && !env_key.is_empty()
+        {
+            config.api_key = env_key;
+        }
 
         // Ensure "default" agent always exists (safety net against manual config edits)
         if config.agents.contains_key("default") {
             config.agents.remove("default");
-            tracing::warn!("配置文件中不应包含 [agents.default]，已自动移除（default 使用顶层配置）");
+            tracing::warn!(
+                "配置文件中不应包含 [agents.default]，已自动移除（default 使用顶层配置）"
+            );
         }
 
         // Validate config
@@ -474,8 +484,7 @@ impl Config {
         }
 
         if self.dashboard.enabled && self.dashboard.port > 0 && self.dashboard.port < 1024 {
-            warnings
-                .push("dashboard 使用了特权端口 (<1024)，可能需要 root 权限".to_string());
+            warnings.push("dashboard 使用了特权端口 (<1024)，可能需要 root 权限".to_string());
         }
 
         for (id, agent) in &self.agents {
@@ -492,14 +501,22 @@ impl Config {
         for (agent_id, agent) in &self.agents {
             if let Some(ref servers) = agent.mcp_servers {
                 for server in servers {
-                    Self::validate_mcp_server(server, &mut warnings, &format!("agent '{}'", agent_id));
+                    Self::validate_mcp_server(
+                        server,
+                        &mut warnings,
+                        &format!("agent '{}'", agent_id),
+                    );
                 }
             }
         }
         for (agent_id, agent) in &self.sub_agents {
             if let Some(ref servers) = agent.mcp_servers {
                 for server in servers {
-                    Self::validate_mcp_server(server, &mut warnings, &format!("sub_agent '{}'", agent_id));
+                    Self::validate_mcp_server(
+                        server,
+                        &mut warnings,
+                        &format!("sub_agent '{}'", agent_id),
+                    );
                 }
             }
         }
@@ -508,7 +525,11 @@ impl Config {
     }
 
     /// Validate a single MCP server configuration.
-    fn validate_mcp_server(server: &crate::mcp::McpServerConfig, warnings: &mut Vec<String>, scope: &str) {
+    fn validate_mcp_server(
+        server: &crate::mcp::McpServerConfig,
+        warnings: &mut Vec<String>,
+        scope: &str,
+    ) {
         match server.transport_type.as_str() {
             "stdio" => {
                 if server.command.is_none() {
@@ -534,7 +555,12 @@ impl Config {
     }
 
     /// Validate a single agent/sub_agent configuration.
-    fn validate_agent_config(id: &str, agent: &AgentConfig, scope: &str, warnings: &mut Vec<String>) {
+    fn validate_agent_config(
+        id: &str,
+        agent: &AgentConfig,
+        scope: &str,
+        warnings: &mut Vec<String>,
+    ) {
         if id.contains(' ') || id.contains('/') || id.contains('\\') {
             warnings.push(format!("{} ID '{}' 包含非法字符 (空格/斜杠)", scope, id));
         }
@@ -572,7 +598,9 @@ impl Config {
         if id == "default" {
             anyhow::bail!("Cannot remove the default agent");
         }
-        self.agents.remove(id).ok_or_else(|| anyhow::anyhow!("Agent '{}' not found", id))
+        self.agents
+            .remove(id)
+            .ok_or_else(|| anyhow::anyhow!("Agent '{}' not found", id))
     }
 
     /// Discover i-rs CLI tools and cache their descriptions.
@@ -621,7 +649,10 @@ impl Config {
                             String::from_utf8_lossy(&output.stdout).trim().to_string()
                         }
                         _ => {
-                            tracing::warn!("i-rs 工具 '{}' 未安装或 skill summary 失败，已跳过", name);
+                            tracing::warn!(
+                                "i-rs 工具 '{}' 未安装或 skill summary 失败，已跳过",
+                                name
+                            );
                             return (name, None);
                         }
                     };
@@ -701,4 +732,3 @@ mod tests {
         });
     }
 }
-

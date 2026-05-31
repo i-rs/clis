@@ -7,7 +7,8 @@
 //!   let searcher = SemanticSearch::new(&claw_dir);
 //!   let results = searcher.search("running weight last week", 5)?;
 
-use crate::convstore::{ConvStore, SearchResult};
+use crate::convstore::ConvStore;
+use crate::storage::SearchResult;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
@@ -55,7 +56,9 @@ impl OpenaiEmbeddingProvider {
 impl EmbeddingProvider for OpenaiEmbeddingProvider {
     async fn embed(&self, text: &str) -> anyhow::Result<Vec<f64>> {
         let mut results = self.embed_batch(&[text.to_string()]).await?;
-        results.pop().ok_or_else(|| anyhow::anyhow!("No embedding returned"))
+        results
+            .pop()
+            .ok_or_else(|| anyhow::anyhow!("No embedding returned"))
     }
 
     async fn embed_batch(&self, texts: &[String]) -> anyhow::Result<Vec<Vec<f64>>> {
@@ -241,7 +244,7 @@ impl SemanticSearch {
     pub fn new(claw_dir: PathBuf) -> Self {
         let embed_index = EmbeddingIndex::new(claw_dir.clone());
         Self {
-            conv_store: ConvStore::new(claw_dir.clone()),
+            conv_store: ConvStore::for_claw_dir(claw_dir.clone()),
             embed_index,
             claw_dir,
         }
@@ -288,7 +291,11 @@ impl SemanticSearch {
             .collect();
 
         // Sort by score descending
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Remove duplicates (same session_id + same excerpt)
         let mut seen = HashSet::new();
@@ -430,18 +437,85 @@ fn compute_relevance(
 fn is_stop_word(word: &str) -> bool {
     matches!(
         word,
-        "的" | "了" | "在" | "是" | "我" | "有" | "和" | "就"
-            | "不" | "人" | "都" | "一" | "个" | "上" | "也"
-            | "很" | "到" | "说" | "要" | "去" | "你" | "会"
-            | "着" | "没有" | "看" | "好" | "自己" | "这"
-            | "the" | "a" | "an" | "is" | "are" | "was" | "were"
-            | "be" | "been" | "being" | "have" | "has" | "had"
-            | "do" | "does" | "did" | "will" | "would" | "can"
-            | "could" | "may" | "might" | "shall" | "should"
-            | "to" | "of" | "in" | "for" | "on" | "with" | "at"
-            | "by" | "from" | "and" | "or" | "but" | "not" | "no"
-            | "this" | "that" | "it" | "its" | "i" | "you" | "he"
-            | "she" | "we" | "they" | "me" | "him" | "her" | "us"
+        "的" | "了"
+            | "在"
+            | "是"
+            | "我"
+            | "有"
+            | "和"
+            | "就"
+            | "不"
+            | "人"
+            | "都"
+            | "一"
+            | "个"
+            | "上"
+            | "也"
+            | "很"
+            | "到"
+            | "说"
+            | "要"
+            | "去"
+            | "你"
+            | "会"
+            | "着"
+            | "没有"
+            | "看"
+            | "好"
+            | "自己"
+            | "这"
+            | "the"
+            | "a"
+            | "an"
+            | "is"
+            | "are"
+            | "was"
+            | "were"
+            | "be"
+            | "been"
+            | "being"
+            | "have"
+            | "has"
+            | "had"
+            | "do"
+            | "does"
+            | "did"
+            | "will"
+            | "would"
+            | "can"
+            | "could"
+            | "may"
+            | "might"
+            | "shall"
+            | "should"
+            | "to"
+            | "of"
+            | "in"
+            | "for"
+            | "on"
+            | "with"
+            | "at"
+            | "by"
+            | "from"
+            | "and"
+            | "or"
+            | "but"
+            | "not"
+            | "no"
+            | "this"
+            | "that"
+            | "it"
+            | "its"
+            | "i"
+            | "you"
+            | "he"
+            | "she"
+            | "we"
+            | "they"
+            | "me"
+            | "him"
+            | "her"
+            | "us"
             | "them"
     )
 }

@@ -1,6 +1,6 @@
-use serde_json::Value;
 use crate::error::ClawError;
 use crate::tools::{ClawTool, ToolContext};
+use serde_json::Value;
 
 /// A built-in tool that allows the LLM to persist user information
 /// (name, interests, habits, preferences) to CrossSessionMemory.

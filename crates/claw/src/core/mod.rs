@@ -8,11 +8,12 @@ use crate::llm::LlmEvent;
 use crate::mcp::McpRegistry;
 use crate::memory::CrossSessionMemory;
 use crate::session::SessionManager;
-use crate::skill_store::SkillStore;
+use crate::skill_store::{SkillDefinition, SkillStore};
+use crate::storage::ClawStorage;
 use crate::tool_cache::ToolDocCache;
-use crate::skill_store::SkillDefinition;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 /// Runtime data for a single agent.
@@ -26,15 +27,15 @@ pub struct AgentRuntime {
 impl AgentRuntime {
     fn new(
         #[cfg_attr(test, allow(unused_variables))] config: &Config,
-        claw_dir: &std::path::Path,
+        storage: &Arc<ClawStorage>,
         agent_id: &str,
     ) -> Self {
         #[cfg(not(test))]
         let resolved = config.agent_config(agent_id);
         Self {
-            memory: CrossSessionMemory::for_agent(claw_dir, agent_id),
-            tool_cache: ToolDocCache::for_agent(claw_dir, agent_id),
-            skill_store: SkillStore::for_agent(claw_dir, agent_id),
+            memory: CrossSessionMemory::for_agent_with_storage(storage, agent_id),
+            tool_cache: ToolDocCache::for_agent_with_storage(storage, agent_id),
+            skill_store: SkillStore::for_agent_with_storage(storage, agent_id),
             #[cfg(test)]
             mcp_registry: crate::mcp::McpRegistry::empty_for_test(),
             #[cfg(not(test))]
@@ -56,11 +57,19 @@ pub struct AgentRuntimeStore {
 }
 
 impl AgentRuntimeStore {
+    /// Legacy constructor (backward-compatible, uses file backend internally).
+    #[allow(dead_code)]
     pub fn new(config: &Config, claw_dir: &std::path::Path) -> Self {
+        let storage = Arc::new(ClawStorage::file(claw_dir.to_path_buf()));
+        Self::new_with_storage(config, &storage)
+    }
+
+    /// Create with a shared storage backend.
+    pub fn new_with_storage(config: &Config, storage: &Arc<ClawStorage>) -> Self {
         let agent_ids = config.all_agent_ids();
         let mut runtimes = HashMap::new();
         for id in &agent_ids {
-            runtimes.insert(id.clone(), AgentRuntime::new(config, claw_dir, id));
+            runtimes.insert(id.clone(), AgentRuntime::new(config, storage, id));
         }
         let mut store = Self { runtimes };
         store.prefetch_hot_tools();
@@ -85,15 +94,21 @@ impl AgentRuntimeStore {
 
     fn get(&self, agent_id: &str) -> &AgentRuntime {
         self.runtimes.get(agent_id).unwrap_or_else(|| {
-            self.runtimes.get("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
+            self.runtimes
+                .get("default")
+                .expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
         })
     }
 
     fn get_mut(&mut self, agent_id: &str) -> &mut AgentRuntime {
         if self.runtimes.contains_key(agent_id) {
-            self.runtimes.get_mut(agent_id).expect("bug: agent just checked not found")
+            self.runtimes
+                .get_mut(agent_id)
+                .expect("bug: agent just checked not found")
         } else {
-            self.runtimes.get_mut("default").expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
+            self.runtimes
+                .get_mut("default")
+                .expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
         }
     }
 
@@ -138,8 +153,12 @@ impl AgentRuntimeStore {
 
     /// Initialize runtime data for a new agent.
     #[allow(dead_code)]
-    pub fn add_agent(&mut self, config: &Config, claw_dir: &std::path::Path, agent_id: &str) {
-        self.runtimes.insert(agent_id.to_string(), AgentRuntime::new(config, claw_dir, agent_id));
+    pub fn add_agent(&mut self, config: &Config, agent_id: &str) {
+        let storage = Arc::new(ClawStorage::file(std::path::PathBuf::new()));
+        self.runtimes.insert(
+            agent_id.to_string(),
+            AgentRuntime::new(config, &storage, agent_id),
+        );
     }
 
     /// Remove runtime data for an agent.
@@ -164,6 +183,8 @@ pub struct AppCore {
     pub session_mgr: SessionManager,
     pub agent_store: AgentRuntimeStore,
     pub stats_manager: crate::stats::StatsManager,
+    #[allow(dead_code)]
+    pub storage: std::sync::Arc<crate::storage::ClawStorage>,
     pub http_client: reqwest::Client,
 }
 
@@ -171,8 +192,8 @@ impl AppCore {
     /// Create a new AppCore from configuration.
     /// Initializes session manager, per-agent runtime data, and i-rs tool discovery.
     pub fn new(config: Config) -> anyhow::Result<Self> {
-        let claw_dir = crate::utils::claw_dir()
-            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+        let claw_dir =
+            crate::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
         Self::with_claw_dir(config, claw_dir)
     }
 
@@ -181,15 +202,22 @@ impl AppCore {
     pub fn with_claw_dir(mut config: Config, claw_dir: std::path::PathBuf) -> anyhow::Result<Self> {
         config.discover_i_rs_tools(&claw_dir);
 
-        let session_mgr = SessionManager::new(claw_dir.clone());
-        let agent_store = AgentRuntimeStore::new(&config, &claw_dir);
-        let stats_manager = crate::stats::StatsManager::new(&claw_dir, &config.stats, config.tz_offset);
+        let storage = std::sync::Arc::new(crate::storage::ClawStorage::file(claw_dir.clone()));
+
+        let session_mgr = SessionManager::with_storage(storage.clone());
+        let agent_store = AgentRuntimeStore::new_with_storage(&config, &storage);
+        let stats_manager = crate::stats::StatsManager::with_storage(
+            storage.clone(),
+            &config.stats,
+            config.tz_offset,
+        );
 
         Ok(Self {
             config,
             session_mgr,
             agent_store,
             stats_manager,
+            storage,
             http_client: crate::providers::shared_client(),
         })
     }
@@ -224,7 +252,13 @@ impl AppCore {
         saved_api_messages: &Option<Vec<Value>>,
         reminder_text: Option<&str>,
     ) -> Vec<Value> {
-        self.build_messages_for(app_messages, user_text, saved_api_messages, reminder_text, "default")
+        self.build_messages_for(
+            app_messages,
+            user_text,
+            saved_api_messages,
+            reminder_text,
+            "default",
+        )
     }
 
     /// Build the API message list for a specific agent.
@@ -245,7 +279,9 @@ impl AppCore {
         let identity = if let Some(nick) = memory.assistant_nickname() {
             format!("用户称呼你为{}，以这个身份与用户对话。", nick)
         } else {
-            String::from("用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。")
+            String::from(
+                "用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。",
+            )
         };
 
         engine::build_messages(engine::MessageBuildParams {
@@ -254,15 +290,17 @@ impl AppCore {
             saved_api_messages,
             tool_frequency: memory.tool_frequency(),
             tool_index: &tool_index,
-            hot_tools: &self.agent_store.tool_cache_for(agent_id).format_hot_tools(
-                &memory.tool_frequency().keys().cloned().collect::<Vec<_>>(),
-            ),
+            hot_tools: &self
+                .agent_store
+                .tool_cache_for(agent_id)
+                .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
             skills: &self.agent_store.skill_store_for(agent_id).format_skills(),
             user_memory: &memory.format_user_memory(),
             user_profile: &memory.format_user_profile(),
             reminder_text,
             system_prompt_override: resolved.system_prompt.as_deref(),
-            plan_then_execute: self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+            plan_then_execute: self.config.execution_mode
+                == crate::config::ExecutionMode::PlanThenExecute,
             max_conversation_turns: self.config.max_conversation_turns,
             tz_offset: self.config.tz_offset,
             identity: &identity,
@@ -289,9 +327,20 @@ impl AppCore {
         messages: Vec<Value>,
         agent_id: &str,
     ) {
-        let (provider, agent_config, mcp, skills, tool_frequency, http_client) = self.prepare_chat_loop(agent_id);
+        let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
+            self.prepare_chat_loop(agent_id);
         rt.spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency, http_client).await;
+            engine::chat_loop(
+                provider,
+                agent_config,
+                messages,
+                llm_tx,
+                mcp,
+                skills,
+                tool_frequency,
+                http_client,
+            )
+            .await;
         });
     }
 
@@ -304,29 +353,62 @@ impl AppCore {
     fn prepare_chat_loop(
         &self,
         agent_id: &str,
-    ) -> (Box<dyn crate::providers::LlmProvider>, Config, McpRegistry, Vec<SkillDefinition>, HashMap<String, usize>, reqwest::Client) {
-        let agent = self.config.agents.get(agent_id)
+    ) -> (
+        Box<dyn crate::providers::LlmProvider>,
+        Config,
+        McpRegistry,
+        Vec<SkillDefinition>,
+        HashMap<String, usize>,
+        reqwest::Client,
+    ) {
+        let agent = self
+            .config
+            .agents
+            .get(agent_id)
             .or_else(|| self.config.sub_agents.get(agent_id));
 
         let provider = crate::providers::create_provider_for(
             &self.http_client,
-            agent.and_then(|a| a.provider.as_deref()).unwrap_or(&self.config.provider),
-            agent.and_then(|a| a.api_key.as_deref()).unwrap_or(&self.config.api_key),
-            agent.and_then(|a| a.base_url.as_deref()).unwrap_or(&self.config.base_url),
-            agent.and_then(|a| a.model.as_deref()).unwrap_or(&self.config.model),
+            agent
+                .and_then(|a| a.provider.as_deref())
+                .unwrap_or(&self.config.provider),
+            agent
+                .and_then(|a| a.api_key.as_deref())
+                .unwrap_or(&self.config.api_key),
+            agent
+                .and_then(|a| a.base_url.as_deref())
+                .unwrap_or(&self.config.base_url),
+            agent
+                .and_then(|a| a.model.as_deref())
+                .unwrap_or(&self.config.model),
         );
 
         let mut agent_config = self.config.clone();
         if let Some(a) = agent
-            && let Some(ref tools) = a.enabled_tools {
-                agent_config.enabled_tools = tools.clone();
-            }
+            && let Some(ref tools) = a.enabled_tools
+        {
+            agent_config.enabled_tools = tools.clone();
+        }
 
         let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
-        let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
-        let tool_frequency = self.agent_store.memory_for(agent_id).tool_frequency().clone();
+        let skills = self
+            .agent_store
+            .skill_store_for(agent_id)
+            .executable_skills();
+        let tool_frequency = self
+            .agent_store
+            .memory_for(agent_id)
+            .tool_frequency()
+            .clone();
         let http_client = self.http_client.clone();
-        (provider, agent_config, mcp, skills, tool_frequency, http_client)
+        (
+            provider,
+            agent_config,
+            mcp,
+            skills,
+            tool_frequency,
+            http_client,
+        )
     }
 
     /// Build the tool index string for system prompt from discovered i-rs tools.
@@ -364,12 +446,10 @@ impl AppCore {
     /// Run heuristic evaluation on the completed conversation and persist it.
     /// Examines ToolCall results and the final assistant response.
     /// Returns the Quality message for TUI rendering (None if no evaluation was done).
-    pub fn evaluate_completed_session(
-        &mut self,
-        session_id: &str,
-    ) -> Option<crate::app::Message> {
+    pub fn evaluate_completed_session(&mut self, session_id: &str) -> Option<crate::app::Message> {
         let messages = self.session_mgr.load_app_messages(session_id, 100);
-        let tool_results: Vec<(&str, bool)> = messages.iter()
+        let tool_results: Vec<(&str, bool)> = messages
+            .iter()
             .filter_map(|m| match m {
                 crate::app::Message::ToolCall { name, result, .. } => {
                     Some((name.as_str(), !result.starts_with("错误:")))
@@ -387,8 +467,12 @@ impl AppCore {
 
         let quality = crate::app::evaluate_response_heuristic(last_assistant, &tool_results);
         let (score, complete, references_valid, issues) = match &quality {
-            crate::app::Message::Quality { score, complete, references_valid, issues } =>
-                (score.clone(), *complete, *references_valid, issues.clone()),
+            crate::app::Message::Quality {
+                score,
+                complete,
+                references_valid,
+                issues,
+            } => (score.clone(), *complete, *references_valid, issues.clone()),
             _ => (None, true, 0u32, Vec::new()),
         };
         self.session_mgr.append_message(
@@ -407,11 +491,7 @@ impl AppCore {
     /// Build API messages from raw JSONL session records (no app::Message conversion).
     /// Used by Dashboard which doesn't maintain an App message list.
     #[cfg(feature = "dashboard")]
-    pub fn build_messages_from_jsonl(
-        &self,
-        records: &[Value],
-        agent_id: &str,
-    ) -> Vec<Value> {
+    pub fn build_messages_from_jsonl(&self, records: &[Value], agent_id: &str) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
         let memory = self.agent_store.memory_for(agent_id);
@@ -420,15 +500,18 @@ impl AppCore {
         let identity = if let Some(ref nick) = nickname {
             format!("用户称呼你为{}，以这个身份与用户对话。", nick)
         } else {
-            String::from("用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。")
+            String::from(
+                "用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。",
+            )
         };
 
         let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
             engine::builder::build_system_prompt(
                 &tool_index,
-                &self.agent_store.tool_cache_for(agent_id).format_hot_tools(
-                    &memory.tool_frequency().keys().cloned().collect::<Vec<_>>(),
-                ),
+                &self
+                    .agent_store
+                    .tool_cache_for(agent_id)
+                    .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
                 &self.agent_store.skill_store_for(agent_id).format_skills(),
                 &memory.format_user_memory(),
                 &memory.format_user_profile(),
@@ -496,9 +579,20 @@ impl AppCore {
         messages: Vec<Value>,
         agent_id: &str,
     ) {
-        let (provider, agent_config, mcp, skills, tool_frequency, http_client) = self.prepare_chat_loop(agent_id);
+        let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
+            self.prepare_chat_loop(agent_id);
         tokio::spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency, http_client).await;
+            engine::chat_loop(
+                provider,
+                agent_config,
+                messages,
+                llm_tx,
+                mcp,
+                skills,
+                tool_frequency,
+                http_client,
+            )
+            .await;
         });
     }
 
@@ -528,22 +622,29 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
             }
             "assistant" => {
                 let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                let reasoning = m.get("reasoning_content").and_then(|r| r.as_str()).unwrap_or("");
+                let reasoning = m
+                    .get("reasoning_content")
+                    .and_then(|r| r.as_str())
+                    .unwrap_or("");
                 if m.get("tool_calls").and_then(|t| t.as_array()).is_some() {
                     if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
                         for tc in tc_array {
-                            let name = tc.get("function")
+                            let name = tc
+                                .get("function")
                                 .and_then(|f| f.get("name"))
                                 .and_then(|n| n.as_str())
                                 .unwrap_or("");
-                            let args = tc.get("function")
+                            let args = tc
+                                .get("function")
                                 .and_then(|f| f.get("arguments"))
                                 .and_then(|a| a.as_str())
                                 .unwrap_or("");
                             let result = if i + 1 < api_msgs.len()
-                                && api_msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
+                                && api_msgs[i + 1].get("role").and_then(|r| r.as_str())
+                                    == Some("tool")
                             {
-                                api_msgs[i + 1].get("content")
+                                api_msgs[i + 1]
+                                    .get("content")
                                     .and_then(|c| c.as_str())
                                     .unwrap_or("")
                                     .to_string()
@@ -634,7 +735,9 @@ fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
         {
-            agent_store.memory_for_mut(agent_id).set_user_name(user_name);
+            agent_store
+                .memory_for_mut(agent_id)
+                .set_user_name(user_name);
         }
         if let Some(info) = parsed.get("user_info").and_then(|v| v.as_array()) {
             for item in info {
@@ -655,7 +758,9 @@ fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
         {
-            agent_store.memory_for_mut(agent_id).set_assistant_nickname(nick);
+            agent_store
+                .memory_for_mut(agent_id)
+                .set_assistant_nickname(nick);
         }
     }
 }
@@ -715,12 +820,7 @@ mod tests {
     #[test]
     fn test_build_messages_for_default() {
         let (_config, core) = crate::test_helpers::test_core();
-        let msgs = core.build_messages(
-            &[],
-            "hello",
-            &None,
-            None,
-        );
+        let msgs = core.build_messages(&[], "hello", &None, None);
         assert!(msgs.len() >= 2, "至少应有 system + user 消息");
         assert_eq!(msgs[0]["role"], "system");
         assert_eq!(msgs.last().unwrap()["role"], "user");
@@ -730,13 +830,7 @@ mod tests {
     #[test]
     fn test_build_messages_for_agent() {
         let (_config, core) = crate::test_helpers::test_core();
-        let msgs = core.build_messages_for(
-            &[],
-            "test",
-            &None,
-            None,
-            "default",
-        );
+        let msgs = core.build_messages_for(&[], "test", &None, None, "default");
         assert!(msgs.len() >= 2);
         assert_eq!(msgs[0]["role"], "system");
         assert_eq!(msgs.last().unwrap()["role"], "user");
@@ -757,5 +851,4 @@ mod tests {
         .join()
         .expect("spawn_chat_for 不应 panic");
     }
-
 }

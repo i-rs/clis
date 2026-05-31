@@ -36,7 +36,7 @@ pub struct SkillDefinition {
 /// ---
 /// content...
 /// ```
-pub(crate) fn parse_frontmatter(content: &str) -> (Option<toml::Value>, &str) {
+pub fn parse_frontmatter(content: &str) -> (Option<toml::Value>, &str) {
     let content = content.trim_start();
     if !content.starts_with("---\n") && !content.starts_with("---\r\n") {
         return (None, content);
@@ -45,7 +45,8 @@ pub(crate) fn parse_frontmatter(content: &str) -> (Option<toml::Value>, &str) {
     // Find the closing ---
     let after_opener = content.strip_prefix("---\r\n").unwrap_or(&content[4..]);
 
-    if let Some(end_pos) = after_opener.find("\n---")
+    if let Some(end_pos) = after_opener
+        .find("\n---")
         .or_else(|| after_opener.find("\r\n---"))
     {
         let toml_str = &after_opener[..end_pos];
@@ -67,7 +68,7 @@ pub(crate) fn parse_frontmatter(content: &str) -> (Option<toml::Value>, &str) {
 }
 
 /// Build a `SkillDefinition` from frontmatter + file content.
-fn build_definition(name: &str, raw_content: &str) -> SkillDefinition {
+pub fn build_skill_definition(name: &str, raw_content: &str) -> SkillDefinition {
     let (frontmatter, body) = parse_frontmatter(raw_content);
     let description = frontmatter
         .as_ref()
@@ -103,14 +104,43 @@ fn build_definition(name: &str, raw_content: &str) -> SkillDefinition {
 #[derive(Debug, Clone)]
 pub struct SkillStore {
     skills_dir: PathBuf,
+    /// Optional storage backend (takes priority over file I/O when set).
+    storage: Option<std::sync::Arc<crate::storage::ClawStorage>>,
+    agent_id: String,
 }
 
 impl SkillStore {
-    /// Create skill store for a specific agent.
-    /// `claw_dir/agents/{agent_id}/skills`.
+    /// Create skill store backed by storage backend.
+    pub fn for_agent_with_storage(
+        storage: &std::sync::Arc<crate::storage::ClawStorage>,
+        agent_id: &str,
+    ) -> Self {
+        // Keep a fallback skills_dir for backward compat
+        let skills_dir = PathBuf::new();
+        Self {
+            skills_dir,
+            storage: Some(storage.clone()),
+            agent_id: agent_id.to_string(),
+        }
+    }
+
+    /// Legacy: create with file backend only.
     pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
         let skills_dir = claw_dir.join("agents").join(agent_id).join("skills");
-        Self { skills_dir }
+        Self { skills_dir, storage: None, agent_id: agent_id.to_string() }
+    }
+
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => tokio::task::block_in_place(|| {
+                tokio::runtime::Runtime::new()
+                    .expect("SkillStore: failed to create temp runtime")
+                    .block_on(f)
+            }),
+            Err(_) => tokio::runtime::Runtime::new()
+                .expect("SkillStore: failed to create temp runtime")
+                .block_on(f),
+        }
     }
 
     /// Get the skills directory path.
@@ -120,17 +150,31 @@ impl SkillStore {
 
     /// Read a specific skill by name.
     pub fn get_skill(&self, name: &str) -> Option<SkillDefinition> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let name = name.to_string();
+            return Self::block_on(async move {
+                storage.skills.get(&aid, &name).await.ok().flatten()
+            });
+        }
         let path = self.skills_dir.join(format!("{}.md", name));
         if !path.exists() {
             return None;
         }
         let raw = std::fs::read_to_string(path).ok()?;
-        Some(build_definition(name, &raw))
+        Some(build_skill_definition(name, &raw))
     }
 
     /// Install a new skill (create .md file with optional content).
-    /// Creates the skills directory if it doesn't exist.
     pub fn install(&self, name: &str, content: &str) -> anyhow::Result<()> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let name = name.to_string();
+            let content = content.to_string();
+            return Self::block_on(async move {
+                storage.skills.install(&aid, &name, &content).await
+            });
+        }
         std::fs::create_dir_all(&self.skills_dir)?;
         let path = self.skills_dir.join(format!("{}.md", name));
         std::fs::write(&path, content)?;
@@ -139,6 +183,13 @@ impl SkillStore {
 
     /// Remove a skill by name.
     pub fn remove(&self, name: &str) -> anyhow::Result<()> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let name = name.to_string();
+            return Self::block_on(async move {
+                storage.skills.remove(&aid, &name).await
+            });
+        }
         let path = self.skills_dir.join(format!("{}.md", name));
         if path.exists() {
             std::fs::remove_file(&path)?;
@@ -148,6 +199,12 @@ impl SkillStore {
 
     /// Return all skills that have parameters defined (callable as tools).
     pub fn executable_skills(&self) -> Vec<SkillDefinition> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            return Self::block_on(async move {
+                storage.skills.list_executable(&aid).await.unwrap_or_default()
+            });
+        }
         let dir = match std::fs::read_dir(&self.skills_dir) {
             Ok(d) => d,
             Err(_) => return Vec::new(),
@@ -162,8 +219,7 @@ impl SkillStore {
                     .file_stem()
                     .and_then(|s| s.to_str())?;
                 let raw = std::fs::read_to_string(&path).ok()?;
-                let def = build_definition(name, &raw);
-                // Only include skills with parameters
+                let def = build_skill_definition(name, &raw);
                 if def.parameters.is_some() {
                     Some(def)
                 } else {
@@ -195,11 +251,13 @@ type = "object"
     }
 
     /// Format all skill files as a system prompt layer.
-    /// Returns empty string when no skills exist or the directory is missing.
-    ///
-    /// Skills with frontmatter use `description` as the heading (if present)
-    /// and exclude the frontmatter block from the displayed content.
     pub fn format_skills(&self) -> String {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            return Self::block_on(async move {
+                storage.skills.format_skills(&aid).await.unwrap_or_default()
+            });
+        }
         let dir = match std::fs::read_dir(&self.skills_dir) {
             Ok(d) => d,
             Err(_) => return String::new(),
@@ -207,7 +265,9 @@ type = "object"
 
         let mut entries: Vec<_> = dir
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
+            .filter(|e| {
+                e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file()
+            })
             .collect();
         entries.sort_by_key(|e| e.file_name());
 
@@ -247,42 +307,45 @@ type = "object"
     /// Return list of available skill names.
     #[allow(dead_code)]
     pub fn skill_names(&self) -> Vec<String> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            return Self::block_on(async move {
+                storage.skills.list(&aid).await.unwrap_or_default()
+                    .into_iter().map(|e| e.name).collect()
+            });
+        }
         let dir = match std::fs::read_dir(&self.skills_dir) {
             Ok(d) => d,
             Err(_) => return Vec::new(),
         };
-
         let mut names: Vec<String> = dir
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
-            .filter_map(|e| {
-                e.path()
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
-            })
+            .filter_map(|e| e.path().file_stem().and_then(|s| s.to_str()).map(|s| s.to_string()))
             .collect();
         names.sort();
         names
     }
 
-    /// Return list of skills with their full content (simplified entry).
-    /// Includes raw content (with frontmatter if present).
+    /// Return list of skills with their full content.
     #[allow(dead_code)]
     pub fn list_skills(&self) -> Vec<SkillEntry> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            return Self::block_on(async move {
+                storage.skills.list(&aid).await.unwrap_or_default()
+                    .into_iter().map(|e| SkillEntry { name: e.name, content: e.content }).collect()
+            });
+        }
         let dir = match std::fs::read_dir(&self.skills_dir) {
             Ok(d) => d,
             Err(_) => return Vec::new(),
         };
-
         let mut entries: Vec<SkillEntry> = dir
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
             .filter_map(|e| {
-                let name = e.path()
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())?;
+                let name = e.path().file_stem().and_then(|s| s.to_str()).map(|s| s.to_string())?;
                 let content = std::fs::read_to_string(e.path()).ok()?;
                 Some(SkillEntry { name, content })
             })
@@ -299,9 +362,7 @@ mod tests {
 
     /// Create a temporary directory for testing, returning its path.
     fn temp_skills_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir()
-            .join("i-rs-claw-test")
-            .join(name);
+        let dir = std::env::temp_dir().join("i-rs-claw-test").join(name);
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("failed to create temp skills dir");
         dir
@@ -340,11 +401,20 @@ mod tests {
         tracing::debug!("starts_with: {}", content.starts_with("---\n"));
         let (fm, body) = parse_frontmatter(content);
         tracing::debug!("fm: {:?}", fm);
-        tracing::debug!("body starts: {:?}", body.chars().take(30).collect::<String>());
+        tracing::debug!(
+            "body starts: {:?}",
+            body.chars().take(30).collect::<String>()
+        );
         assert!(fm.is_some(), "should parse frontmatter");
         let t = fm.unwrap();
-        assert_eq!(t.get("description").and_then(|v| v.as_str()), Some("格式化偏好"));
-        assert!(body.contains("Markdown"), "body should contain content after frontmatter");
+        assert_eq!(
+            t.get("description").and_then(|v| v.as_str()),
+            Some("格式化偏好")
+        );
+        assert!(
+            body.contains("Markdown"),
+            "body should contain content after frontmatter"
+        );
     }
 
     #[test]
@@ -376,7 +446,7 @@ mod tests {
             "\n",
             "当用户请求时使用 Markdown。\n",
         );
-        let def = build_definition("format-pref", raw);
+        let def = build_skill_definition("format-pref", raw);
         assert_eq!(def.name, "format-pref");
         assert_eq!(def.description, "格式化偏好");
         assert!(def.parameters.is_some());
@@ -386,7 +456,7 @@ mod tests {
     #[test]
     fn test_build_definition_without_frontmatter() {
         let raw = "当用户请求时，默认使用 Markdown。";
-        let def = build_definition("format-pref", raw);
+        let def = build_skill_definition("format-pref", raw);
         assert_eq!(def.name, "format-pref");
         assert_eq!(def.description, "format-pref"); // falls back to name
         assert!(def.parameters.is_none());
@@ -396,7 +466,7 @@ mod tests {
     #[test]
     fn test_build_definition_empty_content() {
         let raw = "";
-        let def = build_definition("empty-skill", raw);
+        let def = build_skill_definition("empty-skill", raw);
         assert_eq!(def.name, "empty-skill");
         assert_eq!(def.description, "empty-skill");
         assert!(def.parameters.is_none());
@@ -409,7 +479,11 @@ mod tests {
     fn test_get_skill_found() {
         let dir = temp_skills_dir("get_skill_found");
         install_skill(&dir, "test-skill", "这是一个测试技能。");
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
         let skill = store.get_skill("test-skill");
         assert!(skill.is_some());
         assert_eq!(skill.unwrap().name, "test-skill");
@@ -419,7 +493,11 @@ mod tests {
     #[test]
     fn test_get_skill_not_found() {
         let dir = temp_skills_dir("get_skill_not_found");
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
         assert!(store.get_skill("nonexistent").is_none());
         let _ = fs::remove_dir_all(&dir);
     }
@@ -429,7 +507,11 @@ mod tests {
     #[test]
     fn test_install_and_remove_skill() {
         let dir = temp_skills_dir("install_remove");
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
 
         // Install
         assert!(store.install("my-skill", "测试内容").is_ok());
@@ -454,7 +536,11 @@ mod tests {
     fn test_install_creates_directory() {
         let dir = temp_skills_dir("install_creates_dir");
         let sub = dir.join("nested");
-        let store = SkillStore { skills_dir: sub.clone() };
+        let store = SkillStore {
+            skills_dir: sub.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
         assert!(!sub.exists());
         assert!(store.install("test", "content").is_ok());
         assert!(sub.exists());
@@ -468,27 +554,39 @@ mod tests {
     fn test_executable_skills_only_with_parameters() {
         let dir = temp_skills_dir("executable_skills");
         // Skill with parameters → executable
-        install_skill(&dir, "param-skill", r#"---
+        install_skill(
+            &dir,
+            "param-skill",
+            r#"---
 description = "有参数"
 [parameters]
 type = "object"
 ---
 
 内容。
-"#);
+"#,
+        );
         // Skill without parameters → not executable
         install_skill(&dir, "plain-skill", "纯指令。");
         // Another with parameters
-        install_skill(&dir, "another", r#"---
+        install_skill(
+            &dir,
+            "another",
+            r#"---
 description = "另一个"
 [parameters.properties.x]
 type = "string"
 ---
 
 更多内容。
-"#);
+"#,
+        );
 
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
         let executables = store.executable_skills();
         assert_eq!(executables.len(), 2);
         assert_eq!(executables[0].name, "another");
@@ -503,6 +601,8 @@ type = "string"
     fn test_nonexistent_directory() {
         let store = SkillStore {
             skills_dir: PathBuf::from("/tmp/__i_rs_claw_test_nonexistent__"),
+            storage: None,
+            agent_id: "test".to_string(),
         };
         assert_eq!(store.format_skills(), "");
         assert_eq!(store.skill_names(), Vec::<String>::new());
@@ -512,7 +612,11 @@ type = "string"
     #[test]
     fn test_empty_directory() {
         let dir = temp_skills_dir("empty_dir");
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
         assert_eq!(store.format_skills(), "");
         assert_eq!(store.skill_names(), Vec::<String>::new());
         assert!(store.list_skills().is_empty());
@@ -524,9 +628,17 @@ type = "string"
         let dir = temp_skills_dir("single_skill");
 
         // Install a skill
-        install_skill(&dir, "my-skill", "当用户提到 '帮我总结' 时，自动调用总结流程。");
+        install_skill(
+            &dir,
+            "my-skill",
+            "当用户提到 '帮我总结' 时，自动调用总结流程。",
+        );
 
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
 
         // Discover by name
         let names = store.skill_names();
@@ -558,7 +670,11 @@ type = "string"
         install_skill(&dir, "translate-en", "当用户说英文时自动翻译成中文。");
         install_skill(&dir, "z-skills", "z结尾的排序校验。");
 
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
 
         // Names should be sorted alphabetically
         let names = store.skill_names();
@@ -596,10 +712,18 @@ type = "string"
         fs::write(dir.join("data.json"), r#"{"key": "value"}"#).unwrap();
         fs::write(dir.join("README"), "没有扩展名的文件").unwrap();
 
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
 
         let names = store.skill_names();
-        assert_eq!(names, vec!["valid-skill"], "only .md files should be counted");
+        assert_eq!(
+            names,
+            vec!["valid-skill"],
+            "only .md files should be counted"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -612,16 +736,33 @@ type = "string"
         install_skill(&dir, "only-whitespace", "   \n  \n  ");
         install_skill(&dir, "real-skill", "这是一个真实的技能。");
 
-        let store = SkillStore { skills_dir: dir.clone() };
+        let store = SkillStore {
+            skills_dir: dir.clone(),
+            storage: None,
+            agent_id: "test".to_string(),
+        };
 
         let formatted = store.format_skills();
-        assert!(!formatted.contains("empty"), "empty skills should be skipped");
-        assert!(!formatted.contains("only-whitespace"), "whitespace-only skills should be skipped");
-        assert!(formatted.contains("real-skill"), "non-empty skills should be included");
+        assert!(
+            !formatted.contains("empty"),
+            "empty skills should be skipped"
+        );
+        assert!(
+            !formatted.contains("only-whitespace"),
+            "whitespace-only skills should be skipped"
+        );
+        assert!(
+            formatted.contains("real-skill"),
+            "non-empty skills should be included"
+        );
 
         // list_skills should still include empty/whitespace files
         let entries = store.list_skills();
-        assert_eq!(entries.len(), 3, "list_skills returns all .md files regardless of content");
+        assert_eq!(
+            entries.len(),
+            3,
+            "list_skills returns all .md files regardless of content"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -630,13 +771,19 @@ type = "string"
     fn test_for_agent_default_path() {
         let claw_dir = PathBuf::from("/tmp/__i_rs_claw_test_path__");
         let store = SkillStore::for_agent(&claw_dir, "default");
-        assert_eq!(store.skills_dir, claw_dir.join("agents").join("default").join("skills"));
+        assert_eq!(
+            store.skills_dir,
+            claw_dir.join("agents").join("default").join("skills")
+        );
     }
 
     #[test]
     fn test_for_agent_custom_path() {
         let claw_dir = PathBuf::from("/tmp/__i_rs_claw_test_path__");
         let store = SkillStore::for_agent(&claw_dir, "my-agent");
-        assert_eq!(store.skills_dir, claw_dir.join("agents").join("my-agent").join("skills"));
+        assert_eq!(
+            store.skills_dir,
+            claw_dir.join("agents").join("my-agent").join("skills")
+        );
     }
 }

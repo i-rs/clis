@@ -30,10 +30,7 @@ pub fn generate_bar_chart(data: &[DataPoint], width: usize, height: usize) -> St
     let bar_width = bar_width.clamp(1, 10);
 
     let mut output = String::new();
-    output.push_str(&format!(
-        "┌ 柱状图 (max={:.1})\n",
-        max_val
-    ));
+    output.push_str(&format!("┌ 柱状图 (max={:.1})\n", max_val));
 
     let top_w = bar_width * data.len() + 2;
     output.push('┌');
@@ -132,8 +129,10 @@ pub fn generate_line_chart(data: &[DataPoint], width: usize, height: usize) -> S
         let threshold = max_val - (range * row as f64 / chart_height as f64);
         output.push('│');
         for (i, point) in data.iter().enumerate() {
-            let is_point = (point.value - min_val) >= (range * (chart_height - 1 - row) as f64 / chart_height as f64)
-                && (point.value - min_val) <= (range * (chart_height - row) as f64 / chart_height as f64 + 1e-10);
+            let is_point = (point.value - min_val)
+                >= (range * (chart_height - 1 - row) as f64 / chart_height as f64)
+                && (point.value - min_val)
+                    <= (range * (chart_height - row) as f64 / chart_height as f64 + 1e-10);
 
             let connects_left = i > 0
                 && is_between(
@@ -248,7 +247,10 @@ mod tests {
 
     #[test]
     fn test_bar_chart_single_point() {
-        let data = vec![DataPoint { label: "Test".into(), value: 100.0 }];
+        let data = vec![DataPoint {
+            label: "Test".into(),
+            value: 100.0,
+        }];
         let result = generate_bar_chart(&data, 30, 5);
         assert!(result.contains("Test"));
         assert!(result.contains("█"));
@@ -257,9 +259,18 @@ mod tests {
     #[test]
     fn test_bar_chart_multiple_points() {
         let data = vec![
-            DataPoint { label: "A".into(), value: 50.0 },
-            DataPoint { label: "B".into(), value: 100.0 },
-            DataPoint { label: "C".into(), value: 30.0 },
+            DataPoint {
+                label: "A".into(),
+                value: 50.0,
+            },
+            DataPoint {
+                label: "B".into(),
+                value: 100.0,
+            },
+            DataPoint {
+                label: "C".into(),
+                value: 30.0,
+            },
         ];
         let result = generate_bar_chart(&data, 40, 10);
         assert!(result.contains("A"));
@@ -270,7 +281,10 @@ mod tests {
 
     #[test]
     fn test_line_chart_empty() {
-        let data = vec![DataPoint { label: "A".into(), value: 10.0 }];
+        let data = vec![DataPoint {
+            label: "A".into(),
+            value: 10.0,
+        }];
         let result = generate_line_chart(&data, 40, 10);
         assert!(result.contains("至少需要2个数据点"));
     }
@@ -278,9 +292,18 @@ mod tests {
     #[test]
     fn test_line_chart_valid() {
         let data = vec![
-            DataPoint { label: "Mon".into(), value: 10.0 },
-            DataPoint { label: "Tue".into(), value: 20.0 },
-            DataPoint { label: "Wed".into(), value: 15.0 },
+            DataPoint {
+                label: "Mon".into(),
+                value: 10.0,
+            },
+            DataPoint {
+                label: "Tue".into(),
+                value: 20.0,
+            },
+            DataPoint {
+                label: "Wed".into(),
+                value: 15.0,
+            },
         ];
         let result = generate_line_chart(&data, 40, 10);
         assert!(result.contains("Mon"));
@@ -292,9 +315,18 @@ mod tests {
     #[test]
     fn test_line_chart_differences() {
         let data = vec![
-            DataPoint { label: "min".into(), value: 0.0 },
-            DataPoint { label: "mid".into(), value: 50.0 },
-            DataPoint { label: "max".into(), value: 100.0 },
+            DataPoint {
+                label: "min".into(),
+                value: 0.0,
+            },
+            DataPoint {
+                label: "mid".into(),
+                value: 50.0,
+            },
+            DataPoint {
+                label: "max".into(),
+                value: 100.0,
+            },
         ];
         let result = generate_line_chart(&data, 40, 10);
         assert!(result.contains("0"));

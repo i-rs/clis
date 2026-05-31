@@ -32,7 +32,7 @@ pub fn parse_timezone(tz: Option<&str>) -> chrono::FixedOffset {
     }
 
     // +08:00, -05:00
-    if let Some(offset) = tz.parse::<chrono::FixedOffset>().ok() {
+    if let Ok(offset) = tz.parse::<chrono::FixedOffset>() {
         return offset;
     }
 
@@ -58,16 +58,17 @@ pub fn tz_label(offset: chrono::FixedOffset) -> String {
     }
     let sign = if total_secs >= 0 { "+" } else { "-" };
     let abs_secs = total_secs.abs();
-    format!("{}{:02}:{:02}", sign, abs_secs / 3600, (abs_secs % 3600) / 60)
+    format!(
+        "{}{:02}:{:02}",
+        sign,
+        abs_secs / 3600,
+        (abs_secs % 3600) / 60
+    )
 }
 
 /// Run a CLI command with timeout, returning stdout on success or an error string.
 /// Provides a unified subprocess invocation pattern across all tools.
-pub fn run_cli_command(
-    binary: &str,
-    args: &[&str],
-    timeout_secs: u64,
-) -> Result<String, String> {
+pub fn run_cli_command(binary: &str, args: &[&str], timeout_secs: u64) -> Result<String, String> {
     let mut child = std::process::Command::new(binary)
         .args(args)
         .stdin(std::process::Stdio::null())
@@ -82,7 +83,8 @@ pub fn run_cli_command(
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
-                let output = child.wait_with_output()
+                let output = child
+                    .wait_with_output()
                     .map_err(|e| format!("读取命令输出失败: {}", e))?;
 
                 let max_output = 10_000;
@@ -93,7 +95,12 @@ pub fn run_cli_command(
                         return Ok(r#"{"success":true}"#.to_string());
                     } else if trimmed.len() > max_output {
                         let preview: String = trimmed.chars().take(max_output).collect();
-                        return Ok(format!("{}...\n[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, trimmed.len(), max_output));
+                        return Ok(format!(
+                            "{}...\n[输出截断: 共 {} 字符，仅显示前 {} 字符]",
+                            preview,
+                            trimmed.len(),
+                            max_output
+                        ));
                     } else {
                         return Ok(trimmed.to_string());
                     }
@@ -107,7 +114,12 @@ pub fn run_cli_command(
                     };
                     if combined.len() > max_output {
                         let preview: String = combined.chars().take(max_output).collect();
-                        return Err(format!("{}...\n[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, combined.len(), max_output));
+                        return Err(format!(
+                            "{}...\n[输出截断: 共 {} 字符，仅显示前 {} 字符]",
+                            preview,
+                            combined.len(),
+                            max_output
+                        ));
                     }
                     return Err(combined);
                 }
@@ -116,7 +128,12 @@ pub fn run_cli_command(
                 if start.elapsed() > std::time::Duration::from_secs(timeout_secs) {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Err(format!("命令执行超时 ({}s): {} {}", timeout_secs, binary, args.join(" ")));
+                    return Err(format!(
+                        "命令执行超时 ({}s): {} {}",
+                        timeout_secs,
+                        binary,
+                        args.join(" ")
+                    ));
                 }
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
@@ -192,9 +209,10 @@ pub fn smart_truncate(s: &str, max_chars: usize) -> String {
         let truncated: String = stripped.chars().take(max_chars).collect();
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&truncated)
             && let Ok(s) = serde_json::to_string(&v)
-                && s.len() < stripped.len() {
-                    return format!("{}...(truncated)", s);
-                }
+            && s.len() < stripped.len()
+        {
+            return format!("{}...(truncated)", s);
+        }
         // Fallback: try to find last complete object by counting braces
         if let Some(complete) = find_json_prefix(&truncated) {
             return format!("{}...(truncated)", complete);
@@ -324,13 +342,19 @@ mod tests {
 
     #[test]
     fn test_find_json_prefix_object() {
-        assert_eq!(find_json_prefix(r#"{"a":1,"b":2}"#).as_deref(), Some(r#"{"a":1,"b":2}"#));
+        assert_eq!(
+            find_json_prefix(r#"{"a":1,"b":2}"#).as_deref(),
+            Some(r#"{"a":1,"b":2}"#)
+        );
     }
 
     #[test]
     fn test_find_json_prefix_nested() {
         let s = r#"{"a":{"b":[1,2]},"c":3}extra"#;
-        assert_eq!(find_json_prefix(s).as_deref(), Some(r#"{"a":{"b":[1,2]},"c":3}"#));
+        assert_eq!(
+            find_json_prefix(s).as_deref(),
+            Some(r#"{"a":{"b":[1,2]},"c":3}"#)
+        );
     }
 
     #[test]
@@ -340,7 +364,10 @@ mod tests {
 
     #[test]
     fn test_find_json_prefix_string() {
-        assert_eq!(find_json_prefix(r#""hello"more"#).as_deref(), Some(r#""hello""#));
+        assert_eq!(
+            find_json_prefix(r#""hello"more"#).as_deref(),
+            Some(r#""hello""#)
+        );
     }
 
     #[test]

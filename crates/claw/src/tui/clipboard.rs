@@ -4,10 +4,8 @@ pub(super) fn save_session_messages(
     messages: &[crate::app::Message],
     api_messages: Option<&[serde_json::Value]>,
 ) {
-    let records: Vec<serde_json::Value> = messages
-        .iter()
-        .map(crate::app::message_to_jsonl)
-        .collect();
+    let records: Vec<serde_json::Value> =
+        messages.iter().map(crate::app::message_to_jsonl).collect();
     session_mgr.save_all_messages(session_id, &records);
     if let Some(msgs) = api_messages {
         session_mgr.save_api_messages(session_id, msgs);
@@ -39,9 +37,7 @@ pub(super) fn copy_to_clipboard(text: &str) -> bool {
             child
                 .stdin
                 .take()
-                .and_then(|mut stdin| {
-                    stdin.write_all(text.as_bytes()).ok()
-                });
+                .and_then(|mut stdin| stdin.write_all(text.as_bytes()).ok());
             child.wait_with_output()
         })
         .map(|output| output.status.success())

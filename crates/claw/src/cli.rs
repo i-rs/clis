@@ -3,12 +3,12 @@ use crate::session::SessionManager;
 use crossterm::event::{self, Event, KeyCode};
 #[cfg(feature = "dashboard")]
 use owo_colors::OwoColorize;
+use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
-use ratatui::Terminal;
 use std::io::{self, Write};
 use std::sync::Arc;
 
@@ -35,9 +35,11 @@ pub fn run_config() -> anyhow::Result<()> {
     } else {
         "openai".to_string()
     };
-    print!("Provider [{}] ({}): ",
+    print!(
+        "Provider [{}] ({}): ",
         provider_default,
-        provider_names.join("/"));
+        provider_names.join("/")
+    );
     io::stdout().flush()?;
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
@@ -86,13 +88,21 @@ pub fn run_config() -> anyhow::Result<()> {
     }
 
     // ── Search API Key (optional) ──
-    let search_current = cfg.search_api_key.as_ref().map(|k| {
-        if k.is_empty() {
-            String::new()
-        } else {
-            format!(" [{}...{}]", &k[..4.min(k.len())], &k[k.len().saturating_sub(4)..])
-        }
-    }).unwrap_or_default();
+    let search_current = cfg
+        .search_api_key
+        .as_ref()
+        .map(|k| {
+            if k.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    " [{}...{}]",
+                    &k[..4.min(k.len())],
+                    &k[k.len().saturating_sub(4)..]
+                )
+            }
+        })
+        .unwrap_or_default();
     print!("Search API Key{} (留空使用 DuckDuckGo): ", search_current);
     io::stdout().flush()?;
     input.clear();
@@ -103,7 +113,10 @@ pub fn run_config() -> anyhow::Result<()> {
     }
 
     // ── Search Base URL (optional) ──
-    let search_url_default = cfg.search_base_url.as_deref().unwrap_or("DuckDuckGo (free)");
+    let search_url_default = cfg
+        .search_base_url
+        .as_deref()
+        .unwrap_or("DuckDuckGo (free)");
     print!("Search Base URL [{}]: ", search_url_default);
     io::stdout().flush()?;
     input.clear();
@@ -159,7 +172,9 @@ pub fn run_config() -> anyhow::Result<()> {
     println!("  Model: {}", cfg.model);
     println!(
         "  搜索: {}",
-        cfg.search_base_url.as_deref().unwrap_or("DuckDuckGo (free)")
+        cfg.search_base_url
+            .as_deref()
+            .unwrap_or("DuckDuckGo (free)")
     );
     println!("  MCP 服务器: {} 个", cfg.mcp_servers.len());
     println!(
@@ -270,34 +285,35 @@ pub fn run_tools() -> anyhow::Result<()> {
                 );
             })?;
 
-            if let Event::Key(key) = event::read()? { match key.code {
-                KeyCode::Up => selection = selection.saturating_sub(1),
-                KeyCode::Down if selection + 1 < total => selection += 1,
-                KeyCode::Char(' ') => {
-                    dirty = true;
-                    let name = &all_tools[selection];
-                    if cfg.enabled_tools.contains(name) {
-                        cfg.enabled_tools.remove(name);
-                    } else {
-                        cfg.enabled_tools.insert(name.to_string());
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Up => selection = selection.saturating_sub(1),
+                    KeyCode::Down if selection + 1 < total => selection += 1,
+                    KeyCode::Char(' ') => {
+                        dirty = true;
+                        let name = &all_tools[selection];
+                        if cfg.enabled_tools.contains(name) {
+                            cfg.enabled_tools.remove(name);
+                        } else {
+                            cfg.enabled_tools.insert(name.to_string());
+                        }
                     }
+                    KeyCode::Char('a') | KeyCode::Char('A') => {
+                        dirty = true;
+                        cfg.enabled_tools = all_tools.iter().map(|s| s.to_string()).collect();
+                    }
+                    KeyCode::Char('n') | KeyCode::Char('N') => {
+                        dirty = true;
+                        cfg.enabled_tools.clear();
+                    }
+                    KeyCode::Enter => break Ok(()),
+                    KeyCode::Esc | KeyCode::Char('q') => {
+                        dirty = false;
+                        break Ok(());
+                    }
+                    _ => {}
                 }
-                KeyCode::Char('a') | KeyCode::Char('A') => {
-                    dirty = true;
-                    cfg.enabled_tools =
-                        all_tools.iter().map(|s| s.to_string()).collect();
-                }
-                KeyCode::Char('n') | KeyCode::Char('N') => {
-                    dirty = true;
-                    cfg.enabled_tools.clear();
-                }
-                KeyCode::Enter => break Ok(()),
-                KeyCode::Esc | KeyCode::Char('q') => {
-                    dirty = false;
-                    break Ok(());
-                }
-                _ => {}
-            } }
+            }
         }
     })();
 
@@ -400,9 +416,7 @@ pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
         tokio::spawn(async move {
-            let _ = provider
-                .stream_chat(&msgs, &[], &tx)
-                .await;
+            let _ = provider.stream_chat(&msgs, &[], &tx).await;
         });
 
         use std::io::Write;
@@ -434,9 +448,9 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(tokio::sync::RwLock::new(
-        crate::core::AppCore::new(config.clone())?,
-    ));
+    let core = std::sync::Arc::new(tokio::sync::RwLock::new(crate::core::AppCore::new(
+        config.clone(),
+    )?));
 
     #[allow(unused_mut)]
     let mut server = crate::gateway::GatewayServer::new();
@@ -445,29 +459,30 @@ pub fn run_gateway() -> anyhow::Result<()> {
     if config.gateway.enabled {
         if let Some(ref tg) = config.gateway.telegram
             && tg.enabled
-            && let Some(ref token) = tg.token {
-                let adapter = crate::gateway::telegram::TelegramAdapter::new(
-                    crate::gateway::telegram::TelegramConfig {
-                        bot_token: token.clone(),
-                        enabled: true,
-                        agent_id: tg.agent_id.clone().unwrap_or_else(|| "default".to_string()),
-                    },
-                );
-                server.register(std::sync::Arc::new(adapter));
-                println!("  ✓ Telegram bot registered");
-            }
+            && let Some(ref token) = tg.token
+        {
+            let adapter = crate::gateway::telegram::TelegramAdapter::new(
+                crate::gateway::telegram::TelegramConfig {
+                    bot_token: token.clone(),
+                    enabled: true,
+                    agent_id: tg.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                },
+            );
+            server.register(std::sync::Arc::new(adapter));
+            println!("  ✓ Telegram bot registered");
+        }
 
         if let Some(ref wc) = config.gateway.wechat
-            && wc.enabled {
-                let adapter = crate::gateway::wechat::WeChatAdapter::new(
-                    crate::gateway::wechat::WeChatConfig {
-                        enabled: true,
-                        agent_id: wc.agent_id.clone().unwrap_or_else(|| "default".to_string()),
-                    },
-                );
-                server.register(std::sync::Arc::new(adapter));
-                println!("  ✓ WeChat bot registered");
-            }
+            && wc.enabled
+        {
+            let adapter =
+                crate::gateway::wechat::WeChatAdapter::new(crate::gateway::wechat::WeChatConfig {
+                    enabled: true,
+                    agent_id: wc.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                });
+            server.register(std::sync::Arc::new(adapter));
+            println!("  ✓ WeChat bot registered");
+        }
     }
 
     if server.adapter_count() == 0 {
@@ -539,7 +554,11 @@ pub fn run_plugin_list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("Plugins ({} discovered, {} enabled):\n", mgr.plugin_count(), mgr.enabled_count());
+    println!(
+        "Plugins ({} discovered, {} enabled):\n",
+        mgr.plugin_count(),
+        mgr.enabled_count()
+    );
     for m in &mgr.manifests {
         let status = if mgr.is_enabled(&m.plugin.name) {
             "enabled"
@@ -548,10 +567,7 @@ pub fn run_plugin_list() -> anyhow::Result<()> {
         };
         println!(
             "  {:<20} v{:<8} [{}]  {}",
-            m.plugin.name,
-            m.plugin.version,
-            status,
-            m.plugin.description
+            m.plugin.name, m.plugin.version, status, m.plugin.description
         );
     }
     Ok(())
@@ -659,10 +675,7 @@ pub fn run_mcp_list() -> anyhow::Result<()> {
         let cmd = srv.command.as_deref().unwrap_or("-");
         println!(
             "  {:<20} [{:<6}] [{:<8}]  {}",
-            srv.name,
-            source,
-            status,
-            cmd,
+            srv.name, source, status, cmd,
         );
     }
     Ok(())
@@ -683,11 +696,12 @@ pub fn run_mcp_check(name: &str) -> anyhow::Result<()> {
     }
 
     // Find by exact name or plugin:name prefix
-    let srv = candidates.iter().find(|s| s.name == name)
-        .or_else(|| candidates.iter().find(|s| {
+    let srv = candidates.iter().find(|s| s.name == name).or_else(|| {
+        candidates.iter().find(|s| {
             let stripped = s.name.strip_prefix("plugin:").unwrap_or(&s.name);
             stripped == name
-        }));
+        })
+    });
 
     match srv {
         Some(server) => {
@@ -786,7 +800,11 @@ pub fn run_skill_list() -> anyhow::Result<()> {
         // Parse frontmatter to show description
         let desc = crate::skill_store::parse_frontmatter(&s.content)
             .0
-            .and_then(|t| t.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .and_then(|t| {
+                t.get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
             .unwrap_or_default();
         if !desc.is_empty() {
             println!("  {:<20} — {}", s.name, desc);
@@ -802,7 +820,10 @@ pub fn run_skill_install(name: &str) -> anyhow::Result<()> {
     let template = crate::skill_store::SkillStore::skill_template(name);
     store.install(name, &template)?;
     println!("✓ 已创建技能 '{}'", name);
-    println!("  编辑文件: {:?}", store.path().join(format!("{}.md", name)));
+    println!(
+        "  编辑文件: {:?}",
+        store.path().join(format!("{}.md", name))
+    );
     Ok(())
 }
 
@@ -824,7 +845,10 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
             println!("技能: {}", def.name);
             println!("  描述: {}", def.description);
             if let Some(ref params) = def.parameters {
-                println!("  参数: {}", serde_json::to_string_pretty(params).unwrap_or_default());
+                println!(
+                    "  参数: {}",
+                    serde_json::to_string_pretty(params).unwrap_or_default()
+                );
             } else {
                 println!("  类型: 指令技能");
             }
@@ -887,22 +911,29 @@ pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
         println!("  预估费用:     ${:.4}", result.total_cost_usd);
     }
     println!("  平均延迟:     {:>8}ms", result.avg_latency_ms as u64);
-    println!("  成功率:       {:>7}%", (result.success_rate * 100.0).round() / 100.0);
+    println!(
+        "  成功率:       {:>7}%",
+        (result.success_rate * 100.0).round() / 100.0
+    );
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     if !result.by_model.is_empty() {
         println!("\n按模型:");
         for m in &result.by_model {
-            println!("  {:<30} {:>4}次 {:>8} tok  ${:.4}",
-                m.model, m.request_count, m.total_tokens, m.total_cost_usd);
+            println!(
+                "  {:<30} {:>4}次 {:>8} tok  ${:.4}",
+                m.model, m.request_count, m.total_tokens, m.total_cost_usd
+            );
         }
     }
 
     if !result.by_agent.is_empty() {
         println!("\n按 Agent:");
         for a in &result.by_agent {
-            println!("  {:<30} {:>4}次 {:>8} tok  ${:.4}",
-                a.agent_id, a.request_count, a.total_tokens, a.total_cost_usd);
+            println!(
+                "  {:<30} {:>4}次 {:>8} tok  ${:.4}",
+                a.agent_id, a.request_count, a.total_tokens, a.total_cost_usd
+            );
         }
     }
 
@@ -934,8 +965,12 @@ fn parse_mcp_server(input: &str) -> Option<crate::mcp::McpServerConfig> {
     if name.is_empty() || command.is_empty() {
         return None;
     }
-    let args = parts.get(2).map(|s| s.split_whitespace().map(|a| a.to_string()).collect());
-    let env = parts.get(3).map(|s| s.split_whitespace().map(|e| e.to_string()).collect());
+    let args = parts
+        .get(2)
+        .map(|s| s.split_whitespace().map(|a| a.to_string()).collect());
+    let env = parts
+        .get(3)
+        .map(|s| s.split_whitespace().map(|e| e.to_string()).collect());
     Some(crate::mcp::McpServerConfig {
         name,
         transport_type: "stdio".to_string(),

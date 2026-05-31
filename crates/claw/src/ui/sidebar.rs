@@ -1,13 +1,13 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
-    Frame,
 };
 
-use crate::app::App;
 use super::utils;
+use crate::app::App;
 
 pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
     // Sidebar block with border - refined styling
@@ -63,13 +63,9 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
         };
 
         // Count messages in request body
-        let msg_count = if let Ok(v) =
-            serde_json::from_str::<serde_json::Value>(&log.request_body)
+        let msg_count = if let Ok(v) = serde_json::from_str::<serde_json::Value>(&log.request_body)
         {
-            v["messages"]
-                .as_array()
-                .map(|a| a.len())
-                .unwrap_or(0)
+            v["messages"].as_array().map(|a| a.len()).unwrap_or(0)
         } else {
             0
         };
@@ -77,14 +73,19 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
         // Line 1: selection indicator + timestamp + status
         items.push(ListItem::new(vec![
             Line::from(vec![
-                Span::styled(select_prefix, Style::default().fg(select_fg).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    select_prefix,
+                    Style::default().fg(select_fg).add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(
                     format!(" {} ", log.timestamp),
                     Style::default().fg(Color::DarkGray),
                 ),
                 Span::styled(
                     format!("{} {}", status_icon, log.status),
-                    Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(status_color)
+                        .add_modifier(Modifier::BOLD),
                 ),
             ]),
             // Line 2: duration + model
@@ -103,10 +104,7 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
         // Token stats line
         if log.prompt_tokens > 0 || log.completion_tokens > 0 {
             items.push(ListItem::new(vec![Line::from(Span::styled(
-                format!(
-                    "   {}p + {}c",
-                    log.prompt_tokens, log.completion_tokens
-                ),
+                format!("   {}p + {}c", log.prompt_tokens, log.completion_tokens),
                 Style::default().fg(Color::Rgb(140, 140, 160)),
             ))]));
         }
@@ -120,7 +118,9 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
             if is_selected {
                 Span::styled(
                     "  <Enter>",
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )
             } else {
                 Span::raw("")
@@ -130,7 +130,10 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
         // Error detail line
         if let Some(err) = &log.error {
             items.push(ListItem::new(vec![Line::from(Span::styled(
-                format!("   {}", utils::truncate_str(err, side_width.saturating_sub(4))),
+                format!(
+                    "   {}",
+                    utils::truncate_str(err, side_width.saturating_sub(4))
+                ),
                 Style::default().fg(Color::Red),
             ))]));
         }
@@ -165,14 +168,12 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         } else {
             format!(" 🔍 {}", app.overlay.session_search)
         };
-        items.push(ListItem::new(vec![
-            Line::from(Span::styled(
-                search_line,
-                Style::default()
-                    .fg(theme_primary)
-                    .add_modifier(Modifier::BOLD),
-            )),
-        ]));
+        items.push(ListItem::new(vec![Line::from(Span::styled(
+            search_line,
+            Style::default()
+                .fg(theme_primary)
+                .add_modifier(Modifier::BOLD),
+        ))]));
         " 会话列表"
     } else {
         " 会话列表"
@@ -224,7 +225,11 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
             items.push(ListItem::new(vec![Line::from(vec![
                 Span::raw("      "),
                 Span::styled(
-                    format!("💬 {} · {}", session.message_count, utils::relative_time(session.updated_at)),
+                    format!(
+                        "💬 {} · {}",
+                        session.message_count,
+                        utils::relative_time(session.updated_at)
+                    ),
                     Style::default().fg(Color::DarkGray),
                 ),
             ])]));
@@ -246,12 +251,11 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
             ),
             Span::styled(
                 app.overlay.session_rename_buf.clone(),
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(
-                " ▌",
-                Style::default().fg(Color::Yellow),
-            ),
+            Span::styled(" ▌", Style::default().fg(Color::Yellow)),
         ])]));
     }
 
@@ -378,7 +382,11 @@ pub(super) fn render_request_body(
 
     // Header
     lines.push(Line::from(Span::styled(
-        format!("  🔍 Request Body ({}/{})  [↑↓/scroll to browse | Esc to close]", idx + 1, total),
+        format!(
+            "  🔍 Request Body ({}/{})  [↑↓/scroll to browse | Esc to close]",
+            idx + 1,
+            total
+        ),
         Style::default()
             .fg(Color::Cyan)
             .add_modifier(Modifier::BOLD),

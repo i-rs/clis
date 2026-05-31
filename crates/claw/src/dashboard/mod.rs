@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use std::sync::Arc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use owo_colors::OwoColorize;
@@ -68,18 +68,26 @@ impl Dashboard {
 
         let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth_guard);
 
-        let public_routes = Router::new()
-            .route("/api/health", axum::routing::get(routes::health));
+        let public_routes = Router::new().route("/api/health", axum::routing::get(routes::health));
 
         let api_routes = Router::new()
-            .route("/api/config", axum::routing::get(routes::get_config).patch(routes::update_config))
+            .route(
+                "/api/config",
+                axum::routing::get(routes::get_config).patch(routes::update_config),
+            )
             .route("/api/chat", axum::routing::post(routes::send_message))
             .route(
                 "/api/chat/stream/{session_id}",
                 axum::routing::get(routes::chat_stream),
             )
-            .route("/api/sessions/current", axum::routing::get(routes::get_current_session))
-            .route("/api/sessions", axum::routing::get(routes::list_sessions).post(routes::create_session))
+            .route(
+                "/api/sessions/current",
+                axum::routing::get(routes::get_current_session),
+            )
+            .route(
+                "/api/sessions",
+                axum::routing::get(routes::list_sessions).post(routes::create_session),
+            )
             .route(
                 "/api/sessions/{id}",
                 axum::routing::get(routes::get_session).delete(routes::delete_session),
@@ -96,10 +104,15 @@ impl Dashboard {
             .route("/api/plugins", axum::routing::get(routes::list_plugins))
             .route("/api/skills", axum::routing::get(routes::list_skills))
             .route("/api/stats", axum::routing::get(routes::get_stats))
-            .route("/api/agents", axum::routing::get(routes::get_agents).post(routes::create_agent))
+            .route(
+                "/api/agents",
+                axum::routing::get(routes::get_agents).post(routes::create_agent),
+            )
             .route(
                 "/api/agents/{id}",
-                axum::routing::get(routes::get_agent_detail).put(routes::update_agent).delete(routes::delete_agent),
+                axum::routing::get(routes::get_agent_detail)
+                    .put(routes::update_agent)
+                    .delete(routes::delete_agent),
             )
             .layer(auth_middleware);
 
@@ -132,7 +145,9 @@ impl Dashboard {
             "  {}  {}	{}",
             "🔗".bright_blue(),
             "Dashboard".bold().bright_cyan(),
-            format!("http://{}#{}", addr, auth_token).underline().bright_blue()
+            format!("http://{}#{}", addr, auth_token)
+                .underline()
+                .bright_blue()
         );
         println!();
 
@@ -169,13 +184,12 @@ async fn auth_guard(
         Some(token) if token == state.auth_token => next.run(req).await,
         _ => {
             tracing::warn!("Dashboard 认证失败: {}", req.uri().path());
-            let mut resp = axum::response::IntoResponse::into_response(
-                axum::Json(serde_json::json!({
+            let mut resp =
+                axum::response::IntoResponse::into_response(axum::Json(serde_json::json!({
                     "success": false,
                     "data": null,
                     "error": "Unauthorized",
-                }))
-            );
+                })));
             *resp.status_mut() = axum::http::StatusCode::UNAUTHORIZED;
             resp.headers_mut().insert(
                 axum::http::header::WWW_AUTHENTICATE,
@@ -189,10 +203,10 @@ async fn auth_guard(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use axum::routing::get;
-    use axum::Router;
     use tokio::sync::RwLock;
     use tower::ServiceExt;
 
@@ -208,12 +222,15 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_auth_valid_token() {
         let state = test_state();
         let app = Router::new()
             .route("/api/test", get(ok_handler))
-            .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))
+            .layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                auth_guard,
+            ))
             .with_state(state);
 
         let req = Request::builder()
@@ -225,12 +242,15 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_auth_missing_token() {
         let state = test_state();
         let app = Router::new()
             .route("/api/test", get(ok_handler))
-            .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))
+            .layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                auth_guard,
+            ))
             .with_state(state);
 
         let req = Request::builder()
@@ -241,12 +261,15 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_auth_wrong_token() {
         let state = test_state();
         let app = Router::new()
             .route("/api/test", get(ok_handler))
-            .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))
+            .layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                auth_guard,
+            ))
             .with_state(state);
 
         let req = Request::builder()

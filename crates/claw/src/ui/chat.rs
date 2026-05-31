@@ -1,16 +1,16 @@
 use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{List, ListItem},
-    Frame,
 };
 use std::sync::Arc;
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::{App, Message};
 use super::utils;
+use crate::app::{App, Message};
 
 pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     let text_width = (area.width as usize).saturating_sub(4).max(20);
@@ -74,9 +74,18 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
             continue;
         }
         let msg_index = app.messages.len() - 1 - rev_idx;
-        let skip = if rev_idx == msg_skip_count { partial_skip } else { 0 };
+        let skip = if rev_idx == msg_skip_count {
+            partial_skip
+        } else {
+            0
+        };
         items.push(build_message_item_with_skip(
-            app, msg, text_width, msg_index, &format_cache, skip,
+            app,
+            msg,
+            text_width,
+            msg_index,
+            &format_cache,
+            skip,
         ));
     }
     items.reverse();
@@ -101,7 +110,11 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
 
     if total_msgs > 0 {
         let visible_end = total_msgs.saturating_sub(msg_skip_count);
-        let pct = if total_msgs <= 1 { 100 } else { (visible_end * 100) / total_msgs };
+        let pct = if total_msgs <= 1 {
+            100
+        } else {
+            (visible_end * 100) / total_msgs
+        };
         let bar_width = 10;
         let filled = ((pct * bar_width) / 100).max(1).min(bar_width);
         let empty = bar_width - filled;
@@ -129,7 +142,10 @@ fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
     let mut scan_offset = 0;
     for w in &wrapped {
         let spans = parse_ansi_line(text, &plain, w, &wrapped, scan_offset);
-        scan_offset = plain[scan_offset..].find(w).map(|i| scan_offset + i + w.len()).unwrap_or(scan_offset);
+        scan_offset = plain[scan_offset..]
+            .find(w)
+            .map(|i| scan_offset + i + w.len())
+            .unwrap_or(scan_offset);
         lines.push(Line::from(if spans.is_empty() {
             vec![Span::styled(
                 format!("   {}", w),
@@ -166,7 +182,13 @@ fn strip_ansi(text: &str) -> String {
 /// Parse ANSI codes from `raw` and produce Spans for the given `line` text.
 /// `line` is a wrapped segment of the plain-text version.
 /// `scan_offset` is the byte offset in `plain` where we should start searching.
-fn parse_ansi_line(raw: &str, plain: &str, line: &str, _wrapped: &[String], scan_offset: usize) -> Vec<Span<'static>> {
+fn parse_ansi_line(
+    raw: &str,
+    plain: &str,
+    line: &str,
+    _wrapped: &[String],
+    scan_offset: usize,
+) -> Vec<Span<'static>> {
     let line_start = match plain[scan_offset..].find(line) {
         Some(i) => scan_offset + i,
         None => return vec![],
@@ -347,14 +369,11 @@ fn wrapped_line_count(text: &str, max_width: usize) -> usize {
         return text.lines().count();
     }
     let clean = strip_ansi(text);
-    clean.lines()
+    clean
+        .lines()
         .map(|line| {
             let w = UnicodeWidthStr::width(line);
-            if w == 0 {
-                1
-            } else {
-                w.div_ceil(max_width)
-            }
+            if w == 0 { 1 } else { w.div_ceil(max_width) }
         })
         .sum()
 }
@@ -390,9 +409,9 @@ fn message_line_count(
             let header_lines = 1;
             let trailing = 1;
             let body_lines = {
-                let md_lines = format_cache
-                    .entry(msg_index)
-                    .or_insert_with(|| Arc::new(render_markdown(text, text_width.saturating_sub(3))));
+                let md_lines = format_cache.entry(msg_index).or_insert_with(|| {
+                    Arc::new(render_markdown(text, text_width.saturating_sub(3)))
+                });
                 if !is_markdown(text) || md_lines.is_empty() {
                     wrapped_line_count(text, text_width)
                 } else {
@@ -402,31 +421,34 @@ fn message_line_count(
             header_lines + body_lines + trailing + extra
         }
         Message::ToolCall {
-            name,
-            args,
-            result,
-            ..
+            name, args, result, ..
         } => {
             // Collapsed: only header + optional explanation
             if !app.overlay.tool_call_expanded.contains(&msg_index) {
                 let mut lines = 1; // header
                 // optional explanation line
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
-                    && name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
-                        lines += 1;
-                    }
+                    && name == "i_rs"
+                    && val.get("explanation").and_then(|v| v.as_str()).is_some()
+                {
+                    lines += 1;
+                }
                 return lines;
             }
 
             let mut lines = 1; // header
             // optional explanation line
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
-                && name == "i_rs" && val.get("explanation").and_then(|v| v.as_str()).is_some() {
-                    lines += 1;
-                }
+                && name == "i_rs"
+                && val.get("explanation").and_then(|v| v.as_str()).is_some()
+            {
+                lines += 1;
+            }
             // result lines — use cached format_json_result for accurate counting
             if !result.is_empty() {
-                let cached = format_cache.entry(msg_index).or_insert_with(|| Arc::new(utils::format_json_result(result, text_width).0));
+                let cached = format_cache
+                    .entry(msg_index)
+                    .or_insert_with(|| Arc::new(utils::format_json_result(result, text_width).0));
                 lines += cached.len();
             }
             lines
@@ -436,7 +458,11 @@ fn message_line_count(
             1 + wrapped_line_count(text, text_width) + 1
         }
         Message::Evaluation { valid, issues, .. } => {
-            if *valid { 0 } else { 1 + issues.len() }
+            if *valid {
+                0
+            } else {
+                1 + issues.len()
+            }
         }
         _ => 0,
     }
@@ -467,14 +493,20 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
         width: usize,
     }
     impl MdLine {
-        fn new() -> Self { Self { spans: Vec::new(), width: 0 } }
+        fn new() -> Self {
+            Self {
+                spans: Vec::new(),
+                width: 0,
+            }
+        }
         fn add(&mut self, text: &str, style: Style) {
             self.width += UnicodeWidthStr::width(text);
             if let Some(last) = self.spans.last_mut()
-                && last.1 == style {
-                    last.0.push_str(text);
-                    return;
-                }
+                && last.1 == style
+            {
+                last.0.push_str(text);
+                return;
+            }
             self.spans.push((text.to_string(), style));
         }
         fn flush(&mut self, out: &mut Vec<Line<'static>>, max_width: usize) {
@@ -482,7 +514,9 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 return;
             }
             if self.width <= max_width {
-                let spans: Vec<Span> = self.spans.drain(..)
+                let spans: Vec<Span> = self
+                    .spans
+                    .drain(..)
                     .map(|(t, s)| Span::styled(t, s))
                     .collect();
                 out.push(Line::from(spans));
@@ -491,7 +525,10 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 let plain: String = self.spans.iter().map(|(t, _)| t.as_str()).collect();
                 self.spans.clear();
                 for w in utils::wrap_text(&plain, max_width) {
-                    out.push(Line::from(Span::styled(w, Style::default().fg(Color::White))));
+                    out.push(Line::from(Span::styled(
+                        w,
+                        Style::default().fg(Color::White),
+                    )));
                 }
             }
         }
@@ -512,7 +549,7 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                     let n = level as u8;
                     // Heading color: cyan for H1, lighter for deeper headings
                     let heading_color = match n {
-                        1 => Color::Rgb(34, 211, 238),  // Cyan
+                        1 => Color::Rgb(34, 211, 238), // Cyan
                         2 => Color::Rgb(150, 200, 220),
                         _ => Color::Rgb(180, 180, 200),
                     };
@@ -521,7 +558,12 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                     } else {
                         String::new()
                     };
-                    acc.add(&prefix, Style::default().fg(heading_color).add_modifier(Modifier::BOLD));
+                    acc.add(
+                        &prefix,
+                        Style::default()
+                            .fg(heading_color)
+                            .add_modifier(Modifier::BOLD),
+                    );
                 }
                 Tag::List(_) => {}
                 Tag::Item => {
@@ -644,7 +686,13 @@ fn build_message_item_with_skip(
             Message::Assistant { .. } => Color::Rgb(25, 30, 45),
             Message::ToolCall { .. } => Color::Rgb(25, 25, 35),
             Message::Error { .. } => Color::Rgb(35, 15, 15),
-            Message::Evaluation { valid, .. } => if *valid { Color::Rgb(20, 35, 25) } else { Color::Rgb(40, 20, 15) },
+            Message::Evaluation { valid, .. } => {
+                if *valid {
+                    Color::Rgb(20, 35, 25)
+                } else {
+                    Color::Rgb(40, 20, 15)
+                }
+            }
             _ => Color::Rgb(20, 20, 20),
         };
         item = item.style(Style::default().bg(bg));
@@ -661,28 +709,24 @@ fn build_message_lines(
 ) -> Vec<Line<'static>> {
     match msg {
         Message::User { text } => {
-            let ts_label = app.message_timestamps
+            let ts_label = app
+                .message_timestamps
                 .get(msg_index)
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
-            let mut lines = vec![
-                Line::from(vec![
-                    Span::styled(
-                        "▌ ",
-                        Style::default().fg(app.config.theme.secondary()),
-                    ),
-                    Span::styled(
-                        "You",
-                        Style::default()
-                            .fg(app.config.theme.secondary())
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(
-                        format!(":{}", ts_label),
-                        Style::default().fg(app.config.theme.dim_text()),
-                    ),
-                ]),
-            ];
+            let mut lines = vec![Line::from(vec![
+                Span::styled("▌ ", Style::default().fg(app.config.theme.secondary())),
+                Span::styled(
+                    "You",
+                    Style::default()
+                        .fg(app.config.theme.secondary())
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!(":{}", ts_label),
+                    Style::default().fg(app.config.theme.dim_text()),
+                ),
+            ])];
             for wrapped in utils::wrap_text(text, text_width) {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", wrapped),
@@ -693,16 +737,14 @@ fn build_message_lines(
             lines
         }
         Message::Assistant { text, reasoning } => {
-            let ts_label = app.message_timestamps
+            let ts_label = app
+                .message_timestamps
                 .get(msg_index)
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
             let is_expanded = app.overlay.reasoning_expanded.contains(&msg_index);
             let mut lines = vec![Line::from(vec![
-                Span::styled(
-                    "◆ ",
-                    Style::default().fg(app.config.theme.primary()),
-                ),
+                Span::styled("◆ ", Style::default().fg(app.config.theme.primary())),
                 Span::styled(
                     "Claw",
                     Style::default()
@@ -723,7 +765,8 @@ fn build_message_lines(
                 )));
                 if is_expanded {
                     for reason_line in reasoning.lines() {
-                        let display = utils::truncate_str(reason_line, text_width.saturating_sub(6).max(20));
+                        let display =
+                            utils::truncate_str(reason_line, text_width.saturating_sub(6).max(20));
                         lines.push(Line::from(Span::styled(
                             format!("      {}", display),
                             Style::default().fg(Color::Rgb(100, 100, 130)),
@@ -776,40 +819,41 @@ fn build_message_lines(
                 String::new()
             };
 
-            let (header, detail) =
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
-                    if name == "i_rs" {
-                        let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
-                        let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
-                        let explanation = val.get("explanation").and_then(|v| v.as_str());
-                        (
-                            format!("▸▸ {}{} {}", step_prefix, tool, cmd),
-                            explanation.map(|s| s.to_string()),
-                        )
-                    } else if name == "search_conversations" {
-                        let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!("◉ 搜索历史: {}", q), None)
-                    } else if name == "search_tools" {
-                        let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!("◉ search: {}", q), None)
-                    } else if name == "update_user_memory" {
-                        ("◎ 记住用户信息".to_string(), None)
-                    } else if name == "file_ops" {
-                        let op = val.get("operation").and_then(|v| v.as_str()).unwrap_or("?");
-                        let p = val.get("path").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!("▤ {}: {}", op, p), None)
-                    } else if name == "web_search" {
-                        let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-                        (format!("◉ 搜索网络: {}", q), None)
-                    } else {
-                        (format!("▸▸ {}{}", step_prefix, name), None)
-                    }
+            let (header, detail) = if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
+            {
+                if name == "i_rs" {
+                    let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
+                    let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
+                    let explanation = val.get("explanation").and_then(|v| v.as_str());
+                    (
+                        format!("▸▸ {}{} {}", step_prefix, tool, cmd),
+                        explanation.map(|s| s.to_string()),
+                    )
+                } else if name == "search_conversations" {
+                    let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("◉ 搜索历史: {}", q), None)
+                } else if name == "search_tools" {
+                    let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("◉ search: {}", q), None)
+                } else if name == "update_user_memory" {
+                    ("◎ 记住用户信息".to_string(), None)
+                } else if name == "file_ops" {
+                    let op = val.get("operation").and_then(|v| v.as_str()).unwrap_or("?");
+                    let p = val.get("path").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("▤ {}: {}", op, p), None)
+                } else if name == "web_search" {
+                    let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("◉ 搜索网络: {}", q), None)
                 } else {
-                    (format!("▸▸ {} {}", step_prefix, name), None)
-                };
+                    (format!("▸▸ {}{}", step_prefix, name), None)
+                }
+            } else {
+                (format!("▸▸ {} {}", step_prefix, name), None)
+            };
 
             let indicator = if is_expanded { " [-]" } else { " [+]" };
-            let ts_label = app.message_timestamps
+            let ts_label = app
+                .message_timestamps
                 .get(msg_index)
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
@@ -827,45 +871,43 @@ fn build_message_lines(
                 )));
             }
 
-            if is_expanded && !result.is_empty()
-                && let Some(cached_lines) = format_cache.get(&msg_index) {
-                    if !cached_lines.is_empty() {
-                        lines.extend((**cached_lines).clone());
-                    } else if has_ansi(result) {
-                        for line in ansi_to_lines(result, text_width) {
-                            lines.push(line);
-                        }
-                    } else {
-                        for wrapped in utils::wrap_text(result, text_width.saturating_sub(3)) {
-                            lines.push(Line::from(Span::styled(
-                                format!("   {}", wrapped),
-                                Style::default().fg(app.config.theme.text()),
-                            )));
-                        }
+            if is_expanded
+                && !result.is_empty()
+                && let Some(cached_lines) = format_cache.get(&msg_index)
+            {
+                if !cached_lines.is_empty() {
+                    lines.extend((**cached_lines).clone());
+                } else if has_ansi(result) {
+                    for line in ansi_to_lines(result, text_width) {
+                        lines.push(line);
+                    }
+                } else {
+                    for wrapped in utils::wrap_text(result, text_width.saturating_sub(3)) {
+                        lines.push(Line::from(Span::styled(
+                            format!("   {}", wrapped),
+                            Style::default().fg(app.config.theme.text()),
+                        )));
                     }
                 }
+            }
 
             lines
         }
         Message::Error { text } => {
-            let ts_label = app.message_timestamps
+            let ts_label = app
+                .message_timestamps
                 .get(msg_index)
                 .map(|ts| format!("  [{}]", utils::relative_time_naive(*ts)))
                 .unwrap_or_default();
-            let mut lines = vec![
-                Line::from(vec![
-                    Span::styled(
-                        "✗ ",
-                        Style::default().fg(app.config.theme.error()),
-                    ),
-                    Span::styled(
-                        format!("Error:{}", ts_label),
-                        Style::default()
-                            .fg(app.config.theme.error())
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ]),
-            ];
+            let mut lines = vec![Line::from(vec![
+                Span::styled("✗ ", Style::default().fg(app.config.theme.error())),
+                Span::styled(
+                    format!("Error:{}", ts_label),
+                    Style::default()
+                        .fg(app.config.theme.error())
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ])];
             for wrapped in utils::wrap_text(text, text_width) {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", wrapped),
@@ -875,24 +917,23 @@ fn build_message_lines(
             lines.push(Line::from(Span::raw("")));
             lines
         }
-        Message::Evaluation { tool, valid, issues } => {
-            if *valid { return Vec::new(); }
+        Message::Evaluation {
+            tool,
+            valid,
+            issues,
+        } => {
+            if *valid {
+                return Vec::new();
+            }
             let accent = app.config.theme.accent();
             let text = app.config.theme.text();
-            let mut lines = vec![
-                Line::from(vec![
-                    Span::styled(
-                        "⚠ ",
-                        Style::default().fg(accent),
-                    ),
-                    Span::styled(
-                        format!("工具结果检查: {}", tool),
-                        Style::default()
-                            .fg(accent)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ]),
-            ];
+            let mut lines = vec![Line::from(vec![
+                Span::styled("⚠ ", Style::default().fg(accent)),
+                Span::styled(
+                    format!("工具结果检查: {}", tool),
+                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                ),
+            ])];
             for issue in issues {
                 lines.push(Line::from(Span::styled(
                     format!("   • {}", issue),
@@ -902,21 +943,21 @@ fn build_message_lines(
             lines.push(Line::from(Span::raw("")));
             lines
         }
-        Message::Quality { score, complete, issues, .. } => {
+        Message::Quality {
+            score,
+            complete,
+            issues,
+            ..
+        } => {
             let accent = app.config.theme.accent();
             let text = app.config.theme.text();
-            let mut lines = vec![
-                Line::from(vec![
-                    Span::styled(
-                        "📊 ",
-                        Style::default().fg(accent),
-                    ),
-                    Span::styled(
-                        "回答质量评估",
-                        Style::default().fg(accent).add_modifier(Modifier::BOLD),
-                    ),
-                ]),
-            ];
+            let mut lines = vec![Line::from(vec![
+                Span::styled("📊 ", Style::default().fg(accent)),
+                Span::styled(
+                    "回答质量评估",
+                    Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                ),
+            ])];
             if let Some(s) = score {
                 lines.push(Line::from(Span::styled(
                     format!("   评分: {:.0}%", s * 100.0),
@@ -938,13 +979,15 @@ fn build_message_lines(
         }
         Message::Feedback { positive, message } => {
             let icon = if *positive { "👍" } else { "👎" };
-            let color = if *positive { app.config.theme.accent() } else { app.config.theme.error() };
-            let mut lines = vec![
-                Line::from(Span::styled(
-                    format!("{} 用户反馈", icon),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                )),
-            ];
+            let color = if *positive {
+                app.config.theme.accent()
+            } else {
+                app.config.theme.error()
+            };
+            let mut lines = vec![Line::from(Span::styled(
+                format!("{} 用户反馈", icon),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ))];
             if let Some(msg) = message {
                 lines.push(Line::from(Span::styled(
                     format!("   {}", msg),

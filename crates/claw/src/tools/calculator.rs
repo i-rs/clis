@@ -43,7 +43,9 @@ impl ClawTool for CalculatorTool {
             .unwrap_or("")
             .trim();
         if expr.is_empty() {
-            return Err(ClawError::Validation("Please provide an expression".to_string()));
+            return Err(ClawError::Validation(
+                "Please provide an expression".to_string(),
+            ));
         }
 
         match eval(expr) {
@@ -81,7 +83,10 @@ struct Lexer {
 
 impl Lexer {
     fn new(s: &str) -> Self {
-        Self { chars: s.chars().collect(), pos: 0 }
+        Self {
+            chars: s.chars().collect(),
+            pos: 0,
+        }
     }
 
     fn peek_char(&self) -> Option<char> {
@@ -90,7 +95,9 @@ impl Lexer {
 
     fn next_char(&mut self) -> Option<char> {
         let c = self.chars.get(self.pos).copied();
-        if c.is_some() { self.pos += 1; }
+        if c.is_some() {
+            self.pos += 1;
+        }
         c
     }
 
@@ -98,15 +105,41 @@ impl Lexer {
         let mut tokens = Vec::new();
         while let Some(c) = self.peek_char() {
             match c {
-                ' ' | '\t' | '\n' | '\r' => { self.next_char(); }
-                '+' => { self.next_char(); tokens.push(Token::Plus); }
-                '-' => { self.next_char(); tokens.push(Token::Minus); }
-                '*' => { self.next_char(); tokens.push(Token::Star); }
-                '/' => { self.next_char(); tokens.push(Token::Slash); }
-                '%' => { self.next_char(); tokens.push(Token::Percent); }
-                '^' => { self.next_char(); tokens.push(Token::Caret); }
-                '(' => { self.next_char(); tokens.push(Token::LParen); }
-                ')' => { self.next_char(); tokens.push(Token::RParen); }
+                ' ' | '\t' | '\n' | '\r' => {
+                    self.next_char();
+                }
+                '+' => {
+                    self.next_char();
+                    tokens.push(Token::Plus);
+                }
+                '-' => {
+                    self.next_char();
+                    tokens.push(Token::Minus);
+                }
+                '*' => {
+                    self.next_char();
+                    tokens.push(Token::Star);
+                }
+                '/' => {
+                    self.next_char();
+                    tokens.push(Token::Slash);
+                }
+                '%' => {
+                    self.next_char();
+                    tokens.push(Token::Percent);
+                }
+                '^' => {
+                    self.next_char();
+                    tokens.push(Token::Caret);
+                }
+                '(' => {
+                    self.next_char();
+                    tokens.push(Token::LParen);
+                }
+                ')' => {
+                    self.next_char();
+                    tokens.push(Token::RParen);
+                }
                 '0'..='9' | '.' => {
                     let num = self.read_number()?;
                     tokens.push(Token::Number(num));
@@ -122,7 +155,9 @@ impl Lexer {
         let mut seen_dot = false;
         while let Some(c) = self.peek_char() {
             match c {
-                '0'..='9' => { self.next_char(); }
+                '0'..='9' => {
+                    self.next_char();
+                }
                 '.' => {
                     if seen_dot {
                         return Err("数字中包含多个小数点".to_string());
@@ -134,7 +169,9 @@ impl Lexer {
             }
         }
         let num_str: String = self.chars[start..self.pos].iter().collect();
-        num_str.parse::<f64>().map_err(|_| format!("无效的数字: {}", num_str))
+        num_str
+            .parse::<f64>()
+            .map_err(|_| format!("无效的数字: {}", num_str))
     }
 }
 
@@ -148,11 +185,15 @@ impl Parser {
         Self { tokens, pos: 0 }
     }
 
-    fn peek(&self) -> Option<&Token> { self.tokens.get(self.pos) }
+    fn peek(&self) -> Option<&Token> {
+        self.tokens.get(self.pos)
+    }
 
     fn next(&mut self) -> Option<Token> {
         let t = self.tokens.get(self.pos).cloned();
-        if t.is_some() { self.pos += 1; }
+        if t.is_some() {
+            self.pos += 1;
+        }
         t
     }
 
@@ -169,8 +210,14 @@ impl Parser {
         let mut left = self.term()?;
         loop {
             match self.peek() {
-                Some(Token::Plus) => { self.next(); left += self.term()?; }
-                Some(Token::Minus) => { self.next(); left -= self.term()?; }
+                Some(Token::Plus) => {
+                    self.next();
+                    left += self.term()?;
+                }
+                Some(Token::Minus) => {
+                    self.next();
+                    left -= self.term()?;
+                }
                 _ => break,
             }
         }
@@ -182,17 +229,24 @@ impl Parser {
         let mut left = self.factor()?;
         loop {
             match self.peek() {
-                Some(Token::Star) => { self.next(); left *= self.factor()?; }
+                Some(Token::Star) => {
+                    self.next();
+                    left *= self.factor()?;
+                }
                 Some(Token::Slash) => {
                     self.next();
                     let rhs = self.factor()?;
-                    if rhs == 0.0 { return Err("除数不能为零".to_string()); }
+                    if rhs == 0.0 {
+                        return Err("除数不能为零".to_string());
+                    }
                     left /= rhs;
                 }
                 Some(Token::Percent) => {
                     self.next();
                     let rhs = self.factor()?;
-                    if rhs == 0.0 { return Err("模运算除数为零".to_string()); }
+                    if rhs == 0.0 {
+                        return Err("模运算除数为零".to_string());
+                    }
                     left %= rhs;
                 }
                 _ => break,

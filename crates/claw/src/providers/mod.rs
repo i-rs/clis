@@ -1,14 +1,14 @@
 // ── Sub-modules ──
-pub(crate) mod sse;
-mod openai;
-mod ollama;
 mod anthropic;
+mod ollama;
+mod openai;
+pub(crate) mod sse;
 
-pub use openai::OpenaiProvider;
-pub use ollama::OllamaProvider;
-pub use anthropic::AnthropicProvider;
 pub use super::llm::LlmEvent;
 pub(crate) use super::llm::StreamResult;
+pub use anthropic::AnthropicProvider;
+pub use ollama::OllamaProvider;
+pub use openai::OpenaiProvider;
 
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
@@ -46,7 +46,11 @@ impl ProviderKind {
     }
 
     pub fn all() -> Vec<ProviderKind> {
-        vec![ProviderKind::OpenAI, ProviderKind::Anthropic, ProviderKind::Ollama]
+        vec![
+            ProviderKind::OpenAI,
+            ProviderKind::Anthropic,
+            ProviderKind::Ollama,
+        ]
     }
 }
 
@@ -84,8 +88,17 @@ pub fn shared_client() -> reqwest::Client {
 }
 
 /// Create the appropriate provider based on configuration.
-pub fn create_provider(client: &reqwest::Client, config: &crate::config::Config) -> Box<dyn LlmProvider> {
-    create_provider_for(client, &config.provider, &config.api_key, &config.base_url, &config.model)
+pub fn create_provider(
+    client: &reqwest::Client,
+    config: &crate::config::Config,
+) -> Box<dyn LlmProvider> {
+    create_provider_for(
+        client,
+        &config.provider,
+        &config.api_key,
+        &config.base_url,
+        &config.model,
+    )
 }
 
 /// Create a provider from individual fields (provider type, api key, base url, model).
@@ -109,7 +122,11 @@ pub fn create_provider_for(
             base_url.to_string(),
             model.to_string(),
         )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), base_url.to_string(), model.to_string())),
+        ProviderKind::Ollama => Box::new(OllamaProvider::new(
+            client.clone(),
+            base_url.to_string(),
+            model.to_string(),
+        )),
     }
 }
 

@@ -89,7 +89,10 @@ pub(super) fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'s
         Ok(v) => {
             // Check if this is a CLI command result (starts with ⌘ or contains ansi codes)
             if let Some(arr) = v.as_array()
-                && arr.first().and_then(|v| v.as_str()).is_some_and(|s| s.trim().starts_with('\u{2318}'))
+                && arr
+                    .first()
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|s| s.trim().starts_with('\u{2318}'))
             {
                 return (Vec::new(), false);
             }

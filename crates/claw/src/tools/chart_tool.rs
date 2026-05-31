@@ -113,8 +113,8 @@ impl ClawTool for ChartTool {
             extra_args.split_whitespace().collect()
         };
 
-        let json_data = crate::utils::run_i_rs_json(tool, command, &extra, 30)
-            .map_err(ClawError::Execution)?;
+        let json_data =
+            crate::utils::run_i_rs_json(tool, command, &extra, 30).map_err(ClawError::Execution)?;
 
         let data_points = extract_data_points(&json_data, label_field, value_field)?;
 
@@ -123,8 +123,16 @@ impl ClawTool for ChartTool {
         }
 
         match chart_type {
-            "line" => Ok(chart_render::generate_line_chart(&data_points, width, height)),
-            _ => Ok(chart_render::generate_bar_chart(&data_points, width, height)),
+            "line" => Ok(chart_render::generate_line_chart(
+                &data_points,
+                width,
+                height,
+            )),
+            _ => Ok(chart_render::generate_bar_chart(
+                &data_points,
+                width,
+                height,
+            )),
         }
     }
 }
@@ -226,12 +234,15 @@ fn parse_numeric(obj: &serde_json::Map<String, Value>, field: &str) -> Option<f6
             return Some(n as f64);
         }
         if let Some(s) = v.as_str()
-            && let Ok(n) = s.parse::<f64>() {
-                return Some(n);
-            }
+            && let Ok(n) = s.parse::<f64>()
+        {
+            return Some(n);
+        }
     }
 
-    for &f in &["value", "amount", "count", "total", "hours", "minutes", "days", "score", "price"] {
+    for &f in &[
+        "value", "amount", "count", "total", "hours", "minutes", "days", "score", "price",
+    ] {
         if f == field {
             continue;
         }

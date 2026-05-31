@@ -59,7 +59,7 @@ impl WeChatAdapter {
                 reqwest::Client::new()
             });
         let credentials_path = dirs::home_dir()
-                .map(|p| p.join(".i-rs").join("claw").join("wechat_credentials.json"))
+            .map(|p| p.join(".i-rs").join("claw").join("wechat_credentials.json"))
             .unwrap_or_else(|| PathBuf::from("./wechat_credentials.json"));
         Self {
             client,
@@ -127,16 +127,25 @@ impl WeChatAdapter {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&raw) {
                             if let Some(ticket) = json["typing_ticket"].as_str() {
                                 let ticket = ticket.to_string();
-                                self.typing_tickets.lock().await.insert(user_id.to_string(), ticket.clone());
+                                self.typing_tickets
+                                    .lock()
+                                    .await
+                                    .insert(user_id.to_string(), ticket.clone());
                                 Some(ticket)
                             } else {
-                                tracing::info!("[Gateway/WeChat] getConfig ({}): no typing_ticket in {}",
-                                    status, raw);
+                                tracing::info!(
+                                    "[Gateway/WeChat] getConfig ({}): no typing_ticket in {}",
+                                    status,
+                                    raw
+                                );
                                 None
                             }
                         } else {
-                            tracing::info!("[Gateway/WeChat] getConfig ({}): parse error: {}",
-                                status, raw);
+                            tracing::info!(
+                                "[Gateway/WeChat] getConfig ({}): parse error: {}",
+                                status,
+                                raw
+                            );
                             None
                         }
                     }
@@ -163,7 +172,10 @@ impl WeChatAdapter {
         // Step 1: Get QR code
         tracing::info!("[Gateway/WeChat] Requesting QR code for login...");
         let qr_resp: serde_json::Value = client
-            .get(format!("{}/ilink/bot/get_bot_qrcode?bot_type=3", WECHAT_API_BASE))
+            .get(format!(
+                "{}/ilink/bot/get_bot_qrcode?bot_type=3",
+                WECHAT_API_BASE
+            ))
             .send()
             .await
             .map_err(|e| format!("Failed to get QR code: {}", e))?
@@ -220,7 +232,10 @@ impl WeChatAdapter {
                     .as_str()
                     .unwrap_or(WECHAT_API_BASE)
                     .to_string();
-                let creds = WeChatCredentials { bot_token, base_url };
+                let creds = WeChatCredentials {
+                    bot_token,
+                    base_url,
+                };
                 self.save_credentials(&creds);
                 tracing::info!("[Gateway/WeChat] Login confirmed. Starting message polling.");
                 return Ok(creds);
@@ -306,10 +321,8 @@ impl PlatformAdapter for WeChatAdapter {
                                             continue;
                                         }
 
-                                        let from_user_id = msg["from_user_id"]
-                                            .as_str()
-                                            .unwrap_or("")
-                                            .to_string();
+                                        let from_user_id =
+                                            msg["from_user_id"].as_str().unwrap_or("").to_string();
                                         if from_user_id.is_empty() {
                                             continue;
                                         }
@@ -327,15 +340,16 @@ impl PlatformAdapter for WeChatAdapter {
 
                                         tracing::info!(
                                             "[Gateway/WeChat] Msg from {}: {}",
-                                            from_user_id, text
+                                            from_user_id,
+                                            text
                                         );
 
                                         // Store context_token for reply mapping
                                         if let Some(token) = msg["context_token"].as_str() {
-                                            reply_tokens.lock().await.insert(
-                                                from_user_id.clone(),
-                                                token.to_string(),
-                                            );
+                                            reply_tokens
+                                                .lock()
+                                                .await
+                                                .insert(from_user_id.clone(), token.to_string());
                                             tracing::info!(
                                                 "[Gateway/WeChat] Stored context_token for {}",
                                                 from_user_id
@@ -447,13 +461,15 @@ impl PlatformAdapter for WeChatAdapter {
                     Ok(response_body) => {
                         tracing::info!(
                             "[Gateway/WeChat] send_message ({}): {}",
-                            status, response_body
+                            status,
+                            response_body
                         );
                     }
                     Err(e) => {
                         tracing::error!(
                             "[Gateway/WeChat] send_message ({}) but read body failed: {}",
-                            status, e
+                            status,
+                            e
                         );
                     }
                 }
@@ -497,10 +513,7 @@ impl PlatformAdapter for WeChatAdapter {
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let raw = resp.text().await.unwrap_or_default();
-                    tracing::warn!(
-                        "[Gateway/WeChat] send_typing ({}): {}",
-                        status, raw
-                    );
+                    tracing::warn!("[Gateway/WeChat] send_typing ({}): {}", status, raw);
                 }
             }
             Err(e) => {

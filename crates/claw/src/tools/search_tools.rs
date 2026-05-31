@@ -40,9 +40,7 @@ impl super::ClawTool for SearchToolsTool {
             .config
             .i_rs_tool_index
             .iter()
-            .filter(|(name, desc)| {
-                name.contains(&lower) || desc.to_lowercase().contains(&lower)
-            })
+            .filter(|(name, desc)| name.contains(&lower) || desc.to_lowercase().contains(&lower))
             .map(|(name, desc)| {
                 if desc.is_empty() {
                     format!("- {}", name)

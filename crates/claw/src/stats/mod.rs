@@ -4,7 +4,6 @@ pub(crate) mod store;
 
 use pricing::ModelPricingTable;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 // ── Config ──
@@ -23,8 +22,12 @@ pub struct StatsConfig {
     pub keep_days: u32,
 }
 
-fn default_enabled() -> bool { true }
-fn default_keep_days() -> u32 { 90 }
+fn default_enabled() -> bool {
+    true
+}
+fn default_keep_days() -> u32 {
+    90
+}
 
 impl Default for StatsConfig {
     fn default() -> Self {
@@ -145,11 +148,10 @@ pub struct TodaySummary {
 
 /// Manages token usage statistics collection, persistence, and querying.
 ///
-/// Records are buffered in memory and flushed to a JSONL file periodically.
-/// No tokio dependency — uses a simple `Mutex<Vec>` for thread-safe buffering.
+/// Records are buffered in memory and flushed to the storage backend periodically.
 pub struct StatsManager {
-    /// Path to the usage JSONL file.
-    store_path: PathBuf,
+    /// Storage backend for stats persistence.
+    storage: std::sync::Arc<crate::storage::ClawStorage>,
     /// Pricing table for cost estimation.
     #[allow(dead_code)]
     pricing: ModelPricingTable,
@@ -162,24 +164,48 @@ pub struct StatsManager {
 }
 
 impl StatsManager {
-    /// Create a new StatsManager.
-    ///
-/// `claw_dir` is the base directory for claw data (~/.i-rs/claw).
-/// Stats are stored at `{claw_dir}/stats/usage.jsonl`.
-    pub fn new(claw_dir: &std::path::Path, config: &StatsConfig, tz_offset: chrono::FixedOffset) -> Self {
-        let store_path = claw_dir.join("stats").join("usage.jsonl");
-        let mut pricing = ModelPricingTable::new();
+    /// Create a new StatsManager (backward-compatible: uses file backend).
+    pub fn new(
+        claw_dir: &std::path::Path,
+        config: &StatsConfig,
+        tz_offset: chrono::FixedOffset,
+    ) -> Self {
+        let storage =
+            std::sync::Arc::new(crate::storage::ClawStorage::file(claw_dir.to_path_buf()));
+        Self::with_storage(storage, config, tz_offset)
+    }
 
+    /// Create a StatsManager with a custom storage backend (for DI/testing).
+    pub fn with_storage(
+        storage: std::sync::Arc<crate::storage::ClawStorage>,
+        config: &StatsConfig,
+        tz_offset: chrono::FixedOffset,
+    ) -> Self {
+        let mut pricing = ModelPricingTable::new();
         if !config.pricing.is_empty() {
             pricing.apply_overrides(&config.pricing);
         }
 
         Self {
-            store_path,
+            storage,
             pricing,
             buffer: Mutex::new(Vec::with_capacity(50)),
             flush_threshold: 50,
             tz_offset,
+        }
+    }
+
+    /// Bridge sync → async for backend calls in sync contexts.
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => tokio::task::block_in_place(|| {
+                tokio::runtime::Runtime::new()
+                    .expect("StatsManager: failed to create temp runtime")
+                    .block_on(f)
+            }),
+            Err(_) => tokio::runtime::Runtime::new()
+                .expect("StatsManager: failed to create temp runtime")
+                .block_on(f),
         }
     }
 
@@ -189,13 +215,19 @@ impl StatsManager {
     /// The buffer is flushed to disk when it reaches `flush_threshold` or
     /// when [`flush`](Self::flush) is explicitly called.
     pub fn record(&self, record: TokenRecord) {
-        let mut buffer = self.buffer.lock().expect("StatsManager buffer lock poisoned");
+        let mut buffer = self
+            .buffer
+            .lock()
+            .expect("StatsManager buffer lock poisoned");
         buffer.push(record);
 
         if buffer.len() >= self.flush_threshold {
             let records = std::mem::take(&mut *buffer);
             drop(buffer);
-            if let Err(e) = store::append_records(&self.store_path, &records) {
+            let storage = self.storage.clone();
+            if let Err(e) =
+                Self::block_on(async move { storage.stats.append_batch(&records).await })
+            {
                 tracing::error!("刷写 token 统计失败: {}", e);
             }
         }
@@ -203,12 +235,16 @@ impl StatsManager {
 
     /// Flush all buffered records to disk.
     pub fn flush(&self) {
-        let mut buffer = self.buffer.lock().expect("StatsManager buffer lock poisoned");
+        let mut buffer = self
+            .buffer
+            .lock()
+            .expect("StatsManager buffer lock poisoned");
         if buffer.is_empty() {
             return;
         }
         let records = std::mem::take(&mut *buffer);
-        if let Err(e) = store::append_records(&self.store_path, &records) {
+        let storage = self.storage.clone();
+        if let Err(e) = Self::block_on(async move { storage.stats.append_batch(&records).await }) {
             tracing::error!("刷写 token 统计失败: {}", e);
         }
     }
@@ -230,7 +266,9 @@ impl StatsManager {
         latency_ms: u64,
     ) -> TokenRecord {
         let total_tokens = prompt_tokens + completion_tokens;
-        let estimated_cost_usd = self.pricing.estimate(model, prompt_tokens, completion_tokens);
+        let estimated_cost_usd = self
+            .pricing
+            .estimate(model, prompt_tokens, completion_tokens);
 
         TokenRecord {
             id: uuid::Uuid::new_v4().to_string(),
@@ -250,7 +288,7 @@ impl StatsManager {
         }
     }
 
-    /// Get today's summary from the store file + in-memory buffer.
+    /// Get today's summary from the storage backend + in-memory buffer.
     pub fn today_summary(&self) -> TodaySummary {
         let start_of_today = crate::utils::now_in_tz(self.tz_offset)
             .date_naive()
@@ -258,13 +296,12 @@ impl StatsManager {
             .unwrap_or_default()
             .and_utc()
             .timestamp();
-        let mut records = match store::read_range(&self.store_path, Some(start_of_today), None) {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!("读取 token 统计失败: {}", e);
-                Vec::new()
-            }
-        };
+        let storage = self.storage.clone();
+        let mut records =
+            Self::block_on(
+                async move { storage.stats.read_range(Some(start_of_today), None).await },
+            )
+            .unwrap_or_default();
 
         // Include buffered unsaved records
         if let Ok(buffer) = self.buffer.lock() {
@@ -289,13 +326,9 @@ impl StatsManager {
     /// Query aggregated stats for a time period.
     #[allow(dead_code)]
     pub fn query(&self, period: StatsPeriod) -> TokenStats {
-        let records = match store::read_range(&self.store_path, None, None) {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!("读取 token 统计失败: {}", e);
-                Vec::new()
-            }
-        };
+        let storage = self.storage.clone();
+        let records = Self::block_on(async move { storage.stats.read_range(None, None).await })
+            .unwrap_or_default();
 
         let mut result = aggregator::aggregate(&records, &self.pricing);
         result.period = period;
@@ -305,7 +338,8 @@ impl StatsManager {
     /// Get the estimated cost for a given model and token counts.
     #[allow(dead_code)]
     pub fn estimate_cost(&self, model: &str, prompt_tokens: u32, completion_tokens: u32) -> f64 {
-        self.pricing.estimate(model, prompt_tokens, completion_tokens)
+        self.pricing
+            .estimate(model, prompt_tokens, completion_tokens)
     }
 
     /// Flush buffer then remove records older than `keep_days`.
@@ -315,7 +349,8 @@ impl StatsManager {
         if keep_days == 0 {
             return;
         }
-        if let Err(e) = store::prune_old_records(&self.store_path, keep_days) {
+        let storage = self.storage.clone();
+        if let Err(e) = Self::block_on(async move { storage.stats.prune(keep_days).await }) {
             tracing::error!("清理过期统计记录失败: {}", e);
         }
     }

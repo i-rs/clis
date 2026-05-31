@@ -72,9 +72,7 @@ impl ClawTool for DelegateTool {
              用中文简洁、专业地完成任务。返回你的分析结果或处理结果。",
         );
 
-        let mut messages = vec![
-            serde_json::json!({"role": "system", "content": system_prompt}),
-        ];
+        let mut messages = vec![serde_json::json!({"role": "system", "content": system_prompt})];
 
         if let Some(c) = task_context {
             messages.push(serde_json::json!({
@@ -87,7 +85,8 @@ impl ClawTool for DelegateTool {
 
         tracing::debug!(
             "委托任务给子智能体 '{}' (model: {}), 注意这将产生额外 API 费用",
-            agent_id, agent_config.model
+            agent_id,
+            agent_config.model
         );
 
         let provider = create_provider_for(

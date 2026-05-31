@@ -75,7 +75,11 @@ pub trait ClawTool: Send + Sync {
     /// (needed by IrsTool to generate the dynamic `tool.enum`).
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value;
     /// Execute this tool with the given arguments and execution context.
-    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError>;
+    async fn execute(
+        &self,
+        args: &Value,
+        ctx: &ToolContext,
+    ) -> Result<String, crate::error::ClawError>;
 }
 
 // ── Tool registry ──
@@ -117,10 +121,7 @@ impl ToolRegistry {
     }
 
     /// Add MCP-discovered tools (builder pattern, consumes self).
-    pub fn with_mcp(
-        mut self,
-        mcp_registry: &crate::mcp::McpRegistry,
-    ) -> Self {
+    pub fn with_mcp(mut self, mcp_registry: &crate::mcp::McpRegistry) -> Self {
         for (client_idx, tool_def) in &mcp_registry.tools {
             if let Some(client) = mcp_registry.clients.get(*client_idx) {
                 self.tools.push(Box::new(mcp_tools::McpToolWrapper::new(
@@ -135,9 +136,17 @@ impl ToolRegistry {
     /// Get tool schemas for OpenAI-compatible chat completion APIs.
     /// `i_rs_tool_names` is the list of discovered i-rs CLI tool names.
     /// `enabled` further filters both built-in and i-rs tools (empty = all).
-    pub fn enabled_schemas(&self, i_rs_tool_names: &[&str], enabled: Option<&HashSet<String>>) -> Vec<Value> {
+    pub fn enabled_schemas(
+        &self,
+        i_rs_tool_names: &[&str],
+        enabled: Option<&HashSet<String>>,
+    ) -> Vec<Value> {
         let enabled_cli: Vec<&str> = if let Some(enabled_set) = enabled {
-            i_rs_tool_names.iter().filter(|&&t| enabled_set.contains(t)).copied().collect()
+            i_rs_tool_names
+                .iter()
+                .filter(|&&t| enabled_set.contains(t))
+                .copied()
+                .collect()
         } else {
             i_rs_tool_names.to_vec()
         };
@@ -156,12 +165,20 @@ impl ToolRegistry {
             .collect()
     }
 
-   /// Execute a tool by name.
+    /// Execute a tool by name.
     #[allow(dead_code)]
-    pub async fn execute(&self, name: &str, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
+    pub async fn execute(
+        &self,
+        name: &str,
+        args: &Value,
+        ctx: &ToolContext,
+    ) -> Result<String, crate::error::ClawError> {
         match self.tools.iter().find(|t| t.name() == name) {
             Some(t) => t.execute(args, ctx).await,
-            None => Err(crate::error::ClawError::NotFound(format!("未知工具: {}", name))),
+            None => Err(crate::error::ClawError::NotFound(format!(
+                "未知工具: {}",
+                name
+            ))),
         }
     }
 
@@ -172,7 +189,10 @@ impl ToolRegistry {
     }
 
     pub fn tool_info(&self) -> Vec<(&str, &str)> {
-        self.tools.iter().map(|t| (t.name(), t.description())).collect()
+        self.tools
+            .iter()
+            .map(|t| (t.name(), t.description()))
+            .collect()
     }
 }
 
@@ -188,7 +208,10 @@ mod tests {
         assert!(reg.tool_exists("web_search"), "web_search 应为已知工具");
         assert!(reg.tool_exists("chart"), "chart 应为已知工具");
         assert!(reg.tool_exists("calculator"), "calculator 应为已知工具");
-        assert!(reg.tool_exists("search_conversations"), "search_conversations 应为已知工具");
+        assert!(
+            reg.tool_exists("search_conversations"),
+            "search_conversations 应为已知工具"
+        );
     }
 
     #[test]
@@ -211,7 +234,10 @@ mod tests {
             );
             let func = &schema["function"];
             assert!(func["name"].as_str().is_some(), "每个工具应有 name");
-            assert!(func["description"].as_str().is_some(), "每个工具应有 description");
+            assert!(
+                func["description"].as_str().is_some(),
+                "每个工具应有 description"
+            );
             assert!(func["parameters"].is_object(), "每个工具应有 parameters");
         }
     }

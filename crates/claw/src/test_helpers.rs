@@ -100,7 +100,10 @@ impl crate::providers::LlmProvider for MockProvider {
         }
 
         // Determine the StreamResult based on events
-        let has_tool_calls = self.events.iter().any(|e| matches!(e, LlmEvent::ToolExecuted { .. }));
+        let has_tool_calls = self
+            .events
+            .iter()
+            .any(|e| matches!(e, LlmEvent::ToolExecuted { .. }));
         if has_tool_calls {
             Ok(StreamResult::ToolCalls(Vec::new(), String::new()))
         } else {
@@ -121,8 +124,8 @@ pub fn test_core() -> (Config, crate::core::AppCore) {
     std::fs::create_dir_all(&claw_dir).expect("创建 claw 数据目录失败");
 
     let config = test_config();
-    let core = crate::core::AppCore::with_claw_dir(config.clone(), claw_dir)
-        .expect("AppCore 初始化失败");
+    let core =
+        crate::core::AppCore::with_claw_dir(config.clone(), claw_dir).expect("AppCore 初始化失败");
 
     (config, core)
 }
@@ -133,15 +136,14 @@ pub fn test_core() -> (Config, crate::core::AppCore) {
 /// usage data and tool call accumulation info. This is a pure
 /// function version of the parsing logic inside `openai_stream_chat_impl`.
 #[allow(dead_code)]
-pub fn parse_openai_sse_chunk(
-    data: &Value,
-) -> ParseResult {
+pub fn parse_openai_sse_chunk(data: &Value) -> ParseResult {
     let mut result = ParseResult::default();
 
     // Usage data (final chunk with include_usage)
-    if let Some(usage_data) = data.get("usage").and_then(|u| {
-        if u.is_null() { None } else { Some(u) }
-    }) {
+    if let Some(usage_data) =
+        data.get("usage")
+            .and_then(|u| if u.is_null() { None } else { Some(u) })
+    {
         result.usage = Some(TokenUsage {
             prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
             completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
@@ -170,12 +172,11 @@ pub fn parse_openai_sse_chunk(
         // Tool calls
         if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
             for tc in tcs {
-                let tc_idx = tc
-                    .get("index")
-                    .and_then(|i| i.as_i64())
-                    .unwrap_or(0) as usize;
+                let tc_idx = tc.get("index").and_then(|i| i.as_i64()).unwrap_or(0) as usize;
                 if tc_idx >= result.tool_calls.len() {
-                    result.tool_calls.resize(tc_idx + 1, crate::llm::ToolCallAcc::default());
+                    result
+                        .tool_calls
+                        .resize(tc_idx + 1, crate::llm::ToolCallAcc::default());
                 }
                 if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
                     result.tool_calls[tc_idx].id = id.to_string();

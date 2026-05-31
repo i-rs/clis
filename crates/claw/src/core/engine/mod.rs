@@ -1,9 +1,7 @@
 pub(crate) mod builder;
 mod execution;
 
-pub(crate) use builder::{
-    build_messages, smart_compress, MessageBuildParams,
-};
+pub(crate) use builder::{MessageBuildParams, build_messages, smart_compress};
 pub(crate) use execution::execute_tool_call;
 
 use crate::config::Config;
@@ -57,22 +55,23 @@ fn prepare_loop(
     let ctx_mgr = ContextManager::for_model(provider.model());
     let advisory = ctx_mgr.context_advisory(msgs);
     if !advisory.is_empty()
-        && msgs.first().and_then(|m| m.get("role").and_then(|r| r.as_str())) == Some("system")
+        && msgs
+            .first()
+            .and_then(|m| m.get("role").and_then(|r| r.as_str()))
+            == Some("system")
         && let Some(system_msg) = msgs.first_mut()
-            && let Some(content) = system_msg.get("content").and_then(|c| c.as_str()) {
-                system_msg["content"] = Value::String(format!("{}\n{}", content, advisory));
-            }
+        && let Some(content) = system_msg.get("content").and_then(|c| c.as_str())
+    {
+        system_msg["content"] = Value::String(format!("{}\n{}", content, advisory));
+    }
 
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
         http_client,
     };
-    let executor = crate::core::executor::ToolCallExecutor::new(
-        tool_registry,
-        tool_ctx,
-    )
-    .with_timeout(config.cli_timeout_secs)
-    .with_truncation(4096, 500);
+    let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
+        .with_timeout(config.cli_timeout_secs)
+        .with_truncation(4096, 500);
 
     ChatLoopInit {
         tool_schemas,
@@ -230,10 +229,14 @@ async fn handle_provider_error(
         let wait_secs = 2u64.saturating_pow((*consecutive_errors).min(5));
         tracing::warn!(
             "Provider 瞬态错误 ({}/{}), 等待 {}s 后重试: {}",
-            *consecutive_errors, max_retries, wait_secs, err_msg
+            *consecutive_errors,
+            max_retries,
+            wait_secs,
+            err_msg
         );
         let _ = tx.send(LlmEvent::Status(format!(
-            "⚠️ 网络波动，{}s 后重试 ({}/{})…", wait_secs, *consecutive_errors, max_retries
+            "⚠️ 网络波动，{}s 后重试 ({}/{})…",
+            wait_secs, *consecutive_errors, max_retries
         )));
         tokio::time::sleep(Duration::from_secs(wait_secs)).await;
         true
@@ -261,8 +264,13 @@ pub async fn chat_loop(
 ) {
     let mut msgs = messages;
     let init = prepare_loop(
-        provider.as_ref(), &config, &mut msgs, &mcp, &skills,
-        tool_frequency.clone(), http_client,
+        provider.as_ref(),
+        &config,
+        &mut msgs,
+        &mcp,
+        &skills,
+        tool_frequency.clone(),
+        http_client,
     );
     let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
@@ -274,7 +282,10 @@ pub async fn chat_loop(
         round_count += 1;
         let effective_max = init.max_rounds.min(HARD_MAX_ROUNDS);
         if round_count > effective_max {
-            let _ = tx.send(LlmEvent::Error(format!("已达最大执行轮数限制 ({}), 已停止循环。", effective_max)));
+            let _ = tx.send(LlmEvent::Error(format!(
+                "已达最大执行轮数限制 ({}), 已停止循环。",
+                effective_max
+            )));
             break;
         }
         let _ = tx.send(LlmEvent::NewRound);
@@ -284,7 +295,9 @@ pub async fn chat_loop(
         match stream_to_llm(provider.as_ref(), &msgs, &init.tool_schemas, &tx).await {
             Ok(StreamResult::Text(usage, text, reasoning)) => {
                 #[allow(unused_assignments)]
-                { consecutive_provider_errors = 0; }
+                {
+                    consecutive_provider_errors = 0;
+                }
                 if !text.is_empty() || !reasoning.is_empty() {
                     let mut msg = serde_json::json!({ "role": "assistant", "content": text });
                     if !reasoning.is_empty() {
@@ -297,12 +310,16 @@ pub async fn chat_loop(
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
                 consecutive_provider_errors = 0;
-                let results = dispatch_tools(
-                    &init.executor, calls, &tx, &mut msgs, &reasoning_content,
-                ).await;
+                let results =
+                    dispatch_tools(&init.executor, calls, &tx, &mut msgs, &reasoning_content).await;
 
-                if let Some(backoff) = inject_results(&results, &mut msgs, &mut retry_counts, init.max_retries) {
-                    let _ = tx.send(LlmEvent::Status(format!("⏳ 等待 {}s 后重试失败的工具...", backoff.as_secs())));
+                if let Some(backoff) =
+                    inject_results(&results, &mut msgs, &mut retry_counts, init.max_retries)
+                {
+                    let _ = tx.send(LlmEvent::Status(format!(
+                        "⏳ 等待 {}s 后重试失败的工具...",
+                        backoff.as_secs()
+                    )));
                     tokio::time::sleep(backoff).await;
                 }
 
@@ -313,7 +330,14 @@ pub async fn chat_loop(
                 }
             }
             Err(e) => {
-                if !handle_provider_error(e, &mut consecutive_provider_errors, MAX_PROVIDER_RETRIES, &tx).await {
+                if !handle_provider_error(
+                    e,
+                    &mut consecutive_provider_errors,
+                    MAX_PROVIDER_RETRIES,
+                    &tx,
+                )
+                .await
+                {
                     break;
                 }
             }
@@ -356,9 +380,9 @@ mod tests {
 
     #[test]
     fn test_smart_compress_keeps_system_message() {
-        let mut msgs: Vec<Value> = (0..20).map(|i| {
-            json!({"role": "user", "content": format!("msg {}", i)})
-        }).collect();
+        let mut msgs: Vec<Value> = (0..20)
+            .map(|i| json!({"role": "user", "content": format!("msg {}", i)}))
+            .collect();
         msgs.insert(0, json!({"role": "system", "content": "sys"}));
         smart_compress(&mut msgs, &HashMap::new(), 5, 5);
         assert_eq!(msgs[0]["role"], "system");
@@ -366,9 +390,9 @@ mod tests {
 
     #[test]
     fn test_smart_compress_keeps_recent_messages() {
-        let mut msgs: Vec<Value> = (0..20).map(|i| {
-            json!({"role": "user", "content": format!("msg {}", i)})
-        }).collect();
+        let mut msgs: Vec<Value> = (0..20)
+            .map(|i| json!({"role": "user", "content": format!("msg {}", i)}))
+            .collect();
         msgs.insert(0, json!({"role": "system", "content": "sys"}));
         let before_len = msgs.len();
         smart_compress(&mut msgs, &HashMap::new(), 5, 5);
@@ -419,14 +443,15 @@ mod tests {
         smart_compress(&mut msgs, &freq, 1, 5);
 
         let content_str = serde_json::to_string(&msgs).unwrap();
-        assert!(content_str.contains("weight skill doc"), "high-frequency teach pair should be kept");
+        assert!(
+            content_str.contains("weight skill doc"),
+            "high-frequency teach pair should be kept"
+        );
     }
 
     #[test]
     fn test_smart_compress_preserves_tool_call_pairs() {
-        let mut msgs: Vec<Value> = vec![
-            json!({"role": "system", "content": "sys"}),
-        ];
+        let mut msgs: Vec<Value> = vec![json!({"role": "system", "content": "sys"})];
         for i in 0..15 {
             msgs.push(json!({"role": "user", "content": format!("old msg {}", i)}));
             msgs.push(json!({"role": "assistant", "content": format!("old resp {}", i)}));
@@ -443,7 +468,10 @@ mod tests {
 
         let content_str = serde_json::to_string(&msgs).unwrap();
         assert!(content_str.contains("result"), "tool result should be kept");
-        assert!(content_str.contains("some_tool"), "tool_call should be kept");
+        assert!(
+            content_str.contains("some_tool"),
+            "tool_call should be kept"
+        );
     }
 
     // ── build_messages tests ──
@@ -452,7 +480,9 @@ mod tests {
     fn test_build_messages_first_turn() {
         use crate::app::Message;
         let params = MessageBuildParams {
-            app_messages: &[Message::User { text: "hello".to_string() }],
+            app_messages: &[Message::User {
+                text: "hello".to_string(),
+            }],
             user_text: "hello",
             saved_api_messages: &None,
             tool_frequency: &HashMap::new(),
@@ -485,7 +515,18 @@ mod tests {
             json!({"role": "assistant", "content": "response"}),
         ];
         let params = MessageBuildParams {
-            app_messages: &[Message::User { text: "prev".to_string() }, Message::Assistant { text: "response".to_string(), reasoning: String::new() }, Message::User { text: "new".to_string() }],
+            app_messages: &[
+                Message::User {
+                    text: "prev".to_string(),
+                },
+                Message::Assistant {
+                    text: "response".to_string(),
+                    reasoning: String::new(),
+                },
+                Message::User {
+                    text: "new".to_string(),
+                },
+            ],
             user_text: "new",
             saved_api_messages: &Some(saved),
             tool_frequency: &HashMap::new(),
@@ -512,7 +553,9 @@ mod tests {
     fn test_build_messages_with_reminder() {
         use crate::app::Message;
         let params = MessageBuildParams {
-            app_messages: &[Message::User { text: "remind".to_string() }],
+            app_messages: &[Message::User {
+                text: "remind".to_string(),
+            }],
             user_text: "remind",
             saved_api_messages: &None,
             tool_frequency: &HashMap::new(),
@@ -546,7 +589,18 @@ mod tests {
             json!({"role": "assistant", "content": "ok"}),
         ];
         let params = MessageBuildParams {
-            app_messages: &[Message::User { text: "done".to_string() }, Message::Assistant { text: "ok".to_string(), reasoning: String::new() }, Message::User { text: "new".to_string() }],
+            app_messages: &[
+                Message::User {
+                    text: "done".to_string(),
+                },
+                Message::Assistant {
+                    text: "ok".to_string(),
+                    reasoning: String::new(),
+                },
+                Message::User {
+                    text: "new".to_string(),
+                },
+            ],
             user_text: "new",
             saved_api_messages: &Some(saved),
             tool_frequency: &HashMap::new(),
@@ -565,21 +619,32 @@ mod tests {
         let result = build_messages(params);
         let system_msgs: Vec<_> = result.iter().filter(|m| m["role"] == "system").collect();
         assert_eq!(system_msgs.len(), 2);
-        let has_old_reminder = system_msgs.iter().any(|m|
-            m["content"].as_str().unwrap_or("").contains("吃药"));
+        let has_old_reminder = system_msgs
+            .iter()
+            .any(|m| m["content"].as_str().unwrap_or("").contains("吃药"));
         assert!(!has_old_reminder, "old reminder should be removed");
-        let has_new_reminder = system_msgs.iter().any(|m|
-            m["content"].as_str().unwrap_or("").contains("新提醒"));
+        let has_new_reminder = system_msgs
+            .iter()
+            .any(|m| m["content"].as_str().unwrap_or("").contains("新提醒"));
         assert!(has_new_reminder, "new reminder should be present");
     }
 
     #[test]
     fn test_build_messages_max_turns() {
         use crate::app::Message;
-        let app_msgs: Vec<Message> = (0..20).flat_map(|i| vec![
-            Message::User { text: format!("q{}", i) },
-            Message::Assistant { text: format!("a{}", i), reasoning: String::new() },
-        ]).collect();
+        let app_msgs: Vec<Message> = (0..20)
+            .flat_map(|i| {
+                vec![
+                    Message::User {
+                        text: format!("q{}", i),
+                    },
+                    Message::Assistant {
+                        text: format!("a{}", i),
+                        reasoning: String::new(),
+                    },
+                ]
+            })
+            .collect();
         let params = MessageBuildParams {
             app_messages: &app_msgs,
             user_text: "final",
@@ -628,22 +693,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_chat_loop_single_turn_text() {
-        let provider: Box<dyn LlmProvider> = Box::new(
-            crate::test_helpers::MockProvider::new(vec![LlmEvent::Token("hello".to_string())]),
-        );
+        let provider: Box<dyn LlmProvider> =
+            Box::new(crate::test_helpers::MockProvider::new(vec![
+                LlmEvent::Token("hello".to_string()),
+            ]));
         let config = crate::test_helpers::test_config();
         let mcp = crate::mcp::McpRegistry::empty_for_test();
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
-        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new(), reqwest::Client::new()).await;
+        chat_loop(
+            provider,
+            config,
+            messages,
+            tx,
+            mcp,
+            vec![],
+            HashMap::new(),
+            reqwest::Client::new(),
+        )
+        .await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
             events.push(event);
         }
         assert!(
-            events.iter().any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
+            events
+                .iter()
+                .any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
             "应收到 Token 事件"
         );
         assert!(
@@ -663,14 +741,26 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
-        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new(), reqwest::Client::new()).await;
+        chat_loop(
+            provider,
+            config,
+            messages,
+            tx,
+            mcp,
+            vec![],
+            HashMap::new(),
+            reqwest::Client::new(),
+        )
+        .await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
             events.push(event);
         }
         assert!(
-            events.iter().any(|e| matches!(e, LlmEvent::Error(msg) if msg.contains("模拟错误"))),
+            events
+                .iter()
+                .any(|e| matches!(e, LlmEvent::Error(msg) if msg.contains("模拟错误"))),
             "应收到 Error 事件"
         );
     }
@@ -683,7 +773,17 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "do work"})];
 
-        chat_loop(Box::new(AlwaysToolCall), config, messages, tx, mcp, vec![], HashMap::new(), reqwest::Client::new()).await;
+        chat_loop(
+            Box::new(AlwaysToolCall),
+            config,
+            messages,
+            tx,
+            mcp,
+            vec![],
+            HashMap::new(),
+            reqwest::Client::new(),
+        )
+        .await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
@@ -702,10 +802,7 @@ mod tests {
             prompt.contains("Plan-then-Execute"),
             "plan_then_execute=true 时系统提示词应包含 Plan-then-Execute 模式说明"
         );
-        assert!(
-            prompt.contains("执行计划"),
-            "应包含'执行计划'关键词"
-        );
+        assert!(prompt.contains("执行计划"), "应包含'执行计划'关键词");
     }
 
     #[test]
@@ -720,7 +817,9 @@ mod tests {
     #[test]
     fn test_build_system_prompt_date_injection() {
         let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "");
-        let today = crate::utils::now_in_tz(tz_test()).format("%Y-%m-%d").to_string();
+        let today = crate::utils::now_in_tz(tz_test())
+            .format("%Y-%m-%d")
+            .to_string();
         assert!(prompt.contains(&today), "应注入当前日期");
         assert!(!prompt.contains("{current_date}"), "占位符应被替换");
     }
@@ -729,7 +828,10 @@ mod tests {
     fn test_build_system_prompt_tool_index_injection() {
         let prompt = build_system_prompt("★工具索引★", "", "", "", "", false, tz_test(), "");
         assert!(prompt.contains("★工具索引★"), "应注入工具索引");
-        assert!(!prompt.contains("{{TOOL_INDEX}}"), "TOOL_INDEX 占位符应被替换");
+        assert!(
+            !prompt.contains("{{TOOL_INDEX}}"),
+            "TOOL_INDEX 占位符应被替换"
+        );
     }
 
     #[test]

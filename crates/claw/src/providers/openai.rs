@@ -18,7 +18,12 @@ pub struct OpenaiProvider {
 impl OpenaiProvider {
     pub fn new(client: reqwest::Client, api_key: String, base_url: String, model: String) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
-        Self { client, api_key, base_url, model }
+        Self {
+            client,
+            api_key,
+            base_url,
+            model,
+        }
     }
 }
 
@@ -124,10 +129,7 @@ data: [DONE]
             chunk1, chunk2, chunk3
         );
         let (events, _) = test_helpers::parse_openai_sse(&sse);
-        assert!(
-            events.is_empty(),
-            "tool_calls 流式 delta 不应产生认知事件"
-        );
+        assert!(events.is_empty(), "tool_calls 流式 delta 不应产生认知事件");
     }
 
     #[test]

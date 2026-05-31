@@ -160,7 +160,12 @@ mod tests {
 
     fn test_config() -> Config {
         let mut c = Config::new();
-        c.i_rs_tools = vec!["weight".to_string(), "mood".to_string(), "todo".to_string(), "sleep".to_string()];
+        c.i_rs_tools = vec![
+            "weight".to_string(),
+            "mood".to_string(),
+            "todo".to_string(),
+            "sleep".to_string(),
+        ];
         c
     }
 

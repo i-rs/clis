@@ -72,7 +72,11 @@ pub(crate) fn build_system_prompt(
         .replace("{current_time}", &time_str)
         .replace("{timezone}", &tz_label);
 
-    let plan_mode = if plan_then_execute { PLAN_THEN_EXECUTE_PROMPT } else { REACT_PROMPT };
+    let plan_mode = if plan_then_execute {
+        PLAN_THEN_EXECUTE_PROMPT
+    } else {
+        REACT_PROMPT
+    };
     prompt = prompt.replace("{{PLAN_MODE}}", plan_mode);
 
     prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
@@ -166,18 +170,31 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         }
 
         // Smart compress: preserve skill teach docs + recent conversation context
-        smart_compress(&mut msgs, params.tool_frequency, 5, params.max_conversation_turns);
+        smart_compress(
+            &mut msgs,
+            params.tool_frequency,
+            5,
+            params.max_conversation_turns,
+        );
         return msgs;
     }
 
     // First turn: build from scratch
-    let system_prompt = params.system_prompt_override
+    let system_prompt = params
+        .system_prompt_override
         .map(|s| s.to_string())
-        .unwrap_or_else(|| build_system_prompt(
-            params.tool_index, params.hot_tools, params.skills,
-            params.user_memory, params.user_profile, params.plan_then_execute,
-            params.tz_offset, params.identity,
-        ));
+        .unwrap_or_else(|| {
+            build_system_prompt(
+                params.tool_index,
+                params.hot_tools,
+                params.skills,
+                params.user_memory,
+                params.user_profile,
+                params.plan_then_execute,
+                params.tz_offset,
+                params.identity,
+            )
+        });
 
     let mut msgs = vec![serde_json::json!({
         "role": "system",
@@ -201,7 +218,11 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
             crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
                 msgs.push(serde_json::json!({"role": "assistant", "content": text}));
             }
-            crate::app::Message::Evaluation { tool, valid, issues } if !valid => {
+            crate::app::Message::Evaluation {
+                tool,
+                valid,
+                issues,
+            } if !valid => {
                 tracing::info!(tool, issues = ?issues, "工具结果验证告警");
             }
             _ => {}
@@ -233,25 +254,43 @@ fn find_teach_pairs(msgs: &[Value]) -> Vec<TeachPair> {
         i -= 1;
         if let Some(tool_calls) = msgs[i].get("tool_calls").and_then(|t| t.as_array()) {
             for tc in tool_calls {
-                if let Some(name) = tc.get("function")
+                if let Some(name) = tc
+                    .get("function")
                     .and_then(|f| f.get("name"))
                     .and_then(|n| n.as_str())
                 {
-                    if name != "i_rs" { continue; }
-                    let args_str = tc.get("function")
+                    if name != "i_rs" {
+                        continue;
+                    }
+                    let args_str = tc
+                        .get("function")
                         .and_then(|f| f.get("arguments"))
                         .and_then(|a| a.as_str())
                         .unwrap_or("");
                     if let Ok(parsed) = serde_json::from_str::<Value>(args_str) {
                         let cmd = parsed.get("command").and_then(|c| c.as_str()).unwrap_or("");
-                        if cmd != "skill" { continue; }
-                        let tool_name = parsed.get("tool").and_then(|t| t.as_str()).unwrap_or("unknown").to_string();
+                        if cmd != "skill" {
+                            continue;
+                        }
+                        let tool_name = parsed
+                            .get("tool")
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
 
-                        if seen_tools.contains(&tool_name) { continue; }
+                        if seen_tools.contains(&tool_name) {
+                            continue;
+                        }
                         seen_tools.insert(tool_name.clone());
 
-                        if i + 1 < msgs.len() && msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool") {
-                            pairs.push(TeachPair { assist_idx: i, result_idx: i + 1, tool_name });
+                        if i + 1 < msgs.len()
+                            && msgs[i + 1].get("role").and_then(|r| r.as_str()) == Some("tool")
+                        {
+                            pairs.push(TeachPair {
+                                assist_idx: i,
+                                result_idx: i + 1,
+                                tool_name,
+                            });
                         }
                     }
                 }
@@ -268,11 +307,15 @@ fn find_teach_pairs(msgs: &[Value]) -> Vec<TeachPair> {
 /// are strongly preferred over one-off tool learns.
 fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize>) -> Vec<usize> {
     let max_recency = pairs.len().max(1);
-    let mut scored: Vec<(usize, usize)> = pairs.iter().enumerate().map(|(pos, pair)| {
-        let freq = tool_frequency.get(&pair.tool_name).copied().unwrap_or(0);
-        let recency = max_recency - pos;
-        (freq * 10 + recency, pos)
-    }).collect();
+    let mut scored: Vec<(usize, usize)> = pairs
+        .iter()
+        .enumerate()
+        .map(|(pos, pair)| {
+            let freq = tool_frequency.get(&pair.tool_name).copied().unwrap_or(0);
+            let recency = max_recency - pos;
+            (freq * 10 + recency, pos)
+        })
+        .collect();
     scored.sort_by_key(|&(score, _)| std::cmp::Reverse(score));
     scored.into_iter().map(|(_, pos)| pos).collect()
 }
@@ -335,9 +378,7 @@ pub fn smart_compress(
     for idx in 0..msgs.len() {
         if preserve.contains(&idx) && msgs[idx].get("tool_calls").is_some() {
             let mut j = idx + 1;
-            while j < msgs.len()
-                && msgs[j].get("role").and_then(|r| r.as_str()) == Some("tool")
-            {
+            while j < msgs.len() && msgs[j].get("role").and_then(|r| r.as_str()) == Some("tool") {
                 preserve.insert(j);
                 j += 1;
             }
@@ -363,9 +404,6 @@ pub fn smart_compress(
 /// Preserves top 5 skill teach docs (scored by cross-session frequency + recency)
 /// and the last 20 conversation messages for context.
 #[allow(dead_code)]
-pub fn compress_api_messages(
-    msgs: &mut Vec<Value>,
-    tool_frequency: &HashMap<String, usize>,
-) {
+pub fn compress_api_messages(msgs: &mut Vec<Value>, tool_frequency: &HashMap<String, usize>) {
     smart_compress(msgs, tool_frequency, 5, 20);
 }

@@ -1,13 +1,13 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem},
-    Frame,
 };
 
-use crate::app::App;
 use super::input;
+use crate::app::App;
 
 pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     if app.overlay.tab_completions.is_empty() {
@@ -23,7 +23,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
         + input::input_height(&app.input.text)
         + 1  // processing
         + popup_height
-        + 2
+        + 2,
     );
 
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
@@ -34,14 +34,12 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     let mut items: Vec<ListItem> = Vec::new();
 
     // Header
-    items.push(ListItem::new(vec![
-        Line::from(Span::styled(
-            format!(" Tab 补全 ({} 个)", count),
-            Style::default()
-                .fg(theme_primary)
-                .add_modifier(Modifier::BOLD),
-        )),
-    ]));
+    items.push(ListItem::new(vec![Line::from(Span::styled(
+        format!(" Tab 补全 ({} 个)", count),
+        Style::default()
+            .fg(theme_primary)
+            .add_modifier(Modifier::BOLD),
+    ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ────────────────────────────────────────",
         Style::default().fg(Color::DarkGray),

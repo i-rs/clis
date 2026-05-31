@@ -4,9 +4,9 @@ pub mod wechat;
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::RwLock;
 use tokio::sync::mpsc;
-use tokio::signal::unix::{signal, SignalKind};
 
 /// Event emitted by a platform adapter when a message is received or an error occurs.
 #[derive(Debug)]
@@ -150,10 +150,7 @@ impl GatewayServer {
                 agent_id,
             } => {
                 // Find the originating adapter by index
-                let adapter_idx = self
-                    .adapters
-                    .iter()
-                    .position(|a| a.name() == platform);
+                let adapter_idx = self.adapters.iter().position(|a| a.name() == platform);
 
                 // Spawn periodic typing indicator while processing (max 5 min)
                 const MAX_TYPING_SECS: u64 = 300;
@@ -185,9 +182,7 @@ impl GatewayServer {
 
                 // Find the originating adapter and send the response
                 if let Some(idx) = adapter_idx {
-                    self.adapters[idx]
-                        .send_message(&chat_id, &response)
-                        .await;
+                    self.adapters[idx].send_message(&chat_id, &response).await;
                 }
             }
             GatewayEvent::Error { platform, error } => {
@@ -216,7 +211,9 @@ impl GatewayServer {
             let mut core = core.write().await;
             let session_title = format!("gateway:{}:{}", platform, chat_id);
 
-            let uuid = if let Some(found) = core.session_mgr.sessions()
+            let uuid = if let Some(found) = core
+                .session_mgr
+                .sessions()
                 .iter()
                 .find(|s| s.title == session_title)
                 .map(|s| s.id.clone())
@@ -252,7 +249,17 @@ impl GatewayServer {
         );
         let http_client = crate::providers::shared_client();
         tokio::spawn(async move {
-            crate::core::engine::chat_loop(provider, config, msgs, tx, mcp, Vec::new(), std::collections::HashMap::new(), http_client).await;
+            crate::core::engine::chat_loop(
+                provider,
+                config,
+                msgs,
+                tx,
+                mcp,
+                Vec::new(),
+                std::collections::HashMap::new(),
+                http_client,
+            )
+            .await;
         });
 
         // Accumulate the response
@@ -266,8 +273,7 @@ impl GatewayServer {
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _) => {
                     let mut core = core.write().await;
-                    core.session_mgr
-                        .save_api_messages(&session_uuid, &api_msgs);
+                    core.session_mgr.save_api_messages(&session_uuid, &api_msgs);
                     core.session_mgr.append_message("user", &text_owned, None);
                     core.session_mgr
                         .append_message("assistant", &response, None);

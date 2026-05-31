@@ -61,9 +61,16 @@ pub fn aggregate(records: &[TokenRecord], pricing: &ModelPricingTable) -> TokenS
 
 /// Filter records by time period.
 #[allow(dead_code)]
-pub fn filter_by_period<'a>(records: &'a [TokenRecord], period: &StatsPeriod) -> Vec<&'a TokenRecord> {
+pub fn filter_by_period<'a>(
+    records: &'a [TokenRecord],
+    period: &StatsPeriod,
+) -> Vec<&'a TokenRecord> {
     let now = chrono::Local::now().naive_local();
-    let today_start = now.date().and_hms_opt(0, 0, 0).map(|dt| dt.and_utc().timestamp()).unwrap_or(0);
+    let today_start = now
+        .date()
+        .and_hms_opt(0, 0, 0)
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or(0);
 
     let from_ts = match period {
         StatsPeriod::Today => today_start,
@@ -78,11 +85,18 @@ pub fn filter_by_period<'a>(records: &'a [TokenRecord], period: &StatsPeriod) ->
         _ => i64::MAX,
     };
 
-    records.iter().filter(|r| r.timestamp >= from_ts && r.timestamp <= to_ts).collect()
+    records
+        .iter()
+        .filter(|r| r.timestamp >= from_ts && r.timestamp <= to_ts)
+        .collect()
 }
 
-pub fn group_by_model(records: &[TokenRecord], _pricing: &ModelPricingTable) -> Vec<super::ModelStats> {
-    let mut map: std::collections::HashMap<String, super::ModelStats> = std::collections::HashMap::new();
+pub fn group_by_model(
+    records: &[TokenRecord],
+    _pricing: &ModelPricingTable,
+) -> Vec<super::ModelStats> {
+    let mut map: std::collections::HashMap<String, super::ModelStats> =
+        std::collections::HashMap::new();
 
     for r in records {
         let entry = map.entry(r.model.clone()).or_insert(super::ModelStats {
@@ -95,7 +109,8 @@ pub fn group_by_model(records: &[TokenRecord], _pricing: &ModelPricingTable) -> 
         entry.request_count += 1;
         entry.total_tokens += r.total_tokens as u64;
         entry.total_cost_usd += r.estimated_cost_usd;
-        entry.avg_latency_ms = (entry.avg_latency_ms * (entry.request_count - 1) as f64 + r.latency_ms as f64)
+        entry.avg_latency_ms = (entry.avg_latency_ms * (entry.request_count - 1) as f64
+            + r.latency_ms as f64)
             / entry.request_count as f64;
     }
 
@@ -104,8 +119,12 @@ pub fn group_by_model(records: &[TokenRecord], _pricing: &ModelPricingTable) -> 
     result
 }
 
-pub fn group_by_agent(records: &[TokenRecord], _pricing: &ModelPricingTable) -> Vec<super::AgentStats> {
-    let mut map: std::collections::HashMap<String, super::AgentStats> = std::collections::HashMap::new();
+pub fn group_by_agent(
+    records: &[TokenRecord],
+    _pricing: &ModelPricingTable,
+) -> Vec<super::AgentStats> {
+    let mut map: std::collections::HashMap<String, super::AgentStats> =
+        std::collections::HashMap::new();
 
     for r in records {
         let entry = map.entry(r.agent_id.clone()).or_insert(super::AgentStats {
@@ -124,8 +143,12 @@ pub fn group_by_agent(records: &[TokenRecord], _pricing: &ModelPricingTable) -> 
     result
 }
 
-pub fn group_by_day(records: &[TokenRecord], _pricing: &ModelPricingTable) -> Vec<super::DailyStats> {
-    let mut map: std::collections::BTreeMap<String, super::DailyStats> = std::collections::BTreeMap::new();
+pub fn group_by_day(
+    records: &[TokenRecord],
+    _pricing: &ModelPricingTable,
+) -> Vec<super::DailyStats> {
+    let mut map: std::collections::BTreeMap<String, super::DailyStats> =
+        std::collections::BTreeMap::new();
 
     for r in records {
         // Convert timestamp to date string
@@ -149,14 +172,20 @@ pub fn group_by_day(records: &[TokenRecord], _pricing: &ModelPricingTable) -> Ve
 }
 
 /// Get today's aggregated summary.
-pub fn today_summary(records: &[TokenRecord], tz_offset: chrono::FixedOffset) -> super::TodaySummary {
+pub fn today_summary(
+    records: &[TokenRecord],
+    tz_offset: chrono::FixedOffset,
+) -> super::TodaySummary {
     let today_start = crate::utils::now_in_tz(tz_offset)
         .date_naive()
         .and_hms_opt(0, 0, 0)
         .map(|dt| dt.and_utc().timestamp())
         .unwrap_or(0);
 
-    let today_records: Vec<_> = records.iter().filter(|r| r.timestamp >= today_start).collect();
+    let today_records: Vec<_> = records
+        .iter()
+        .filter(|r| r.timestamp >= today_start)
+        .collect();
 
     super::TodaySummary {
         requests: today_records.len() as u32,

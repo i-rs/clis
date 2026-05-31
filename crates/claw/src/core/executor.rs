@@ -34,12 +34,21 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
 
     if result.is_empty() {
         issues.push("工具返回空结果".to_string());
-        return ToolResultValidation { valid: false, issues };
+        return ToolResultValidation {
+            valid: false,
+            issues,
+        };
     }
 
-    if result.starts_with("错误:") || result.starts_with("执行错误:") || result.starts_with("MCP 错误:") {
+    if result.starts_with("错误:")
+        || result.starts_with("执行错误:")
+        || result.starts_with("MCP 错误:")
+    {
         issues.push(format!("工具执行失败: {}", result));
-        return ToolResultValidation { valid: false, issues };
+        return ToolResultValidation {
+            valid: false,
+            issues,
+        };
     }
 
     // If the result looks like JSON, verify it's well-formed
@@ -48,7 +57,11 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
             Ok(json) => {
                 // Check for common error patterns in JSON responses
                 if let Some(obj) = json.as_object() {
-                    if let Some(error) = obj.get("error").or_else(|| obj.get("err")).and_then(|v| v.as_str()) {
+                    if let Some(error) = obj
+                        .get("error")
+                        .or_else(|| obj.get("err"))
+                        .and_then(|v| v.as_str())
+                    {
                         issues.push(format!("JSON 响应包含错误字段: '{}'", error));
                     }
                     if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
@@ -71,7 +84,10 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
         }
     }
 
-    ToolResultValidation { valid: issues.is_empty(), issues }
+    ToolResultValidation {
+        valid: issues.is_empty(),
+        issues,
+    }
 }
 
 pub struct ToolCallExecutor {
@@ -138,7 +154,8 @@ impl ToolCallExecutor {
                         &args,
                         &registry_for_spawn,
                         &ctx_for_spawn,
-                    ).await
+                    )
+                    .await
                 })
                 .await
                 {
@@ -176,7 +193,13 @@ impl ToolCallExecutor {
         for handle in handles {
             match handle.await {
                 Ok((call, args, context_result, validation)) => {
-                    all_results.push(ToolCallResult { call, args, result: context_result.clone(), context_result, validation });
+                    all_results.push(ToolCallResult {
+                        call,
+                        args,
+                        result: context_result.clone(),
+                        context_result,
+                        validation,
+                    });
                 }
                 Err(e) => {
                     tracing::error!("Tool task panicked: {}", e);

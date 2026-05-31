@@ -45,14 +45,21 @@ pub(crate) async fn send_with_retry(
                 if attempt >= max_attempts {
                     let text = r.text().await.unwrap_or_default();
                     return Err(anyhow::anyhow!(
-                        "API 限流 (429) 重试{}次后仍失败: {}", attempt, text
+                        "API 限流 (429) 重试{}次后仍失败: {}",
+                        attempt,
+                        text
                     ));
                 }
                 let wait_ms = parse_retry_after_ms(&r).unwrap_or_else(|| {
                     (RETRY_429_BASE_MS << attempt.min(4).saturating_sub(1).min(60))
                         + fastrand::u64(0..RETRY_JITTER_MS / 2)
                 });
-                tracing::warn!("API 限流 (429), 等待 {}ms 后重试 ({}/{})", wait_ms, attempt, max_attempts);
+                tracing::warn!(
+                    "API 限流 (429), 等待 {}ms 后重试 ({}/{})",
+                    wait_ms,
+                    attempt,
+                    max_attempts
+                );
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
                 continue;
             }
@@ -61,12 +68,21 @@ pub(crate) async fn send_with_retry(
                     let status = r.status().as_u16();
                     let text = r.text().await.unwrap_or_default();
                     return Err(anyhow::anyhow!(
-                        "API 服务器错误 ({}) 重试{}次后仍失败: {}", status, attempt, text
+                        "API 服务器错误 ({}) 重试{}次后仍失败: {}",
+                        status,
+                        attempt,
+                        text
                     ));
                 }
                 let wait_ms = (RETRY_5XX_BASE_MS << attempt.min(3).saturating_sub(1).min(60))
                     + fastrand::u64(0..RETRY_JITTER_MS);
-                tracing::warn!("API 服务器错误 ({}), 等待 {}ms 后重试 ({}/{})", r.status(), wait_ms, attempt, max_attempts);
+                tracing::warn!(
+                    "API 服务器错误 ({}), 等待 {}ms 后重试 ({}/{})",
+                    r.status(),
+                    wait_ms,
+                    attempt,
+                    max_attempts
+                );
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
                 continue;
             }
@@ -82,7 +98,13 @@ pub(crate) async fn send_with_retry(
                 }
                 let wait_ms = (RETRY_NETWORK_BASE_MS << attempt.min(3).saturating_sub(1).min(60))
                     + fastrand::u64(0..RETRY_JITTER_MS / 2);
-                tracing::warn!("API 网络错误, 等待 {}ms 后重试 ({}/{}): {}", wait_ms, attempt, max_attempts, e);
+                tracing::warn!(
+                    "API 网络错误, 等待 {}ms 后重试 ({}/{}): {}",
+                    wait_ms,
+                    attempt,
+                    max_attempts,
+                    e
+                );
                 tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
                 continue;
             }
@@ -133,7 +155,10 @@ pub(crate) async fn openai_stream_chat_impl(
     let headers: Vec<(String, String)> = if let Some(key) = api_key {
         vec![
             ("Authorization".to_string(), format!("Bearer {}", key)),
-            ("HTTP-Referer".to_string(), "https://github.com/i-rs/clis".to_string()),
+            (
+                "HTTP-Referer".to_string(),
+                "https://github.com/i-rs/clis".to_string(),
+            ),
             ("X-Title".to_string(), "i-rs-claw".to_string()),
         ]
     } else {
@@ -171,55 +196,66 @@ pub(crate) async fn openai_stream_chat_impl(
                     if let Ok(parsed) = serde_json::from_str::<Value>(data.trim()) {
                         // Usage data (final chunk with include_usage)
                         if let Some(usage_data) = parsed.get("usage")
-                            && !usage_data.is_null() {
-                                usage = Some(TokenUsage {
-                                    prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
-                                    completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
-                                    total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
-                                });
-                            }
+                            && !usage_data.is_null()
+                        {
+                            usage = Some(TokenUsage {
+                                prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0)
+                                    as u32,
+                                completion_tokens: usage_data["completion_tokens"]
+                                    .as_u64()
+                                    .unwrap_or(0)
+                                    as u32,
+                                total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0)
+                                    as u32,
+                            });
+                        }
 
                         if let Some(choices) = parsed["choices"].as_array()
                             && let Some(choice) = choices.first()
-                                && let Some(delta) = choice.get("delta") {
-                                    // Accumulate reasoning_content (DeepSeek)
-                                    if let Some(rc) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
-                                        reasoning_buf.push_str(rc);
-                                        let _ = tx.send(LlmEvent::Reasoning(rc.to_string()));
+                            && let Some(delta) = choice.get("delta")
+                        {
+                            // Accumulate reasoning_content (DeepSeek)
+                            if let Some(rc) =
+                                delta.get("reasoning_content").and_then(|r| r.as_str())
+                            {
+                                reasoning_buf.push_str(rc);
+                                let _ = tx.send(LlmEvent::Reasoning(rc.to_string()));
+                            }
+
+                            // Text content
+                            if let Some(text) = delta.get("content").and_then(|c| c.as_str())
+                                && !text.is_empty()
+                            {
+                                content_buf.push_str(text);
+                                let _ = tx.send(LlmEvent::Token(text.to_string()));
+                            }
+
+                            // Tool calls (streaming delta)
+                            if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
+                                for tc in tcs {
+                                    let idx = tc.get("index").and_then(|i| i.as_i64()).unwrap_or(0)
+                                        as usize;
+                                    if idx >= tool_calls.len() {
+                                        tool_calls.resize(idx + 1, ToolCallAcc::default());
                                     }
-
-                                    // Text content
-                                    if let Some(text) = delta.get("content").and_then(|c| c.as_str())
-                                        && !text.is_empty() {
-                                            content_buf.push_str(text);
-                                            let _ = tx.send(LlmEvent::Token(text.to_string()));
+                                    if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
+                                        tool_calls[idx].id = id.to_string();
+                                    }
+                                    if let Some(func) = tc.get("function") {
+                                        if let Some(name) =
+                                            func.get("name").and_then(|n| n.as_str())
+                                        {
+                                            tool_calls[idx].name = name.to_string();
                                         }
-
-                                    // Tool calls (streaming delta)
-                                    if let Some(tcs) = delta.get("tool_calls").and_then(|t| t.as_array()) {
-                                        for tc in tcs {
-                                            let idx = tc
-                                                .get("index")
-                                                .and_then(|i| i.as_i64())
-                                                .unwrap_or(0)
-                                                as usize;
-                                            if idx >= tool_calls.len() {
-                                                tool_calls.resize(idx + 1, ToolCallAcc::default());
-                                            }
-                                            if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
-                                                tool_calls[idx].id = id.to_string();
-                                            }
-                                            if let Some(func) = tc.get("function") {
-                                                if let Some(name) = func.get("name").and_then(|n| n.as_str()) {
-                                                    tool_calls[idx].name = name.to_string();
-                                                }
-                                                if let Some(args) = func.get("arguments").and_then(|a| a.as_str()) {
-                                                    tool_calls[idx].arguments.push_str(args);
-                                                }
-                                            }
+                                        if let Some(args) =
+                                            func.get("arguments").and_then(|a| a.as_str())
+                                        {
+                                            tool_calls[idx].arguments.push_str(args);
                                         }
                                     }
                                 }
+                            }
+                        }
                     }
                 }
             }
@@ -228,9 +264,13 @@ pub(crate) async fn openai_stream_chat_impl(
         let duration_ms = start.elapsed().as_millis() as u64;
         let prompt_tokens = usage.map(|u| u.prompt_tokens).unwrap_or(0);
         let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
-        let has_tool_calls = !tool_calls.is_empty()
-            && tool_calls.iter().any(|tc| !tc.id.is_empty());
-        let tool_call_count = if has_tool_calls { tool_calls.len() as u32 } else { 0 };
+        let has_tool_calls =
+            !tool_calls.is_empty() && tool_calls.iter().any(|tc| !tc.id.is_empty());
+        let tool_call_count = if has_tool_calls {
+            tool_calls.len() as u32
+        } else {
+            0
+        };
 
         // Emit usage record for statistics
         let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
@@ -263,11 +303,10 @@ pub(crate) async fn openai_stream_chat_impl(
         if has_tool_calls {
             let mut parsed = Vec::new();
             for tc in &tool_calls {
-                let args: Value =
-                    serde_json::from_str(&tc.arguments).unwrap_or_else(|e| {
-                        tracing::warn!("工具 '{}' 参数 JSON 解析失败: {}", tc.name, e);
-                        serde_json::json!({})
-                    });
+                let args: Value = serde_json::from_str(&tc.arguments).unwrap_or_else(|e| {
+                    tracing::warn!("工具 '{}' 参数 JSON 解析失败: {}", tc.name, e);
+                    serde_json::json!({})
+                });
                 parsed.push((
                     ToolCallAcc {
                         id: tc.id.clone(),
@@ -316,9 +355,7 @@ mod tests {
 
     #[test]
     fn test_parse_retry_after_missing() {
-        let resp = reqwest::Response::from(
-            http::Response::builder().status(200).body("").unwrap()
-        );
+        let resp = reqwest::Response::from(http::Response::builder().status(200).body("").unwrap());
         assert_eq!(parse_retry_after_ms(&resp), None);
     }
 
@@ -328,7 +365,7 @@ mod tests {
                 .status(200)
                 .header(key, value)
                 .body("")
-                .unwrap()
+                .unwrap(),
         )
     }
 }

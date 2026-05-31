@@ -66,7 +66,9 @@ impl ClawTool for SearchConversationsTool {
             .clamp(1, 20) as usize;
 
         if query.is_empty() {
-            return Err(ClawError::Validation("Please provide a search query".to_string()));
+            return Err(ClawError::Validation(
+                "Please provide a search query".to_string(),
+            ));
         }
 
         match method {
@@ -80,7 +82,7 @@ fn search_keyword(query: &str) -> Result<String, ClawError> {
     let claw_dir = crate::utils::claw_dir()
         .ok_or_else(|| ClawError::NotFound("Cannot determine home directory".to_string()))?;
 
-    let store = crate::convstore::ConvStore::new(claw_dir);
+    let store = crate::convstore::ConvStore::for_claw_dir(claw_dir);
     let results = store.search(query, 10);
 
     if results.is_empty() {

@@ -2,10 +2,10 @@ use crate::dashboard::AppState;
 use crate::llm::LlmEvent;
 use crate::stats::StatsPeriod;
 use axum::{
-    extract::{Path, Query, State},
-    response::sse::{Event, Sse},
-    response::IntoResponse,
     Json,
+    extract::{Path, Query, State},
+    response::IntoResponse,
+    response::sse::{Event, Sse},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -57,7 +57,9 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
             }
             msg
         }
-        crate::app::Message::ToolCall { name, args, result, .. } => {
+        crate::app::Message::ToolCall {
+            name, args, result, ..
+        } => {
             serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
         }
         _ => serde_json::json!({"role": "unknown"}),
@@ -104,11 +106,14 @@ pub async fn get_stats(
     match serde_json::to_value(&result) {
         Ok(mut v) => {
             if let Some(obj) = v.as_object_mut() {
-                obj.insert("today".to_string(), serde_json::json!({
-                    "requests": today.requests,
-                    "tokens": today.tokens,
-                    "cost_usd": today.cost_usd,
-                }));
+                obj.insert(
+                    "today".to_string(),
+                    serde_json::json!({
+                        "requests": today.requests,
+                        "tokens": today.tokens,
+                        "cost_usd": today.cost_usd,
+                    }),
+                );
             }
             ApiResponse::ok(v)
         }
@@ -194,12 +199,10 @@ pub async fn send_message(
         core.session_mgr.create_session_for(&agent_id);
     }
 
-    let sid = match core
-        .session_mgr
-        .current_id() {
-            Some(id) => id.to_string(),
-            None => return ApiResponse::err("没有活跃会话"),
-        };
+    let sid = match core.session_mgr.current_id() {
+        Some(id) => id.to_string(),
+        None => return ApiResponse::err("没有活跃会话"),
+    };
 
     // Save user message
     core.session_mgr.append_message("user", &text, None);
@@ -246,7 +249,13 @@ pub async fn chat_stream(
             loop {
                 let event = rx.recv().await?;
                 match event {
-                    LlmEvent::ToolExecuted { name, args, result, step, total_steps } => {
+                    LlmEvent::ToolExecuted {
+                        name,
+                        args,
+                        result,
+                        step,
+                        total_steps,
+                    } => {
                         let mut core = state.core.write().await;
                         let i_rs_index = core.config.i_rs_tool_index.clone();
                         let agent_id = core
@@ -255,15 +264,20 @@ pub async fn chat_stream(
                             .map(|m| m.agent_id.clone())
                             .unwrap_or_else(|| "default".to_string());
                         crate::core::record_tool_memory(
-                            &mut core.agent_store, &i_rs_index, &agent_id,
-                            &name, &args, &result,
+                            &mut core.agent_store,
+                            &i_rs_index,
+                            &agent_id,
+                            &name,
+                            &args,
+                            &result,
                         );
                         drop(core);
 
                         let data = serde_json::to_string(&serde_json::json!({
                             "name": name, "args": args, "result": result,
                             "step": step, "total_steps": total_steps,
-                        })).unwrap_or_default();
+                        }))
+                        .unwrap_or_default();
                         let sse = Event::default().event("tool_executed").data(data);
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
@@ -276,12 +290,17 @@ pub async fn chat_stream(
                             .unwrap_or_else(|| "default".to_string());
                         if let Some(last) = msgs.last() {
                             if last.get("role").and_then(|r| r.as_str()) == Some("assistant") {
-                                let text = last.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                                let reasoning = last.get("reasoning_content")
-                                    .and_then(|r| r.as_str()).unwrap_or("");
+                                let text =
+                                    last.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                                let reasoning = last
+                                    .get("reasoning_content")
+                                    .and_then(|r| r.as_str())
+                                    .unwrap_or("");
                                 let extra = if !reasoning.is_empty() {
                                     Some(serde_json::json!({"reasoning": reasoning}))
-                                } else { None };
+                                } else {
+                                    None
+                                };
                                 if !text.is_empty() || extra.is_some() {
                                     core.session_mgr.append_message("assistant", text, extra);
                                 }
@@ -331,9 +350,7 @@ pub async fn chat_stream(
 }
 
 /// Get current session info.
-pub async fn get_current_session(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Value>> {
+pub async fn get_current_session(State(state): State<AppState>) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let id = core.session_mgr.current_id().map(|s| s.to_string());
     match id {
@@ -399,9 +416,7 @@ pub async fn switch_session(
 }
 
 /// List all sessions.
-pub async fn list_sessions(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Vec<Value>>> {
+pub async fn list_sessions(State(state): State<AppState>) -> Json<ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     let sessions: Vec<Value> = core
         .session_mgr
@@ -456,7 +471,10 @@ pub async fn post_session_feedback(
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<ApiResponse<&'static str>> {
-    let positive = body.get("positive").and_then(|v| v.as_bool()).unwrap_or(true);
+    let positive = body
+        .get("positive")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
     let feedback_msg = body.get("message").and_then(|v| v.as_str());
 
     let mut core = state.core.write().await;
@@ -488,21 +506,25 @@ pub async fn post_session_feedback(
 }
 
 /// List available agent profiles.
-pub async fn get_agents(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Vec<Value>>> {
+pub async fn get_agents(State(state): State<AppState>) -> Json<ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     let agent_ids = core.config.all_agent_ids();
     let agents: Vec<Value> = agent_ids
         .iter()
         .map(|id| {
-            let agent = core.config.agents.get(id)
+            let agent = core
+                .config
+                .agents
+                .get(id)
                 .or_else(|| core.config.sub_agents.get(id));
-            let provider = agent.and_then(|a| a.provider.as_deref())
+            let provider = agent
+                .and_then(|a| a.provider.as_deref())
                 .unwrap_or(&core.config.provider);
-            let model = agent.and_then(|a| a.model.as_deref())
+            let model = agent
+                .and_then(|a| a.model.as_deref())
                 .unwrap_or(&core.config.model);
-            let base_url = agent.and_then(|a| a.base_url.as_deref())
+            let base_url = agent
+                .and_then(|a| a.base_url.as_deref())
                 .unwrap_or(&core.config.base_url);
             let enabled_tools: &std::collections::HashSet<String> = agent
                 .and_then(|a| a.enabled_tools.as_ref())
@@ -568,15 +590,40 @@ pub async fn update_agent(
 
     // Merge body with existing (only override provided fields)
     let agent_config = crate::config::AgentConfig {
-        provider: body.get("provider").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.provider),
-        api_key: body.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.api_key),
-        base_url: body.get("base_url").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.base_url),
-        model: body.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.model),
-        enabled_tools: body.get("enabled_tools")
+        provider: body
+            .get("provider")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or(existing.provider),
+        api_key: body
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or(existing.api_key),
+        base_url: body
+            .get("base_url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or(existing.base_url),
+        model: body
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or(existing.model),
+        enabled_tools: body
+            .get("enabled_tools")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .or(existing.enabled_tools),
-        system_prompt: body.get("system_prompt").and_then(|v| v.as_str()).map(|s| s.to_string()).or(existing.system_prompt),
+        system_prompt: body
+            .get("system_prompt")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or(existing.system_prompt),
         system_prompt_file: existing.system_prompt_file,
         mcp_servers: None, // inherit from existing via merge
         allowed_dirs: None,
@@ -620,14 +667,34 @@ pub async fn create_agent(
 
     // Build agent config from request body (all optional)
     let agent_config = crate::config::AgentConfig {
-        provider: body.get("provider").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        api_key: body.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        base_url: body.get("base_url").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        model: body.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        enabled_tools: body.get("enabled_tools")
+        provider: body
+            .get("provider")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        api_key: body
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        base_url: body
+            .get("base_url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        model: body
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        enabled_tools: body
+            .get("enabled_tools")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()),
-        system_prompt: body.get("system_prompt").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            }),
+        system_prompt: body
+            .get("system_prompt")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
         system_prompt_file: None,
         mcp_servers: None,
         allowed_dirs: None,
@@ -649,7 +716,7 @@ pub async fn create_agent(
 
     // Initialize runtime data in agent_store
     let config = core.config.clone();
-    core.agent_store.add_agent(&config, &claw_dir, &agent_id);
+    core.agent_store.add_agent(&config, &agent_id);
 
     // Persist config
     if let Err(e) = core.config.save() {
@@ -693,9 +760,7 @@ pub async fn delete_agent(
 }
 
 /// List available tools.
-pub async fn list_tools(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Vec<Value>>> {
+pub async fn list_tools(State(state): State<AppState>) -> Json<ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     let enabled = if core.config.enabled_tools.is_empty() {
         None
@@ -709,9 +774,7 @@ pub async fn list_tools(
 }
 
 /// List installed plugins.
-pub async fn list_plugins(
-    State(_state): State<AppState>,
-) -> Json<ApiResponse<Vec<Value>>> {
+pub async fn list_plugins(State(_state): State<AppState>) -> Json<ApiResponse<Vec<Value>>> {
     let mgr = crate::plugin::PluginManager::new();
     let plugins: Vec<Value> = mgr
         .manifests
@@ -744,11 +807,16 @@ pub async fn list_skills(
                 name: e.name.clone(),
                 description: fm
                     .as_ref()
-                    .and_then(|t| t.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                    .and_then(|t| {
+                        t.get("description")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                    })
                     .unwrap_or_else(|| e.name.clone()),
-                parameters: fm
-                    .as_ref()
-                    .and_then(|t| t.get("parameters").and_then(|v| serde_json::to_value(v).ok())),
+                parameters: fm.as_ref().and_then(|t| {
+                    t.get("parameters")
+                        .and_then(|v| serde_json::to_value(v).ok())
+                }),
                 content: body.to_string(),
             }
         })
@@ -774,8 +842,7 @@ mod tests {
         let result = std::thread::Builder::new()
             .name(name.to_string())
             .spawn(move || {
-                let rt = tokio::runtime::Runtime::new()
-                    .expect("创建测试运行时失败");
+                let rt = tokio::runtime::Runtime::new().expect("创建测试运行时失败");
                 let state = new_test_state();
                 f(rt, state);
             })
@@ -891,10 +958,7 @@ mod tests {
     #[test]
     fn test_send_message_missing_body() {
         run_state_test("test_send_message_missing_body", |rt, state| {
-            let result = rt.block_on(send_message(
-                State(state),
-                Json(serde_json::json!({})),
-            ));
+            let result = rt.block_on(send_message(State(state), Json(serde_json::json!({}))));
             assert!(!result.success, "缺少 message 时应返回错误");
             assert_eq!(result.error, Some("Missing 'message' field".to_string()));
         });
@@ -910,7 +974,10 @@ mod tests {
             assert!(result.success, "有效消息应返回 success");
             let data = result.0.data.unwrap();
             assert_eq!(data["status"], "processing");
-            assert!(!data["session_id"].as_str().unwrap_or("").is_empty(), "应返回非空 session_id");
+            assert!(
+                !data["session_id"].as_str().unwrap_or("").is_empty(),
+                "应返回非空 session_id"
+            );
         });
     }
 
@@ -937,7 +1004,12 @@ mod tests {
             // 每个 tool schema 应有 type/function 字段
             let first = &tools[0];
             assert_eq!(first["type"], "function");
-            assert!(first["function"]["name"].as_str().map(|s| !s.is_empty()).unwrap_or(false));
+            assert!(
+                first["function"]["name"]
+                    .as_str()
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false)
+            );
         });
     }
 
@@ -956,10 +1028,7 @@ mod tests {
     #[test]
     fn test_get_agent_detail_default() {
         run_state_test("test_get_agent_detail_default", |rt, state| {
-            let result = rt.block_on(get_agent_detail(
-                State(state),
-                Path("default".to_string()),
-            ));
+            let result = rt.block_on(get_agent_detail(State(state), Path("default".to_string())));
             assert!(result.success);
             let detail = result.0.data.unwrap();
             assert_eq!(detail["id"], "default");

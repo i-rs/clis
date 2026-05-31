@@ -67,9 +67,10 @@ impl PluginState {
     fn load(path: &PathBuf) -> Self {
         if path.exists()
             && let Ok(content) = std::fs::read_to_string(path)
-                && let Ok(state) = serde_json::from_str(&content) {
-                    return state;
-                }
+            && let Ok(state) = serde_json::from_str(&content)
+        {
+            return state;
+        }
         Self {
             plugins: HashMap::new(),
         }
@@ -77,7 +78,10 @@ impl PluginState {
 
     fn save(&self, path: &Path) {
         if let Ok(content) = serde_json::to_string_pretty(self)
-            && let Err(e) = atomic_write(path, &content) { tracing::error!("持久化写入失败: {}", e); }
+            && let Err(e) = atomic_write(path, &content)
+        {
+            tracing::error!("持久化写入失败: {}", e);
+        }
     }
 
     fn is_enabled(&self, name: &str) -> bool {
@@ -161,7 +165,8 @@ impl PluginManager {
                                 } else {
                                     tracing::warn!(
                                         "插件目录名 '{}' 与 manifest 中的名称 '{}' 不匹配",
-                                        dir_name, manifest.plugin.name
+                                        dir_name,
+                                        manifest.plugin.name
                                     );
                                 }
                             }
@@ -176,7 +181,11 @@ impl PluginManager {
                     }
                 }
                 Err(e) => {
-                    tracing::warn!("读取插件 manifest 失败 '{}': {}", manifest_path.display(), e);
+                    tracing::warn!(
+                        "读取插件 manifest 失败 '{}': {}",
+                        manifest_path.display(),
+                        e
+                    );
                 }
             }
         }

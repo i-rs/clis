@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Block,
-    Frame,
 };
 
 use crate::app::App;
@@ -27,11 +27,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     };
 
     // Fill full-width background
-    f.render_widget(
-        Block::default()
-            .style(Style::default().bg(bg)),
-        area,
-    );
+    f.render_widget(Block::default().style(Style::default().bg(bg)), area);
 
     let mut spans: Vec<Span> = Vec::new();
 
@@ -39,19 +35,20 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     if let Some(fb) = &app.overlay.copy_feedback {
         spans.push(Span::styled(
             format!(" {} ", fb),
-            Style::default().fg(theme.secondary()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.secondary())
+                .add_modifier(Modifier::BOLD),
         ));
-        spans.push(Span::styled(
-            "│ ",
-            Style::default().fg(theme.dim_text()),
-        ));
+        spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
     }
 
     if app.overlay.selection_mode {
         // Selection mode indicator
         spans.push(Span::styled(
             " ● [选择模式] ".to_string(),
-            Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.accent())
+                .add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
             "↑↓选择  Space展开  Ctrl+D删除  Ctrl+Shift+C复制  退出Esc",
@@ -62,13 +59,12 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         let spinner = SPINNERS[f.count() % SPINNERS.len()];
         spans.push(Span::styled(
             format!(" {} {} ", spinner, app.status_text),
-            Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),  // Amber for active processing
+            Style::default()
+                .fg(theme.accent())
+                .add_modifier(Modifier::BOLD), // Amber for active processing
         ));
         // Separator
-        spans.push(Span::styled(
-            "│ ",
-            Style::default().fg(theme.dim_text()),
-        ));
+        spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
         // Tool & message stats
         spans.push(Span::styled(
             format!("⚙ {} ", app.tool_call_count),
@@ -82,17 +78,16 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         // Idle state — cyan dot + clean styling
         spans.push(Span::styled(
             " ● 就绪 ".to_string(),
-            Style::default().fg(theme.primary()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.primary())
+                .add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
             format!("{} ", app.config.model),
             Style::default().fg(theme.dim_text()),
         ));
         // Separator
-        spans.push(Span::styled(
-            "│ ",
-            Style::default().fg(theme.dim_text()),
-        ));
+        spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
         // Tool & message stats
         spans.push(Span::styled(
             format!("⚙ {} ", app.tool_call_count),
@@ -104,23 +99,22 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
         // Today's token usage summary
         if app.today_stats.requests > 0 {
-            spans.push(Span::styled(
-                "│ ",
-                Style::default().fg(theme.dim_text()),
-            ));
+            spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
             let cost = app.today_stats.cost_usd;
             if cost > 0.001 {
                 spans.push(Span::styled(
-                    format!("今日: {}次 {:>4}K ${:.2} ",
+                    format!(
+                        "今日: {}次 {:>4}K ${:.2} ",
                         app.today_stats.requests,
                         app.today_stats.tokens / 1000,
                         cost,
                     ),
-                    Style::default().fg(theme.accent()),  // Amber
+                    Style::default().fg(theme.accent()), // Amber
                 ));
             } else {
                 spans.push(Span::styled(
-                    format!("今日: {}次 {:>4}K ",
+                    format!(
+                        "今日: {}次 {:>4}K ",
                         app.today_stats.requests,
                         app.today_stats.tokens / 1000,
                     ),
@@ -129,10 +123,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             }
         }
         // Keybindings (right side) - more subtle
-        spans.push(Span::styled(
-            "│ ",
-            Style::default().fg(theme.dim_text()),
-        ));
+        spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
         spans.push(Span::styled(
             "Ctrl+Q ",
             Style::default().fg(theme.dim_text()),
@@ -142,11 +133,11 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(theme.dim_text()),
         ));
         if !app.overlay.show_sidebar && !app.http_logs.is_empty() {
-                spans.push(Span::styled(
-                    "Ctrl+R  ",
-                    Style::default().fg(theme.dim_text()),
-                ));
-            }
+            spans.push(Span::styled(
+                "Ctrl+R  ",
+                Style::default().fg(theme.dim_text()),
+            ));
+        }
         spans.push(Span::styled(
             "Ctrl+L  ",
             Style::default().fg(theme.dim_text()),
@@ -155,10 +146,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             "Ctrl+P ",
             Style::default().fg(theme.dim_text()),
         ));
-        spans.push(Span::styled(
-            "  ",
-            Style::default().fg(theme.dim_text()),
-        ));
+        spans.push(Span::styled("  ", Style::default().fg(theme.dim_text())));
         spans.push(Span::styled(
             "Ctrl+Shift+C",
             Style::default().fg(theme.dim_text()),

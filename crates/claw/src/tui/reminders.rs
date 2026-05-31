@@ -22,10 +22,7 @@ pub(super) fn check_reminders() -> Option<String> {
             days <= 0
         })
         .map(|item| {
-            let name = item
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("未知");
+            let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("未知");
             let title = item
                 .get("title")
                 .and_then(|v| v.as_str())
@@ -62,15 +59,21 @@ pub(super) fn check_reminders() -> Option<String> {
         return None;
     }
 
-    notify_macos("i-rs-claw 提醒", &format!("你有 {} 个待处理提醒", due.len()));
+    notify_macos(
+        "i-rs-claw 提醒",
+        &format!("你有 {} 个待处理提醒", due.len()),
+    );
     Some(due.join("\n"))
 }
 
 pub(super) fn notify_macos(title: &str, message: &str) {
     let _ = std::process::Command::new("osascript")
-        .args(["-e", &format!(
-            r###"display notification "{}" with title "{}""###,
-            message, title
-        )])
+        .args([
+            "-e",
+            &format!(
+                r###"display notification "{}" with title "{}""###,
+                message, title
+            ),
+        ])
         .output();
 }

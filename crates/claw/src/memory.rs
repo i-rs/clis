@@ -1,12 +1,14 @@
+use crate::storage::ClawStorage;
 use crate::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// Cross-session memory that tracks tool usage patterns and user preferences.
 ///
-/// Persisted to disk as a JSON file. Uses a dirty flag to batch
-/// multiple mutations into a single write on `flush()`.
+/// When constructed via `for_agent_with_storage()`, I/O is delegated to the
+/// active storage backend. Otherwise falls back to the legacy JSON file path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossSessionMemory {
     /// Tool name → usage count across all sessions
@@ -28,27 +30,32 @@ pub struct CrossSessionMemory {
     /// Session feedback: session_id -> (positive_count, negative_count)
     #[serde(default)]
     session_feedback: HashMap<String, (u32, u32)>,
-    /// Path to disk cache file
+    /// Path to disk cache file (legacy fallback)
     #[serde(skip)]
     path: PathBuf,
     /// Whether there are unsaved changes
     #[serde(skip, default)]
     dirty: bool,
+    /// Storage backend for I/O (when set, flush goes through repo)
+    #[serde(skip)]
+    storage: Option<Arc<ClawStorage>>,
+    /// Agent ID for storage backend lookups
+    #[serde(skip, default)]
+    agent_id: String,
 }
 
 impl CrossSessionMemory {
-    /// Create memory for a specific agent.
-    /// `claw_dir/agents/{agent_id}/memory.json`.
-    pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
-        let path = claw_dir.join("agents").join(agent_id).join("memory.json");
-        Self::new_with_path(path)
-    }
+    // ── Constructors ──
 
-    fn new_with_path(path: PathBuf) -> Self {
-        let mut mem = if path.exists() {
-            Self::load(&path)
-        } else {
-            Self {
+    /// Create memory backed by a storage backend for a specific agent.
+    /// Loads existing data from the backend, or returns defaults.
+    pub fn for_agent_with_storage(storage: &Arc<ClawStorage>, agent_id: &str) -> Self {
+        let aid = agent_id.to_string();
+        let s = storage.clone();
+        let mut mem = Self::block_on(async {
+            s.memory.load(&aid).await.unwrap_or_else(|_| {
+                // Fallback: empty memory
+                CrossSessionMemory {
                     tool_frequency: HashMap::new(),
                     hot_tools: Vec::new(),
                     preferences: Vec::new(),
@@ -56,13 +63,89 @@ impl CrossSessionMemory {
                     assistant_nickname: None,
                     user_info: Vec::new(),
                     session_feedback: HashMap::new(),
-                    path: path.clone(),
+                    path: PathBuf::new(),
                     dirty: false,
+                    storage: None,
+                    agent_id: String::new(),
                 }
-            };
-            mem.path = path;
-            mem
+            })
+        });
+        mem.storage = Some(storage.clone());
+        mem.agent_id = aid;
+        // Keep a fallback path in case storage is removed
+        if mem.path.as_os_str().is_empty() {
+            // Find a reasonable path; not critical since storage is set
         }
+        mem
+    }
+
+    /// Legacy: create memory with file path only (backward-compatible).
+    #[allow(dead_code)]
+    pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
+        let path = claw_dir.join("agents").join(agent_id).join("memory.json");
+        let mut mem = Self::new_with_path(path);
+        mem.agent_id = agent_id.to_string();
+        mem
+    }
+
+    #[allow(dead_code)]
+    fn new_with_path(path: PathBuf) -> Self {
+        let mut mem = if path.exists() {
+            Self::load(&path)
+        } else {
+            Self::default_memory()
+        };
+        mem.path = path;
+        mem
+    }
+
+    pub(crate) fn default_memory() -> Self {
+        Self {
+            tool_frequency: HashMap::new(),
+            hot_tools: Vec::new(),
+            preferences: Vec::new(),
+            user_name: None,
+            assistant_nickname: None,
+            user_info: Vec::new(),
+            session_feedback: HashMap::new(),
+            path: PathBuf::new(),
+            dirty: false,
+            storage: None,
+            agent_id: String::new(),
+        }
+    }
+
+    /// Load from a JSON file path (public for FileBackend).
+    pub fn load_from(path: &Path) -> Self {
+        if let Ok(content) = std::fs::read_to_string(path)
+            && let Ok(mut mem) = serde_json::from_str::<Self>(&content) {
+                mem.path = path.to_path_buf();
+                return mem;
+            }
+        let mut mem = Self::default_memory();
+        mem.path = path.to_path_buf();
+        mem
+    }
+
+    #[allow(dead_code)]
+    fn load(path: &PathBuf) -> Self {
+        Self::load_from(path)
+    }
+
+    // ── Bridge ──
+
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        match tokio::runtime::Handle::try_current() {
+            Ok(_) => tokio::task::block_in_place(|| {
+                tokio::runtime::Runtime::new()
+                    .expect("CrossSessionMemory: failed to create temp runtime")
+                    .block_on(f)
+            }),
+            Err(_) => tokio::runtime::Runtime::new()
+                .expect("CrossSessionMemory: failed to create temp runtime")
+                .block_on(f),
+        }
+    }
 
     // =============================================
     // Tool frequency tracking
@@ -156,7 +239,6 @@ impl CrossSessionMemory {
     }
 
     /// Record session feedback (thumbs up/down).
-    /// Positive feedback increases the positive count, negative increases negative.
     #[allow(dead_code)]
     pub fn record_session_feedback(&mut self, session_id: &str, positive: bool) {
         let (pos, neg) = self.session_feedback.entry(session_id.to_string()).or_insert((0, 0));
@@ -212,7 +294,6 @@ impl CrossSessionMemory {
     }
 
     /// Format user profile section for system prompt onboarding.
-    /// Returns a prompt snippet that guides the AI on user familiarity.
     pub fn format_user_profile(&self) -> String {
         if self.has_user_profile() {
             let mut result = String::from("## 认识用户\n");
@@ -238,33 +319,34 @@ impl CrossSessionMemory {
     // Disk persistence
     // =============================================
 
-    /// Flush pending changes to disk. A no-op if nothing changed since last flush.
+    /// Flush pending changes to the storage backend (or file fallback).
     pub fn flush(&mut self) {
         if !self.dirty {
             return;
         }
-        if let Ok(content) = serde_json::to_string_pretty(&self)
-            && let Err(e) = atomic_write(&self.path, &content) { tracing::error!("持久化写入失败: {}", e); }
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let mem_snapshot = self.clone(); // cheap — all fields are Clone
+            if let Err(e) = Self::block_on(async move {
+                storage.memory.save(&aid, &mem_snapshot).await
+            }) {
+                tracing::error!("持久化写入失败: {}", e);
+            }
+        } else if !self.path.as_os_str().is_empty() {
+            // Legacy file fallback
+            if let Ok(content) = serde_json::to_string_pretty(&self)
+                && let Err(e) = atomic_write(&self.path, &content) {
+                    tracing::error!("持久化写入失败: {}", e);
+                }
+        }
         self.dirty = false;
     }
 
-    fn load(path: &PathBuf) -> Self {
-        if let Ok(content) = std::fs::read_to_string(path)
-            && let Ok(mut mem) = serde_json::from_str::<Self>(&content) {
-                mem.path = path.clone();
-                return mem;
-            }
-        Self {
-            tool_frequency: HashMap::new(),
-            hot_tools: Vec::new(),
-            preferences: Vec::new(),
-            user_name: None,
-            assistant_nickname: None,
-            user_info: Vec::new(),
-            session_feedback: HashMap::new(),
-            path: path.clone(),
-            dirty: false,
-        }
+    // ── Access for testing ──
+
+    #[cfg(test)]
+    pub(crate) fn test_user_name(&self) -> Option<&str> {
+        self.user_name.as_deref()
     }
 }
 
@@ -273,17 +355,9 @@ mod tests {
     use super::*;
 
     fn test_memory() -> CrossSessionMemory {
-        CrossSessionMemory {
-            tool_frequency: HashMap::new(),
-            hot_tools: Vec::new(),
-            preferences: Vec::new(),
-            user_name: None,
-            assistant_nickname: None,
-            user_info: Vec::new(),
-            session_feedback: HashMap::new(),
-            path: std::env::temp_dir().join("i-rs-claw-test-memory.json"),
-            dirty: false,
-        }
+        let mut mem = CrossSessionMemory::default_memory();
+        mem.path = std::env::temp_dir().join("i-rs-claw-test-memory.json");
+        mem
     }
 
     #[test]
@@ -357,5 +431,34 @@ mod tests {
         let mem = test_memory();
         let output = mem.format_user_profile();
         assert!(output.contains("新用户"));
+    }
+
+    // ── Storage-backed memory tests ──
+
+    #[tokio::test]
+    async fn test_memory_with_repo_save_load() {
+        let id = uuid::Uuid::new_v4().to_string();
+        let dir = std::env::temp_dir().join(format!("mem-repo-test-{}", id));
+        let _ = std::fs::create_dir_all(&dir);
+        let storage = Arc::new(ClawStorage::file(dir.clone()));
+
+        // Load via repo directly (async, no nested block_on)
+        let mut mem = storage.memory.load("agent-a").await.unwrap_or_else(|_| {
+            // Insert default into the in-memory struct
+            CrossSessionMemory::default_memory()
+        });
+        assert!(!mem.has_user_profile());
+
+        mem.set_user_name("TestUser");
+        mem.add_preference("dark theme");
+        storage.memory.save("agent-a", &mem).await.unwrap();
+
+        // Load again to verify persistence
+        let loaded = storage.memory.load("agent-a").await.unwrap();
+        assert!(loaded.has_user_profile());
+        assert_eq!(loaded.test_user_name(), Some("TestUser"));
+        assert!(loaded.preferences.contains(&"dark theme".to_string()));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

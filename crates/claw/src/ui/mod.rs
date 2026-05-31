@@ -1,6 +1,6 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
     Frame,
+    layout::{Constraint, Direction, Layout},
 };
 
 use crate::app::App;
@@ -27,10 +27,7 @@ pub fn render(f: &mut Frame, app: &App) {
     // Reasoning content is now rendered inline in the chat message area.
     let processing_height: u16 = 1;
 
-    let mut constraints = vec![
-        Constraint::Length(1),
-        Constraint::Min(1),
-    ];
+    let mut constraints = vec![Constraint::Length(1), Constraint::Min(1)];
 
     if plan_height > 0 {
         constraints.push(Constraint::Length(1));
@@ -53,10 +50,7 @@ pub fn render(f: &mut Frame, app: &App) {
     if app.overlay.show_sidebar && !app.is_processing() {
         let chat_side = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Min(1),
-                Constraint::Percentage(35),
-            ])
+            .constraints([Constraint::Min(1), Constraint::Percentage(35)])
             .split(layout[idx]);
         chat::render_chat(f, chat_side[0], app);
         sidebar::render_sidebar(f, chat_side[1], app);
@@ -126,14 +120,15 @@ pub fn render(f: &mut Frame, app: &App) {
     }
 
     if let Some(idx) = app.overlay.sidebar_body_idx
-        && let Some(log) = app.http_logs.get(idx) {
-            sidebar::render_request_body(
-                f,
-                area,
-                &log.request_body,
-                idx,
-                app.http_logs.len(),
-                app.overlay.sidebar_body_scroll,
-            );
-        }
+        && let Some(log) = app.http_logs.get(idx)
+    {
+        sidebar::render_request_body(
+            f,
+            area,
+            &log.request_body,
+            idx,
+            app.http_logs.len(),
+            app.overlay.sidebar_body_scroll,
+        );
+    }
 }

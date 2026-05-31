@@ -1,6 +1,7 @@
-use crate::utils::atomic_write;
+use crate::storage::ClawStorage;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Lifecycle state of a conversation session.
@@ -69,7 +70,10 @@ impl SessionState {
 
     #[allow(dead_code)]
     pub fn is_waiting(&self) -> bool {
-        matches!(self, SessionState::WaitingForTool | SessionState::WaitingForApproval)
+        matches!(
+            self,
+            SessionState::WaitingForTool | SessionState::WaitingForApproval
+        )
     }
 }
 
@@ -91,21 +95,53 @@ fn default_agent_id() -> String {
     "default".to_string()
 }
 
+// ── Helpers ──
+
+/// Bridge: block on a future whether or not a tokio runtime is active.
+/// Creates a temporary single-thread runtime if none exists.
+fn block_on<F: std::future::Future>(f: F) -> F::Output {
+    match tokio::runtime::Handle::try_current() {
+        Ok(_) => tokio::task::block_in_place(|| {
+            tokio::runtime::Runtime::new()
+                .expect("block_on: failed to create temporary runtime")
+                .block_on(f)
+        }),
+        Err(_) => tokio::runtime::Runtime::new()
+            .expect("block_on: failed to create temporary runtime")
+            .block_on(f),
+    }
+}
+
 pub struct SessionManager {
-    claw_dir: PathBuf,
+    storage: Arc<ClawStorage>,
     sessions: Vec<SessionMeta>,
     current_id: Option<String>,
 }
 
 impl SessionManager {
+    /// Create a new SessionManager backed by the file storage (backward-compatible).
     pub fn new(claw_dir: PathBuf) -> Self {
-        let sessions = Self::load_index(&claw_dir);
-        let current_id = sessions.first().map(|s| s.id.clone());
-        Self { claw_dir, sessions, current_id }
+        let storage = Arc::new(ClawStorage::file(claw_dir));
+        Self::with_storage(storage)
     }
 
-    pub fn sessions(&self) -> &[SessionMeta] { &self.sessions }
-    pub fn current_id(&self) -> Option<&str> { self.current_id.as_deref() }
+    /// Create a SessionManager with a custom storage backend (for DI/testing).
+    pub fn with_storage(storage: Arc<ClawStorage>) -> Self {
+        let sessions = block_on(async { storage.sessions.load_all().await.unwrap_or_default() });
+        let current_id = sessions.first().map(|s| s.id.clone());
+        Self {
+            storage,
+            sessions,
+            current_id,
+        }
+    }
+
+    pub fn sessions(&self) -> &[SessionMeta] {
+        &self.sessions
+    }
+    pub fn current_id(&self) -> Option<&str> {
+        self.current_id.as_deref()
+    }
 
     pub fn current_session(&self) -> Option<&SessionMeta> {
         self.current_id
@@ -122,7 +158,9 @@ impl SessionManager {
         }
     }
 
-    pub fn create_session(&mut self) -> String { self.create_session_for("default") }
+    pub fn create_session(&mut self) -> String {
+        self.create_session_for("default")
+    }
 
     pub fn create_session_for(&mut self, agent_id: &str) -> String {
         let id = uuid::Uuid::new_v4().to_string();
@@ -146,8 +184,13 @@ impl SessionManager {
         let pos = self.sessions.iter().position(|s| s.id == id);
         if let Some(idx) = pos {
             self.sessions.remove(idx);
-            let _ = std::fs::remove_file(self.messages_path(id));
-            let _ = std::fs::remove_file(self.api_cache_path(id));
+            let storage = self.storage.clone();
+            let sid = id.to_string();
+            block_on(async move {
+                let _ = storage.messages.delete_session(&sid).await;
+                let _ = storage.api_cache.delete(&sid).await;
+                let _ = storage.plan_steps.delete(&sid).await;
+            });
             if self.current_id.as_deref() == Some(id) {
                 self.current_id = self.sessions.first().map(|s| s.id.clone());
             }
@@ -178,62 +221,103 @@ impl SessionManager {
         }
     }
 
-    pub fn mark_waiting_for_tool(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::WaitingForTool) }
+    pub fn mark_waiting_for_tool(&mut self, id: &str) -> bool {
+        self.transition_state(id, SessionState::WaitingForTool)
+    }
     #[allow(dead_code)]
-    pub fn mark_waiting_for_approval(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::WaitingForApproval) }
-    pub fn mark_active(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::Active) }
+    pub fn mark_waiting_for_approval(&mut self, id: &str) -> bool {
+        self.transition_state(id, SessionState::WaitingForApproval)
+    }
+    pub fn mark_active(&mut self, id: &str) -> bool {
+        self.transition_state(id, SessionState::Active)
+    }
     #[allow(dead_code)]
-    pub fn mark_completed(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::Completed) }
+    pub fn mark_completed(&mut self, id: &str) -> bool {
+        self.transition_state(id, SessionState::Completed)
+    }
     #[allow(dead_code)]
-    pub fn mark_interrupted(&mut self, id: &str) -> bool { self.transition_state(id, SessionState::Interrupted) }
-    pub fn mark_error(&mut self, id: &str, msg: &str) -> bool { self.transition_state(id, SessionState::Error(msg.to_string())) }
+    pub fn mark_interrupted(&mut self, id: &str) -> bool {
+        self.transition_state(id, SessionState::Interrupted)
+    }
+    pub fn mark_error(&mut self, id: &str, msg: &str) -> bool {
+        self.transition_state(id, SessionState::Error(msg.to_string()))
+    }
     #[allow(dead_code)]
-    pub fn sessions_by_state(&self, state: &SessionState) -> Vec<&SessionMeta> { self.sessions.iter().filter(|s| &s.state == state).collect() }
+    pub fn sessions_by_state(&self, state: &SessionState) -> Vec<&SessionMeta> {
+        self.sessions.iter().filter(|s| &s.state == state).collect()
+    }
 
     #[allow(dead_code)]
     pub fn save_plan_steps(&self, id: &str, steps: &[crate::app::PlanStep]) {
-        let path = self.plan_steps_path(id);
-        if let Ok(content) = serde_json::to_string(steps)
-            && let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        let steps = steps.to_vec();
+        if let Err(e) = block_on(async move { storage.plan_steps.save(&sid, &steps).await }) {
+            tracing::error!("持久化写入失败: {}", e);
+        }
     }
 
     #[allow(dead_code)]
     pub fn load_plan_steps(&self, id: &str) -> Vec<crate::app::PlanStep> {
-        let path = self.plan_steps_path(id);
-        if !path.exists() { return Vec::new(); }
-        if let Ok(content) = std::fs::read_to_string(&path)
-            && let Ok(steps) = serde_json::from_str(&content) { return steps; }
-        Vec::new()
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        block_on(async move { storage.plan_steps.load(&sid).await }).unwrap_or_default()
     }
 
     #[allow(dead_code)]
     pub fn search_sessions(&self, query: &str) -> Vec<&SessionMeta> {
-        if query.is_empty() { return self.sessions.iter().collect(); }
+        if query.is_empty() {
+            return self.sessions.iter().collect();
+        }
         let q = query.to_lowercase();
-        self.sessions.iter().filter(|s| s.title.to_lowercase().contains(&q)).collect()
+        self.sessions
+            .iter()
+            .filter(|s| s.title.to_lowercase().contains(&q))
+            .collect()
     }
 
     pub fn export_markdown(&self, id: &str) -> Option<String> {
         let records = self.load_messages(id, 1000);
         let meta = self.sessions.iter().find(|s| s.id == id)?;
-        let mut md = format!("# 会话：{}\n\n> 创建时间：{}\n\n", meta.title,
+        let mut md = format!(
+            "# 会话：{}\n\n> 创建时间：{}\n\n",
+            meta.title,
             chrono::DateTime::from_timestamp(meta.created_at, 0)
-                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default());
+                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default()
+        );
         for record in &records {
             let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
             let text = record.get("text").and_then(|t| t.as_str()).unwrap_or("");
             match msg_type {
                 "user" => md.push_str(&format!("**用户:** {}\n\n", text)),
                 "assistant" => md.push_str(&format!("**Claw:** {}\n\n", text)),
-                "tool_call" => md.push_str(&format!("*[工具调用: {}]*\n\n",
-                    record.get("name").and_then(|n| n.as_str()).unwrap_or(""))),
+                "tool_call" => md.push_str(&format!(
+                    "*[工具调用: {}]*\n\n",
+                    record.get("name").and_then(|n| n.as_str()).unwrap_or("")
+                )),
                 "error" => md.push_str(&format!("**错误:** {}\n\n", text)),
                 "evaluation" => {
                     let tool_name = record.get("tool").and_then(|v| v.as_str()).unwrap_or("");
-                    let valid = record.get("valid").and_then(|v| v.as_bool()).unwrap_or(true);
-                    let issues: Vec<String> = record.get("issues").and_then(|i| i.as_array()).map(|arr| arr.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+                    let valid = record
+                        .get("valid")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true);
+                    let issues: Vec<String> = record
+                        .get("issues")
+                        .and_then(|i| i.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default();
                     if !valid {
-                        md.push_str(&format!("**评测 ({}):** {}\n\n", tool_name, issues.join("; ")));
+                        md.push_str(&format!(
+                            "**评测 ({}):** {}\n\n",
+                            tool_name,
+                            issues.join("; ")
+                        ));
                     }
                 }
                 _ => {}
@@ -257,30 +341,35 @@ impl SessionManager {
             meta.title = title.to_string();
             self.save_index();
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn append_message(&mut self, role: &str, content: &str, extra: Option<serde_json::Value>) {
-        let session_id = match self.ensure_current_session() { Some(id) => id, None => return };
+        let session_id = match self.ensure_current_session() {
+            Some(id) => id,
+            None => return,
+        };
         let mut entry = serde_json::json!({"type": role, "text": content});
         if let Some(extra) = extra
             && let Some(obj) = entry.as_object_mut()
-                && let Some(extra_obj) = extra.as_object() {
-                    for (k, v) in extra_obj { obj.insert(k.clone(), v.clone()); }
-                }
-        let path = self.messages_path(&session_id);
-        if let Some(parent) = path.parent() { let _ = std::fs::create_dir_all(parent); }
-        let line = match serde_json::to_string(&entry) {
-            Ok(l) => l,
-            Err(e) => {
-                tracing::error!("序列化消息失败: {}", e);
-                return;
+            && let Some(extra_obj) = extra.as_object()
+        {
+            for (k, v) in extra_obj {
+                obj.insert(k.clone(), v.clone());
             }
-        };
-        // Update metadata before writing to ensure index is ahead of data.
-        // If crash after save_index but before writeln, index overcounts —
-        // recoverable by reloading the actual JSONL file.
-        let should_save = if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id) {
+        }
+
+        let storage = self.storage.clone();
+        let sid = session_id.clone();
+        if let Err(e) = block_on(async move { storage.messages.append(&sid, &entry).await }) {
+            tracing::error!("写入会话消息失败: {}", e);
+            return;
+        }
+
+        let should_save = if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id)
+        {
             meta.message_count += 1;
             meta.updated_at = now_secs();
             meta.message_count % 5 == 0
@@ -290,83 +379,67 @@ impl SessionManager {
         if should_save {
             self.save_index();
         }
-        // Write message after index is saved — worst case a recovered session
-        // has stale message_count (ignored on reload since load_messages reads JSONL).
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
-            use std::io::Write;
-            if let Err(e) = writeln!(file, "{}", line) {
-                tracing::error!("写入会话消息失败 ({}): {}", path.display(), e);
-            }
-        } else {
-            tracing::error!("无法打开会话文件: {}", path.display());
-        }
     }
 
     pub fn load_messages(&self, id: &str, max_messages: usize) -> Vec<serde_json::Value> {
-        let path = self.messages_path(id);
-        if !path.exists() { return Vec::new(); }
-        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => return Vec::new() };
-        let all_lines: Vec<serde_json::Value> = content
-            .lines().filter_map(|line| {
-                if line.trim().is_empty() { None } else { serde_json::from_str(line).ok() }
-            }).collect();
-        if all_lines.len() > max_messages { all_lines[all_lines.len() - max_messages..].to_vec() } else { all_lines }
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        block_on(async move { storage.messages.load(&sid, max_messages).await }).unwrap_or_default()
     }
 
     pub fn load_app_messages(&self, id: &str, max_messages: usize) -> Vec<crate::app::Message> {
-        self.load_messages(id, max_messages).into_iter().filter_map(|v| {
-            crate::app::message_from_jsonl(&v)
-        }).collect()
+        self.load_messages(id, max_messages)
+            .into_iter()
+            .filter_map(|v| crate::app::message_from_jsonl(&v))
+            .collect()
     }
 
     pub fn save_all_messages(&self, id: &str, records: &[serde_json::Value]) {
-        let path = self.messages_path(id);
-        let content: String = records
-            .iter()
-            .filter_map(|record| {
-                serde_json::to_string(record).ok().map(|line| line + "\n")
-            })
-            .collect();
-        if let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        let records = records.to_vec();
+        if let Err(e) = block_on(async move { storage.messages.save_all(&sid, &records).await }) {
+            tracing::error!("持久化写入失败: {}", e);
+        }
     }
 
     pub fn save_api_messages(&self, id: &str, messages: &[serde_json::Value]) {
-        let path = self.api_cache_path(id);
-        if let Ok(content) = serde_json::to_string(messages)
-            && let Err(e) = atomic_write(&path, &content) { tracing::error!("持久化写入失败: {}", e); }
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        let messages = messages.to_vec();
+        if let Err(e) = block_on(async move { storage.api_cache.save(&sid, &messages).await }) {
+            tracing::error!("持久化写入失败: {}", e);
+        }
     }
 
     pub fn load_api_messages(&self, id: &str) -> Option<Vec<serde_json::Value>> {
-        let path = self.api_cache_path(id);
-        if !path.exists() { return None; }
-        if let Ok(content) = std::fs::read_to_string(&path) { serde_json::from_str(&content).ok() } else { None }
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        block_on(async move { storage.api_cache.load(&sid).await }).unwrap_or(None)
     }
 
     fn ensure_current_session(&mut self) -> Option<String> {
-        if self.current_id.is_some() { self.current_id.clone() } else { Some(self.create_session()) }
-    }
-
-    fn messages_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}.jsonl", id)) }
-    fn api_cache_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_api.json", id)) }
-    fn plan_steps_path(&self, id: &str) -> PathBuf { self.claw_dir.join("sessions").join(format!("{}_plan.json", id)) }
-    fn index_path(claw_dir: &Path) -> PathBuf { claw_dir.join("index.json") }
-    
-    fn load_index(claw_dir: &Path) -> Vec<SessionMeta> {
-        let path = Self::index_path(claw_dir);
-        if path.exists()
-            && let Ok(content) = std::fs::read_to_string(&path)
-                && let Ok(sessions) = serde_json::from_str(&content) { return sessions; }
-        Vec::new()
+        if self.current_id.is_some() {
+            self.current_id.clone()
+        } else {
+            Some(self.create_session())
+        }
     }
 
     pub(crate) fn save_index(&self) {
-        if let Ok(content) = serde_json::to_string_pretty(&self.sessions)
-            && let Err(e) = atomic_write(&Self::index_path(&self.claw_dir), &content) { tracing::error!("持久化写入失败: {}", e); }
+        let storage = self.storage.clone();
+        let sessions = self.sessions.clone();
+        if let Err(e) = block_on(async move { storage.sessions.save_all(&sessions).await }) {
+            tracing::error!("持久化写入失败: {}", e);
+        }
     }
 }
 
 fn now_secs() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 #[cfg(test)]
@@ -489,8 +562,14 @@ mod tests {
         let mut mgr = SessionManager::new(dir.clone());
         let id = mgr.create_session();
         let steps = vec![
-            crate::app::PlanStep { description: "Step 1".to_string(), done: false },
-            crate::app::PlanStep { description: "Step 2".to_string(), done: true },
+            crate::app::PlanStep {
+                description: "Step 1".to_string(),
+                done: false,
+            },
+            crate::app::PlanStep {
+                description: "Step 2".to_string(),
+                done: true,
+            },
         ];
         mgr.save_plan_steps(&id, &steps);
         let loaded = mgr.load_plan_steps(&id);
@@ -511,12 +590,18 @@ mod tests {
         let id = mgr.create_session();
         assert_eq!(mgr.session_meta(&id).unwrap().state, SessionState::Active);
         assert!(mgr.mark_waiting_for_tool(&id));
-        assert_eq!(mgr.session_meta(&id).unwrap().state, SessionState::WaitingForTool);
+        assert_eq!(
+            mgr.session_meta(&id).unwrap().state,
+            SessionState::WaitingForTool
+        );
         assert!(mgr.mark_active(&id));
         assert_eq!(mgr.session_meta(&id).unwrap().state, SessionState::Active);
         assert!(mgr.mark_completed(&id));
         assert!(!mgr.mark_active(&id));
-        assert_eq!(mgr.session_meta(&id).unwrap().state, SessionState::Completed);
+        assert_eq!(
+            mgr.session_meta(&id).unwrap().state,
+            SessionState::Completed
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

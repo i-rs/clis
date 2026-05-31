@@ -33,7 +33,8 @@ pub fn main_loop(
             }
         }
 
-        if last_reminder_check.elapsed().as_secs() >= REMINDER_INTERVAL_SECS && !app.is_processing() {
+        if last_reminder_check.elapsed().as_secs() >= REMINDER_INTERVAL_SECS && !app.is_processing()
+        {
             let h = rt.spawn_blocking(reminders::check_reminders);
             if let Ok(Some(reminder_text)) = rt.block_on(h) {
                 app.reminder_text = Some(reminder_text);
@@ -41,8 +42,12 @@ pub fn main_loop(
             last_reminder_check = Instant::now();
         }
 
-        if last_mcp_health_check.elapsed().as_secs() >= MCP_HEALTH_INTERVAL_SECS && !app.is_processing() {
-            let mcp = app_core.agent_store.mcp_registry_for_mut(&app.current_agent);
+        if last_mcp_health_check.elapsed().as_secs() >= MCP_HEALTH_INTERVAL_SECS
+            && !app.is_processing()
+        {
+            let mcp = app_core
+                .agent_store
+                .mcp_registry_for_mut(&app.current_agent);
             let reconnected = mcp.health_check_and_reconnect();
             if reconnected > 0 {
                 tracing::info!("MCP 健康检查: {} 个客户端已重连", reconnected);

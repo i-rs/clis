@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::sync::Mutex;
@@ -27,7 +29,10 @@ pub(crate) struct StoreIndex {
 #[allow(dead_code)]
 impl StoreIndex {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), total_lines: 0 }
+        Self {
+            entries: Vec::new(),
+            total_lines: 0,
+        }
     }
 
     /// Rebuild the index from scratch by scanning the file.
@@ -51,9 +56,10 @@ impl StoreIndex {
                 continue;
             }
             if line_num.is_multiple_of(INDEX_INTERVAL)
-                && let Some(ts) = extract_timestamp(&line) {
-                    self.entries.push((offset, ts));
-                }
+                && let Some(ts) = extract_timestamp(&line)
+            {
+                self.entries.push((offset, ts));
+            }
             offset += (line.len() + 1) as u64;
             line_num += 1;
         }
@@ -90,9 +96,8 @@ pub(crate) fn append_record(path: &Path, record: &TokenRecord) -> std::io::Resul
         std::fs::create_dir_all(parent)?;
     }
 
-    let json = serde_json::to_string(record).map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-    })?;
+    let json = serde_json::to_string(record)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -119,9 +124,8 @@ pub(crate) fn append_records(path: &Path, records: &[TokenRecord]) -> std::io::R
         .open(path)?;
 
     for record in records {
-        let json = serde_json::to_string(record).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        })?;
+        let json = serde_json::to_string(record)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         writeln!(file, "{}", json)?;
     }
     Ok(())
@@ -152,13 +156,15 @@ pub(crate) fn read_range(
         // Quick timestamp filter before deserialization
         if let Some(ts) = extract_timestamp(&line) {
             if let Some(f) = from
-                && ts < f {
-                    continue;
-                }
+                && ts < f
+            {
+                continue;
+            }
             if let Some(t) = to
-                && ts > t {
-                    continue;
-                }
+                && ts > t
+            {
+                continue;
+            }
         }
 
         match serde_json::from_str::<TokenRecord>(&line) {
@@ -197,9 +203,8 @@ pub(crate) fn prune_old_records(path: &Path, keep_days: u32) -> std::io::Result<
     {
         let mut file = std::fs::File::create(&temp_path)?;
         for record in &kept {
-            let json = serde_json::to_string(record).map_err(|e| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-            })?;
+            let json = serde_json::to_string(record)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
             writeln!(file, "{}", json)?;
         }
     }
@@ -220,10 +225,7 @@ mod tests {
             extract_timestamp(r#"{"id":"abc","timestamp":1716220800,"agent_id":"default"}"#),
             Some(1716220800)
         );
-        assert_eq!(
-            extract_timestamp(r#"{"timestamp":-1}"#),
-            Some(-1)
-        );
+        assert_eq!(extract_timestamp(r#"{"timestamp":-1}"#), Some(-1));
         assert_eq!(extract_timestamp(r#"{}"#), None);
         assert_eq!(extract_timestamp(r#""no objects""#), None);
     }
@@ -263,4 +265,3 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
-

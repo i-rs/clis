@@ -10,15 +10,16 @@ mod error;
 mod gateway;
 mod llm;
 mod mcp;
-mod plugin;
 mod memory;
+mod plugin;
 mod providers;
 mod semantic;
 mod session;
 mod skill_store;
 mod stats;
-mod tool_cache;
+mod storage;
 mod theme;
+mod tool_cache;
 mod tools;
 mod tui;
 mod ui;
@@ -31,7 +32,11 @@ pub(crate) mod test_helpers;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "i-rs-claw", version, about = "TUI intelligent personal data assistant for i-rs CLI tools")]
+#[command(
+    name = "i-rs-claw",
+    version,
+    about = "TUI intelligent personal data assistant for i-rs CLI tools"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -134,7 +139,7 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(
             tracing_subscriber::EnvFilter::builder()
                 .with_default_directive(tracing::Level::WARN.into())
-                .from_env_lossy()
+                .from_env_lossy(),
         )
         .with_writer(std::io::stderr)
         .init();
@@ -145,10 +150,7 @@ fn main() -> anyhow::Result<()> {
         Command::Tui { session } => tui::run(session.as_deref()),
         Command::Config => cli::run_config(),
         Command::Tools => cli::run_tools(),
-        Command::Session {
-            list: true,
-            ..
-        } => cli::run_session_list(),
+        Command::Session { list: true, .. } => cli::run_session_list(),
         Command::Session {
             export_md: Some(id),
             ..
@@ -161,56 +163,41 @@ fn main() -> anyhow::Result<()> {
         Command::Ask { message, session } => cli::run_ask(&message, session.as_deref()),
         Command::Gateway => cli::run_gateway(),
         Command::Dashboard => cli::run_dashboard(),
+        Command::Plugin { list: true, .. } => cli::run_plugin_list(),
         Command::Plugin {
-            list: true,
-            ..
-        } => cli::run_plugin_list(),
-        Command::Plugin {
-            info: Some(name),
-            ..
+            info: Some(name), ..
         } => cli::run_plugin_info(&name),
         Command::Plugin {
-            enable: Some(name),
-            ..
+            enable: Some(name), ..
         } => cli::run_plugin_enable(&name),
         Command::Plugin {
             disable: Some(name),
             ..
         } => cli::run_plugin_disable(&name),
         Command::Plugin { .. } => cli::run_plugin_list(),
-        Command::Skill {
-            list: true,
-            ..
-        } => cli::run_skill_list(),
+        Command::Skill { list: true, .. } => cli::run_skill_list(),
         Command::Skill {
             install: Some(name),
             ..
         } => cli::run_skill_install(&name),
         Command::Skill {
-            remove: Some(name),
-            ..
+            remove: Some(name), ..
         } => cli::run_skill_remove(&name),
         Command::Skill {
-            info: Some(name),
-            ..
+            info: Some(name), ..
         } => cli::run_skill_info(&name),
         Command::Skill { .. } => cli::run_skill_list(),
         Command::Stats { period, json } => cli::run_stats(&period, json),
+        Command::Mcp { list: true, .. } => cli::run_mcp_list(),
         Command::Mcp {
-            list: true,
-            ..
-        } => cli::run_mcp_list(),
-        Command::Mcp {
-            enable: Some(name),
-            ..
+            enable: Some(name), ..
         } => cli::run_mcp_enable(&name),
         Command::Mcp {
             disable: Some(name),
             ..
         } => cli::run_mcp_disable(&name),
         Command::Mcp {
-            check: Some(name),
-            ..
+            check: Some(name), ..
         } => cli::run_mcp_check(&name),
         Command::Mcp { .. } => cli::run_mcp_list(),
     }

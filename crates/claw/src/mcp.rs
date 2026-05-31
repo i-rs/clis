@@ -8,7 +8,7 @@ use rmcp::{
     ServiceExt,
     model::{CallToolRequestParams, CallToolResult, RawContent, ResourceContents},
     service::{RoleClient, RunningService, ServiceError},
-    transport::{TokioChildProcess, StreamableHttpClientTransport},
+    transport::{StreamableHttpClientTransport, TokioChildProcess},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -95,7 +95,10 @@ impl Drop for McpClient {
 
 impl McpClient {
     /// Connect to an MCP server via stdio subprocess, using a shared tokio runtime.
-    pub fn connect(config: &McpServerConfig, rt: &Arc<tokio::runtime::Runtime>) -> Result<Self, String> {
+    pub fn connect(
+        config: &McpServerConfig,
+        rt: &Arc<tokio::runtime::Runtime>,
+    ) -> Result<Self, String> {
         let command = config
             .command
             .as_deref()
@@ -111,10 +114,9 @@ impl McpClient {
                     cmd.env(k, v);
                 }
             }
-            let transport = TokioChildProcess::new(cmd)
-                .map_err(|e| format!("创建 MCP 子进程失败: {}", e))?;
-            ()
-                .serve(transport)
+            let transport =
+                TokioChildProcess::new(cmd).map_err(|e| format!("创建 MCP 子进程失败: {}", e))?;
+            ().serve(transport)
                 .await
                 .map_err(|e| format!("MCP 连接 '{}' 失败: {}", config.name, e))
         })?;
@@ -128,7 +130,10 @@ impl McpClient {
     }
 
     /// Connect to an MCP server via Streamable HTTP (SSE) transport, using a shared tokio runtime.
-    pub fn connect_sse(config: &McpServerConfig, rt: &Arc<tokio::runtime::Runtime>) -> Result<Self, String> {
+    pub fn connect_sse(
+        config: &McpServerConfig,
+        rt: &Arc<tokio::runtime::Runtime>,
+    ) -> Result<Self, String> {
         let url = config
             .url
             .as_deref()
@@ -136,8 +141,7 @@ impl McpClient {
 
         let service = rt.block_on(async {
             let transport = StreamableHttpClientTransport::from_uri(url.to_string());
-            ()
-                .serve(transport)
+            ().serve(transport)
                 .await
                 .map_err(|e| format!("MCP SSE 连接 '{}' 失败: {}", config.name, e))
         })?;
@@ -159,9 +163,7 @@ impl McpClient {
     /// Health check: try to list tools.
     /// Returns `true` if the MCP server is responsive, `false` otherwise.
     pub fn health_check(&self) -> bool {
-        self.rt
-            .block_on(self.service.list_all_tools())
-            .is_ok()
+        self.rt.block_on(self.service.list_all_tools()).is_ok()
     }
 
     /// Attempt to reconnect this MCP client using the stored config.
@@ -197,13 +199,17 @@ impl McpClient {
 
     /// Call a tool on this MCP server.
     /// Async wrapper for MCP tool calls.
-    pub async fn call_tool_async(&self, tool_name: &str, args: &Value) -> Result<String, ClawError> {
+    pub async fn call_tool_async(
+        &self,
+        tool_name: &str,
+        args: &Value,
+    ) -> Result<String, ClawError> {
         let json_map = args
             .as_object()
             .ok_or_else(|| ClawError::Validation("MCP 工具参数必须是 JSON 对象".to_string()))?;
 
-        let params = CallToolRequestParams::new(tool_name.to_string())
-            .with_arguments(json_map.clone());
+        let params =
+            CallToolRequestParams::new(tool_name.to_string()).with_arguments(json_map.clone());
 
         let service = self.service.clone();
         let result: CallToolResult = service
@@ -213,7 +219,6 @@ impl McpClient {
 
         extract_text_from_call_result(result)
     }
-
 }
 
 fn extract_text_from_call_result(result: CallToolResult) -> Result<String, ClawError> {
@@ -241,9 +246,7 @@ fn extract_text_from_call_result(result: CallToolResult) -> Result<String, ClawE
 fn mcp_service_err(e: ServiceError) -> String {
     match e {
         ServiceError::UnexpectedResponse => "意外的服务器响应格式".to_string(),
-        ServiceError::TransportClosed => {
-            "MCP 连接已关闭".to_string()
-        }
+        ServiceError::TransportClosed => "MCP 连接已关闭".to_string(),
         other => format!("{}", other),
     }
 }
@@ -291,10 +294,7 @@ impl McpRegistry {
     /// Failed connections are logged but don't block startup.
     /// All MCP clients share a single tokio runtime.
     pub fn new(servers: &[McpServerConfig]) -> Self {
-        let rt = Arc::new(
-            tokio::runtime::Runtime::new()
-                .expect("创建 MCP 共享运行时失败"),
-        );
+        let rt = Arc::new(tokio::runtime::Runtime::new().expect("创建 MCP 共享运行时失败"));
         let mut clients = Vec::new();
         let mut tools = Vec::new();
         let mut tool_map = HashMap::new();
@@ -324,7 +324,8 @@ impl McpRegistry {
                 other => {
                     tracing::warn!(
                         "MCP 警告: '{}' 使用了不支持的传输方式 '{}'，已跳过",
-                        server.name, other
+                        server.name,
+                        other
                     );
                     continue;
                 }
@@ -335,7 +336,9 @@ impl McpRegistry {
                     let client_index = clients.len();
                     for td in tool_defs {
                         // Only the first occurrence of each name is kept
-                        tool_map.entry(td.name.clone()).or_insert_with(|| (client_index, td.clone()));
+                        tool_map
+                            .entry(td.name.clone())
+                            .or_insert_with(|| (client_index, td.clone()));
                         tools.push((client_index, td));
                     }
                     clients.push(client);
@@ -354,7 +357,13 @@ impl McpRegistry {
             );
         }
 
-        Self { clients, tools, tool_map, rt, server_configs: servers.to_vec() }
+        Self {
+            clients,
+            tools,
+            tool_map,
+            rt,
+            server_configs: servers.to_vec(),
+        }
     }
 
     /// Get the number of discovered MCP tools.
@@ -394,7 +403,9 @@ impl McpRegistry {
                             // Remove old tool_map entries for this client
                             self.tool_map.retain(|_, (ci, _)| *ci != idx);
                             for td in new_tools {
-                                self.tool_map.entry(td.name.clone()).or_insert_with(|| (idx, td.clone()));
+                                self.tool_map
+                                    .entry(td.name.clone())
+                                    .or_insert_with(|| (idx, td.clone()));
                                 self.tools.push((idx, td));
                             }
                         }
@@ -426,14 +437,12 @@ impl McpRegistry {
     /// Create an empty McpRegistry for testing without creating a tokio runtime on the current thread.
     /// The tokio runtime is created on a separate OS thread to avoid nested runtime panics.
     pub fn empty_for_test() -> Self {
-        static RT: std::sync::OnceLock<Arc<tokio::runtime::Runtime>> =
-            std::sync::OnceLock::new();
+        static RT: std::sync::OnceLock<Arc<tokio::runtime::Runtime>> = std::sync::OnceLock::new();
         let rt = RT
             .get_or_init(|| {
                 Arc::new(
                     std::thread::spawn(|| {
-                        tokio::runtime::Runtime::new()
-                            .expect("创建 MCP 测试运行时失败")
+                        tokio::runtime::Runtime::new().expect("创建 MCP 测试运行时失败")
                     })
                     .join()
                     .expect("MCP 测试运行时线程崩溃"),

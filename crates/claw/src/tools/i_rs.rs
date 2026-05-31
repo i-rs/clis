@@ -47,10 +47,18 @@ impl super::ClawTool for IrsTool {
         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
         // Validate tool against the whitelist of enabled i-rs CLI tools
         if !tool.is_empty() && !ctx.config.i_rs_tools.iter().any(|t| t == tool) {
-            return Err(ClawError::Validation(format!("未知的 i-rs 工具: '{}'，可用工具: {}", tool, ctx.config.i_rs_tools.join(", "))));
+            return Err(ClawError::Validation(format!(
+                "未知的 i-rs 工具: '{}'，可用工具: {}",
+                tool,
+                ctx.config.i_rs_tools.join(", ")
+            )));
         }
         let tool = tool.to_string();
-        let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("").to_string();
+        let cmd = args
+            .get("command")
+            .and_then(|c| c.as_str())
+            .unwrap_or("")
+            .to_string();
         let cmd_args: Vec<String> = args
             .get("args")
             .and_then(|a| a.as_array())
@@ -62,21 +70,24 @@ impl super::ClawTool for IrsTool {
             .unwrap_or_default();
         let timeout = ctx.config.cli_timeout_secs;
 
-        tokio::task::spawn_blocking(move || {
-            execute_cli(&tool, &cmd, &cmd_args, timeout)
-        })
-        .await
-        .unwrap_or_else(|e| Err(ClawError::Execution(format!("CLI 执行任务失败: {}", e))))
+        tokio::task::spawn_blocking(move || execute_cli(&tool, &cmd, &cmd_args, timeout))
+            .await
+            .unwrap_or_else(|e| Err(ClawError::Execution(format!("CLI 执行任务失败: {}", e))))
     }
 }
 
 /// Execute `i-rs-<tool> <command> [args...]` and return the output.
 /// Delegates to the shared `run_cli_command` for subprocess execution.
-fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) -> Result<String, ClawError> {
+fn execute_cli(
+    tool: &str,
+    cmd: &str,
+    args: &[String],
+    cli_timeout_secs: u64,
+) -> Result<String, ClawError> {
     let binary = format!("i-rs-{}", tool);
-    let cmd_args: Vec<&str> = std::iter::once(cmd).chain(args.iter().map(|s| s.as_str())).collect();
+    let cmd_args: Vec<&str> = std::iter::once(cmd)
+        .chain(args.iter().map(|s| s.as_str()))
+        .collect();
     crate::utils::run_cli_command(&binary, &cmd_args, cli_timeout_secs)
         .map_err(ClawError::Execution)
 }
-
-

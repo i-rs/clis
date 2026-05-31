@@ -65,9 +65,19 @@ impl ContextManager {
         let m = model.to_lowercase();
         let max_tokens = if m.contains("gemini") {
             1_000_000
-        } else if m.contains("gpt-4o") || m.contains("claude-3.5") || m.contains("claude-4") || m.contains("sonnet-4") || m.contains("opus-4") {
+        } else if m.contains("gpt-4o")
+            || m.contains("claude-3.5")
+            || m.contains("claude-4")
+            || m.contains("sonnet-4")
+            || m.contains("opus-4")
+        {
             128_000
-        } else if m.contains("deepseek") || m.contains("glm-4") || m.contains("qwen") || m.contains("llama-3") || m.contains("mistral-large") {
+        } else if m.contains("deepseek")
+            || m.contains("glm-4")
+            || m.contains("qwen")
+            || m.contains("llama-3")
+            || m.contains("mistral-large")
+        {
             128_000
         } else if m.contains("gpt-4") || m.contains("claude-3") || m.contains("command-r") {
             32_000
@@ -116,11 +126,7 @@ impl ContextManager {
     ///
     /// Tunes teach_window and recent_window based on total token count,
     /// then delegates to the existing smart_compress logic.
-    pub fn compress(
-        &self,
-        msgs: &mut Vec<Value>,
-        tool_frequency: &HashMap<String, usize>,
-    ) {
+    pub fn compress(&self, msgs: &mut Vec<Value>, tool_frequency: &HashMap<String, usize>) {
         if msgs.len() <= 2 {
             return;
         }
@@ -160,10 +166,7 @@ impl ContextManager {
                 ratio * 100.0
             )
         } else if ratio > 0.7 {
-            format!(
-                "(上下文占用 {:.0}%)",
-                ratio * 100.0
-            )
+            format!("(上下文占用 {:.0}%)", ratio * 100.0)
         } else {
             String::new()
         }

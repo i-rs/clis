@@ -42,11 +42,19 @@ impl ClawTool for WebSearchTool {
             .unwrap_or("")
             .trim();
         if query.is_empty() {
-            return Err(ClawError::Validation("Please provide a search query".to_string()));
+            return Err(ClawError::Validation(
+                "Please provide a search query".to_string(),
+            ));
         }
 
         if let Some(custom_url) = &ctx.config.search_base_url {
-            search_custom(custom_url, &ctx.config.search_api_key, query, &ctx.http_client).await
+            search_custom(
+                custom_url,
+                &ctx.config.search_api_key,
+                query,
+                &ctx.http_client,
+            )
+            .await
         } else {
             search_duckduckgo(query, &ctx.http_client).await
         }
@@ -60,7 +68,8 @@ async fn search_duckduckgo(query: &str, client: &reqwest::Client) -> Result<Stri
         urlencode(query)
     );
 
-    let resp = client.get(&url)
+    let resp = client
+        .get(&url)
         .send()
         .await
         .map_err(|e| format!("搜索请求失败: {}", e))?;
@@ -74,21 +83,24 @@ async fn search_duckduckgo(query: &str, client: &reqwest::Client) -> Result<Stri
 
     // Abstract
     if let Some(abstract_text) = data.get("AbstractText").and_then(|v| v.as_str())
-        && !abstract_text.is_empty() {
-            output.push_str(&format!("📝 摘要: {}\n", abstract_text));
-            if let Some(src) = data.get("AbstractSource").and_then(|v| v.as_str())
-                && !src.is_empty()
-                    && let Some(url) = data.get("AbstractURL").and_then(|v| v.as_str()) {
-                        output.push_str(&format!("   来源: {} ({})\n", src, url));
-                    }
-            output.push('\n');
+        && !abstract_text.is_empty()
+    {
+        output.push_str(&format!("📝 摘要: {}\n", abstract_text));
+        if let Some(src) = data.get("AbstractSource").and_then(|v| v.as_str())
+            && !src.is_empty()
+            && let Some(url) = data.get("AbstractURL").and_then(|v| v.as_str())
+        {
+            output.push_str(&format!("   来源: {} ({})\n", src, url));
         }
+        output.push('\n');
+    }
 
     // Direct answer
     if let Some(answer) = data.get("Answer").and_then(|v| v.as_str())
-        && !answer.is_empty() {
-            output.push_str(&format!("✅ 答案: {}\n\n", answer));
-        }
+        && !answer.is_empty()
+    {
+        output.push_str(&format!("✅ 答案: {}\n\n", answer));
+    }
 
     // Related topics (these contain the actual search results)
     if let Some(topics) = data.get("RelatedTopics").and_then(|v| v.as_array()) {
@@ -100,10 +112,7 @@ async fn search_duckduckgo(query: &str, client: &reqwest::Client) -> Result<Stri
 
             // Direct topic
             if let Some(text) = topic.get("Text").and_then(|v| v.as_str()) {
-                let url = topic
-                    .get("FirstURL")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let url = topic.get("FirstURL").and_then(|v| v.as_str()).unwrap_or("");
                 output.push_str(&format!("• {}\n", text));
                 if !url.is_empty() {
                     output.push_str(&format!("  {}\n", url));
@@ -120,10 +129,7 @@ async fn search_duckduckgo(query: &str, client: &reqwest::Client) -> Result<Stri
                         break;
                     }
                     if let Some(text) = sub.get("Text").and_then(|v| v.as_str()) {
-                        let url = sub
-                            .get("FirstURL")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
+                        let url = sub.get("FirstURL").and_then(|v| v.as_str()).unwrap_or("");
                         output.push_str(&format!("• {}\n", text));
                         if !url.is_empty() {
                             output.push_str(&format!("  {}\n", url));
@@ -166,16 +172,22 @@ async fn search_duckduckgo(query: &str, client: &reqwest::Client) -> Result<Stri
 /// Search using a custom search API endpoint.
 /// The URL should accept query parameter `?q=QUERY`.
 /// If api_key is set, adds `Authorization: Bearer <key>` header.
-async fn search_custom(base_url: &str, api_key: &Option<String>, query: &str, client: &reqwest::Client) -> Result<String, ClawError> {
+async fn search_custom(
+    base_url: &str,
+    api_key: &Option<String>,
+    query: &str,
+    client: &reqwest::Client,
+) -> Result<String, ClawError> {
     let separator = if base_url.contains('?') { "&" } else { "?" };
     let url = format!("{}{}q={}", base_url, separator, urlencode(query));
 
     let mut req = client.get(&url);
 
     if let Some(key) = api_key
-        && !key.is_empty() {
-            req = req.header("Authorization", format!("Bearer {}", key));
-        }
+        && !key.is_empty()
+    {
+        req = req.header("Authorization", format!("Bearer {}", key));
+    }
 
     let resp = req
         .send()
@@ -211,10 +223,28 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
     }
 
     // Common result field names across search APIs
-    let result_keys = ["results", "items", "organic", "organic_results", "web", "entries"];
+    let result_keys = [
+        "results",
+        "items",
+        "organic",
+        "organic_results",
+        "web",
+        "entries",
+    ];
     let title_keys = ["title", "Title", "name", "Name", "heading", "Heading"];
-    let snippet_keys = ["snippet", "Snippet", "description", "Description", "text", "Text", "abstract", "Abstract"];
-    let url_keys = ["url", "Url", "URL", "link", "Link", "href", "Href", "firstURL", "FirstURL"];
+    let snippet_keys = [
+        "snippet",
+        "Snippet",
+        "description",
+        "Description",
+        "text",
+        "Text",
+        "abstract",
+        "Abstract",
+    ];
+    let url_keys = [
+        "url", "Url", "URL", "link", "Link", "href", "Href", "firstURL", "FirstURL",
+    ];
 
     // Check if this looks like a result item
     for tk in &title_keys {
@@ -226,18 +256,20 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
 
             for sk in &snippet_keys {
                 if let Some(snippet) = data.get(*sk).and_then(|v| v.as_str())
-                    && !snippet.is_empty() {
-                        output.push_str(&format!("{}  {}\n", prefix, snippet));
-                        break;
-                    }
+                    && !snippet.is_empty()
+                {
+                    output.push_str(&format!("{}  {}\n", prefix, snippet));
+                    break;
+                }
             }
 
             for uk in &url_keys {
                 if let Some(url) = data.get(*uk).and_then(|v| v.as_str())
-                    && !url.is_empty() {
-                        output.push_str(&format!("{}  {}\n", prefix, url));
-                        break;
-                    }
+                    && !url.is_empty()
+                {
+                    output.push_str(&format!("{}  {}\n", prefix, url));
+                    break;
+                }
             }
 
             output.push('\n');

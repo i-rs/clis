@@ -1,7 +1,7 @@
-use serde_json::Value;
 use crate::error::ClawError;
 use crate::mcp::{McpClient, McpToolDefinition};
 use crate::tools::{ClawTool, ToolContext};
+use serde_json::Value;
 
 /// Convert an MCP tool definition to an OpenAI-compatible tool schema.
 #[allow(dead_code)]
@@ -64,6 +64,8 @@ impl ClawTool for McpToolWrapper {
     }
 
     async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
-        self.client.call_tool_async(&self.definition.name, args).await
+        self.client
+            .call_tool_async(&self.definition.name, args)
+            .await
     }
 }

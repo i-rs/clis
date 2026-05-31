@@ -1,7 +1,7 @@
-use serde_json::Value;
 use crate::error::ClawError;
 use crate::skill_store::SkillDefinition;
 use crate::tools::{ClawTool, ToolContext};
+use serde_json::Value;
 
 /// Wraps a user-defined skill as a callable tool.
 ///
@@ -55,9 +55,7 @@ impl ClawTool for SkillTool {
     }
 
     fn parameter_schema(&self, _enabled_cli: &[&str]) -> Value {
-        self.parameters
-            .clone()
-            .unwrap_or_else(default_schema)
+        self.parameters.clone().unwrap_or_else(default_schema)
     }
 
     async fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
@@ -147,7 +145,10 @@ mod tests {
             content: "Execute this instruction".to_string(),
         };
         let tool = SkillTool::new(def);
-        let ctx = ToolContext { config: crate::test_helpers::test_config(), http_client: crate::providers::shared_client(), };
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: crate::providers::shared_client(),
+        };
         let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert_eq!(result, "Execute this instruction");
     }
@@ -161,7 +162,10 @@ mod tests {
             content: String::new(),
         };
         let tool = SkillTool::new(def);
-        let ctx = ToolContext { config: crate::test_helpers::test_config(), http_client: crate::providers::shared_client(), };
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: crate::providers::shared_client(),
+        };
         let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert!(result.contains("技能已激活"));
     }

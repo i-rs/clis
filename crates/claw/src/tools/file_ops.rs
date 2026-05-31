@@ -57,14 +57,21 @@ impl ClawTool for FileOpsTool {
             .trim();
 
         if operation.is_empty() {
-            return Err(ClawError::Validation("Please specify an operation: read, write, or list".to_string()));
+            return Err(ClawError::Validation(
+                "Please specify an operation: read, write, or list".to_string(),
+            ));
         }
         if path_str.is_empty() {
-            return Err(ClawError::Validation("Please specify a file path".to_string()));
+            return Err(ClawError::Validation(
+                "Please specify a file path".to_string(),
+            ));
         }
 
         if ctx.config.allowed_dirs.is_empty() {
-            return Err(ClawError::Validation("文件操作未启用：没有配置允许的目录。请运行 `i-rs-claw config` 设置 allowed_dirs。".to_string()));
+            return Err(ClawError::Validation(
+                "文件操作未启用：没有配置允许的目录。请运行 `i-rs-claw config` 设置 allowed_dirs。"
+                    .to_string(),
+            ));
         }
 
         // Resolve the path against the first allowed directory
@@ -88,10 +95,17 @@ impl ClawTool for FileOpsTool {
                     ClawError::Execution(format!("无法访问路径 '{}': {}", target.display(), e))
                 })?
             }
-            Err(e) => return Err(ClawError::Execution(format!("无法访问路径 '{}': {}", target.display(), e))),
+            Err(e) => {
+                return Err(ClawError::Execution(format!(
+                    "无法访问路径 '{}': {}",
+                    target.display(),
+                    e
+                )));
+            }
         };
 
-        let allowed = ctx.config
+        let allowed = ctx
+            .config
             .allowed_dirs
             .iter()
             .map(|d| PathBuf::from(d).canonicalize())
@@ -109,28 +123,33 @@ impl ClawTool for FileOpsTool {
         match operation {
             "read" => op_read(&canonical_target),
             "write" => {
-                let content = args
-                    .get("content")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
                 op_write(&canonical_target, content)
             }
             "list" => op_list(&canonical_target),
-            other => Err(ClawError::Validation(format!("不支持的操作: '{}'。支持: read, write, list", other))),
+            other => Err(ClawError::Validation(format!(
+                "不支持的操作: '{}'。支持: read, write, list",
+                other
+            ))),
         }
     }
 }
 
 fn op_read(path: &Path) -> Result<String, ClawError> {
     if !path.exists() {
-        return Err(ClawError::NotFound(format!("文件不存在: {}", path.display())));
+        return Err(ClawError::NotFound(format!(
+            "文件不存在: {}",
+            path.display()
+        )));
     }
     if !path.is_file() {
-        return Err(ClawError::Validation(format!("不是文件: {}", path.display())));
+        return Err(ClawError::Validation(format!(
+            "不是文件: {}",
+            path.display()
+        )));
     }
 
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("读取文件失败: {}", e))?;
+    let content = std::fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))?;
 
     // Truncate very large files to avoid excessive context
     let max_chars = 5000;
@@ -141,7 +160,8 @@ fn op_read(path: &Path) -> Result<String, ClawError> {
         result.push_str(&preview);
         result.push_str(&format!(
             "\n\n... (仅显示前 {} 字符，文件共 {} 字符)",
-            max_chars, content.len()
+            max_chars,
+            content.len()
         ));
     } else {
         result.push_str(&content);
@@ -153,12 +173,10 @@ fn op_read(path: &Path) -> Result<String, ClawError> {
 fn op_write(path: &Path, content: &str) -> Result<String, ClawError> {
     // Create parent directories if needed
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("创建目录失败: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
     }
 
-    std::fs::write(path, content)
-        .map_err(|e| format!("写入文件失败: {}", e))?;
+    std::fs::write(path, content).map_err(|e| format!("写入文件失败: {}", e))?;
 
     // Show a preview in the response
     let preview: String = content.chars().take(200).collect();
@@ -178,14 +196,19 @@ fn op_write(path: &Path, content: &str) -> Result<String, ClawError> {
 
 fn op_list(path: &Path) -> Result<String, ClawError> {
     if !path.exists() {
-        return Err(ClawError::NotFound(format!("目录不存在: {}", path.display())));
+        return Err(ClawError::NotFound(format!(
+            "目录不存在: {}",
+            path.display()
+        )));
     }
     if !path.is_dir() {
-        return Err(ClawError::Validation(format!("不是目录: {}", path.display())));
+        return Err(ClawError::Validation(format!(
+            "不是目录: {}",
+            path.display()
+        )));
     }
 
-    let entries = std::fs::read_dir(path)
-        .map_err(|e| format!("读取目录失败: {}", e))?;
+    let entries = std::fs::read_dir(path).map_err(|e| format!("读取目录失败: {}", e))?;
 
     let mut files = Vec::new();
     let mut dirs = Vec::new();

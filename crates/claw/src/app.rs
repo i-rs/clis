@@ -6,7 +6,8 @@ use serde_json::Value;
 use std::collections::HashSet;
 
 pub fn message_to_jsonl(msg: &Message) -> Value {
-    serde_json::to_value(msg).unwrap_or_else(|_| serde_json::json!({"type": "error", "text": "serialization failed"}))
+    serde_json::to_value(msg)
+        .unwrap_or_else(|_| serde_json::json!({"type": "error", "text": "serialization failed"}))
 }
 
 pub fn message_from_jsonl(v: &Value) -> Option<Message> {
@@ -27,7 +28,8 @@ pub fn evaluate_response_heuristic(
     let mut references_valid = 0u32;
 
     // Check if response mentions tools that were never executed
-    let executed_tools: std::collections::HashSet<&str> = tool_results.iter().map(|(n, _)| *n).collect();
+    let executed_tools: std::collections::HashSet<&str> =
+        tool_results.iter().map(|(n, _)| *n).collect();
     for (name, success) in tool_results {
         if response_text.contains(*name) {
             references_valid += 1;
@@ -91,21 +93,27 @@ pub struct PlanStep {
 /// Record of an HTTP request to the LLM API.
 #[derive(Debug, Clone)]
 pub struct HttpLog {
-    pub timestamp: String,       // formatted local time
-    pub status: u16,             // HTTP status code
-    pub duration_ms: u64,        // total request + streaming time
+    pub timestamp: String, // formatted local time
+    pub status: u16,       // HTTP status code
+    pub duration_ms: u64,  // total request + streaming time
     pub model: String,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
-    pub error: Option<String>,   // non-empty on failure
-    pub request_body: String,    // assembled JSON body sent to LLM
+    pub error: Option<String>, // non-empty on failure
+    pub request_body: String,  // assembled JSON body sent to LLM
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Message {
-    User { text: String },
-    Assistant { text: String, #[serde(default)] reasoning: String },
+    User {
+        text: String,
+    },
+    Assistant {
+        text: String,
+        #[serde(default)]
+        reasoning: String,
+    },
     ToolCall {
         name: String,
         args: String,
@@ -113,7 +121,9 @@ pub enum Message {
         step: usize,
         total_steps: usize,
     },
-    Error { text: String },
+    Error {
+        text: String,
+    },
     Evaluation {
         tool: String,
         valid: bool,
@@ -209,7 +219,11 @@ impl InputState {
             .position(|(_, c)| !c.is_alphanumeric() && c != '_')
             .map(|p| {
                 let idx = trimmed.len() - p - 1;
-                trimmed.char_indices().nth(idx).map(|(_, c)| idx + c.len_utf8()).unwrap_or(0)
+                trimmed
+                    .char_indices()
+                    .nth(idx)
+                    .map(|(_, c)| idx + c.len_utf8())
+                    .unwrap_or(0)
             })
             .unwrap_or(0);
         self.text.drain(word_start..self.cursor);
@@ -271,7 +285,11 @@ impl InputState {
             .position(|(_, c)| !c.is_alphanumeric() && c != '_')
             .map(|p| {
                 let idx = trimmed.len() - p - 1;
-                trimmed.char_indices().nth(idx).map(|(_, c)| idx + c.len_utf8()).unwrap_or(0)
+                trimmed
+                    .char_indices()
+                    .nth(idx)
+                    .map(|(_, c)| idx + c.len_utf8())
+                    .unwrap_or(0)
             })
             .unwrap_or(0);
         self.cursor = new_pos;
@@ -498,9 +516,11 @@ impl App {
 
     pub fn add_user_message(&mut self, text: &str) {
         self.overlay.copy_feedback.take();
-        self.messages
-            .push(Message::User { text: text.to_string() });
-        self.message_timestamps.push(chrono::Local::now().naive_local());
+        self.messages.push(Message::User {
+            text: text.to_string(),
+        });
+        self.message_timestamps
+            .push(chrono::Local::now().naive_local());
         self.state = AppState::Processing;
         self.scroll_lines = 0;
         self.plan_steps.clear(); // Clear plan from previous turn
@@ -581,8 +601,9 @@ impl App {
     pub fn start_assistant_message(&mut self) {
         // Capture any accumulated reasoning into the last assistant message
         if !self.current_reasoning.is_empty()
-            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut() {
-                reasoning.push_str(&self.current_reasoning);
+            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+        {
+            reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
         let is_empty_assistant = matches!(
@@ -590,15 +611,17 @@ impl App {
             Some(Message::Assistant { text, .. }) if text.is_empty()
         );
         if !is_empty_assistant {
-            self.messages
-                .push(Message::Assistant { text: String::new(), reasoning: String::new() });
-            self.message_timestamps.push(chrono::Local::now().naive_local());
+            self.messages.push(Message::Assistant {
+                text: String::new(),
+                reasoning: String::new(),
+            });
+            self.message_timestamps
+                .push(chrono::Local::now().naive_local());
         }
     }
 
     pub fn append_assistant_text(&mut self, text: &str) {
-        let last_is_assistant =
-            matches!(self.messages.last_mut(), Some(Message::Assistant { .. }));
+        let last_is_assistant = matches!(self.messages.last_mut(), Some(Message::Assistant { .. }));
         if !last_is_assistant {
             self.start_assistant_message();
         }
@@ -607,7 +630,14 @@ impl App {
         }
     }
 
-    pub fn add_tool_call(&mut self, name: &str, args: &str, result: &str, step: usize, total_steps: usize) {
+    pub fn add_tool_call(
+        &mut self,
+        name: &str,
+        args: &str,
+        result: &str,
+        step: usize,
+        total_steps: usize,
+    ) {
         self.messages.push(Message::ToolCall {
             name: name.to_string(),
             args: args.to_string(),
@@ -615,7 +645,8 @@ impl App {
             step,
             total_steps,
         });
-        self.message_timestamps.push(chrono::Local::now().naive_local());
+        self.message_timestamps
+            .push(chrono::Local::now().naive_local());
         self.tool_call_count += 1;
     }
 
@@ -629,17 +660,20 @@ impl App {
     pub fn add_error(&mut self, text: &str) {
         // Capture any accumulated reasoning into the last assistant message
         if !self.current_reasoning.is_empty()
-            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut() {
-                reasoning.push_str(&self.current_reasoning);
+            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+        {
+            reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
         // Remove trailing empty assistant message (from NewRound before error)
         if let Some(Message::Assistant { text, .. }) = self.messages.last()
-            && text.is_empty() {
-                self.messages.pop();
-            }
-        self.messages
-            .push(Message::Error { text: text.to_string() });
+            && text.is_empty()
+        {
+            self.messages.pop();
+        }
+        self.messages.push(Message::Error {
+            text: text.to_string(),
+        });
         // Reset API messages so the next request rebuilds from scratch
         self.api_messages = None;
         self.state = AppState::Idle;
@@ -650,15 +684,17 @@ impl App {
     pub fn finish_processing(&mut self, api_messages: Option<Vec<Value>>) {
         // Capture any accumulated reasoning into the last assistant message
         if !self.current_reasoning.is_empty()
-            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut() {
-                reasoning.push_str(&self.current_reasoning);
+            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+        {
+            reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
         // Remove trailing empty assistant message
         if let Some(Message::Assistant { text, .. }) = self.messages.last()
-            && text.is_empty() {
-                self.messages.pop();
-            }
+            && text.is_empty()
+        {
+            self.messages.pop();
+        }
         self.api_messages = api_messages;
         self.state = AppState::Idle;
         self.status_text.clear();
@@ -773,7 +809,9 @@ mod tests {
         app.add_user_message("hello");
         assert!(app.is_processing());
 
-        app.finish_processing(Some(vec![serde_json::json!({"role": "assistant", "content": "hi"})]));
+        app.finish_processing(Some(vec![
+            serde_json::json!({"role": "assistant", "content": "hi"}),
+        ]));
         assert!(!app.is_processing());
         assert_eq!(app.state, AppState::Idle);
         assert!(app.status_text.is_empty());
@@ -784,10 +822,10 @@ mod tests {
     fn test_finish_processing_removes_empty_assistant() {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
-        app.start_assistant_message();  // creates empty assistant
+        app.start_assistant_message(); // creates empty assistant
         assert_eq!(app.messages.len(), 2);
         app.finish_processing(None);
-        assert_eq!(app.messages.len(), 1);  // empty assistant removed
+        assert_eq!(app.messages.len(), 1); // empty assistant removed
         assert!(!app.is_processing());
     }
 
@@ -799,8 +837,10 @@ mod tests {
 
         app.add_error("something went wrong");
         assert!(!app.is_processing());
-        assert_eq!(app.messages.len(), 2);  // user + error
-        assert!(matches!(app.messages[1], Message::Error { ref text } if text == "something went wrong"));
+        assert_eq!(app.messages.len(), 2); // user + error
+        assert!(
+            matches!(app.messages[1], Message::Error { ref text } if text == "something went wrong")
+        );
         assert!(app.api_messages.is_none());
     }
 
@@ -811,7 +851,7 @@ mod tests {
         app.start_assistant_message();
         assert_eq!(app.messages.len(), 2);
         app.add_error("err");
-        assert_eq!(app.messages.len(), 2);  // user + error
+        assert_eq!(app.messages.len(), 2); // user + error
         assert!(matches!(app.messages[1], Message::Error { .. }));
     }
 
@@ -824,7 +864,9 @@ mod tests {
 
         app.append_assistant_text("hello ");
         app.append_assistant_text("world");
-        assert!(matches!(app.messages[0], Message::Assistant { ref text, .. } if text == "hello world"));
+        assert!(
+            matches!(app.messages[0], Message::Assistant { ref text, .. } if text == "hello world")
+        );
     }
 
     #[test]
@@ -840,7 +882,9 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_tool_call("weight", r#"{"action":"list"}"#, "OK", 1, 2);
         assert_eq!(app.messages.len(), 1);
-        assert!(matches!(&app.messages[0], Message::ToolCall { name, step: 1, total_steps: 2, .. } if name == "weight"));
+        assert!(
+            matches!(&app.messages[0], Message::ToolCall { name, step: 1, total_steps: 2, .. } if name == "weight")
+        );
         assert_eq!(app.tool_call_count, 1);
     }
 
@@ -853,7 +897,7 @@ mod tests {
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 0);  // saturating
+        assert_eq!(app.scroll_lines, 0); // saturating
     }
 
     #[test]
@@ -904,7 +948,7 @@ mod tests {
     fn test_detect_plan_only_when_processing() {
         let mut app = App::new(test_config());
         app.detect_plan("1. first step");
-        assert!(app.plan_steps.is_empty());  // not processing
+        assert!(app.plan_steps.is_empty()); // not processing
     }
 
     #[test]
@@ -922,8 +966,12 @@ mod tests {
     #[test]
     fn test_sync_message_timestamps_fills_gaps() {
         let mut app = App::new(test_config());
-        app.messages.push(Message::User { text: "a".to_string() });
-        app.messages.push(Message::User { text: "b".to_string() });
+        app.messages.push(Message::User {
+            text: "a".to_string(),
+        });
+        app.messages.push(Message::User {
+            text: "b".to_string(),
+        });
         assert!(app.message_timestamps.is_empty());
         app.sync_message_timestamps();
         assert_eq!(app.message_timestamps.len(), 2);
@@ -932,9 +980,13 @@ mod tests {
     #[test]
     fn test_sync_message_timestamps_truncates_excess() {
         let mut app = App::new(test_config());
-        app.messages.push(Message::User { text: "a".to_string() });
-        app.message_timestamps.push(chrono::Local::now().naive_local());
-        app.message_timestamps.push(chrono::Local::now().naive_local());
+        app.messages.push(Message::User {
+            text: "a".to_string(),
+        });
+        app.message_timestamps
+            .push(chrono::Local::now().naive_local());
+        app.message_timestamps
+            .push(chrono::Local::now().naive_local());
         app.sync_message_timestamps();
         assert_eq!(app.message_timestamps.len(), 1);
     }
@@ -955,7 +1007,7 @@ mod tests {
             });
         }
         assert_eq!(app.http_logs.len(), 50);
-        assert_eq!(app.http_logs[0].duration_ms, 54);  // newest first
+        assert_eq!(app.http_logs[0].duration_ms, 54); // newest first
     }
 
     #[test]
@@ -982,24 +1034,24 @@ mod tests {
         input.insert_char('a');
         input.move_cursor_left();
         assert_eq!(input.cursor, 0);
-        input.move_cursor_left();  // no-op
+        input.move_cursor_left(); // no-op
         assert_eq!(input.cursor, 0);
 
         input.move_cursor_right();
         assert_eq!(input.cursor, 1);
-        input.move_cursor_right();  // no-op
+        input.move_cursor_right(); // no-op
         assert_eq!(input.cursor, 1);
 
-        input.delete_before_cursor();  // cursor at 1, should delete 'a'
+        input.delete_before_cursor(); // cursor at 1, should delete 'a'
         assert_eq!(input.text, "");
-        input.delete_before_cursor();  // no-op (cursor at 0)
+        input.delete_before_cursor(); // no-op (cursor at 0)
         assert_eq!(input.text, "");
     }
 
     #[test]
     fn test_input_history() {
         let mut input = InputState::new();
-        assert!(input.navigate_up().is_none());  // empty
+        assert!(input.navigate_up().is_none()); // empty
 
         input.commit_to_history("hello");
         input.commit_to_history("world");
@@ -1007,17 +1059,17 @@ mod tests {
 
         assert_eq!(input.navigate_up().as_deref(), Some("world"));
         assert_eq!(input.navigate_up().as_deref(), Some("hello"));
-        assert_eq!(input.navigate_up(), None);  // at start
+        assert_eq!(input.navigate_up(), None); // at start
 
         assert_eq!(input.navigate_down().as_deref(), Some("world"));
-        assert_eq!(input.navigate_down(), None);  // at end (clear)
+        assert_eq!(input.navigate_down(), None); // at end (clear)
     }
 
     #[test]
     fn test_input_history_dedup() {
         let mut input = InputState::new();
         input.commit_to_history("same");
-        input.commit_to_history("same");  // duplicate, ignored
+        input.commit_to_history("same"); // duplicate, ignored
         assert_eq!(input.history.len(), 1);
     }
 
@@ -1028,7 +1080,7 @@ mod tests {
             input.commit_to_history(&format!("item{}", i));
         }
         assert_eq!(input.history.len(), 50);
-        assert_eq!(input.history[0], "item10");  // oldest dropped
+        assert_eq!(input.history[0], "item10"); // oldest dropped
         assert_eq!(input.history[49], "item59");
     }
 
@@ -1050,9 +1102,33 @@ mod tests {
     fn test_overlay_filtered_sessions_search() {
         let mut overlay = OverlayState::new(vec!["default".to_string()]);
         overlay.session_list = vec![
-            crate::session::SessionMeta { id: "1".to_string(), title: "Weight tracking".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
-            crate::session::SessionMeta { id: "2".to_string(), title: "Mood log".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
-            crate::session::SessionMeta { id: "3".to_string(), title: "Weight history".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
+            crate::session::SessionMeta {
+                id: "1".to_string(),
+                title: "Weight tracking".to_string(),
+                agent_id: "default".to_string(),
+                state: crate::session::SessionState::Active,
+                created_at: 0,
+                updated_at: 0,
+                message_count: 0,
+            },
+            crate::session::SessionMeta {
+                id: "2".to_string(),
+                title: "Mood log".to_string(),
+                agent_id: "default".to_string(),
+                state: crate::session::SessionState::Active,
+                created_at: 0,
+                updated_at: 0,
+                message_count: 0,
+            },
+            crate::session::SessionMeta {
+                id: "3".to_string(),
+                title: "Weight history".to_string(),
+                agent_id: "default".to_string(),
+                state: crate::session::SessionState::Active,
+                created_at: 0,
+                updated_at: 0,
+                message_count: 0,
+            },
         ];
 
         // No filter -> all
@@ -1062,7 +1138,11 @@ mod tests {
         overlay.session_search = "weight".to_string();
         let result = overlay.filtered_sessions();
         assert_eq!(result.len(), 2);
-        assert!(result.iter().all(|s| s.title.to_lowercase().contains("weight")));
+        assert!(
+            result
+                .iter()
+                .all(|s| s.title.to_lowercase().contains("weight"))
+        );
 
         overlay.session_search = "mood".to_string();
         assert_eq!(overlay.filtered_sessions().len(), 1);
@@ -1074,9 +1154,15 @@ mod tests {
     #[test]
     fn test_overlay_filtered_sessions_case_insensitive() {
         let mut overlay = OverlayState::new(vec!["default".to_string()]);
-        overlay.session_list = vec![
-            crate::session::SessionMeta { id: "1".to_string(), title: "Weight Tracking".to_string(), agent_id: "default".to_string(), state: crate::session::SessionState::Active, created_at: 0, updated_at: 0, message_count: 0 },
-        ];
+        overlay.session_list = vec![crate::session::SessionMeta {
+            id: "1".to_string(),
+            title: "Weight Tracking".to_string(),
+            agent_id: "default".to_string(),
+            state: crate::session::SessionState::Active,
+            created_at: 0,
+            updated_at: 0,
+            message_count: 0,
+        }];
         overlay.session_search = "WEIGHT".to_string();
         assert_eq!(overlay.filtered_sessions().len(), 1);
     }

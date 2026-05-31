@@ -21,7 +21,12 @@ pub struct AnthropicProvider {
 impl AnthropicProvider {
     pub fn new(client: reqwest::Client, api_key: String, base_url: String, model: String) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
-        Self { client, api_key, base_url, model }
+        Self {
+            client,
+            api_key,
+            base_url,
+            model,
+        }
     }
 }
 
@@ -66,23 +71,28 @@ fn openai_to_anthropic_messages(messages: &[Value]) -> (Option<String>, Vec<Valu
                 let mut blocks = Vec::new();
                 // Text content
                 if let Some(text) = msg["content"].as_str()
-                    && !text.is_empty() && text != "null" {
-                        blocks.push(serde_json::json!({
-                            "type": "text",
-                            "text": text
-                        }));
-                    }
+                    && !text.is_empty()
+                    && text != "null"
+                {
+                    blocks.push(serde_json::json!({
+                        "type": "text",
+                        "text": text
+                    }));
+                }
                 // Tool use content blocks
                 if let Some(tcs) = msg["tool_calls"].as_array() {
                     for tc in tcs {
                         if let Some(func) = tc.get("function") {
                             let name = func["name"].as_str().unwrap_or("");
                             let args_str = func["arguments"].as_str().unwrap_or("{}");
-                            let args: Value =
-                                serde_json::from_str(args_str).unwrap_or_else(|e| {
-                                    tracing::warn!("工具 '{}' 参数 JSON 解析失败 (消息转换): {}", name, e);
-                                    serde_json::json!({})
-                                });
+                            let args: Value = serde_json::from_str(args_str).unwrap_or_else(|e| {
+                                tracing::warn!(
+                                    "工具 '{}' 参数 JSON 解析失败 (消息转换): {}",
+                                    name,
+                                    e
+                                );
+                                serde_json::json!({})
+                            });
                             blocks.push(serde_json::json!({
                                 "type": "tool_use",
                                 "id": tc["id"].as_str().unwrap_or(""),
@@ -166,20 +176,17 @@ pub(crate) enum AnthropicEvent {
 
 impl AnthropicProvider {
     /// SSE event line → typed event for the Anthropic stream.
-    pub(crate) fn parse_anthropic_event(
-        event_type: &str,
-        data: &str,
-    ) -> Option<AnthropicEvent> {
+    pub(crate) fn parse_anthropic_event(event_type: &str, data: &str) -> Option<AnthropicEvent> {
         let parsed: Value = serde_json::from_str(data).ok()?;
         match event_type {
             "message_start" => {
                 let msg = parsed.get("message")?;
                 let usage = msg.get("usage").map(|u| TokenUsage {
-                        prompt_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32,
-                        completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
-                        total_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32
-                            + u["output_tokens"].as_u64().unwrap_or(0) as u32,
-                    });
+                    prompt_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32,
+                    completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
+                    total_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32
+                        + u["output_tokens"].as_u64().unwrap_or(0) as u32,
+                });
                 Some(AnthropicEvent::MessageStart { usage })
             }
             "content_block_start" => {
@@ -236,10 +243,10 @@ impl AnthropicProvider {
                 let delta = parsed.get("delta")?;
                 let stop_reason = delta["stop_reason"].as_str().unwrap_or("").to_string();
                 let usage = parsed.get("usage").map(|u| TokenUsage {
-                        prompt_tokens: 0, // Only shown in message_start
-                        completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
-                        total_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
-                    });
+                    prompt_tokens: 0, // Only shown in message_start
+                    completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
+                    total_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
+                });
                 Some(AnthropicEvent::MessageDelta { stop_reason, usage })
             }
             "message_stop" => Some(AnthropicEvent::MessageStop),
@@ -292,7 +299,14 @@ impl LlmProvider for AnthropicProvider {
             ("x-api-key".to_string(), self.api_key.clone()),
             ("anthropic-version".to_string(), "2023-06-01".to_string()),
         ];
-        let response = send_with_retry(3, &self.client, &format!("{}/messages", self.base_url), &body, &headers).await?;
+        let response = send_with_retry(
+            3,
+            &self.client,
+            &format!("{}/messages", self.base_url),
+            &body,
+            &headers,
+        )
+        .await?;
 
         let status = response.status().as_u16();
 
@@ -308,7 +322,11 @@ impl LlmProvider for AnthropicProvider {
                 error: Some(format!("HTTP {}: {}", status, text)),
                 request_body: body_json.clone(),
             }));
-            return Err(anyhow::anyhow!("Anthropic API 返回错误 {}: {}", status, text));
+            return Err(anyhow::anyhow!(
+                "Anthropic API 返回错误 {}: {}",
+                status,
+                text
+            ));
         }
 
         // Parse Anthropic SSE event stream
@@ -348,7 +366,11 @@ impl LlmProvider for AnthropicProvider {
 
                 if let Some(data_val) = line.strip_prefix("data: ") {
                     let raw_event_type = std::mem::take(&mut current_event_type);
-                    let event_type = if raw_event_type.is_empty() { "message" } else { &raw_event_type };
+                    let event_type = if raw_event_type.is_empty() {
+                        "message"
+                    } else {
+                        &raw_event_type
+                    };
 
                     if let Some(event) = Self::parse_anthropic_event(&event_type, data_val) {
                         match event {
@@ -389,10 +411,7 @@ impl LlmProvider for AnthropicProvider {
                                 }
                             }
                             AnthropicEvent::ContentBlockStop { .. } => {}
-                            AnthropicEvent::MessageDelta {
-                                stop_reason,
-                                usage,
-                            } => {
+                            AnthropicEvent::MessageDelta { stop_reason, usage } => {
                                 final_stop_reason = stop_reason;
                                 if let Some(u) = usage {
                                     let prompt = total_usage
@@ -420,7 +439,10 @@ impl LlmProvider for AnthropicProvider {
         let completion_tokens = usage.map(|u| u.completion_tokens).unwrap_or(0);
         let has_tool_calls = final_stop_reason == "tool_use";
         let tool_call_count = if has_tool_calls {
-            content_blocks.iter().filter(|b| b.block_type == "tool_use").count() as u32
+            content_blocks
+                .iter()
+                .filter(|b| b.block_type == "tool_use")
+                .count() as u32
         } else {
             0
         };
@@ -458,9 +480,13 @@ impl LlmProvider for AnthropicProvider {
             let mut parsed = Vec::new();
             for block in &content_blocks {
                 if block.block_type == "tool_use" {
-                    let args: Value = serde_json::from_str(&block.partial_json)
-                        .unwrap_or_else(|e| {
-                            tracing::warn!("工具 '{}' 参数 JSON 解析失败: {}", block.tool_use_name, e);
+                    let args: Value =
+                        serde_json::from_str(&block.partial_json).unwrap_or_else(|e| {
+                            tracing::warn!(
+                                "工具 '{}' 参数 JSON 解析失败: {}",
+                                block.tool_use_name,
+                                e
+                            );
                             serde_json::json!({})
                         });
                     parsed.push((
@@ -630,10 +656,7 @@ mod tests {
     #[test]
     fn test_parse_anthropic_unknown_event() {
         let event = AnthropicProvider::parse_anthropic_event("unknown_event", r#"{}"#);
-        assert!(
-            matches!(event, None),
-            "未知事件类型应返回 None"
-        );
+        assert!(matches!(event, None), "未知事件类型应返回 None");
     }
 
     // ── openai_to_anthropic 消息转换测试 ──
@@ -668,19 +691,17 @@ mod tests {
 
     #[test]
     fn test_openai_to_anthropic_tools_format() {
-        let schemas = vec![
-            json!({
-                "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "description": "Get weather info",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {"city": {"type": "string"}}
-                    }
+        let schemas = vec![json!({
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather info",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}}
                 }
-            }),
-        ];
+            }
+        })];
         let anthro_tools = openai_to_anthropic_tools(&schemas);
         assert_eq!(anthro_tools.len(), 1);
         assert_eq!(anthro_tools[0]["name"], "get_weather");

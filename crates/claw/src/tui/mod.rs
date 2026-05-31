@@ -1,10 +1,10 @@
 use crate::app;
 use crate::config::Config;
 use crate::llm::LlmEvent;
+use owo_colors::OwoColorize;
 use ratatui::backend::CrosstermBackend;
 use std::io;
 use tokio::sync::mpsc;
-use owo_colors::OwoColorize;
 
 mod clipboard;
 mod event_handlers;
@@ -34,7 +34,12 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // Setup terminal
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture, crossterm::event::EnableBracketedPaste)?;
+    crossterm::execute!(
+        stdout,
+        crossterm::terminal::EnterAlternateScreen,
+        crossterm::event::EnableMouseCapture,
+        crossterm::event::EnableBracketedPaste
+    )?;
     let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout))?;
 
     let rt = tokio::runtime::Runtime::new()?;
@@ -52,9 +57,10 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     // If a specific session ID was requested, try to switch to it
     if let Some(sid) = session_id
-        && !app_core.session_mgr.switch_to(sid) {
-            eprintln!("⚠ 未找到会话: {}", sid);
-        }
+        && !app_core.session_mgr.switch_to(sid)
+    {
+        eprintln!("⚠ 未找到会话: {}", sid);
+    }
 
     // Ensure at least one session exists
     if app_core.session_mgr.current_id().is_none() {
@@ -63,10 +69,15 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     // Analyze cross-session tool usage from all sessions
     let agent_id = app.current_agent.clone();
-    app_core.agent_store.memory_for_mut(&agent_id).analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
+    app_core
+        .agent_store
+        .memory_for_mut(&agent_id)
+        .analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
 
     // Load messages from current session
-    let session_id = app_core.session_mgr.current_id()
+    let session_id = app_core
+        .session_mgr
+        .current_id()
         .ok_or_else(|| anyhow::anyhow!("无当前会话，无法加载消息"))?
         .to_string();
     let loaded = app_core.session_mgr.load_app_messages(&session_id, 50);
@@ -80,7 +91,10 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     }
 
     if app.messages.is_empty() {
-        let onboarding = !app_core.agent_store.memory_for(&app.current_agent).has_user_profile();
+        let onboarding = !app_core
+            .agent_store
+            .memory_for(&app.current_agent)
+            .has_user_profile();
         if onboarding {
             app.messages.push(app::Message::Assistant {
                 text: concat!(
@@ -90,14 +104,15 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 .to_string(),
                 reasoning: String::new(),
             });
-            app.message_timestamps.push(chrono::Local::now().naive_local());
+            app.message_timestamps
+                .push(chrono::Local::now().naive_local());
         } else {
             app.messages.push(app::Message::Assistant {
-                text: "你好，有什么可以帮你的？"
-                    .to_string(),
+                text: "你好，有什么可以帮你的？".to_string(),
                 reasoning: String::new(),
             });
-            app.message_timestamps.push(chrono::Local::now().naive_local());
+            app.message_timestamps
+                .push(chrono::Local::now().naive_local());
         }
     }
 
@@ -126,15 +141,29 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     let tool_count = app.tool_call_count;
     let stats = app_core.stats_manager.today_summary();
     let stats_display = if stats.requests > 0 {
-        format!(" · 今日: {}次 · {} tok · ${:.4}", stats.requests, stats.tokens, stats.cost_usd)
+        format!(
+            " · 今日: {}次 · {} tok · ${:.4}",
+            stats.requests, stats.tokens, stats.cost_usd
+        )
     } else {
         String::new()
     };
 
     println!("{}", "✨ 已退出 i-rs-claw".cyan().bold());
-    println!("{}", format!("  📊 {} 条消息 · {} 次工具调用{}", msg_count, tool_count, stats_display).dimmed());
+    println!(
+        "{}",
+        format!(
+            "  📊 {} 条消息 · {} 次工具调用{}",
+            msg_count, tool_count, stats_display
+        )
+        .dimmed()
+    );
     if let Some(sid) = app_core.session_mgr.current_id() {
-        println!("{} {}", "↻ 重新进入:".yellow(), format!("i-rs-claw tui --session {}", sid).cyan().bold());
+        println!(
+            "{} {}",
+            "↻ 重新进入:".yellow(),
+            format!("i-rs-claw tui --session {}", sid).cyan().bold()
+        );
     }
 
     if let Err(e) = &result {

@@ -39,24 +39,31 @@ fn read_clipboard_image_text() -> Result<String, ClawError> {
 
     // Method 1: macOS Shortcuts "Extract Text from Image"
     if let Ok(text) = ocr_via_shortcuts()
-        && !text.trim().is_empty() {
-            return Ok(format!("从剪贴板图片中识别的文字:\n\n{}", text.trim()));
-        }
+        && !text.trim().is_empty()
+    {
+        return Ok(format!("从剪贴板图片中识别的文字:\n\n{}", text.trim()));
+    }
 
     // Method 2: osascript with Apple Vision Framework
     if let Ok(text) = ocr_via_osascript()
-        && !text.trim().is_empty() {
-            return Ok(format!("从剪贴板图片中识别的文字:\n\n{}", text.trim()));
-        }
+        && !text.trim().is_empty()
+    {
+        return Ok(format!("从剪贴板图片中识别的文字:\n\n{}", text.trim()));
+    }
 
     // Method 3: Check if clipboard has image at all
     let has_image = clipboard_has_image();
     if has_image {
-        Err(ClawError::Execution("剪贴板中有图片，但无法提取文字。请尝试：
+        Err(ClawError::Execution(
+            "剪贴板中有图片，但无法提取文字。请尝试：
 1. 安装 'Extract Text from Image' Shortcut
-2. 或使用第三方 OCR 工具如 TextSniper".to_string()))
+2. 或使用第三方 OCR 工具如 TextSniper"
+                .to_string(),
+        ))
     } else {
-        Err(ClawError::Execution("剪贴板中没有图片。请先复制一张图片到剪贴板（截图 Cmd+Shift+4 或复制图片）".to_string()))
+        Err(ClawError::Execution(
+            "剪贴板中没有图片。请先复制一张图片到剪贴板（截图 Cmd+Shift+4 或复制图片）".to_string(),
+        ))
     }
 }
 
@@ -64,14 +71,17 @@ fn read_clipboard_image_text() -> Result<String, ClawError> {
 fn clipboard_has_image() -> bool {
     // Simpler approach: just try to get TIFF data
     let output = Command::new("osascript")
-        .args(["-e", r#"
+        .args([
+            "-e",
+            r#"
 try
     set theImage to (the clipboard as picture)
     return "image"
 on error
     return "no_image"
 end try
-"#])
+"#,
+        ])
         .output();
     match output {
         Ok(out) => {
@@ -88,13 +98,16 @@ fn ocr_via_shortcuts() -> Result<String, ClawError> {
 
     // Save clipboard image to file using osascript + Image Events
     let save_result = Command::new("osascript")
-        .args(["-e", &format!(
-            r#"set theImage to (the clipboard as «class PNGf»)
+        .args([
+            "-e",
+            &format!(
+                r#"set theImage to (the clipboard as «class PNGf»)
 set outFile to open for access POSIX file "{}" with write permission
 write theImage to outFile
 close access outFile"#,
-            temp_png.display().to_string().replace("\"", "\\\"")
-        )])
+                temp_png.display().to_string().replace("\"", "\\\"")
+            ),
+        ])
         .output();
 
     if save_result.is_err() {
@@ -110,7 +123,12 @@ close access outFile"#,
 
     // Try the "Extract Text from Image" shortcut
     let output = Command::new("shortcuts")
-        .args(["run", "Extract Text from Image", "--input-path", &temp_png.to_string_lossy()])
+        .args([
+            "run",
+            "Extract Text from Image",
+            "--input-path",
+            &temp_png.to_string_lossy(),
+        ])
         .output()
         .map_err(|e| format!("Shortcuts 不可用: {}", e))?;
 

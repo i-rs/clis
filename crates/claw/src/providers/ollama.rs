@@ -17,7 +17,11 @@ pub struct OllamaProvider {
 impl OllamaProvider {
     pub fn new(client: reqwest::Client, base_url: String, model: String) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
-        Self { client, base_url, model }
+        Self {
+            client,
+            base_url,
+            model,
+        }
     }
 }
 

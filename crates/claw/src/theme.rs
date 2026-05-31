@@ -103,40 +103,61 @@ impl Theme {
     /// Primary accent - Electric Cyan (#22d3ee)
     /// Terminal-style accent for active elements
     pub fn primary(&self) -> Color {
-        self.primary.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(34, 211, 238))
+        self.primary
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(34, 211, 238))
     }
 
     /// Secondary accent - Emerald Green (#34d399)
     /// Warm green for user elements and positive feedback
     pub fn secondary(&self) -> Color {
-        self.secondary.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(52, 211, 153))
+        self.secondary
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(52, 211, 153))
     }
 
     /// Error color - Rose Red (#f87171)
     pub fn error(&self) -> Color {
-        self.error.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(248, 113, 113))
+        self.error
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(248, 113, 113))
     }
 
     /// Accent/highlight - Amber (#fbbf24)
     /// For tool calls, warnings, and important elements
     pub fn accent(&self) -> Color {
-        self.accent.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(251, 191, 36))
+        self.accent
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(251, 191, 36))
     }
 
     /// Dimmed text - Cool Gray (#71717a)
     /// Secondary information, timestamps, hints
     pub fn dim_text(&self) -> Color {
-        self.dim_text.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(113, 113, 122))
+        self.dim_text
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(113, 113, 122))
     }
 
     /// Primary text - Near White (#fafafa)
     pub fn text(&self) -> Color {
-        self.text.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(250, 250, 250))
+        self.text
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(250, 250, 250))
     }
 
     /// Main background - Deep Navy (#0f0f17)
     pub fn background(&self) -> Color {
-        self.background.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(15, 15, 23))
+        self.background
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(15, 15, 23))
     }
 
     /// Chat area background - Slightly darker (#0a0a12)
@@ -148,31 +169,46 @@ impl Theme {
     /// Tool call background - Dark elevated (#18181f)
     #[allow(dead_code)]
     pub fn tool_bg(&self) -> Color {
-        self.tool_bg.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(24, 24, 31))
+        self.tool_bg
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(24, 24, 31))
     }
 
     /// Code block background - Very dark (#12121a)
     #[allow(dead_code)]
     pub fn code_bg(&self) -> Color {
-        self.code_bg.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(18, 18, 26))
+        self.code_bg
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(18, 18, 26))
     }
 
     /// Selection background - Subtle highlight (#1e1e2e)
     #[allow(dead_code)]
     pub fn selection_bg(&self) -> Color {
-        self.selection_bg.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(30, 30, 46))
+        self.selection_bg
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(30, 30, 46))
     }
 
     /// Inactive border color - Muted (#27272a)
     #[allow(dead_code)]
     pub fn border(&self) -> Color {
-        self.border.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(39, 39, 42))
+        self.border
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(39, 39, 42))
     }
 
     /// Sidebar background - Slightly elevated (#13131a)
     #[allow(dead_code)]
     pub fn sidebar_bg(&self) -> Color {
-        self.sidebar_bg.as_ref().and_then(|s| Self::parse_hex(s)).unwrap_or(Color::Rgb(19, 19, 26))
+        self.sidebar_bg
+            .as_ref()
+            .and_then(|s| Self::parse_hex(s))
+            .unwrap_or(Color::Rgb(19, 19, 26))
     }
 
     // ── Convenience helper methods for common style combinations ──

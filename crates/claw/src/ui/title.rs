@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Block,
-    Frame,
 };
 
 use crate::app::App;
@@ -16,8 +16,7 @@ use crate::app::App;
 pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
     // Background block with theme color
     f.render_widget(
-        Block::default()
-            .style(Style::default().bg(app.config.theme.background())),
+        Block::default().style(Style::default().bg(app.config.theme.background())),
         area,
     );
 
@@ -28,24 +27,16 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
     let mut spans: Vec<Span> = Vec::new();
 
     // Left decorative element - subtle gradient bar
-    spans.push(Span::styled(
-        "▎",
-        Style::default().fg(primary),
-    ));
+    spans.push(Span::styled("▎", Style::default().fg(primary)));
 
     // App name with subtle glow effect via repeated chars
     spans.push(Span::styled(
         " ✦ i-rs-claw ",
-        Style::default()
-            .fg(primary)
-            .add_modifier(Modifier::BOLD),
+        Style::default().fg(primary).add_modifier(Modifier::BOLD),
     ));
 
     // Separator
-    spans.push(Span::styled(
-        "│",
-        Style::default().fg(dim),
-    ));
+    spans.push(Span::styled("│", Style::default().fg(dim)));
 
     // Center content - status or description
     if app.is_processing() {
@@ -86,10 +77,7 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
         .saturating_sub(2); // Extra space for balance
 
     if padding > 0 {
-        spans.push(Span::styled(
-            " ".repeat(padding),
-            Style::default(),
-        ));
+        spans.push(Span::styled(" ".repeat(padding), Style::default()));
     }
 
     // Right side - model name with subtle styling
@@ -101,10 +89,7 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
     ));
 
     // Right decorative element - matches left
-    spans.push(Span::styled(
-        "▍",
-        Style::default().fg(primary),
-    ));
+    spans.push(Span::styled("▍", Style::default().fg(primary)));
 
     let line = Line::from(spans);
     f.render_widget(line, area);
