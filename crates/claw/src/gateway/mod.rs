@@ -4,7 +4,7 @@ pub mod wechat;
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::sync::mpsc;
 use tokio::signal::unix::{signal, SignalKind};
 
@@ -99,7 +99,7 @@ impl GatewayServer {
     /// (with tool execution) and sends the response back via the originating
     /// platform's adapter. Blocks until all adapters have stopped.
     /// Handles SIGINT (Ctrl+C) for graceful shutdown.
-    pub async fn run(self, core: Arc<Mutex<crate::core::AppCore>>) {
+    pub async fn run(self, core: Arc<RwLock<crate::core::AppCore>>) {
         let (event_tx, mut event_rx) = mpsc::unbounded_channel::<GatewayEvent>();
 
         // Start all adapters
@@ -140,7 +140,7 @@ impl GatewayServer {
     }
 
     /// Handle a single gateway event (message or error).
-    async fn handle_event(&self, core: Arc<Mutex<crate::core::AppCore>>, event: GatewayEvent) {
+    async fn handle_event(&self, core: Arc<RwLock<crate::core::AppCore>>, event: GatewayEvent) {
         match event {
             GatewayEvent::Message {
                 platform,
@@ -155,12 +155,17 @@ impl GatewayServer {
                     .iter()
                     .position(|a| a.name() == platform);
 
-                // Spawn periodic typing indicator while processing
+                // Spawn periodic typing indicator while processing (max 5 min)
+                const MAX_TYPING_SECS: u64 = 300;
                 let typing_handle = if let Some(idx) = adapter_idx {
                     let adapter = self.adapters[idx].clone();
                     let cid = chat_id.clone();
                     Some(tokio::spawn(async move {
+                        let start = std::time::Instant::now();
                         loop {
+                            if start.elapsed().as_secs() >= MAX_TYPING_SECS {
+                                break;
+                            }
                             adapter.send_typing(&cid).await;
                             tokio::time::sleep(Duration::from_secs(5)).await;
                         }
@@ -198,7 +203,7 @@ impl GatewayServer {
     /// streaming with tool call execution.
     #[tracing::instrument(skip(core))]
     async fn process_message(
-        core: &Arc<Mutex<crate::core::AppCore>>,
+        core: &Arc<RwLock<crate::core::AppCore>>,
         platform: &str,
         chat_id: &str,
         text: &str,
@@ -207,9 +212,8 @@ impl GatewayServer {
         let text_owned = text.to_string();
         let agent_id_owned = agent_id.to_string();
 
-        // Build messages with session context (lock held briefly)
         let (session_uuid, _session_title, msgs, config, mcp) = {
-            let mut core = core.lock().await;
+            let mut core = core.write().await;
             let session_title = format!("gateway:{}:{}", platform, chat_id);
 
             let uuid = if let Some(found) = core.session_mgr.sessions()
@@ -260,7 +264,7 @@ impl GatewayServer {
                     break;
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _) => {
-                    let mut core = core.lock().await;
+                    let mut core = core.write().await;
                     core.session_mgr
                         .save_api_messages(&session_uuid, &api_msgs);
                     core.session_mgr.append_message("user", &text_owned, None);

@@ -439,12 +439,13 @@ impl Config {
     pub fn validate(&self) -> Vec<String> {
         let mut warnings = Vec::new();
 
-        match self.provider.as_str() {
-            "openai" | "ollama" | "anthropic" => {}
-            other => warnings.push(format!(
-                "未知 provider: '{}' (支持: openai, ollama, anthropic)",
-                other
-            )),
+        let known_providers = ["openai", "ollama", "anthropic"];
+        if !known_providers.contains(&self.provider.as_str()) {
+            tracing::info!(
+                "provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式 (支持: {})",
+                self.provider,
+                known_providers.join(", ")
+            );
         }
 
         if self.provider != "ollama" && self.api_key.is_empty() {
@@ -586,32 +587,40 @@ impl Config {
             }
         }
 
-        let mut handles = Vec::with_capacity(self.i_rs_tools.len());
-        for name in &self.i_rs_tools {
-            let binary = format!("i-rs-{}", name);
-            let name = name.clone();
-            handles.push(std::thread::spawn(move || {
-                let desc = match std::process::Command::new(&binary)
-                    .arg("skill")
-                    .arg("summary")
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::null())
-                    .output()
-                {
-                    Ok(output) if output.status.success() => {
-                        String::from_utf8_lossy(&output.stdout).trim().to_string()
-                    }
-                    _ => {
-                        tracing::warn!("i-rs 工具 '{}' (i-rs-{}) 未安装或 skill summary 失败，已跳过", name, name);
-                        return (name, None);
-                    }
-                };
-                (name, Some(desc))
-            }));
-        }
-        for handle in handles {
-            if let Ok((name, Some(desc))) = handle.join() {
-                self.i_rs_tool_index.insert(name, desc);
+        let max_parallel = 8usize;
+        let tools: Vec<(String, String)> = self
+            .i_rs_tools
+            .iter()
+            .map(|name| (name.clone(), format!("i-rs-{}", name)))
+            .collect();
+
+        for chunk in tools.chunks(max_parallel) {
+            let mut chunk_handles = Vec::new();
+            for (name, binary) in chunk.to_vec() {
+                let name = name.clone();
+                chunk_handles.push(std::thread::spawn(move || {
+                    let desc = match std::process::Command::new(&binary)
+                        .arg("skill")
+                        .arg("summary")
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::null())
+                        .output()
+                    {
+                        Ok(output) if output.status.success() => {
+                            String::from_utf8_lossy(&output.stdout).trim().to_string()
+                        }
+                        _ => {
+                            tracing::warn!("i-rs 工具 '{}' 未安装或 skill summary 失败，已跳过", name);
+                            return (name, None);
+                        }
+                    };
+                    (name, Some(desc))
+                }));
+            }
+            for handle in chunk_handles {
+                if let Ok((name, Some(desc))) = handle.join() {
+                    self.i_rs_tool_index.insert(name, desc);
+                }
             }
         }
 
@@ -626,38 +635,59 @@ impl Config {
 mod tests {
     use super::*;
 
+    /// Helper: run a test closure with the env var temporarily set,
+    /// restoring the original value (or clearing it) afterwards.
+    fn with_env<F>(key: &str, value: Option<&str>, f: F)
+    where
+        F: FnOnce(),
+    {
+        let original = std::env::var(key).ok();
+        // SAFETY: test-only, single-threaded via --test-threads=1
+        unsafe {
+            match value {
+                Some(v) => std::env::set_var(key, v),
+                None => std::env::remove_var(key),
+            }
+        }
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+        // SAFETY: restoring original, same thread
+        unsafe {
+            match original {
+                Some(v) => std::env::set_var(key, v),
+                None => std::env::remove_var(key),
+            }
+        }
+        if let Err(e) = result {
+            std::panic::resume_unwind(e);
+        }
+    }
+
     #[test]
     fn test_new_config_defaults() {
-        // SAFETY: test runs single-threaded
-        unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
-        let config = Config::new();
-        assert!(config.api_key.is_empty());
-        assert_eq!(config.provider, "openai");
-        assert_eq!(config.base_url, "https://api.openai.com/v1");
-        assert_eq!(config.model, "gpt-4o-mini");
-        assert!(config.enabled_tools.is_empty());
+        with_env("I_RS_CLAW_API_KEY", None, || {
+            let config = Config::new();
+            assert!(config.api_key.is_empty());
+            assert_eq!(config.provider, "openai");
+            assert_eq!(config.base_url, "https://api.openai.com/v1");
+            assert_eq!(config.model, "gpt-4o-mini");
+            assert!(config.enabled_tools.is_empty());
+        });
     }
 
     #[test]
     fn test_env_var_overrides_new() {
-        // SAFETY: test runs single-threaded
-        unsafe { std::env::set_var("I_RS_CLAW_API_KEY", "sk-test-key-from-env") };
-        let config = Config::new();
-        assert_eq!(config.api_key, "sk-test-key-from-env");
-        unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
+        with_env("I_RS_CLAW_API_KEY", Some("sk-test-key-from-env"), || {
+            let config = Config::new();
+            assert_eq!(config.api_key, "sk-test-key-from-env");
+        });
     }
 
     #[test]
     fn test_env_var_empty_string() {
-        // SAFETY: test runs single-threaded
-        unsafe { std::env::set_var("I_RS_CLAW_API_KEY", "") };
-        let config = Config::new();
-        assert!(config.api_key.is_empty());
-        unsafe { std::env::remove_var("I_RS_CLAW_API_KEY") };
+        with_env("I_RS_CLAW_API_KEY", Some(""), || {
+            let config = Config::new();
+            assert!(config.api_key.is_empty());
+        });
     }
-
-
 }
-
-
 

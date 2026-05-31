@@ -62,13 +62,19 @@ impl Default for ContextManager {
 impl ContextManager {
     /// Create a manager tuned for a specific model context size.
     pub fn for_model(model: &str) -> Self {
-        let max_tokens = match model {
-            m if m.contains("gpt-4o") || m.contains("claude-3.5") => 128_000,
-            m if m.contains("gpt-4") || m.contains("claude-3") => 32_000,
-            m if m.contains("deepseek") || m.contains("glm-4") => 128_000,
-            m if m.contains("gemini") => 1_000_000,
-            // Most open models: 8K-32K
-            _ => 8192,
+        let m = model.to_lowercase();
+        let max_tokens = if m.contains("gemini") {
+            1_000_000
+        } else if m.contains("gpt-4o") || m.contains("claude-3.5") || m.contains("claude-4") || m.contains("sonnet-4") || m.contains("opus-4") {
+            128_000
+        } else if m.contains("deepseek") || m.contains("glm-4") || m.contains("qwen") || m.contains("llama-3") || m.contains("mistral-large") {
+            128_000
+        } else if m.contains("gpt-4") || m.contains("claude-3") || m.contains("command-r") {
+            32_000
+        } else if m.contains("gpt-3.5") || m.contains("mistral-7b") {
+            16_000
+        } else {
+            32_000
         };
         Self {
             max_tokens,

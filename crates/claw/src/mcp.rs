@@ -196,7 +196,7 @@ impl McpClient {
     }
 
     /// Call a tool on this MCP server.
-    /// Uses spawn_blocking to avoid blocking the tokio worker pool.
+    /// Async wrapper for MCP tool calls.
     pub async fn call_tool_async(&self, tool_name: &str, args: &Value) -> Result<String, ClawError> {
         let json_map = args
             .as_object()
@@ -206,13 +206,10 @@ impl McpClient {
             .with_arguments(json_map.clone());
 
         let service = self.service.clone();
-        let result: CallToolResult = tokio::task::spawn_blocking(move || {
-            let rt = tokio::runtime::Handle::current();
-            rt.block_on(service.call_tool(params))
-        })
-        .await
-        .map_err(|e| ClawError::Mcp(format!("MCP 任务执行失败: {}", e)))?
-        .map_err(|e| ClawError::Mcp(format!("MCP 错误: {}", mcp_service_err(e))))?;
+        let result: CallToolResult = service
+            .call_tool(params)
+            .await
+            .map_err(|e| ClawError::Mcp(format!("MCP 错误: {}", mcp_service_err(e))))?;
 
         extract_text_from_call_result(result)
     }

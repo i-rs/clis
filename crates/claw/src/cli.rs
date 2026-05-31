@@ -434,7 +434,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(tokio::sync::Mutex::new(
+    let core = std::sync::Arc::new(tokio::sync::RwLock::new(
         crate::core::AppCore::new(config.clone())?,
     ));
 
