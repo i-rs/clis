@@ -10,6 +10,7 @@ use crate::memory::CrossSessionMemory;
 use crate::session::SessionManager;
 use crate::skill_store::SkillStore;
 use crate::tool_cache::ToolDocCache;
+use crate::skill_store::SkillDefinition;
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
@@ -202,6 +203,7 @@ impl AppCore {
             tracing::debug!("Flushed memory for agent '{}'", agent_id);
         }
         self.stats_manager.flush();
+        self.session_mgr.save_index();
         tracing::info!("AppCore shutdown complete");
     }
 
@@ -279,9 +281,19 @@ impl AppCore {
         messages: Vec<Value>,
         agent_id: &str,
     ) {
-        let resolved = self.config.agent_config(agent_id);
+        let (provider, agent_config, mcp, skills, tool_frequency, http_client) = self.prepare_chat_loop(agent_id);
+        rt.spawn(async move {
+            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency, http_client).await;
+        });
+    }
 
-        // Create provider for this agent config
+    /// Shared preparation for chat loop: resolve agent config, create provider,
+    /// clone per-agent state (MCP, skills, memory). Used by both sync and async spawn.
+    fn prepare_chat_loop(
+        &self,
+        agent_id: &str,
+    ) -> (Box<dyn crate::providers::LlmProvider>, Config, McpRegistry, Vec<SkillDefinition>, HashMap<String, usize>, reqwest::Client) {
+        let resolved = self.config.agent_config(agent_id);
         let provider = crate::providers::create_provider_for(
             &self.http_client,
             &resolved.provider,
@@ -289,21 +301,13 @@ impl AppCore {
             &resolved.base_url,
             &resolved.model,
         );
-
-        // Clone config with agent-specific tool overrides
         let mut agent_config = self.config.clone();
         agent_config.enabled_tools = resolved.enabled_tools;
-
-        // Clone the agent's MCP registry (cheap: Arc inside)
         let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
-
-        // Load executable skills as callable tools
         let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
         let tool_frequency = self.agent_store.memory_for(agent_id).tool_frequency().clone();
-
-        rt.spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency).await;
-        });
+        let http_client = self.http_client.clone();
+        (provider, agent_config, mcp, skills, tool_frequency, http_client)
     }
 
     /// Build the tool index string for system prompt from discovered i-rs tools.
@@ -464,22 +468,9 @@ impl AppCore {
         messages: Vec<Value>,
         agent_id: &str,
     ) {
-        let resolved = self.config.agent_config(agent_id);
-        let provider = crate::providers::create_provider_for(
-            &self.http_client,
-            &resolved.provider,
-            &resolved.api_key,
-            &resolved.base_url,
-            &resolved.model,
-        );
-        let mut agent_config = self.config.clone();
-        agent_config.enabled_tools = resolved.enabled_tools;
-        let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
-        let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
-        let tool_frequency = self.agent_store.memory_for(agent_id).tool_frequency().clone();
-
+        let (provider, agent_config, mcp, skills, tool_frequency, http_client) = self.prepare_chat_loop(agent_id);
         tokio::spawn(async move {
-            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency).await;
+            engine::chat_loop(provider, agent_config, messages, llm_tx, mcp, skills, tool_frequency, http_client).await;
         });
     }
 

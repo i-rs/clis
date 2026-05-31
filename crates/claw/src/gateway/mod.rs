@@ -250,8 +250,9 @@ impl GatewayServer {
             &config.base_url,
             &config.model,
         );
+        let http_client = crate::providers::shared_client();
         tokio::spawn(async move {
-            crate::core::engine::chat_loop(provider, config, msgs, tx, mcp, Vec::new(), std::collections::HashMap::new()).await;
+            crate::core::engine::chat_loop(provider, config, msgs, tx, mcp, Vec::new(), std::collections::HashMap::new(), http_client).await;
         });
 
         // Accumulate the response

@@ -466,37 +466,10 @@ impl Config {
         }
 
         for (id, agent) in &self.agents {
-            if id.contains(' ') || id.contains('/') || id.contains('\\') {
-                warnings.push(format!("agent ID '{}' 包含非法字符 (空格/斜杠)", id));
-            }
-            if let Some(ref p) = agent.provider {
-                match p.as_str() {
-                    "openai" | "ollama" | "anthropic" => {}
-                    other => {
-                        warnings.push(format!(
-                            "agent '{}' 使用了未知 provider '{}'",
-                            id, other
-                        ));
-                    }
-                }
-            }
+            Self::validate_agent_config(id, agent, "agent", &mut warnings);
         }
-
         for (id, agent) in &self.sub_agents {
-            if id.contains(' ') || id.contains('/') || id.contains('\\') {
-                warnings.push(format!("sub_agent ID '{}' 包含非法字符 (空格/斜杠)", id));
-            }
-            if let Some(ref p) = agent.provider {
-                match p.as_str() {
-                    "openai" | "ollama" | "anthropic" => {}
-                    other => {
-                        warnings.push(format!(
-                            "sub_agent '{}' 使用了未知 provider '{}'",
-                            id, other
-                        ));
-                    }
-                }
-            }
+            Self::validate_agent_config(id, agent, "sub_agent", &mut warnings);
         }
 
         // Validate MCP servers (both top-level and in agent configs)
@@ -507,6 +480,13 @@ impl Config {
             if let Some(ref servers) = agent.mcp_servers {
                 for server in servers {
                     Self::validate_mcp_server(server, &mut warnings, &format!("agent '{}'", agent_id));
+                }
+            }
+        }
+        for (agent_id, agent) in &self.sub_agents {
+            if let Some(ref servers) = agent.mcp_servers {
+                for server in servers {
+                    Self::validate_mcp_server(server, &mut warnings, &format!("sub_agent '{}'", agent_id));
                 }
             }
         }
@@ -537,6 +517,24 @@ impl Config {
                 "MCP server '{}' ({}) 使用了未知 transport '{}'",
                 server.name, scope, other
             )),
+        }
+    }
+
+    /// Validate a single agent/sub_agent configuration.
+    fn validate_agent_config(id: &str, agent: &AgentConfig, scope: &str, warnings: &mut Vec<String>) {
+        if id.contains(' ') || id.contains('/') || id.contains('\\') {
+            warnings.push(format!("{} ID '{}' 包含非法字符 (空格/斜杠)", scope, id));
+        }
+        if let Some(ref p) = agent.provider {
+            match p.as_str() {
+                "openai" | "ollama" | "anthropic" => {}
+                other => {
+                    warnings.push(format!(
+                        "{} '{}' 使用了未知 provider '{}'",
+                        scope, id, other
+                    ));
+                }
+            }
         }
     }
 

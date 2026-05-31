@@ -85,24 +85,10 @@ pub fn shared_client() -> reqwest::Client {
 
 /// Create the appropriate provider based on configuration.
 pub fn create_provider(client: &reqwest::Client, config: &crate::config::Config) -> Box<dyn LlmProvider> {
-    match ProviderKind::from_str(&config.provider) {
-        ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
-            client.clone(),
-            config.api_key.clone(),
-            config.base_url.clone(),
-            config.model.clone(),
-        )),
-        ProviderKind::Anthropic => Box::new(AnthropicProvider::new(
-            client.clone(),
-            config.api_key.clone(),
-            config.base_url.clone(),
-            config.model.clone(),
-        )),
-        ProviderKind::Ollama => Box::new(OllamaProvider::new(client.clone(), config.base_url.clone(), config.model.clone())),
-    }
+    create_provider_for(client, &config.provider, &config.api_key, &config.base_url, &config.model)
 }
 
-/// Create a provider from a resolved agent config.
+/// Create a provider from individual fields (provider type, api key, base url, model).
 pub fn create_provider_for(
     client: &reqwest::Client,
     provider_type: &str,

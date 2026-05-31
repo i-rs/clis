@@ -264,7 +264,10 @@ pub(crate) async fn openai_stream_chat_impl(
             let mut parsed = Vec::new();
             for tc in &tool_calls {
                 let args: Value =
-                    serde_json::from_str(&tc.arguments).unwrap_or(serde_json::json!({}));
+                    serde_json::from_str(&tc.arguments).unwrap_or_else(|e| {
+                        tracing::warn!("工具 '{}' 参数 JSON 解析失败: {}", tc.name, e);
+                        serde_json::json!({})
+                    });
                 parsed.push((
                     ToolCallAcc {
                         id: tc.id.clone(),

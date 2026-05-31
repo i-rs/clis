@@ -280,11 +280,16 @@ impl SessionManager {
         // Update metadata before writing to ensure index is ahead of data.
         // If crash after save_index but before writeln, index overcounts —
         // recoverable by reloading the actual JSONL file.
-        if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id) {
+        let should_save = if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id) {
             meta.message_count += 1;
             meta.updated_at = now_secs();
+            meta.message_count % 5 == 0
+        } else {
+            false
+        };
+        if should_save {
+            self.save_index();
         }
-        self.save_index();
         // Write message after index is saved — worst case a recovered session
         // has stale message_count (ignored on reload since load_messages reads JSONL).
         if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
@@ -354,7 +359,7 @@ impl SessionManager {
         Vec::new()
     }
 
-    fn save_index(&self) {
+    pub(crate) fn save_index(&self) {
         if let Ok(content) = serde_json::to_string_pretty(&self.sessions)
             && let Err(e) = atomic_write(&Self::index_path(&self.claw_dir), &content) { tracing::error!("持久化写入失败: {}", e); }
     }

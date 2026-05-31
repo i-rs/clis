@@ -12,6 +12,7 @@ pub(super) fn save_session_messages(
     if let Some(msgs) = api_messages {
         session_mgr.save_api_messages(session_id, msgs);
     }
+    session_mgr.save_index();
 }
 
 pub(super) fn copy_to_clipboard(text: &str) -> bool {

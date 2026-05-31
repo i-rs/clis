@@ -39,6 +39,7 @@ fn prepare_loop(
     mcp: &McpRegistry,
     skills: &[SkillDefinition],
     tool_frequency: HashMap<String, usize>,
+    http_client: reqwest::Client,
 ) -> ChatLoopInit {
     let enabled = if config.enabled_tools.is_empty() {
         None
@@ -67,7 +68,7 @@ fn prepare_loop(
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
         mcp: mcp.clone(),
-        http_client: crate::providers::shared_client(),
+        http_client,
     };
     let executor = crate::core::executor::ToolCallExecutor::new(
         tool_registry,
@@ -260,11 +261,12 @@ pub async fn chat_loop(
     mcp: McpRegistry,
     skills: Vec<SkillDefinition>,
     tool_frequency: HashMap<String, usize>,
+    http_client: reqwest::Client,
 ) {
     let mut msgs = messages;
     let init = prepare_loop(
         provider.as_ref(), &config, &mut msgs, &mcp, &skills,
-        tool_frequency.clone(),
+        tool_frequency.clone(), http_client,
     );
     let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
@@ -624,7 +626,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
-        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new()).await;
+        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new(), reqwest::Client::new()).await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
@@ -651,7 +653,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
-        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new()).await;
+        chat_loop(provider, config, messages, tx, mcp, vec![], HashMap::new(), reqwest::Client::new()).await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
@@ -671,7 +673,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "do work"})];
 
-        chat_loop(Box::new(AlwaysToolCall), config, messages, tx, mcp, vec![], HashMap::new()).await;
+        chat_loop(Box::new(AlwaysToolCall), config, messages, tx, mcp, vec![], HashMap::new(), reqwest::Client::new()).await;
 
         let mut events = Vec::new();
         while let Some(event) = rx.recv().await {
