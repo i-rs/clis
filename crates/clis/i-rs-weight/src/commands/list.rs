@@ -9,28 +9,17 @@ pub fn handle_list(
     days: Option<usize>,
     chart: bool,
     stats: bool,
-    limit: Option<usize>,
-    offset: Option<usize>,
     format: OutputFormat,
 ) -> Result<()> {
     let store = crate::storage::load_store()?;
-    let mut records = crate::service::list_weights(&store, days)?;
-
-    let total = records.len();
-    // Apply pagination
-    if limit.is_some() || offset.is_some() {
-        let start = offset.unwrap_or(0).min(total);
-        let end = limit.map(|l| (start + l).min(total)).unwrap_or(total);
-        records = records[start..end].to_vec();
-    }
-    let shown = records.len();
+    let records = crate::service::list_weights(&store, days)?;
 
     if records.is_empty() {
         if format.is_json() {
             let filter = days.map(|d| format!("last {d} days"));
             println!(
                 "{}",
-                output_list::<serde_json::Value>(&[], total, filter.as_deref(), format)
+                output_list::<serde_json::Value>(&[], 0, filter.as_deref(), format)
             );
         } else {
             print_warning("No weight records found.");
@@ -43,23 +32,14 @@ pub fn handle_list(
         let filter = days.map(|d| format!("last {d} days"));
         println!(
             "{}",
-            output_list(&items, total, filter.as_deref(), format)
+            output_list(&items, items.len(), filter.as_deref(), format)
         );
         return Ok(());
     }
 
     let rows: Vec<WeightRow> = records.iter().map(WeightRow::from_record).collect();
     println!("\n{}", format_table(&rows));
-    if shown < total {
-        println!(
-            "  {} {}-{} / {}",
-            "Showing:".dimmed(),
-            offset.unwrap_or(0) + 1,
-            offset.unwrap_or(0) + shown,
-            total
-        );
-    }
-    print_entry_count(shown);
+    print_entry_count(rows.len());
 
     if stats {
         let (min, max, avg, change) = calculate_stats(&records);

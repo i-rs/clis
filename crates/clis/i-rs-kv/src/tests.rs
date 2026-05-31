@@ -130,8 +130,6 @@ mod tests {
         let list_cmd = Commands::List {
             tag: None,
             pattern: Some("pattern".to_string()),
-            limit: None,
-            offset: None,
         };
         assert!(run(list_cmd, crate::presentation::OutputFormat::Table).is_ok());
     }

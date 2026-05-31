@@ -46,8 +46,6 @@ mod tests {
         let cmd = Commands::List {
             days: None,
             calendar: false,
-            limit: None,
-            offset: None,
         };
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
 
@@ -60,8 +58,8 @@ mod tests {
         // Update by id
         let update_cmd = Commands::Update {
             id: id2[..8].to_string(),
-            mood: None,
             date: None,
+            mood: None,
             tag: None,
             remark: None,
         };
