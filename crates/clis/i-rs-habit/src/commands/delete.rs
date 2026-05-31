@@ -1,14 +1,9 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::print_success;
 
-pub fn handle_delete(id: String, format: OutputFormat) -> anyhow::Result<()> {
+pub fn handle_delete(name: String) -> anyhow::Result<()> {
     let mut store = crate::storage::load_store()?;
-    crate::service::delete_habit(&mut store, &id)?;
+    crate::service::delete_habit(&mut store, &name)?;
     crate::storage::save_store(&store)?;
-
-    if format.is_json() {
-        println!("{}", serde_json::json!({"success": true, "message": format!("Habit '{}' deleted", id)}));
-        return Ok(());
-    }
-    print_success(&format!("Habit '{}' deleted successfully", id));
+    print_success(&format!("Habit '{name}' deleted successfully"));
     Ok(())
 }

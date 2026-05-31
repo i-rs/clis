@@ -1,28 +1,22 @@
-use crate::presentation::{print_success, OutputFormat};
+use crate::presentation::print_success;
 
 pub fn handle_update(
-    id: String,
+    name: String,
     description: Option<String>,
     frequency: Option<String>,
-    tag: Option<Vec<String>>,
+    tags: Option<Vec<String>>,
     remark: Option<Vec<String>>,
-    format: OutputFormat,
 ) -> anyhow::Result<()> {
     let mut store = crate::storage::load_store()?;
     crate::service::update_habit(
         &mut store,
-        id.clone(),
+        name.clone(),
         description,
         frequency,
-        tag,
+        tags,
         remark,
     )?;
     crate::storage::save_store(&store)?;
-
-    if format.is_json() {
-        println!("{}", serde_json::json!({"success": true, "message": format!("Habit '{}' updated", id)}));
-        return Ok(());
-    }
-    print_success(&format!("Habit '{}' updated successfully", id));
+    print_success(&format!("Habit '{name}' updated successfully"));
     Ok(())
 }

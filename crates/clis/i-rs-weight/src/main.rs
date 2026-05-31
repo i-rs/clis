@@ -18,7 +18,7 @@ i_rs_core::define_cli_tool! {
         days: Option<usize> => "最近N天",
         chart: bool => "显示ASCII图表",
         stats: bool => "体重统计",
-    }
+    },
 }
 
 #[cfg(test)]

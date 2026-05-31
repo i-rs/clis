@@ -18,7 +18,7 @@ i_rs_core::define_cli_tool! {
     list_args: {
         days: Option<usize> => "最近N天",
         calendar: bool => "日历视图",
-    }
+    },
 }
 
 #[cfg(test)]
