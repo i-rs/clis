@@ -1,0 +1,30 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+
+# Node / Dashboard UI
+node_modules/
+**/dashboard-ui/node_modules/
+**/dashboard-ui/dist/assets/
+
+# Git
+.git/
+.gitignore
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# CI / Docs
+.github/
+docs/
+
+# Apps (not needed for Rust builds)
+apps/
+**/node_modules/
+
+# Build artifacts
+.cargo/
