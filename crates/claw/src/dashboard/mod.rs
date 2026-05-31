@@ -95,6 +95,7 @@ impl Dashboard {
             .route("/api/tools", axum::routing::get(routes::list_tools))
             .route("/api/plugins", axum::routing::get(routes::list_plugins))
             .route("/api/skills", axum::routing::get(routes::list_skills))
+            .route("/api/stats", axum::routing::get(routes::get_stats))
             .route("/api/agents", axum::routing::get(routes::get_agents).post(routes::create_agent))
             .route(
                 "/api/agents/{id}",
