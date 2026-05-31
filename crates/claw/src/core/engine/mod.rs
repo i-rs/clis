@@ -95,7 +95,7 @@ async fn stream_to_llm(
 
 /// Stage 2: Execute — dispatch tool calls through the executor, trace results.
 async fn dispatch_tools(
-    executor: &crate::core::executor::ToolCallExecutor,
+    executor: &mut crate::core::executor::ToolCallExecutor,
     calls: Vec<(crate::llm::ToolCallAcc, Value)>,
     tx: &mpsc::UnboundedSender<LlmEvent>,
     msgs: &mut Vec<Value>,
@@ -151,7 +151,7 @@ fn inject_results(
         for r in results {
             msgs.push(serde_json::json!({
                 "role": "tool", "tool_call_id": r.call.id,
-                "content": utils::smart_truncate(&r.result, 500),
+                "content": utils::compact_tool_result(&r.call.name, &r.result, 500),
             }));
         }
         // Exponential backoff based on consecutive failures
@@ -173,7 +173,7 @@ fn inject_results(
         }
     } else {
         for r in results {
-            let trimmed = utils::smart_truncate(&r.result, 500);
+            let trimmed = utils::compact_tool_result(&r.call.name, &r.result, 500);
             msgs.push(serde_json::json!({
                 "role": "tool", "tool_call_id": r.call.id, "content": trimmed,
             }));
@@ -264,7 +264,7 @@ pub async fn chat_loop(
     http_client: reqwest::Client,
 ) {
     let mut msgs = messages;
-    let init = prepare_loop(
+    let mut init = prepare_loop(
         provider.as_ref(),
         &config,
         &mut msgs,
@@ -312,7 +312,7 @@ pub async fn chat_loop(
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
                 consecutive_provider_errors = 0;
                 let results =
-                    dispatch_tools(&init.executor, calls, &tx, &mut msgs, &reasoning_content).await;
+                    dispatch_tools(&mut init.executor, calls, &tx, &mut msgs, &reasoning_content).await;
 
                 if let Some(backoff) =
                     inject_results(&results, &mut msgs, &mut retry_counts, init.max_retries)
@@ -326,9 +326,7 @@ pub async fn chat_loop(
 
                 trace_tool_results(&results, round_start);
 
-                if round_count > 1 {
-                    init.ctx_mgr.compress(&mut msgs, &init.tool_frequency);
-                }
+                init.ctx_mgr.compress(&mut msgs, &init.tool_frequency);
             }
             Err(e) => {
                 if !handle_provider_error(
@@ -362,7 +360,7 @@ mod tests {
     #[test]
     fn test_smart_compress_empty_noop() {
         let mut msgs = vec![];
-        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5, 6);
         assert!(msgs.is_empty());
     }
 
@@ -375,7 +373,7 @@ mod tests {
         ];
         let expected = msgs.clone();
         let mut actual = msgs;
-        smart_compress(&mut actual, &HashMap::new(), 5, 5);
+        smart_compress(&mut actual, &HashMap::new(), 5, 5, 6);
         assert_eq!(actual, expected);
     }
 
@@ -385,7 +383,7 @@ mod tests {
             .map(|i| json!({"role": "user", "content": format!("msg {}", i)}))
             .collect();
         msgs.insert(0, json!({"role": "system", "content": "sys"}));
-        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5, 6);
         assert_eq!(msgs[0]["role"], "system");
     }
 
@@ -396,7 +394,7 @@ mod tests {
             .collect();
         msgs.insert(0, json!({"role": "system", "content": "sys"}));
         let before_len = msgs.len();
-        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5, 6);
         assert!(msgs.len() < before_len);
         assert_eq!(msgs[msgs.len() - 1]["content"], "msg 19");
         assert_eq!(msgs[msgs.len() - 5]["content"], "msg 15");
@@ -441,7 +439,7 @@ mod tests {
         freq.insert("weight".to_string(), 5);
         freq.insert("mood".to_string(), 1);
 
-        smart_compress(&mut msgs, &freq, 1, 5);
+        smart_compress(&mut msgs, &freq, 1, 5, 6);
 
         let content_str = serde_json::to_string(&msgs).unwrap();
         assert!(
@@ -465,7 +463,7 @@ mod tests {
         msgs.push(json!({"role": "user", "content": "recent"}));
         msgs.push(json!({"role": "assistant", "content": "response"}));
 
-        smart_compress(&mut msgs, &HashMap::new(), 5, 5);
+        smart_compress(&mut msgs, &HashMap::new(), 5, 5, 6);
 
         let content_str = serde_json::to_string(&msgs).unwrap();
         assert!(content_str.contains("result"), "tool result should be kept");
@@ -498,6 +496,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            model: "test",
         };
         let result = build_messages(params);
         assert_eq!(result.len(), 3);
@@ -542,6 +541,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            model: "test",
         };
         let result = build_messages(params);
         assert!(result.len() >= 3);
@@ -571,6 +571,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            model: "test",
         };
         let result = build_messages(params);
         assert_eq!(result.len(), 4);
@@ -616,6 +617,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            model: "test",
         };
         let result = build_messages(params);
         let system_msgs: Vec<_> = result.iter().filter(|m| m["role"] == "system").collect();
@@ -662,6 +664,7 @@ mod tests {
             max_conversation_turns: 2,
             tz_offset: tz_test(),
             identity: "",
+            model: "test",
         };
         let result = build_messages(params);
         assert_eq!(result.len(), 4);

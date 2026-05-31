@@ -338,6 +338,7 @@ impl AppCore {
             max_conversation_turns: self.config.max_conversation_turns,
             tz_offset: self.config.tz_offset,
             identity: &identity,
+            model: &resolved.model,
         })
     }
 

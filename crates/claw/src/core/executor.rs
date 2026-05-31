@@ -7,6 +7,7 @@
 use crate::llm::{LlmEvent, ToolCallAcc};
 use crate::utils;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -21,14 +22,12 @@ pub struct ToolCallResult {
     pub validation: ToolResultValidation,
 }
 
-/// Basic validation of tool execution results.
 #[derive(Debug, Clone)]
 pub struct ToolResultValidation {
     pub valid: bool,
     pub issues: Vec<String>,
 }
 
-/// Run basic checks on a tool result to detect common issues.
 fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
     let mut issues = Vec::new();
 
@@ -51,11 +50,9 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
         };
     }
 
-    // If the result looks like JSON, verify it's well-formed
     if result.trim_start().starts_with('{') || result.trim_start().starts_with('[') {
         match serde_json::from_str::<Value>(result) {
             Ok(json) => {
-                // Check for common error patterns in JSON responses
                 if let Some(obj) = json.as_object() {
                     if let Some(error) = obj
                         .get("error")
@@ -70,7 +67,6 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
                         issues.push("JSON 响应的 success 字段为 false".to_string());
                     }
                 }
-                // Empty array/object with no helpful content
                 if json.as_array().is_some_and(|a| a.is_empty()) {
                     issues.push("JSON 响应为空数组".to_string());
                 }
@@ -96,6 +92,8 @@ pub struct ToolCallExecutor {
     cli_timeout_secs: u64,
     truncate_display: usize,
     truncate_context: usize,
+    /// Per-session cache for tool results to avoid re-running identical calls.
+    result_cache: HashMap<String, String>,
 }
 
 impl ToolCallExecutor {
@@ -109,28 +107,29 @@ impl ToolCallExecutor {
             cli_timeout_secs: 30,
             truncate_display: 4096,
             truncate_context: 500,
+            result_cache: HashMap::new(),
         }
     }
 
-    /// Set the CLI tool timeout in seconds.
     pub fn with_timeout(mut self, secs: u64) -> Self {
         self.cli_timeout_secs = secs;
         self
     }
 
-    /// Set truncation sizes: `display` for ToolExecuted events, `context` for LLM injection.
     pub fn with_truncation(mut self, display: usize, context: usize) -> Self {
         self.truncate_display = display;
         self.truncate_context = context;
         self
     }
 
-    /// Execute all tool calls in parallel with timeout.
-    ///
-    /// Each call emits a [`LlmEvent::ToolExecuted`] upon completion.
-    /// Returns the results in the same order as input.
+    /// Build a cache key from tool name and args JSON.
+    fn cache_key(name: &str, args: &Value) -> String {
+        let args_hash = serde_json::to_string(args).unwrap_or_default();
+        format!("{}:{}", name, args_hash)
+    }
+
     pub async fn execute(
-        &self,
+        &mut self,
         calls: Vec<(ToolCallAcc, Value)>,
         tx: &mpsc::UnboundedSender<LlmEvent>,
     ) -> Vec<ToolCallResult> {
@@ -147,24 +146,35 @@ impl ToolCallExecutor {
             let trunc_display = self.truncate_display;
             let trunc_context = self.truncate_context;
 
+            let cache_entry = self.result_cache.get(&Self::cache_key(&tc_name, &args)).cloned();
+
             handles.push(tokio::spawn(async move {
-                let result = match tokio::time::timeout(timeout_dur, async {
-                    crate::core::engine::execute_tool_call(
-                        &tc_name,
-                        &args,
-                        &registry_for_spawn,
-                        &ctx_for_spawn,
-                    )
+                let result = if let Some(cached) = cache_entry {
+                    tracing::debug!(tool = %tc_name, "工具结果缓存命中");
+                    cached
+                } else {
+                    match tokio::time::timeout(timeout_dur, async {
+                        crate::core::engine::execute_tool_call(
+                            &tc_name,
+                            &args,
+                            &registry_for_spawn,
+                            &ctx_for_spawn,
+                        )
+                        .await
+                    })
                     .await
-                })
-                .await
-                {
-                    Ok(r) => r,
-                    Err(_) => format!("错误: 工具执行超时 (>{:?})", timeout_dur),
+                    {
+                        Ok(r) => r,
+                        Err(_) => format!("错误: 工具执行超时 (>{:?})", timeout_dur),
+                    }
                 };
 
                 let display_result = utils::smart_truncate(&result, trunc_display);
-                let context_result = utils::smart_truncate(&result, trunc_context);
+                let context_result = utils::compact_tool_result(
+                    &tc_name,
+                    &result,
+                    trunc_context,
+                );
 
                 let _ = tx.send(LlmEvent::ToolExecuted {
                     name: tc.name.clone(),
@@ -174,7 +184,6 @@ impl ToolCallExecutor {
                     total_steps: total,
                 });
 
-                // Basic result validation
                 let validation = validate_tool_result(&tc.name, &result);
                 if !validation.valid {
                     let _ = tx.send(LlmEvent::Evaluation {
@@ -188,11 +197,17 @@ impl ToolCallExecutor {
             }));
         }
 
-        // Collect all results in order
         let mut all_results: Vec<ToolCallResult> = Vec::with_capacity(handles.len());
         for handle in handles {
             match handle.await {
                 Ok((call, args, context_result, validation)) => {
+                    // Cache successful results
+                    if !context_result.starts_with("错误") && !context_result.starts_with("Error") {
+                        self.result_cache.insert(
+                            Self::cache_key(&call.name, &args),
+                            context_result.clone(),
+                        );
+                    }
                     all_results.push(ToolCallResult {
                         call,
                         args,

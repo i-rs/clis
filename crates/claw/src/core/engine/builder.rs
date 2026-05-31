@@ -1,12 +1,12 @@
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+use crate::core::context::ContextManager;
 
 // ── System Prompt Layer ──
 
-/// Prefix used to identify reminder system messages in the message list.
 const REMINDER_PREFIX: &str = "注意：用户有以下即将到期或已到期的提醒事项";
 
-/// ReAct mode instruction (default) — no upfront planning, just act step by step.
 const REACT_PROMPT: &str = "\
 当用户请求涉及 **2 个或以上不同工具调用** 时：
 1. 无需预先规划整个流程，直接开始执行第一步
@@ -15,7 +15,6 @@ const REACT_PROMPT: &str = "\
 4. 所有步骤完成后给出总结
 ";
 
-/// Plan-then-Execute mode instruction (experimental).
 const PLAN_THEN_EXECUTE_PROMPT: &str = "\
 当用户请求涉及 **2 个或以上不同工具调用** 时，必须使用执行计划模式。
 
@@ -42,14 +41,6 @@ const PLAN_THEN_EXECUTE_PROMPT: &str = "\
 📋 计划进度: 1/3 ✅ → 2/3 🔄 → 3/3 ✅
 ";
 
-/// Load system prompt from external file and inject dynamic layers.
-///
-/// Layers:
-/// 1. Static behavior prompt (system.md)
-/// 2. Tool index (from TOOL_INDEX static data)
-/// 3. Hot tool docs (skill teach outputs for frequently used tools)
-/// 4. User memory (cross-session preferences and history)
-/// 5. User profile (name, preferences for onboarding)
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn build_system_prompt(
     tool_index: &str,
@@ -87,7 +78,6 @@ pub(crate) fn build_system_prompt(
     prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
     prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
 
-    // Collapse 3+ consecutive newlines into 2 (one blank line)
     prompt = prompt.replace("\n\n\n\n", "\n\n");
     prompt = prompt.replace("\n\n\n", "\n\n");
 
@@ -96,10 +86,6 @@ pub(crate) fn build_system_prompt(
 
 // ── Message Building ──
 
-/// Parameters for building API-compatible message lists.
-///
-/// Consolidates the many parameters of `build_messages` into a single struct
-/// to improve readability and make the call site more maintainable.
 pub struct MessageBuildParams<'a> {
     pub app_messages: &'a [crate::app::Message],
     pub user_text: &'a str,
@@ -116,14 +102,11 @@ pub struct MessageBuildParams<'a> {
     pub max_conversation_turns: usize,
     pub tz_offset: chrono::FixedOffset,
     pub identity: &'a str,
+    /// Model identifier for ContextManager token sizing.
+    pub model: &'a str,
 }
 
-/// Convert app messages to API-compatible message list.
-/// If `saved_api_messages` exists, reuse them as base (preserving tool call context)
-/// and only append the new user message.
-/// If `system_prompt_override` is provided, it replaces the default system prompt.
 pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
-    // Helper: remove stale reminder system message at index 1 if present
     let remove_reminder_msg = |msgs: &mut Vec<Value>| {
         if msgs.len() > 1
             && msgs[1].get("role").and_then(|r| r.as_str()) == Some("system")
@@ -136,7 +119,6 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         }
     };
 
-    // Helper: inject reminder system message at index 1
     let inject_reminder = |msgs: &mut Vec<Value>, text: &str| {
         if !text.is_empty() {
             msgs.insert(
@@ -149,12 +131,11 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         }
     };
 
+    let ctx_mgr = ContextManager::for_model(params.model);
+
     if let Some(prev_msgs) = params.saved_api_messages {
-        // Reuse saved API messages (has full context including tool calls)
         let mut msgs = prev_msgs.clone();
-        // Remove stale reminder message before injecting fresh one
         remove_reminder_msg(&mut msgs);
-        // Remove trailing user message if exists (from previous turn)
         if msgs.len() > 1
             && msgs
                 .last()
@@ -165,18 +146,18 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         }
         msgs.push(serde_json::json!({"role": "user", "content": params.user_text}));
 
-        // Inject fresh reminder
         if let Some(rt) = params.reminder_text {
             inject_reminder(&mut msgs, rt);
         }
 
-        // Smart compress: preserve skill teach docs + recent conversation context
-        smart_compress(
-            &mut msgs,
-            params.tool_frequency,
-            5,
-            params.max_conversation_turns,
-        );
+        // Inject structural summary for old context before compression
+        if let Some(summary) = ctx_mgr.structural_summary(&msgs, params.max_conversation_turns) {
+            let _summary = summary;
+            // TODO: inject summary as system message before smart_compress drops old msgs
+            // Currently kept as a structural placeholder for future integration
+        }
+
+        ctx_mgr.compress(&mut msgs, params.tool_frequency);
         return msgs;
     }
 
@@ -202,12 +183,10 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         "content": system_prompt,
     })];
 
-    // Inject reminder right after system prompt
     if let Some(rt) = params.reminder_text {
         inject_reminder(&mut msgs, rt);
     }
 
-    // Keep last N display messages for context
     let max_turns = params.max_conversation_turns;
     let start = params.app_messages.len().saturating_sub(max_turns);
 
@@ -231,22 +210,86 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
     }
 
     msgs.push(serde_json::json!({"role": "user", "content": params.user_text}));
+
+    // First turn compression: guard against oversized system prompt + messages
+    if msgs.len() > ctx_mgr.min_retain + 2 {
+        ctx_mgr.compress(&mut msgs, params.tool_frequency);
+    }
+
     msgs
+}
+
+// ── Semantic Message Scoring ──
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MessageSignificance {
+    /// System prompt — never drop
+    System,
+    /// User correction / negation — keep at all cost
+    Correction,
+    /// Decision / confirmation — high priority
+    Decision,
+    /// Tool result with meaningful data — high priority
+    ToolData,
+    /// Normal dialogue — medium priority
+    Dialogue,
+    /// Greeting / acknowledgment / error — low priority
+    LowValue,
+}
+
+/// Score a message for retention priority. Higher score = more important.
+fn score_message_significance(msg: &Value) -> (MessageSignificance, u8) {
+    let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("");
+
+    if role == "system" {
+        return (MessageSignificance::System, 10);
+    }
+
+    let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+
+    match role {
+        "user" => {
+            if crate::utils::is_correction_message(content) {
+                (MessageSignificance::Correction, 9)
+            } else if crate::utils::is_decision_message(content) {
+                (MessageSignificance::Decision, 7)
+            } else if content.len() < 6 {
+                (MessageSignificance::LowValue, 1)
+            } else {
+                (MessageSignificance::Dialogue, 4)
+            }
+        }
+        "assistant" => {
+            if crate::utils::is_decision_message(content) {
+                (MessageSignificance::Decision, 7)
+            } else if content.len() < 10 {
+                (MessageSignificance::LowValue, 1)
+            } else {
+                (MessageSignificance::Dialogue, 3)
+            }
+        }
+        "tool" => {
+            if content.starts_with("错误") || content.starts_with("Error") {
+                (MessageSignificance::LowValue, 2)
+            } else if content.len() > 20 {
+                (MessageSignificance::ToolData, 6)
+            } else {
+                (MessageSignificance::LowValue, 1)
+            }
+        }
+        _ => (MessageSignificance::Dialogue, 2),
+    }
 }
 
 // ── Smart Compression ──
 
-/// A detected skill teach doc pair in the API message list.
 struct TeachPair {
     assist_idx: usize,
     result_idx: usize,
     tool_name: String,
 }
 
-/// Find skill teach doc pairs (i_rs → skill command) by scanning backwards.
-/// Deduplicates by tool name, keeping the latest occurrence of each tool.
 fn find_teach_pairs(msgs: &[Value]) -> Vec<TeachPair> {
-    use std::collections::HashSet;
     let mut pairs: Vec<TeachPair> = Vec::new();
     let mut seen_tools: HashSet<String> = HashSet::new();
 
@@ -301,11 +344,7 @@ fn find_teach_pairs(msgs: &[Value]) -> Vec<TeachPair> {
     pairs
 }
 
-/// Score teach pairs by global cross-session frequency + position recency.
-/// Returns indices into the pairs list sorted by score (highest first).
-///
-/// Frequency is weighted 10x so that tools used across multiple sessions
-/// are strongly preferred over one-off tool learns.
+/// Score teach pairs by global cross-session frequency * weight + semantic import + recency.
 fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize>) -> Vec<usize> {
     let max_recency = pairs.len().max(1);
     let mut scored: Vec<(usize, usize)> = pairs
@@ -314,7 +353,7 @@ fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize
         .map(|(pos, pair)| {
             let freq = tool_frequency.get(&pair.tool_name).copied().unwrap_or(0);
             let recency = max_recency - pos;
-            (freq * 10 + recency, pos)
+            (freq * 15 + recency, pos)
         })
         .collect();
     scored.sort_by_key(|&(score, _)| std::cmp::Reverse(score));
@@ -324,32 +363,29 @@ fn score_teach_pairs(pairs: &[TeachPair], tool_frequency: &HashMap<String, usize
 /// Smart compress API message list, preserving high-value content.
 ///
 /// Strategy:
-/// 1. Always keep system message
-/// 2. Find skill teach doc pairs, score by cross-session frequency + recency
-/// 3. Keep top-scoring pairs that fall outside the recent window
-/// 4. Keep recent conversation messages intact
-/// 5. Drop old dialog that lacks teach value
-///
-/// This implements "predict which tools are worth keeping" by using
-/// cross-session usage frequency as the primary signal (weighted 10x)
-/// and recency as the secondary signal.
+/// 1. Always keep system message (index 0)
+/// 2. Score teach doc pairs by cross-session frequency + recency
+/// 3. Score regular messages by semantic significance (corrections, decisions, data)
+/// 4. Keep top-scoring teach pairs + high-semantic-value messages outside recent window
+/// 5. Keep recent conversation messages intact
+/// 6. Guarantee min_retain floor
 pub fn smart_compress(
     msgs: &mut Vec<Value>,
     tool_frequency: &HashMap<String, usize>,
     max_teach_docs: usize,
     recent_keep: usize,
+    min_retain: usize,
 ) {
-    if msgs.len() <= 1 + recent_keep {
+    let effective_recent = recent_keep.max(min_retain);
+    if msgs.len() <= 1 + effective_recent {
         return;
     }
-
-    use std::collections::HashSet;
 
     let teach_pairs = find_teach_pairs(msgs);
     let sorted_ranks = score_teach_pairs(&teach_pairs, tool_frequency);
 
     let mut preserve: HashSet<usize> = HashSet::new();
-    preserve.insert(0); // system message
+    preserve.insert(0);
 
     // Keep top-scoring teach pairs
     for &pos in sorted_ranks.iter().take(max_teach_docs) {
@@ -357,16 +393,24 @@ pub fn smart_compress(
         preserve.insert(teach_pairs[pos].result_idx);
     }
 
+    // Score and preserve semantically important messages outside the recent window
+    let recent_start = msgs.len().saturating_sub(effective_recent);
+    for idx in 1..recent_start {
+        let (sig, score) = score_message_significance(&msgs[idx]);
+        if score >= 7 {
+            // Correction, Decision, ToolData — always keep
+            preserve.insert(idx);
+        } else if score >= 5 && sig == MessageSignificance::ToolData {
+            preserve.insert(idx);
+        }
+    }
+
     // Keep recent conversation messages
-    let recent_start = msgs.len().saturating_sub(recent_keep);
     for idx in recent_start..msgs.len() {
         preserve.insert(idx);
     }
 
-    // Ensure tool_call + tool result pairs are kept together to prevent
-    // orphaned tool messages ("role='tool' must follow tool_calls" error).
-    // Use a single forward + backward scan (O(n)) instead of an O(n²) while-loop.
-    // Forward: if a tool result is kept, ensure preceding tool_call is kept.
+    // Ensure tool_call + tool result pairs are kept together
     for idx in 1..msgs.len() {
         if preserve.contains(&idx)
             && msgs[idx].get("role").and_then(|r| r.as_str()) == Some("tool")
@@ -375,7 +419,6 @@ pub fn smart_compress(
             preserve.insert(idx - 1);
         }
     }
-    // Backward: if a tool_call is kept, ensure ALL following tool results are kept.
     for idx in 0..msgs.len() {
         if preserve.contains(&idx) && msgs[idx].get("tool_calls").is_some() {
             let mut j = idx + 1;
@@ -386,7 +429,7 @@ pub fn smart_compress(
         }
     }
 
-    // Build compressed message list
+    // Build compressed list, honoring min_retain floor
     let mut new_msgs: Vec<Value> = Vec::with_capacity(preserve.len());
     for (idx, msg) in msgs[..recent_start].iter().enumerate() {
         if preserve.contains(&idx) {
@@ -397,14 +440,21 @@ pub fn smart_compress(
         new_msgs.push(msg.clone());
     }
 
-    *msgs = new_msgs;
+    if new_msgs.len() < min_retain {
+        // Floor safeguard: keep last min_retain messages from original
+        let keep_start = msgs.len().saturating_sub(min_retain);
+        let mut floor = Vec::with_capacity(min_retain + 1);
+        floor.push(msgs[0].clone()); // system
+        for msg in &msgs[keep_start..] {
+            floor.push(msg.clone());
+        }
+        *msgs = floor;
+    } else {
+        *msgs = new_msgs;
+    }
 }
 
-/// Compress API messages after a conversation turn completes.
-///
-/// Preserves top 5 skill teach docs (scored by cross-session frequency + recency)
-/// and the last 20 conversation messages for context.
 #[allow(dead_code)]
 pub fn compress_api_messages(msgs: &mut Vec<Value>, tool_frequency: &HashMap<String, usize>) {
-    smart_compress(msgs, tool_frequency, 5, 20);
+    smart_compress(msgs, tool_frequency, 5, 20, 6);
 }

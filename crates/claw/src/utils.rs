@@ -189,6 +189,100 @@ pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Check if a message content appears to be a user correction or negation.
+pub fn is_correction_message(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    let corrections = [
+        "不对", "不是", "错了", "错误", "更正", "重新", "重试",
+        "no,", "not that", "wrong", "incorrect", "correction", "redo",
+        "我说的不是", "我要的是", "改一下", "修正",
+    ];
+    corrections.iter().any(|&k| lower.contains(k))
+}
+
+/// Check if a message content appears to be a decision or confirmation.
+pub fn is_decision_message(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    let decisions = [
+        "确认", "确定", "就这样", "可以了", "同意", "批准",
+        "confirm", "yes", "agreed", "approved", "that's correct",
+        "没问题", "就这么办", "好的",
+    ];
+    decisions.iter().any(|&k| lower.contains(k))
+}
+
+/// Compact structured tool results for LLM context injection.
+///
+/// For JSON array results from i-rs tools, produces a compact summary
+/// instead of raw truncation. Falls back to smart_truncate for non-JSON output.
+pub fn compact_tool_result(tool_name: &str, result: &str, max_chars: usize) -> String {
+    let stripped = strip_ansi(result);
+    if stripped.chars().count() <= max_chars {
+        return stripped;
+    }
+
+    let trimmed = stripped.trim();
+    if !trimmed.starts_with('[') && !trimmed.starts_with('{') {
+        return smart_truncate(result, max_chars);
+    }
+
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return smart_truncate(result, max_chars);
+    };
+
+    match &parsed {
+        serde_json::Value::Array(arr) if !arr.is_empty() => {
+            let mut summary = format!("[{} 共 {} 条结果] ", tool_name, arr.len());
+
+            let mut sample_count = 0;
+            let mut sample_str = String::new();
+
+            for item in arr.iter().take(5) {
+                if let serde_json::Value::Object(obj) = item {
+                    sample_count += 1;
+                    sample_str.push_str(&format!("{}: ", sample_count));
+
+                    let mut field_count = 0;
+                    for (k, v) in obj {
+                        if field_count >= 4 {
+                            sample_str.push_str("...");
+                            break;
+                        }
+                        if let Some(s) = v.as_str() {
+                            sample_str.push_str(&format!("{}={} ", k, s));
+                        } else if let Some(n) = v.as_f64() {
+                            sample_str.push_str(&format!("{}={} ", k, n));
+                        } else if let Some(b) = v.as_bool() {
+                            sample_str.push_str(&format!("{}={} ", k, b));
+                        }
+                        field_count += 1;
+                    }
+                    sample_str.push_str("; ");
+                }
+            }
+
+            if sample_count > 0 {
+                summary.push_str(&sample_str);
+            }
+
+            if arr.len() > 5 {
+                summary.push_str(&format!("... 还有 {} 条", arr.len() - 5));
+            }
+
+            if summary.len() > max_chars {
+                let s: String = summary.chars().take(max_chars - 3).collect();
+                format!("{}...", s)
+            } else {
+                summary
+            }
+        }
+        serde_json::Value::Array(_) => {
+            smart_truncate(result, max_chars)
+        }
+        _ => smart_truncate(result, max_chars),
+    }
+}
+
 /// Smart truncation for LLM tool results.
 ///
 /// 1. Strip ANSI color codes (useless for LLM consumption)
