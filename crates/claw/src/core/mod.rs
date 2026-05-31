@@ -289,20 +289,31 @@ impl AppCore {
 
     /// Shared preparation for chat loop: resolve agent config, create provider,
     /// clone per-agent state (MCP, skills, memory). Used by both sync and async spawn.
+    ///
+    /// Avoids constructing a full `ResolvedAgentConfig` (which clones every field)
+    /// by resolving only the fields we need directly from `AgentConfig` with
+    /// `as_deref()` fallbacks to top-level `Config`.
     fn prepare_chat_loop(
         &self,
         agent_id: &str,
     ) -> (Box<dyn crate::providers::LlmProvider>, Config, McpRegistry, Vec<SkillDefinition>, HashMap<String, usize>, reqwest::Client) {
-        let resolved = self.config.agent_config(agent_id);
+        let agent = self.config.agents.get(agent_id)
+            .or_else(|| self.config.sub_agents.get(agent_id));
+
         let provider = crate::providers::create_provider_for(
             &self.http_client,
-            &resolved.provider,
-            &resolved.api_key,
-            &resolved.base_url,
-            &resolved.model,
+            agent.and_then(|a| a.provider.as_deref()).unwrap_or(&self.config.provider),
+            agent.and_then(|a| a.api_key.as_deref()).unwrap_or(&self.config.api_key),
+            agent.and_then(|a| a.base_url.as_deref()).unwrap_or(&self.config.base_url),
+            agent.and_then(|a| a.model.as_deref()).unwrap_or(&self.config.model),
         );
+
         let mut agent_config = self.config.clone();
-        agent_config.enabled_tools = resolved.enabled_tools;
+        if let Some(a) = agent
+            && let Some(ref tools) = a.enabled_tools {
+                agent_config.enabled_tools = tools.clone();
+            }
+
         let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
         let skills = self.agent_store.skill_store_for(agent_id).executable_skills();
         let tool_frequency = self.agent_store.memory_for(agent_id).tool_frequency().clone();
