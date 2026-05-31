@@ -198,9 +198,7 @@ impl i_rs_core::IrsTool for MoodStore {
     type Row = MoodRow;
     type ListItem = ListItem;
 
-    fn tool_name() -> &'static str {
-        "mood"
-    }
+    fn tool_name() -> &'static str { "mood" }
     fn description() -> &'static str {
         "Mood tracking — log daily mood with calendar view"
     }
@@ -211,6 +209,7 @@ impl i_rs_core::IrsTool for MoodStore {
             i_rs_core::ToolCapability::Stats,
         ]
     }
+    fn custom_commands() -> &'static [&'static str] { &[] }
 
     fn entries(&self) -> &std::collections::BTreeMap<String, MoodRecord> {
         &self.entries

@@ -1,85 +1,129 @@
 //! `IrsTool` — the specification trait for every i-rs CLI tool.
 //!
-//! ## Purpose
+//! ## Role
 //!
-//! Every i-rs tool crate's Store type implements this trait.  It serves as:
+//! | Layer | What | Example |
+//! |-------|------|---------|
+//! | **CLI protocol** (runtime) | Subprocess: `i-rs-{tool} {cmd} --json` | claw calls via shell |
+//! | **SKILL.md** (runtime) | Natural language docs for AI agents | `i-rs-{tool} skill teach` |
+//! | **`IrsTool` trait** (compile-time) | Type-level contract for Rust developers | `impl IrsTool for MyStore` |
 //!
-//! 1. **Contract** for third-party developers building their own i-rs tools.
-//! 2. **Discovery** for AI agents (claw, openclaw, qwenpaw) to query tool metadata
-//!    and capabilities.
-//! 3. **Utilities** — i-rs-core provides generic functions (paginate, etc.) that
-//!    work on any `IrsTool`.
+//! Each layer is independent but they describe the same tool from different angles.
+//! The trait mirrors the CLI protocol in Rust types but does NOT replace it —
+//! a tool must still be callable as a standalone binary.
 //!
-//! ## Quick start
+//! ## For third-party developers
+//!
+//! Implement `IrsTool` on your Store type to make your tool discoverable by
+//! `claw` and other AI agents via compile-time linking.  Your tool remains a
+//! normal CLI binary usable by anyone — the trait just adds type-level metadata.
+//!
+//! Required: 7 one-liners + 3 type aliases. Everything else has sensible defaults.
 //!
 //! ```ignore
-//! // models/mod.rs
 //! impl IrsTool for MyStore {
 //!     type Entity = MyRecord;
 //!     type Row = MyRow;
 //!     type ListItem = MyListItem;
 //!
 //!     fn tool_name() -> &'static str { "my-tool" }
-//!     fn description() -> &'static str { "My custom tool" }
+//!     fn description() -> &'static str { "Description for claw's tool index" }
 //!
 //!     fn entries(&self) -> &BTreeMap<String, MyRecord> { &self.entries }
 //!     fn entries_mut(&mut self) -> &mut BTreeMap<String, MyRecord> { &mut self.entries }
 //!     fn entity_id(r: &MyRecord) -> String { r.id.clone() }
 //!     fn to_row(r: &MyRecord) -> MyRow { MyRow::from_record(r) }
 //!     fn to_list_item(r: &MyRecord) -> MyListItem { MyListItem::from(r) }
+//!
+//!     // Optional: advertise special capabilities
+//!     fn capabilities() -> Vec<ToolCapability> { vec![ToolCapability::Stats] }
+//!     fn custom_commands() -> &'static [&'static str] { &["checkin"] }
 //! }
 //! ```
 
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-/// Special capability a tool may advertise to AI agents.
+// ═══════════════════════════════════════════════════════════════════
+//  Supporting types
+// ═══════════════════════════════════════════════════════════════════
+
+/// Capability flags that claw uses for tool routing and context assembly.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToolCapability {
-    /// Supports date-range filtering.
+    /// List command supports `--days` date-range filtering.
     DateRange,
-    /// Supports ASCII chart rendering.
+    /// Supports ASCII chart output.
     Chart,
-    /// Supports calendar view.
+    /// Supports calendar view output.
     Calendar,
-    /// Supports checkin + streak tracking.
+    /// Supports checkin + streak computation.
     CheckinStreak,
-    /// Supports mark-as-done.
+    /// Supports `done` / mark-as-complete.
     Done,
-    /// Supports statistics aggregation.
+    /// Supports `stats` computation.
     Stats,
 }
 
-/// Pagination for list queries.
+/// Pagination for `list` queries.
 #[derive(Debug, Clone, Default)]
 pub struct Pagination {
     pub offset: usize,
     pub limit: usize, // 0 = no limit
 }
 
-/// Filter parameters for list queries.
-#[derive(Debug, Clone, Default)]
-pub struct ListFilter {
-    pub days: Option<usize>,
-    pub tag: Option<String>,
-    pub keyword: Option<String>,
-}
+// ═══════════════════════════════════════════════════════════════════
+//  IrsTool trait
+// ═══════════════════════════════════════════════════════════════════
 
-/// Every i-rs CLI tool Store MUST implement this trait.
+/// The specification trait for every i-rs CLI tool Store.
+///
+/// ## Required methods (7)
+///
+/// | Method | What to return |
+/// |--------|---------------|
+/// | `tool_name()` | `"weight"`, `"mood"`, ... |
+/// | `description()` | One-line summary for claw's tool index |
+/// | `entries()` | `&self.entries` |
+/// | `entries_mut()` | `&mut self.entries` |
+/// | `entity_id(r)` | `r.id.clone()` (or `r.key.clone()`) |
+/// | `to_row(r)` | `MyRow::from_record(r)` |
+/// | `to_list_item(r)` | `MyListItem::from(r)` |
+///
+/// ## Optional overrides (all have sensible defaults)
+///
+/// | Method | Default | Override when... |
+/// |--------|---------|-----------------|
+/// | `filename()` | = `tool_name()` | File name differs from tool name |
+/// | `label()` | `"entries"` | Use `"records"`, `"habits"`, etc. |
+/// | `capabilities()` | `[]` | Tool has DateRange/Chart/Stats etc. |
+/// | `custom_commands()` | `&[]` | Tool has non-standard commands (checkin, search, ...) |
+/// | `generate_id()` | `uuid::Uuid::new_v4()` | Custom ID scheme |
+/// | `compute_stats()` | `None` | Tool computes aggregate stats |
 pub trait IrsTool: Serialize + serde::de::DeserializeOwned + Default {
-    /// The record stored in the entry map.
+    /// The record type stored in the entry map.
     type Entity: Serialize + serde::de::DeserializeOwned + Clone;
-    /// The `#[derive(Tabled)]` row for table output.
+    /// The `#[derive(Tabled)]` row for table display.
     type Row: tabled::Tabled;
     /// The `#[derive(Serialize)]` item for `--json` list output.
     type ListItem: Serialize;
 
-    // ── Metadata ──
+    // ── Identity ──
 
     /// Tool name without the `i-rs-` prefix.
     fn tool_name() -> &'static str;
-    /// One-line description (used by claw's tool index).
+    /// CLI binary name.
+    fn binary_name() -> &'static str {
+        // concat! is not const-evaluable in trait default methods, so
+        // we provide it as a convenience but it requires alloc.
+        // Third parties can override if they use a different naming scheme.
+        "unknown"
+    }
+    /// One-line description used by claw's tool index.
     fn description() -> &'static str;
+
+    // ── Storage hints ──
+
     /// Data filename under `~/.i-rs/data/` (defaults to `tool_name`).
     fn filename() -> &'static str {
         Self::tool_name()
@@ -88,12 +132,24 @@ pub trait IrsTool: Serialize + serde::de::DeserializeOwned + Default {
     fn label() -> &'static str {
         "entries"
     }
-    /// Special capabilities this tool supports.
+
+    // ── Commands ──
+
+    /// Special capabilities — used by claw for routing decisions.
+    /// Standard CRUD (add/delete/get/list/update) is implicit.
     fn capabilities() -> Vec<ToolCapability> {
         vec![]
     }
+    /// Non-standard command names beyond add/delete/get/list/update.
+    ///
+    /// Used by claw to discover tool-specific commands without calling
+    /// `skill teach` first.  Example: `&["checkin"]` for habit,
+    /// `&["search", "stats", "copy", "rename"]` for kv.
+    fn custom_commands() -> &'static [&'static str] {
+        &[]
+    }
 
-    // ── Store access ──
+    // ── Data access ──
 
     fn entries(&self) -> &BTreeMap<String, Self::Entity>;
     fn entries_mut(&mut self) -> &mut BTreeMap<String, Self::Entity>;
@@ -102,24 +158,34 @@ pub trait IrsTool: Serialize + serde::de::DeserializeOwned + Default {
 
     /// Extract the primary key from an entity.
     fn entity_id(entity: &Self::Entity) -> String;
-    /// Generate a new primary key (default = uuid v4).
+    /// Generate a new unique primary key.
     fn generate_id() -> String {
         uuid::Uuid::new_v4().to_string()
     }
 
-    // ── Display ──
+    // ── Display conversion ──
 
     fn to_row(entity: &Self::Entity) -> Self::Row;
     fn to_list_item(entity: &Self::Entity) -> Self::ListItem;
 
-    // ── Optional stats ──
+    // ── Aggregate ──
 
+    /// Compute aggregate statistics for the current data.
     fn compute_stats(&self) -> Option<serde_json::Value> {
         None
     }
 }
 
-/// Utility: paginate entries from any `IrsTool` store.
+// ═══════════════════════════════════════════════════════════════════
+//  Generic utilities (work on any IrsTool)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Paginate entries from any `IrsTool` store.
+///
+/// ```ignore
+/// let all = store.entries().values().collect::<Vec<_>>();
+/// let (page, total) = paginate_entries::<WeightStore>(&all, &pagination);
+/// ```
 pub fn paginate_entries<'a, T: IrsTool>(
     all: &'a [&'a T::Entity],
     page: &Pagination,
