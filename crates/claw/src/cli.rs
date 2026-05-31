@@ -147,6 +147,87 @@ pub fn run_config() -> anyhow::Result<()> {
         }
     }
 
+    // ── Timezone ──
+    let current_tz = crate::utils::tz_label(cfg.tz_offset);
+    println!("\n  Timezone (时区)");
+    println!("  当前: {}", current_tz);
+    println!("  格式: +08:00 / -05:00 / UTC / UTC+8 / 8 (留空=系统本地)");
+    print!("Timezone [{}]: ", current_tz);
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_string();
+    if !trimmed.is_empty() {
+        cfg.timezone = Some(trimmed);
+        cfg.tz_offset = crate::utils::parse_timezone(cfg.timezone.as_deref());
+    } else {
+        cfg.timezone = None;
+        cfg.tz_offset = crate::utils::system_tz_offset();
+    }
+
+    // ── Storage Backend ──
+    println!("\n  Storage (存储后端)");
+    println!("  选项: file / sqlite / mysql / postgres");
+    println!("  file 为 JSON 文件存储（默认），sqlite 需要编译 --features sqlite");
+    let storage_default = match cfg.storage.backend {
+        crate::storage::StorageBackend::File => "file",
+        crate::storage::StorageBackend::Sqlite => "sqlite",
+        crate::storage::StorageBackend::Mysql => "mysql",
+        crate::storage::StorageBackend::Postgres => "postgres",
+        crate::storage::StorageBackend::Mongo => "mongodb",
+    };
+    print!("Storage 后端 [{}]: ", storage_default);
+    io::stdout().flush()?;
+    input.clear();
+    io::stdin().read_line(&mut input)?;
+    let trimmed = input.trim().to_lowercase();
+    if !trimmed.is_empty() {
+        match trimmed.as_str() {
+            "file" => cfg.storage.backend = crate::storage::StorageBackend::File,
+            "sqlite" => {
+                cfg.storage.backend = crate::storage::StorageBackend::Sqlite;
+                let sqlite_default = cfg.storage.sqlite_path.as_ref()
+                    .and_then(|p| p.to_str())
+                    .unwrap_or("~/.i-rs/claw/claw.db");
+                print!("  SQLite 路径 [{}]: ", sqlite_default);
+                io::stdout().flush()?;
+                input.clear();
+                io::stdin().read_line(&mut input)?;
+                let sp = input.trim().to_string();
+                if !sp.is_empty() {
+                    cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
+                        sp.replace('~', &dirs::home_dir().unwrap().to_string_lossy())
+                    ));
+                } else {
+                    cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
+                        sqlite_default.replace('~', &dirs::home_dir().unwrap().to_string_lossy())
+                    ));
+                }
+            }
+            "mysql" => {
+                cfg.storage.backend = crate::storage::StorageBackend::Mysql;
+                let url_default = cfg.storage.sql_url.as_deref().unwrap_or("mysql://localhost:3306/i_rs_claw");
+                print!("  MySQL URL [{}]: ", url_default);
+                io::stdout().flush()?;
+                input.clear();
+                io::stdin().read_line(&mut input)?;
+                let url = input.trim().to_string();
+                cfg.storage.sql_url = if url.is_empty() { Some(url_default.to_string()) } else { Some(url) };
+            }
+            "postgres" => {
+                cfg.storage.backend = crate::storage::StorageBackend::Postgres;
+                let url_default = cfg.storage.sql_url.as_deref().unwrap_or("postgres://localhost:5432/i_rs_claw");
+                print!("  PostgreSQL URL [{}]: ", url_default);
+                io::stdout().flush()?;
+                input.clear();
+                io::stdin().read_line(&mut input)?;
+                let url = input.trim().to_string();
+                cfg.storage.sql_url = if url.is_empty() { Some(url_default.to_string()) } else { Some(url) };
+            }
+            _ => println!("  ⚠ 未知后端 '{}'，保留原值", trimmed),
+        }
+    }
+
     // ── Save ──
     let needs_api_key = cfg.provider.as_str() != "ollama";
     if needs_api_key && cfg.api_key.is_empty() {
@@ -159,6 +240,15 @@ pub fn run_config() -> anyhow::Result<()> {
         total_tools
     } else {
         cfg.enabled_tools.len()
+    };
+
+    let tz_display = cfg.timezone.as_deref().map(|t| t.as_ref()).unwrap_or("系统本地");
+    let storage_label = match cfg.storage.backend {
+        crate::storage::StorageBackend::File => "file",
+        crate::storage::StorageBackend::Sqlite => "sqlite",
+        crate::storage::StorageBackend::Mysql => "mysql",
+        crate::storage::StorageBackend::Postgres => "postgres",
+        crate::storage::StorageBackend::Mongo => "mongodb",
     };
 
     println!("\n配置摘要：");
@@ -177,6 +267,8 @@ pub fn run_config() -> anyhow::Result<()> {
             .unwrap_or("DuckDuckGo (free)")
     );
     println!("  MCP 服务器: {} 个", cfg.mcp_servers.len());
+    println!("  时区: {}", tz_display);
+    println!("  存储后端: {}", storage_label);
     println!(
         "  工具: {} ({} 个 / 总 {} 个)",
         if cfg.enabled_tools.is_empty() {
