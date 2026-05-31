@@ -1,5 +1,6 @@
 pub mod presentation;
 pub mod storage;
+pub mod tool;
 pub mod utils;
 
 pub mod r#macro;
@@ -10,6 +11,7 @@ pub use presentation::{
     println_dimmed, render_table, table_border_color, table_header_style, table_row_style,
 };
 pub use storage::{HasTags, Storage, filter_by_tag};
+pub use tool::{IrsTool, ListFilter, Pagination, ToolCapability, paginate_entries};
 pub use utils::date::{
     format_date, format_date_custom, format_datetime, now_utc, parse_date, parse_datetime,
 };

@@ -190,3 +190,41 @@ impl From<&MoodRecord> for ListItem {
         }
     }
 }
+
+// ── IrsTool Spec ──
+
+impl i_rs_core::IrsTool for MoodStore {
+    type Entity = MoodRecord;
+    type Row = MoodRow;
+    type ListItem = ListItem;
+
+    fn tool_name() -> &'static str {
+        "mood"
+    }
+    fn description() -> &'static str {
+        "Mood tracking — log daily mood with calendar view"
+    }
+    fn capabilities() -> Vec<i_rs_core::ToolCapability> {
+        vec![
+            i_rs_core::ToolCapability::DateRange,
+            i_rs_core::ToolCapability::Calendar,
+            i_rs_core::ToolCapability::Stats,
+        ]
+    }
+
+    fn entries(&self) -> &std::collections::BTreeMap<String, MoodRecord> {
+        &self.entries
+    }
+    fn entries_mut(&mut self) -> &mut std::collections::BTreeMap<String, MoodRecord> {
+        &mut self.entries
+    }
+    fn entity_id(r: &MoodRecord) -> String {
+        r.id.clone()
+    }
+    fn to_row(r: &MoodRecord) -> MoodRow {
+        MoodRow::from_record(r)
+    }
+    fn to_list_item(r: &MoodRecord) -> ListItem {
+        ListItem::from(r)
+    }
+}

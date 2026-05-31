@@ -100,3 +100,44 @@ impl WeightRow {
         }
     }
 }
+
+// ── IrsTool Spec ──
+
+impl i_rs_core::IrsTool for WeightStore {
+    type Entity = WeightRecord;
+    type Row = WeightRow;
+    type ListItem = ListItem;
+
+    fn tool_name() -> &'static str {
+        "weight"
+    }
+    fn description() -> &'static str {
+        "Weight tracking — record body weight over time"
+    }
+    fn label() -> &'static str {
+        "records"
+    }
+    fn capabilities() -> Vec<i_rs_core::ToolCapability> {
+        vec![
+            i_rs_core::ToolCapability::DateRange,
+            i_rs_core::ToolCapability::Chart,
+            i_rs_core::ToolCapability::Stats,
+        ]
+    }
+
+    fn entries(&self) -> &std::collections::BTreeMap<String, WeightRecord> {
+        &self.entries
+    }
+    fn entries_mut(&mut self) -> &mut std::collections::BTreeMap<String, WeightRecord> {
+        &mut self.entries
+    }
+    fn entity_id(r: &WeightRecord) -> String {
+        r.id.clone()
+    }
+    fn to_row(r: &WeightRecord) -> WeightRow {
+        WeightRow::from_record(r)
+    }
+    fn to_list_item(r: &WeightRecord) -> ListItem {
+        ListItem::from(r)
+    }
+}
