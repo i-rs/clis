@@ -242,6 +242,12 @@ impl AppCore {
 
         let memory = self.agent_store.memory_for(agent_id);
 
+        let identity = if let Some(nick) = memory.assistant_nickname() {
+            format!("用户称呼你为{}，以这个身份与用户对话。", nick)
+        } else {
+            String::from("用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。")
+        };
+
         engine::build_messages(engine::MessageBuildParams {
             app_messages,
             user_text,
@@ -259,6 +265,7 @@ impl AppCore {
             plan_then_execute: self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
             max_conversation_turns: self.config.max_conversation_turns,
             tz_offset: self.config.tz_offset,
+            identity: &identity,
         })
     }
 
@@ -409,6 +416,13 @@ impl AppCore {
         let tool_index = self.build_irs_tool_index(&resolved);
         let memory = self.agent_store.memory_for(agent_id);
 
+        let nickname = memory.assistant_nickname().map(|s| s.to_string());
+        let identity = if let Some(ref nick) = nickname {
+            format!("用户称呼你为{}，以这个身份与用户对话。", nick)
+        } else {
+            String::from("用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。")
+        };
+
         let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
             engine::builder::build_system_prompt(
                 &tool_index,
@@ -420,6 +434,7 @@ impl AppCore {
                 &memory.format_user_profile(),
                 self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
                 self.config.tz_offset,
+                &identity,
             )
         });
 
@@ -627,6 +642,13 @@ fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args
                     agent_store.memory_for_mut(agent_id).add_preference(s);
                 }
             }
+        }
+        if let Some(nick) = parsed
+            .get("assistant_nickname")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+        {
+            agent_store.memory_for_mut(agent_id).set_assistant_nickname(nick);
         }
     }
 }

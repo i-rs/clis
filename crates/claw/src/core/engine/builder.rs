@@ -58,6 +58,7 @@ pub(crate) fn build_system_prompt(
     user_profile: &str,
     plan_then_execute: bool,
     tz_offset: chrono::FixedOffset,
+    identity: &str,
 ) -> String {
     let mut prompt = include_str!("../../../prompts/system.md").to_string();
     let now = crate::utils::now_in_tz(tz_offset);
@@ -75,6 +76,7 @@ pub(crate) fn build_system_prompt(
     prompt = prompt.replace("{{PLAN_MODE}}", plan_mode);
 
     prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
+    prompt = prompt.replace("{{IDENTITY}}", identity);
     prompt = prompt.replace("{{HOT_TOOLS}}", hot_tools);
     prompt = prompt.replace("{{SKILLS}}", skills);
     prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
@@ -108,6 +110,7 @@ pub struct MessageBuildParams<'a> {
     pub plan_then_execute: bool,
     pub max_conversation_turns: usize,
     pub tz_offset: chrono::FixedOffset,
+    pub identity: &'a str,
 }
 
 /// Convert app messages to API-compatible message list.
@@ -173,7 +176,7 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         .unwrap_or_else(|| build_system_prompt(
             params.tool_index, params.hot_tools, params.skills,
             params.user_memory, params.user_profile, params.plan_then_execute,
-            params.tz_offset,
+            params.tz_offset, params.identity,
         ));
 
     let mut msgs = vec![serde_json::json!({

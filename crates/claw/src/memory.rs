@@ -19,6 +19,9 @@ pub struct CrossSessionMemory {
     /// User's name (collected during onboarding)
     #[serde(default)]
     user_name: Option<String>,
+    /// What the user calls the assistant (pet name / nickname)
+    #[serde(default)]
+    assistant_nickname: Option<String>,
     /// Free-form user info facts (habits, preferences, etc.)
     #[serde(default)]
     user_info: Vec<String>,
@@ -46,19 +49,20 @@ impl CrossSessionMemory {
             Self::load(&path)
         } else {
             Self {
-                tool_frequency: HashMap::new(),
-                hot_tools: Vec::new(),
-                preferences: Vec::new(),
-                user_name: None,
-                user_info: Vec::new(),
-                session_feedback: HashMap::new(),
-                path: path.clone(),
-                dirty: false,
-            }
-        };
-        mem.path = path;
-        mem
-    }
+                    tool_frequency: HashMap::new(),
+                    hot_tools: Vec::new(),
+                    preferences: Vec::new(),
+                    user_name: None,
+                    assistant_nickname: None,
+                    user_info: Vec::new(),
+                    session_feedback: HashMap::new(),
+                    path: path.clone(),
+                    dirty: false,
+                }
+            };
+            mem.path = path;
+            mem
+        }
 
     // =============================================
     // Tool frequency tracking
@@ -116,9 +120,25 @@ impl CrossSessionMemory {
         self.user_name.is_some() || !self.user_info.is_empty()
     }
 
+    /// Whether the user has given the assistant a nickname.
+    pub fn has_assistant_nickname(&self) -> bool {
+        self.assistant_nickname.is_some()
+    }
+
+    /// Get the assistant nickname if set.
+    pub fn assistant_nickname(&self) -> Option<&str> {
+        self.assistant_nickname.as_deref()
+    }
+
     /// Set user's name
     pub fn set_user_name(&mut self, name: &str) {
         self.user_name = Some(name.to_string());
+        self.dirty = true;
+    }
+
+    /// Set what the user calls this assistant.
+    pub fn set_assistant_nickname(&mut self, name: &str) {
+        self.assistant_nickname = Some(name.to_string());
         self.dirty = true;
     }
 
@@ -168,17 +188,21 @@ impl CrossSessionMemory {
 
     /// Format Layer 4: user memory section.
     pub fn format_user_memory(&self) -> String {
-        if self.hot_tools.is_empty()
-            && self.preferences.is_empty()
-            && self.user_name.is_none()
-            && self.user_info.is_empty()
-        {
+        let has_content = !self.hot_tools.is_empty()
+            || !self.preferences.is_empty()
+            || self.user_name.is_some()
+            || self.assistant_nickname.is_some()
+            || !self.user_info.is_empty();
+        if !has_content {
             return String::new();
         }
 
         let mut result = String::from("## 用户记忆\n");
         if let Some(ref name) = self.user_name {
             result.push_str(&format!("用户称呼：{}\n", name));
+        }
+        if let Some(ref nick) = self.assistant_nickname {
+            result.push_str(&format!("用户称呼你为：{}\n", nick));
         }
         if !self.hot_tools.is_empty() {
             result.push_str(&format!("常用工具：{}\n", self.hot_tools.join(", ")));
@@ -240,6 +264,7 @@ impl CrossSessionMemory {
             hot_tools: Vec::new(),
             preferences: Vec::new(),
             user_name: None,
+            assistant_nickname: None,
             user_info: Vec::new(),
             session_feedback: HashMap::new(),
             path: path.clone(),
@@ -258,6 +283,7 @@ mod tests {
             hot_tools: Vec::new(),
             preferences: Vec::new(),
             user_name: None,
+            assistant_nickname: None,
             user_info: Vec::new(),
             session_feedback: HashMap::new(),
             path: std::env::temp_dir().join("i-rs-claw-test-memory.json"),

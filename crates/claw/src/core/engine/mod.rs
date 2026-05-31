@@ -470,6 +470,7 @@ mod tests {
             plan_then_execute: false,
             max_conversation_turns: 8,
             tz_offset: tz_test(),
+            identity: "",
         };
         let result = build_messages(params);
         assert_eq!(result.len(), 3);
@@ -502,6 +503,7 @@ mod tests {
             plan_then_execute: false,
             max_conversation_turns: 8,
             tz_offset: tz_test(),
+            identity: "",
         };
         let result = build_messages(params);
         assert!(result.len() >= 3);
@@ -528,6 +530,7 @@ mod tests {
             plan_then_execute: false,
             max_conversation_turns: 8,
             tz_offset: tz_test(),
+            identity: "",
         };
         let result = build_messages(params);
         assert_eq!(result.len(), 4);
@@ -561,6 +564,7 @@ mod tests {
             plan_then_execute: false,
             max_conversation_turns: 8,
             tz_offset: tz_test(),
+            identity: "",
         };
         let result = build_messages(params);
         let system_msgs: Vec<_> = result.iter().filter(|m| m["role"] == "system").collect();
@@ -595,6 +599,7 @@ mod tests {
             plan_then_execute: false,
             max_conversation_turns: 2,
             tz_offset: tz_test(),
+            identity: "",
         };
         let result = build_messages(params);
         assert_eq!(result.len(), 4);
@@ -696,7 +701,7 @@ mod tests {
 
     #[test]
     fn test_plan_then_execute_prompt() {
-        let prompt = build_system_prompt("", "", "", "", "", true, tz_test());
+        let prompt = build_system_prompt("", "", "", "", "", true, tz_test(), "");
         assert!(
             prompt.contains("Plan-then-Execute"),
             "plan_then_execute=true 时系统提示词应包含 Plan-then-Execute 模式说明"
@@ -709,7 +714,7 @@ mod tests {
 
     #[test]
     fn test_react_prompt_default() {
-        let prompt = build_system_prompt("", "", "", "", "", false, tz_test());
+        let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "");
         assert!(
             prompt.contains("无需预先规划整个流程"),
             "plan_then_execute=false 时系统提示词应包含 ReAct 模式说明"
@@ -718,7 +723,7 @@ mod tests {
 
     #[test]
     fn test_build_system_prompt_date_injection() {
-        let prompt = build_system_prompt("", "", "", "", "", false, tz_test());
+        let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "");
         let today = crate::utils::now_in_tz(tz_test()).format("%Y-%m-%d").to_string();
         assert!(prompt.contains(&today), "应注入当前日期");
         assert!(!prompt.contains("{current_date}"), "占位符应被替换");
@@ -726,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_build_system_prompt_tool_index_injection() {
-        let prompt = build_system_prompt("★工具索引★", "", "", "", "", false, tz_test());
+        let prompt = build_system_prompt("★工具索引★", "", "", "", "", false, tz_test(), "");
         assert!(prompt.contains("★工具索引★"), "应注入工具索引");
         assert!(!prompt.contains("{{TOOL_INDEX}}"), "TOOL_INDEX 占位符应被替换");
     }
@@ -741,6 +746,7 @@ mod tests {
             "PROFILE",
             false,
             tz_test(),
+            "",
         );
         assert!(prompt.contains("TOOLS"), "应有工具索引");
         assert!(prompt.contains("HOT_TOOLS"), "应有热门工具");

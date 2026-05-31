@@ -16,7 +16,7 @@ impl ClawTool for UserMemoryTool {
     }
 
     fn description(&self) -> &str {
-        "Save information you learned about the user — their name, interests, habits, preferences, or any personal facts. Call this whenever the user shares something about themselves so you can remember it in future conversations."
+        "Save information you learned about the user — their name, interests, habits, preferences, or what they call you. Call this whenever the user shares something about themselves so you can remember it in future conversations."
     }
 
     fn parameter_schema(&self, _enabled_cli_tools: &[&str]) -> Value {
@@ -36,6 +36,10 @@ impl ClawTool for UserMemoryTool {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "用户偏好，如数据管理方式、交互风格偏好等"
+                },
+                "assistant_nickname": {
+                    "type": "string",
+                    "description": "用户给你起的昵称或称呼，保存下来以便在对话中使用"
                 }
             },
             "additionalProperties": false
@@ -67,6 +71,14 @@ impl ClawTool for UserMemoryTool {
                     saved.push(format!("偏好: {}", s));
                 }
             }
+        }
+
+        if let Some(nick) = args
+            .get("assistant_nickname")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+        {
+            saved.push(format!("你的称呼: {}", nick));
         }
 
         if saved.is_empty() {

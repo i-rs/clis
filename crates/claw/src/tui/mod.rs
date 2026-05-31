@@ -84,11 +84,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         if onboarding {
             app.messages.push(app::Message::Assistant {
                 text: concat!(
-                    "你好！我是 i-rs-claw，你的个人数据智能助理 🎉\n\n",
-                    "初次见面，我想更好地了解你！\n",
-                    "请问我怎么称呼你呢？你平时有什么兴趣爱好？\n",
-                    "比如你喜欢跑步、健身、读书、看电影，还是有什么特别的日常生活习惯？\n\n",
-                    "告诉我这些，我可以更贴心地帮你管理数据 😊",
+                    "你好，我是 i-rs-claw，你的个人数据助理。\n\n",
+                    "初次见面！怎么称呼你？有什么我可以帮你的？",
                 )
                 .to_string(),
                 reasoning: String::new(),
@@ -96,9 +93,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
             app.message_timestamps.push(chrono::Local::now().naive_local());
         } else {
             app.messages.push(app::Message::Assistant {
-                text: "你好！我是 i-rs-claw，你的个人数据智能助理。\
-                       \n我可以帮你管理健康、财务、任务、媒体等个人信息。\
-                       \n试试说：\"记录体重75kg\" 或 \"最近跑步情况如何？\""
+                text: "你好，有什么可以帮你的？"
                     .to_string(),
                 reasoning: String::new(),
             });
