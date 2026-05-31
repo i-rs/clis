@@ -5,8 +5,11 @@ use crate::tools::{ClawTool, ToolContext};
 /// A built-in tool that allows the LLM to persist user information
 /// (name, interests, habits, preferences) to CrossSessionMemory.
 ///
-/// The tool itself only validates and returns a confirmation;
-/// actual persistence happens in tui.rs when the ToolExecuted event is handled.
+/// Architecture: this tool validates and formats user info, then returns a
+/// confirmation. Actual persistence is handled centrally by
+/// [`crate::core::record_tool_memory`] when the ToolExecuted event fires.
+/// This centralized design ensures all execution paths (TUI, Dashboard,
+/// Gateway) share the same persistence logic — no path can forget to flush.
 pub struct UserMemoryTool;
 
 #[async_trait::async_trait]

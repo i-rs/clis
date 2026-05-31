@@ -601,6 +601,13 @@ pub fn save_chat_result(
     }
 }
 
+/// Central side-effect handler for tool execution results.
+///
+/// Called after every tool execution (TUI, Dashboard, Gateway). Handles:
+/// - **User memory**: persists name/preferences/info from `update_user_memory`
+/// - **Tool tracking**: records i-rs usage and general tool frequency for hot-tool analysis
+///
+/// All execution paths MUST call this to ensure consistent persistence.
 pub fn record_tool_memory(
     agent_store: &mut AgentRuntimeStore,
     i_rs_tool_index: &HashMap<String, String>,

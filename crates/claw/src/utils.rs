@@ -125,6 +125,20 @@ pub fn run_cli_command(
     }
 }
 
+/// Run an i-rs CLI command via the meta binary and parse JSON output.
+/// Useful for chart tools and other consumers that need structured data.
+pub fn run_i_rs_json(
+    tool: &str,
+    command: &str,
+    extra_args: &[&str],
+    timeout_secs: u64,
+) -> Result<serde_json::Value, String> {
+    let mut args: Vec<&str> = vec![tool, command, "--json"];
+    args.extend_from_slice(extra_args);
+    let output = run_cli_command("i-rs", &args, timeout_secs)?;
+    serde_json::from_str(&output).map_err(|e| format!("解析 JSON 输出失败: {}", e))
+}
+
 /// Atomic file write: write to a temp file first, then atomically rename.
 /// This prevents data corruption if the process crashes mid-write.
 /// Returns `Ok(())` on success, `Err` with a description on failure.

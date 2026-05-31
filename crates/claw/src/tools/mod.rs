@@ -1,11 +1,12 @@
+pub mod calculator;
+pub mod chart_render;
 pub mod chart_tool;
-pub mod chat_search;
 pub mod delegate;
 pub mod file_ops;
 pub mod i_rs;
 pub mod mcp_tools;
+pub mod search_conversations;
 pub mod search_tools;
-pub mod semantic_search;
 pub mod skill_tool;
 pub mod user_memory;
 pub mod vision_tool;
@@ -92,12 +93,12 @@ impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: vec![
+                Box::new(calculator::CalculatorTool),
                 Box::new(chart_tool::ChartTool),
-                Box::new(chat_search::ChatSearchTool),
                 Box::new(file_ops::FileOpsTool),
                 Box::new(i_rs::IrsTool),
+                Box::new(search_conversations::SearchConversationsTool),
                 Box::new(search_tools::SearchToolsTool),
-                Box::new(semantic_search::SemanticSearchTool),
                 Box::new(user_memory::UserMemoryTool),
                 Box::new(delegate::DelegateTool),
                 Box::new(vision_tool::VisionTool),
@@ -186,6 +187,8 @@ mod tests {
         assert!(reg.tool_exists("i_rs"), "i_rs 应为已知工具");
         assert!(reg.tool_exists("web_search"), "web_search 应为已知工具");
         assert!(reg.tool_exists("chart"), "chart 应为已知工具");
+        assert!(reg.tool_exists("calculator"), "calculator 应为已知工具");
+        assert!(reg.tool_exists("search_conversations"), "search_conversations 应为已知工具");
     }
 
     #[test]
