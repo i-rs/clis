@@ -12,7 +12,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
     i_rs_core::handle_empty!(entries, format, tag.as_deref());
 
     if format.is_json() {
-        let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(e)).collect();
+        let items: Vec<ListItem> = entries.iter().map(ListItem::from).collect();
         println!(
             "{}",
             output_list(&items, items.len(), tag.as_deref(), format)
@@ -20,7 +20,7 @@ pub fn handle_list(tag: Option<String>, format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    let rows: Vec<WaterRow> = entries.iter().map(|e| WaterRow::from_entry(e)).collect();
+    let rows: Vec<WaterRow> = entries.iter().map(WaterRow::from_entry).collect();
     let table = format_table(&rows);
     println!("\n{table}");
 

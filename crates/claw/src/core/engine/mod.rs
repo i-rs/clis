@@ -33,7 +33,7 @@ struct ChatLoopInit {
 fn prepare_loop(
     provider: &dyn LlmProvider,
     config: &Config,
-    msgs: &mut Vec<Value>,
+    msgs: &mut [Value],
     mcp: &McpRegistry,
     skills: &[SkillDefinition],
     tool_frequency: HashMap<String, usize>,
@@ -251,6 +251,7 @@ async fn handle_provider_error(
 /// Main chat loop: stream, handle tool calls, continue until done.
 ///
 /// Pipeline: prepare → [stream → dispatch → inject → trace → compress] × N
+#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(skip(provider, config, messages, tx, mcp, skills))]
 pub async fn chat_loop(
     provider: Box<dyn LlmProvider>,

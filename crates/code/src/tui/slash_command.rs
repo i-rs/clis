@@ -300,14 +300,12 @@ fn cmd_new(app: &mut App) -> Vec<AgentMessage> {
     app.context_usage = None;
     app.session_id = None;
     app.messages.push(AgentMessage::Assistant {
-        content: format!(
-            "已开始新会话。\n\n\
+        content: "已开始新会话。\n\n\
              Type a message to start coding...\n\n\
              Available commands:\n  \
              i-rs-code chat <prompt>  One-shot conversation\n  \
              i-rs-code config init    Interactive setup\n  \
-             i-rs-code config show    View configuration"
-        ),
+             i-rs-code config show    View configuration".to_string(),
         reasoning: String::new(),
         tool_calls: None,
         reasoning_expanded: false,
@@ -423,10 +421,10 @@ async fn cmd_sessions() -> Vec<AgentMessage> {
             match entries.next_entry().await {
                 Ok(Some(entry)) => {
                     let path = entry.path();
-                    if path.extension().and_then(|e| e.to_str()) == Some("json") {
-                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                            ids.push(stem.to_string());
-                        }
+                    if path.extension().and_then(|e| e.to_str()) == Some("json")
+                        && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+                    {
+                        ids.push(stem.to_string());
                     }
                 }
                 Ok(None) => break,
@@ -484,7 +482,7 @@ async fn cmd_export_md(app: &App) -> Vec<AgentMessage> {
                     for line in reasoning.lines() {
                         md.push_str(&format!("> {}\n", line));
                     }
-                    md.push_str("\n");
+                    md.push('\n');
                 }
                 md.push_str(content);
                 md.push_str("\n\n");

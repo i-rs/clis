@@ -77,7 +77,7 @@ impl AgentRuntimeStore {
     }
 
     fn prefetch_hot_tools(&mut self) {
-        for (_id, rt) in &mut self.runtimes {
+        for rt in self.runtimes.values_mut() {
             let mut tools: Vec<(String, usize)> = rt
                 .memory
                 .tool_frequency()
@@ -384,6 +384,7 @@ impl AppCore {
     /// Avoids constructing a full `ResolvedAgentConfig` (which clones every field)
     /// by resolving only the fields we need directly from `AgentConfig` with
     /// `as_deref()` fallbacks to top-level `Config`.
+    #[allow(clippy::type_complexity)]
     fn prepare_chat_loop(
         &self,
         agent_id: &str,
@@ -506,7 +507,7 @@ impl AppCore {
                 complete,
                 references_valid,
                 issues,
-            } => (score.clone(), *complete, *references_valid, issues.clone()),
+            } => (*score, *complete, *references_valid, issues.clone()),
             _ => (None, true, 0u32, Vec::new()),
         };
         self.session_mgr.append_message(
@@ -806,23 +807,23 @@ fn track_i_rs_usage(
     args: &str,
     result: &str,
 ) {
-    if let Ok(parsed) = serde_json::from_str::<Value>(args) {
-        if let Some(tool) = parsed.get("tool").and_then(|t| t.as_str()) {
-            if i_rs_tool_index.contains_key(tool) {
-                agent_store.memory_for_mut(agent_id).record_tool_use(tool);
-            }
-            let cmd = parsed.get("command").and_then(|c| c.as_str());
-            if cmd == Some("skill")
-                && parsed
-                    .get("args")
-                    .and_then(|a| a.as_array())
-                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
-                    .unwrap_or(false)
-            {
-                let cache = agent_store.tool_cache_for_mut(agent_id);
-                cache.hot_docs.insert(tool.to_string(), result.to_string());
-                cache.save_hot_docs();
-            }
+    if let Ok(parsed) = serde_json::from_str::<Value>(args)
+        && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
+    {
+        if i_rs_tool_index.contains_key(tool) {
+            agent_store.memory_for_mut(agent_id).record_tool_use(tool);
+        }
+        let cmd = parsed.get("command").and_then(|c| c.as_str());
+        if cmd == Some("skill")
+            && parsed
+                .get("args")
+                .and_then(|a| a.as_array())
+                .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
+                .unwrap_or(false)
+        {
+            let cache = agent_store.tool_cache_for_mut(agent_id);
+            cache.hot_docs.insert(tool.to_string(), result.to_string());
+            cache.save_hot_docs();
         }
     }
 }

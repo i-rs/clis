@@ -267,7 +267,7 @@ macro_rules! make_mcp_tools {
                         state.$field.write(|s| {
                             s.add_entry(entry.clone());
                         });
-                        return Ok(serde_json::to_value(&entry).map_err(|e| format!("serialize: {e}"))?);
+                        return serde_json::to_value(&entry).map_err(|e| format!("serialize: {e}"));
                     }
                     if name == format!("{}_delete", n) {
                         let id = args.get("id")

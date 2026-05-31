@@ -128,12 +128,12 @@ pub fn system_prompt_path() -> PathBuf {
 /// Auto-creates the file on first access so the user can edit it.
 pub fn load_system_prompt() -> String {
     let path = system_prompt_path();
-    if path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            let trimmed = content.trim();
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
-            }
+    if path.exists()
+        && let Ok(content) = std::fs::read_to_string(&path)
+    {
+        let trimmed = content.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
         }
     }
     // Auto-create the file with the built-in default
@@ -242,10 +242,10 @@ pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
     let mut guard = SYSTEM_PROMPT_CACHE
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    if let Some((ref cached_key, ref cached_prompt)) = *guard {
-        if cached_key == &key {
-            return cached_prompt.clone();
-        }
+    if let Some((ref cached_key, ref cached_prompt)) = *guard
+        && cached_key == &key
+    {
+        return cached_prompt.clone();
     }
 
     let prompt = build_system_prompt_inner(project_info);

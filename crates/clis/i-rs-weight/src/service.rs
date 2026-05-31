@@ -16,7 +16,7 @@ pub fn list_weights(store: &WeightStore, days: Option<usize>) -> Result<Vec<Weig
     } else {
         store.entries.values().cloned().collect()
     };
-    records.sort_by(|a, b| a.date.cmp(&b.date));
+    records.sort_by_key(|a| a.date);
     Ok(records)
 }
 

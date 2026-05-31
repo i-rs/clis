@@ -50,6 +50,7 @@ const PLAN_THEN_EXECUTE_PROMPT: &str = "\
 /// 3. Hot tool docs (skill teach outputs for frequently used tools)
 /// 4. User memory (cross-session preferences and history)
 /// 5. User profile (name, preferences for onboarding)
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_system_prompt(
     tool_index: &str,
     hot_tools: &str,

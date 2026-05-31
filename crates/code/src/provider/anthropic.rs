@@ -344,14 +344,14 @@ impl LlmProvider for AnthropicProvider {
                                 if let Some(pj) = partial_json {
                                     content_blocks[index].partial_json.push_str(&pj);
                                 }
-                                if content_blocks[index].block_type == "thinking" {
-                                    if let Some(ref t) = text {
-                                        tx.send(StreamEvent {
-                                            kind: StreamEventKind::Reasoning(t.clone()),
-                                        })
-                                        .await
-                                        .ok();
-                                    }
+                                if content_blocks[index].block_type == "thinking"
+                                    && let Some(ref t) = text
+                                {
+                                    tx.send(StreamEvent {
+                                        kind: StreamEventKind::Reasoning(t.clone()),
+                                    })
+                                    .await
+                                    .ok();
                                 }
                             }
                             AnthropicEvent::ContentBlockStop => {}

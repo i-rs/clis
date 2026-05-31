@@ -26,27 +26,25 @@ pub(crate) async fn execute_tools(
         let args_json = serde_json::to_string(&tc.args).unwrap_or_default();
 
         // Check cache for read-only tools
-        if ToolResultCache::is_cacheable(&tc.name) {
-            if let Some(cache) = cache {
-                if let Some(cached) = cache
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .get(&tc.name, &args_json)
-                {
-                    tool_messages.push((tc.name.clone(), tc.id.clone(), cached.to_string()));
-                    continue;
-                }
-            }
+        if ToolResultCache::is_cacheable(&tc.name)
+            && let Some(cache) = cache
+            && let Some(cached) = cache
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(&tc.name, &args_json)
+        {
+            tool_messages.push((tc.name.clone(), tc.id.clone(), cached.to_string()));
+            continue;
         }
 
         // Invalidate cache for mutator tools
-        if ToolResultCache::is_mutator(&tc.name) {
-            if let Some(cache) = cache {
-                cache
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .invalidate_all();
-            }
+        if ToolResultCache::is_mutator(&tc.name)
+            && let Some(cache) = cache
+        {
+            cache
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .invalidate_all();
         }
 
         let tool = tools.get(&tc.name);
@@ -55,7 +53,7 @@ pub(crate) async fn execute_tools(
             name: tc.name.clone(),
             args: tc.args.clone(),
         };
-        let cache_clone = cache.map(|c| Arc::clone(c));
+            let cache_clone = cache.map(Arc::clone);
 
         let handle = tokio::spawn(async move {
             let result = if let Some(tool) = tool {
@@ -68,17 +66,16 @@ pub(crate) async fn execute_tools(
             };
 
             // Cache successful results for read-only tools
-            if let Ok(ref val) = result {
-                if ToolResultCache::is_cacheable(&tc_clone.name) {
-                    if let Some(cache) = cache_clone {
-                        let args_json = serde_json::to_string(&tc_clone.args).unwrap_or_default();
-                        cache.lock().unwrap_or_else(|e| e.into_inner()).insert(
-                            &tc_clone.name,
-                            &args_json,
-                            val.clone(),
-                        );
-                    }
-                }
+            if let Ok(ref val) = result
+                && ToolResultCache::is_cacheable(&tc_clone.name)
+                && let Some(cache) = cache_clone
+            {
+                let args_json = serde_json::to_string(&tc_clone.args).unwrap_or_default();
+                cache.lock().unwrap_or_else(|e| e.into_inner()).insert(
+                    &tc_clone.name,
+                    &args_json,
+                    val.clone(),
+                );
             }
 
             result
@@ -96,7 +93,7 @@ pub(crate) async fn execute_tools(
             let tool = tools.get(&name);
             let retry_args = args.clone();
             let retry_name = name.clone();
-            let cache_clone = cache.map(|c| Arc::clone(c));
+        let cache_clone = cache.map(Arc::clone);
             let retry_handle = tokio::spawn(async move {
                 let result = match tool {
                     Some(t) => match retry_args.as_object() {
@@ -105,17 +102,16 @@ pub(crate) async fn execute_tools(
                     },
                     None => Err(anyhow::anyhow!("Unknown tool: {}", retry_name)),
                 };
-                if let Ok(ref val) = result {
-                    if ToolResultCache::is_cacheable(&retry_name) {
-                        if let Some(cache) = cache_clone {
-                            let args_json = serde_json::to_string(&retry_args).unwrap_or_default();
-                            cache.lock().unwrap_or_else(|e| e.into_inner()).insert(
-                                &retry_name,
-                                &args_json,
-                                val.clone(),
-                            );
-                        }
-                    }
+                if let Ok(ref val) = result
+                    && ToolResultCache::is_cacheable(&retry_name)
+                    && let Some(cache) = cache_clone
+                {
+                    let args_json = serde_json::to_string(&retry_args).unwrap_or_default();
+                    cache.lock().unwrap_or_else(|e| e.into_inner()).insert(
+                        &retry_name,
+                        &args_json,
+                        val.clone(),
+                    );
                 }
                 result
             });

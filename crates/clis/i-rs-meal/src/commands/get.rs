@@ -26,7 +26,7 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
         if format.is_json() {
             let items: Vec<crate::models::ListItem> = entries
                 .iter()
-                .map(|e| crate::models::ListItem::from(e))
+                .map(crate::models::ListItem::from)
                 .collect();
             println!(
                 "{}",

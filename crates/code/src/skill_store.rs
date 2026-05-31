@@ -1,4 +1,5 @@
 use crate::config;
+use std::path::Path;
 use std::path::PathBuf;
 
 /// A parsed skill from a SKILL.md file.
@@ -80,7 +81,7 @@ impl SkillStore {
 }
 
 /// Parse a SKILL.md file: extract YAML frontmatter (`---` delimited), then the body.
-fn parse_skill_md(fallback_name: &str, content: &str, path: &PathBuf) -> Option<Skill> {
+fn parse_skill_md(fallback_name: &str, content: &str, path: &Path) -> Option<Skill> {
     let content = content.trim();
 
     // Check for YAML frontmatter between --- markers
@@ -111,13 +112,13 @@ fn parse_skill_md(fallback_name: &str, content: &str, path: &PathBuf) -> Option<
         name: name.to_string(),
         description: description.to_string(),
         content: body.to_string(),
-        path: path.clone(),
+        path: path.to_path_buf(),
     })
 }
 
 /// Minimal YAML key-value parser (no dependency).
 /// Handles both inline (`key: value`) and block literal (`key: |` with indented next lines).
-fn parse_yaml_scalar<'a>(yaml: &'a str, key: &str) -> Option<String> {
+fn parse_yaml_scalar(yaml: &str, key: &str) -> Option<String> {
     let prefix = format!("{}:", key);
     let lines: Vec<&str> = yaml.lines().collect();
     for (i, line) in lines.iter().enumerate() {

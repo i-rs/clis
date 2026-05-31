@@ -616,13 +616,13 @@ impl Config {
         let cache_path = claw_dir.join("i_rs_tool_index.json");
 
         // Try loading from cache first
-        if let Ok(content) = std::fs::read_to_string(&cache_path) {
-            if let Ok(cached) = serde_json::from_str::<HashMap<String, String>>(&content) {
-                // Only use cache if it covers all configured tools
-                if self.i_rs_tools.iter().all(|t| cached.contains_key(t)) {
-                    self.i_rs_tool_index = cached;
-                    return;
-                }
+        if let Ok(content) = std::fs::read_to_string(&cache_path)
+            && let Ok(cached) = serde_json::from_str::<HashMap<String, String>>(&content)
+        {
+            // Only use cache if it covers all configured tools
+            if self.i_rs_tools.iter().all(|t| cached.contains_key(t)) {
+                self.i_rs_tool_index = cached;
+                return;
             }
         }
 
@@ -635,6 +635,7 @@ impl Config {
 
         for chunk in tools.chunks(max_parallel) {
             let mut chunk_handles = Vec::new();
+            #[allow(clippy::unnecessary_to_owned)]
             for (name, binary) in chunk.to_vec() {
                 let name = name.clone();
                 chunk_handles.push(std::thread::spawn(move || {

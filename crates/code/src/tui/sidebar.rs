@@ -142,13 +142,13 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         format!(" IN  {}    OUT  {}", fmt_count(tok_in), fmt_count(tok_out)),
         Style::default().fg(Color::Rgb(150, 200, 150)),
     )));
-    if let Some(ref s) = app.streaming {
-        if !s.content.is_empty() {
-            items.push(Line::from(Span::styled(
-                format!(" streaming: ~{} chars", fmt_count(s.content.len() as u32)),
-                Style::default().fg(Color::Cyan),
-            )));
-        }
+    if let Some(ref s) = app.streaming
+        && !s.content.is_empty()
+    {
+        items.push(Line::from(Span::styled(
+            format!(" streaming: ~{} chars", fmt_count(s.content.len() as u32)),
+            Style::default().fg(Color::Cyan),
+        )));
     }
     items.push(Line::from(""));
 

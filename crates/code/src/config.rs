@@ -213,10 +213,10 @@ impl Config {
             );
         }
 
-        if let Some(max_cost) = config.max_cost_per_session {
-            if max_cost <= 0.0 || max_cost > 1000.0 {
-                config.max_cost_per_session = None;
-            }
+        if let Some(max_cost) = config.max_cost_per_session
+            && (max_cost <= 0.0 || max_cost > 1000.0)
+        {
+            config.max_cost_per_session = None;
         }
 
         if config.max_rounds == 0 || config.max_rounds > 100 {
@@ -227,10 +227,10 @@ impl Config {
             config.tool_timeout_secs = 120;
         }
 
-        if let Ok(key) = std::env::var("I_RS_CODE_API_KEY") {
-            if !key.is_empty() {
-                config.api_key = Some(key);
-            }
+        if let Ok(key) = std::env::var("I_RS_CODE_API_KEY")
+            && !key.is_empty()
+        {
+            config.api_key = Some(key);
         }
 
         Ok(config)

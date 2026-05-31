@@ -372,7 +372,7 @@ impl LlmProvider for AnthropicProvider {
                         &raw_event_type
                     };
 
-                    if let Some(event) = Self::parse_anthropic_event(&event_type, data_val) {
+                    if let Some(event) = Self::parse_anthropic_event(event_type, data_val) {
                         match event {
                             AnthropicEvent::MessageStart { usage } => {
                                 total_usage = usage;

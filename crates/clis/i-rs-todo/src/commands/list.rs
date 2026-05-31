@@ -18,7 +18,7 @@ pub fn handle_list(
     }
 
     if format.is_json() {
-        let items: Vec<ListItem> = todos.iter().map(|t| ListItem::from(t)).collect();
+        let items: Vec<ListItem> = todos.iter().map(ListItem::from).collect();
 
         let filter = tag.or_else(|| {
             if pending {
@@ -37,7 +37,7 @@ pub fn handle_list(
         return Ok(());
     }
 
-    let rows: Vec<TodoRow> = todos.iter().map(|t| TodoRow::from_todo(t)).collect();
+    let rows: Vec<TodoRow> = todos.iter().map(TodoRow::from_todo).collect();
     let table = format_table(&rows);
     println!("\n{table}");
 

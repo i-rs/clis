@@ -81,25 +81,24 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             .current_dir(&app.current_dir)
             .output()
             .await;
-        if let Ok(out) = git_output {
-            if out.status.success() {
-                let stderr = String::from_utf8_lossy(&out.stderr);
-                let file_count = stderr
-                    .lines()
-                    .filter(|l| l.contains(" file"))
-                    .next()
-                    .and_then(|l| l.split_whitespace().next())
-                    .and_then(|n| n.parse::<usize>().ok())
-                    .unwrap_or(0);
-                if file_count > 0 {
-                    app.git_baseline = Some((
-                        format!(
-                            "i-rs-code-undo-{}",
-                            chrono::Utc::now().format("%Y%m%d%H%M%S")
-                        ),
-                        file_count,
-                    ));
-                }
+        if let Ok(out) = git_output
+            && out.status.success()
+        {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let file_count = stderr
+                .lines()
+                .find(|l| l.contains(" file"))
+                .and_then(|l| l.split_whitespace().next())
+                .and_then(|n| n.parse::<usize>().ok())
+                .unwrap_or(0);
+            if file_count > 0 {
+                app.git_baseline = Some((
+                    format!(
+                        "i-rs-code-undo-{}",
+                        chrono::Utc::now().format("%Y%m%d%H%M%S")
+                    ),
+                    file_count,
+                ));
             }
         }
     }
@@ -741,8 +740,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Tab => {
             let input = &app.input.content;
             let trimmed = input.trim();
-            if trimmed.starts_with('/') {
-                let partial = trimmed[1..].to_lowercase();
+            if let Some(stripped) = trimmed.strip_prefix('/') {
+                let partial = stripped.to_lowercase();
                 let cmd_names: Vec<&str> = crate::tui::slash_command::COMMANDS
                     .iter()
                     .map(|c| c.name)

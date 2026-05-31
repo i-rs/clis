@@ -32,7 +32,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
         }
 
         if format.is_json() {
-            let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(e)).collect();
+            let items: Vec<ListItem> = entries.iter().map(ListItem::from).collect();
             println!(
                 "{}",
                 output_list(&items, items.len(), Some(&date_str), format)
@@ -40,7 +40,7 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
             return Ok(());
         }
 
-        let rows: Vec<MealRow> = entries.iter().map(|e| MealRow::from_entry(e)).collect();
+        let rows: Vec<MealRow> = entries.iter().map(MealRow::from_entry).collect();
         let table = format_table(&rows);
         println!("\n{table}");
         print_entry_count(entries.len());
@@ -53,12 +53,12 @@ pub fn handle_list(date: Option<String>, format: OutputFormat) -> Result<()> {
     i_rs_core::handle_empty!(entries, format, None, "No meals recorded today.");
 
     if format.is_json() {
-        let items: Vec<ListItem> = entries.iter().map(|e| ListItem::from(e)).collect();
+        let items: Vec<ListItem> = entries.iter().map(ListItem::from).collect();
         println!("{}", output_list(&items, items.len(), None, format));
         return Ok(());
     }
 
-    let rows: Vec<MealRow> = entries.iter().map(|e| MealRow::from_entry(e)).collect();
+    let rows: Vec<MealRow> = entries.iter().map(MealRow::from_entry).collect();
     let table = format_table(&rows);
     println!("\n{table}");
     print_entry_count(entries.len());

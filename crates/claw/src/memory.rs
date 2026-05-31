@@ -128,7 +128,7 @@ impl CrossSessionMemory {
     }
 
     #[allow(dead_code)]
-    fn load(path: &PathBuf) -> Self {
+    fn load(path: &Path) -> Self {
         Self::load_from(path)
     }
 

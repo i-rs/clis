@@ -126,7 +126,7 @@ impl ModelPricingTable {
                     .iter()
                     .filter(|(key, _)| model.starts_with(key.as_str()))
                     .collect();
-                candidates.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+                candidates.sort_by_key(|b| std::cmp::Reverse(b.0.len()));
                 match candidates.into_iter().next() {
                     Some((_, p)) => p.estimate_cost(prompt_tokens, completion_tokens),
                     None => 0.0,

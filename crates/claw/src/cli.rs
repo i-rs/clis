@@ -239,7 +239,7 @@ pub fn run_config() -> anyhow::Result<()> {
         cfg.enabled_tools.len()
     };
 
-    let tz_display = cfg.timezone.as_deref().map(|t| t.as_ref()).unwrap_or("系统本地");
+    let tz_display = cfg.timezone.as_deref().unwrap_or("系统本地");
     let storage_label = match cfg.storage.backend {
         crate::storage::StorageBackend::File => "file",
         crate::storage::StorageBackend::Sqlite => "sqlite",

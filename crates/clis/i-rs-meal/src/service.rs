@@ -58,6 +58,7 @@ pub fn add_meal(
 }
 
 /// Update a meal entry.
+#[allow(clippy::too_many_arguments)]
 pub fn update_meal(
     store: &mut MealStore,
     id: &str,

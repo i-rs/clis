@@ -87,7 +87,9 @@ fn render_ai_content(content: &str) -> Vec<Line<'static>> {
                 in_code = false;
             } else {
                 in_code = true;
-                code_lang = line[3..].trim().to_string();
+                code_lang = line.strip_prefix("```")
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_default();
             }
             continue;
         }
@@ -315,26 +317,26 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                         )));
                     }
                 }
-                if let Some(diff_text) = diff {
-                    if !diff_text.is_empty() {
+                if let Some(diff_text) = diff
+                    && !diff_text.is_empty()
+                {
+                    lines.push(Line::from(Span::styled(
+                        format!(" {} ─ diff ─", rail_mid),
+                        Style::new().fg(C_DIM),
+                    )));
+                    for line in diff_text.lines().take(12) {
+                        let diff_spans = render_diff_line(line);
+                        lines.push(Line::from(diff_spans));
+                    }
+                    if diff_text.lines().count() > 12 {
                         lines.push(Line::from(Span::styled(
-                            format!(" {} ─ diff ─", rail_mid),
-                            Style::new().fg(C_DIM),
+                            format!(
+                                " {} ... +{} more lines",
+                                rail_mid,
+                                diff_text.lines().count().saturating_sub(12)
+                            ),
+                            Style::new().fg(Color::DarkGray),
                         )));
-                        for line in diff_text.lines().take(12) {
-                            let diff_spans = render_diff_line(line);
-                            lines.push(Line::from(diff_spans));
-                        }
-                        if diff_text.lines().count() > 12 {
-                            lines.push(Line::from(Span::styled(
-                                format!(
-                                    " {} ... +{} more lines",
-                                    rail_mid,
-                                    diff_text.lines().count().saturating_sub(12)
-                                ),
-                                Style::new().fg(Color::DarkGray),
-                            )));
-                        }
                     }
                 }
                 last_was_tool = true;

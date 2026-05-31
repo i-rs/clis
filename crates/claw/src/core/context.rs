@@ -70,9 +70,7 @@ impl ContextManager {
             || m.contains("claude-4")
             || m.contains("sonnet-4")
             || m.contains("opus-4")
-        {
-            128_000
-        } else if m.contains("deepseek")
+            || m.contains("deepseek")
             || m.contains("glm-4")
             || m.contains("qwen")
             || m.contains("llama-3")

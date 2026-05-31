@@ -133,15 +133,11 @@ impl ToolDocCache {
     pub fn prefetch(&mut self, tools: &[String]) {
         let mut changed = false;
         for tool in tools {
-            if let Some(doc) = Self::fetch_teach_doc(tool) {
-                if self
-                    .hot_docs
-                    .get(tool)
-                    .map_or(true, |cached| cached != &doc)
-                {
-                    self.hot_docs.insert(tool.to_string(), doc);
-                    changed = true;
-                }
+            if let Some(doc) = Self::fetch_teach_doc(tool)
+                && self.hot_docs.get(tool) != Some(&doc)
+            {
+                self.hot_docs.insert(tool.to_string(), doc);
+                changed = true;
             }
         }
         if changed {

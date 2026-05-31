@@ -64,17 +64,17 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
                     {
                         issues.push(format!("JSON 响应包含错误字段: '{}'", error));
                     }
-                    if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
-                        if !success {
-                            issues.push("JSON 响应的 success 字段为 false".to_string());
-                        }
+                    if let Some(success) = obj.get("success").and_then(|v| v.as_bool())
+                        && !success
+                    {
+                        issues.push("JSON 响应的 success 字段为 false".to_string());
                     }
                 }
                 // Empty array/object with no helpful content
-                if json.as_array().map_or(false, |a| a.is_empty()) {
+                if json.as_array().is_some_and(|a| a.is_empty()) {
                     issues.push("JSON 响应为空数组".to_string());
                 }
-                if json.as_object().map_or(false, |o| o.is_empty()) {
+                if json.as_object().is_some_and(|o| o.is_empty()) {
                     issues.push("JSON 响应为空对象".to_string());
                 }
             }

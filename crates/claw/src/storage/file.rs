@@ -42,7 +42,7 @@ where
     F: FnOnce() -> anyhow::Result<T> + Send + 'static,
     T: Send + 'static,
 {
-    tokio::task::spawn_blocking(move || f())
+    tokio::task::spawn_blocking(f)
         .await
         .map_err(|e| anyhow::anyhow!("blocking task panicked: {}", e))?
 }
@@ -493,7 +493,7 @@ impl StatsRepo for FileStatsStore {
         let path = stats_path(&self.claw_dir);
         let json_lines: Vec<String> = records
             .iter()
-            .map(|r| serde_json::to_string(r))
+            .map(serde_json::to_string)
             .collect::<Result<Vec<_>, _>>()?;
 
         blocking(move || {

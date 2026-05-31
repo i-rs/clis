@@ -288,8 +288,9 @@ pub async fn chat_stream(
                             .session_meta(&sid)
                             .map(|m| m.agent_id.clone())
                             .unwrap_or_else(|| "default".to_string());
-                        if let Some(last) = msgs.last() {
-                            if last.get("role").and_then(|r| r.as_str()) == Some("assistant") {
+                        if let Some(last) = msgs.last()
+                            && last.get("role").and_then(|r| r.as_str()) == Some("assistant")
+                        {
                                 let text =
                                     last.get("content").and_then(|c| c.as_str()).unwrap_or("");
                                 let reasoning = last
@@ -305,7 +306,6 @@ pub async fn chat_stream(
                                     core.session_mgr.append_message("assistant", text, extra);
                                 }
                             }
-                        }
                         crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
                         let _quality = core.evaluate_completed_session(&sid);
                         core.agent_store.memory_for_mut(&agent_id).flush();
@@ -768,7 +768,7 @@ pub async fn list_tools(State(state): State<AppState>) -> Json<ApiResponse<Vec<V
         Some(&core.config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = core.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let reg = TOOL_REGISTRY.get_or_init(|| crate::tools::ToolRegistry::new());
+    let reg = TOOL_REGISTRY.get_or_init(crate::tools::ToolRegistry::new);
     let schemas = reg.enabled_schemas(&i_rs_tool_names, enabled);
     ApiResponse::ok(schemas)
 }

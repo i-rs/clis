@@ -5,6 +5,7 @@ use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_update(
     id: String,
     meal_type: Option<String>,

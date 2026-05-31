@@ -25,10 +25,10 @@ pub fn parse_timezone(tz: Option<&str>) -> chrono::FixedOffset {
     }
 
     // UTC+8, UTC-5
-    if let Some(rest) = tz.to_uppercase().strip_prefix("UTC") {
-        if let Ok(hours) = rest.parse::<i32>() {
-            return chrono::FixedOffset::east_opt(hours * 3600).unwrap_or_else(system_tz_offset);
-        }
+    if let Some(rest) = tz.to_uppercase().strip_prefix("UTC")
+        && let Ok(hours) = rest.parse::<i32>()
+    {
+        return chrono::FixedOffset::east_opt(hours * 3600).unwrap_or_else(system_tz_offset);
     }
 
     // +08:00, -05:00
