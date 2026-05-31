@@ -1005,19 +1005,58 @@ macro_rules! exit_on_error {
 /// - `#[arg(short, long)] remark: Vec<String>` / `Option<Vec<String>>`
 #[macro_export]
 macro_rules! define_cli_tool {
-    // Entry — parse keyword-style arguments
+    // ── Base: standard CRUD only ──
     (
         binary: $binary:literal,
         about: $about:literal
         $(, add_args: { $($add_name:ident : $add_ty:ty => $add_desc:literal),* $(,)? })?
         $(, update_args: { $($upd_name:ident : $upd_ty:ty => $upd_desc:literal),* $(,)? })?
         $(, list_args: { $($list_name:ident : $list_ty:ty => $list_desc:literal),* $(,)? })?
-        $(,)?
+    ) => {
+        $crate::define_cli_tool!(@inner
+            binary: $binary, about: $about
+            $(, add: [ $($add_name: $add_ty => $add_desc),* ])?
+            $(, upd: [ $($upd_name: $upd_ty => $upd_desc),* ])?
+            $(, list: [ $($list_name: $list_ty => $list_desc),* ])?
+        );
+    };
+    // ── With extra imports / variants / match arms ──
+    (
+        binary: $binary:literal,
+        about: $about:literal
+        $(, add_args: { $($add_name:ident : $add_ty:ty => $add_desc:literal),* $(,)? })?
+        $(, update_args: { $($upd_name:ident : $upd_ty:ty => $upd_desc:literal),* $(,)? })?
+        $(, list_args: { $($list_name:ident : $list_ty:ty => $list_desc:literal),* $(,)? })?
+        $( @extra_import $extra_import:ident )*
+        $( @extra_variant $variant_name:ident $variant_body:tt )*
+        $( @extra_match $extra_pat:pat => $extra_expr:expr )*
+    ) => {
+        $crate::define_cli_tool!(@inner
+            binary: $binary, about: $about
+            $(, add: [ $($add_name: $add_ty => $add_desc),* ])?
+            $(, upd: [ $($upd_name: $upd_ty => $upd_desc),* ])?
+            $(, list: [ $($list_name: $list_ty => $list_desc),* ])?
+            $(, @extra_import $extra_import ),* $(,)?
+            $(, @extra_variant $variant_name $variant_body ),* $(,)?
+            $(, @extra_match $extra_pat => $extra_expr ),* $(,)?
+        );
+    };
+    // ── Internal expansion ──
+    (@inner
+        binary: $binary:literal,
+        about: $about:literal
+        $(, add: [ $($add_name:ident : $add_ty:ty => $add_desc:literal),* $(,)? ])?
+        $(, upd: [ $($upd_name:ident : $upd_ty:ty => $upd_desc:literal),* $(,)? ])?
+        $(, list: [ $($list_name:ident : $list_ty:ty => $list_desc:literal),* $(,)? ])?
+        $( @extra_import $extra_import:ident )*
+        $( @extra_variant $variant_name:ident $variant_body:tt )*
+        $( @extra_match $extra_pat:pat => $extra_expr:expr )*
     ) => {
         use ::clap::{Parser, Subcommand};
         use commands::{
             handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
-            handle_update,
+            handle_update
+            $( , $extra_import )*
         };
         use presentation::OutputFormat;
 
@@ -1034,25 +1073,20 @@ macro_rules! define_cli_tool {
 
         #[derive(Subcommand, Debug)]
         enum Commands {
-            /// Add a new entry
             Add {
-                // User-defined fields
                 $($(
                     #[arg(help = $add_desc)]
                     $add_name: $add_ty,
                 )*)?
-                // Default fields
                 #[arg(short, long)]
                 tag: Vec<String>,
                 #[arg(short, long)]
                 remark: Vec<String>,
             },
-            /// Delete an entry
             Delete {
                 #[arg(value_name = "ID")]
                 id: String,
             },
-            /// List all entries
             List {
                 $($(
                     #[arg(help = $list_desc)]
@@ -1063,7 +1097,6 @@ macro_rules! define_cli_tool {
                 #[arg(short = 'O', long, help = "Offset for pagination")]
                 offset: Option<usize>,
             },
-            /// Update an entry
             Update {
                 #[arg(value_name = "ID")]
                 id: String,
@@ -1076,17 +1109,18 @@ macro_rules! define_cli_tool {
                 #[arg(short, long)]
                 remark: Option<Vec<String>>,
             },
-            /// Get an entry by id
             Get {
                 #[arg(value_name = "ID")]
                 id: String,
             },
-            /// Show usage examples
             Example {},
             #[clap(subcommand)]
             Skill(commands::skill::SkillCommand),
             #[clap(subcommand)]
             Data(commands::data::DataCommand),
+            $(
+                $variant_name $variant_body,
+            )*
         }
 
         fn main() {
@@ -1119,6 +1153,9 @@ macro_rules! define_cli_tool {
                     handle_skill(&cmd)?;
                 }
                 Commands::Data(commands) => commands::data::handle(&commands)?,
+                $(
+                    $extra_pat => { $extra_expr }
+                ),*
             }
             Ok(())
         }

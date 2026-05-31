@@ -24,7 +24,6 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Add a new entry
     Add {
         #[arg(value_name = "NAME")]
         name: String,
@@ -37,30 +36,25 @@ enum Commands {
         #[arg(short, long)]
         remark: Vec<String>,
     },
-    /// Check in today
     Checkin {
         #[arg(value_name = "NAME")]
         name: String,
     },
-    /// Delete an entry
     Delete {
         #[arg(value_name = "NAME")]
-        name: String,
+        id: String,
     },
-    /// List all entries
     List {
         #[arg(short, long)]
         tag: Option<String>,
+        #[arg(short = 'L', long)]
+        limit: Option<usize>,
+        #[arg(short = 'O', long)]
+        offset: Option<usize>,
     },
-    /// Get an entry by id
-    Get {
-        #[arg(value_name = "NAME")]
-        name: String,
-    },
-    /// Update an entry
     Update {
         #[arg(value_name = "NAME")]
-        name: String,
+        id: String,
         #[arg(short, long)]
         description: Option<String>,
         #[arg(short, long)]
@@ -70,7 +64,10 @@ enum Commands {
         #[arg(short, long)]
         remark: Option<Vec<String>>,
     },
-    /// Show usage examples
+    Get {
+        #[arg(value_name = "NAME")]
+        id: String,
+    },
     Example {},
     #[clap(subcommand)]
     Skill(commands::skill::SkillCommand),
@@ -98,34 +95,28 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             tag,
             remark,
         } => {
-            handle_add(
-                name,
-                description.unwrap_or_default(),
-                frequency,
-                tag,
-                remark,
-            )?;
+            handle_add(name, description, frequency, tag, remark, format)?;
         }
         Commands::Checkin { name } => {
-            handle_checkin(name)?;
+            handle_checkin(name, format)?;
         }
-        Commands::Delete { name } => {
-            handle_delete(name)?;
+        Commands::Delete { id } => {
+            handle_delete(id, format)?;
         }
-        Commands::List { tag } => {
-            handle_list(tag, format)?;
-        }
-        Commands::Get { name } => {
-            handle_get(name, format)?;
+        Commands::List { tag, limit, offset } => {
+            handle_list(tag, limit, offset, format)?;
         }
         Commands::Update {
-            name,
+            id,
             description,
             frequency,
             tag,
             remark,
         } => {
-            handle_update(name, description, frequency, tag, remark)?;
+            handle_update(id, description, frequency, tag, remark, format)?;
+        }
+        Commands::Get { id } => {
+            handle_get(id, format)?;
         }
         Commands::Example {} => {
             handle_example();
