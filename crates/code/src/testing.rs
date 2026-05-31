@@ -1,9 +1,9 @@
 //! 测试基础设施：MockLlmProvider、MockTool、辅助函数
 
 use crate::provider::*;
-use crate::tools::{Tool, ToolResult, ToolRegistry};
+use crate::tools::{Tool, ToolRegistry, ToolResult};
 use async_trait::async_trait;
-use serde_json::{json, Value, Map};
+use serde_json::{Map, Value, json};
 use std::sync::Arc;
 
 // ---- Mock Provider ----
@@ -16,7 +16,10 @@ pub struct MockLlmProvider {
 #[allow(dead_code)]
 impl MockLlmProvider {
     pub fn new() -> Self {
-        Self { events: Vec::new(), name: "mock".into() }
+        Self {
+            events: Vec::new(),
+            name: "mock".into(),
+        }
     }
 
     pub fn with_token(mut self, token: &str) -> Self {
@@ -25,7 +28,8 @@ impl MockLlmProvider {
     }
 
     pub fn with_reasoning(mut self, text: &str) -> Self {
-        self.events.push(StreamEventKind::Reasoning(text.to_string()));
+        self.events
+            .push(StreamEventKind::Reasoning(text.to_string()));
         self
     }
 
@@ -53,7 +57,11 @@ impl MockLlmProvider {
         let args: Value = serde_json::from_str(args_json).unwrap_or_default();
         Self {
             events: vec![
-                StreamEventKind::ToolCall { id: id.to_string(), name: name.to_string(), args },
+                StreamEventKind::ToolCall {
+                    id: id.to_string(),
+                    name: name.to_string(),
+                    args,
+                },
                 StreamEventKind::Done { usage: None },
             ],
             name: "mock".into(),
@@ -70,7 +78,11 @@ impl MockLlmProvider {
         Self {
             events: vec![
                 StreamEventKind::Token(text.to_string()),
-                StreamEventKind::ToolCall { id: id.to_string(), name: name.to_string(), args },
+                StreamEventKind::ToolCall {
+                    id: id.to_string(),
+                    name: name.to_string(),
+                    args,
+                },
                 StreamEventKind::Done { usage: None },
             ],
             name: "mock".into(),
@@ -80,7 +92,9 @@ impl MockLlmProvider {
 
 #[async_trait]
 impl LlmProvider for MockLlmProvider {
-    fn name(&self) -> &str { &self.name }
+    fn name(&self) -> &str {
+        &self.name
+    }
 
     async fn stream(&self, _messages: &[LlmMessage], _tool_defs: &[Value]) -> StreamRx {
         let (tx, rx) = tokio::sync::mpsc::channel(256);
@@ -95,7 +109,11 @@ impl LlmProvider for MockLlmProvider {
         rx
     }
 
-    async fn chat(&self, _messages: &[LlmMessage], _tool_defs: &[Value]) -> anyhow::Result<LlmResponse> {
+    async fn chat(
+        &self,
+        _messages: &[LlmMessage],
+        _tool_defs: &[Value],
+    ) -> anyhow::Result<LlmResponse> {
         Ok(LlmResponse {
             content: None,
             reasoning: String::new(),
@@ -114,18 +132,28 @@ pub struct MockTool {
 
 impl MockTool {
     pub fn new(name: &str, response: &str) -> Self {
-        Self { name: name.to_string(), response: Ok(response.to_string()) }
+        Self {
+            name: name.to_string(),
+            response: Ok(response.to_string()),
+        }
     }
 
     pub fn with_error(name: &str, error: &str) -> Self {
-        Self { name: name.to_string(), response: Err(error.to_string()) }
+        Self {
+            name: name.to_string(),
+            response: Err(error.to_string()),
+        }
     }
 }
 
 #[async_trait]
 impl Tool for MockTool {
-    fn name(&self) -> &str { &self.name }
-    fn description(&self) -> &str { "Mock tool for testing" }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn description(&self) -> &str {
+        "Mock tool for testing"
+    }
     fn schema(&self) -> Value {
         json!({"type": "function", "function": {"name": self.name, "description": "mock", "parameters": {"type": "object", "properties": {}}}})
     }
@@ -140,9 +168,18 @@ impl Tool for MockTool {
 /// Create a ToolRegistry with mock tools for testing
 pub fn mock_tool_registry() -> ToolRegistry {
     let mut registry = ToolRegistry::new_empty();
-    registry.register(Arc::new(MockTool::new("read", "file content line 1\nline 2\n")));
-    registry.register(Arc::new(MockTool::new("write", "Created test.txt (10 bytes)")));
+    registry.register(Arc::new(MockTool::new(
+        "read",
+        "file content line 1\nline 2\n",
+    )));
+    registry.register(Arc::new(MockTool::new(
+        "write",
+        "Created test.txt (10 bytes)",
+    )));
     registry.register(Arc::new(MockTool::new("bash", "stdout:\nhello")));
-    registry.register(Arc::new(MockTool::new("grep", "Found 2 matches:\nmain.rs:10:fn main()\nlib.rs:5:fn main()")));
+    registry.register(Arc::new(MockTool::new(
+        "grep",
+        "Found 2 matches:\nmain.rs:10:fn main()\nlib.rs:5:fn main()",
+    )));
     registry
 }

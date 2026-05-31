@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use commands::{
-    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
-    handle_update,
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update,
 };
 use presentation::OutputFormat;
 

@@ -8,9 +8,19 @@ pub enum AgentMessage {
     #[serde(rename = "user")]
     User { content: String },
     #[serde(rename = "assistant")]
-    Assistant { content: String, reasoning: String, tool_calls: Option<Vec<serde_json::Value>>, #[serde(default)] reasoning_expanded: bool },
+    Assistant {
+        content: String,
+        reasoning: String,
+        tool_calls: Option<Vec<serde_json::Value>>,
+        #[serde(default)]
+        reasoning_expanded: bool,
+    },
     #[serde(rename = "tool")]
-    ToolResult { content: String, #[serde(default)] diff: Option<String> },
+    ToolResult {
+        content: String,
+        #[serde(default)]
+        diff: Option<String>,
+    },
     #[serde(rename = "system")]
     System { content: String },
     #[serde(rename = "file_edit")]
@@ -21,14 +31,23 @@ pub enum AgentMessage {
 
 impl AgentMessage {
     pub fn user(content: impl Into<String>) -> Self {
-        Self::User { content: content.into() }
+        Self::User {
+            content: content.into(),
+        }
     }
     #[allow(dead_code)]
     pub fn assistant(content: impl Into<String>) -> Self {
-        Self::Assistant { content: content.into(), reasoning: String::new(), tool_calls: None, reasoning_expanded: false }
+        Self::Assistant {
+            content: content.into(),
+            reasoning: String::new(),
+            tool_calls: None,
+            reasoning_expanded: false,
+        }
     }
     pub fn system(content: impl Into<String>) -> Self {
-        Self::System { content: content.into() }
+        Self::System {
+            content: content.into(),
+        }
     }
 }
 

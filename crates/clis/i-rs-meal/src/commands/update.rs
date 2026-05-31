@@ -22,7 +22,16 @@ pub fn handle_update(
         None => None,
     };
 
-    let entry = service::update_meal(&mut store, &id, meal_type, food_items, calories, tag, remark, parsed_date)?;
+    let entry = service::update_meal(
+        &mut store,
+        &id,
+        meal_type,
+        food_items,
+        calories,
+        tag,
+        remark,
+        parsed_date,
+    )?;
     storage::save_store(&store)?;
 
     if format.is_json() {

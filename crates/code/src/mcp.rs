@@ -37,7 +37,9 @@ pub struct McpManager {
 
 impl McpManager {
     pub fn new() -> Self {
-        Self { connections: Mutex::new(HashMap::new()) }
+        Self {
+            connections: Mutex::new(HashMap::new()),
+        }
     }
 
     /// List names of all connected MCP servers.
@@ -68,7 +70,8 @@ impl McpManager {
     pub async fn discover_tools(&self, name: &str) -> anyhow::Result<Vec<McpToolDef>> {
         let service = {
             let map = self.connections.lock().unwrap();
-            map.get(name).cloned()
+            map.get(name)
+                .cloned()
                 .ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", name))?
         };
 
@@ -88,10 +91,16 @@ impl McpManager {
     }
 
     /// Call a tool on an MCP server.
-    pub async fn call_tool(&self, server_name: &str, tool_name: &str, args: Value) -> anyhow::Result<Value> {
+    pub async fn call_tool(
+        &self,
+        server_name: &str,
+        tool_name: &str,
+        args: Value,
+    ) -> anyhow::Result<Value> {
         let service = {
             let map = self.connections.lock().unwrap();
-            map.get(server_name).cloned()
+            map.get(server_name)
+                .cloned()
                 .ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", server_name))?
         };
 
@@ -100,8 +109,7 @@ impl McpManager {
             .ok_or_else(|| anyhow::anyhow!("MCP tool arguments must be a JSON object"))?
             .clone();
 
-        let params = CallToolRequestParams::new(tool_name.to_string())
-            .with_arguments(json_map);
+        let params = CallToolRequestParams::new(tool_name.to_string()).with_arguments(json_map);
 
         let result = service
             .call_tool(params)

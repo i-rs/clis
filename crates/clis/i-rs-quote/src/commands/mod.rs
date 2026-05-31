@@ -12,6 +12,6 @@ pub use example::handle_example;
 pub use get::handle_get;
 pub use list::handle_list;
 pub use random::handle_random;
-pub use skill::{handle_skill};
+pub use skill::handle_skill;
 
 pub mod data;

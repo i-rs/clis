@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
-use crate::tools::{Tool, ToolResult};
 use super::fs::resolve_safe_path;
+use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 #[cfg(test)]
 mod tests {
@@ -14,8 +14,18 @@ mod tests {
         let params = &tool.schema()["function"]["parameters"];
         assert!(params["properties"]["from"].is_object());
         assert!(params["properties"]["to"].is_object());
-        assert!(params["required"].as_array().unwrap().contains(&json!("from")));
-        assert!(params["required"].as_array().unwrap().contains(&json!("to")));
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("from"))
+        );
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("to"))
+        );
     }
 
     #[tokio::test]
@@ -31,8 +41,12 @@ pub struct RenameTool;
 
 #[async_trait]
 impl Tool for RenameTool {
-    fn name(&self) -> &str { "rename" }
-    fn description(&self) -> &str { "Rename or move a file/directory within the workspace." }
+    fn name(&self) -> &str {
+        "rename"
+    }
+    fn description(&self) -> &str {
+        "Rename or move a file/directory within the workspace."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -51,8 +65,14 @@ impl Tool for RenameTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let from = args.get("from").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("from required"))?;
-        let to = args.get("to").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("to required"))?;
+        let from = args
+            .get("from")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("from required"))?;
+        let to = args
+            .get("to")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("to required"))?;
         let safe_from = resolve_safe_path(from)?;
         let safe_to = resolve_safe_path(to)?;
 

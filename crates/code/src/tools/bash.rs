@@ -1,6 +1,6 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 /// Maximum output size per stream (64KB)
 const MAX_OUTPUT_BYTES: usize = 64 * 1024;
@@ -14,50 +14,137 @@ fn truncate_output(s: &str) -> String {
 /// Whitelisted command prefixes (safe to execute)
 const ALLOWED_PREFIXES: &[&str] = &[
     // Build tools
-    "cargo", "rustc", "rustup",
+    "cargo",
+    "rustc",
+    "rustup",
     // Version control
     "git",
     // File operations
-    "ls", "cat", "head", "tail", "wc", "find", "mkdir", "cp", "mv",
-    "rm", "chmod", "chown",
+    "ls",
+    "cat",
+    "head",
+    "tail",
+    "wc",
+    "find",
+    "mkdir",
+    "cp",
+    "mv",
+    "rm",
+    "chmod",
+    "chown",
     // Text processing
-    "grep", "sed", "awk", "sort", "uniq", "diff", "file",
+    "grep",
+    "sed",
+    "awk",
+    "sort",
+    "uniq",
+    "diff",
+    "file",
     // Shell builtins
-    "echo", "printf", "pwd", "which", "test", "true", "false",
-    "cd", "export", "unset",
+    "echo",
+    "printf",
+    "pwd",
+    "which",
+    "test",
+    "true",
+    "false",
+    "cd",
+    "export",
+    "unset",
     // Date/time
-    "date", "cal",
+    "date",
+    "cal",
     // Languages
-    "python", "python3", "pip", "pip3", "node", "npm", "npx", "bun",
-    "deno", "go", "javac", "java", "mvn", "gradle", "make", "cmake",
-    "scala", "scalac", "kotlinc", "kotlin", "swift", "swiftc",
-    "ruby", "gem", "bundle", "rake", "rails",
-    "lua", "luac", "zig", "zig build",
-    "gcc", "g++", "cc", "c++", "clang", "clang++",
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "node",
+    "npm",
+    "npx",
+    "bun",
+    "deno",
+    "go",
+    "javac",
+    "java",
+    "mvn",
+    "gradle",
+    "make",
+    "cmake",
+    "scala",
+    "scalac",
+    "kotlinc",
+    "kotlin",
+    "swift",
+    "swiftc",
+    "ruby",
+    "gem",
+    "bundle",
+    "rake",
+    "rails",
+    "lua",
+    "luac",
+    "zig",
+    "zig build",
+    "gcc",
+    "g++",
+    "cc",
+    "c++",
+    "clang",
+    "clang++",
     // Container/infra
-    "docker", "docker-compose", "kubectl", "terraform", "ansible",
+    "docker",
+    "docker-compose",
+    "kubectl",
+    "terraform",
+    "ansible",
     // Network
-    "curl", "wget", "ssh", "scp", "rsync",
+    "curl",
+    "wget",
+    "ssh",
+    "scp",
+    "rsync",
     // Archives
-    "tar", "gzip", "gunzip", "zip", "unzip", "xz", "bzip2",
+    "tar",
+    "gzip",
+    "gunzip",
+    "zip",
+    "unzip",
+    "xz",
+    "bzip2",
     // Data formats
-    "jq", "yq",
+    "jq",
+    "yq",
     // System info
-    "env", "uname", "whoami", "hostname", "df", "du", "free",
-    "top", "ps", "lsof", "strace", "ldd",
+    "env",
+    "uname",
+    "whoami",
+    "hostname",
+    "df",
+    "du",
+    "free",
+    "top",
+    "ps",
+    "lsof",
+    "strace",
+    "ldd",
     // Misc
-    "base64", "md5sum", "sha256sum", "sha512sum",
-    "sh", "bash", "zsh",
-    "sleep", "wait", "kill",
+    "base64",
+    "md5sum",
+    "sha256sum",
+    "sha512sum",
+    "sh",
+    "bash",
+    "zsh",
+    "sleep",
+    "wait",
+    "kill",
 ];
 
 /// Commands that require a TTY (interactive) — always blocked
 const BLOCKED_INTERACTIVE: &[&str] = &[
-    "vim", "vi", "nano", "emacs", "ed",
-    "less", "more", "bat",
-    "ssh", "telnet", "nc", "ncat", "netcat",
-    "screen", "tmux",
-    "top", "htop",
+    "vim", "vi", "nano", "emacs", "ed", "less", "more", "bat", "ssh", "telnet", "nc", "ncat",
+    "netcat", "screen", "tmux", "top", "htop",
 ];
 
 /// Dangerous patterns that are always blocked regardless of whitelist (regex-based)
@@ -153,8 +240,12 @@ pub struct BashTool;
 
 #[async_trait]
 impl Tool for BashTool {
-    fn name(&self) -> &str { "bash" }
-    fn description(&self) -> &str { "Execute a shell command (whitelist-enforced, with timeout)" }
+    fn name(&self) -> &str {
+        "bash"
+    }
+    fn description(&self) -> &str {
+        "Execute a shell command (whitelist-enforced, with timeout)"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -174,9 +265,16 @@ impl Tool for BashTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let cmd = args.get("command").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("command required"))?;
-        let desc = args.get("description").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("description required"))?;
-        let timeout_secs = args.get("timeout_secs")
+        let cmd = args
+            .get("command")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("command required"))?;
+        let desc = args
+            .get("description")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("description required"))?;
+        let timeout_secs = args
+            .get("timeout_secs")
             .and_then(|v| v.as_u64())
             .unwrap_or(DEFAULT_TIMEOUT_SECS)
             .clamp(1, 600);
@@ -194,8 +292,10 @@ impl Tool for BashTool {
             std::time::Duration::from_secs(timeout_secs),
             tokio::process::Command::new("sh")
                 .args(["-c", &full_cmd])
-                .output()
-        ).await {
+                .output(),
+        )
+        .await
+        {
             Ok(Ok(output)) => output,
             Ok(Err(e)) => {
                 return Ok(format!("$ {}\nCommand failed: {}\n", desc, e));
@@ -219,7 +319,10 @@ impl Tool for BashTool {
             result.push_str(&format!("stderr:\n{}", stderr));
         }
         if !output.status.success() {
-            result.push_str(&format!("exit code: {}", output.status.code().unwrap_or(-1)));
+            result.push_str(&format!(
+                "exit code: {}",
+                output.status.code().unwrap_or(-1)
+            ));
         }
         Ok(result)
     }
@@ -232,44 +335,84 @@ mod tests {
     #[test]
     fn test_allowed_commands_pass() {
         let safe = vec![
-            "cargo check", "cargo test -- --test-threads=1", "cargo clippy -- -D warnings",
-            "git status", "git diff", "git log --oneline -5",
-            "ls -la", "cat README.md", "grep pattern src/",
-            "python main.py", "node index.js", "npm test", "go build ./...",
-            "echo hello", "pwd", "which cargo",
-            "docker ps", "kubectl get pods", "curl -sL https://example.com",
-            "tar xzf file.tar.gz", "jq '.name' data.json",
-            "make build", "cmake ..",
-            "sh script.sh", "bash -c 'echo ok'",
+            "cargo check",
+            "cargo test -- --test-threads=1",
+            "cargo clippy -- -D warnings",
+            "git status",
+            "git diff",
+            "git log --oneline -5",
+            "ls -la",
+            "cat README.md",
+            "grep pattern src/",
+            "python main.py",
+            "node index.js",
+            "npm test",
+            "go build ./...",
+            "echo hello",
+            "pwd",
+            "which cargo",
+            "docker ps",
+            "kubectl get pods",
+            "curl -sL https://example.com",
+            "tar xzf file.tar.gz",
+            "jq '.name' data.json",
+            "make build",
+            "cmake ..",
+            "sh script.sh",
+            "bash -c 'echo ok'",
             "./build.sh",
         ];
         for cmd in &safe {
-            assert!(is_command_allowed(cmd).is_ok(), "cmd '{}' should be allowed", cmd);
+            assert!(
+                is_command_allowed(cmd).is_ok(),
+                "cmd '{}' should be allowed",
+                cmd
+            );
         }
     }
 
     #[test]
     fn test_blocked_dangerous_patterns() {
         let dangerous = vec![
-            "rm -rf /", "rm -rf /*", "rm -rf ~",
-            "rm  -rf  /", "rm -r -f /", "rm  -r  -f  /",
+            "rm -rf /",
+            "rm -rf /*",
+            "rm -rf ~",
+            "rm  -rf  /",
+            "rm -r -f /",
+            "rm  -r  -f  /",
             "mkfs.ext4 /dev/sda1",
             "dd of=/dev/sda",
             "echo x > /dev/sda",
-            "chmod -R 777 /", "chmod 777 /",
-            "poweroff", "shutdown -h now",
+            "chmod -R 777 /",
+            "chmod 777 /",
+            "poweroff",
+            "shutdown -h now",
             ":(){ :|:& };:",
         ];
         for cmd in &dangerous {
-            assert!(is_command_allowed(cmd).is_err(), "cmd '{}' should be blocked", cmd);
+            assert!(
+                is_command_allowed(cmd).is_err(),
+                "cmd '{}' should be blocked",
+                cmd
+            );
         }
     }
 
     #[test]
     fn test_blocked_interactive() {
-        let interactive = vec!["vim file.txt", "vi", "nano file", "less README", "ssh user@host"];
+        let interactive = vec![
+            "vim file.txt",
+            "vi",
+            "nano file",
+            "less README",
+            "ssh user@host",
+        ];
         for cmd in &interactive {
-            assert!(is_command_allowed(cmd).is_err(), "cmd '{}' should be blocked (interactive)", cmd);
+            assert!(
+                is_command_allowed(cmd).is_err(),
+                "cmd '{}' should be blocked (interactive)",
+                cmd
+            );
         }
     }
 
@@ -277,7 +420,11 @@ mod tests {
     fn test_blocked_privilege_escalation() {
         let cmds = vec!["sudo rm -rf /", "sudo apt install vim", "doas something"];
         for cmd in &cmds {
-            assert!(is_command_allowed(cmd).is_err(), "cmd '{}' should be blocked (sudo)", cmd);
+            assert!(
+                is_command_allowed(cmd).is_err(),
+                "cmd '{}' should be blocked (sudo)",
+                cmd
+            );
         }
     }
 
@@ -285,7 +432,11 @@ mod tests {
     fn test_blocked_not_in_whitelist() {
         let cmds = vec!["nmap localhost", "nc -l 8080", " exploit "];
         for cmd in &cmds {
-            assert!(is_command_allowed(cmd).is_err(), "cmd '{}' should be blocked (not in whitelist)", cmd);
+            assert!(
+                is_command_allowed(cmd).is_err(),
+                "cmd '{}' should be blocked (not in whitelist)",
+                cmd
+            );
         }
     }
 
@@ -348,7 +499,9 @@ mod tests {
         let args: serde_json::Map<String, serde_json::Value> = [
             ("command".into(), serde_json::json!("echo hello")),
             ("description".into(), serde_json::json!("test echo")),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
         let result = BashTool.call(&args).await.expect("echo should work");
         assert!(result.contains("hello"));
     }
@@ -362,9 +515,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_bash_missing_description_arg() {
-        let args: serde_json::Map<String, serde_json::Value> = [
-            ("command".into(), serde_json::json!("echo hello")),
-        ].into_iter().collect();
+        let args: serde_json::Map<String, serde_json::Value> =
+            [("command".into(), serde_json::json!("echo hello"))]
+                .into_iter()
+                .collect();
         let result = BashTool.call(&args).await;
         assert!(result.is_err());
     }
@@ -374,7 +528,9 @@ mod tests {
         let args: serde_json::Map<String, serde_json::Value> = [
             ("command".into(), serde_json::json!("nmap localhost")),
             ("description".into(), serde_json::json!("test blocked")),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
         let result = BashTool.call(&args).await;
         assert!(result.is_err());
     }
@@ -385,8 +541,13 @@ mod tests {
             ("command".into(), serde_json::json!("sleep 30")),
             ("description".into(), serde_json::json!("test timeout")),
             ("timeout_secs".into(), serde_json::json!(1)),
-        ].into_iter().collect();
-        let result = BashTool.call(&args).await.expect("timeout should return Ok");
+        ]
+        .into_iter()
+        .collect();
+        let result = BashTool
+            .call(&args)
+            .await
+            .expect("timeout should return Ok");
         assert!(result.contains("timed out"));
     }
 }

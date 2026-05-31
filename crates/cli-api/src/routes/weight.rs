@@ -90,8 +90,8 @@ async fn delete_weight(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    state.weight.write(|store| {
-        i_rs_weight::service::delete_weight(store, id).map_err(ApiError::from)
-    })?;
+    state
+        .weight
+        .write(|store| i_rs_weight::service::delete_weight(store, id).map_err(ApiError::from))?;
     Ok(ok_json_message())
 }

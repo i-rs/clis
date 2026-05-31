@@ -1,48 +1,56 @@
 #[cfg(feature = "tui")]
 pub mod colors;
 #[cfg(feature = "tui")]
+pub mod highlight;
+#[cfg(feature = "tui")]
 pub mod input;
+#[cfg(feature = "tui")]
+pub mod overlays;
 #[cfg(feature = "tui")]
 pub mod sidebar;
 #[cfg(feature = "tui")]
+pub mod slash_command;
+#[cfg(feature = "tui")]
 pub mod strings;
-#[cfg(feature = "tui")]
-pub mod utils;
-#[cfg(feature = "tui")]
-pub mod overlays;
 #[cfg(feature = "tui")]
 pub mod transcript;
 #[cfg(feature = "tui")]
 pub mod ui;
 #[cfg(feature = "tui")]
-pub mod highlight;
-#[cfg(feature = "tui")]
-pub mod slash_command;
+pub mod utils;
 
 #[cfg(feature = "tui")]
 use crate::agent::event::AgentEvent;
 #[cfg(feature = "tui")]
 use crate::app::{AgentMessage, App, AppMode, ToolCallInfo};
 #[cfg(feature = "tui")]
+use crossterm::{
+    event::{
+        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+        Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind,
+    },
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+#[cfg(feature = "tui")]
+use ratatui::{Terminal, backend::CrosstermBackend};
+#[cfg(feature = "tui")]
 use std::io;
 #[cfg(feature = "tui")]
 use std::time::Duration;
 #[cfg(feature = "tui")]
 use tokio::sync::mpsc;
-#[cfg(feature = "tui")]
-use crossterm::{
-    event::{self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, MouseEventKind},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-#[cfg(feature = "tui")]
-use ratatui::{backend::CrosstermBackend, Terminal};
 
 #[cfg(feature = "tui")]
 pub async fn run(mut app: App) -> anyhow::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        EnableBracketedPaste
+    )?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -76,7 +84,8 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         if let Ok(out) = git_output {
             if out.status.success() {
                 let stderr = String::from_utf8_lossy(&out.stderr);
-                let file_count = stderr.lines()
+                let file_count = stderr
+                    .lines()
                     .filter(|l| l.contains(" file"))
                     .next()
                     .and_then(|l| l.split_whitespace().next())
@@ -84,7 +93,10 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                     .unwrap_or(0);
                 if file_count > 0 {
                     app.git_baseline = Some((
-                        format!("i-rs-code-undo-{}", chrono::Utc::now().format("%Y%m%d%H%M%S")),
+                        format!(
+                            "i-rs-code-undo-{}",
+                            chrono::Utc::now().format("%Y%m%d%H%M%S")
+                        ),
                         file_count,
                     ));
                 }
@@ -113,7 +125,10 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                 }
                 Event::Mouse(mouse) => {
                     let sidebar_width = 38u16;
-                    let is_sidebar = terminal.size().map(|s| mouse.column > s.width.saturating_sub(sidebar_width)).unwrap_or(false);
+                    let is_sidebar = terminal
+                        .size()
+                        .map(|s| mouse.column > s.width.saturating_sub(sidebar_width))
+                        .unwrap_or(false);
                     match mouse.kind {
                         MouseEventKind::ScrollUp => {
                             if is_sidebar {
@@ -142,9 +157,20 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         }
     }
 
-    let stats = if app.messages.iter().any(|m| matches!(m, AgentMessage::User { .. })) {
-        let tool_count: usize = app.messages.iter().filter(|m| matches!(m, AgentMessage::ToolResult { .. })).count();
-        let session_id = app.session_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let stats = if app
+        .messages
+        .iter()
+        .any(|m| matches!(m, AgentMessage::User { .. }))
+    {
+        let tool_count: usize = app
+            .messages
+            .iter()
+            .filter(|m| matches!(m, AgentMessage::ToolResult { .. }))
+            .count();
+        let session_id = app
+            .session_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let sessions_dir = crate::config::i_rs_code_dir().join("sessions");
         let session = crate::session::Session::from_agent_messages(
             Some(session_id.clone()),
@@ -194,22 +220,31 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                 s.reasoning.push_str(&r);
             }
         }
-        AgentEvent::ToolCallStart { id: _id, name, args } => {
-            let path_key = args.get("file_path").or_else(|| args.get("path")).and_then(|v| v.as_str());
+        AgentEvent::ToolCallStart {
+            id: _id,
+            name,
+            args,
+        } => {
+            let path_key = args
+                .get("file_path")
+                .or_else(|| args.get("path"))
+                .and_then(|v| v.as_str());
             if matches!(name.as_str(), "write" | "edit" | "delete")
-                && let Some(path) = path_key {
-                    let rel = make_relative(&app.current_dir, path);
-                    app.file_changes.insert(rel.clone());
-                    if !matches!(name.as_str(), "delete")
-                        && let Ok(content) = tokio::fs::read_to_string(path).await
-                    {
-                        app.last_file_states.push((rel, content));
-                    }
+                && let Some(path) = path_key
+            {
+                let rel = make_relative(&app.current_dir, path);
+                app.file_changes.insert(rel.clone());
+                if !matches!(name.as_str(), "delete")
+                    && let Ok(content) = tokio::fs::read_to_string(path).await
+                {
+                    app.last_file_states.push((rel, content));
                 }
+            }
             if name.as_str() == "rename"
                 && let Some(from) = args.get("from").and_then(|v| v.as_str())
             {
-                app.file_changes.insert(make_relative(&app.current_dir, from));
+                app.file_changes
+                    .insert(make_relative(&app.current_dir, from));
                 if let Some(to) = args.get("to").and_then(|v| v.as_str()) {
                     app.file_changes.insert(make_relative(&app.current_dir, to));
                 }
@@ -229,7 +264,11 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                 s.current_tool = Some(info);
             }
         }
-        AgentEvent::ToolCallEnd { id: _id, name: _name, result } => {
+        AgentEvent::ToolCallEnd {
+            id: _id,
+            name: _name,
+            result,
+        } => {
             if let Some(ref mut s) = app.streaming
                 && let Some(mut tool) = s.current_tool.take()
             {
@@ -243,9 +282,15 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
         AgentEvent::Plan { steps } => {
             app.plan = steps;
         }
-        AgentEvent::Done { usage, messages, context_pct } => {
+        AgentEvent::Done {
+            usage,
+            messages,
+            context_pct,
+        } => {
             app.status_message = None;
-            let streamed_tc = app.streaming.as_ref()
+            let streamed_tc = app
+                .streaming
+                .as_ref()
                 .map(|s| s.tool_calls.clone())
                 .unwrap_or_default();
             let (content, reasoning) = app.finish_streaming();
@@ -294,11 +339,13 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                     summary.push_str(&format!("\n  {}", f));
                 }
                 if !streamed_tc.is_empty() {
-                    let mut tool_counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+                    let mut tool_counts: std::collections::BTreeMap<&str, usize> =
+                        std::collections::BTreeMap::new();
                     for tc in &streamed_tc {
                         *tool_counts.entry(tc.name.as_str()).or_insert(0) += 1;
                     }
-                    let tool_str: Vec<String> = tool_counts.iter()
+                    let tool_str: Vec<String> = tool_counts
+                        .iter()
                         .map(|(n, c)| format!("{} ×{}", n, c))
                         .collect();
                     summary.push_str(&format!("\n🔧 {}", tool_str.join("  ")));
@@ -307,7 +354,9 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
             }
 
             // Separator
-            app.messages.push(AgentMessage::Separator { label: String::new() });
+            app.messages.push(AgentMessage::Separator {
+                label: String::new(),
+            });
 
             // scroll_offset preserved when auto_scroll=false (absolute line semantics)
             if matches!(app.mode, AppMode::Waiting) {
@@ -480,12 +529,17 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
             // If a message is selected, toggle that one; otherwise toggle the last assistant message
             if let Some(idx) = app.selected_message
-                && let Some(AgentMessage::Assistant { reasoning_expanded, .. }) = app.messages.get_mut(idx)
+                && let Some(AgentMessage::Assistant {
+                    reasoning_expanded, ..
+                }) = app.messages.get_mut(idx)
             {
                 *reasoning_expanded = !*reasoning_expanded;
             } else {
                 for msg in app.messages.iter_mut().rev() {
-                    if let AgentMessage::Assistant { reasoning_expanded, .. } = msg {
+                    if let AgentMessage::Assistant {
+                        reasoning_expanded, ..
+                    } = msg
+                    {
                         *reasoning_expanded = !*reasoning_expanded;
                         break;
                     }
@@ -499,7 +553,11 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Char(']') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
             let idx = app.selected_message.unwrap_or(usize::MAX);
             let next = idx.saturating_add(1);
-            app.selected_message = if next < app.messages.len() { Some(next) } else { Some(app.messages.len().saturating_sub(1)) };
+            app.selected_message = if next < app.messages.len() {
+                Some(next)
+            } else {
+                Some(app.messages.len().saturating_sub(1))
+            };
         }
         KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
             app.show_transcript = !app.show_transcript;
@@ -509,10 +567,14 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             if let Some((path, content)) = app.last_file_states.pop() {
                 match tokio::fs::write(&path, &content).await {
                     Ok(_) => {
-                        app.messages.push(AgentMessage::system(format!("Reverted {}", path)));
+                        app.messages
+                            .push(AgentMessage::system(format!("Reverted {}", path)));
                     }
                     Err(e) => {
-                        app.messages.push(AgentMessage::system(format!("Failed to revert {}: {}", path, e)));
+                        app.messages.push(AgentMessage::system(format!(
+                            "Failed to revert {}: {}",
+                            path, e
+                        )));
                     }
                 }
             } else if let Some((commit_msg, files)) = app.git_baseline.take() {
@@ -524,7 +586,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     Ok(output) => {
                         if output.status.success() {
                             app.messages.push(AgentMessage::system(format!(
-                                "Reverted {} files to session start (git stash)", files
+                                "Reverted {} files to session start (git stash)",
+                                files
                             )));
                         } else {
                             app.messages.push(AgentMessage::system(format!(
@@ -534,7 +597,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                         }
                     }
                     Err(e) => {
-                        app.messages.push(AgentMessage::system(format!("Git stash failed: {}", e)));
+                        app.messages
+                            .push(AgentMessage::system(format!("Git stash failed: {}", e)));
                     }
                 }
             }
@@ -581,13 +645,22 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 match c {
                     'c' if matches!(app.mode, AppMode::Idle) => {
                         app.messages.push(AgentMessage::system(
-                            "按 Esc 或 q 退出。Ctrl+C 不能退出，Ctrl+B 打开调试面板。"
+                            "按 Esc 或 q 退出。Ctrl+C 不能退出，Ctrl+B 打开调试面板。",
                         ));
                         return;
                     }
-                    'a' | 'A' => { app.input.cursor_pos = 0; return; }
-                    'e' | 'E' => { app.input.cursor_pos = app.input.content.len(); return; }
-                    'u' | 'U' => { app.input.clear(); return; }
+                    'a' | 'A' => {
+                        app.input.cursor_pos = 0;
+                        return;
+                    }
+                    'e' | 'E' => {
+                        app.input.cursor_pos = app.input.content.len();
+                        return;
+                    }
+                    'u' | 'U' => {
+                        app.input.clear();
+                        return;
+                    }
                     _ => {}
                 }
             }
@@ -602,10 +675,22 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             app.input.delete_forward();
             app.needs_redraw = true;
         }
-        KeyCode::Left => { app.input.move_left(); app.needs_redraw = true; }
-        KeyCode::Right => { app.input.move_right(); app.needs_redraw = true; }
-        KeyCode::Home => { app.input.cursor_pos = 0; app.needs_redraw = true; }
-        KeyCode::End => { app.input.cursor_pos = app.input.content.len(); app.needs_redraw = true; }
+        KeyCode::Left => {
+            app.input.move_left();
+            app.needs_redraw = true;
+        }
+        KeyCode::Right => {
+            app.input.move_right();
+            app.needs_redraw = true;
+        }
+        KeyCode::Home => {
+            app.input.cursor_pos = 0;
+            app.needs_redraw = true;
+        }
+        KeyCode::End => {
+            app.input.cursor_pos = app.input.content.len();
+            app.needs_redraw = true;
+        }
         KeyCode::Up if app.show_slash_picker => {
             app.slash_selected = app.slash_selected.saturating_sub(1);
             app.needs_redraw = true;
@@ -627,7 +712,10 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         KeyCode::Down => app.scroll_down(),
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
-        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => { app.input.insert_char('\n'); app.needs_redraw = true; }
+        KeyCode::Enter if key.modifiers == KeyModifiers::ALT => {
+            app.input.insert_char('\n');
+            app.needs_redraw = true;
+        }
         KeyCode::Enter if matches!(app.mode, AppMode::Idle) && !app.input.content.is_empty() => {
             let prompt = std::mem::take(&mut app.input.content);
             app.input.push_history(&prompt);
@@ -643,7 +731,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
             app.cancel_tx = Some(cancel_tx);
             app.task_handle = Some(tokio::spawn(async move {
-                if let Err(e) = run_streaming_agent(&config, &expanded, tx.clone(), history, cancel_rx).await {
+                if let Err(e) =
+                    run_streaming_agent(&config, &expanded, tx.clone(), history, cancel_rx).await
+                {
                     tx.send(AgentEvent::Error(e.to_string())).await.ok();
                 }
             }));
@@ -653,7 +743,8 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             let trimmed = input.trim();
             if trimmed.starts_with('/') {
                 let partial = trimmed[1..].to_lowercase();
-                let cmd_names: Vec<&str> = crate::tui::slash_command::COMMANDS.iter()
+                let cmd_names: Vec<&str> = crate::tui::slash_command::COMMANDS
+                    .iter()
                     .map(|c| c.name)
                     .filter(|name| name.starts_with(&partial))
                     .collect();
@@ -668,7 +759,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     }
                 }
             } else {
-                let matches: Vec<&str> = app.tool_names.iter()
+                let matches: Vec<&str> = app
+                    .tool_names
+                    .iter()
                     .filter(|name| !trimmed.is_empty() && name.starts_with(trimmed))
                     .map(String::as_str)
                     .collect();
@@ -701,7 +794,9 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
 
 #[cfg(feature = "tui")]
 fn longest_common_prefix(strs: &[&str]) -> String {
-    if strs.is_empty() { return String::new(); }
+    if strs.is_empty() {
+        return String::new();
+    }
     let mut prefix = strs[0].to_string();
     for s in &strs[1..] {
         while !s.starts_with(&prefix) {
@@ -713,14 +808,28 @@ fn longest_common_prefix(strs: &[&str]) -> String {
 
 #[cfg(feature = "tui")]
 fn extract_tool_calls(messages: &[crate::provider::LlmMessage]) -> Option<Vec<serde_json::Value>> {
-    let calls: Vec<serde_json::Value> = messages.iter().rev().filter_map(|m| match m {
-        crate::provider::LlmMessage::AssistantWithReasoning { tool_calls, .. } if !tool_calls.is_empty() => {
-            Some(tool_calls.iter().map(|tc| serde_json::json!({
-                "id": tc.id, "name": tc.name, "args": tc.args
-            })).collect::<Vec<_>>())
-        }
-        _ => None,
-    }).next().unwrap_or_default();
+    let calls: Vec<serde_json::Value> = messages
+        .iter()
+        .rev()
+        .filter_map(|m| match m {
+            crate::provider::LlmMessage::AssistantWithReasoning { tool_calls, .. }
+                if !tool_calls.is_empty() =>
+            {
+                Some(
+                    tool_calls
+                        .iter()
+                        .map(|tc| {
+                            serde_json::json!({
+                                "id": tc.id, "name": tc.name, "args": tc.args
+                            })
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            }
+            _ => None,
+        })
+        .next()
+        .unwrap_or_default();
     if calls.is_empty() { None } else { Some(calls) }
 }
 
@@ -755,7 +864,10 @@ pub async fn run(_app: crate::app::App) -> anyhow::Result<()> {
 #[cfg(feature = "tui")]
 fn make_relative(base: &str, path: &str) -> String {
     use std::path::Path;
-    Path::new(path).strip_prefix(base).map(|p| p.display().to_string()).unwrap_or_else(|_| path.to_string())
+    Path::new(path)
+        .strip_prefix(base)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| path.to_string())
 }
 
 #[cfg(feature = "tui")]
@@ -765,7 +877,9 @@ async fn expand_file_refs(input: &str) -> String {
     while let Some(at_pos) = remaining.find('@') {
         result.push_str(&remaining[..at_pos]);
         let after = &remaining[at_pos + 1..];
-        let end = after.find(|c: char| c.is_whitespace() || c == '\n').unwrap_or(after.len());
+        let end = after
+            .find(|c: char| c.is_whitespace() || c == '\n')
+            .unwrap_or(after.len());
         let path = &after[..end];
         match tokio::fs::read_to_string(path).await {
             Ok(content) => {
@@ -786,7 +900,9 @@ async fn expand_file_refs(input: &str) -> String {
 fn compute_diff_from_args(args: &serde_json::Value) -> Option<String> {
     let old = args.get("old_string").and_then(|v| v.as_str())?;
     let new = args.get("new_string").and_then(|v| v.as_str())?;
-    if old == new { return None; }
+    if old == new {
+        return None;
+    }
     let diff = crate::diff::diff_text(old, new);
     let mut lines: Vec<&str> = diff.patch.lines().collect();
     if lines.len() > 20 {

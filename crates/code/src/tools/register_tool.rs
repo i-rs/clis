@@ -1,15 +1,19 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
+use crate::config::Config;
 use crate::protocol::handler::AGENT_MODE;
 use crate::tools::{Tool, ToolResult};
-use crate::config::Config;
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct RegisterTool;
 
 #[async_trait]
 impl Tool for RegisterTool {
-    fn name(&self) -> &str { "register_tool" }
-    fn description(&self) -> &str { "Register a created tool in the manifest for claw discovery" }
+    fn name(&self) -> &str {
+        "register_tool"
+    }
+    fn description(&self) -> &str {
+        "Register a created tool in the manifest for claw discovery"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -35,14 +39,31 @@ impl Tool for RegisterTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let name = args.get("name").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("name required"))?;
-        let description = args.get("description").and_then(|v| v.as_str()).unwrap_or("");
-        let commands: Vec<String> = args.get("commands")
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("name required"))?;
+        let description = args
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let commands: Vec<String> = args
+            .get("commands")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
-        let source_path = args.get("source_path").and_then(|v| v.as_str()).unwrap_or("");
-        let binary_path = args.get("binary_path").and_then(|v| v.as_str()).unwrap_or("");
+        let source_path = args
+            .get("source_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let binary_path = args
+            .get("binary_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         // In agent mode, output tool_created event for claw
         if AGENT_MODE.load(std::sync::atomic::Ordering::Relaxed) {
@@ -55,7 +76,8 @@ impl Tool for RegisterTool {
                     "source_path": source_path,
                     "binary_path": binary_path
                 }
-            }).to_string());
+            })
+            .to_string());
         }
 
         // Standalone mode: update manifest directly

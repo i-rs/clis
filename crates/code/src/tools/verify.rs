@@ -1,12 +1,14 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct VerifyTool;
 
 #[async_trait]
 impl Tool for VerifyTool {
-    fn name(&self) -> &str { "verify" }
+    fn name(&self) -> &str {
+        "verify"
+    }
     fn description(&self) -> &str {
         "Run progressive verification: check -> clippy -> test -> fmt. Returns results at first failure."
     }
@@ -36,11 +38,26 @@ impl Tool for VerifyTool {
             Some(p) => format!("-p {}", p),
             None => "--workspace".to_string(),
         };
-        let skip_check = args.get("skip_check").and_then(|v| v.as_bool()).unwrap_or(false);
-        let skip_clippy = args.get("skip_clippy").and_then(|v| v.as_bool()).unwrap_or(false);
-        let skip_test = args.get("skip_test").and_then(|v| v.as_bool()).unwrap_or(false);
-        let skip_fmt = args.get("skip_fmt").and_then(|v| v.as_bool()).unwrap_or(false);
-        let timeout_secs = args.get("timeout_secs").and_then(|v| v.as_u64()).unwrap_or(300);
+        let skip_check = args
+            .get("skip_check")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let skip_clippy = args
+            .get("skip_clippy")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let skip_test = args
+            .get("skip_test")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let skip_fmt = args
+            .get("skip_fmt")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let timeout_secs = args
+            .get("timeout_secs")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(300);
         let timeout = std::time::Duration::from_secs(timeout_secs);
 
         let mut report = Vec::new();
@@ -49,36 +66,75 @@ impl Tool for VerifyTool {
         if !skip_check {
             report.push(format!("--- Step 1: cargo check {} ---", pkg_flag));
             match run_cargo(&["check", &pkg_flag], timeout).await {
-                StepResult::Pass => { passed += 1; report.push("PASS".into()); }
-                StepResult::Fail(out) => { report.push(format!("FAIL\n{}", out)); return Ok(report.join("\n")); }
-                StepResult::Timeout => { report.push(format!("TIMEOUT after {}s", timeout_secs)); return Ok(report.join("\n")); }
+                StepResult::Pass => {
+                    passed += 1;
+                    report.push("PASS".into());
+                }
+                StepResult::Fail(out) => {
+                    report.push(format!("FAIL\n{}", out));
+                    return Ok(report.join("\n"));
+                }
+                StepResult::Timeout => {
+                    report.push(format!("TIMEOUT after {}s", timeout_secs));
+                    return Ok(report.join("\n"));
+                }
             }
         }
 
         if !skip_clippy {
-            report.push(format!("--- Step 2: cargo clippy {} -- -D warnings ---", pkg_flag));
+            report.push(format!(
+                "--- Step 2: cargo clippy {} -- -D warnings ---",
+                pkg_flag
+            ));
             match run_cargo(&["clippy", &pkg_flag, "--", "-D", "warnings"], timeout).await {
-                StepResult::Pass => { passed += 1; report.push("PASS".into()); }
-                StepResult::Fail(out) => { report.push(format!("FAIL\n{}", out)); return Ok(report.join("\n")); }
-                StepResult::Timeout => { report.push(format!("TIMEOUT after {}s", timeout_secs)); return Ok(report.join("\n")); }
+                StepResult::Pass => {
+                    passed += 1;
+                    report.push("PASS".into());
+                }
+                StepResult::Fail(out) => {
+                    report.push(format!("FAIL\n{}", out));
+                    return Ok(report.join("\n"));
+                }
+                StepResult::Timeout => {
+                    report.push(format!("TIMEOUT after {}s", timeout_secs));
+                    return Ok(report.join("\n"));
+                }
             }
         }
 
         if !skip_test {
             report.push(format!("--- Step 3: cargo test {} ---", pkg_flag));
             match run_cargo(&["test", &pkg_flag], timeout).await {
-                StepResult::Pass => { passed += 1; report.push("PASS".into()); }
-                StepResult::Fail(out) => { report.push(format!("FAIL\n{}", out)); return Ok(report.join("\n")); }
-                StepResult::Timeout => { report.push(format!("TIMEOUT after {}s", timeout_secs)); return Ok(report.join("\n")); }
+                StepResult::Pass => {
+                    passed += 1;
+                    report.push("PASS".into());
+                }
+                StepResult::Fail(out) => {
+                    report.push(format!("FAIL\n{}", out));
+                    return Ok(report.join("\n"));
+                }
+                StepResult::Timeout => {
+                    report.push(format!("TIMEOUT after {}s", timeout_secs));
+                    return Ok(report.join("\n"));
+                }
             }
         }
 
         if !skip_fmt {
             report.push("--- Step 4: cargo fmt --all --check ---".into());
             match run_cargo(&["fmt", "--all", "--check"], timeout).await {
-                StepResult::Pass => { passed += 1; report.push("PASS".into()); }
-                StepResult::Fail(out) => { report.push(format!("FAIL\n{}", out)); return Ok(report.join("\n")); }
-                StepResult::Timeout => { report.push(format!("TIMEOUT after {}s", timeout_secs)); return Ok(report.join("\n")); }
+                StepResult::Pass => {
+                    passed += 1;
+                    report.push("PASS".into());
+                }
+                StepResult::Fail(out) => {
+                    report.push(format!("FAIL\n{}", out));
+                    return Ok(report.join("\n"));
+                }
+                StepResult::Timeout => {
+                    report.push(format!("TIMEOUT after {}s", timeout_secs));
+                    return Ok(report.join("\n"));
+                }
             }
         }
 
@@ -94,9 +150,11 @@ enum StepResult {
 }
 
 async fn run_cargo(args: &[&str], timeout: std::time::Duration) -> StepResult {
-    let result = tokio::time::timeout(timeout,
-        tokio::process::Command::new("cargo").args(args).output()
-    ).await;
+    let result = tokio::time::timeout(
+        timeout,
+        tokio::process::Command::new("cargo").args(args).output(),
+    )
+    .await;
 
     match result {
         Err(_) => StepResult::Timeout,
@@ -115,8 +173,13 @@ async fn run_cargo(args: &[&str], timeout: std::time::Duration) -> StepResult {
 
 fn combine_output(stdout: &str, stderr: &str) -> String {
     let mut out = String::new();
-    if !stdout.is_empty() { out.push_str(stdout); }
-    if !stderr.is_empty() { out.push('\n'); out.push_str(stderr); }
+    if !stdout.is_empty() {
+        out.push_str(stdout);
+    }
+    if !stderr.is_empty() {
+        out.push('\n');
+        out.push_str(stderr);
+    }
     out
 }
 

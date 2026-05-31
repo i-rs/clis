@@ -28,14 +28,27 @@ impl ProviderError {
     pub fn from_message(msg: &str) -> Self {
         let lower = msg.to_lowercase();
         if lower.contains("rate") || lower.contains("限流") || lower.contains("quota") {
-            Self::RateLimited { retry_after_ms: None }
+            Self::RateLimited {
+                retry_after_ms: None,
+            }
         } else if lower.contains("timeout") || lower.contains("timed out") {
             Self::Timeout
-        } else if lower.contains("context_length") || lower.contains("max tokens") || lower.contains("token limit") || lower.contains("context window") {
+        } else if lower.contains("context_length")
+            || lower.contains("max tokens")
+            || lower.contains("token limit")
+            || lower.contains("context window")
+        {
             Self::ContextLengthExceeded
-        } else if lower.contains("auth") || lower.contains("unauthorized") || lower.contains("401") || lower.contains("invalid api key") {
+        } else if lower.contains("auth")
+            || lower.contains("unauthorized")
+            || lower.contains("401")
+            || lower.contains("invalid api key")
+        {
             Self::AuthFailed
-        } else if lower.contains("connection") || lower.contains("econnreset") || lower.contains("econnrefused") {
+        } else if lower.contains("connection")
+            || lower.contains("econnreset")
+            || lower.contains("econnrefused")
+        {
             Self::ConnectionFailed
         } else if lower.contains("502") || lower.contains("503") || lower.contains("504") {
             Self::ServerError { status: 502 }
@@ -45,6 +58,12 @@ impl ProviderError {
     }
 
     pub fn is_retryable(&self) -> bool {
-        matches!(self, Self::RateLimited { .. } | Self::Timeout | Self::ServerError { .. } | Self::ConnectionFailed)
+        matches!(
+            self,
+            Self::RateLimited { .. }
+                | Self::Timeout
+                | Self::ServerError { .. }
+                | Self::ConnectionFailed
+        )
     }
 }

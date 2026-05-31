@@ -11,7 +11,11 @@ pub fn run_mcp_list() {
     println!("Configured MCP servers:");
     for server in &config.mcp_servers {
         let transport = &server.transport_type;
-        let target = server.command.as_deref().or(server.url.as_deref()).unwrap_or("?");
+        let target = server
+            .command
+            .as_deref()
+            .or(server.url.as_deref())
+            .unwrap_or("?");
         println!("  {} ({}: {})", server.name, transport, target);
     }
 }
@@ -28,7 +32,11 @@ pub async fn run_mcp_add(
         anyhow::bail!("MCP server '{}' already configured.", name);
     }
 
-    let transport_type = if url.is_some() { "sse".into() } else { "stdio".into() };
+    let transport_type = if url.is_some() {
+        "sse".into()
+    } else {
+        "stdio".into()
+    };
     let server = config::McpServerConfig {
         name: name.to_string(),
         transport_type,
@@ -46,7 +54,10 @@ pub async fn run_mcp_add(
 
 pub async fn run_mcp_remove(name: &str) -> anyhow::Result<()> {
     let mut config = Config::load()?;
-    let idx = config.mcp_servers.iter().position(|s| s.name == name)
+    let idx = config
+        .mcp_servers
+        .iter()
+        .position(|s| s.name == name)
         .ok_or_else(|| anyhow::anyhow!("MCP server '{}' not found.", name))?;
 
     config.mcp_servers.remove(idx);
@@ -57,16 +68,26 @@ pub async fn run_mcp_remove(name: &str) -> anyhow::Result<()> {
 
 pub async fn run_mcp_test(name: &str) -> anyhow::Result<()> {
     let config = Config::load()?;
-    let server = config.mcp_servers.iter().find(|s| s.name == name)
+    let server = config
+        .mcp_servers
+        .iter()
+        .find(|s| s.name == name)
         .ok_or_else(|| anyhow::anyhow!("MCP server '{}' not found.", name))?;
 
     if server.transport_type != "stdio" {
-        anyhow::bail!("Only stdio transport is supported for testing (got: {})", server.transport_type);
+        anyhow::bail!(
+            "Only stdio transport is supported for testing (got: {})",
+            server.transport_type
+        );
     }
 
-    let command = server.command.as_deref()
+    let command = server
+        .command
+        .as_deref()
         .ok_or_else(|| anyhow::anyhow!("No command configured for MCP server '{}'", name))?;
-    let args: Vec<&str> = server.args.as_ref()
+    let args: Vec<&str> = server
+        .args
+        .as_ref()
         .map(|a| a.iter().map(|s| s.as_str()).collect())
         .unwrap_or_default();
 

@@ -30,7 +30,9 @@ impl InputState {
     }
 
     pub fn history_up(&mut self) {
-        if self.history.is_empty() { return; }
+        if self.history.is_empty() {
+            return;
+        }
         if self.history_index.is_none() {
             self.draft = self.content.clone();
             self.history_index = Some(self.history.len() - 1);
@@ -73,7 +75,11 @@ impl InputState {
 
     pub fn delete_char(&mut self) {
         if self.cursor_pos > 0 {
-            let len = self.content[..self.cursor_pos].chars().last().map(|c| c.len_utf8()).unwrap_or(1);
+            let len = self.content[..self.cursor_pos]
+                .chars()
+                .last()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
             self.cursor_pos -= len;
             self.content.remove(self.cursor_pos);
         }
@@ -81,21 +87,33 @@ impl InputState {
 
     pub fn delete_forward(&mut self) {
         if self.cursor_pos < self.content.len() {
-            let len = self.content[self.cursor_pos..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
+            let len = self.content[self.cursor_pos..]
+                .chars()
+                .next()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
             self.content.drain(self.cursor_pos..self.cursor_pos + len);
         }
     }
 
     pub fn move_left(&mut self) {
         if self.cursor_pos > 0 {
-            let len = self.content[..self.cursor_pos].chars().last().map(|c| c.len_utf8()).unwrap_or(1);
+            let len = self.content[..self.cursor_pos]
+                .chars()
+                .last()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
             self.cursor_pos -= len;
         }
     }
 
     pub fn move_right(&mut self) {
         if self.cursor_pos < self.content.len() {
-            let len = self.content[self.cursor_pos..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
+            let len = self.content[self.cursor_pos..]
+                .chars()
+                .next()
+                .map(|c| c.len_utf8())
+                .unwrap_or(1);
             self.cursor_pos += len;
         }
     }

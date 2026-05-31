@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
-use crate::tools::{Tool, ToolResult};
 use super::fs::resolve_safe_path;
+use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 #[cfg(test)]
 mod tests {
@@ -21,7 +21,12 @@ mod tests {
         let params = &schema["function"]["parameters"];
         assert!(params["properties"]["path"].is_object());
         assert!(params["properties"]["recursive"].is_object());
-        assert!(params["required"].as_array().unwrap().contains(&json!("path")));
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("path"))
+        );
     }
 
     #[tokio::test]
@@ -38,8 +43,12 @@ pub struct DeleteTool;
 
 #[async_trait]
 impl Tool for DeleteTool {
-    fn name(&self) -> &str { "delete" }
-    fn description(&self) -> &str { "Delete a file or directory. Use recursive=true for non-empty directories." }
+    fn name(&self) -> &str {
+        "delete"
+    }
+    fn description(&self) -> &str {
+        "Delete a file or directory. Use recursive=true for non-empty directories."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -58,8 +67,14 @@ impl Tool for DeleteTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let path = args.get("path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("path required"))?;
-        let recursive = args.get("recursive").and_then(|v| v.as_bool()).unwrap_or(false);
+        let path = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("path required"))?;
+        let recursive = args
+            .get("recursive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let safe_path = resolve_safe_path(path)?;
 
         if !safe_path.exists() {
@@ -72,7 +87,10 @@ impl Tool for DeleteTool {
                 Ok(format!("Deleted directory {} (recursive)", path))
             } else {
                 if safe_path.read_dir()?.next().is_some() {
-                    anyhow::bail!("Directory not empty: {}. Use recursive=true to delete.", path);
+                    anyhow::bail!(
+                        "Directory not empty: {}. Use recursive=true to delete.",
+                        path
+                    );
                 }
                 std::fs::remove_dir(&safe_path)?;
                 Ok(format!("Deleted empty directory {}", path))

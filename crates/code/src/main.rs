@@ -1,37 +1,40 @@
-pub mod error;
-mod cli;
-mod config;
-mod app;
 mod agent;
-mod tools;
-mod provider;
-mod protocol;
-mod memory;
+mod app;
+mod cli;
+mod commands;
+mod config;
 mod convstore;
-mod router;
-mod diff;
-mod session;
-mod utils;
 mod debug;
+mod diff;
+pub mod error;
+mod lsp;
+mod mcp;
+mod memory;
+mod prompt;
+mod protocol;
+mod provider;
+mod pty;
+mod router;
+mod runtime;
+mod session;
+mod skill_store;
 #[cfg(test)]
 mod testing;
-mod lsp;
-mod pty;
-mod mcp;
-mod prompt;
-mod skill_store;
-mod runtime;
 mod tokenizer;
+mod tools;
 mod tui;
-mod commands;
+mod utils;
 
 use clap::Parser;
-use cli::{Cli, Commands, ConfigCommands, SessionsCommands, McpCommands, PluginsCommands, SkillCommands, SystemPromptCommands};
+use cli::{
+    Cli, Commands, ConfigCommands, McpCommands, PluginsCommands, SessionsCommands, SkillCommands,
+    SystemPromptCommands,
+};
 use config::Config;
 
 fn init_tracing() {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "info".into());
+    let filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(true)
@@ -58,14 +61,23 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(feature = "tui")]
             {
                 if config.api_key.as_ref().is_none_or(|k| k.trim().is_empty()) {
-                    println!("⚠  API key not configured. The AI agent won't work until you set it up.");
+                    println!(
+                        "⚠  API key not configured. The AI agent won't work until you set it up."
+                    );
                     println!("   Run:  i-rs-code config init");
                     println!();
                 }
                 let mut app = app::App::new(config.clone(), session.clone());
                 let tools = tools::ToolRegistry::new(&config)?;
-                app.tool_names = tools.schemas().iter()
-                    .filter_map(|s| s.get("function").and_then(|f| f.get("name")).and_then(|n| n.as_str()).map(String::from))
+                app.tool_names = tools
+                    .schemas()
+                    .iter()
+                    .filter_map(|s| {
+                        s.get("function")
+                            .and_then(|f| f.get("name"))
+                            .and_then(|n| n.as_str())
+                            .map(String::from)
+                    })
                     .collect();
                 if let Some(sid) = session {
                     let sessions_dir = config::i_rs_code_dir().join("sessions");
@@ -115,11 +127,18 @@ async fn main() -> anyhow::Result<()> {
             SystemPromptCommands::Show { full } => {
                 let (content, source) = if *full {
                     let project_info = config::ProjectInfo::detect();
-                    (prompt::build_system_prompt(&project_info), "built dynamically".to_string())
+                    (
+                        prompt::build_system_prompt(&project_info),
+                        "built dynamically".to_string(),
+                    )
                 } else {
                     (prompt::load_system_prompt(), {
                         let path = prompt::system_prompt_path();
-                        if path.exists() { format!("file: {:?}", path) } else { "built-in default".to_string() }
+                        if path.exists() {
+                            format!("file: {:?}", path)
+                        } else {
+                            "built-in default".to_string()
+                        }
                     })
                 };
                 println!("── System Prompt ({}) ──", source);
@@ -144,7 +163,13 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 println!("Found {} results:", results.len());
                 for (i, r) in results.iter().enumerate() {
-                    println!("  {}. [{}] {} ({})", i + 1, r.message_type, r.excerpt, r.session_id);
+                    println!(
+                        "  {}. [{}] {} ({})",
+                        i + 1,
+                        r.message_type,
+                        r.excerpt,
+                        r.session_id
+                    );
                 }
             }
         }
@@ -179,7 +204,13 @@ async fn main() -> anyhow::Result<()> {
             McpCommands::List => {
                 commands::run_mcp_list();
             }
-            McpCommands::Add { name, command, args, url, env } => {
+            McpCommands::Add {
+                name,
+                command,
+                args,
+                url,
+                env,
+            } => {
                 commands::run_mcp_add(name, command, args, url, env).await?;
             }
             McpCommands::Remove { name } => {

@@ -43,9 +43,7 @@ fn build_cached_context(project_info: &ProjectInfo) -> BuildContextCache {
         .args(["status", "--short"])
         .output()
         .ok()
-        .map(|o| {
-            String::from_utf8_lossy(&o.stdout).trim().to_string()
-        })
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_default();
 
@@ -75,7 +73,13 @@ fn build_cached_context(project_info: &ProjectInfo) -> BuildContextCache {
         String::new()
     };
 
-    BuildContextCache { key: cache_key(), dir, branch, git_status, workspace_crates }
+    BuildContextCache {
+        key: cache_key(),
+        dir,
+        branch,
+        git_status,
+        workspace_crates,
+    }
 }
 
 pub fn build_context(project_info: &ProjectInfo) -> String {
@@ -217,9 +221,17 @@ fn system_prompt_cache_key(project_info: &ProjectInfo) -> String {
         .metadata()
         .ok()
         .and_then(|m| m.modified().ok())
-        .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs())
+        .map(|t| {
+            t.duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs()
+        })
         .unwrap_or(0);
-    let agent_len = project_info.agents_md_content.as_ref().map(|s| s.len()).unwrap_or(0);
+    let agent_len = project_info
+        .agents_md_content
+        .as_ref()
+        .map(|s| s.len())
+        .unwrap_or(0);
     format!("{}:{}:{}", ctx_key, mtime, agent_len)
 }
 
@@ -227,7 +239,9 @@ static SYSTEM_PROMPT_CACHE: Mutex<Option<(String, String)>> = Mutex::new(None);
 
 pub fn build_system_prompt(project_info: &ProjectInfo) -> String {
     let key = system_prompt_cache_key(project_info);
-    let mut guard = SYSTEM_PROMPT_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut guard = SYSTEM_PROMPT_CACHE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     if let Some((ref cached_key, ref cached_prompt)) = *guard {
         if cached_key == &key {
             return cached_prompt.clone();
@@ -256,7 +270,14 @@ fn build_system_prompt_inner(project_info: &ProjectInfo) -> String {
     if let Some(content) = &project_info.agents_md_content {
         let truncated = if content.len() > 8000 {
             let head: String = content.chars().take(4000).collect();
-            let tail: String = content.chars().rev().take(2000).collect::<String>().chars().rev().collect();
+            let tail: String = content
+                .chars()
+                .rev()
+                .take(2000)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect();
             format!("{}\n\n[...truncated...]\n\n{}", head, tail)
         } else {
             content.clone()
@@ -287,7 +308,10 @@ mod tests {
             cursor_rules_content: None,
         };
         let ctx = build_context(&info);
-        assert!(!ctx.is_empty(), "build_context should return a non-empty string");
+        assert!(
+            !ctx.is_empty(),
+            "build_context should return a non-empty string"
+        );
         assert!(ctx.contains("rust"), "should contain project type");
     }
 

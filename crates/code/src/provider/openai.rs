@@ -1,8 +1,8 @@
-use async_trait::async_trait;
 use crate::config::Config;
 use crate::provider::*;
+use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub struct OpenAiProvider {
     client: Client,
@@ -13,13 +13,18 @@ pub struct OpenAiProvider {
 
 impl OpenAiProvider {
     pub fn new(config: &Config) -> anyhow::Result<Self> {
-        let api_key = config.api_key.clone()
+        let api_key = config
+            .api_key
+            .clone()
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .ok_or_else(|| anyhow::anyhow!("OPENAI_API_KEY not set"))?;
         Ok(Self {
             client: Client::new(),
             api_key,
-            base_url: config.effective_base_url().trim_end_matches('/').to_string(),
+            base_url: config
+                .effective_base_url()
+                .trim_end_matches('/')
+                .to_string(),
             model: config.effective_model().to_string(),
         })
     }
@@ -31,14 +36,27 @@ impl OpenAiProvider {
                 LlmMessage::System(c) => out.push(json!({"role": "system", "content": c})),
                 LlmMessage::User(c) => out.push(json!({"role": "user", "content": c})),
                 LlmMessage::Assistant(c) => out.push(json!({"role": "assistant", "content": c})),
-                LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls } => {
-                    let content_val = if content.is_empty() { Value::String(String::new()) } else { Value::String(content.clone()) };
+                LlmMessage::AssistantWithReasoning {
+                    content,
+                    reasoning,
+                    tool_calls,
+                } => {
+                    let content_val = if content.is_empty() {
+                        Value::String(String::new())
+                    } else {
+                        Value::String(content.clone())
+                    };
                     if !tool_calls.is_empty() {
-                        let tcs: Vec<Value> = tool_calls.iter().map(|tc| json!({
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {"name": tc.name, "arguments": tc.args.to_string()}
-                        })).collect();
+                        let tcs: Vec<Value> = tool_calls
+                            .iter()
+                            .map(|tc| {
+                                json!({
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {"name": tc.name, "arguments": tc.args.to_string()}
+                                })
+                            })
+                            .collect();
                         let mut msg = json!({
                             "role": "assistant",
                             "content": content_val,
@@ -59,7 +77,11 @@ impl OpenAiProvider {
                         out.push(msg);
                     }
                 }
-                LlmMessage::Tool { name, content, call_id } => {
+                LlmMessage::Tool {
+                    name,
+                    content,
+                    call_id,
+                } => {
                     out.push(json!({"role": "tool", "tool_call_id": call_id, "name": name, "content": content}));
                 }
                 LlmMessage::ToolCall { id, name, args } => {
@@ -73,13 +95,11 @@ impl OpenAiProvider {
 
 #[async_trait]
 impl LlmProvider for OpenAiProvider {
-    fn name(&self) -> &str { "openai" }
+    fn name(&self) -> &str {
+        "openai"
+    }
 
-    async fn stream(
-        &self,
-        messages: &[LlmMessage],
-        tool_defs: &[Value],
-    ) -> StreamRx {
+    async fn stream(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> StreamRx {
         let (tx, rx) = mpsc::channel(256);
         let client = self.client.clone();
         let url = format!("{}/chat/completions", self.base_url);
@@ -101,7 +121,8 @@ impl LlmProvider for OpenAiProvider {
         tokio::spawn(async move {
             let start = std::time::Instant::now();
 
-            let res = match client.post(&url)
+            let res = match client
+                .post(&url)
                 .header("Authorization", format!("Bearer {}", api_key))
                 .json(&body)
                 .send()
@@ -117,7 +138,11 @@ impl LlmProvider for OpenAiProvider {
                         duration_ms: start.elapsed().as_millis() as u64,
                         timestamp: chrono::Utc::now().to_rfc3339(),
                     });
-                    tx.send(StreamEvent { kind: StreamEventKind::Error(e.to_string()) }).await.ok();
+                    tx.send(StreamEvent {
+                        kind: StreamEventKind::Error(e.to_string()),
+                    })
+                    .await
+                    .ok();
                     return;
                 }
             };
@@ -135,7 +160,14 @@ impl LlmProvider for OpenAiProvider {
                     duration_ms: start.elapsed().as_millis() as u64,
                     timestamp: chrono::Utc::now().to_rfc3339(),
                 });
-                tx.send(StreamEvent { kind: StreamEventKind::Error(format!("API error ({}): {}", status_code, body_text)) }).await.ok();
+                tx.send(StreamEvent {
+                    kind: StreamEventKind::Error(format!(
+                        "API error ({}): {}",
+                        status_code, body_text
+                    )),
+                })
+                .await
+                .ok();
                 return;
             }
 
@@ -143,7 +175,8 @@ impl LlmProvider for OpenAiProvider {
             let mut buf = String::new();
             let mut stream = res.bytes_stream();
             let mut final_usage: Option<Usage> = None;
-            let mut tool_call_accum: std::collections::HashMap<u32, (String, String, String)> = std::collections::HashMap::new();
+            let mut tool_call_accum: std::collections::HashMap<u32, (String, String, String)> =
+                std::collections::HashMap::new();
             use futures::StreamExt;
             while let Some(chunk) = stream.next().await {
                 let chunk = match chunk {
@@ -152,33 +185,56 @@ impl LlmProvider for OpenAiProvider {
                         c
                     }
                     Err(e) => {
-                        tx.send(StreamEvent { kind: StreamEventKind::Error(e.to_string()) }).await.ok();
+                        tx.send(StreamEvent {
+                            kind: StreamEventKind::Error(e.to_string()),
+                        })
+                        .await
+                        .ok();
                         return;
                     }
                 };
                 for evt in crate::provider::sse::parse_sse(&mut buf, &chunk) {
-                    if evt.data == "[DONE]" { continue; }
+                    if evt.data == "[DONE]" {
+                        continue;
+                    }
                     if let Ok(val) = serde_json::from_str::<Value>(&evt.data) {
                         if val.get("usage").and_then(|u| u.as_object()).is_some() {
                             let input = val["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
-                            let output = val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
-                            final_usage = Some(Usage { input_tokens: input, output_tokens: output });
+                            let output =
+                                val["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
+                            final_usage = Some(Usage {
+                                input_tokens: input,
+                                output_tokens: output,
+                            });
                         }
                         if let Some(choices) = val["choices"].as_array() {
                             for choice in choices {
                                 let delta = &choice["delta"];
                                 if let Some(content) = delta["content"].as_str()
-                                    && !content.is_empty() {
-                                        tx.send(StreamEvent { kind: StreamEventKind::Token(content.to_string()) }).await.ok();
-                                    }
+                                    && !content.is_empty()
+                                {
+                                    tx.send(StreamEvent {
+                                        kind: StreamEventKind::Token(content.to_string()),
+                                    })
+                                    .await
+                                    .ok();
+                                }
                                 if let Some(reasoning) = delta["reasoning_content"].as_str()
-                                    && !reasoning.is_empty() {
-                                        tx.send(StreamEvent { kind: StreamEventKind::Reasoning(reasoning.to_string()) }).await.ok();
-                                    }
+                                    && !reasoning.is_empty()
+                                {
+                                    tx.send(StreamEvent {
+                                        kind: StreamEventKind::Reasoning(reasoning.to_string()),
+                                    })
+                                    .await
+                                    .ok();
+                                }
                                 if let Some(tcs) = delta["tool_calls"].as_array() {
                                     for tc in tcs {
                                         let idx = tc["index"].as_u64().unwrap_or(0) as u32;
-                                        let entry = tool_call_accum.entry(idx).or_insert_with(|| (String::new(), String::new(), String::new()));
+                                        let entry =
+                                            tool_call_accum.entry(idx).or_insert_with(|| {
+                                                (String::new(), String::new(), String::new())
+                                            });
                                         if let Some(id) = tc["id"].as_str() {
                                             entry.0 = id.to_string();
                                         }
@@ -197,10 +253,20 @@ impl LlmProvider for OpenAiProvider {
             }
             for idx in 0..tool_call_accum.len() as u32 {
                 if let Some((id, name, args_str)) = tool_call_accum.remove(&idx)
-                    && !id.is_empty() && !name.is_empty() {
-                        let args_val = serde_json::from_str(&args_str).unwrap_or(serde_json::json!({}));
-                        tx.send(StreamEvent { kind: StreamEventKind::ToolCall { id, name, args: args_val } }).await.ok();
-                    }
+                    && !id.is_empty()
+                    && !name.is_empty()
+                {
+                    let args_val = serde_json::from_str(&args_str).unwrap_or(serde_json::json!({}));
+                    tx.send(StreamEvent {
+                        kind: StreamEventKind::ToolCall {
+                            id,
+                            name,
+                            args: args_val,
+                        },
+                    })
+                    .await
+                    .ok();
+                }
             }
 
             crate::debug::push_log(crate::debug::HttpLogEntry {
@@ -212,7 +278,11 @@ impl LlmProvider for OpenAiProvider {
                 timestamp: chrono::Utc::now().to_rfc3339(),
             });
 
-            tx.send(StreamEvent { kind: StreamEventKind::Done { usage: final_usage } }).await.ok();
+            tx.send(StreamEvent {
+                kind: StreamEventKind::Done { usage: final_usage },
+            })
+            .await
+            .ok();
         });
 
         rx
@@ -230,14 +300,20 @@ impl LlmProvider for OpenAiProvider {
         while let Some(event) = rx.recv().await {
             match event.kind {
                 StreamEventKind::Token(t) => content.push_str(&t),
-                StreamEventKind::ToolCall { id, name, args } => tool_calls.push(ToolCall { id, name, args }),
+                StreamEventKind::ToolCall { id, name, args } => {
+                    tool_calls.push(ToolCall { id, name, args })
+                }
                 StreamEventKind::Done { usage: u, .. } => usage = u,
                 StreamEventKind::Error(e) => anyhow::bail!("chat error: {}", e),
                 StreamEventKind::Reasoning(_) => {}
             }
         }
         Ok(LlmResponse {
-            content: if content.is_empty() { None } else { Some(content) },
+            content: if content.is_empty() {
+                None
+            } else {
+                Some(content)
+            },
             reasoning: String::new(),
             tool_calls,
             usage,

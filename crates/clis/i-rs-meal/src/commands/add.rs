@@ -17,9 +17,7 @@ pub fn handle_add(
 ) -> Result<()> {
     let mut store = storage::load_store()?;
 
-    let date_str = date.unwrap_or_else(|| {
-        chrono::Utc::now().format("%Y-%m-%d").to_string()
-    });
+    let date_str = date.unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
     let parsed_date = parse_date(&date_str)?;
 
     let entry = service::add_meal(

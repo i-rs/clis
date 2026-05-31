@@ -15,7 +15,7 @@ pub use example::handle_example;
 pub use get::handle_get;
 pub use list::handle_list;
 pub use plan::{handle_plan_add, handle_plan_delete, handle_plan_get, handle_plan_list};
-pub use skill::{handle_skill};
+pub use skill::handle_skill;
 pub use stats::handle_stats;
 pub use update::handle_update;
 

@@ -1,7 +1,7 @@
 use crate::models::ListItem;
 use crate::presentation::{OutputFormat, output_item, print_success};
-use crate::storage;
 use crate::service;
+use crate::storage;
 use chrono::{DateTime, Utc};
 
 pub fn handle_update(

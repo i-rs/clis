@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use commands::{
-    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill,
-    handle_update,
+    handle_add, handle_delete, handle_example, handle_get, handle_list, handle_skill, handle_update,
 };
 use presentation::OutputFormat;
 
@@ -119,7 +118,9 @@ fn run(command: Commands, format: OutputFormat) -> anyhow::Result<()> {
             remark,
             date,
         } => {
-            handle_update(id, meal_type, food_items, calories, tag, remark, date, format)?;
+            handle_update(
+                id, meal_type, food_items, calories, tag, remark, date, format,
+            )?;
         }
         Commands::Get { id, date } => {
             handle_get(id, date, format)?;

@@ -31,21 +31,38 @@ pub fn handle_get(id: String, format: OutputFormat) -> Result<()> {
         println!(
             "  {:16} {}",
             "Tags:".bold(),
-            record.tags.iter().map(|t| t.magenta().to_string()).collect::<Vec<_>>().join(", ")
+            record
+                .tags
+                .iter()
+                .map(|t| t.magenta().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         );
     }
     if !record.remark.is_empty() {
-        println!("  {:16} {}", "Remark:".bold(), record.remark.join("; ").dimmed());
+        println!(
+            "  {:16} {}",
+            "Remark:".bold(),
+            record.remark.join("; ").dimmed()
+        );
     }
     println!(
         "  {:16} {}",
         "Created:".bold(),
-        record.created_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+        record
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
     );
     println!(
         "  {:16} {}",
         "Updated:".bold(),
-        record.updated_at.format("%Y-%m-%d %H:%M:%S").to_string().dimmed()
+        record
+            .updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+            .dimmed()
     );
 
     Ok(())

@@ -1,12 +1,14 @@
+use crate::tools::{Tool, ToolError, ToolResult};
 use async_trait::async_trait;
-use serde_json::{json, Value, Map};
-use crate::tools::{Tool, ToolResult, ToolError};
+use serde_json::{Map, Value, json};
 
 pub struct BatchEditTool;
 
 #[async_trait]
 impl Tool for BatchEditTool {
-    fn name(&self) -> &str { "batch_edit" }
+    fn name(&self) -> &str {
+        "batch_edit"
+    }
     fn description(&self) -> &str {
         "Atomically edit multiple files in one operation. Each edit is applied in order; if any fails, all are rolled back."
     }
@@ -39,7 +41,9 @@ impl Tool for BatchEditTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let edits_val = args.get("edits").and_then(|v| v.as_array())
+        let edits_val = args
+            .get("edits")
+            .and_then(|v| v.as_array())
             .ok_or_else(|| ToolError::invalid_args("edits array required"))?;
 
         if edits_val.is_empty() {
@@ -53,12 +57,24 @@ impl Tool for BatchEditTool {
 
         let mut edits: Vec<(String, String, String)> = Vec::new();
         for (i, edit_val) in edits_val.iter().enumerate() {
-            let file = edit_val.get("file_path").and_then(|v| v.as_str())
-                .ok_or_else(|| ToolError::invalid_args(format!("edits[{}].file_path required", i)))?;
-            let old = edit_val.get("old_string").and_then(|v| v.as_str())
-                .ok_or_else(|| ToolError::invalid_args(format!("edits[{}].old_string required", i)))?;
-            let new = edit_val.get("new_string").and_then(|v| v.as_str())
-                .ok_or_else(|| ToolError::invalid_args(format!("edits[{}].new_string required", i)))?;
+            let file = edit_val
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    ToolError::invalid_args(format!("edits[{}].file_path required", i))
+                })?;
+            let old = edit_val
+                .get("old_string")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    ToolError::invalid_args(format!("edits[{}].old_string required", i))
+                })?;
+            let new = edit_val
+                .get("new_string")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    ToolError::invalid_args(format!("edits[{}].new_string required", i))
+                })?;
             let path = std::path::Path::new(file);
             if !path.exists() {
                 return Err(ToolError::not_found_path(file).into());
@@ -69,8 +85,17 @@ impl Tool for BatchEditTool {
         let mut backups: Vec<Backup> = Vec::new();
         for (file, _, _) in &edits {
             match tokio::fs::read_to_string(file).await {
-                Ok(content) => backups.push(Backup { path: file.clone(), original: content }),
-                Err(e) => return Err(ToolError::not_found_path(format!("backup read failed for {}: {}", file, e)).into()),
+                Ok(content) => backups.push(Backup {
+                    path: file.clone(),
+                    original: content,
+                }),
+                Err(e) => {
+                    return Err(ToolError::not_found_path(format!(
+                        "backup read failed for {}: {}",
+                        file, e
+                    ))
+                    .into());
+                }
             }
         }
 
@@ -81,8 +106,10 @@ impl Tool for BatchEditTool {
             for backup in &backups {
                 let _ = tokio::fs::write(&backup.path, &backup.original).await;
             }
-            let tmp_files: Vec<String> = edits.iter()
-                .map(|(f, _, _)| format!("{}.batchtmp", f)).collect();
+            let tmp_files: Vec<String> = edits
+                .iter()
+                .map(|(f, _, _)| format!("{}.batchtmp", f))
+                .collect();
             for tf in &tmp_files {
                 let _ = tokio::fs::remove_file(tf).await;
             }
@@ -95,7 +122,8 @@ impl Tool for BatchEditTool {
 async fn apply_edits(edits: &[(String, String, String)], applied_count: &mut usize) -> ToolResult {
     let mut results = Vec::new();
     for (file, old, new) in edits {
-        let content = tokio::fs::read_to_string(file).await
+        let content = tokio::fs::read_to_string(file)
+            .await
             .map_err(|e| anyhow::anyhow!("read failed for {}: {}", file, e))?;
         if !content.contains(old.as_str()) {
             results.push(format!("{}: old_string not found (skipped)", file));
@@ -103,7 +131,11 @@ async fn apply_edits(edits: &[(String, String, String)], applied_count: &mut usi
         }
         let count = content.matches(old.as_str()).count();
         if count > 1 {
-            return Err(ToolError::invalid_args(format!("{} has {} matches. Use non-ambiguous old_string.", file, count)).into());
+            return Err(ToolError::invalid_args(format!(
+                "{} has {} matches. Use non-ambiguous old_string.",
+                file, count
+            ))
+            .into());
         }
         let new_content = content.replacen(old, new, 1);
         let tmp_path = format!("{}.batchtmp", file);
@@ -114,5 +146,9 @@ async fn apply_edits(edits: &[(String, String, String)], applied_count: &mut usi
         results.push(format!("{}: ok", file));
     }
 
-    Ok(format!("Batch edit ({} operations):\n{}", edits.len(), results.join("\n")))
+    Ok(format!(
+        "Batch edit ({} operations):\n{}",
+        edits.len(),
+        results.join("\n")
+    ))
 }

@@ -42,7 +42,9 @@ impl SkillStore {
     /// Find a skill by name (case-insensitive).
     pub fn get(&self, name: &str) -> Option<Skill> {
         let name_lower = name.to_lowercase();
-        self.list().into_iter().find(|s| s.name.to_lowercase() == name_lower)
+        self.list()
+            .into_iter()
+            .find(|s| s.name.to_lowercase() == name_lower)
     }
 
     /// Load all skills by scanning the skills directory.
@@ -196,20 +198,29 @@ This is the body content.";
     fn test_parse_yaml_scalar_inline() {
         let yaml = "name: hello\ndescription: world\nfoo: bar";
         assert_eq!(parse_yaml_scalar(yaml, "name").as_deref(), Some("hello"));
-        assert_eq!(parse_yaml_scalar(yaml, "description").as_deref(), Some("world"));
+        assert_eq!(
+            parse_yaml_scalar(yaml, "description").as_deref(),
+            Some("world")
+        );
         assert_eq!(parse_yaml_scalar(yaml, "missing"), None);
     }
 
     #[test]
     fn test_parse_yaml_scalar_quoted() {
         let yaml = "name: \"hello world\"";
-        assert_eq!(parse_yaml_scalar(yaml, "name").as_deref(), Some("hello world"));
+        assert_eq!(
+            parse_yaml_scalar(yaml, "name").as_deref(),
+            Some("hello world")
+        );
     }
 
     #[test]
     fn test_parse_yaml_scalar_block_literal() {
         let yaml = "name: test\ndescription: |\n  First line\n  Second line";
-        assert_eq!(parse_yaml_scalar(yaml, "description").as_deref(), Some("First line Second line"));
+        assert_eq!(
+            parse_yaml_scalar(yaml, "description").as_deref(),
+            Some("First line Second line")
+        );
     }
 
     #[test]
@@ -219,7 +230,9 @@ This is the body content.";
         let _ = fs::remove_dir_all(&tmp);
 
         // Override config dir via env
-        unsafe { std::env::set_var("I_RS_CODE_DIR", tmp.to_str().unwrap()); }
+        unsafe {
+            std::env::set_var("I_RS_CODE_DIR", tmp.to_str().unwrap());
+        }
 
         let path = create_skill("test-roundtrip", "Roundtrip test").unwrap();
         assert!(path.exists());
@@ -234,6 +247,8 @@ This is the body content.";
         assert_eq!(fetched.description, "Roundtrip test");
 
         let _ = fs::remove_dir_all(&tmp);
-        unsafe { std::env::remove_var("I_RS_CODE_DIR"); }
+        unsafe {
+            std::env::remove_var("I_RS_CODE_DIR");
+        }
     }
 }

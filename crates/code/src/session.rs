@@ -14,7 +14,11 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn from_agent_messages(id: Option<String>, msgs: &[AgentMessage], agent_msgs: Vec<LlmMessage>) -> Self {
+    pub fn from_agent_messages(
+        id: Option<String>,
+        msgs: &[AgentMessage],
+        agent_msgs: Vec<LlmMessage>,
+    ) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
             id: id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
@@ -65,7 +69,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         let s = Session {
             id: uuid::Uuid::new_v4().to_string(),
-            messages: vec![AgentMessage::user("hello"), AgentMessage::assistant("hi there")],
+            messages: vec![
+                AgentMessage::user("hello"),
+                AgentMessage::assistant("hi there"),
+            ],
             agent_messages: Vec::new(),
             created_at: chrono::Utc::now().to_rfc3339(),
             updated_at: chrono::Utc::now().to_rfc3339(),
@@ -88,10 +95,15 @@ mod tests {
         std::fs::write(dir.join("aaa.json"), "{}").unwrap();
         std::fs::write(dir.join("bbb.json"), "{}").unwrap();
         std::fs::write(dir.join("readme.txt"), "").unwrap();
-        let ids = std::fs::read_dir(&dir).unwrap()
+        let ids = std::fs::read_dir(&dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
-            .filter_map(|e| e.path().file_stem().map(|s| s.to_string_lossy().into_owned()))
+            .filter_map(|e| {
+                e.path()
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+            })
             .collect::<Vec<_>>();
         let mut ids = ids;
         ids.sort();
@@ -144,7 +156,10 @@ mod tests {
         s.save(&dir).expect("save should work");
         let loaded = Session::load("test-id", &dir).expect("load should work");
         assert_eq!(loaded.agent_messages.len(), 2);
-        assert!(matches!(&loaded.agent_messages[0], crate::provider::LlmMessage::System(_)));
+        assert!(matches!(
+            &loaded.agent_messages[0],
+            crate::provider::LlmMessage::System(_)
+        ));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

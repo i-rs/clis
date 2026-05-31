@@ -1,8 +1,8 @@
-use async_trait::async_trait;
 use crate::config::Config;
 use crate::provider::*;
+use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 pub struct AnthropicProvider {
@@ -14,15 +14,22 @@ pub struct AnthropicProvider {
 
 impl AnthropicProvider {
     pub fn new(config: &Config) -> anyhow::Result<Self> {
-        let api_key = config.api_key.clone()
+        let api_key = config
+            .api_key
+            .clone()
             .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
             .ok_or_else(|| anyhow::anyhow!("ANTHROPIC_API_KEY not set"))?;
         Ok(Self {
             client: Client::new(),
             api_key,
-            base_url: config.base_url.clone()
+            base_url: config
+                .base_url
+                .clone()
                 .unwrap_or_else(|| "https://api.anthropic.com".to_string()),
-            model: config.model.clone().unwrap_or_else(|| "claude-sonnet-4-20250514".into()),
+            model: config
+                .model
+                .clone()
+                .unwrap_or_else(|| "claude-sonnet-4-20250514".into()),
         })
     }
 
@@ -41,7 +48,11 @@ impl AnthropicProvider {
                 LlmMessage::Assistant(c) => {
                     anthro_msgs.push(json!({"role": "assistant", "content": c}));
                 }
-                LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls } => {
+                LlmMessage::AssistantWithReasoning {
+                    content,
+                    reasoning,
+                    tool_calls,
+                } => {
                     let mut blocks = Vec::new();
                     if !reasoning.is_empty() {
                         blocks.push(json!({"type": "thinking", "thinking": reasoning}));
@@ -73,7 +84,11 @@ impl AnthropicProvider {
                         }]
                     }));
                 }
-                LlmMessage::Tool { name: _, content, call_id } => {
+                LlmMessage::Tool {
+                    name: _,
+                    content,
+                    call_id,
+                } => {
                     anthro_msgs.push(json!({
                         "role": "user",
                         "content": [{
@@ -120,14 +135,12 @@ impl AnthropicProvider {
                         tool_use_id: None,
                         tool_use_name: None,
                     }),
-                    Some("tool_use") => {
-                        Some(AnthropicEvent::ContentBlockStart {
-                            index,
-                            block_type: "tool_use".to_string(),
-                            tool_use_id: block["id"].as_str().map(|s| s.to_string()),
-                            tool_use_name: block["name"].as_str().map(|s| s.to_string()),
-                        })
-                    }
+                    Some("tool_use") => Some(AnthropicEvent::ContentBlockStart {
+                        index,
+                        block_type: "tool_use".to_string(),
+                        tool_use_id: block["id"].as_str().map(|s| s.to_string()),
+                        tool_use_name: block["name"].as_str().map(|s| s.to_string()),
+                    }),
                     _ => None,
                 }
             }
@@ -170,11 +183,25 @@ impl AnthropicProvider {
 
 #[derive(Debug)]
 enum AnthropicEvent {
-    MessageStart { usage: Option<Usage> },
-    ContentBlockStart { index: usize, block_type: String, tool_use_id: Option<String>, tool_use_name: Option<String> },
-    ContentBlockDelta { index: usize, text: Option<String>, partial_json: Option<String> },
+    MessageStart {
+        usage: Option<Usage>,
+    },
+    ContentBlockStart {
+        index: usize,
+        block_type: String,
+        tool_use_id: Option<String>,
+        tool_use_name: Option<String>,
+    },
+    ContentBlockDelta {
+        index: usize,
+        text: Option<String>,
+        partial_json: Option<String>,
+    },
     ContentBlockStop,
-    MessageDelta { stop_reason: String, usage: Option<Usage> },
+    MessageDelta {
+        stop_reason: String,
+        usage: Option<Usage>,
+    },
     MessageStop,
     Ping,
 }
@@ -190,13 +217,11 @@ struct ContentBlock {
 
 #[async_trait]
 impl LlmProvider for AnthropicProvider {
-    fn name(&self) -> &str { "anthropic" }
+    fn name(&self) -> &str {
+        "anthropic"
+    }
 
-    async fn stream(
-        &self,
-        messages: &[LlmMessage],
-        tool_defs: &[Value],
-    ) -> StreamRx {
+    async fn stream(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> StreamRx {
         let (tx, rx) = mpsc::channel(256);
         let client = self.client.clone();
         let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
@@ -220,7 +245,8 @@ impl LlmProvider for AnthropicProvider {
         }
 
         tokio::spawn(async move {
-            let res = match client.post(&url)
+            let res = match client
+                .post(&url)
                 .header("x-api-key", &api_key)
                 .header("anthropic-version", "2023-06-01")
                 .json(&body)
@@ -229,7 +255,11 @@ impl LlmProvider for AnthropicProvider {
             {
                 Ok(r) => r,
                 Err(e) => {
-                    tx.send(StreamEvent { kind: StreamEventKind::Error(e.to_string()) }).await.ok();
+                    tx.send(StreamEvent {
+                        kind: StreamEventKind::Error(e.to_string()),
+                    })
+                    .await
+                    .ok();
                     return;
                 }
             };
@@ -237,7 +267,14 @@ impl LlmProvider for AnthropicProvider {
             if !res.status().is_success() {
                 let status = res.status();
                 let body_text = res.text().await.unwrap_or_default();
-                tx.send(StreamEvent { kind: StreamEventKind::Error(format!("Anthropic API error ({}): {}", status, body_text)) }).await.ok();
+                tx.send(StreamEvent {
+                    kind: StreamEventKind::Error(format!(
+                        "Anthropic API error ({}): {}",
+                        status, body_text
+                    )),
+                })
+                .await
+                .ok();
                 return;
             }
 
@@ -252,7 +289,11 @@ impl LlmProvider for AnthropicProvider {
                 let chunk = match chunk {
                     Ok(c) => c,
                     Err(e) => {
-                        tx.send(StreamEvent { kind: StreamEventKind::Error(e.to_string()) }).await.ok();
+                        tx.send(StreamEvent {
+                            kind: StreamEventKind::Error(e.to_string()),
+                        })
+                        .await
+                        .ok();
                         return;
                     }
                 };
@@ -263,55 +304,75 @@ impl LlmProvider for AnthropicProvider {
                     };
 
                     if let Some(event) = Self::parse_sse_event(&event_type, &evt.data) {
-                            match event {
-                                AnthropicEvent::MessageStart { usage } => {
-                                    total_usage = usage;
-                                }
-                                AnthropicEvent::ContentBlockStart { index, block_type, tool_use_id, tool_use_name } => {
-                                    if index >= content_blocks.len() {
-                                        content_blocks.resize(index + 1, ContentBlock::default());
-                                    }
-                                    content_blocks[index].block_type = block_type;
-                                    if let Some(id) = tool_use_id {
-                                        content_blocks[index].tool_use_id = id;
-                                    }
-                                    if let Some(name) = tool_use_name {
-                                        content_blocks[index].tool_use_name = name;
-                                    }
-                                }
-                                AnthropicEvent::ContentBlockDelta { index, text, partial_json } => {
-                                    if index >= content_blocks.len() {
-                                        content_blocks.resize(index + 1, ContentBlock::default());
-                                    }
-                                    if let Some(ref t) = text {
-                                        content_blocks[index].text.push_str(t);
-                                        tx.send(StreamEvent { kind: StreamEventKind::Token(t.clone()) }).await.ok();
-                                    }
-                                    if let Some(pj) = partial_json {
-                                        content_blocks[index].partial_json.push_str(&pj);
-                                    }
-                                    if content_blocks[index].block_type == "thinking" {
-                                        if let Some(ref t) = text {
-                                            tx.send(StreamEvent { kind: StreamEventKind::Reasoning(t.clone()) }).await.ok();
-                                        }
-                                    }
-                                }
-                                AnthropicEvent::ContentBlockStop => {}
-                                AnthropicEvent::MessageDelta { stop_reason: sr, usage } => {
-                                    stop_reason = sr;
-                                    if let Some(u) = usage {
-                                        if let Some(ref mut total) = total_usage {
-                                            total.output_tokens = u.output_tokens;
-                                        } else {
-                                            total_usage = Some(u);
-                                        }
-                                    }
-                                }
-                                AnthropicEvent::MessageStop => {}
-                                AnthropicEvent::Ping => {}
+                        match event {
+                            AnthropicEvent::MessageStart { usage } => {
+                                total_usage = usage;
                             }
+                            AnthropicEvent::ContentBlockStart {
+                                index,
+                                block_type,
+                                tool_use_id,
+                                tool_use_name,
+                            } => {
+                                if index >= content_blocks.len() {
+                                    content_blocks.resize(index + 1, ContentBlock::default());
+                                }
+                                content_blocks[index].block_type = block_type;
+                                if let Some(id) = tool_use_id {
+                                    content_blocks[index].tool_use_id = id;
+                                }
+                                if let Some(name) = tool_use_name {
+                                    content_blocks[index].tool_use_name = name;
+                                }
+                            }
+                            AnthropicEvent::ContentBlockDelta {
+                                index,
+                                text,
+                                partial_json,
+                            } => {
+                                if index >= content_blocks.len() {
+                                    content_blocks.resize(index + 1, ContentBlock::default());
+                                }
+                                if let Some(ref t) = text {
+                                    content_blocks[index].text.push_str(t);
+                                    tx.send(StreamEvent {
+                                        kind: StreamEventKind::Token(t.clone()),
+                                    })
+                                    .await
+                                    .ok();
+                                }
+                                if let Some(pj) = partial_json {
+                                    content_blocks[index].partial_json.push_str(&pj);
+                                }
+                                if content_blocks[index].block_type == "thinking" {
+                                    if let Some(ref t) = text {
+                                        tx.send(StreamEvent {
+                                            kind: StreamEventKind::Reasoning(t.clone()),
+                                        })
+                                        .await
+                                        .ok();
+                                    }
+                                }
+                            }
+                            AnthropicEvent::ContentBlockStop => {}
+                            AnthropicEvent::MessageDelta {
+                                stop_reason: sr,
+                                usage,
+                            } => {
+                                stop_reason = sr;
+                                if let Some(u) = usage {
+                                    if let Some(ref mut total) = total_usage {
+                                        total.output_tokens = u.output_tokens;
+                                    } else {
+                                        total_usage = Some(u);
+                                    }
+                                }
+                            }
+                            AnthropicEvent::MessageStop => {}
+                            AnthropicEvent::Ping => {}
                         }
                     }
+                }
             }
 
             if stop_reason == "tool_use" {
@@ -319,16 +380,24 @@ impl LlmProvider for AnthropicProvider {
                     if block.block_type == "tool_use" {
                         let args: Value = serde_json::from_str(&block.partial_json)
                             .unwrap_or(serde_json::json!({}));
-                        tx.send(StreamEvent { kind: StreamEventKind::ToolCall {
-                            id: block.tool_use_id.clone(),
-                            name: block.tool_use_name.clone(),
-                            args,
-                        }}).await.ok();
+                        tx.send(StreamEvent {
+                            kind: StreamEventKind::ToolCall {
+                                id: block.tool_use_id.clone(),
+                                name: block.tool_use_name.clone(),
+                                args,
+                            },
+                        })
+                        .await
+                        .ok();
                     }
                 }
             }
 
-            tx.send(StreamEvent { kind: StreamEventKind::Done { usage: total_usage } }).await.ok();
+            tx.send(StreamEvent {
+                kind: StreamEventKind::Done { usage: total_usage },
+            })
+            .await
+            .ok();
         });
 
         rx
@@ -348,13 +417,19 @@ impl LlmProvider for AnthropicProvider {
             match event.kind {
                 StreamEventKind::Token(t) => content.push_str(&t),
                 StreamEventKind::Reasoning(r) => reasoning.push_str(&r),
-                StreamEventKind::ToolCall { id, name, args } => tool_calls.push(ToolCall { id, name, args }),
+                StreamEventKind::ToolCall { id, name, args } => {
+                    tool_calls.push(ToolCall { id, name, args })
+                }
                 StreamEventKind::Done { usage: u, .. } => usage = u,
                 StreamEventKind::Error(e) => anyhow::bail!("chat error: {}", e),
             }
         }
         Ok(LlmResponse {
-            content: if content.is_empty() { None } else { Some(content) },
+            content: if content.is_empty() {
+                None
+            } else {
+                Some(content)
+            },
             reasoning,
             tool_calls,
             usage,
@@ -477,7 +552,12 @@ mod tests {
         let event = AnthropicProvider::parse_sse_event("content_block_start", data);
         assert!(event.is_some());
         match event.unwrap() {
-            AnthropicEvent::ContentBlockStart { index, block_type, tool_use_id, tool_use_name } => {
+            AnthropicEvent::ContentBlockStart {
+                index,
+                block_type,
+                tool_use_id,
+                tool_use_name,
+            } => {
                 assert_eq!(index, 0);
                 assert_eq!(block_type, "text");
                 assert!(tool_use_id.is_none());
@@ -489,11 +569,17 @@ mod tests {
 
     #[test]
     fn test_parse_sse_content_block_start_tool_use() {
-        let data = r#"{"index": 1, "content_block": {"type": "tool_use", "id": "tu-1", "name": "bash"}}"#;
+        let data =
+            r#"{"index": 1, "content_block": {"type": "tool_use", "id": "tu-1", "name": "bash"}}"#;
         let event = AnthropicProvider::parse_sse_event("content_block_start", data);
         assert!(event.is_some());
         match event.unwrap() {
-            AnthropicEvent::ContentBlockStart { index, block_type, tool_use_id, tool_use_name } => {
+            AnthropicEvent::ContentBlockStart {
+                index,
+                block_type,
+                tool_use_id,
+                tool_use_name,
+            } => {
                 assert_eq!(index, 1);
                 assert_eq!(block_type, "tool_use");
                 assert_eq!(tool_use_id.unwrap(), "tu-1");
@@ -509,7 +595,11 @@ mod tests {
         let event = AnthropicProvider::parse_sse_event("content_block_delta", data);
         assert!(event.is_some());
         match event.unwrap() {
-            AnthropicEvent::ContentBlockDelta { index, text, partial_json } => {
+            AnthropicEvent::ContentBlockDelta {
+                index,
+                text,
+                partial_json,
+            } => {
                 assert_eq!(index, 0);
                 assert_eq!(text.unwrap(), "Hello");
                 assert!(partial_json.is_none());
@@ -524,7 +614,11 @@ mod tests {
         let event = AnthropicProvider::parse_sse_event("content_block_delta", data);
         assert!(event.is_some());
         match event.unwrap() {
-            AnthropicEvent::ContentBlockDelta { index, text, partial_json } => {
+            AnthropicEvent::ContentBlockDelta {
+                index,
+                text,
+                partial_json,
+            } => {
                 assert_eq!(index, 1);
                 assert!(text.is_none());
                 assert!(partial_json.unwrap().contains("command"));
@@ -539,8 +633,7 @@ mod tests {
         let event = AnthropicProvider::parse_sse_event("content_block_stop", data);
         assert!(event.is_some());
         match event.unwrap() {
-            AnthropicEvent::ContentBlockStop => {
-            }
+            AnthropicEvent::ContentBlockStop => {}
             _ => panic!("expected ContentBlockStop"),
         }
     }

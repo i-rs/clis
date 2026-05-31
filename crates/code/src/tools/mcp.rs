@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::tools::{Tool, ToolResult};
@@ -8,7 +8,9 @@ pub struct McpConnectTool;
 
 #[async_trait]
 impl Tool for McpConnectTool {
-    fn name(&self) -> &str { "mcp_connect" }
+    fn name(&self) -> &str {
+        "mcp_connect"
+    }
     fn description(&self) -> &str {
         "Connect to an MCP server and register its tools. E.g. 'npx @anthropic-ai/claude-code-mcp'"
     }
@@ -41,20 +43,36 @@ impl Tool for McpConnectTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let server_name = args.get("server_name").and_then(|v| v.as_str())
+        let server_name = args
+            .get("server_name")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("server_name required"))?;
-        let command = args.get("command").and_then(|v| v.as_str())
+        let command = args
+            .get("command")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("command required"))?;
-        let cmd_args: Vec<String> = args.get("args")
+        let cmd_args: Vec<String> = args
+            .get("args")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
 
-        crate::runtime::mcp_manager().connect(server_name, command, &cmd_args).await?;
-        let tools = crate::runtime::mcp_manager().discover_tools(server_name).await?;
+        crate::runtime::mcp_manager()
+            .connect(server_name, command, &cmd_args)
+            .await?;
+        let tools = crate::runtime::mcp_manager()
+            .discover_tools(server_name)
+            .await?;
 
         if tools.is_empty() {
-            return Ok(format!("Connected to '{}' but no tools discovered", server_name));
+            return Ok(format!(
+                "Connected to '{}' but no tools discovered",
+                server_name
+            ));
         }
 
         let mut registry = MCP_TOOL_REGISTRY.lock().unwrap();
@@ -69,8 +87,16 @@ impl Tool for McpConnectTool {
             registry.insert(key, wrapper);
         }
 
-        let tool_names: Vec<String> = tools.iter().map(|t| format!("  - {}: {}", t.name, t.description)).collect();
-        Ok(format!("Connected to '{}' with {} tools (registered as mcp:*)\n{}", server_name, tools.len(), tool_names.join("\n")))
+        let tool_names: Vec<String> = tools
+            .iter()
+            .map(|t| format!("  - {}: {}", t.name, t.description))
+            .collect();
+        Ok(format!(
+            "Connected to '{}' with {} tools (registered as mcp:*)\n{}",
+            server_name,
+            tools.len(),
+            tool_names.join("\n")
+        ))
     }
 }
 
@@ -82,7 +108,10 @@ pub fn get_mcp_tool(name: &str) -> Option<Arc<dyn Tool>> {
 }
 
 pub fn all_mcp_tools() -> Vec<Arc<dyn Tool>> {
-    MCP_TOOL_REGISTRY.lock().map(|r| r.values().cloned().collect()).unwrap_or_default()
+    MCP_TOOL_REGISTRY
+        .lock()
+        .map(|r| r.values().cloned().collect())
+        .unwrap_or_default()
 }
 
 struct McpToolWrapper {
@@ -94,8 +123,12 @@ struct McpToolWrapper {
 
 #[async_trait]
 impl Tool for McpToolWrapper {
-    fn name(&self) -> &str { &self.tool_name }
-    fn description(&self) -> &str { &self.description }
+    fn name(&self) -> &str {
+        &self.tool_name
+    }
+    fn description(&self) -> &str {
+        &self.description
+    }
     fn schema(&self) -> Value {
         let params = if self.input_schema.is_null() || !self.input_schema.is_object() {
             json!({"type": "object", "properties": {}})
@@ -112,7 +145,13 @@ impl Tool for McpToolWrapper {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let result = crate::runtime::mcp_manager().call_tool(&self.server_name, &self.tool_name, serde_json::Value::Object(args.clone())).await?;
+        let result = crate::runtime::mcp_manager()
+            .call_tool(
+                &self.server_name,
+                &self.tool_name,
+                serde_json::Value::Object(args.clone()),
+            )
+            .await?;
         Ok(result.to_string())
     }
 }

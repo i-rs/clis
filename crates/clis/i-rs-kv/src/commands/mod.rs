@@ -19,6 +19,6 @@ pub use get::handle_get;
 pub use list::handle_list;
 pub use rename::handle_rename;
 pub use search::handle_search;
-pub use skill::{handle_skill};
+pub use skill::handle_skill;
 pub use stats::handle_stats;
 pub use update::handle_update;

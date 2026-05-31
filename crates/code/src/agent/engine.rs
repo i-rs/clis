@@ -1,11 +1,11 @@
+use super::event::AgentEvent;
+use super::output::OutputMode;
+use super::tool_exec::{ToolExecResult, build_over_limit_message, execute_tools};
 use crate::agent::tool_cache::ToolResultCache;
 use crate::memory::CrossSessionMemory;
 use crate::provider::*;
 use crate::router::{ExecutionMode, build_plan_prompt, classify_complexity};
 use crate::tools::ToolRegistry;
-use super::event::AgentEvent;
-use super::output::OutputMode;
-use super::tool_exec::{execute_tools, build_over_limit_message, ToolExecResult};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -43,10 +43,7 @@ pub async fn determine_execution_mode(
     Ok((ExecutionMode::PlanThenExecute, Some(plan)))
 }
 
-pub async fn generate_plan(
-    provider: &dyn LlmProvider,
-    task: &str,
-) -> anyhow::Result<String> {
+pub async fn generate_plan(provider: &dyn LlmProvider, task: &str) -> anyhow::Result<String> {
     let prompt = build_plan_prompt(task);
     let messages = vec![LlmMessage::User(prompt)];
     let tool_defs = vec![];
@@ -82,7 +79,10 @@ async fn react_loop_inner(
     memory: &mut Option<CrossSessionMemory>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let mut final_text = String::new();
-    let mut total_usage = crate::provider::Usage { input_tokens: 0, output_tokens: 0 };
+    let mut total_usage = crate::provider::Usage {
+        input_tokens: 0,
+        output_tokens: 0,
+    };
     let ctx = super::context::ContextManager::new();
     let mut provider_errors: u32 = 0;
     let mut retry_counts: HashMap<String, u32> = HashMap::new();
@@ -97,14 +97,19 @@ async fn react_loop_inner(
         if complexity.execution_mode() == crate::router::ExecutionMode::PlanThenExecute {
             match generate_plan(provider, &first_user_msg).await {
                 Ok(plan) if !plan.is_empty() => {
-                    let steps: Vec<String> = plan.lines()
+                    let steps: Vec<String> = plan
+                        .lines()
                         .filter(|l| l.trim().starts_with(|c: char| c.is_ascii_digit()))
                         .map(|l| l.trim().to_string())
                         .collect();
                     if !steps.is_empty() {
                         let plan_header = format!(
                             "## Execution Plan\n{}\n\nFollow this plan step by step. Mark steps complete as you finish them.",
-                            steps.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n")
+                            steps
+                                .iter()
+                                .map(|s| format!("- {}", s))
+                                .collect::<Vec<_>>()
+                                .join("\n")
                         );
                         messages.insert(0, LlmMessage::System(plan_header));
                         output.emit_plan(steps).await;
@@ -121,7 +126,9 @@ async fn react_loop_inner(
         {
             anyhow::bail!("cancelled");
         }
-        if let Some(h) = hooks { h.on_round_start(_round, &messages); }
+        if let Some(h) = hooks {
+            h.on_round_start(_round, &messages);
+        }
         if exceeds_budget(&messages, tool_defs) {
             messages = ctx.compress(&messages);
         }
@@ -156,7 +163,11 @@ async fn react_loop_inner(
                     output.emit_reasoning(&r).await?;
                 }
                 StreamEventKind::ToolCall { id, name, args } => {
-                    pending_tool_calls.push(ToolCall { id: id.clone(), name: name.clone(), args: args.clone() });
+                    pending_tool_calls.push(ToolCall {
+                        id: id.clone(),
+                        name: name.clone(),
+                        args: args.clone(),
+                    });
                     output.emit_tool_call_start(&id, &name, args).await?;
                 }
                 StreamEventKind::Done { usage, .. } => {
@@ -172,7 +183,8 @@ async fn react_loop_inner(
                         let jitter = std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap_or_default()
-                            .as_millis() % 1000;
+                            .as_millis()
+                            % 1000;
                         let wait = delay + jitter as u64;
                         output.emit_retry(wait, provider_errors).await?;
                         tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
@@ -184,7 +196,9 @@ async fn react_loop_inner(
             }
         }
 
-        if had_error { continue; }
+        if had_error {
+            continue;
+        }
         provider_errors = 0;
 
         if let Some(u) = round_usage {
@@ -194,18 +208,23 @@ async fn react_loop_inner(
             if crate::runtime::exceeds_token_budget() {
                 let used = crate::runtime::total_usage_tokens();
                 let budget = crate::runtime::session_token_budget();
-                output.emit_tool_result("", "budget", &format!(
-                    "Token budget exceeded: {} / {}. Stopping.",
-                    used, budget
-                ));
+                output.emit_tool_result(
+                    "",
+                    "budget",
+                    &format!("Token budget exceeded: {} / {}. Stopping.", used, budget),
+                );
                 break;
             }
             if crate::runtime::exceeds_cost_budget() {
                 let cost = crate::runtime::total_cost_cents();
-                output.emit_tool_result("", "budget", &format!(
-                    "Cost budget exceeded: ${:.2}. Stopping.",
-                    cost as f64 / 100.0
-                ));
+                output.emit_tool_result(
+                    "",
+                    "budget",
+                    &format!(
+                        "Cost budget exceeded: ${:.2}. Stopping.",
+                        cost as f64 / 100.0
+                    ),
+                );
                 break;
             }
         }
@@ -214,49 +233,86 @@ async fn react_loop_inner(
             final_text = content.clone();
             if !pending_tool_calls.is_empty() {
                 messages.push(LlmMessage::AssistantWithReasoning {
-                    content, reasoning,
+                    content,
+                    reasoning,
                     tool_calls: pending_tool_calls.clone(),
                 });
             } else if reasoning.is_empty() {
                 messages.push(LlmMessage::Assistant(content));
             } else {
-                messages.push(LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls: Vec::new() });
+                messages.push(LlmMessage::AssistantWithReasoning {
+                    content,
+                    reasoning,
+                    tool_calls: Vec::new(),
+                });
             }
         }
 
-        if pending_tool_calls.is_empty() { break; }
+        if pending_tool_calls.is_empty() {
+            break;
+        }
 
-        let ToolExecResult { tool_messages } = execute_tools(&pending_tool_calls, tools, &mut retry_counts, tool_timeout_secs, memory, Some(&tool_cache)).await;
+        let ToolExecResult { tool_messages } = execute_tools(
+            &pending_tool_calls,
+            tools,
+            &mut retry_counts,
+            tool_timeout_secs,
+            memory,
+            Some(&tool_cache),
+        )
+        .await;
 
         // First pass: emit events (borrow)
         for (name, call_id, result_str) in &tool_messages {
             output.emit_tool_call_end(name, call_id, result_str).await;
 
             if let Ok(val) = serde_json::from_str::<Value>(result_str)
-                && val.get("requires_claw").and_then(|v| v.as_bool()).unwrap_or(false) {
-                    output.emit_request(&val);
-                    output.emit_done(Some(total_usage), &messages, 0.0).await;
-                    return Ok((val.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(), messages));
-                }
+                && val
+                    .get("requires_claw")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            {
+                output.emit_request(&val);
+                output.emit_done(Some(total_usage), &messages, 0.0).await;
+                return Ok((
+                    val.get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    messages,
+                ));
+            }
 
             if let Ok(val) = serde_json::from_str::<Value>(result_str)
-                && val.get("requires_registration").and_then(|v| v.as_bool()).unwrap_or(false)
-                && let Some(tool_info) = val.get("tool") {
-                    output.emit_tool_created(tool_info);
-                }
+                && val
+                    .get("requires_registration")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                && let Some(tool_info) = val.get("tool")
+            {
+                output.emit_tool_created(tool_info);
+            }
 
             output.emit_tool_result(call_id, name, result_str);
-            if let Some(h) = hooks { h.on_tool_result(name, result_str); }
+            if let Some(h) = hooks {
+                h.on_tool_result(name, result_str);
+            }
         }
 
         let over_limit_msg = build_over_limit_message(&retry_counts);
 
         // Check verify failure before consuming tool_messages
-        let verify_failed = tool_messages.iter().any(|(name, _, result)| name == "verify" && result.contains("FAIL"));
+        let verify_failed = tool_messages
+            .iter()
+            .any(|(name, _, result)| name == "verify" && result.contains("FAIL"));
 
         // Second pass: push messages (by value, avoid clones)
         for (name, call_id, result_str) in tool_messages {
-            messages.push(LlmMessage::Tool { name, content: result_str, call_id });
+            messages.push(LlmMessage::Tool {
+                name,
+                content: result_str,
+                call_id,
+            });
         }
 
         if let Some(sys_msg) = over_limit_msg {
@@ -269,12 +325,16 @@ async fn react_loop_inner(
             ));
         }
 
-        if let Some(h) = hooks { h.on_round_complete(_round, &messages); }
+        if let Some(h) = hooks {
+            h.on_round_complete(_round, &messages);
+        }
     }
 
     let _estimated = super::context::ContextManager::estimate_tokens(&messages) as f64 / 128_000.0;
     let usage = Some(total_usage);
-    if let Some(h) = hooks { h.on_done(max_rounds, &usage); }
+    if let Some(h) = hooks {
+        h.on_done(max_rounds, &usage);
+    }
     output.emit_done(usage, &messages, _estimated).await;
     Ok((final_text, messages))
 }
@@ -291,7 +351,19 @@ pub async fn react_loop(
     memory: &mut Option<CrossSessionMemory>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
     let output = OutputMode::Stdout { json_output };
-    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None, memory).await
+    react_loop_inner(
+        provider,
+        tools,
+        messages,
+        tool_defs,
+        output,
+        max_rounds,
+        tool_timeout_secs,
+        None,
+        None,
+        memory,
+    )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -305,8 +377,22 @@ pub async fn react_loop_streaming(
     tool_timeout_secs: u64,
     memory: &mut Option<CrossSessionMemory>,
 ) -> anyhow::Result<(String, Vec<LlmMessage>)> {
-    let output = OutputMode::Channel { event_tx: &event_tx };
-    react_loop_inner(provider, tools, messages, tool_defs, output, max_rounds, tool_timeout_secs, None, None, memory).await
+    let output = OutputMode::Channel {
+        event_tx: &event_tx,
+    };
+    react_loop_inner(
+        provider,
+        tools,
+        messages,
+        tool_defs,
+        output,
+        max_rounds,
+        tool_timeout_secs,
+        None,
+        None,
+        memory,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -329,7 +415,9 @@ mod tests {
     #[tokio::test]
     async fn test_determine_execution_mode_simple_is_react() {
         let provider = MockLlmProvider::with_response("");
-        let (mode, plan) = determine_execution_mode("read file", &provider).await.unwrap();
+        let (mode, plan) = determine_execution_mode("read file", &provider)
+            .await
+            .unwrap();
         assert_eq!(mode, ExecutionMode::ReAct);
         assert!(plan.is_none());
     }
@@ -337,7 +425,9 @@ mod tests {
     #[tokio::test]
     async fn test_determine_execution_mode_heavy_is_plan() {
         let provider = MockLlmProvider::with_response("1. Read the file\n2. Analyze");
-        let (mode, plan) = determine_execution_mode("重构这个模块", &provider).await.unwrap();
+        let (mode, plan) = determine_execution_mode("重构这个模块", &provider)
+            .await
+            .unwrap();
         assert_eq!(mode, ExecutionMode::PlanThenExecute);
         assert!(plan.is_some());
         assert!(plan.unwrap().contains("Read the file"));
@@ -358,27 +448,40 @@ mod tests {
         let messages = vec![LlmMessage::User("Say hello".into())];
 
         let (text, _msgs) = react_loop(
-            &provider, &tools, messages, &tool_defs, false, 5, 30, &mut None
-        ).await.expect("react_loop should succeed");
+            &provider, &tools, messages, &tool_defs, false, 5, 30, &mut None,
+        )
+        .await
+        .expect("react_loop should succeed");
 
-        assert!(text.contains("Hello"), "Expected 'Hello' in response, got: {}", text);
+        assert!(
+            text.contains("Hello"),
+            "Expected 'Hello' in response, got: {}",
+            text
+        );
     }
 
     #[tokio::test]
     async fn test_react_loop_tool_call_then_response() {
         let provider = MockLlmProvider::with_text_and_tool(
             "Let me check...",
-            "read", "call-1", r#"{"file_path": "test.txt"}"#,
+            "read",
+            "call-1",
+            r#"{"file_path": "test.txt"}"#,
         );
         let tools = mock_tool_registry();
         let tool_defs = vec![make_tool_def("read")];
         let messages = vec![LlmMessage::User("Read test.txt".into())];
 
         let (text, msgs) = react_loop(
-            &provider, &tools, messages, &tool_defs, false, 5, 30, &mut None
-        ).await.expect("react_loop should succeed");
+            &provider, &tools, messages, &tool_defs, false, 5, 30, &mut None,
+        )
+        .await
+        .expect("react_loop should succeed");
 
-        assert!(text.contains("Let me check"), "Response should contain initial text");
+        assert!(
+            text.contains("Let me check"),
+            "Response should contain initial text"
+        );
         let has_tool_result = msgs.iter().any(|m| matches!(m, LlmMessage::Tool { .. }));
         assert!(has_tool_result, "Tool result should be in message history");
     }
@@ -391,28 +494,39 @@ mod tests {
         let echo_tool = MockTool::new("bash", "done");
         registry.register(std::sync::Arc::new(echo_tool));
 
-        let provider = MockLlmProvider::with_tool_only("read", "call-1", r#"{"file_path": "missing.txt"}"#);
+        let provider =
+            MockLlmProvider::with_tool_only("read", "call-1", r#"{"file_path": "missing.txt"}"#);
         let tool_defs = vec![make_tool_def("read"), make_tool_def("bash")];
         let messages = vec![LlmMessage::User("Test".into())];
 
         let (_text, msgs) = react_loop(
-            &provider, &registry, messages, &tool_defs, false, 3, 5, &mut None
-        ).await.expect("react_loop should not bail on tool errors");
+            &provider, &registry, messages, &tool_defs, false, 3, 5, &mut None,
+        )
+        .await
+        .expect("react_loop should not bail on tool errors");
 
-        let has_over_limit = msgs.iter().any(|m| matches!(m, LlmMessage::System(s) if s.contains("consecutive times")));
-        assert!(has_over_limit, "Over-limit reflection prompt should be injected");
+        let has_over_limit = msgs
+            .iter()
+            .any(|m| matches!(m, LlmMessage::System(s) if s.contains("consecutive times")));
+        assert!(
+            has_over_limit,
+            "Over-limit reflection prompt should be injected"
+        );
     }
 
     #[tokio::test]
     async fn test_react_loop_max_rounds_limits_loop() {
-        let provider = MockLlmProvider::with_tool_only("read", "call-1", r#"{"file_path": "test.txt"}"#);
+        let provider =
+            MockLlmProvider::with_tool_only("read", "call-1", r#"{"file_path": "test.txt"}"#);
         let tools = mock_tool_registry();
         let tool_defs = vec![make_tool_def("read")];
         let messages = vec![LlmMessage::User("Loop test".into())];
 
         let (_text, _msgs) = react_loop(
-            &provider, &tools, messages, &tool_defs, false, 1, 30, &mut None
-        ).await.expect("react_loop with max_rounds=1 should not infinite loop");
+            &provider, &tools, messages, &tool_defs, false, 1, 30, &mut None,
+        )
+        .await
+        .expect("react_loop with max_rounds=1 should not infinite loop");
     }
 
     #[tokio::test]
@@ -425,8 +539,10 @@ mod tests {
 
         let text = {
             let (t, _) = react_loop_streaming(
-                &provider, &tools, messages, &tool_defs, tx, 5, 30, &mut None
-            ).await.expect("streaming should succeed");
+                &provider, &tools, messages, &tool_defs, tx, 5, 30, &mut None,
+            )
+            .await
+            .expect("streaming should succeed");
             t
         };
 
@@ -434,7 +550,9 @@ mod tests {
         // Should have received Done event
         let events: Vec<AgentEvent> = {
             let mut evs = Vec::new();
-            while let Ok(e) = rx.try_recv() { evs.push(e); }
+            while let Ok(e) = rx.try_recv() {
+                evs.push(e);
+            }
             evs
         };
         assert!(events.iter().any(|e| matches!(e, AgentEvent::Done { .. })));

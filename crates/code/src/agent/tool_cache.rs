@@ -14,7 +14,9 @@ struct CachedResult {
 
 impl ToolResultCache {
     pub fn new() -> Self {
-        Self { entries: HashMap::new() }
+        Self {
+            entries: HashMap::new(),
+        }
     }
 
     fn key(tool_name: &str, args_json: &str) -> String {
@@ -34,10 +36,13 @@ impl ToolResultCache {
 
     pub fn insert(&mut self, tool_name: &str, args_json: &str, value: String) {
         let key = Self::key(tool_name, args_json);
-        self.entries.insert(key, CachedResult {
-            value,
-            inserted_at: Instant::now(),
-        });
+        self.entries.insert(
+            key,
+            CachedResult {
+                value,
+                inserted_at: Instant::now(),
+            },
+        );
     }
 
     pub fn invalidate_all(&mut self) {
@@ -49,6 +54,9 @@ impl ToolResultCache {
     }
 
     pub fn is_mutator(tool_name: &str) -> bool {
-        matches!(tool_name, "write" | "edit" | "delete" | "rename" | "batch_edit")
+        matches!(
+            tool_name,
+            "write" | "edit" | "delete" | "rename" | "batch_edit"
+        )
     }
 }

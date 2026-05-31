@@ -4,8 +4,8 @@ use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -28,9 +28,18 @@ impl Inner {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
-        let stderr = child.stderr.take().ok_or_else(|| anyhow::anyhow!("no stderr"))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stdin"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stderr"))?;
 
         let (stdout_tx, stdout_rx) = mpsc::channel::<String>();
         let (stderr_tx, stderr_rx) = mpsc::channel::<String>();
@@ -72,7 +81,10 @@ impl Inner {
     }
 
     fn exec(&mut self, command: &str, timeout_secs: u64) -> anyhow::Result<String> {
-        let stdin = self.stdin.as_mut().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
+        let stdin = self
+            .stdin
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no stdin"))?;
 
         writeln!(stdin, "{}", command)?;
         writeln!(stdin, "echo __PTY_EXIT_$?")?;
@@ -92,19 +104,32 @@ impl Inner {
                     let trimmed = line.trim_end().to_string();
                     if trimmed.starts_with("__PTY_EXIT_") {
                         let extra = Duration::from_secs(5);
-                        drain_remaining(&self.stdout_rx, &self.stderr_rx, &mut output, Instant::now() + extra);
+                        drain_remaining(
+                            &self.stdout_rx,
+                            &self.stderr_rx,
+                            &mut output,
+                            Instant::now() + extra,
+                        );
                         return Ok(output);
                     }
-                    if !output.is_empty() { output.push('\n'); }
+                    if !output.is_empty() {
+                        output.push('\n');
+                    }
                     output.push_str(&trimmed);
-                    if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+                    if output.len() > MAX_OUTPUT {
+                        output.truncate(MAX_OUTPUT);
+                    }
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     while let Ok(line) = self.stderr_rx.try_recv() {
                         let trimmed = line.trim_end().to_string();
-                        if !output.is_empty() { output.push('\n'); }
+                        if !output.is_empty() {
+                            output.push('\n');
+                        }
                         output.push_str(&trimmed);
-                        if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+                        if output.len() > MAX_OUTPUT {
+                            output.truncate(MAX_OUTPUT);
+                        }
                     }
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -114,11 +139,17 @@ impl Inner {
         // Timeout: drain remaining lines so next call starts clean
         let drain_deadline = Instant::now() + Duration::from_secs(3);
         loop {
-            if Instant::now() > drain_deadline { break; }
+            if Instant::now() > drain_deadline {
+                break;
+            }
             match self.stdout_rx.recv_timeout(Duration::from_millis(50)) {
                 Ok(line) => {
-                    if line.trim_end() == "__PTY_EXIT_$?" { break; }
-                    if line.trim_end().starts_with("__PTY_EXIT_") { break; }
+                    if line.trim_end() == "__PTY_EXIT_$?" {
+                        break;
+                    }
+                    if line.trim_end().starts_with("__PTY_EXIT_") {
+                        break;
+                    }
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => break,
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -141,18 +172,28 @@ fn drain_remaining(
         while let Ok(line) = stdout_rx.try_recv() {
             got_any = true;
             let trimmed = line.trim_end().to_string();
-            if !output.is_empty() { output.push('\n'); }
+            if !output.is_empty() {
+                output.push('\n');
+            }
             output.push_str(&trimmed);
-            if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+            if output.len() > MAX_OUTPUT {
+                output.truncate(MAX_OUTPUT);
+            }
         }
         while let Ok(line) = stderr_rx.try_recv() {
             got_any = true;
             let trimmed = line.trim_end().to_string();
-            if !output.is_empty() { output.push('\n'); }
+            if !output.is_empty() {
+                output.push('\n');
+            }
             output.push_str(&trimmed);
-            if output.len() > MAX_OUTPUT { output.truncate(MAX_OUTPUT); }
+            if output.len() > MAX_OUTPUT {
+                output.truncate(MAX_OUTPUT);
+            }
         }
-        if !got_any { break; }
+        if !got_any {
+            break;
+        }
         std::thread::sleep(poll);
     }
 }
@@ -165,7 +206,9 @@ pub struct PtySession {
 impl PtySession {
     pub fn spawn(cwd: &Path) -> anyhow::Result<Self> {
         let inner = Inner::spawn(cwd)?;
-        Ok(Self { inner: Arc::new(Mutex::new(inner)) })
+        Ok(Self {
+            inner: Arc::new(Mutex::new(inner)),
+        })
     }
 
     pub async fn exec_async(&self, command: &str, timeout_secs: u64) -> anyhow::Result<String> {
@@ -195,16 +238,25 @@ pub struct PtyManager {
 
 impl PtyManager {
     pub fn new() -> Self {
-        Self { sessions: AsyncMutex::new(HashMap::new()) }
+        Self {
+            sessions: AsyncMutex::new(HashMap::new()),
+        }
     }
 
-    pub async fn exec(&self, id: &str, command: &str, timeout_secs: u64, cwd: &Path) -> anyhow::Result<String> {
+    pub async fn exec(
+        &self,
+        id: &str,
+        command: &str,
+        timeout_secs: u64,
+        cwd: &Path,
+    ) -> anyhow::Result<String> {
         let mut sessions = self.sessions.lock().await;
         if !sessions.contains_key(id) {
             let session = PtySession::spawn(cwd)?;
             sessions.insert(id.to_string(), session);
         }
-        let session = sessions.get(id)
+        let session = sessions
+            .get(id)
             .ok_or_else(|| anyhow::anyhow!("pty session '{}' not found", id))?
             .clone();
         session.exec_async(command, timeout_secs).await

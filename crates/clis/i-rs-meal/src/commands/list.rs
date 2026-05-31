@@ -1,5 +1,7 @@
 use crate::models::{ListItem, MealRow};
-use crate::presentation::{OutputFormat, format_table, output_list, print_entry_count, print_warning};
+use crate::presentation::{
+    OutputFormat, format_table, output_list, print_entry_count, print_warning,
+};
 use crate::service;
 use crate::storage;
 use anyhow::Result;

@@ -70,13 +70,14 @@ async fn add_mood(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AddMoodRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let date = req.date.unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
+    let date = req
+        .date
+        .unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
     let mood = req.mood;
     let tags = req.tag.unwrap_or_default();
     let remark = req.remark.unwrap_or_default();
     let record = state.mood.write(|store| {
-        i_rs_mood::service::add_mood(&mut *store, date, mood, tags, remark)
-            .map_err(ApiError::from)
+        i_rs_mood::service::add_mood(&mut *store, date, mood, tags, remark).map_err(ApiError::from)
     })?;
     Ok(ok_json(record))
 }

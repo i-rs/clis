@@ -1,6 +1,6 @@
 use crate::presentation::{OutputFormat, print_success};
-use crate::storage;
 use crate::service;
+use crate::storage;
 
 pub fn handle_delete(id: String, format: OutputFormat) -> anyhow::Result<()> {
     let mut store = storage::load_store()?;

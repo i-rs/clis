@@ -28,7 +28,10 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
                 .iter()
                 .map(|e| crate::models::ListItem::from(e))
                 .collect();
-            println!("{}", output_list(&items, items.len(), Some(&date_str), format));
+            println!(
+                "{}",
+                output_list(&items, items.len(), Some(&date_str), format)
+            );
             return Ok(());
         }
 

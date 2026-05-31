@@ -67,7 +67,10 @@ pub async fn run_doctor() -> anyhow::Result<()> {
             }
         }
         None => {
-            println!("  - Not set (current dir: {})", std::env::current_dir().unwrap_or_default().display());
+            println!(
+                "  - Not set (current dir: {})",
+                std::env::current_dir().unwrap_or_default().display()
+            );
         }
     }
 
@@ -79,7 +82,11 @@ pub async fn run_doctor() -> anyhow::Result<()> {
     } else {
         for server in &config.mcp_servers {
             let transport = &server.transport_type;
-            let target = server.command.as_deref().or(server.url.as_deref()).unwrap_or("?");
+            let target = server
+                .command
+                .as_deref()
+                .or(server.url.as_deref())
+                .unwrap_or("?");
             println!("  ✓ {} ({}: {})", server.name, transport, target);
         }
     }

@@ -6,12 +6,12 @@
 
 use std::sync::Arc;
 
+use rmcp::ServiceExt;
 use rmcp::model::{
     CallToolResult, Content, EmptyResult, ErrorData, Implementation, InitializeResult,
     ListToolsResult, RawContent, RawTextContent, ServerCapabilities, ServerResult, Tool,
 };
 use rmcp::service::{NotificationContext, RequestContext, RoleServer, Service};
-use rmcp::ServiceExt;
 use serde_json::Value;
 use tokio::io::{self as tokio_io};
 
@@ -81,10 +81,7 @@ fn store_values<T: serde::Serialize>(store: &T) -> Result<Vec<Value>, String> {
     let json = serde_json::to_value(store).map_err(|e| format!("serialize: {e}"))?;
     let obj = json.as_object().ok_or("store not an object")?;
     // The store has exactly one field (the BTreeMap) — extract its values
-    let field = obj
-        .values()
-        .next()
-        .ok_or("store has no fields")?;
+    let field = obj.values().next().ok_or("store has no fields")?;
     match field {
         Value::Array(arr) => Ok(arr.clone()),
         Value::Object(map) => Ok(map.values().cloned().collect()),
@@ -102,11 +99,10 @@ fn store_get<T: serde::Serialize>(store: &T, key: &str) -> Result<Value, String>
         .next()
         .ok_or("store has no fields")?;
     match field {
-        Value::Object(map) => {
-            map.get(key)
-                .cloned()
-                .ok_or_else(|| format!("entry '{key}' not found"))
-        }
+        Value::Object(map) => map
+            .get(key)
+            .cloned()
+            .ok_or_else(|| format!("entry '{key}' not found")),
         Value::Array(_) => Err("get not supported for array-based stores".into()),
         _ => Err("unexpected store field type".into()),
     }
@@ -141,8 +137,8 @@ macro_rules! remove_by_key {
         }
     }};
     ($store:expr, $map:ident, $key_str:expr, u) => {{
-        let uuid = uuid::Uuid::parse_str($key_str)
-            .map_err(|_| format!("invalid UUID '{}'", $key_str))?;
+        let uuid =
+            uuid::Uuid::parse_str($key_str).map_err(|_| format!("invalid UUID '{}'", $key_str))?;
         match $store.$map.remove(&uuid) {
             Some(v) => Ok(v),
             None => Err(format!("entry '{}' not found", $key_str)),
@@ -379,19 +375,14 @@ impl Service<RoleServer> for McpServer {
         use rmcp::model::ClientRequest;
 
         match request {
-            ClientRequest::PingRequest(_) => {
-                Ok(ServerResult::EmptyResult(EmptyResult {}))
-            }
+            ClientRequest::PingRequest(_) => Ok(ServerResult::EmptyResult(EmptyResult {})),
             ClientRequest::InitializeRequest(_) => {
-                let capabilities = ServerCapabilities::builder()
-                    .enable_tools()
-                    .build();
+                let capabilities = ServerCapabilities::builder().enable_tools().build();
                 Ok(ServerResult::InitializeResult(
-                    InitializeResult::new(capabilities)
-                        .with_server_info(Implementation::new(
-                            "i-rs-mcp",
-                            env!("CARGO_PKG_VERSION"),
-                        )),
+                    InitializeResult::new(capabilities).with_server_info(Implementation::new(
+                        "i-rs-mcp",
+                        env!("CARGO_PKG_VERSION"),
+                    )),
                 ))
             }
             ClientRequest::ListToolsRequest(_) => {
@@ -403,28 +394,26 @@ impl Service<RoleServer> for McpServer {
                         Tool::new(d.name, d.description, Arc::new(schema))
                     })
                     .collect();
-                Ok(ServerResult::ListToolsResult(ListToolsResult::with_all_items(
-                    tools,
-                )))
+                Ok(ServerResult::ListToolsResult(
+                    ListToolsResult::with_all_items(tools),
+                ))
             }
             ClientRequest::CallToolRequest(req) => {
                 let name = &*req.params.name;
                 let args = req.params.arguments.unwrap_or_default();
                 match handle_tool_call(name, Value::Object(args), &self.state) {
-                    Ok(value) => {
-                        Ok(ServerResult::CallToolResult(CallToolResult::structured(value)))
-                    }
-                    Err(e) => {
-                        Ok(ServerResult::CallToolResult(CallToolResult::error(
-                            vec![Content {
-                                raw: RawContent::Text(RawTextContent {
-                                    text: e,
-                                    meta: None,
-                                }),
-                                annotations: None,
-                            }],
-                        )))
-                    }
+                    Ok(value) => Ok(ServerResult::CallToolResult(CallToolResult::structured(
+                        value,
+                    ))),
+                    Err(e) => Ok(ServerResult::CallToolResult(CallToolResult::error(vec![
+                        Content {
+                            raw: RawContent::Text(RawTextContent {
+                                text: e,
+                                meta: None,
+                            }),
+                            annotations: None,
+                        },
+                    ]))),
                 }
             }
             other => Err(ErrorData::new(
@@ -445,10 +434,8 @@ impl Service<RoleServer> for McpServer {
     }
 
     fn get_info(&self) -> rmcp::model::ServerInfo {
-        InitializeResult::new(
-            ServerCapabilities::builder().enable_tools().build(),
-        )
-        .with_server_info(Implementation::new("i-rs-mcp", env!("CARGO_PKG_VERSION")))
+        InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(Implementation::new("i-rs-mcp", env!("CARGO_PKG_VERSION")))
     }
 }
 

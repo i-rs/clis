@@ -30,13 +30,29 @@ pub enum ExecutionMode {
 
 pub fn classify_complexity(task: &str) -> TaskComplexity {
     let heavy_keywords = [
-        "refactor", "重构", "rewrite", "重写",
-        "migrate", "迁移", "implement", "实现",
-        "all tests", "全量测试", "整个项目",
-        "分析", "analyze", "review",
-        "design", "设计", "架构",
-        "optimize", "优化", "性能",
-        "secure", "安全", "加固",
+        "refactor",
+        "重构",
+        "rewrite",
+        "重写",
+        "migrate",
+        "迁移",
+        "implement",
+        "实现",
+        "all tests",
+        "全量测试",
+        "整个项目",
+        "分析",
+        "analyze",
+        "review",
+        "design",
+        "设计",
+        "架构",
+        "optimize",
+        "优化",
+        "性能",
+        "secure",
+        "安全",
+        "加固",
     ];
     for kw in &heavy_keywords {
         if task.to_lowercase().contains(kw) {
@@ -45,9 +61,16 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
     }
 
     let complex_keywords = [
-        "同时", "并且", "然后", "分别",
-        "and then", "also", "both", "multi",
-        "多个文件", "multiple files",
+        "同时",
+        "并且",
+        "然后",
+        "分别",
+        "and then",
+        "also",
+        "both",
+        "multi",
+        "多个文件",
+        "multiple files",
     ];
     for kw in &complex_keywords {
         if task.to_lowercase().contains(kw) {
@@ -83,33 +106,65 @@ mod tests {
     #[test]
     fn test_classify_heavy() {
         assert_eq!(classify_complexity("重构这个模块"), TaskComplexity::Heavy);
-        assert_eq!(classify_complexity("refactor this code"), TaskComplexity::Heavy);
-        assert_eq!(classify_complexity("implement login feature"), TaskComplexity::Heavy);
+        assert_eq!(
+            classify_complexity("refactor this code"),
+            TaskComplexity::Heavy
+        );
+        assert_eq!(
+            classify_complexity("implement login feature"),
+            TaskComplexity::Heavy
+        );
     }
 
     #[test]
     fn test_classify_complex() {
-        assert_eq!(classify_complexity("同时修改 A 和 B"), TaskComplexity::Complex);
-        assert_eq!(classify_complexity("modify multiple files"), TaskComplexity::Complex);
+        assert_eq!(
+            classify_complexity("同时修改 A 和 B"),
+            TaskComplexity::Complex
+        );
+        assert_eq!(
+            classify_complexity("modify multiple files"),
+            TaskComplexity::Complex
+        );
     }
 
     #[test]
     fn test_classify_simple() {
         assert_eq!(classify_complexity("read main.rs"), TaskComplexity::Simple);
-        assert_eq!(classify_complexity("what does this function do"), TaskComplexity::Simple);
+        assert_eq!(
+            classify_complexity("what does this function do"),
+            TaskComplexity::Simple
+        );
     }
 
     #[test]
     fn test_execution_mode_mapping() {
-        assert_eq!(classify_complexity("read file").execution_mode(), ExecutionMode::ReAct);
-        assert_eq!(classify_complexity("refactor module").execution_mode(), ExecutionMode::PlanThenExecute);
-        assert_eq!(classify_complexity("同时修改 A 和 B").execution_mode(), ExecutionMode::PlanThenExecute);
+        assert_eq!(
+            classify_complexity("read file").execution_mode(),
+            ExecutionMode::ReAct
+        );
+        assert_eq!(
+            classify_complexity("refactor module").execution_mode(),
+            ExecutionMode::PlanThenExecute
+        );
+        assert_eq!(
+            classify_complexity("同时修改 A 和 B").execution_mode(),
+            ExecutionMode::PlanThenExecute
+        );
     }
 
     #[test]
     fn test_recommended_model() {
-        assert!(classify_complexity("read file").recommended_model().is_none());
-        assert!(classify_complexity("refactor module").recommended_model().is_some());
+        assert!(
+            classify_complexity("read file")
+                .recommended_model()
+                .is_none()
+        );
+        assert!(
+            classify_complexity("refactor module")
+                .recommended_model()
+                .is_some()
+        );
     }
 
     #[test]

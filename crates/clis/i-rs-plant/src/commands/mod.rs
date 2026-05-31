@@ -13,7 +13,7 @@ pub use delete::delete_plant;
 pub use example::example;
 pub use get::get_plant;
 pub use list::list_plants;
-pub use skill::{handle_skill};
+pub use skill::handle_skill;
 pub use stats::stats;
 pub use update::update_plant;
 pub use water::water_plant;

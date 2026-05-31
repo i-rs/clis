@@ -1,13 +1,17 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct GlobTool;
 
 #[async_trait]
 impl Tool for GlobTool {
-    fn name(&self) -> &str { "glob" }
-    fn description(&self) -> &str { "Find files matching a glob pattern" }
+    fn name(&self) -> &str {
+        "glob"
+    }
+    fn description(&self) -> &str {
+        "Find files matching a glob pattern"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -26,14 +30,28 @@ impl Tool for GlobTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?.to_string();
-        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".").to_string();
+        let pattern = args
+            .get("pattern")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("pattern required"))?
+            .to_string();
+        let root = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or(".")
+            .to_string();
         tokio::task::spawn_blocking(move || {
             let glob = globset::Glob::new(&pattern)?;
             let matcher = glob.compile_matcher();
             let mut results = Vec::new();
-            for entry in ignore::WalkBuilder::new(&root).max_depth(Some(10)).build().flatten() {
-                if entry.file_type().map(|t| t.is_file()).unwrap_or(false) && matcher.is_match(entry.path()) {
+            for entry in ignore::WalkBuilder::new(&root)
+                .max_depth(Some(10))
+                .build()
+                .flatten()
+            {
+                if entry.file_type().map(|t| t.is_file()).unwrap_or(false)
+                    && matcher.is_match(entry.path())
+                {
                     results.push(entry.path().to_string_lossy().to_string());
                 }
             }
@@ -41,8 +59,13 @@ impl Tool for GlobTool {
             if results.is_empty() {
                 Ok("No files found".into())
             } else {
-                Ok(format!("Found {} files:\n{}", results.len(), results.join("\n")))
+                Ok(format!(
+                    "Found {} files:\n{}",
+                    results.len(),
+                    results.join("\n")
+                ))
             }
-        }).await?
+        })
+        .await?
     }
 }

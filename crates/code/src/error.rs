@@ -47,32 +47,68 @@ impl std::error::Error for ToolError {}
 
 impl ToolError {
     pub fn not_found(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::NotFound, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::NotFound,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn not_found_path(path: impl Into<String>) -> Self {
         let p = path.into();
-        Self { kind: ErrorKind::NotFound, message: format!("not found: {}", p), path: Some(p) }
+        Self {
+            kind: ErrorKind::NotFound,
+            message: format!("not found: {}", p),
+            path: Some(p),
+        }
     }
     pub fn permission_denied(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::PermissionDenied, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::PermissionDenied,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn timeout(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::Timeout, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::Timeout,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn invalid_args(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::InvalidArgs, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::InvalidArgs,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn external(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::ExternalError, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::ExternalError,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn internal(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::InternalError, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::InternalError,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn file_too_large(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::FileTooLarge, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::FileTooLarge,
+            message: msg.into(),
+            path: None,
+        }
     }
     pub fn network(msg: impl Into<String>) -> Self {
-        Self { kind: ErrorKind::NetworkError, message: msg.into(), path: None }
+        Self {
+            kind: ErrorKind::NetworkError,
+            message: msg.into(),
+            path: None,
+        }
     }
 
     pub fn to_json_string(&self) -> String {
@@ -87,7 +123,10 @@ pub fn truncate_output(s: &str) -> String {
 impl From<anyhow::Error> for ToolError {
     fn from(e: anyhow::Error) -> Self {
         let msg = e.to_string();
-        if msg.contains("not found") || msg.contains("No such file") || msg.contains("No such file or directory") {
+        if msg.contains("not found")
+            || msg.contains("No such file")
+            || msg.contains("No such file or directory")
+        {
             Self::not_found(msg)
         } else if msg.contains("Permission denied") || msg.contains("Access denied") {
             Self::permission_denied(msg)

@@ -8,7 +8,10 @@ pub struct ContextManager {
 
 impl ContextManager {
     pub fn new() -> Self {
-        Self { max_tokens: 128_000, project_dir: None }
+        Self {
+            max_tokens: 128_000,
+            project_dir: None,
+        }
     }
 
     #[allow(dead_code)]
@@ -61,34 +64,47 @@ impl ContextManager {
     }
 
     fn apply_path_compression(&self, messages: &[LlmMessage]) -> Vec<LlmMessage> {
-        messages.iter().map(|msg| match msg {
-            LlmMessage::System(s) => LlmMessage::System(self.compress_paths(s)),
-            LlmMessage::User(s) => LlmMessage::User(self.compress_paths(s)),
-            LlmMessage::Assistant(s) => LlmMessage::Assistant(self.compress_paths(s)),
-            LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls } => {
+        messages
+            .iter()
+            .map(|msg| match msg {
+                LlmMessage::System(s) => LlmMessage::System(self.compress_paths(s)),
+                LlmMessage::User(s) => LlmMessage::User(self.compress_paths(s)),
+                LlmMessage::Assistant(s) => LlmMessage::Assistant(self.compress_paths(s)),
                 LlmMessage::AssistantWithReasoning {
+                    content,
+                    reasoning,
+                    tool_calls,
+                } => LlmMessage::AssistantWithReasoning {
                     content: self.compress_paths(content),
                     reasoning: self.compress_paths(reasoning),
                     tool_calls: tool_calls.clone(),
-                }
-            }
-            LlmMessage::Tool { name, content, call_id } => {
+                },
                 LlmMessage::Tool {
+                    name,
+                    content,
+                    call_id,
+                } => LlmMessage::Tool {
                     name: name.clone(),
                     content: self.compress_paths(content),
                     call_id: call_id.clone(),
-                }
-            }
-            LlmMessage::ToolCall { id, name, args } => {
-                LlmMessage::ToolCall { id: id.clone(), name: name.clone(), args: args.clone() }
-            }
-        }).collect()
+                },
+                LlmMessage::ToolCall { id, name, args } => LlmMessage::ToolCall {
+                    id: id.clone(),
+                    name: name.clone(),
+                    args: args.clone(),
+                },
+            })
+            .collect()
     }
 
     fn extract_paths(content: &str) -> Vec<String> {
         let mut paths = Vec::new();
-        for word in content.split(|c: char| c.is_whitespace() || c == ':' || c == '(' || c == ')' || c == '{' || c == '}') {
-            if (word.starts_with('/') && word.contains('.')) || (word.starts_with("./") && word.len() > 2) {
+        for word in content.split(|c: char| {
+            c.is_whitespace() || c == ':' || c == '(' || c == ')' || c == '{' || c == '}'
+        }) {
+            if (word.starts_with('/') && word.contains('.'))
+                || (word.starts_with("./") && word.len() > 2)
+            {
                 paths.push(word.to_string());
             }
         }
@@ -101,7 +117,11 @@ impl ContextManager {
         let mut errors = Vec::new();
         for line in content.lines() {
             let lower = line.to_lowercase();
-            if lower.contains("error:") || lower.contains("error[") || lower.contains("failed") || lower.contains("panic!") {
+            if lower.contains("error:")
+                || lower.contains("error[")
+                || lower.contains("failed")
+                || lower.contains("panic!")
+            {
                 errors.push(line.to_string());
             }
         }
@@ -124,7 +144,7 @@ impl ContextManager {
         for (_call, result) in pairs {
             let (name, content) = match &result {
                 LlmMessage::Tool { name, content, .. } => (name.as_str(), content.as_str()),
-                    _ => continue,
+                _ => continue,
             };
             details.push(format!("{}: {} chars", name, content.len()));
             let paths = Self::extract_paths(content);
@@ -139,7 +159,11 @@ impl ContextManager {
         if details.is_empty() {
             return String::new();
         }
-        format!("Earlier tool results ({} pairs):\n{}", pairs.len(), details.join("\n"))
+        format!(
+            "Earlier tool results ({} pairs):\n{}",
+            pairs.len(),
+            details.join("\n")
+        )
     }
 
     fn summarize_pairs_detailed(&self, pairs: &[(LlmMessage, LlmMessage)]) -> String {
@@ -147,10 +171,19 @@ impl ContextManager {
         for (_call, result) in pairs {
             let (name, content) = match &result {
                 LlmMessage::Tool { name, content, .. } => (name.as_str(), content.as_str()),
-                    _ => continue,
+                _ => continue,
             };
-            let head = if content.len() > 500 { &content[..500] } else { content };
-            details.push(format!("{}: {} chars\n  Preview: {}", name, content.len(), Self::smart_truncate(head, 400, 50)));
+            let head = if content.len() > 500 {
+                &content[..500]
+            } else {
+                content
+            };
+            details.push(format!(
+                "{}: {} chars\n  Preview: {}",
+                name,
+                content.len(),
+                Self::smart_truncate(head, 400, 50)
+            ));
             let errors = Self::extract_error_lines(content);
             if !errors.is_empty() {
                 for e in &errors {
@@ -166,7 +199,10 @@ impl ContextManager {
 
     fn compress_core(&self, messages: &[LlmMessage]) -> Vec<LlmMessage> {
         let msg_count = messages.len();
-        let tool_call_count = messages.iter().filter(|m| matches!(m, LlmMessage::ToolCall { .. })).count();
+        let tool_call_count = messages
+            .iter()
+            .filter(|m| matches!(m, LlmMessage::ToolCall { .. }))
+            .count();
         let keep_recent = tool_call_count.saturating_sub(8);
 
         let mut early_pairs: Vec<(LlmMessage, LlmMessage)> = Vec::new();
@@ -191,7 +227,7 @@ impl ContextManager {
 
         let mut compressed: Vec<LlmMessage> = Vec::new();
         compressed.push(LlmMessage::System(
-            "[Context compressed due to length limit]".into()
+            "[Context compressed due to length limit]".into(),
         ));
 
         for msg in messages {
@@ -212,15 +248,20 @@ impl ContextManager {
         let total_calls = early_pairs.len() + late_pairs.len();
         if total_calls > 0 {
             let late_summary = self.summarize_pairs(&late_pairs);
-            compressed.push(LlmMessage::Assistant(
-                format!("\n## Recent tool calls (last {} of {})\n{}", late_pairs.len(), total_calls, late_summary)
-            ));
+            compressed.push(LlmMessage::Assistant(format!(
+                "\n## Recent tool calls (last {} of {})\n{}",
+                late_pairs.len(),
+                total_calls,
+                late_summary
+            )));
 
             if !early_pairs.is_empty() {
                 let early_summary = self.summarize_pairs_detailed(&early_pairs);
-                compressed.push(LlmMessage::Assistant(
-                    format!("\n## Earlier tool calls ({})\n{}", early_pairs.len(), early_summary)
-                ));
+                compressed.push(LlmMessage::Assistant(format!(
+                    "\n## Earlier tool calls ({})\n{}",
+                    early_pairs.len(),
+                    early_summary
+                )));
             }
         }
 
@@ -277,9 +318,18 @@ mod tests {
               LlmMessage::Tool { name: "bash".into(), content: "   Compiling i-rs v0.1.0\n    Finished dev [unoptimized + debuginfo]\n     Running `cargo test`\nerror[E0001]: cannot find function `foo` in this scope".into(), call_id: "2".into() }),
         ];
         let summary = cm.summarize_pairs(&pairs);
-        assert!(summary.contains("read:"), "summary should include read content length");
-        assert!(summary.contains("error: unused variable"), "summary should include error lines");
-        assert!(summary.contains("error[E0001]"), "summary should include rustc-style errors");
+        assert!(
+            summary.contains("read:"),
+            "summary should include read content length"
+        );
+        assert!(
+            summary.contains("error: unused variable"),
+            "summary should include error lines"
+        );
+        assert!(
+            summary.contains("error[E0001]"),
+            "summary should include rustc-style errors"
+        );
     }
 
     #[test]
@@ -322,7 +372,10 @@ mod tests {
         ];
         let cm = ContextManager::new();
         let compressed = cm.compress(&msgs);
-        let users: Vec<_> = compressed.iter().filter(|m| matches!(m, LlmMessage::User(_))).collect();
+        let users: Vec<_> = compressed
+            .iter()
+            .filter(|m| matches!(m, LlmMessage::User(_)))
+            .collect();
         assert_eq!(users.len(), 2, "all user messages should be preserved");
     }
 }

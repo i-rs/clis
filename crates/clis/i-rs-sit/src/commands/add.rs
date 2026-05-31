@@ -5,7 +5,12 @@ use crate::storage;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-pub fn handle_add(duration_minutes: i32, tag: Vec<String>, remark: Vec<String>, format: OutputFormat) -> Result<()> {
+pub fn handle_add(
+    duration_minutes: i32,
+    tag: Vec<String>,
+    remark: Vec<String>,
+    format: OutputFormat,
+) -> Result<()> {
     let mut store = storage::load_store()?;
 
     let entry = service::add_sit(&mut store, duration_minutes, tag, remark)?;

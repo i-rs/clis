@@ -1,23 +1,23 @@
-pub mod fs;
 pub mod bash;
-pub mod create_crate;
-pub mod call_claw;
-pub mod register_tool;
-pub mod git;
-pub mod web;
-pub mod delete;
-pub mod rename;
-pub mod lsp;
-pub mod pty;
-pub mod test_runner;
-pub mod mcp;
-pub mod skill;
-pub mod verify;
 pub mod batch_edit;
+pub mod call_claw;
+pub mod create_crate;
+pub mod delete;
+pub mod fs;
+pub mod git;
+pub mod lsp;
+pub mod mcp;
+pub mod pty;
+pub mod register_tool;
+pub mod rename;
+pub mod skill;
+pub mod test_runner;
+pub mod verify;
+pub mod web;
 
 use crate::config::Config;
 use async_trait::async_trait;
-use serde_json::{Value, Map};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -56,9 +56,15 @@ impl ToolRegistry {
 
         tools.insert("bash".into(), Arc::new(bash::BashTool));
         tools.insert("git".into(), Arc::new(git::GitTool));
-        tools.insert("create_crate".into(), Arc::new(create_crate::CreateCrateTool));
+        tools.insert(
+            "create_crate".into(),
+            Arc::new(create_crate::CreateCrateTool),
+        );
         tools.insert("call_claw".into(), Arc::new(call_claw::CallClawTool));
-        tools.insert("register_tool".into(), Arc::new(register_tool::RegisterTool));
+        tools.insert(
+            "register_tool".into(),
+            Arc::new(register_tool::RegisterTool),
+        );
         tools.insert("web_fetch".into(), Arc::new(web::WebFetchTool));
         tools.insert("web_search".into(), Arc::new(web::WebSearchTool));
         tools.insert("delete".into(), Arc::new(delete::DeleteTool));
@@ -83,7 +89,9 @@ impl ToolRegistry {
 
     #[allow(dead_code)]
     pub fn new_empty() -> Self {
-        Self { tools: HashMap::new() }
+        Self {
+            tools: HashMap::new(),
+        }
     }
 
     #[allow(dead_code)]
@@ -92,7 +100,10 @@ impl ToolRegistry {
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
-        self.tools.get(name).cloned().or_else(|| crate::tools::mcp::get_mcp_tool(name))
+        self.tools
+            .get(name)
+            .cloned()
+            .or_else(|| crate::tools::mcp::get_mcp_tool(name))
     }
 
     pub fn all_tools(&self) -> Vec<Arc<dyn Tool>> {
@@ -136,7 +147,9 @@ mod tests {
         reg.register(tool1);
         reg.register(tool2);
         assert_eq!(reg.all_tools().len(), 2);
-        let bash_schema = reg.schemas().into_iter()
+        let bash_schema = reg
+            .schemas()
+            .into_iter()
             .find(|s| s["function"]["name"] == "bash");
         assert!(bash_schema.is_some());
     }

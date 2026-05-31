@@ -1,8 +1,8 @@
-pub mod error;
-pub mod sse;
-pub mod openai;
 pub mod anthropic;
+pub mod error;
 pub mod ollama;
+pub mod openai;
+pub mod sse;
 
 use crate::config::Config;
 use async_trait::async_trait;
@@ -16,9 +16,21 @@ pub enum LlmMessage {
     System(String),
     User(String),
     Assistant(String),
-    AssistantWithReasoning { content: String, reasoning: String, tool_calls: Vec<ToolCall> },
-    Tool { name: String, content: String, call_id: String },
-    ToolCall { id: String, name: String, args: Value },
+    AssistantWithReasoning {
+        content: String,
+        reasoning: String,
+        tool_calls: Vec<ToolCall>,
+    },
+    Tool {
+        name: String,
+        content: String,
+        call_id: String,
+    },
+    ToolCall {
+        id: String,
+        name: String,
+        args: Value,
+    },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -43,8 +55,14 @@ pub struct StreamEvent {
 pub enum StreamEventKind {
     Token(String),
     Reasoning(String),
-    ToolCall { id: String, name: String, args: Value },
-    Done { usage: Option<Usage> },
+    ToolCall {
+        id: String,
+        name: String,
+        args: Value,
+    },
+    Done {
+        usage: Option<Usage>,
+    },
     Error(String),
 }
 
@@ -53,7 +71,11 @@ pub trait LlmProvider: Send + Sync {
     fn name(&self) -> &str;
     async fn stream(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> StreamRx;
     #[allow(dead_code)]
-    async fn chat(&self, messages: &[LlmMessage], tool_defs: &[Value]) -> anyhow::Result<LlmResponse>;
+    async fn chat(
+        &self,
+        messages: &[LlmMessage],
+        tool_defs: &[Value],
+    ) -> anyhow::Result<LlmResponse>;
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +92,9 @@ pub fn create_provider(config: &Config) -> anyhow::Result<Box<dyn LlmProvider>> 
         "openai" => Ok(Box::new(openai::OpenAiProvider::new(config)?)),
         "anthropic" => Ok(Box::new(anthropic::AnthropicProvider::new(config)?)),
         "ollama" => Ok(Box::new(ollama::OllamaProvider::new(config)?)),
-        name => anyhow::bail!("Unknown provider: {}. Supported: openai, anthropic, ollama", name),
+        name => anyhow::bail!(
+            "Unknown provider: {}. Supported: openai, anthropic, ollama",
+            name
+        ),
     }
 }

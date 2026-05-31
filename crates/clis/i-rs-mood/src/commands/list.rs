@@ -1,6 +1,6 @@
 use crate::models::{ListItem, MoodRecord, MoodRow};
 use crate::presentation::{
-    OutputFormat, format_table, output_list, print_mood_calendar, print_entry_count, print_warning,
+    OutputFormat, format_table, output_list, print_entry_count, print_mood_calendar, print_warning,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -33,7 +33,10 @@ pub fn handle_list(days: Option<usize>, calendar: bool, format: OutputFormat) ->
         return Ok(());
     }
 
-    let rows: Vec<MoodRow> = records_ref.iter().map(|r| MoodRow::from_record(r)).collect();
+    let rows: Vec<MoodRow> = records_ref
+        .iter()
+        .map(|r| MoodRow::from_record(r))
+        .collect();
     let table = format_table(&rows);
     println!("\n{table}");
 

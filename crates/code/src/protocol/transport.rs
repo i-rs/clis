@@ -32,7 +32,9 @@ pub async fn read_content_length_message(
             anyhow::bail!("{} server closed connection", server_name);
         }
         let trimmed = line.trim();
-        if trimmed.is_empty() { break; }
+        if trimmed.is_empty() {
+            break;
+        }
         if let Some(len_str) = trimmed.strip_prefix("Content-Length: ") {
             content_len = Some(len_str.parse()?);
         }

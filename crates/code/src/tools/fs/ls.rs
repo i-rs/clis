@@ -1,14 +1,18 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
-use crate::tools::{Tool, ToolResult};
 use super::check_path_async;
+use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct LsTool;
 
 #[async_trait]
 impl Tool for LsTool {
-    fn name(&self) -> &str { "ls" }
-    fn description(&self) -> &str { "List directory contents" }
+    fn name(&self) -> &str {
+        "ls"
+    }
+    fn description(&self) -> &str {
+        "List directory contents"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -31,8 +35,16 @@ impl Tool for LsTool {
         let mut entries = tokio::fs::read_dir(path).await?;
         let mut items = Vec::new();
         while let Some(entry) = entries.next_entry().await? {
-            let ftype = if entry.file_type().await?.is_dir() { "dir" } else { "file" };
-            items.push(format!("{}  {}", ftype, entry.file_name().to_string_lossy()));
+            let ftype = if entry.file_type().await?.is_dir() {
+                "dir"
+            } else {
+                "file"
+            };
+            items.push(format!(
+                "{}  {}",
+                ftype,
+                entry.file_name().to_string_lossy()
+            ));
         }
         items.sort();
         Ok(format!("{}:\n{}", path, items.join("\n")))

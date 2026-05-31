@@ -32,17 +32,23 @@ pub async fn run_config_init() -> anyhow::Result<()> {
     // API key
     let masked = config.api_key.as_ref().map(|k| {
         if k.len() > 8 {
-            format!("{}...{}", &k[..4], &k[k.len()-4..])
+            format!("{}...{}", &k[..4], &k[k.len() - 4..])
         } else {
             "****".to_string()
         }
     });
-    prompt("API key", &masked.unwrap_or_else(|| "not set".into()), &mut input)?;
+    prompt(
+        "API key",
+        &masked.unwrap_or_else(|| "not set".into()),
+        &mut input,
+    )?;
     let trimmed = input.trim().to_string();
     if !trimmed.is_empty() {
         config.api_key = Some(trimmed.clone());
         if !trimmed.starts_with("$") {
-            eprintln!("\n  Warning: API key stored in plaintext. Consider using I_RS_CODE_API_KEY env var instead.");
+            eprintln!(
+                "\n  Warning: API key stored in plaintext. Consider using I_RS_CODE_API_KEY env var instead."
+            );
         }
     }
 
@@ -83,7 +89,10 @@ pub async fn run_config_set(key: &str, value: &str) -> anyhow::Result<()> {
         "base_url" => config.base_url = Some(value.to_string()),
         "model" => config.model = Some(value.to_string()),
         "workspace" => config.workspace = Some(value.to_string()),
-        _ => anyhow::bail!("Unknown config key: {}. Valid keys: provider, api_key, base_url, model, workspace", key),
+        _ => anyhow::bail!(
+            "Unknown config key: {}. Valid keys: provider, api_key, base_url, model, workspace",
+            key
+        ),
     }
     config.save()?;
     println!("✓ {} set to {}", key, value);

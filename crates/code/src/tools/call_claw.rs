@@ -1,14 +1,18 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::protocol::handler::AGENT_MODE;
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct CallClawTool;
 
 #[async_trait]
 impl Tool for CallClawTool {
-    fn name(&self) -> &str { "call_claw" }
-    fn description(&self) -> &str { "Send a request to claw for help (debug, review, approval)" }
+    fn name(&self) -> &str {
+        "call_claw"
+    }
+    fn description(&self) -> &str {
+        "Send a request to claw for help (debug, review, approval)"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -32,7 +36,10 @@ impl Tool for CallClawTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let request_type = args.get("request_type").and_then(|v| v.as_str()).unwrap_or("info");
+        let request_type = args
+            .get("request_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("info");
         let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
 
         // In agent mode, send to claw via protocol module.
@@ -44,9 +51,13 @@ impl Tool for CallClawTool {
                 "requires_claw": true,
                 "request_type": request_type,
                 "content": content
-            }).to_string())
+            })
+            .to_string())
         } else {
-            Ok(format!("[Need input from you]: {}\n\n(Type your response or guidance above)", content))
+            Ok(format!(
+                "[Need input from you]: {}\n\n(Type your response or guidance above)",
+                content
+            ))
         }
     }
 }

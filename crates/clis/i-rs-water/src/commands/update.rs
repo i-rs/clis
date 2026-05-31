@@ -23,7 +23,11 @@ pub fn handle_update(
         return Ok(());
     }
 
-    print_success(&format!("✓ Water record '{}' updated ({} ml)", id.green(), entry.amount_ml));
+    print_success(&format!(
+        "✓ Water record '{}' updated ({} ml)",
+        id.green(),
+        entry.amount_ml
+    ));
 
     Ok(())
 }

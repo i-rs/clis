@@ -14,7 +14,11 @@ pub async fn run_plugins_list() -> anyhow::Result<()> {
             let name = entry.file_name().to_string_lossy().to_string();
             let meta = entry.metadata().ok();
             let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
-            let kind = if meta.as_ref().map_or(false, |m| m.is_dir()) { "dir" } else { "file" };
+            let kind = if meta.as_ref().map_or(false, |m| m.is_dir()) {
+                "dir"
+            } else {
+                "file"
+            };
             println!("    {:30} {}  {} bytes", name, kind, size);
             has_entries = true;
         }
@@ -32,7 +36,11 @@ pub async fn run_plugins_list() -> anyhow::Result<()> {
             let name = entry.file_name().to_string_lossy().to_string();
             let meta = entry.metadata().ok();
             let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
-            let kind = if meta.as_ref().map_or(false, |m| m.is_dir()) { "dir" } else { "file" };
+            let kind = if meta.as_ref().map_or(false, |m| m.is_dir()) {
+                "dir"
+            } else {
+                "file"
+            };
             println!("    {:30} {}  {} bytes", name, kind, size);
             has_entries = true;
         }

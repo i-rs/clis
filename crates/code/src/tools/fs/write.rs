@@ -1,15 +1,19 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
-use crate::tools::{Tool, ToolResult};
 use super::check_path_async;
+use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 use std::path::Path;
 
 pub struct WriteTool;
 
 #[async_trait]
 impl Tool for WriteTool {
-    fn name(&self) -> &str { "write" }
-    fn description(&self) -> &str { "Create or overwrite a file" }
+    fn name(&self) -> &str {
+        "write"
+    }
+    fn description(&self) -> &str {
+        "Create or overwrite a file"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -28,8 +32,14 @@ impl Tool for WriteTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let content = args.get("content").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("content required"))?;
+        let path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
+        let content = args
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("content required"))?;
         check_path_async(path).await?;
 
         let old_content = if tokio::fs::metadata(path).await.is_ok() {
@@ -47,7 +57,12 @@ impl Tool for WriteTool {
         tokio::fs::rename(&tmp_path, path).await?;
 
         if old_content.is_empty() {
-            Ok(format!("Created {} ({} bytes)\n```{}\n```", path, content.len(), content))
+            Ok(format!(
+                "Created {} ({} bytes)\n```{}\n```",
+                path,
+                content.len(),
+                content
+            ))
         } else {
             let diff = crate::diff::diff_text(&old_content, content);
             Ok(format!(

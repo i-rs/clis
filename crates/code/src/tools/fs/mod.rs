@@ -1,18 +1,18 @@
-pub mod read;
-pub mod write;
 pub mod edit;
 pub mod glob;
 pub mod grep;
 pub mod ls;
+pub mod read;
+pub mod write;
 
 use std::path::{Path, PathBuf};
 
-pub use read::ReadTool;
-pub use write::WriteTool;
 pub use edit::EditTool;
 pub use glob::GlobTool;
 pub use grep::GrepTool;
 pub use ls::LsTool;
+pub use read::ReadTool;
+pub use write::WriteTool;
 
 /// Validate path is within workspace and return safe path.
 pub fn resolve_safe_path(path: &str) -> anyhow::Result<PathBuf> {
@@ -55,7 +55,11 @@ pub(crate) fn check_path(path: &str) -> anyhow::Result<()> {
 pub(crate) async fn check_path_async(path: &str) -> anyhow::Result<()> {
     let p = Path::new(path);
     let cwd = std::env::current_dir()?;
-    let absolute = if p.is_relative() { cwd.join(p) } else { p.to_path_buf() };
+    let absolute = if p.is_relative() {
+        cwd.join(p)
+    } else {
+        p.to_path_buf()
+    };
 
     // Sync checks first (no I/O needed for traversal / relative resolution)
     if p.components().any(|c| c.as_os_str() == "..") {
@@ -84,7 +88,11 @@ fn check_path_impl(path: &str, _async_version: bool) -> anyhow::Result<()> {
         anyhow::bail!("Path traversal detected: {}", path);
     }
     let cwd = std::env::current_dir()?;
-    let absolute = if p.is_relative() { cwd.join(p) } else { p.to_path_buf() };
+    let absolute = if p.is_relative() {
+        cwd.join(p)
+    } else {
+        p.to_path_buf()
+    };
     if absolute.exists() {
         let canonical = absolute.canonicalize()?;
         if !canonical.starts_with(&cwd) {

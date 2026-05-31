@@ -22,7 +22,11 @@ impl HttpLogEntry {
     }
 
     pub fn path(&self) -> String {
-        self.url.split("/v1/").nth(1).unwrap_or(&self.url).to_string()
+        self.url
+            .split("/v1/")
+            .nth(1)
+            .unwrap_or(&self.url)
+            .to_string()
     }
 
     pub fn time_short(&self) -> &str {
@@ -51,7 +55,10 @@ pub fn push_log(entry: HttpLogEntry) {
 }
 
 pub fn get_log() -> Vec<HttpLogEntry> {
-    http_log().lock().map(|log| log.0.clone()).unwrap_or_default()
+    http_log()
+        .lock()
+        .map(|log| log.0.clone())
+        .unwrap_or_default()
 }
 
 pub fn clear_log() {

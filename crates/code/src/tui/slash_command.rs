@@ -32,20 +32,90 @@ pub struct CmdHelp {
 }
 
 pub static COMMANDS: &[CmdHelp] = &[
-    CmdHelp { name: "clear", args: "", desc: "清空当前对话", category: "对话管理" },
-    CmdHelp { name: "new", args: "", desc: "重置为全新会话", category: "对话管理" },
-    CmdHelp { name: "undo", args: "", desc: "撤回上一条对话", category: "对话管理" },
-    CmdHelp { name: "retry", args: "", desc: "移除上一条回复，可重新发送", category: "对话管理" },
-    CmdHelp { name: "help", args: "", desc: "显示所有可用命令", category: "帮助" },
-    CmdHelp { name: "status", args: "", desc: "显示当前状态", category: "信息" },
-    CmdHelp { name: "tools", args: "", desc: "列出可用工具", category: "信息" },
-    CmdHelp { name: "model", args: "<name>", desc: "切换 LLM 模型", category: "配置" },
-    CmdHelp { name: "temp", args: "<n>", desc: "设置 temperature（0.0–2.0）", category: "配置" },
-    CmdHelp { name: "save", args: "<name>", desc: "保存当前会话", category: "会话" },
-    CmdHelp { name: "load", args: "<name>", desc: "加载已保存会话", category: "会话" },
-    CmdHelp { name: "sessions", args: "", desc: "列出所有保存的会话", category: "会话" },
-    CmdHelp { name: "export", args: "md", desc: "导出对话为 Markdown 文件", category: "导出" },
-    CmdHelp { name: "files", args: "", desc: "列出当前工作区文件", category: "工作区" },
+    CmdHelp {
+        name: "clear",
+        args: "",
+        desc: "清空当前对话",
+        category: "对话管理",
+    },
+    CmdHelp {
+        name: "new",
+        args: "",
+        desc: "重置为全新会话",
+        category: "对话管理",
+    },
+    CmdHelp {
+        name: "undo",
+        args: "",
+        desc: "撤回上一条对话",
+        category: "对话管理",
+    },
+    CmdHelp {
+        name: "retry",
+        args: "",
+        desc: "移除上一条回复，可重新发送",
+        category: "对话管理",
+    },
+    CmdHelp {
+        name: "help",
+        args: "",
+        desc: "显示所有可用命令",
+        category: "帮助",
+    },
+    CmdHelp {
+        name: "status",
+        args: "",
+        desc: "显示当前状态",
+        category: "信息",
+    },
+    CmdHelp {
+        name: "tools",
+        args: "",
+        desc: "列出可用工具",
+        category: "信息",
+    },
+    CmdHelp {
+        name: "model",
+        args: "<name>",
+        desc: "切换 LLM 模型",
+        category: "配置",
+    },
+    CmdHelp {
+        name: "temp",
+        args: "<n>",
+        desc: "设置 temperature（0.0–2.0）",
+        category: "配置",
+    },
+    CmdHelp {
+        name: "save",
+        args: "<name>",
+        desc: "保存当前会话",
+        category: "会话",
+    },
+    CmdHelp {
+        name: "load",
+        args: "<name>",
+        desc: "加载已保存会话",
+        category: "会话",
+    },
+    CmdHelp {
+        name: "sessions",
+        args: "",
+        desc: "列出所有保存的会话",
+        category: "会话",
+    },
+    CmdHelp {
+        name: "export",
+        args: "md",
+        desc: "导出对话为 Markdown 文件",
+        category: "导出",
+    },
+    CmdHelp {
+        name: "files",
+        args: "",
+        desc: "列出当前工作区文件",
+        category: "工作区",
+    },
 ];
 
 /// Parse a raw input line into a `SlashCommand`.
@@ -154,10 +224,7 @@ fn cmd_clear(app: &mut App) -> Vec<AgentMessage> {
 }
 
 fn cmd_help() -> Vec<AgentMessage> {
-    let mut lines = vec![
-        "── Slash 命令 ──".to_string(),
-        String::new(),
-    ];
+    let mut lines = vec!["── Slash 命令 ──".to_string(), String::new()];
     let mut current_cat = String::new();
     for cmd in COMMANDS {
         if cmd.category != current_cat {
@@ -191,11 +258,18 @@ fn cmd_status(app: &App) -> Vec<AgentMessage> {
     let model = app.config.effective_model();
     let provider = &app.config.provider;
     let msg_count = app.messages.len();
-    let tool_count = app.messages.iter().filter(|m| matches!(m, AgentMessage::ToolResult { .. })).count();
+    let tool_count = app
+        .messages
+        .iter()
+        .filter(|m| matches!(m, AgentMessage::ToolResult { .. }))
+        .count();
     let input_tokens = app.token_usage.input;
     let output_tokens = app.token_usage.output;
     let temperature = app.temperature;
-    let context_pct = app.context_usage.map(|p| format!("{:.0}%", p * 100.0)).unwrap_or_else(|| "—".into());
+    let context_pct = app
+        .context_usage
+        .map(|p| format!("{:.0}%", p * 100.0))
+        .unwrap_or_else(|| "—".into());
 
     vec![AgentMessage::system(format!(
         "── 状态 ──\n\
@@ -204,7 +278,14 @@ fn cmd_status(app: &App) -> Vec<AgentMessage> {
          消息:      {}条（{}次工具调用）\n\
          Token:     {} in / {} out\n\
          上下文:    {}",
-        model, provider, temperature, msg_count, tool_count, input_tokens, output_tokens, context_pct,
+        model,
+        provider,
+        temperature,
+        msg_count,
+        tool_count,
+        input_tokens,
+        output_tokens,
+        context_pct,
     ))]
 }
 
@@ -287,7 +368,10 @@ fn cmd_retry(app: &mut App) -> Vec<AgentMessage> {
             app.messages.truncate(idx);
             // Also roll back agent_messages to match
             app.agent_messages.retain(|m| {
-                matches!(m, crate::provider::LlmMessage::System(_) | crate::provider::LlmMessage::User(_))
+                matches!(
+                    m,
+                    crate::provider::LlmMessage::System(_) | crate::provider::LlmMessage::User(_)
+                )
             });
             vec![AgentMessage::system(
                 "已移除上一条回复。修改输入后按 Enter 重新发送，或直接按 ↑ 调出上一条输入。",
@@ -358,7 +442,11 @@ async fn cmd_sessions() -> Vec<AgentMessage> {
 
     let mut lines = vec![format!("已保存的会话（{} 个）:", ids.len())];
     for id in &ids {
-        let short = if id.len() > 12 { &id[..12] } else { id.as_str() };
+        let short = if id.len() > 12 {
+            &id[..12]
+        } else {
+            id.as_str()
+        };
         lines.push(format!("  /load {}", short));
     }
     lines.push(String::new());
@@ -368,10 +456,16 @@ async fn cmd_sessions() -> Vec<AgentMessage> {
 
 async fn cmd_export_md(app: &App) -> Vec<AgentMessage> {
     let mut md = String::new();
-    md.push_str(&format!("# i-rs-code 对话 - {}\n\n", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+    md.push_str(&format!(
+        "# i-rs-code 对话 - {}\n\n",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    ));
     md.push_str(&format!("- **模型**: {}\n", app.config.effective_model()));
     md.push_str(&format!("- **消息数**: {}\n", app.messages.len()));
-    md.push_str(&format!("- **Token 用量**: {} in / {} out\n\n", app.token_usage.input, app.token_usage.output));
+    md.push_str(&format!(
+        "- **Token 用量**: {} in / {} out\n\n",
+        app.token_usage.input, app.token_usage.output
+    ));
     md.push_str("---\n\n");
 
     for msg in &app.messages {
@@ -381,7 +475,9 @@ async fn cmd_export_md(app: &App) -> Vec<AgentMessage> {
                 md.push_str(content);
                 md.push_str("\n\n");
             }
-            AgentMessage::Assistant { content, reasoning, .. } => {
+            AgentMessage::Assistant {
+                content, reasoning, ..
+            } => {
                 md.push_str("## Assistant\n\n");
                 if !reasoning.is_empty() {
                     md.push_str("> **思考过程**:\n>\n");

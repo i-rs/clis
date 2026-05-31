@@ -1,13 +1,17 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct GrepTool;
 
 #[async_trait]
 impl Tool for GrepTool {
-    fn name(&self) -> &str { "grep" }
-    fn description(&self) -> &str { "Search file contents using regex" }
+    fn name(&self) -> &str {
+        "grep"
+    }
+    fn description(&self) -> &str {
+        "Search file contents using regex"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -27,9 +31,20 @@ impl Tool for GrepTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let pattern = args.get("pattern").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("pattern required"))?.to_string();
-        let root = args.get("path").and_then(|v| v.as_str()).unwrap_or(".").to_string();
-        let include = args.get("include").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let pattern = args
+            .get("pattern")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("pattern required"))?
+            .to_string();
+        let root = args
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or(".")
+            .to_string();
+        let include = args
+            .get("include")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         tokio::task::spawn_blocking(move || {
             let re = regex::Regex::new(&pattern)?;
             let lines = std::sync::Mutex::new(Vec::new());
@@ -67,8 +82,13 @@ impl Tool for GrepTool {
             if results.is_empty() {
                 Ok("No matches found".into())
             } else {
-                Ok(format!("Found {} matches:\n{}", results.len(), results.join("\n")))
+                Ok(format!(
+                    "Found {} matches:\n{}",
+                    results.len(),
+                    results.join("\n")
+                ))
             }
-        }).await?
+        })
+        .await?
     }
 }

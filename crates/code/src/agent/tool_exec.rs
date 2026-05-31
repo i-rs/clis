@@ -28,7 +28,11 @@ pub(crate) async fn execute_tools(
         // Check cache for read-only tools
         if ToolResultCache::is_cacheable(&tc.name) {
             if let Some(cache) = cache {
-                if let Some(cached) = cache.lock().unwrap_or_else(|e| e.into_inner()).get(&tc.name, &args_json) {
+                if let Some(cached) = cache
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .get(&tc.name, &args_json)
+                {
                     tool_messages.push((tc.name.clone(), tc.id.clone(), cached.to_string()));
                     continue;
                 }
@@ -38,12 +42,19 @@ pub(crate) async fn execute_tools(
         // Invalidate cache for mutator tools
         if ToolResultCache::is_mutator(&tc.name) {
             if let Some(cache) = cache {
-                cache.lock().unwrap_or_else(|e| e.into_inner()).invalidate_all();
+                cache
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .invalidate_all();
             }
         }
 
         let tool = tools.get(&tc.name);
-        let tc_clone = ToolCall { id: tc.id.clone(), name: tc.name.clone(), args: tc.args.clone() };
+        let tc_clone = ToolCall {
+            id: tc.id.clone(),
+            name: tc.name.clone(),
+            args: tc.args.clone(),
+        };
         let cache_clone = cache.map(|c| Arc::clone(c));
 
         let handle = tokio::spawn(async move {
@@ -61,8 +72,11 @@ pub(crate) async fn execute_tools(
                 if ToolResultCache::is_cacheable(&tc_clone.name) {
                     if let Some(cache) = cache_clone {
                         let args_json = serde_json::to_string(&tc_clone.args).unwrap_or_default();
-                        cache.lock().unwrap_or_else(|e| e.into_inner())
-                            .insert(&tc_clone.name, &args_json, val.clone());
+                        cache.lock().unwrap_or_else(|e| e.into_inner()).insert(
+                            &tc_clone.name,
+                            &args_json,
+                            val.clone(),
+                        );
                     }
                 }
             }
@@ -95,8 +109,11 @@ pub(crate) async fn execute_tools(
                     if ToolResultCache::is_cacheable(&retry_name) {
                         if let Some(cache) = cache_clone {
                             let args_json = serde_json::to_string(&retry_args).unwrap_or_default();
-                            cache.lock().unwrap_or_else(|e| e.into_inner())
-                                .insert(&retry_name, &args_json, val.clone());
+                            cache.lock().unwrap_or_else(|e| e.into_inner()).insert(
+                                &retry_name,
+                                &args_json,
+                                val.clone(),
+                            );
                         }
                     }
                 }
@@ -138,12 +155,16 @@ async fn run_tool_handle(
 }
 
 pub(crate) fn build_over_limit_message(retry_counts: &HashMap<String, u32>) -> Option<String> {
-    let over_limit: Vec<_> = retry_counts.iter()
+    let over_limit: Vec<_> = retry_counts
+        .iter()
         .filter(|(_, c)| **c > MAX_TOOL_RETRIES)
         .map(|(id, c)| (id.clone(), *c))
         .collect();
-    if over_limit.is_empty() { return None; }
-    let details: Vec<String> = over_limit.iter()
+    if over_limit.is_empty() {
+        return None;
+    }
+    let details: Vec<String> = over_limit
+        .iter()
         .map(|(id, c)| format!("tool_call_id='{}' ({}times)", id, c))
         .collect();
     Some(format!(
@@ -152,6 +173,7 @@ pub(crate) fn build_over_limit_message(retry_counts: &HashMap<String, u32>) -> O
          2. Is there a different approach?\n\
          3. Is this tool needed at all?\n\
          Failed calls: {}",
-        MAX_TOOL_RETRIES, details.join("; ")
+        MAX_TOOL_RETRIES,
+        details.join("; ")
     ))
 }

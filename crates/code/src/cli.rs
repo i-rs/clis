@@ -77,13 +77,9 @@ pub enum SessionsCommands {
         full: bool,
     },
     /// Delete a session
-    Delete {
-        id: String,
-    },
+    Delete { id: String },
     /// Export session as markdown
-    Export {
-        id: String,
-    },
+    Export { id: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -103,13 +99,9 @@ pub enum McpCommands {
         env: Option<Vec<String>>,
     },
     /// Remove an MCP server
-    Remove {
-        name: String,
-    },
+    Remove { name: String },
     /// Connect and test an MCP server
-    Test {
-        name: String,
-    },
+    Test { name: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -125,9 +117,7 @@ pub enum SkillCommands {
     /// List installed skills
     List,
     /// Show a skill's content
-    Get {
-        name: String,
-    },
+    Get { name: String },
     /// Create a new skill
     Create {
         name: String,
@@ -143,10 +133,7 @@ pub enum ConfigCommands {
     /// Interactive setup wizard
     Init,
     /// Set a config value: provider|api_key|base_url|model|workspace
-    Set {
-        key: String,
-        value: String,
-    },
+    Set { key: String, value: String },
 }
 
 #[derive(Subcommand, Debug)]

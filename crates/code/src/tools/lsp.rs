@@ -1,6 +1,6 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct LspDiagnosticsTool;
 pub struct LspDefinitionTool;
@@ -12,8 +12,12 @@ pub struct LspCompletionTool;
 
 #[async_trait]
 impl Tool for LspDiagnosticsTool {
-    fn name(&self) -> &str { "lsp_diagnostics" }
-    fn description(&self) -> &str { "Get compiler diagnostics (errors/warnings) for a file using LSP." }
+    fn name(&self) -> &str {
+        "lsp_diagnostics"
+    }
+    fn description(&self) -> &str {
+        "Get compiler diagnostics (errors/warnings) for a file using LSP."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -31,7 +35,9 @@ impl Tool for LspDiagnosticsTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let mut session = crate::runtime::lsp_session().lock().await;
         let diags = session.get_diagnostics(file_path).await?;
@@ -39,15 +45,23 @@ impl Tool for LspDiagnosticsTool {
         if diags.is_empty() {
             Ok(format!("{}: no diagnostics", file_path))
         } else {
-            Ok(format!("Diagnostics for {}:\n{}", file_path, diags.join("\n")))
+            Ok(format!(
+                "Diagnostics for {}:\n{}",
+                file_path,
+                diags.join("\n")
+            ))
         }
     }
 }
 
 #[async_trait]
 impl Tool for LspDefinitionTool {
-    fn name(&self) -> &str { "lsp_definition" }
-    fn description(&self) -> &str { "Go to definition of a symbol at a given position." }
+    fn name(&self) -> &str {
+        "lsp_definition"
+    }
+    fn description(&self) -> &str {
+        "Go to definition of a symbol at a given position."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -67,10 +81,20 @@ impl Tool for LspDefinitionTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
+        let line = args
+            .get("line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
+        let character = args
+            .get("character")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
         let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_definition(file_path, line, character).await?;
         Ok(result)
@@ -79,8 +103,12 @@ impl Tool for LspDefinitionTool {
 
 #[async_trait]
 impl Tool for LspReferencesTool {
-    fn name(&self) -> &str { "lsp_references" }
-    fn description(&self) -> &str { "Find all references to a symbol at a given position." }
+    fn name(&self) -> &str {
+        "lsp_references"
+    }
+    fn description(&self) -> &str {
+        "Find all references to a symbol at a given position."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -100,10 +128,20 @@ impl Tool for LspReferencesTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
+        let line = args
+            .get("line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
+        let character = args
+            .get("character")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
         let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_references(file_path, line, character).await?;
         Ok(result)
@@ -112,8 +150,12 @@ impl Tool for LspReferencesTool {
 
 #[async_trait]
 impl Tool for LspHoverTool {
-    fn name(&self) -> &str { "lsp_hover" }
-    fn description(&self) -> &str { "Get hover documentation for a symbol at a given position." }
+    fn name(&self) -> &str {
+        "lsp_hover"
+    }
+    fn description(&self) -> &str {
+        "Get hover documentation for a symbol at a given position."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -133,10 +175,20 @@ impl Tool for LspHoverTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
+        let line = args
+            .get("line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
+        let character = args
+            .get("character")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
         let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_hover(file_path, line, character).await?;
         Ok(result)
@@ -145,8 +197,12 @@ impl Tool for LspHoverTool {
 
 #[async_trait]
 impl Tool for LspRenameTool {
-    fn name(&self) -> &str { "lsp_rename" }
-    fn description(&self) -> &str { "Rename a symbol across the entire workspace using LSP." }
+    fn name(&self) -> &str {
+        "lsp_rename"
+    }
+    fn description(&self) -> &str {
+        "Rename a symbol across the entire workspace using LSP."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -167,22 +223,40 @@ impl Tool for LspRenameTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let new_name = args.get("new_name").and_then(|v| v.as_str())
+        let line = args
+            .get("line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
+        let character = args
+            .get("character")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
+        let new_name = args
+            .get("new_name")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("new_name required"))?;
         let mut session = crate::runtime::lsp_session().lock().await;
-        let result = session.get_rename(file_path, line, character, new_name).await?;
+        let result = session
+            .get_rename(file_path, line, character, new_name)
+            .await?;
         Ok(result)
     }
 }
 
 #[async_trait]
 impl Tool for LspSymbolsTool {
-    fn name(&self) -> &str { "lsp_symbols" }
-    fn description(&self) -> &str { "Get document symbols (outline) for a file." }
+    fn name(&self) -> &str {
+        "lsp_symbols"
+    }
+    fn description(&self) -> &str {
+        "Get document symbols (outline) for a file."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -200,7 +274,9 @@ impl Tool for LspSymbolsTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_document_symbols(file_path).await?;
@@ -210,8 +286,12 @@ impl Tool for LspSymbolsTool {
 
 #[async_trait]
 impl Tool for LspCompletionTool {
-    fn name(&self) -> &str { "lsp_completion" }
-    fn description(&self) -> &str { "Get code completion suggestions at a given position using LSP." }
+    fn name(&self) -> &str {
+        "lsp_completion"
+    }
+    fn description(&self) -> &str {
+        "Get code completion suggestions at a given position using LSP."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -231,10 +311,20 @@ impl Tool for LspCompletionTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let file_path = args.get("file_path").and_then(|v| v.as_str())
+        let file_path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
-        let line = args.get("line").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
-        let character = args.get("character").and_then(|v| v.as_u64()).unwrap_or(1).saturating_sub(1) as u32;
+        let line = args
+            .get("line")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
+        let character = args
+            .get("character")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .saturating_sub(1) as u32;
         let mut session = crate::runtime::lsp_session().lock().await;
         let result = session.get_completion(file_path, line, character).await?;
         Ok(result)

@@ -12,7 +12,10 @@ pub async fn run_workspace_show() -> anyhow::Result<()> {
         }
         None => {
             println!("Workspace: (not set)");
-            println!("  Current directory: {:?}", std::env::current_dir().unwrap_or_default());
+            println!(
+                "  Current directory: {:?}",
+                std::env::current_dir().unwrap_or_default()
+            );
             println!("  Set with: i-rs-code workspace <path>");
         }
     }

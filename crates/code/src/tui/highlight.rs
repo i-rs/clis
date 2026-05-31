@@ -7,9 +7,7 @@ use syntect::highlighting::{FontStyle, Style as SyntectStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
-static HIGHLIGHTER: LazyLock<Mutex<Highlighter>> = LazyLock::new(|| {
-    Mutex::new(Highlighter::new())
-});
+static HIGHLIGHTER: LazyLock<Mutex<Highlighter>> = LazyLock::new(|| Mutex::new(Highlighter::new()));
 
 struct Highlighter {
     ss: SyntaxSet,
@@ -38,10 +36,7 @@ impl Highlighter {
             };
             let mut spans: Vec<Span<'static>> = Vec::new();
             for (style, text) in ranges {
-                let text = text
-                    .strip_suffix('\n')
-                    .unwrap_or(text)
-                    .to_string();
+                let text = text.strip_suffix('\n').unwrap_or(text).to_string();
                 spans.push(Span::styled(text, syntect_style_to_ratatui(&style)));
             }
             result.push(spans);
@@ -72,7 +67,10 @@ fn syntect_style_to_ratatui(style: &SyntectStyle) -> Style {
 /// Returns one `Vec<Span>` per line, suitable for direct use in ratatui `Line` widgets.
 pub fn highlight_code_block(code: &str, lang: Option<&str>) -> Vec<Vec<Span<'static>>> {
     let Ok(highlighter) = HIGHLIGHTER.lock() else {
-        return code.lines().map(|l| vec![Span::raw(l.to_string())]).collect();
+        return code
+            .lines()
+            .map(|l| vec![Span::raw(l.to_string())])
+            .collect();
     };
     highlighter.highlight(code, lang)
 }

@@ -1,6 +1,6 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 fn subst(template: &str, pairs: &[(&str, &str)]) -> String {
     let mut s = template.to_string();
@@ -14,8 +14,12 @@ pub struct CreateCrateTool;
 
 #[async_trait]
 impl Tool for CreateCrateTool {
-    fn name(&self) -> &str { "create_crate" }
-    fn description(&self) -> &str { "Create a new i-rs CLI crate following project standards" }
+    fn name(&self) -> &str {
+        "create_crate"
+    }
+    fn description(&self) -> &str {
+        "Create a new i-rs CLI crate following project standards"
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -40,10 +44,20 @@ impl Tool for CreateCrateTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let name = args.get("name").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("name required"))?;
-        let description = args.get("description").and_then(|v| v.as_str()).unwrap_or("");
-        let output_dir = args.get("output_dir").and_then(|v| v.as_str()).unwrap_or("crates/clis");
-        let special_cmds: Vec<&str> = args.get("special_commands")
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("name required"))?;
+        let description = args
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let output_dir = args
+            .get("output_dir")
+            .and_then(|v| v.as_str())
+            .unwrap_or("crates/clis");
+        let special_cmds: Vec<&str> = args
+            .get("special_commands")
             .and_then(|v| v.as_array())
             .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
             .unwrap_or_default();
@@ -67,7 +81,11 @@ impl Tool for CreateCrateTool {
         // main.rs
         let main_rs = subst(
             include_str!("templates/main.rs.in"),
-            &[("$NAME", name), ("$DESCRIPTION", description), ("$STORE_TYPE", &format!("{}Store", name))],
+            &[
+                ("$NAME", name),
+                ("$DESCRIPTION", description),
+                ("$STORE_TYPE", &format!("{}Store", name)),
+            ],
         );
         std::fs::write(format!("{}/main.rs", src_dir), &main_rs)?;
 
@@ -119,14 +137,16 @@ struct Row<'a> {
         std::fs::write(format!("{}/mod.rs", pres_dir), pres)?;
 
         // commands/mod.rs
-        let mut cmds_mod = String::from(r#"pub mod add;
+        let mut cmds_mod = String::from(
+            r#"pub mod add;
 pub mod delete;
 pub mod get;
 pub mod list;
 pub mod update;
 pub mod example;
 pub mod skill;
-"#);
+"#,
+        );
         for sc in &special_cmds {
             cmds_mod.push_str(&format!("pub mod {};\n", sc));
         }
@@ -144,7 +164,16 @@ pub mod skill;
             std::fs::write(format!("{}/{}.rs", cmds_dir, sc), &content)?;
         }
 
-        Ok(format!("Created crate {} at {}/\nFiles:\n{:?}", name, crate_dir,
-            std::fs::read_dir(&crate_dir).map(|d| d.filter_map(|e| e.ok()).map(|e| e.path()).collect::<Vec<_>>()).unwrap_or_default()))
+        Ok(format!(
+            "Created crate {} at {}/\nFiles:\n{:?}",
+            name,
+            crate_dir,
+            std::fs::read_dir(&crate_dir)
+                .map(|d| d
+                    .filter_map(|e| e.ok())
+                    .map(|e| e.path())
+                    .collect::<Vec<_>>())
+                .unwrap_or_default()
+        ))
     }
 }

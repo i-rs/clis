@@ -1,5 +1,5 @@
-use crate::config;
 use super::helpers::{print_content, truncate};
+use crate::config;
 
 pub async fn run_sessions_list() -> anyhow::Result<()> {
     let sessions_dir = config::i_rs_code_dir().join("sessions");
@@ -41,7 +41,10 @@ pub async fn run_sessions_list() -> anyhow::Result<()> {
     println!();
     for (id, created, count, updated) in &entries {
         let short_id = if id.len() > 8 { &id[..8] } else { id.as_str() };
-        println!("  {:<12} │ {} msgs │ created: {} │ updated: {}", short_id, count, created, updated);
+        println!(
+            "  {:<12} │ {} msgs │ created: {} │ updated: {}",
+            short_id, count, created, updated
+        );
     }
     println!();
     println!("Use `i-rs-code sessions show <id>` to view details.");
@@ -64,7 +67,9 @@ pub async fn run_sessions_show(id: &str, full: bool) -> anyhow::Result<()> {
                 println!("── [{}. User] ──", i + 1);
                 print_content(content, full);
             }
-            crate::app::AgentMessage::Assistant { content, reasoning, .. } => {
+            crate::app::AgentMessage::Assistant {
+                content, reasoning, ..
+            } => {
                 println!("── [{}. Assistant] ──", i + 1);
                 if !reasoning.is_empty() {
                     println!("  [reasoning]: {}", truncate(reasoning, 200));
@@ -125,7 +130,9 @@ pub async fn run_sessions_export(id: &str) -> anyhow::Result<()> {
                 println!("{}", content);
                 println!();
             }
-            crate::app::AgentMessage::Assistant { content, reasoning, .. } => {
+            crate::app::AgentMessage::Assistant {
+                content, reasoning, ..
+            } => {
                 println!("## Assistant\n");
                 if !reasoning.is_empty() {
                     println!("> **Reasoning**: {}\n", reasoning);

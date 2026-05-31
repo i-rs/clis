@@ -4,7 +4,12 @@ use std::path::PathBuf;
 pub fn i_rs_code_dir() -> PathBuf {
     std::env::var("I_RS_CODE_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".i-rs").join("code"))
+        .unwrap_or_else(|_| {
+            dirs::home_dir()
+                .unwrap_or_default()
+                .join(".i-rs")
+                .join("code")
+        })
 }
 
 pub fn config_path() -> PathBuf {
@@ -41,9 +46,15 @@ pub struct Config {
     pub max_cost_per_session: Option<f64>,
 }
 
-fn default_max_rounds() -> u32 { 20 }
-fn default_max_tool_retries() -> u32 { 2 }
-fn default_tool_timeout() -> u64 { 120 }
+fn default_max_rounds() -> u32 {
+    20
+}
+fn default_max_tool_retries() -> u32 {
+    2
+}
+fn default_tool_timeout() -> u64 {
+    120
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
@@ -60,7 +71,9 @@ pub struct McpServerConfig {
     pub env: Option<Vec<String>>,
 }
 
-fn default_mcp_transport() -> String { "stdio".to_string() }
+fn default_mcp_transport() -> String {
+    "stdio".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
@@ -106,7 +119,8 @@ impl ProjectInfo {
                 std::fs::read_dir(cwd.join(".cursor/rules"))
                     .ok()
                     .map(|entries| {
-                        entries.filter_map(|e| e.ok())
+                        entries
+                            .filter_map(|e| e.ok())
                             .filter_map(|e| std::fs::read_to_string(e.path()).ok())
                             .collect::<Vec<_>>()
                             .join("\n\n")
@@ -117,11 +131,17 @@ impl ProjectInfo {
         let cursor_rules = cwd.join(".cursor/rules");
         let has_cursor_rules = cursor_rules.exists();
 
-        let project_type = if has_cargo { "Rust (Cargo)" }
-            else if has_package_json { "Node.js" }
-            else if has_pyproject { "Python" }
-            else if has_makefile { "Make/C" }
-            else { "Unknown" };
+        let project_type = if has_cargo {
+            "Rust (Cargo)"
+        } else if has_package_json {
+            "Node.js"
+        } else if has_pyproject {
+            "Python"
+        } else if has_makefile {
+            "Make/C"
+        } else {
+            "Unknown"
+        };
 
         Self {
             project_type: project_type.into(),
@@ -133,13 +153,13 @@ impl ProjectInfo {
             has_cursor_rules,
             agents_md_content,
             cursor_rules_content: if has_cursor_rules {
-                std::fs::read_dir(&cursor_rules).ok()
-                    .map(|entries| {
-                        entries.filter_map(|e| e.ok())
-                            .filter_map(|e| std::fs::read_to_string(e.path()).ok())
-                            .collect::<Vec<_>>()
-                            .join("\n\n")
-                    })
+                std::fs::read_dir(&cursor_rules).ok().map(|entries| {
+                    entries
+                        .filter_map(|e| e.ok())
+                        .filter_map(|e| std::fs::read_to_string(e.path()).ok())
+                        .collect::<Vec<_>>()
+                        .join("\n\n")
+                })
             } else {
                 None
             },
@@ -187,7 +207,10 @@ impl Config {
         };
 
         if !matches!(config.provider.as_str(), "openai" | "anthropic" | "ollama") {
-            anyhow::bail!("Unknown provider: '{}'. Supported: openai, anthropic, ollama", config.provider);
+            anyhow::bail!(
+                "Unknown provider: '{}'. Supported: openai, anthropic, ollama",
+                config.provider
+            );
         }
 
         if let Some(max_cost) = config.max_cost_per_session {
@@ -218,21 +241,25 @@ impl Config {
     }
 
     pub fn effective_base_url(&self) -> &str {
-        self.base_url.as_deref().unwrap_or("https://api.openai.com/v1")
+        self.base_url
+            .as_deref()
+            .unwrap_or("https://api.openai.com/v1")
     }
 
     #[allow(dead_code)]
     pub fn tools_dir(&self) -> PathBuf {
-        self.tools_dir.as_ref().map(PathBuf::from).unwrap_or_else(|| {
-            i_rs_code_dir().join("tools")
-        })
+        self.tools_dir
+            .as_ref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| i_rs_code_dir().join("tools"))
     }
 
     #[allow(dead_code)]
     pub fn bin_dir(&self) -> PathBuf {
-        self.bin_dir.as_ref().map(PathBuf::from).unwrap_or_else(|| {
-            i_rs_code_dir().join("bin")
-        })
+        self.bin_dir
+            .as_ref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| i_rs_code_dir().join("bin"))
     }
 
     pub fn manifest_path(&self) -> PathBuf {
@@ -253,7 +280,10 @@ impl Config {
     pub fn agent_config(&self, agent_id: &str) -> Config {
         if let Some(agent) = self.agents.get(agent_id) {
             Config {
-                provider: agent.provider.clone().unwrap_or_else(|| self.provider.clone()),
+                provider: agent
+                    .provider
+                    .clone()
+                    .unwrap_or_else(|| self.provider.clone()),
                 api_key: agent.api_key.clone().or_else(|| self.api_key.clone()),
                 base_url: agent.base_url.clone().or_else(|| self.base_url.clone()),
                 model: agent.model.clone().or_else(|| self.model.clone()),
@@ -282,13 +312,16 @@ mod tests {
     #[test]
     fn test_agent_config_override() {
         let mut c = Config::default();
-        c.agents.insert("code".into(), AgentConfig {
-            provider: Some("anthropic".into()),
-            model: Some("claude-sonnet-4-20250514".into()),
-            api_key: None,
-            base_url: None,
-            system_prompt: None,
-        });
+        c.agents.insert(
+            "code".into(),
+            AgentConfig {
+                provider: Some("anthropic".into()),
+                model: Some("claude-sonnet-4-20250514".into()),
+                api_key: None,
+                base_url: None,
+                system_prompt: None,
+            },
+        );
         let resolved = c.agent_config("code");
         assert_eq!(resolved.provider, "anthropic");
         assert_eq!(resolved.model.as_deref(), Some("claude-sonnet-4-20250514"));
@@ -298,13 +331,16 @@ mod tests {
     #[test]
     fn test_agent_config_fallback() {
         let mut c = Config::default();
-        c.agents.insert("missing_field".into(), AgentConfig {
-            provider: Some("ollama".into()),
-            model: None,
-            api_key: Some("sk-test".into()),
-            base_url: None,
-            system_prompt: None,
-        });
+        c.agents.insert(
+            "missing_field".into(),
+            AgentConfig {
+                provider: Some("ollama".into()),
+                model: None,
+                api_key: Some("sk-test".into()),
+                base_url: None,
+                system_prompt: None,
+            },
+        );
         let resolved = c.agent_config("missing_field");
         assert_eq!(resolved.provider, "ollama");
         assert_eq!(resolved.model.as_deref(), None);

@@ -1,5 +1,5 @@
-pub mod transport;
 pub mod handler;
+pub mod transport;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -48,7 +48,13 @@ impl CodeEvent {
         }
     }
 
-    pub fn request(task_id: &str, request_id: &str, r#type: &str, content: &str, detail: Option<Value>) -> Self {
+    pub fn request(
+        task_id: &str,
+        request_id: &str,
+        r#type: &str,
+        content: &str,
+        detail: Option<Value>,
+    ) -> Self {
         Self {
             event: "request".into(),
             task_id: task_id.into(),

@@ -21,7 +21,9 @@ impl ConvStore {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
 
-        if !self.sessions_dir.exists() { return results; }
+        if !self.sessions_dir.exists() {
+            return results;
+        }
         let entries = match std::fs::read_dir(&self.sessions_dir) {
             Ok(e) => e,
             Err(_) => return results,
@@ -29,7 +31,9 @@ impl ConvStore {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("json") { continue; }
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
 
             let content = match std::fs::read_to_string(&path) {
                 Ok(c) => c,
@@ -41,7 +45,8 @@ impl ConvStore {
                 Err(_) => continue,
             };
 
-            let session_id = path.file_stem()
+            let session_id = path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("")
                 .to_string();
@@ -56,7 +61,9 @@ impl ConvStore {
                             message_type: role.to_string(),
                             excerpt: text.chars().take(200).collect(),
                         });
-                        if results.len() >= max_results { return results; }
+                        if results.len() >= max_results {
+                            return results;
+                        }
                     }
                 }
             }
@@ -89,7 +96,11 @@ mod tests {
                 {"role": "assistant", "content": "I'll create that file"}
             ]
         });
-        std::fs::write(dir.join("test-session.json"), serde_json::to_string(&data).unwrap()).unwrap();
+        std::fs::write(
+            dir.join("test-session.json"),
+            serde_json::to_string(&data).unwrap(),
+        )
+        .unwrap();
         let store = ConvStore::new(dir.clone());
         let results = store.search("create", 10);
         assert_eq!(results.len(), 2);

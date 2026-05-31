@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::tools::{Tool, ToolResult};
 
@@ -8,7 +8,9 @@ pub struct PtyInterruptTool;
 
 #[async_trait]
 impl Tool for PtyExecTool {
-    fn name(&self) -> &str { "pty_exec" }
+    fn name(&self) -> &str {
+        "pty_exec"
+    }
     fn description(&self) -> &str {
         "Execute a command in a persistent shell session. Use for interactive/long-running commands. The session is auto-created and reused per session_id."
     }
@@ -41,21 +43,34 @@ impl Tool for PtyExecTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let session_id = args.get("session_id").and_then(|v| v.as_str())
+        let session_id = args
+            .get("session_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("session_id required"))?;
-        let command = args.get("command").and_then(|v| v.as_str())
+        let command = args
+            .get("command")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("command required"))?;
-        let timeout = args.get("timeout_secs").and_then(|v| v.as_u64()).unwrap_or(120);
+        let timeout = args
+            .get("timeout_secs")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(120);
         let cwd = std::env::current_dir().unwrap_or_default();
-        let output = crate::runtime::pty_manager().exec(session_id, command, timeout, &cwd).await?;
+        let output = crate::runtime::pty_manager()
+            .exec(session_id, command, timeout, &cwd)
+            .await?;
         Ok(output)
     }
 }
 
 #[async_trait]
 impl Tool for PtyInterruptTool {
-    fn name(&self) -> &str { "pty_interrupt" }
-    fn description(&self) -> &str { "Kill the process running in a PTY session." }
+    fn name(&self) -> &str {
+        "pty_interrupt"
+    }
+    fn description(&self) -> &str {
+        "Kill the process running in a PTY session."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -76,7 +91,9 @@ impl Tool for PtyInterruptTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let session_id = args.get("session_id").and_then(|v| v.as_str())
+        let session_id = args
+            .get("session_id")
+            .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("session_id required"))?;
         crate::runtime::pty_manager().interrupt(session_id).await?;
         Ok(format!("Interrupted session {}", session_id))

@@ -14,7 +14,7 @@ pub use example::handle_example;
 pub use expense::handle_expense;
 pub use get::handle_get;
 pub use list::handle_list;
-pub use skill::{handle_skill};
+pub use skill::handle_skill;
 pub use stats::handle_stats;
 pub use update::handle_update;
 

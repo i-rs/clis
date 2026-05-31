@@ -11,7 +11,8 @@ pub fn handle_update(
     format: OutputFormat,
 ) -> Result<()> {
     let mut store = crate::storage::load_store()?;
-    let todo = crate::service::update_todo(&mut store, name.clone(), title, priority, tag, content)?;
+    let todo =
+        crate::service::update_todo(&mut store, name.clone(), title, priority, tag, content)?;
     crate::storage::save_store(&store)?;
 
     if format.is_json() {

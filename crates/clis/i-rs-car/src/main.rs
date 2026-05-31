@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use commands::skill::{handle_skill};
+use commands::skill::handle_skill;
 use commands::{add, delete, example, fuel, get, list, maintain, stats, update};
 use presentation::OutputFormat;
 

@@ -1,14 +1,18 @@
-use async_trait::async_trait;
-use serde_json::{json, Value, Map};
-use crate::tools::{Tool, ToolResult};
 use super::check_path_async;
+use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct ReadTool;
 
 #[async_trait]
 impl Tool for ReadTool {
-    fn name(&self) -> &str { "read" }
-    fn description(&self) -> &str { "Read a file with line numbers. Use offset and limit for large files." }
+    fn name(&self) -> &str {
+        "read"
+    }
+    fn description(&self) -> &str {
+        "Read a file with line numbers. Use offset and limit for large files."
+    }
     fn schema(&self) -> Value {
         json!({
             "type": "function",
@@ -28,12 +32,19 @@ impl Tool for ReadTool {
         })
     }
     async fn call(&self, args: &Map<String, Value>) -> ToolResult {
-        let path = args.get("file_path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("file_path required"))?;
+        let path = args
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("file_path required"))?;
         check_path_async(path).await?;
         let content = tokio::fs::read_to_string(path).await?;
 
         let total_lines = content.lines().count();
-        let offset = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(1).max(1) as usize;
+        let offset = args
+            .get("offset")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1)
+            .max(1) as usize;
         let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(200) as usize;
 
         let lines: Vec<&str> = content.lines().collect();
@@ -41,12 +52,21 @@ impl Tool for ReadTool {
         let selected: Vec<&str> = lines[(offset - 1)..end].to_vec();
 
         let max_digits = end.to_string().len();
-        let numbered: Vec<String> = selected.iter().enumerate()
+        let numbered: Vec<String> = selected
+            .iter()
+            .enumerate()
             .map(|(i, l)| format!("{:>width$}: {}", offset + i, l, width = max_digits))
             .collect();
 
         let header = if offset > 1 || end < total_lines {
-            format!("{} (lines {}-{} of {})\n```\n{}\n```", path, offset, end, total_lines, numbered.join("\n"))
+            format!(
+                "{} (lines {}-{} of {})\n```\n{}\n```",
+                path,
+                offset,
+                end,
+                total_lines,
+                numbered.join("\n")
+            )
         } else {
             format!("{}\n```\n{}\n```", path, numbered.join("\n"))
         };

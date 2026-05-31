@@ -1,12 +1,14 @@
-use async_trait::async_trait;
-use serde_json::{json, Map, Value};
 use crate::tools::{Tool, ToolResult};
+use async_trait::async_trait;
+use serde_json::{Map, Value, json};
 
 pub struct TestRunnerTool;
 
 #[async_trait]
 impl Tool for TestRunnerTool {
-    fn name(&self) -> &str { "test" }
+    fn name(&self) -> &str {
+        "test"
+    }
     fn description(&self) -> &str {
         "Run tests for the current project. Supports filtering by package, test name, and output format."
     }
@@ -32,7 +34,10 @@ impl Tool for TestRunnerTool {
         let package = args.get("package").and_then(|v| v.as_str());
         let test_name = args.get("test_name").and_then(|v| v.as_str());
         let features = args.get("features").and_then(|v| v.as_str());
-        let no_capture = args.get("no_capture").and_then(|v| v.as_bool()).unwrap_or(true);
+        let no_capture = args
+            .get("no_capture")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
 
         let mut cmd = tokio::process::Command::new("cargo");
         cmd.arg("test");
@@ -59,13 +64,21 @@ impl Tool for TestRunnerTool {
 
         let mut result = String::new();
         result.push_str("$ cargo test");
-        if let Some(pkg) = package { result.push_str(&format!(" -p {}", pkg)); }
-        if let Some(name) = test_name { result.push_str(&format!(" -- {}", name)); }
+        if let Some(pkg) = package {
+            result.push_str(&format!(" -p {}", pkg));
+        }
+        if let Some(name) = test_name {
+            result.push_str(&format!(" -- {}", name));
+        }
         result.push('\n');
 
         if !stdout.is_empty() {
             for line in stdout.lines() {
-                if line.starts_with("test ") || line.starts_with("running ") || line.contains("FAILED") || line.starts_with("error") {
+                if line.starts_with("test ")
+                    || line.starts_with("running ")
+                    || line.contains("FAILED")
+                    || line.starts_with("error")
+                {
                     result.push_str(line);
                     result.push('\n');
                 }
@@ -79,7 +92,10 @@ impl Tool for TestRunnerTool {
             result.push_str(&stderr);
         }
         if !output.status.success() {
-            result.push_str(&format!("exit code: {}", output.status.code().unwrap_or(-1)));
+            result.push_str(&format!(
+                "exit code: {}",
+                output.status.code().unwrap_or(-1)
+            ));
         }
 
         Ok(result)

@@ -1,6 +1,6 @@
 use lsp_types::*;
-use std::sync::LazyLock;
 use serde_json::Value;
+use std::sync::LazyLock;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 
@@ -82,8 +82,17 @@ impl LspSession {
         let ws = std::env::current_dir()
             .map(|p| format!("file://{}", p.display()))
             .unwrap_or_else(|_| "file:///".into());
-        let workspace_uri = ws.parse().unwrap_or_else(|_| "file:///".parse().expect("static uri"));
-        Self { process: None, stdin: None, reader: None, next_id: 1, initialized: false, workspace_uri }
+        let workspace_uri = ws
+            .parse()
+            .unwrap_or_else(|_| "file:///".parse().expect("static uri"));
+        Self {
+            process: None,
+            stdin: None,
+            reader: None,
+            next_id: 1,
+            initialized: false,
+            workspace_uri,
+        }
     }
 
     async fn ensure_initialized_for(&mut self, file_path: &str) -> anyhow::Result<()> {
@@ -96,7 +105,13 @@ impl LspSession {
         let (binary, args) = if cmd_args.len() > 1 {
             (cmd_args[0].clone(), cmd_args[1..].to_vec())
         } else {
-            (cmd_args.into_iter().next().unwrap_or_else(|| "rust-analyzer".into()), Vec::new())
+            (
+                cmd_args
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| "rust-analyzer".into()),
+                Vec::new(),
+            )
         };
 
         let init = async {
@@ -106,10 +121,22 @@ impl LspSession {
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::null())
                 .spawn()
-                .map_err(|e| anyhow::anyhow!("failed to start LSP server '{}': {}. Is it installed?", binary, e))?;
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "failed to start LSP server '{}': {}. Is it installed?",
+                        binary,
+                        e
+                    )
+                })?;
 
-            let stdin = child.stdin.take().ok_or_else(|| anyhow::anyhow!("no stdin"))?;
-            let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+            let stdin = child
+                .stdin
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("no stdin"))?;
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("no stdout"))?;
 
             self.process = Some(child);
             self.stdin = Some(stdin);
@@ -125,7 +152,8 @@ impl LspSession {
                 ..Default::default()
             };
             let _result: InitializeResult = self.send_request("initialize", params).await?;
-            self.send_notification("initialized", serde_json::json!({})).await?;
+            self.send_notification("initialized", serde_json::json!({}))
+                .await?;
             anyhow::Ok(())
         };
 
@@ -137,10 +165,15 @@ impl LspSession {
             }
             Ok(Err(e)) => Err(e),
             Err(_) => {
-                if let Some(mut c) = self.process.take() { let _ = c.start_kill(); }
+                if let Some(mut c) = self.process.take() {
+                    let _ = c.start_kill();
+                }
                 self.stdin = None;
                 self.reader = None;
-                Err(anyhow::anyhow!("LSP server '{}' initialization timed out", binary))
+                Err(anyhow::anyhow!(
+                    "LSP server '{}' initialization timed out",
+                    binary
+                ))
             }
         }
     }
@@ -151,15 +184,22 @@ impl LspSession {
         let target_uri = path_to_uri(file_path)?;
 
         loop {
-            let read = crate::protocol::transport::read_content_length_message(self.reader.as_mut().expect("LSP reader not initialized"), "LSP");
+            let read = crate::protocol::transport::read_content_length_message(
+                self.reader.as_mut().expect("LSP reader not initialized"),
+                "LSP",
+            );
             match tokio::time::timeout(LSP_DIAGNOSTICS_TIMEOUT, read).await {
                 Ok(Ok(msg)) => {
                     if msg["method"] == "textDocument/publishDiagnostics"
-                        && let Some(uri_val) = msg["params"]["uri"].as_str() {
-                            let msg_uri: lsp_types::Uri = uri_val.parse()?;
-                            if msg_uri == target_uri {
-                                let diags: Vec<Diagnostic> = serde_json::from_value(msg["params"]["diagnostics"].clone())?;
-                                return Ok(diags.iter().map(|d| {
+                        && let Some(uri_val) = msg["params"]["uri"].as_str()
+                    {
+                        let msg_uri: lsp_types::Uri = uri_val.parse()?;
+                        if msg_uri == target_uri {
+                            let diags: Vec<Diagnostic> =
+                                serde_json::from_value(msg["params"]["diagnostics"].clone())?;
+                            return Ok(diags
+                                .iter()
+                                .map(|d| {
                                     let sev = match d.severity {
                                         Some(DiagnosticSeverity::ERROR) => "error",
                                         Some(DiagnosticSeverity::WARNING) => "warning",
@@ -167,10 +207,17 @@ impl LspSession {
                                         _ => "note",
                                     };
                                     let msg = &d.message;
-                                    format!("  {}:{}: {}: {}", d.range.start.line + 1, d.range.start.character + 1, sev, msg)
-                                }).collect());
-                            }
+                                    format!(
+                                        "  {}:{}: {}: {}",
+                                        d.range.start.line + 1,
+                                        d.range.start.character + 1,
+                                        sev,
+                                        msg
+                                    )
+                                })
+                                .collect());
                         }
+                    }
                 }
                 Ok(Err(e)) => return Err(e),
                 Err(_) => return Ok(Vec::new()),
@@ -178,7 +225,12 @@ impl LspSession {
         }
     }
 
-    pub async fn get_definition(&mut self, file_path: &str, line: u32, character: u32) -> anyhow::Result<String> {
+    pub async fn get_definition(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        character: u32,
+    ) -> anyhow::Result<String> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let uri = path_to_uri(file_path)?;
@@ -192,11 +244,17 @@ impl LspSession {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let result: GotoDefinitionResponse = self.send_request("textDocument/definition", params).await?;
+        let result: GotoDefinitionResponse =
+            self.send_request("textDocument/definition", params).await?;
         Ok(format_locations(result))
     }
 
-    pub async fn get_references(&mut self, file_path: &str, line: u32, character: u32) -> anyhow::Result<String> {
+    pub async fn get_references(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        character: u32,
+    ) -> anyhow::Result<String> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let uri = path_to_uri(file_path)?;
@@ -206,7 +264,9 @@ impl LspSession {
                 text_document: TextDocumentIdentifier { uri: uri.clone() },
                 position: Position { line, character },
             },
-            context: ReferenceContext { include_declaration: true },
+            context: ReferenceContext {
+                include_declaration: true,
+            },
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
         };
@@ -216,10 +276,19 @@ impl LspSession {
             return Ok("No references found".into());
         }
         let lines: Vec<String> = result.iter().map(format_location).collect();
-        Ok(format!("Found {} references:\n{}", lines.len(), lines.join("\n")))
+        Ok(format!(
+            "Found {} references:\n{}",
+            lines.len(),
+            lines.join("\n")
+        ))
     }
 
-    pub async fn get_hover(&mut self, file_path: &str, line: u32, character: u32) -> anyhow::Result<String> {
+    pub async fn get_hover(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        character: u32,
+    ) -> anyhow::Result<String> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let uri = path_to_uri(file_path)?;
@@ -241,23 +310,41 @@ impl LspSession {
                     HoverContents::Scalar(MarkedString::LanguageString(ls)) => {
                         format!("[{}] {}", ls.language, ls.value)
                     }
-                    HoverContents::Array(items) => {
-                        items.iter().map(|item| match item {
+                    HoverContents::Array(items) => items
+                        .iter()
+                        .map(|item| match item {
                             MarkedString::String(s) => s.clone(),
-                            MarkedString::LanguageString(ls) => format!("[{}] {}", ls.language, ls.value),
-                        }).collect::<Vec<_>>().join("\n---\n")
-                    }
+                            MarkedString::LanguageString(ls) => {
+                                format!("[{}] {}", ls.language, ls.value)
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n---\n"),
                     HoverContents::Markup(markup) => markup.value,
                 };
-                let range_info = hover.range.map(|r| {
-                    format!("\nRange: L{}:C{} - L{}:C{}", r.start.line + 1, r.start.character + 1, r.end.line + 1, r.end.character + 1)
-                }).unwrap_or_default();
+                let range_info = hover
+                    .range
+                    .map(|r| {
+                        format!(
+                            "\nRange: L{}:C{} - L{}:C{}",
+                            r.start.line + 1,
+                            r.start.character + 1,
+                            r.end.line + 1,
+                            r.end.character + 1
+                        )
+                    })
+                    .unwrap_or_default();
                 Ok(format!("{}{}", content, range_info))
             }
         }
     }
 
-    pub async fn get_completion(&mut self, file_path: &str, line: u32, character: u32) -> anyhow::Result<String> {
+    pub async fn get_completion(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        character: u32,
+    ) -> anyhow::Result<String> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let uri = path_to_uri(file_path)?;
@@ -275,33 +362,60 @@ impl LspSession {
             }),
         };
 
-        let result: Option<CompletionResponse> = self.send_request("textDocument/completion", params).await?;
+        let result: Option<CompletionResponse> =
+            self.send_request("textDocument/completion", params).await?;
         match result {
             None => Ok("No completions available".into()),
             Some(CompletionResponse::Array(items)) => {
                 if items.is_empty() {
                     return Ok("No completions found".into());
                 }
-                let lines: Vec<String> = items.iter().map(|item| {
-                    let detail = item.detail.as_deref().unwrap_or("");
-                    format!("  {} {} {}", item.insert_text.as_deref().unwrap_or(&item.label), detail, item.filter_text.as_deref().unwrap_or(""))
-                }).collect();
-                Ok(format!("Completions ({}):\n{}", lines.len(), lines.join("\n")))
+                let lines: Vec<String> = items
+                    .iter()
+                    .map(|item| {
+                        let detail = item.detail.as_deref().unwrap_or("");
+                        format!(
+                            "  {} {} {}",
+                            item.insert_text.as_deref().unwrap_or(&item.label),
+                            detail,
+                            item.filter_text.as_deref().unwrap_or("")
+                        )
+                    })
+                    .collect();
+                Ok(format!(
+                    "Completions ({}):\n{}",
+                    lines.len(),
+                    lines.join("\n")
+                ))
             }
             Some(CompletionResponse::List(list)) => {
                 if list.items.is_empty() {
                     return Ok("No completions found".into());
                 }
-                let lines: Vec<String> = list.items.iter().map(|item| {
-                    let detail = item.detail.as_deref().unwrap_or("");
-                    format!("  {} {}", item.label, detail)
-                }).collect();
-                Ok(format!("Completions ({}):\n{}", lines.len(), lines.join("\n")))
+                let lines: Vec<String> = list
+                    .items
+                    .iter()
+                    .map(|item| {
+                        let detail = item.detail.as_deref().unwrap_or("");
+                        format!("  {} {}", item.label, detail)
+                    })
+                    .collect();
+                Ok(format!(
+                    "Completions ({}):\n{}",
+                    lines.len(),
+                    lines.join("\n")
+                ))
             }
         }
     }
 
-    pub async fn get_rename(&mut self, file_path: &str, line: u32, character: u32, new_name: &str) -> anyhow::Result<String> {
+    pub async fn get_rename(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        character: u32,
+        new_name: &str,
+    ) -> anyhow::Result<String> {
         self.ensure_initialized_for(file_path).await?;
         self.open_document(file_path).await?;
         let uri = path_to_uri(file_path)?;
@@ -315,7 +429,8 @@ impl LspSession {
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
 
-        let result: Option<WorkspaceEdit> = self.send_request("textDocument/rename", params).await?;
+        let result: Option<WorkspaceEdit> =
+            self.send_request("textDocument/rename", params).await?;
         match result {
             None => Ok("Rename not available at this position".into()),
             Some(edit) => {
@@ -364,15 +479,20 @@ impl LspSession {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let result: Option<DocumentSymbolResponse> = self.send_request("textDocument/documentSymbol", params).await?;
+        let result: Option<DocumentSymbolResponse> = self
+            .send_request("textDocument/documentSymbol", params)
+            .await?;
         match result {
             None => Ok("No symbols found".into()),
             Some(DocumentSymbolResponse::Flat(symbols)) => {
-                let lines: Vec<String> = symbols.iter().map(|s| {
-                    let icon = symbol_kind_icon(s.kind);
-                    let uri_str = s.location.uri.to_string();
-                    format!("  {} {}: {}", icon, s.name, uri_str)
-                }).collect();
+                let lines: Vec<String> = symbols
+                    .iter()
+                    .map(|s| {
+                        let icon = symbol_kind_icon(s.kind);
+                        let uri_str = s.location.uri.to_string();
+                        format!("  {} {}: {}", icon, s.name, uri_str)
+                    })
+                    .collect();
                 Ok(format!("Symbols ({}):\n{}", lines.len(), lines.join("\n")))
             }
             Some(DocumentSymbolResponse::Nested(symbols)) => {
@@ -401,14 +521,20 @@ impl LspSession {
     }
 
     async fn send_request<T: serde::Serialize, R: serde::de::DeserializeOwned>(
-        &mut self, method: &str, params: T,
+        &mut self,
+        method: &str,
+        params: T,
     ) -> anyhow::Result<R> {
         let id = self.next_id;
         self.next_id += 1;
-        let request = serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        let request =
+            serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
         self.write_message(&request).await?;
 
-        let reader = self.reader.as_mut().ok_or_else(|| anyhow::anyhow!("no reader"))?;
+        let reader = self
+            .reader
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no reader"))?;
 
         loop {
             let read = crate::protocol::transport::read_content_length_message(reader, "LSP");
@@ -419,7 +545,10 @@ impl LspSession {
                             return Ok(serde_json::from_value(result.clone())?);
                         }
                         if let Some(error) = msg.get("error") {
-                            anyhow::bail!("LSP error: {}", error["message"].as_str().unwrap_or("unknown"));
+                            anyhow::bail!(
+                                "LSP error: {}",
+                                error["message"].as_str().unwrap_or("unknown")
+                            );
                         }
                         anyhow::bail!("LSP response missing result/error");
                     }
@@ -430,8 +559,13 @@ impl LspSession {
         }
     }
 
-    async fn send_notification<T: serde::Serialize>(&mut self, method: &str, params: T) -> anyhow::Result<()> {
-        let notification = serde_json::json!({"jsonrpc": "2.0", "method": method, "params": params});
+    async fn send_notification<T: serde::Serialize>(
+        &mut self,
+        method: &str,
+        params: T,
+    ) -> anyhow::Result<()> {
+        let notification =
+            serde_json::json!({"jsonrpc": "2.0", "method": method, "params": params});
         self.write_message(&notification).await
     }
 
@@ -458,18 +592,24 @@ impl Drop for LspSession {
 fn format_location(loc: &Location) -> String {
     #[allow(clippy::to_string_in_format_args)]
     let uri_str = loc.uri.to_string();
-    format!("{}:{}:{}-{}:{}",
+    format!(
+        "{}:{}:{}-{}:{}",
         uri_str,
-        loc.range.start.line + 1, loc.range.start.character + 1,
-        loc.range.end.line + 1, loc.range.end.character + 1)
+        loc.range.start.line + 1,
+        loc.range.start.character + 1,
+        loc.range.end.line + 1,
+        loc.range.end.character + 1
+    )
 }
 
 fn format_locations(response: GotoDefinitionResponse) -> String {
     match response {
         GotoDefinitionResponse::Scalar(loc) => format_location(&loc),
-        GotoDefinitionResponse::Array(locs) => {
-            locs.iter().map(format_location).collect::<Vec<_>>().join("\n")
-        }
+        GotoDefinitionResponse::Array(locs) => locs
+            .iter()
+            .map(format_location)
+            .collect::<Vec<_>>()
+            .join("\n"),
         _ => "No definition found".into(),
     }
 }
@@ -510,7 +650,14 @@ fn format_symbol_tree(sym: &DocumentSymbol, depth: usize, lines: &mut Vec<String
     let indent = "  ".repeat(depth);
     let icon = symbol_kind_icon(sym.kind);
     let detail = sym.detail.as_deref().unwrap_or("");
-    lines.push(format!("{}{} L{}: {} {}", indent, icon, sym.range.start.line + 1, sym.name, detail));
+    lines.push(format!(
+        "{}{} L{}: {} {}",
+        indent,
+        icon,
+        sym.range.start.line + 1,
+        sym.name,
+        detail
+    ));
     for child in sym.children.iter().flatten() {
         format_symbol_tree(child, depth + 1, lines);
     }
@@ -582,12 +729,24 @@ mod tests {
             name: "main".into(),
             kind: SymbolKind::FUNCTION,
             range: lsp_types::Range {
-                start: lsp_types::Position { line: 0, character: 0 },
-                end: lsp_types::Position { line: 10, character: 0 },
+                start: lsp_types::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 10,
+                    character: 0,
+                },
             },
             selection_range: lsp_types::Range {
-                start: lsp_types::Position { line: 0, character: 0 },
-                end: lsp_types::Position { line: 10, character: 0 },
+                start: lsp_types::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 10,
+                    character: 0,
+                },
             },
             detail: Some("fn main()".into()),
             children: None,
@@ -607,12 +766,24 @@ mod tests {
             name: "inner_fn".into(),
             kind: SymbolKind::FUNCTION,
             range: lsp_types::Range {
-                start: lsp_types::Position { line: 2, character: 0 },
-                end: lsp_types::Position { line: 5, character: 0 },
+                start: lsp_types::Position {
+                    line: 2,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 5,
+                    character: 0,
+                },
             },
             selection_range: lsp_types::Range {
-                start: lsp_types::Position { line: 2, character: 0 },
-                end: lsp_types::Position { line: 5, character: 0 },
+                start: lsp_types::Position {
+                    line: 2,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 5,
+                    character: 0,
+                },
             },
             detail: None,
             children: None,
@@ -623,12 +794,24 @@ mod tests {
             name: "mod".into(),
             kind: SymbolKind::MODULE,
             range: lsp_types::Range {
-                start: lsp_types::Position { line: 0, character: 0 },
-                end: lsp_types::Position { line: 10, character: 0 },
+                start: lsp_types::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 10,
+                    character: 0,
+                },
             },
             selection_range: lsp_types::Range {
-                start: lsp_types::Position { line: 0, character: 0 },
-                end: lsp_types::Position { line: 10, character: 0 },
+                start: lsp_types::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 10,
+                    character: 0,
+                },
             },
             detail: None,
             children: Some(vec![child]),
@@ -648,8 +831,14 @@ mod tests {
         let loc = Location {
             uri: "file:///src/main.rs".parse().unwrap(),
             range: lsp_types::Range {
-                start: lsp_types::Position { line: 4, character: 0 },
-                end: lsp_types::Position { line: 4, character: 10 },
+                start: lsp_types::Position {
+                    line: 4,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 4,
+                    character: 10,
+                },
             },
         };
         let result = format_location(&loc);

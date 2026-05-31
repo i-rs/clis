@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use commands::{handle_skill};
+use commands::handle_skill;
 use i_rs_core::presentation::OutputFormat;
 
 mod commands;

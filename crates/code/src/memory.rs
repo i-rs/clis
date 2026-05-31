@@ -54,7 +54,10 @@ impl CrossSessionMemory {
 
     pub fn record_tool_use(&mut self, name: &str) {
         *self.tool_frequency.entry(name.to_string()).or_insert(0) += 1;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         self.tool_last_used.insert(name.to_string(), now);
         self.dirty = true;
     }
@@ -68,7 +71,9 @@ impl CrossSessionMemory {
     }
 
     pub fn flush(&mut self) -> anyhow::Result<()> {
-        if !self.dirty { return Ok(()); }
+        if !self.dirty {
+            return Ok(());
+        }
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -84,12 +89,20 @@ impl CrossSessionMemory {
             parts.push(format!("User preferences: {}", self.preferences.join("; ")));
         }
         if !self.project_context.is_empty() {
-            parts.push(format!("Project context: {}", self.project_context.join("; ")));
+            parts.push(format!(
+                "Project context: {}",
+                self.project_context.join("; ")
+            ));
         }
         if !self.tool_frequency.is_empty() {
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             let day = 86400u64;
-            let mut scored: Vec<(&String, f64)> = self.tool_frequency.iter()
+            let mut scored: Vec<(&String, f64)> = self
+                .tool_frequency
+                .iter()
                 .map(|(name, count)| {
                     let last = self.tool_last_used.get(name).copied().unwrap_or(0);
                     let days_since = now.saturating_sub(last) / day;

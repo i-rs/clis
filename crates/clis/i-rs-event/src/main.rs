@@ -4,7 +4,7 @@ mod presentation;
 mod storage;
 
 use clap::Parser;
-use commands::{handle_skill};
+use commands::handle_skill;
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "i-rs-event")]

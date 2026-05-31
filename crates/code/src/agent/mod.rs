@@ -1,13 +1,13 @@
-pub mod engine;
 pub mod context;
+pub mod engine;
 pub mod event;
 pub mod output;
-pub mod tool_exec;
 pub mod tool_cache;
+pub mod tool_exec;
 
 use crate::config::{Config, ProjectInfo};
 use crate::memory::CrossSessionMemory;
-use crate::provider::{LlmProvider, LlmMessage};
+use crate::provider::{LlmMessage, LlmProvider};
 use crate::tools::ToolRegistry;
 use tokio::sync::mpsc;
 
@@ -29,12 +29,14 @@ impl Agent {
     ) -> Self {
         let project_hash = std::env::current_dir()
             .ok()
-            .and_then(|d| d.to_str().map(|s| {
-                use std::hash::{Hash, Hasher};
-                let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                s.hash(&mut hasher);
-                format!("{:x}", hasher.finish())
-            }))
+            .and_then(|d| {
+                d.to_str().map(|s| {
+                    use std::hash::{Hash, Hasher};
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    s.hash(&mut hasher);
+                    format!("{:x}", hasher.finish())
+                })
+            })
             .unwrap_or_default();
         let memory = CrossSessionMemory::new(&crate::config::i_rs_code_dir(), &project_hash);
         let agent = Self {
@@ -73,7 +75,8 @@ impl Agent {
             self.config.max_rounds,
             self.config.tool_timeout_secs,
             &mut self.memory,
-        ).await?;
+        )
+        .await?;
 
         self.messages = new_messages;
 
@@ -112,7 +115,8 @@ impl Agent {
             self.config.max_rounds,
             self.config.tool_timeout_secs,
             &mut self.memory,
-        ).await?;
+        )
+        .await?;
 
         self.messages = new_messages;
 
@@ -142,7 +146,11 @@ fn build_messages(
         match msg {
             LlmMessage::User(c) => msgs.push(LlmMessage::User(c.clone())),
             LlmMessage::Assistant(c) => msgs.push(LlmMessage::Assistant(c.clone())),
-            LlmMessage::AssistantWithReasoning { content, reasoning, tool_calls } => {
+            LlmMessage::AssistantWithReasoning {
+                content,
+                reasoning,
+                tool_calls,
+            } => {
                 msgs.push(LlmMessage::AssistantWithReasoning {
                     content: content.clone(),
                     reasoning: reasoning.clone(),
@@ -173,5 +181,3 @@ fn build_messages(
     msgs.push(LlmMessage::User(prompt.to_string()));
     msgs
 }
-
-

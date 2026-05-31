@@ -34,19 +34,13 @@ fn jsonrpc(id: u64, method: &str, params: Option<Value>) -> Value {
     req
 }
 
-async fn send(
-    stdin: &mut (impl AsyncWriteExt + Unpin),
-    msg: &Value,
-) {
+async fn send(stdin: &mut (impl AsyncWriteExt + Unpin), msg: &Value) {
     let json = serde_json::to_string(msg).unwrap();
     stdin.write_all(json.as_bytes()).await.unwrap();
     stdin.write_all(b"\n").await.unwrap();
 }
 
-async fn recv(
-    reader: &mut (impl AsyncBufReadExt + Unpin),
-    line: &mut String,
-) -> Value {
+async fn recv(reader: &mut (impl AsyncBufReadExt + Unpin), line: &mut String) -> Value {
     line.clear();
     reader.read_line(line).await.unwrap();
     if line.is_empty() {
@@ -155,7 +149,10 @@ async fn test_tools_list_count() {
     let first = &tools[0];
     assert!(first["name"].as_str().unwrap_or("").ends_with("_list"));
     assert!(
-        first.get("inputSchema").or_else(|| first.get("input_schema")).is_some_and(|v| v.is_object()),
+        first
+            .get("inputSchema")
+            .or_else(|| first.get("input_schema"))
+            .is_some_and(|v| v.is_object()),
         "expected tool to have inputSchema object"
     );
 

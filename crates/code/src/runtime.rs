@@ -33,7 +33,8 @@ impl RuntimeInner {
     }
 }
 
-static RUNTIME: LazyLock<Mutex<Option<RuntimeInner>>> = LazyLock::new(|| Mutex::new(Some(RuntimeInner::new())));
+static RUNTIME: LazyLock<Mutex<Option<RuntimeInner>>> =
+    LazyLock::new(|| Mutex::new(Some(RuntimeInner::new())));
 
 fn with_runtime<F, R>(f: F) -> R
 where
@@ -78,7 +79,8 @@ pub fn pty_manager() -> &'static PtyManager {
 }
 
 pub fn lsp_session() -> &'static AsyncMutex<LspSession> {
-    static LSP: LazyLock<AsyncMutex<LspSession>> = LazyLock::new(|| AsyncMutex::new(LspSession::new()));
+    static LSP: LazyLock<AsyncMutex<LspSession>> =
+        LazyLock::new(|| AsyncMutex::new(LspSession::new()));
     &LSP
 }
 
@@ -122,9 +124,7 @@ pub fn set_max_cost_dollars(dollars: f64) {
 }
 
 pub fn exceeds_cost_budget() -> bool {
-    with_runtime(|r| {
-        r.max_cost_cents > 0 && r.total_cost_cents >= r.max_cost_cents
-    })
+    with_runtime(|r| r.max_cost_cents > 0 && r.total_cost_cents >= r.max_cost_cents)
 }
 
 fn model_pricing(model: &str) -> (f64, f64) {

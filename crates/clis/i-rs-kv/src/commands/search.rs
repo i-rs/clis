@@ -6,12 +6,7 @@ pub fn handle_search(query: String, format: OutputFormat) -> Result<()> {
     let store = crate::storage::load_store()?;
     let entries = crate::service::search_kv(&store, &query)?;
 
-    i_rs_core::handle_empty!(
-        entries,
-        format,
-        None::<&str>,
-        "No matching entries found."
-    );
+    i_rs_core::handle_empty!(entries, format, None::<&str>, "No matching entries found.");
 
     if format.is_json() {
         let items: Vec<ListItem> = entries.iter().map(ListItem::from).collect();
