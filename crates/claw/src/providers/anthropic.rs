@@ -428,7 +428,7 @@ impl LlmProvider for AnthropicProvider {
         // Emit usage record for statistics
         let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
             id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Local::now().timestamp(),
+            timestamp: chrono::Utc::now().timestamp(),
             agent_id: "default".to_string(),
             model: self.model.clone(),
             provider: "anthropic".to_string(),

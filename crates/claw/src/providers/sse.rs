@@ -235,7 +235,7 @@ pub(crate) async fn openai_stream_chat_impl(
         // Emit usage record for statistics
         let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
             id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Local::now().timestamp(),
+            timestamp: chrono::Utc::now().timestamp(),
             agent_id: "default".to_string(),
             model: model.to_string(),
             provider: provider_kind.to_string(),

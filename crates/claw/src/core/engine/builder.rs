@@ -57,16 +57,19 @@ pub(crate) fn build_system_prompt(
     user_memory: &str,
     user_profile: &str,
     plan_then_execute: bool,
+    tz_offset: chrono::FixedOffset,
 ) -> String {
     let mut prompt = include_str!("../../../prompts/system.md").to_string();
-    let now = chrono::Local::now();
+    let now = crate::utils::now_in_tz(tz_offset);
     let today = now.format("%Y-%m-%d").to_string();
     let weekday = now.format("%A").to_string();
     let time_str = now.format("%H:%M").to_string();
+    let tz_label = crate::utils::tz_label(tz_offset);
     prompt = prompt
         .replace("{current_date}", &today)
         .replace("{current_weekday}", &weekday)
-        .replace("{current_time}", &time_str);
+        .replace("{current_time}", &time_str)
+        .replace("{timezone}", &tz_label);
 
     let plan_mode = if plan_then_execute { PLAN_THEN_EXECUTE_PROMPT } else { REACT_PROMPT };
     prompt = prompt.replace("{{PLAN_MODE}}", plan_mode);
@@ -104,6 +107,7 @@ pub struct MessageBuildParams<'a> {
     pub system_prompt_override: Option<&'a str>,
     pub plan_then_execute: bool,
     pub max_conversation_turns: usize,
+    pub tz_offset: chrono::FixedOffset,
 }
 
 /// Convert app messages to API-compatible message list.
@@ -169,6 +173,7 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         .unwrap_or_else(|| build_system_prompt(
             params.tool_index, params.hot_tools, params.skills,
             params.user_memory, params.user_profile, params.plan_then_execute,
+            params.tz_offset,
         ));
 
     let mut msgs = vec![serde_json::json!({

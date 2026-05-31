@@ -847,7 +847,7 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
 pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     let claw_data_dir = claw_dir();
     let cfg = crate::config::Config::load()?;
-    let stats_mgr = crate::stats::StatsManager::new(&claw_data_dir, &cfg.stats);
+    let stats_mgr = crate::stats::StatsManager::new(&claw_data_dir, &cfg.stats, cfg.tz_offset);
 
     // Clean up expired records before querying
     if cfg.stats.enabled && cfg.stats.keep_days > 0 {

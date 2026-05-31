@@ -183,7 +183,7 @@ impl AppCore {
 
         let session_mgr = SessionManager::new(claw_dir.clone());
         let agent_store = AgentRuntimeStore::new(&config, &claw_dir);
-        let stats_manager = crate::stats::StatsManager::new(&claw_dir, &config.stats);
+        let stats_manager = crate::stats::StatsManager::new(&claw_dir, &config.stats, config.tz_offset);
 
         Ok(Self {
             config,
@@ -258,6 +258,7 @@ impl AppCore {
             system_prompt_override: resolved.system_prompt.as_deref(),
             plan_then_execute: self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
             max_conversation_turns: self.config.max_conversation_turns,
+            tz_offset: self.config.tz_offset,
         })
     }
 
@@ -418,6 +419,7 @@ impl AppCore {
                 &memory.format_user_memory(),
                 &memory.format_user_profile(),
                 self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+                self.config.tz_offset,
             )
         });
 

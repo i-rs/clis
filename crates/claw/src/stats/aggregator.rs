@@ -149,9 +149,12 @@ pub fn group_by_day(records: &[TokenRecord], _pricing: &ModelPricingTable) -> Ve
 }
 
 /// Get today's aggregated summary.
-pub fn today_summary(records: &[TokenRecord]) -> super::TodaySummary {
-    let now = chrono::Local::now().naive_local();
-    let today_start = now.date().and_hms_opt(0, 0, 0).map(|dt| dt.and_utc().timestamp()).unwrap_or(0);
+pub fn today_summary(records: &[TokenRecord], tz_offset: chrono::FixedOffset) -> super::TodaySummary {
+    let today_start = crate::utils::now_in_tz(tz_offset)
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or(0);
 
     let today_records: Vec<_> = records.iter().filter(|r| r.timestamp >= today_start).collect();
 

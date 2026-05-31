@@ -4,6 +4,63 @@ pub fn claw_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir().map(|h| h.join(".i-rs").join("claw"))
 }
 
+// ── Timezone ──
+
+/// Get the system's local timezone offset.
+pub fn system_tz_offset() -> chrono::FixedOffset {
+    let local = chrono::Local::now();
+    *local.offset()
+}
+
+/// Parse a timezone string into a FixedOffset.
+/// Supports: "UTC", "+08:00", "-05:00", "+8", "-5", "8", None (system local).
+pub fn parse_timezone(tz: Option<&str>) -> chrono::FixedOffset {
+    let tz = match tz {
+        Some(t) if !t.trim().is_empty() => t.trim(),
+        _ => return system_tz_offset(),
+    };
+
+    if tz.eq_ignore_ascii_case("utc") {
+        return chrono::FixedOffset::east_opt(0).unwrap_or_else(system_tz_offset);
+    }
+
+    // UTC+8, UTC-5
+    if let Some(rest) = tz.to_uppercase().strip_prefix("UTC") {
+        if let Ok(hours) = rest.parse::<i32>() {
+            return chrono::FixedOffset::east_opt(hours * 3600).unwrap_or_else(system_tz_offset);
+        }
+    }
+
+    // +08:00, -05:00
+    if let Some(offset) = tz.parse::<chrono::FixedOffset>().ok() {
+        return offset;
+    }
+
+    // +8, -5, 8 (bare hours)
+    if let Ok(hours) = tz.parse::<i32>() {
+        return chrono::FixedOffset::east_opt(hours * 3600).unwrap_or_else(system_tz_offset);
+    }
+
+    tracing::warn!("无法解析时区配置 '{}', 回退到系统本地时区", tz);
+    system_tz_offset()
+}
+
+/// Get current datetime in the configured timezone.
+pub fn now_in_tz(offset: chrono::FixedOffset) -> chrono::DateTime<chrono::FixedOffset> {
+    chrono::Utc::now().with_timezone(&offset)
+}
+
+/// Format the timezone label for display (e.g., "+08:00", "UTC").
+pub fn tz_label(offset: chrono::FixedOffset) -> String {
+    let total_secs = offset.local_minus_utc();
+    if total_secs == 0 {
+        return "UTC".to_string();
+    }
+    let sign = if total_secs >= 0 { "+" } else { "-" };
+    let abs_secs = total_secs.abs();
+    format!("{}{:02}:{:02}", sign, abs_secs / 3600, (abs_secs % 3600) / 60)
+}
+
 /// Run a CLI command with timeout, returning stdout on success or an error string.
 /// Provides a unified subprocess invocation pattern across all tools.
 pub fn run_cli_command(

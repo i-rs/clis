@@ -1,4 +1,5 @@
 use crate::utils::atomic_write;
+use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -81,6 +82,13 @@ pub struct Config {
     /// Token usage statistics configuration.
     #[serde(default)]
     pub stats: crate::stats::StatsConfig,
+    /// Timezone offset for date/time display (e.g., "+08:00", "UTC", "-05:00").
+    /// If not set, uses the system's local timezone.
+    #[serde(default)]
+    pub timezone: Option<String>,
+    /// Cached timezone offset computed at load time.
+    #[serde(skip, default = "crate::utils::system_tz_offset")]
+    pub tz_offset: FixedOffset,
 }
 
 fn default_max_react_rounds() -> u32 { 20 }
@@ -368,6 +376,8 @@ impl Config {
             dashboard: DashboardConfig::default(),
             theme: crate::theme::Theme::default(),
             stats: crate::stats::StatsConfig::default(),
+            timezone: None,
+            tz_offset: crate::utils::system_tz_offset(),
         }
     }
 
@@ -401,6 +411,9 @@ impl Config {
             let theme_path = parent.join("theme.json");
             config.theme = crate::theme::Theme::load(&theme_path);
         }
+
+        // Resolve timezone offset from config or system local
+        config.tz_offset = crate::utils::parse_timezone(config.timezone.as_deref());
 
         // Override API key from environment variable if set
         if let Ok(env_key) = std::env::var("I_RS_CLAW_API_KEY")

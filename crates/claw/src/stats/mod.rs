@@ -157,6 +157,8 @@ pub struct StatsManager {
     buffer: Mutex<Vec<TokenRecord>>,
     /// Max records to buffer before auto-flush.
     flush_threshold: usize,
+    /// Timezone offset for "today" boundary calculations.
+    tz_offset: chrono::FixedOffset,
 }
 
 impl StatsManager {
@@ -164,7 +166,7 @@ impl StatsManager {
     ///
 /// `claw_dir` is the base directory for claw data (~/.i-rs/claw).
 /// Stats are stored at `{claw_dir}/stats/usage.jsonl`.
-    pub fn new(claw_dir: &std::path::Path, config: &StatsConfig) -> Self {
+    pub fn new(claw_dir: &std::path::Path, config: &StatsConfig, tz_offset: chrono::FixedOffset) -> Self {
         let store_path = claw_dir.join("stats").join("usage.jsonl");
         let mut pricing = ModelPricingTable::new();
 
@@ -177,6 +179,7 @@ impl StatsManager {
             pricing,
             buffer: Mutex::new(Vec::with_capacity(50)),
             flush_threshold: 50,
+            tz_offset,
         }
     }
 
@@ -231,7 +234,7 @@ impl StatsManager {
 
         TokenRecord {
             id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Local::now().timestamp(),
+            timestamp: chrono::Utc::now().timestamp(),
             agent_id: agent_id.to_string(),
             model: model.to_string(),
             provider: provider.to_string(),
@@ -249,7 +252,7 @@ impl StatsManager {
 
     /// Get today's summary from the store file + in-memory buffer.
     pub fn today_summary(&self) -> TodaySummary {
-        let start_of_today = chrono::Local::now()
+        let start_of_today = crate::utils::now_in_tz(self.tz_offset)
             .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap_or_default()
@@ -268,11 +271,11 @@ impl StatsManager {
             records.extend(buffer.iter().cloned());
         }
 
-        aggregator::today_summary(&records)
+        aggregator::today_summary(&records, self.tz_offset)
     }
 
     pub fn daily_history(&self, days: u32) -> Vec<DailyStats> {
-        let from = chrono::Local::now()
+        let from = crate::utils::now_in_tz(self.tz_offset)
             .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap_or_default()
