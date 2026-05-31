@@ -14,6 +14,7 @@ pub enum ClawError {
     /// MCP server communication error.
     Mcp(String),
     /// Operation timed out.
+    #[allow(dead_code)]
     Timeout(String),
     /// Network or API call failure.
     #[allow(dead_code)]

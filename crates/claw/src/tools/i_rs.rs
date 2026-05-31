@@ -1,15 +1,7 @@
 use serde_json::Value;
-use std::process::Command;
-use std::time::Duration;
 
 use crate::error::ClawError;
 use crate::tools::ToolContext;
-
-/// Safe working directory for CLI subprocesses.
-/// Prevents tools from being affected by the caller's CWD.
-fn safe_cwd() -> std::path::PathBuf {
-    std::env::temp_dir()
-}
 
 /// Built-in tool that executes `i-rs-<tool> <command>` CLI commands directly.
 pub struct IrsTool;
@@ -52,11 +44,12 @@ impl super::ClawTool for IrsTool {
     }
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
-        let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("").to_string();
+        let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
         // Validate tool against the whitelist of enabled i-rs CLI tools
-        if !tool.is_empty() && !ctx.config.i_rs_tools.iter().any(|t| t == &tool) {
+        if !tool.is_empty() && !ctx.config.i_rs_tools.iter().any(|t| t == tool) {
             return Err(ClawError::Validation(format!("未知的 i-rs 工具: '{}'，可用工具: {}", tool, ctx.config.i_rs_tools.join(", "))));
         }
+        let tool = tool.to_string();
         let cmd = args.get("command").and_then(|c| c.as_str()).unwrap_or("").to_string();
         let cmd_args: Vec<String> = args
             .get("args")
@@ -78,69 +71,12 @@ impl super::ClawTool for IrsTool {
 }
 
 /// Execute `i-rs-<tool> <command> [args...]` and return the output.
+/// Delegates to the shared `run_cli_command` for subprocess execution.
 fn execute_cli(tool: &str, cmd: &str, args: &[String], cli_timeout_secs: u64) -> Result<String, ClawError> {
     let binary = format!("i-rs-{}", tool);
-    let mut all_args = Vec::with_capacity(args.len() + 1);
-    all_args.push(cmd.to_string());
-    all_args.extend_from_slice(args);
-
-    let mut child = Command::new(&binary)
-        .args(&all_args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .current_dir(safe_cwd())
-        .spawn()
-        .map_err(|e| ClawError::Execution(format!("执行 {} {} 失败: {}", binary, cmd, e)))?;
-
-    let start = std::time::Instant::now();
-
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let output = child.wait_with_output()
-                    .map_err(|e| format!("读取命令输出失败: {}", e))?;
-
-                let max_output = 10_000;
-                if status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    let trimmed = stdout.trim();
-                    if trimmed.is_empty() {
-                        return Ok(r#"{"success":true}"#.to_string());
-                    } else if trimmed.len() > max_output {
-                        let preview: String = trimmed.chars().take(max_output).collect();
-                        return Ok(format!("{}...
-[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, trimmed.len(), max_output));
-                    } else {
-                        return Ok(trimmed.to_string());
-                    }
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    let combined = if stderr.trim().is_empty() {
-                        stdout.trim().to_string()
-                    } else {
-                        stderr.trim().to_string()
-                    };
-                    if combined.len() > max_output {
-                        let preview: String = combined.chars().take(max_output).collect();
-                        return Err(ClawError::Execution(format!("{}...
-[输出截断: 共 {} 字符，仅显示前 {} 字符]", preview, combined.len(), max_output)));
-                    }
-                    return Err(ClawError::Execution(combined));
-                }
-            }
-            Ok(None) => {
-                if start.elapsed() > Duration::from_secs(cli_timeout_secs) {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(ClawError::Timeout(format!("命令执行超时 ({}s): i-rs {} {}", cli_timeout_secs, tool, cmd)));
-                }
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            Err(e) => return Err(ClawError::Execution(format!("等待命令完成失败: {}", e))),
-        }
-    }
+    let cmd_args: Vec<&str> = std::iter::once(cmd).chain(args.iter().map(|s| s.as_str())).collect();
+    crate::utils::run_cli_command(&binary, &cmd_args, cli_timeout_secs)
+        .map_err(ClawError::Execution)
 }
 
 

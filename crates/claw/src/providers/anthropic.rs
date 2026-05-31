@@ -79,7 +79,10 @@ fn openai_to_anthropic_messages(messages: &[Value]) -> (Option<String>, Vec<Valu
                             let name = func["name"].as_str().unwrap_or("");
                             let args_str = func["arguments"].as_str().unwrap_or("{}");
                             let args: Value =
-                                serde_json::from_str(args_str).unwrap_or(serde_json::json!({}));
+                                serde_json::from_str(args_str).unwrap_or_else(|e| {
+                                    tracing::warn!("工具 '{}' 参数 JSON 解析失败 (消息转换): {}", name, e);
+                                    serde_json::json!({})
+                                });
                             blocks.push(serde_json::json!({
                                 "type": "tool_use",
                                 "id": tc["id"].as_str().unwrap_or(""),
@@ -456,7 +459,10 @@ impl LlmProvider for AnthropicProvider {
             for block in &content_blocks {
                 if block.block_type == "tool_use" {
                     let args: Value = serde_json::from_str(&block.partial_json)
-                        .unwrap_or(serde_json::json!({}));
+                        .unwrap_or_else(|e| {
+                            tracing::warn!("工具 '{}' 参数 JSON 解析失败: {}", block.tool_use_name, e);
+                            serde_json::json!({})
+                        });
                     parsed.push((
                         ToolCallAcc {
                             id: block.tool_use_id.clone(),

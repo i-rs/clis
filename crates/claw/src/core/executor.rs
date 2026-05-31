@@ -129,7 +129,6 @@ impl ToolCallExecutor {
             let tx = tx.clone();
             let tc_name = tc.name.clone();
             let args_str = serde_json::to_string(&args).unwrap_or_default();
-            let args_for_blocking = args.clone();
             let mcp_for_exec = self.mcp.clone();
             let ctx_for_spawn = self.tool_ctx.clone();
             let registry_for_spawn = Arc::clone(&self.tool_registry);
@@ -141,7 +140,7 @@ impl ToolCallExecutor {
                 let result = match tokio::time::timeout(timeout_dur, async {
                     crate::core::engine::execute_tool_call(
                         &tc_name,
-                        &args_for_blocking,
+                        &args,
                         &registry_for_spawn,
                         Some(&mcp_for_exec),
                         &ctx_for_spawn,
