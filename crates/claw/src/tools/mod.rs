@@ -21,8 +21,6 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct ToolContext {
     pub config: crate::config::Config,
-    #[allow(dead_code)]
-    pub mcp: crate::mcp::McpRegistry,
     pub http_client: reqwest::Client,
 }
 
@@ -108,31 +106,29 @@ impl ToolRegistry {
         }
     }
 
-    /// Create registry with built-in tools + skill tools from SkillStore.
-    pub fn with_skills(skills: &[SkillDefinition]) -> Self {
-        let mut reg = Self::new();
+    /// Add skill tools from SkillStore (builder pattern, consumes self).
+    pub fn with_skills(mut self, skills: &[SkillDefinition]) -> Self {
         for skill in skills {
-            reg.tools
+            self.tools
                 .push(Box::new(skill_tool::SkillTool::new(skill.clone())));
         }
-        reg
+        self
     }
 
-    /// Create registry with additional MCP-discovered tools.
-    #[allow(dead_code)]
+    /// Add MCP-discovered tools (builder pattern, consumes self).
     pub fn with_mcp(
+        mut self,
         mcp_registry: &crate::mcp::McpRegistry,
     ) -> Self {
-        let mut reg = Self::new();
         for (client_idx, tool_def) in &mcp_registry.tools {
             if let Some(client) = mcp_registry.clients.get(*client_idx) {
-                reg.tools.push(Box::new(mcp_tools::McpToolWrapper::new(
+                self.tools.push(Box::new(mcp_tools::McpToolWrapper::new(
                     tool_def.clone(),
                     client.clone(),
                 )));
             }
         }
-        reg
+        self
     }
 
     /// Get tool schemas for OpenAI-compatible chat completion APIs.
@@ -225,7 +221,7 @@ mod tests {
             parameters: None,
             content: "do something".to_string(),
         }];
-        let reg = ToolRegistry::with_skills(&skills);
+        let reg = ToolRegistry::new().with_skills(&skills);
         assert!(reg.tool_exists("skill_test_skill"), "skill 工具应被注册");
         assert!(reg.tool_exists("i_rs"), "内置工具仍应存在");
     }
@@ -235,7 +231,6 @@ mod tests {
         let reg = ToolRegistry::new();
         let ctx = ToolContext {
             config: crate::test_helpers::test_config(),
-            mcp: crate::mcp::McpRegistry::empty_for_test(),
             http_client: crate::providers::shared_client(),
         };
         let result = reg.execute("不存在", &json!({}), &ctx).await;

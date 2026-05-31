@@ -214,22 +214,6 @@ impl McpClient {
         extract_text_from_call_result(result)
     }
 
-    /// Synchronous wrapper for call_tool (used outside tokio context).
-    pub fn call_tool(&self, tool_name: &str, args: &Value) -> Result<String, ClawError> {
-        let json_map = args
-            .as_object()
-            .ok_or_else(|| ClawError::Validation("MCP 工具参数必须是 JSON 对象".to_string()))?;
-
-        let params = CallToolRequestParams::new(tool_name.to_string())
-            .with_arguments(json_map.clone());
-
-        let result: CallToolResult = self
-            .rt
-            .block_on(self.service.call_tool(params))
-            .map_err(|e| ClawError::Mcp(format!("MCP 错误: {}", mcp_service_err(e))))?;
-
-        extract_text_from_call_result(result)
-    }
 }
 
 fn extract_text_from_call_result(result: CallToolResult) -> Result<String, ClawError> {

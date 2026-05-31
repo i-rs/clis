@@ -5,7 +5,6 @@
 //! Hardcoded truncation values are replaced with configurable parameters.
 
 use crate::llm::{LlmEvent, ToolCallAcc};
-use crate::mcp::McpRegistry;
 use crate::utils;
 use serde_json::Value;
 use std::sync::Arc;
@@ -76,7 +75,6 @@ fn validate_tool_result(_name: &str, result: &str) -> ToolResultValidation {
 }
 
 pub struct ToolCallExecutor {
-    mcp: McpRegistry,
     tool_registry: Arc<crate::tools::ToolRegistry>,
     tool_ctx: crate::tools::ToolContext,
     cli_timeout_secs: u64,
@@ -88,10 +86,8 @@ impl ToolCallExecutor {
     pub fn new(
         tool_registry: Arc<crate::tools::ToolRegistry>,
         tool_ctx: crate::tools::ToolContext,
-        mcp: McpRegistry,
     ) -> Self {
         Self {
-            mcp,
             tool_registry,
             tool_ctx,
             cli_timeout_secs: 30,
@@ -129,7 +125,6 @@ impl ToolCallExecutor {
             let tx = tx.clone();
             let tc_name = tc.name.clone();
             let args_str = serde_json::to_string(&args).unwrap_or_default();
-            let mcp_for_exec = self.mcp.clone();
             let ctx_for_spawn = self.tool_ctx.clone();
             let registry_for_spawn = Arc::clone(&self.tool_registry);
             let timeout_dur = std::time::Duration::from_secs(self.cli_timeout_secs.max(10));
@@ -142,7 +137,6 @@ impl ToolCallExecutor {
                         &tc_name,
                         &args,
                         &registry_for_spawn,
-                        Some(&mcp_for_exec),
                         &ctx_for_spawn,
                     ).await
                 })

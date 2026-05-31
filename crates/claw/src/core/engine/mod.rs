@@ -47,14 +47,12 @@ fn prepare_loop(
         Some(&config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let tool_registry = Arc::new(crate::tools::ToolRegistry::with_skills(skills));
-    let mut tool_schemas = tool_registry.enabled_schemas(&i_rs_tool_names, enabled);
-    for (_name, (client_idx, tool_def)) in &mcp.tool_map {
-        if mcp.clients.get(*client_idx).is_some() {
-            let schema = crate::tools::mcp_tools::mcp_schema_to_openai(tool_def);
-            tool_schemas.push(schema);
-        }
-    }
+    let tool_registry = Arc::new(
+        crate::tools::ToolRegistry::new()
+            .with_skills(skills)
+            .with_mcp(mcp),
+    );
+    let tool_schemas = tool_registry.enabled_schemas(&i_rs_tool_names, enabled);
 
     let ctx_mgr = ContextManager::for_model(provider.model());
     let advisory = ctx_mgr.context_advisory(msgs);
@@ -67,13 +65,11 @@ fn prepare_loop(
 
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
-        mcp: mcp.clone(),
         http_client,
     };
     let executor = crate::core::executor::ToolCallExecutor::new(
         tool_registry,
         tool_ctx,
-        mcp.clone(),
     )
     .with_timeout(config.cli_timeout_secs)
     .with_truncation(4096, 500);

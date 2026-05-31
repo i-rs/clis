@@ -147,7 +147,7 @@ mod tests {
             content: "Execute this instruction".to_string(),
         };
         let tool = SkillTool::new(def);
-        let ctx = ToolContext { config: crate::test_helpers::test_config(), mcp: crate::mcp::McpRegistry::empty_for_test(), http_client: crate::providers::shared_client(), };
+        let ctx = ToolContext { config: crate::test_helpers::test_config(), http_client: crate::providers::shared_client(), };
         let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert_eq!(result, "Execute this instruction");
     }
@@ -161,7 +161,7 @@ mod tests {
             content: String::new(),
         };
         let tool = SkillTool::new(def);
-        let ctx = ToolContext { config: crate::test_helpers::test_config(), mcp: crate::mcp::McpRegistry::empty_for_test(), http_client: crate::providers::shared_client(), };
+        let ctx = ToolContext { config: crate::test_helpers::test_config(), http_client: crate::providers::shared_client(), };
         let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert!(result.contains("技能已激活"));
     }

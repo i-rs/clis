@@ -4,6 +4,7 @@ use crate::mcp::{McpClient, McpToolDefinition};
 use crate::tools::{ClawTool, ToolContext};
 
 /// Convert an MCP tool definition to an OpenAI-compatible tool schema.
+#[allow(dead_code)]
 pub fn mcp_schema_to_openai(tool_def: &McpToolDefinition) -> Value {
     let mut parameters = tool_def.input_schema.clone();
     if parameters.get("additionalProperties").is_none() {
@@ -23,7 +24,6 @@ pub fn mcp_schema_to_openai(tool_def: &McpToolDefinition) -> Value {
 ///
 /// Each `McpToolWrapper` corresponds to one tool from one MCP server.
 /// The `client` is cloned (cheap, Arc-based) from the shared MCP client.
-#[allow(dead_code)]
 pub struct McpToolWrapper {
     definition: McpToolDefinition,
     client: McpClient,
@@ -64,7 +64,6 @@ impl ClawTool for McpToolWrapper {
     }
 
     async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
-        let result = self.client.call_tool(&self.definition.name, args)?;
-        Ok(result)
+        self.client.call_tool_async(&self.definition.name, args).await
     }
 }
