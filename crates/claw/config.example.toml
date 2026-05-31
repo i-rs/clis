@@ -1,8 +1,11 @@
 # ============================================================================
 # i-rs-claw 配置文件
-# 路径: ~/.i-rs-claw/config.toml
+# 路径: ~/.i-rs/claw/config.toml
 # 格式: TOML
 # ============================================================================
+
+# 可选：覆盖时区，默认使用系统本地
+timezone = "+08:00"
 
 # ── LLM Provider ────────────────────────────────────────────────────────────
 #
@@ -20,20 +23,63 @@ base_url = "https://api.deepseek.com"
 # model:    模型名称
 model = "deepseek-v4-flash"
 
-
 # ── 工具管理 ────────────────────────────────────────────────────────────────
 #
 # i_rs_tools:  已安装的 i-rs CLI 工具名称列表。
 #              通过 `cargo install` / `npm install` / `curl` 等途径独立安装后，
 #              在此列出工具名（不加 i-rs- 前缀），claw 会在启动时自动发现。
 #              留空 = 没有 i-rs 工具可用。
-i_rs_tools = ["weight", "sleep", "mood", "todo", "water", "kv", "run", "exercise", "habit", "cycle", "dose", "pig", "grocery", "meal", "fast", "note", "bookmark", "remind", "birthday", "event", "time", "domain", "bestby", "sub", "ledger", "budget", "invest", "debt", "invoice", "goal", "contact", "car", "project", "read", "article", "vocab", "movie", "podcast", "quote", "snippet", "spark", "cal", "step", "wallet"]
+i_rs_tools = [
+  "weight",
+  "sleep",
+  "mood",
+  "todo",
+  "water",
+  "kv",
+  "run",
+  "exercise",
+  "habit",
+  "cycle",
+  "dose",
+  "pig",
+  "grocery",
+  "meal",
+  "fast",
+  "note",
+  "bookmark",
+  "remind",
+  "birthday",
+  "event",
+  "time",
+  "domain",
+  "bestby",
+  "sub",
+  "ledger",
+  "budget",
+  "invest",
+  "debt",
+  "invoice",
+  "goal",
+  "contact",
+  "car",
+  "project",
+  "read",
+  "article",
+  "vocab",
+  "movie",
+  "podcast",
+  "quote",
+  "snippet",
+  "spark",
+  "cal",
+  "step",
+  "wallet",
+]
 #
 # enabled_tools:  额外启用的内置工具（非 i-rs 工具）列表。
 #                 留空 = 全部启用。
 #                 如需限制，取消注释并编辑以下列表。
 # enabled_tools = ["web_search", "chart", "delegate"]
-
 
 # ── 搜索引擎 ────────────────────────────────────────────────────────────────
 #
@@ -43,12 +89,10 @@ i_rs_tools = ["weight", "sleep", "mood", "todo", "water", "kv", "run", "exercise
 # search_api_key = "your-search-api-key"
 # search_base_url = "https://custom-search-api.example.com"
 
-
 # ── 文件操作权限 ────────────────────────────────────────────────────────────
 #
 # allowed_dirs:  允许工具读写/列目录的路径。留空表示禁止文件操作
 # allowed_dirs = ["~/Documents", "~/Downloads"]
-
 
 # ── MCP 服务器 ──────────────────────────────────────────────────────────────
 #
@@ -69,7 +113,6 @@ i_rs_tools = ["weight", "sleep", "mood", "todo", "water", "kv", "run", "exercise
 # url = "https://mcp-github.example.com/sse"
 # enabled = true
 
-
 # ── 插件发现 ────────────────────────────────────────────────────────────────
 #
 # plugins_auto_discover:  自动发现 ~/.i-rs-claw/plugins/ 下的插件
@@ -79,12 +122,10 @@ plugins_auto_discover = true
 #                    也可以通过 `i-rs-claw plugin enable/disable` 管理
 # disabled_plugins = ["hello-mcp", "calculator-mcp"]
 
-
 # ── 执行模式 ────────────────────────────────────────────────────────────────
 #
 # execution_mode:  "React" (默认) | "PlanThenExecute" (实验性)
 execution_mode = "React"
-
 
 # ── 引擎调优参数 ──────────────────────────────────────────────────────────
 #
@@ -101,7 +142,6 @@ execution_mode = "React"
 # cli_timeout_secs = 30
 # max_conversation_turns = 8
 
-
 # ── Gateway（社交平台接入）──────────────────────────────────────────────────
 #
 # [gateway]
@@ -117,7 +157,6 @@ execution_mode = "React"
 #   enabled = false
 #   agent_id = "default"
 
-
 # ── Dashboard（Web 管理界面）───────────────────────────────────────────────
 #
 # [dashboard]
@@ -125,7 +164,6 @@ execution_mode = "React"
 # host = "127.0.0.1"
 # port = 3000
 # auth_token = "your-secret-token"    # Bearer token 认证。未设置时自动生成随机 UUID
-
 
 # ── Agent 配置 ──────────────────────────────────────────────────────────────
 #
@@ -147,7 +185,6 @@ execution_mode = "React"
 # system_prompt_file = "agents/writer_prompt.md"     # 相对 ~/.i-rs-claw/ 的路径
 # capabilities = ["内容创作"]
 
-
 # ── Sub-agent（仅用于 delegate_task，TUI 不可见）────────────────────────────
 #
 # [sub_agents.coder]
@@ -155,7 +192,6 @@ execution_mode = "React"
 # enabled_tools = ["kv", "todo", "note", "remind", "project", "snippet"]
 # system_prompt = "你是一名编程助手…"
 # capabilities = ["代码审查", "脚本编写"]
-
 
 # ── Token 用量统计 ──────────────────────────────────────────────────────────
 #
