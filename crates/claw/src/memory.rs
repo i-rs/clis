@@ -120,11 +120,6 @@ impl CrossSessionMemory {
         self.user_name.is_some() || !self.user_info.is_empty()
     }
 
-    /// Whether the user has given the assistant a nickname.
-    pub fn has_assistant_nickname(&self) -> bool {
-        self.assistant_nickname.is_some()
-    }
-
     /// Get the assistant nickname if set.
     pub fn assistant_nickname(&self) -> Option<&str> {
         self.assistant_nickname.as_deref()
