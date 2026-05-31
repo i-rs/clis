@@ -135,3 +135,25 @@ impl From<&MealEntry> for ListItem {
         }
     }
 }
+
+// ── IrsTool Spec ──
+
+impl i_rs_core::IrsTool for MealStore {
+    type Entity = MealEntry;
+    type Row = MealRow;
+    type ListItem = ListItem;
+
+    fn tool_name() -> &'static str { "meal" }
+    fn description() -> &'static str {
+        "Meal tracking — log meals with food items and calories"
+    }
+    fn capabilities() -> Vec<i_rs_core::ToolCapability> {
+        vec![i_rs_core::ToolCapability::DateRange]
+    }
+
+    fn entries(&self) -> &BTreeMap<String, MealEntry> { &self.entries }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, MealEntry> { &mut self.entries }
+    fn entity_id(e: &MealEntry) -> String { e.id.clone() }
+    fn to_row(e: &MealEntry) -> MealRow { MealRow::from_entry(e) }
+    fn to_list_item(e: &MealEntry) -> ListItem { ListItem::from(e) }
+}

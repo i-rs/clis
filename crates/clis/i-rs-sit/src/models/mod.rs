@@ -117,3 +117,25 @@ impl From<&SitEntry> for ListItem {
         }
     }
 }
+
+// ── IrsTool Spec ──
+
+impl i_rs_core::IrsTool for SitStore {
+    type Entity = SitEntry;
+    type Row = SitRow;
+    type ListItem = ListItem;
+
+    fn tool_name() -> &'static str { "sit" }
+    fn description() -> &'static str {
+        "Sedentary reminder — track sitting duration to avoid prolonged sitting"
+    }
+    fn capabilities() -> Vec<i_rs_core::ToolCapability> {
+        vec![i_rs_core::ToolCapability::DateRange]
+    }
+
+    fn entries(&self) -> &BTreeMap<String, SitEntry> { &self.entries }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, SitEntry> { &mut self.entries }
+    fn entity_id(e: &SitEntry) -> String { e.id.clone() }
+    fn to_row(e: &SitEntry) -> SitRow { SitRow::from_entry(e) }
+    fn to_list_item(e: &SitEntry) -> ListItem { ListItem::from(e) }
+}

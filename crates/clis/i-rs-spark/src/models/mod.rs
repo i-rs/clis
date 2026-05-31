@@ -115,3 +115,22 @@ impl From<&SparkEntry> for ListItem {
         }
     }
 }
+
+// ── IrsTool Spec ──
+
+impl i_rs_core::IrsTool for SparkStore {
+    type Entity = SparkEntry;
+    type Row = SparkRow;
+    type ListItem = ListItem;
+
+    fn tool_name() -> &'static str { "spark" }
+    fn description() -> &'static str {
+        "Inspiration capture — quick notes on ideas and sparks of creativity"
+    }
+
+    fn entries(&self) -> &BTreeMap<String, SparkEntry> { &self.entries }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, SparkEntry> { &mut self.entries }
+    fn entity_id(e: &SparkEntry) -> String { e.id.clone() }
+    fn to_row(e: &SparkEntry) -> SparkRow { SparkRow::from_entry(e) }
+    fn to_list_item(e: &SparkEntry) -> ListItem { ListItem::from(e) }
+}

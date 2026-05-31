@@ -176,3 +176,26 @@ impl From<&Todo> for ListItem {
         }
     }
 }
+
+// ── IrsTool Spec ──
+
+impl i_rs_core::IrsTool for TodoStore {
+    type Entity = Todo;
+    type Row = TodoRow;
+    type ListItem = ListItem;
+
+    fn tool_name() -> &'static str { "todo" }
+    fn description() -> &'static str {
+        "Todo list — manage tasks with priorities and done status"
+    }
+    fn label() -> &'static str { "todos" }
+    fn capabilities() -> Vec<i_rs_core::ToolCapability> {
+        vec![i_rs_core::ToolCapability::Done]
+    }
+
+    fn entries(&self) -> &BTreeMap<String, Todo> { &self.todos }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, Todo> { &mut self.todos }
+    fn entity_id(t: &Todo) -> String { t.name.clone() }
+    fn to_row(t: &Todo) -> TodoRow { TodoRow::from_todo(t) }
+    fn to_list_item(t: &Todo) -> ListItem { ListItem::from(t) }
+}
