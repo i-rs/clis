@@ -25,6 +25,7 @@ i-rs-claw
 | **Streaming Responses** | Real-time token-by-token AI response display |
 | **Tool Call Transparency** | See exactly which tools are being called and their results |
 | **Multi-turn Conversations** | Context preserved across the session via JSONL persistence |
+| **Pluggable Storage** | File (JSONL) default, SQLite/MySQL/PostgreSQL via feature flags |
 | **First-Learn-Then-Execute** | AI automatically learns tool syntax via `skill teach` before operating data |
 | **Plugin System** | MCP-based plugin discovery with automatic tool integration |
 | **Gateway** | Social platform integration (Telegram, Discord, Slack, WeChat) |
@@ -87,35 +88,44 @@ The binary will be at `target/release/i-rs-claw`.
 │  │  │ CLI   │ │ tools  │ │ tools │ │  (MCP)   │    │  │
 │  │  └───────┘ └────────┘ └───────┘ └──────────┘    │  │
 │  └────────────────────────────────────────────────────┘  │
+│         │                                               │
+│  ┌──────┴────────────────────────────────────────────┐  │
+│  │           storage/ (pluggable backends)             │  │
+│  │  ┌──────┐ ┌──────┐ ┌───────┐ ┌────────┐ ┌─────┐  │  │
+│  │  │ File │ │SQLite│ │ MySQL │ │Postgres│ │Mongo │  │  │
+│  │  │(JSONL)│ │(def) │ │(feat) │ │(feat)  │ │(feat)│  │  │
+│  │  └──────┘ └──────┘ └───────┘ └────────┘ └─────┘  │  │
+│  └────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ## Data Location
 
-All data is stored under `~/.i-rs-claw/`:
+Data is stored in `~/.i-rs/claw/` (override with `CONFIG_DIR` env var):
 
 ```
-~/.i-rs-claw/
+~/.i-rs/claw/
 ├── config.toml         # Main configuration
 ├── theme.json          # Custom color theme (optional)
-├── claw/
-│   ├── index.json      # Session index
-│   ├── conv_cache.json # Conversation cache
-│   ├── skills/         # User-defined skills
-│   ├── memory.json     # Cross-session memory
-│   ├── tool_cache.json # Tool documentation cache
-│   └── sessions/       # Session data files (*.jsonl, *_api.json, *_plan.json)
-└── plugins/
-    ├── state.json      # Plugin enabled/disabled state
-    └── <name>/
-        └── plugin.toml # Plugin manifest
+├── claw.db             # SQLite database (when backend = "sqlite")
+├── sessions.jsonl      # Session index (file backend)
+├── conversations.jsonl # Conversation cache (file backend)
+├── skills/             # User-defined skills
+├── memory.json         # Cross-session memory (file backend)
+├── tool_cache.json     # Tool documentation cache (file backend)
+└── sessions/           # Session data files (*.jsonl, file backend)
 ```
+
+**Storage backends**: File (JSONL, default), SQLite (`--features sqlite`), MySQL (`--features mysql`), PostgreSQL (`--features postgres`). Configure via `[storage]` section in `config.toml`.
 
 ## Feature Flags
 
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `dashboard` | Disabled | Axum web server with REST API + SSE streaming |
+| `sqlite` | Disabled | SQLite storage backend (sqlx) |
+| `mysql` | Disabled | MySQL storage backend (sqlx) |
+| `postgres` | Disabled | PostgreSQL storage backend (sqlx) |
 
 Gateway (Telegram + WeChat) is always included — enable platforms via `config.toml`.
 

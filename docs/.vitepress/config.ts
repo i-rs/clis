@@ -37,7 +37,17 @@ export default defineConfig({
           { text: 'AI 原生命令行 — AI Skill 系统', link: '/articles/ai-native-cli' },
           { text: '70 工具 · 一柄利刃 — Rust 工程实践', link: '/articles/rust-mono-repo' },
           { text: '从终端到云端 — 全栈覆盖', link: '/articles/full-stack-coverage' },
-          { text: '一个人的数据指挥中心 — 全领域覆盖', link: '/articles/data-command-center' }
+          { text: '一个人的数据指挥中心 — 全领域覆盖', link: '/articles/data-command-center' },
+          {
+            text: 'claw 系列',
+            collapsed: false,
+            items: [
+              { text: 'claw 进化史', link: '/articles/claw-evolution' },
+              { text: 'claw 存储层抽象', link: '/articles/claw-storage-abstraction' },
+              { text: 'claw 工具系统', link: '/articles/claw-tools-ecosystem' },
+              { text: 'claw MCP 接入指南', link: '/articles/mcp-integration-guide' },
+            ]
+          }
         ]
       },
       {

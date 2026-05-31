@@ -61,3 +61,19 @@
 ### [claw MCP 接入指南 — 让 AI 终端助理获得无限工具拓展能力](./mcp-integration-guide)
 
 从配置到插件、从 stdio 到 SSE、从 rmcp SDK 到 ClawTool 适配器——一份完整的 claw MCP 集成说明书。适合想要为 claw 接入外部工具的开发者。
+
+---
+
+## claw 系列（持续更新）
+
+### [i-rs-claw 进化史：从终端助手到 AI 操作系统](./claw-evolution)
+
+从单 Agent 到多模型路由，从文件存储到可插拔 SQL 后端，从 TUI 到 Telegram/微信/Dashboard 多端覆盖——回顾 claw 从 0 到 1.0 的完整进化之路。
+
+### [可插拔存储层：claw 的数据架构演进](./claw-storage-abstraction)
+
+深入 claw 最大的一次重构：8 个 Repository trait、4 个存储后端、运行时选择 + 条件编译。拆解如何在不改业务代码的前提下，从 JSONL 文件平滑迁移到 SQLite/MySQL/PostgreSQL。
+
+### [工具与生态：claw 的工具系统设计](./claw-tools-ecosystem)
+
+从单一 `i_rs` 命令到 10 个内置工具 + 动态 Skill + MCP 工具的生态体系。详解 `ClawTool` trait、`ToolRegistry`、工具执行引擎与智能路由的设计哲学。
