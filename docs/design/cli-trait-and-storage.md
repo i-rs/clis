@@ -373,16 +373,16 @@ for tool in &tools {
 
 ---
 
-## 4. 待讨论的决策点
+## 4. 已确认的决策
 
-| # | 问题 | 选项 | 建议 |
+| # | 问题 | 决策 | 理由 |
 |---|------|------|------|
-| 1 | claw 是否需要编译时链接所有 70 个 tool crate？ | A. 是（类型安全） B. 动态发现（灵活） C. A+B 混合 | **C** — 核心 tool 链接，可选 tool 动态发现 |
-| 2 | IrsTool trait 用 associated type 还是泛型参数？ | A. associated type B. 泛型 | **A** — 每个 Store 只对应一种 Entity |
-| 3 | `define_cli_tool!` 宏覆盖度：90% 还是 100%？ | A. 100% 覆盖（所有 tool 无手写代码）B. 90% 覆盖（特殊 tool 手写） | **B** — time/ledger/car 等复杂 tool 留手写路径 |
-| 4 | CLI 存储抽象是否需要支持 `ApiBackend`？ | A. 是（与 i-rs-api 统一）B. 否（CLI 只做本地，多端走 claw gateway） | **A** — 为微信小程序等场景提供统一数据源 |
-| 5 | 分页粒度：CLI 层面还是仅 API 层面？ | A. CLI 也支持 B. 仅 API 支持 | **A** — 但 CLI 默认不分页，加 flag 开启 |
-| 6 | 是否需要 trait 的 `commands()` 返回 clap Subcommand 动态构造？ | A. 动态 clap B. 手写 enum | **B** — clap derive 不支持动态 enum，宏生成即可 |
+| 1 | claw 编译时链接 vs 动态发现 | C. **混合** | 核心 tool 链接提供类型安全，可选 tool 动态发现 |
+| 2 | IrsTool trait 用 associated type 还是泛型 | A. **associated type** | 每个 Store 只对应一种 Entity |
+| 3 | `define_cli_tool!` 宏覆盖度 | B. **最大共同特征** | time/ledger/car 等复杂 tool 留手写路径 |
+| 4 | CLI 存储抽象是否需要 `ApiBackend` | ✅ **需要**，且面向**第三方** | 第三方可开发自己的 CLI 实现 IrsTool trait，对接其自有 API，无缝接入 claw 生态 |
+| 5 | CLI 是否加分页 | ✅ **需要** | list 命令默认加 `--limit`/`--offset` |
+| 6 | trait 的 `commands()` 返回类型 | B. **手写 clap enum + 宏生成** | clap derive 不支持动态 enum |
 
 ---
 

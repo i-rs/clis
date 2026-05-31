@@ -5,8 +5,8 @@ use owo_colors::OwoColorize;
 
 pub fn handle_update(
     id: String,
-    date: Option<String>,
     mood: Option<String>,
+    date: Option<String>,
     tag: Option<Vec<String>>,
     remark: Option<Vec<String>>,
     format: OutputFormat,

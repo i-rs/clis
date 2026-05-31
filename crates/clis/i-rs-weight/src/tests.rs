@@ -49,6 +49,8 @@ mod tests {
             days: None,
             chart: false,
             stats: false,
+            limit: None,
+            offset: None,
         };
         assert!(run(cmd, crate::presentation::OutputFormat::Table).is_ok());
 
