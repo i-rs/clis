@@ -10,7 +10,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::convert::Infallible;
+use std::sync::OnceLock;
 use tokio::sync::mpsc;
+
+static TOOL_REGISTRY: OnceLock<crate::tools::ToolRegistry> = OnceLock::new();
 
 // ── Response helpers ──
 
@@ -40,6 +43,26 @@ impl<T: Serialize> ApiResponse<T> {
 }
 
 // ── Handlers ──
+
+/// Convert an app::Message to an API-compatible JSON value.
+fn message_to_api_json(msg: &crate::app::Message) -> Value {
+    match msg {
+        crate::app::Message::User { text } => {
+            serde_json::json!({"role": "user", "content": text})
+        }
+        crate::app::Message::Assistant { text, reasoning } => {
+            let mut msg = serde_json::json!({"role": "assistant", "content": text});
+            if !reasoning.is_empty() {
+                msg["reasoning"] = Value::String(reasoning.clone());
+            }
+            msg
+        }
+        crate::app::Message::ToolCall { name, args, result, .. } => {
+            serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
+        }
+        _ => serde_json::json!({"role": "unknown"}),
+    }
+}
 
 /// Health check endpoint.
 pub async fn health() -> Json<ApiResponse<&'static str>> {
@@ -317,25 +340,7 @@ pub async fn get_current_session(
         Some(ref sid) => {
             let meta = core.session_mgr.session_meta(sid);
             let messages = core.session_mgr.load_app_messages(sid, 50);
-            let msgs: Vec<Value> = messages
-                .iter()
-                .map(|m| match m {
-                    crate::app::Message::User { text } => {
-                        serde_json::json!({"role": "user", "content": text})
-                    }
-                    crate::app::Message::Assistant { text, reasoning } => {
-                        let mut msg = serde_json::json!({"role": "assistant", "content": text});
-                        if !reasoning.is_empty() {
-                            msg["reasoning"] = Value::String(reasoning.clone());
-                        }
-                        msg
-                    }
-                    crate::app::Message::ToolCall { name, args, result, .. } => {
-                        serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
-                    }
-                    _ => serde_json::json!({"role": "unknown"}),
-                })
-                .collect();
+            let msgs: Vec<Value> = messages.iter().map(message_to_api_json).collect();
             ApiResponse::ok(serde_json::json!({
                 "id": sid,
                 "title": meta.as_ref().map(|m| &m.title),
@@ -422,25 +427,7 @@ pub async fn get_session(
 ) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let messages = core.session_mgr.load_app_messages(&id, 100);
-    let msgs: Vec<Value> = messages
-        .iter()
-        .map(|m| match m {
-            crate::app::Message::User { text } => {
-                serde_json::json!({"role": "user", "content": text})
-            }
-            crate::app::Message::Assistant { text, reasoning } => {
-                let mut msg = serde_json::json!({"role": "assistant", "content": text});
-                if !reasoning.is_empty() {
-                    msg["reasoning"] = Value::String(reasoning.clone());
-                }
-                msg
-            }
-            crate::app::Message::ToolCall { name, args, result, .. } => {
-                serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
-            }
-            _ => serde_json::json!({"role": "unknown"}),
-        })
-        .collect();
+    let msgs: Vec<Value> = messages.iter().map(message_to_api_json).collect();
 
     let meta = core.session_mgr.session_meta(&id);
 
@@ -509,19 +496,31 @@ pub async fn get_agents(
     let agents: Vec<Value> = agent_ids
         .iter()
         .map(|id| {
-            let resolved = core.config.agent_config(id);
-            let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
+            let agent = core.config.agents.get(id)
+                .or_else(|| core.config.sub_agents.get(id));
+            let provider = agent.and_then(|a| a.provider.as_deref())
+                .unwrap_or(&core.config.provider);
+            let model = agent.and_then(|a| a.model.as_deref())
+                .unwrap_or(&core.config.model);
+            let base_url = agent.and_then(|a| a.base_url.as_deref())
+                .unwrap_or(&core.config.base_url);
+            let enabled_tools: &std::collections::HashSet<String> = agent
+                .and_then(|a| a.enabled_tools.as_ref())
+                .unwrap_or(&core.config.enabled_tools);
+            let tools: Vec<&String> = enabled_tools.iter().collect();
             let is_sub = id != "default" && !core.config.agents.contains_key(id);
+            let system_prompt = agent.and_then(|a| a.system_prompt.as_deref());
+            let capabilities = agent.map(|a| &a.capabilities[..]).unwrap_or(&[]);
             serde_json::json!({
                 "id": id,
-                "provider": resolved.provider,
-                "model": resolved.model,
-                "base_url": resolved.base_url,
-                "tool_count": resolved.enabled_tools.len(),
+                "provider": provider,
+                "model": model,
+                "base_url": base_url,
+                "tool_count": enabled_tools.len(),
                 "enabled_tools": tools,
-                "system_prompt": resolved.system_prompt,
+                "system_prompt": system_prompt,
                 "is_sub_agent": is_sub,
-                "capabilities": resolved.capabilities,
+                "capabilities": capabilities,
             })
         })
         .collect();
@@ -704,7 +703,8 @@ pub async fn list_tools(
         Some(&core.config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = core.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let schemas = crate::tools::ToolRegistry::new().enabled_schemas(&i_rs_tool_names, enabled);
+    let reg = TOOL_REGISTRY.get_or_init(|| crate::tools::ToolRegistry::new());
+    let schemas = reg.enabled_schemas(&i_rs_tool_names, enabled);
     ApiResponse::ok(schemas)
 }
 
@@ -738,16 +738,19 @@ pub async fn list_skills(
     let entries = store.list_skills();
     let skills: Vec<crate::skill_store::SkillDefinition> = entries
         .iter()
-        .map(|e| crate::skill_store::SkillDefinition {
-            name: e.name.clone(),
-            description: crate::skill_store::parse_frontmatter(&e.content)
-                .0
-                .and_then(|t| t.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()))
-                .unwrap_or_else(|| e.name.clone()),
-            parameters: crate::skill_store::parse_frontmatter(&e.content)
-                .0
-                .and_then(|t| t.get("parameters").and_then(|v| serde_json::to_value(v).ok())),
-            content: crate::skill_store::parse_frontmatter(&e.content).1.to_string(),
+        .map(|e| {
+            let (fm, body) = crate::skill_store::parse_frontmatter(&e.content);
+            crate::skill_store::SkillDefinition {
+                name: e.name.clone(),
+                description: fm
+                    .as_ref()
+                    .and_then(|t| t.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                    .unwrap_or_else(|| e.name.clone()),
+                parameters: fm
+                    .as_ref()
+                    .and_then(|t| t.get("parameters").and_then(|v| serde_json::to_value(v).ok())),
+                content: body.to_string(),
+            }
         })
         .collect();
     ApiResponse::ok(skills)

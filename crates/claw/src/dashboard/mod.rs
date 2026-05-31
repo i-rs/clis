@@ -170,7 +170,11 @@ async fn auth_guard(
         _ => {
             tracing::warn!("Dashboard 认证失败: {}", req.uri().path());
             let mut resp = axum::response::IntoResponse::into_response(
-                "{\"success\":false,\"data\":null,\"error\":\"Unauthorized\"}",
+                axum::Json(serde_json::json!({
+                    "success": false,
+                    "data": null,
+                    "error": "Unauthorized",
+                }))
             );
             *resp.status_mut() = axum::http::StatusCode::UNAUTHORIZED;
             resp.headers_mut().insert(
