@@ -160,9 +160,6 @@ pub fn run_config() -> anyhow::Result<()> {
     if !trimmed.is_empty() {
         cfg.timezone = Some(trimmed);
         cfg.tz_offset = crate::utils::parse_timezone(cfg.timezone.as_deref());
-    } else {
-        cfg.timezone = None;
-        cfg.tz_offset = crate::utils::system_tz_offset();
     }
 
     // ── Storage Backend ──
