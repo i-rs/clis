@@ -40,12 +40,16 @@ tower-http = { workspace = true, optional = true }
 rust-embed = { version = "8", features = ["include-exclude"], optional = true }
 mime_guess = { version = "2", optional = true }
 
-sqlx = { version = "0.9.0", features = ["runtime-tokio", "sqlite"], optional = true }
+sqlx = { version = "0.9.0", features = [
+    "runtime-tokio",
+], optional = true }
 
 [features]
 default = []
 dashboard = ["axum", "tower-http", "rust-embed", "mime_guess"]
-sqlite = ["sqlx"]
+sqlite = ["sqlx", "sqlx/sqlite"]
+mysql = ["sqlx", "sqlx/mysql"]
+postgres = ["sqlx", "sqlx/postgres"]
 
 [dev-dependencies]
 tempfile = "3"
