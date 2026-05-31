@@ -50,11 +50,7 @@ cargo build -p i-rs-claw --release
 # With Dashboard web UI
 cargo build -p i-rs-claw --release --features dashboard
 
-# With Gateway social platforms
-cargo build -p i-rs-claw --release --features gateway-all
-
-# All features
-cargo build -p i-rs-claw --release --features "dashboard,gateway-all"
+# Gateway is always included — configure platforms in config.toml
 ```
 
 The binary will be at `target/release/i-rs-claw`.
@@ -120,11 +116,8 @@ All data is stored under `~/.i-rs-claw/`:
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `dashboard` | Disabled | Axum web server with REST API + SSE streaming |
-| `gateway-telegram` | Disabled | Telegram bot integration |
-| `gateway-discord` | Disabled | Discord bot integration |
-| `gateway-slack` | Disabled | Slack bot integration |
-| `gateway-wechat` | Disabled | WeChat/WeCom bot integration |
-| `gateway-all` | Disabled | All gateway platforms |
+
+Gateway (Telegram + WeChat) is always included — enable platforms via `config.toml`.
 
 ## Configuration
 

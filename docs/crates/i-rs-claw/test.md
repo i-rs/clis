@@ -26,12 +26,8 @@ i-rs-claw session --list
 cargo build -p i-rs-claw --features dashboard
 i-rs-claw dashboard
 
-# Build with gateway
-cargo build -p i-rs-claw --features gateway-all
+# Gateway (always included)
 i-rs-claw gateway
-
-# All features
-cargo build -p i-rs-claw --features "dashboard,gateway-all"
 ```
 
 ## Plugin System

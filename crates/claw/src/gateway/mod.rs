@@ -1,6 +1,4 @@
-#[cfg(feature = "gateway-telegram")]
 pub mod telegram;
-#[cfg(feature = "gateway-wechat")]
 pub mod wechat;
 
 use async_trait::async_trait;
@@ -210,36 +208,32 @@ impl GatewayServer {
         let agent_id_owned = agent_id.to_string();
 
         // Build messages with session context (lock held briefly)
-        let (session_id, msgs, config, mcp) = {
+        let (session_uuid, _session_title, msgs, config, mcp) = {
             let mut core = core.lock().await;
-            let session_id = format!("gateway:{}:{}", platform, chat_id);
+            let session_title = format!("gateway:{}:{}", platform, chat_id);
 
-            // Find existing gateway session by title, since session IDs are UUIDs
-            // but we identify them by the stable "gateway:{platform}:{chat_id}" title.
-            let found = core.session_mgr.sessions()
+            let uuid = if let Some(found) = core.session_mgr.sessions()
                 .iter()
-                .find(|s| s.title == session_id)
-                .map(|s| s.id.clone());
-
-            if let Some(uuid) = found {
-                // Reuse existing session for conversation continuity
-                core.session_mgr.switch_to(&uuid);
+                .find(|s| s.title == session_title)
+                .map(|s| s.id.clone())
+            {
+                core.session_mgr.switch_to(&found);
+                found
             } else {
-                // First message from this user: create a session with agent_id
                 let new_id = core.session_mgr.create_session_for(&agent_id_owned);
-                core.session_mgr.rename_session(&new_id, &session_id);
-            }
+                core.session_mgr.rename_session(&new_id, &session_title);
+                new_id
+            };
 
-            let saved = core.session_mgr.load_api_messages(&session_id);
+            let saved = core.session_mgr.load_api_messages(&uuid);
             let msgs = core.build_messages_for(&[], &text_owned, &saved, None, &agent_id_owned);
 
-            // Clone config with agent-specific tool overrides
             let resolved = core.config.agent_config(&agent_id_owned);
             let mut agent_config = core.config.clone();
             agent_config.enabled_tools = resolved.enabled_tools;
             let mcp = core.agent_store.mcp_registry_for(&agent_id_owned).clone();
 
-            (session_id, msgs, agent_config, mcp)
+            (uuid, session_title, msgs, agent_config, mcp)
         };
 
         // Spawn the multi-round chat loop (no lock held during streaming)
@@ -266,10 +260,9 @@ impl GatewayServer {
                     break;
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _) => {
-                    // Lock again only for persistence
                     let mut core = core.lock().await;
                     core.session_mgr
-                        .save_api_messages(&session_id, &api_msgs);
+                        .save_api_messages(&session_uuid, &api_msgs);
                     core.session_mgr.append_message("user", &text_owned, None);
                     core.session_mgr
                         .append_message("assistant", &response, None);

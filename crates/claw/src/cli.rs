@@ -443,7 +443,6 @@ pub fn run_gateway() -> anyhow::Result<()> {
 
     // Register platform adapters based on config
     if config.gateway.enabled {
-        #[cfg(feature = "gateway-telegram")]
         if let Some(ref tg) = config.gateway.telegram
             && tg.enabled
             && let Some(ref token) = tg.token {
@@ -458,7 +457,6 @@ pub fn run_gateway() -> anyhow::Result<()> {
                 println!("  ✓ Telegram bot registered");
             }
 
-        #[cfg(feature = "gateway-wechat")]
         if let Some(ref wc) = config.gateway.wechat
             && wc.enabled {
                 let adapter = crate::gateway::wechat::WeChatAdapter::new(

@@ -179,7 +179,7 @@ crates/clis/i-rs-{name}/
 
 - **Cargo.toml 核心依赖**: `ratatui`, `crossterm`, `tokio`, `serde_json`, `reqwest`, `clap`, `dirs`, `toml`, `uuid`, `owo-colors`, `async-trait`, `base64`
 - **可选 Dashboard**: `axum`, `tower-http`, `rust-embed` (feature = `dashboard`)
-- **可选 Gateway**: `gateway-telegram`, `gateway-wechat` (feature gates)
+- **Gateway**: 内置 Telegram/WeChat adapter，通过 config.toml 配置运行时开关
 - **不需要** `i-rs-core` 依赖（直接调 CLI 二进制进程）
 
 ### 源码结构

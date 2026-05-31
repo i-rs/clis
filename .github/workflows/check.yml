@@ -57,10 +57,6 @@ jobs:
       matrix:
         features:
           - dashboard
-          - gateway-telegram
-          - gateway-wechat
-          - gateway-all
-          - gateway-all,dashboard
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6

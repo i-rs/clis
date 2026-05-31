@@ -116,15 +116,12 @@ enabled = true
 token = "123456:ABC-DEF..."
 ```
 
-Build with gateway support:
+Build and run the gateway server:
 
 ```bash
-cargo build -p i-rs-claw --release --features gateway-all
+cargo build -p i-rs-claw --release
+i-rs-claw gateway
 ```
-
-Run the gateway server:
-
-```bash
 i-rs-claw gateway
 ```
 

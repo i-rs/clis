@@ -93,11 +93,9 @@ i-rs-claw gateway
 Requires configuration in `config.toml`:
 - `[gateway]` — Master switch
 - `[gateway.telegram]` — Telegram bot token
-- `[gateway.discord]` — Discord bot token
-- `[gateway.slack]` — Slack bot token + app token
-- `[gateway.wechat]` — WeChat webhook URL + secret
+- `[gateway.wechat]` — WeChat iLink Bot (credentials via QR login)
 
-Requires feature flags: `gateway-telegram`, `gateway-discord`, `gateway-slack`, `gateway-wechat`, or `gateway-all`.
+Configure platforms in config.toml; no feature flags needed.
 
 ### dashboard
 
