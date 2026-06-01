@@ -592,7 +592,7 @@ fn build_cors(config: &DashboardConfig) -> CorsLayer {
 ## 7. 配置示例
 
 ```toml
-# ~/.i-rs-claw/config.toml
+# ~/.i-rs/claw/config.toml
 
 # ── Dashboard ───────────────────────────────────────────────────────────────
 [dashboard]

@@ -34,10 +34,10 @@ i-rs-claw gateway
 
 ```bash
 # Create a test plugin directory
-mkdir -p ~/.i-rs-claw/plugins/test-plugin
+mkdir -p ~/.i-rs/claw/plugins/test-plugin
 
 # Create plugin manifest
-cat <<EOF > ~/.i-rs-claw/plugins/test-plugin/plugin.toml
+cat <<EOF > ~/.i-rs/claw/plugins/test-plugin/plugin.toml
 [plugin]
 name = "test-plugin"
 version = "1.0.0"

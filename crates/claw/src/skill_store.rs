@@ -92,7 +92,7 @@ pub fn build_skill_definition(name: &str, raw_content: &str) -> SkillDefinition 
     }
 }
 
-/// Loads and formats user-defined skills from `~/.i-rs-claw/skills/`.
+/// Loads and formats user-defined skills from `~/.i-rs/claw/skills/`.
 ///
 /// Skills are `.md` files that inject custom behavior instructions into the
 /// system prompt. Each file name (without `.md`) becomes the skill name,

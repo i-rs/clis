@@ -181,7 +181,7 @@ impl ModelPricing {
 与现有 session 消息存储 (`*.jsonl`) 保持一致：
 
 ```
-~/.i-rs-claw/claw/stats/
+~/.i-rs/claw/claw/stats/
 └── usage.jsonl
 ```
 
@@ -427,7 +427,7 @@ GET /api/stats/daily     — 时间序列数据（用于图表）
 ## 7. 配置
 
 ```toml
-# ~/.i-rs-claw/config.toml
+# ~/.i-rs/claw/config.toml
 
 [stats]
 enabled = true                                   # 是否启用统计 (默认 true)

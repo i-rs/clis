@@ -38,7 +38,7 @@ pub struct Config {
     /// MCP server connections for external tool discovery.
     #[serde(default)]
     pub mcp_servers: Vec<crate::mcp::McpServerConfig>,
-    /// Automatically discover plugins from ~/.i-rs-claw/plugins/.
+    /// Automatically discover plugins from ~/.i-rs/claw/plugins/.
     /// Discovered plugins are merged into mcp_servers at startup.
     #[serde(default = "default_true")]
     pub plugins_auto_discover: bool,
@@ -529,7 +529,7 @@ pub struct PlatformConfig {
 /// WeChat iLink Bot (personal WeChat) configuration.
 ///
 /// No static token/URL needed -- credentials obtained via QR login
-/// on first run and persisted to ~/.i-rs-claw/claw/wechat_credentials.json
+/// on first run and persisted to ~/.i-rs/claw/claw/wechat_credentials.json
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WeChatPlatformConfig {
     /// Whether the WeChat bot is enabled.
@@ -616,7 +616,7 @@ impl Config {
 
         let mut config = config;
 
-        // Load custom theme from ~/.i-rs-claw/theme.json
+        // Load custom theme from ~/.i-rs/claw/theme.json
         if let Some(parent) = config_path.parent() {
             let theme_path = parent.join("theme.json");
             config.theme = crate::theme::Theme::load(&theme_path);

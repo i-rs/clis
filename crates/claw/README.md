@@ -31,7 +31,7 @@ The binary will be at `target/release/i-rs-claw`.
 
 ## Configuration
 
-Create `~/.i-rs-claw/config.toml`:
+Create `~/.i-rs/claw/config.toml`:
 
 ```toml
 provider = "openai"                   # "openai" | "anthropic" | "ollama"

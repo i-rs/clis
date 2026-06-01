@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 // ── Plugin Manifest ──
 
 /// Top-level plugin manifest structure.
-/// Parsed from `~/.i-rs-claw/plugins/<name>/plugin.toml`.
+/// Parsed from `~/.i-rs/claw/plugins/<name>/plugin.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginManifest {
     pub plugin: PluginMeta,
@@ -101,7 +101,7 @@ impl PluginState {
 
 /// Manages plugin discovery and lifecycle.
 pub struct PluginManager {
-    /// Base directory for plugins: ~/.i-rs-claw/plugins/
+    /// Base directory for plugins: ~/.i-rs/claw/plugins/
     plugins_dir: PathBuf,
     /// Discovered plugin manifests.
     pub manifests: Vec<PluginManifest>,

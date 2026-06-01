@@ -65,7 +65,7 @@ command = "my-plugin"
 ```bash
 cargo build --release
 cp target/release/my-plugin ~/.cargo/bin/
-cp plugin.toml ~/.i-rs-claw/plugins/my-plugin/
+cp plugin.toml ~/.i-rs/claw/plugins/my-plugin/
 ```
 
 4. 启动 claw，插件自动加载！
@@ -90,8 +90,8 @@ args = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/workspace"]
 复制到插件目录即可：
 
 ```bash
-mkdir -p ~/.i-rs-claw/plugins/filesystem
-cp filesystem/plugin.toml ~/.i-rs-claw/plugins/filesystem/
+mkdir -p ~/.i-rs/claw/plugins/filesystem
+cp filesystem/plugin.toml ~/.i-rs/claw/plugins/filesystem/
 ```
 
 ### 方式三：SSE 远程服务
@@ -112,7 +112,7 @@ url = "https://mcp-weather.example.com/sse"
 ## 插件结构要求
 
 ```
-~/.i-rs-claw/plugins/
+~/.i-rs/claw/plugins/
 └── <plugin-name>/          # 目录名必须和 plugin.toml 中的 name 一致
     └── plugin.toml         # 插件清单文件
 ```

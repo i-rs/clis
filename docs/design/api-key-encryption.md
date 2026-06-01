@@ -11,7 +11,7 @@
 
 ### 1.1 现状
 
-当前 API Key 以明文存储在 `~/.i-rs-claw/config.toml` 中：
+当前 API Key 以明文存储在 `~/.i-rs/claw/config.toml` 中：
 
 ```toml
 provider = "openai"
@@ -23,7 +23,7 @@ api_key = "sk-ant-xxx..."
 ```
 
 **风险**:
-- 同机其他用户可通过 `cat ~/.i-rs-claw/config.toml` 读取
+- 同机其他用户可通过 `cat ~/.i-rs/claw/config.toml` 读取
 - 文件权限默认 0644（同用户组可读）
 - 备份到云盘时 Key 明文泄露
 - Git 误提交风险（虽有 `.gitignore`，但配置本身不安全）

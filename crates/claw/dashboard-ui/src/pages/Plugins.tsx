@@ -37,7 +37,7 @@ export default function PluginsPage() {
               <Puzzle size={24} />
             </div>
             <h3>No plugins found</h3>
-            <p>Add plugin manifests to <code>~/.i-rs-claw/plugins/</code></p>
+            <p>Add plugin manifests to <code>~/.i-rs/claw/plugins/</code></p>
           </div>
         ) : (
           <div className="table-wrapper">

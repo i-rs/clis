@@ -48,7 +48,7 @@ export default function SkillsPage() {
               <BookOpen size={24} />
             </div>
             <h3>No skills found</h3>
-            <p>Add <code>.md</code> skill files to <code>~/.i-rs-claw/claw/skills/</code></p>
+            <p>Add <code>.md</code> skill files to <code>~/.i-rs/claw/claw/skills/</code></p>
           </div>
         ) : (
           <div className="skill-list">

@@ -139,7 +139,7 @@ Options:
 
 ## Configuration File
 
-Location: `~/.i-rs-claw/config.toml`
+Location: `~/.i-rs/claw/config.toml`
 
 ```toml
 [config]
@@ -192,12 +192,12 @@ port = 3000
 
 ## Data Storage
 
-- Config: `~/.i-rs-claw/config.toml`
-- Sessions: `~/.i-rs-claw/claw/sessions/*.jsonl`
-- Session index: `~/.i-rs-claw/claw/index.json`
-- Cross-session memory: `~/.i-rs-claw/claw/memory.json`
-- Tool cache: `~/.i-rs-claw/claw/tool_cache.json`
-- Skills: `~/.i-rs-claw/claw/skills/`
-- Plugins: `~/.i-rs-claw/plugins/<name>/plugin.toml`
-- Plugin state: `~/.i-rs-claw/plugins/state.json`
-- Theme: `~/.i-rs-claw/theme.json`
+- Config: `~/.i-rs/claw/config.toml`
+- Sessions: `~/.i-rs/claw/claw/sessions/*.jsonl`
+- Session index: `~/.i-rs/claw/claw/index.json`
+- Cross-session memory: `~/.i-rs/claw/claw/memory.json`
+- Tool cache: `~/.i-rs/claw/claw/tool_cache.json`
+- Skills: `~/.i-rs/claw/claw/skills/`
+- Plugins: `~/.i-rs/claw/plugins/<name>/plugin.toml`
+- Plugin state: `~/.i-rs/claw/plugins/state.json`
+- Theme: `~/.i-rs/claw/theme.json`

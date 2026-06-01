@@ -41,7 +41,7 @@ struct PluginsPanel: View {
             Text("No plugins discovered")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text("Add plugin manifests to ~/.i-rs-claw/plugins/")
+            Text("Add plugin manifests to ~/.i-rs/claw/plugins/")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
             Spacer()

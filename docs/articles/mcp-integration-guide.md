@@ -72,7 +72,7 @@ MCP（Model Context Protocol）的出现，让 claw 的"工具箱"不再局限�
 ```
 1. 启动 → 加载 config.toml（读取 [[mcp_servers]] 列表）
           ↓
-2. 发现 ~/.i-rs-claw/plugins/*/plugin.toml（若 plugins_auto_discover = true）
+2. 发现 ~/.i-rs/claw/plugins/*/plugin.toml（若 plugins_auto_discover = true）
           ↓
 3. 合并配置 → 遍历每个 McpServerConfig
           ↓
@@ -145,7 +145,7 @@ enabled = true
 ### 插件目录结构
 
 ```
-~/.i-rs-claw/plugins/
+~/.i-rs/claw/plugins/
 ├── hello-mcp/
 │   ├── plugin.toml          # 插件清单
 │   └── <二进制 或 脚本>       # 可执行文件
@@ -170,7 +170,7 @@ command = "hello-mcp"
 
 ### 自动发现流程
 
-1. 启动时，若 `plugins_auto_discover = true`（默认），claw 扫描 `~/.i-rs-claw/plugins/` 目录
+1. 启动时，若 `plugins_auto_discover = true`（默认），claw 扫描 `~/.i-rs/claw/plugins/` 目录
 2. 每个子目录下查找 `plugin.toml`，解析为 `PluginManifest`
 3. 校验目录名与 `plugin.name` 一致
 4. 从 `state.json` 读取启用/禁用状态
@@ -562,8 +562,8 @@ cargo build --release -p hello-mcp
 cp target/release/hello-mcp ~/.cargo/bin/
 
 # 3. 创建插件目录和清单
-mkdir -p ~/.i-rs-claw/plugins/hello-mcp
-cp plugin.toml ~/.i-rs-claw/plugins/hello-mcp/
+mkdir -p ~/.i-rs/claw/plugins/hello-mcp
+cp plugin.toml ~/.i-rs/claw/plugins/hello-mcp/
 
 # 4. 启动 claw，插件自动加载！
 i-rs-claw

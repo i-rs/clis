@@ -10,7 +10,7 @@
 //   3. View logs:
 //      pm2 logs i-rs-claw-dashboard
 //
-// Config: edit ~/.i-rs-claw/config.toml  (port defaults to 3000)
+// Config: edit ~/.i-rs/claw/config.toml  (port defaults to 3000)
 //
 // For development, replace `script` with:
 //   script: 'cargo',

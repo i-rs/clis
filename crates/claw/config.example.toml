@@ -115,7 +115,7 @@ i_rs_tools = [
 
 # ── 插件发现 ────────────────────────────────────────────────────────────────
 #
-# plugins_auto_discover:  自动发现 ~/.i-rs-claw/plugins/ 下的插件
+# plugins_auto_discover:  自动发现 ~/.i-rs/claw/plugins/ 下的插件
 #                         插件以 "plugin:xxx" 名称注册到 MCP 列表
 plugins_auto_discover = true
 # disabled_plugins:  要禁用的插件列表（保留安装但禁止加载）
@@ -248,7 +248,7 @@ execution_mode = "React"
 # provider = "anthropic"
 # model = "claude-sonnet-4-20250514"
 # tools = ["note", "snippet", "vocab", "bookmark", "quote"]
-# system_prompt_file = "agents/writer_prompt.md"     # 相对 ~/.i-rs-claw/ 的路径
+# system_prompt_file = "agents/writer_prompt.md"     # 相对 ~/.i-rs/claw/ 的路径
 # capabilities = ["内容创作"]
 
 # ── Sub-agent（仅用于 delegate_task，TUI 不可见）────────────────────────────

@@ -50,7 +50,7 @@ struct SkillsPanel: View {
             Text("No skills found")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text("Add .md skill files to ~/.i-rs-claw/claw/skills/")
+            Text("Add .md skill files to ~/.i-rs/claw/claw/skills/")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
             Spacer()
