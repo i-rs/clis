@@ -429,6 +429,52 @@ impl InputState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlashAction {
+    Help,
+    Sessions,
+    New,
+    Agent,
+    Agents,
+    Tools,
+    Sidebar,
+    Stats,
+    Plugins,
+    Config,
+    Export,
+    Feedback,
+    Info,
+    Select,
+    Clear,
+    Compact,
+}
+
+pub struct SlashCommand {
+    pub name: &'static str,
+    pub desc: &'static str,
+    pub shortcut: &'static str,
+    pub action: SlashAction,
+}
+
+pub static SLASH_COMMANDS: &[SlashCommand] = &[
+    SlashCommand { name: "/help",    desc: "快捷键帮助",       shortcut: "Ctrl+H",       action: SlashAction::Help },
+    SlashCommand { name: "/sessions",desc: "会话列表",         shortcut: "Ctrl+L",       action: SlashAction::Sessions },
+    SlashCommand { name: "/new",     desc: "新建会话",         shortcut: "Ctrl+N",       action: SlashAction::New },
+    SlashCommand { name: "/agent",   desc: "切换 Agent",       shortcut: "Ctrl+P",       action: SlashAction::Agent },
+    SlashCommand { name: "/agents",  desc: "Agent 管理",       shortcut: "Ctrl+A",       action: SlashAction::Agents },
+    SlashCommand { name: "/tools",   desc: "工具列表",         shortcut: "Ctrl+T",       action: SlashAction::Tools },
+    SlashCommand { name: "/sidebar", desc: "HTTP 调试面板",    shortcut: "Ctrl+R",       action: SlashAction::Sidebar },
+    SlashCommand { name: "/stats",   desc: "Token 用量统计",   shortcut: "Ctrl+Shift+U", action: SlashAction::Stats },
+    SlashCommand { name: "/plugins", desc: "插件 & 技能",      shortcut: "Ctrl+Shift+P", action: SlashAction::Plugins },
+    SlashCommand { name: "/config",  desc: "配置信息",         shortcut: "Ctrl+I",       action: SlashAction::Config },
+    SlashCommand { name: "/export",  desc: "导出会话",         shortcut: "Ctrl+E",       action: SlashAction::Export },
+    SlashCommand { name: "/feedback",desc: "发送反馈",         shortcut: "Ctrl+F",       action: SlashAction::Feedback },
+    SlashCommand { name: "/info",    desc: "状态仪表盘",       shortcut: "Ctrl+Shift+I", action: SlashAction::Info },
+    SlashCommand { name: "/select",  desc: "选择模式",         shortcut: "Ctrl+S",       action: SlashAction::Select },
+    SlashCommand { name: "/clear",   desc: "清空当前会话",     shortcut: "",             action: SlashAction::Clear },
+    SlashCommand { name: "/compact", desc: "压缩上下文",       shortcut: "",             action: SlashAction::Compact },
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Overlay {
     SessionList,
     Sidebar,
@@ -463,6 +509,8 @@ pub struct OverlayState {
     pub copy_feedback: Option<(String, std::time::Instant)>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
+    pub slash_visible: bool,
+    pub slash_index: usize,
 }
 
 impl OverlayState {
@@ -500,6 +548,8 @@ impl OverlayState {
             copy_feedback: None,
             tab_completions: Vec::new(),
             tab_completion_index: 0,
+            slash_visible: false,
+            slash_index: 0,
         }
     }
 

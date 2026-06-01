@@ -299,6 +299,9 @@ impl<'a> KeyEventHandler<'a> {
         if !self.app.overlay.tab_completions.is_empty() {
             return self.handle_tab_completion(key);
         }
+        if self.app.overlay.slash_visible {
+            return self.handle_slash_keys(key);
+        }
         self.handle_normal_input(key)
     }
 
@@ -701,6 +704,12 @@ impl<'a> KeyEventHandler<'a> {
                 if !self.app.input.text.is_empty() {
                     self.app.delete_before_cursor();
                     self.app.overlay.tab_completions.clear();
+                    if self.app.overlay.slash_visible
+                        && !self.app.input.text.starts_with('/')
+                    {
+                        self.app.overlay.slash_visible = false;
+                        self.app.overlay.slash_index = 0;
+                    }
                 }
             }
             KeyCode::Left if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -736,6 +745,10 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Char(c) => {
                 self.app.overlay.tab_completions.clear();
                 self.app.insert_char(c);
+                if self.app.input.text == "/" {
+                    self.app.overlay.slash_visible = true;
+                    self.app.overlay.slash_index = 0;
+                }
             }
             _ => {}
         }
@@ -1237,6 +1250,206 @@ impl<'a> KeyEventHandler<'a> {
             Err(e) => {
                 self.app.overlay.copy_feedback = Some((format!("✗ 导出失败: {}", e), std::time::Instant::now()));
             }
+        }
+        Action::Continue
+    }
+
+    // ── Slash command panel ──
+
+    fn handle_slash_keys(&mut self, key: KeyEvent) -> Action {
+        match key.code {
+            KeyCode::Esc => {
+                self.app.overlay.slash_visible = false;
+                self.app.overlay.slash_index = 0;
+                self.app.input.text.clear();
+                self.app.input.cursor = 0;
+                return Action::Continue;
+            }
+            KeyCode::Up => {
+                self.app.overlay.slash_index =
+                    self.app.overlay.slash_index.saturating_sub(1);
+                return Action::Continue;
+            }
+            KeyCode::Down => {
+                let max = self.slash_match_count().saturating_sub(1);
+                if self.app.overlay.slash_index < max {
+                    self.app.overlay.slash_index += 1;
+                }
+                return Action::Continue;
+            }
+            KeyCode::Enter => {
+                return self.handle_slash_execute();
+            }
+            KeyCode::Tab => {
+                return self.handle_slash_execute();
+            }
+            KeyCode::Backspace => {
+                self.app.input.delete_before_cursor();
+                if !self.app.input.text.starts_with('/') {
+                    self.app.overlay.slash_visible = false;
+                    self.app.overlay.slash_index = 0;
+                } else {
+                    self.app.overlay.slash_index = 0;
+                }
+                return Action::Continue;
+            }
+            KeyCode::Char(c) => {
+                self.app.insert_char(c);
+                self.app.overlay.slash_index = 0;
+                return Action::Continue;
+            }
+            _ => return Action::Continue,
+        }
+    }
+
+    fn slash_match_count(&self) -> usize {
+        let query = if self.app.input.text.starts_with('/') {
+            &self.app.input.text
+        } else {
+            ""
+        };
+        crate::app::SLASH_COMMANDS
+            .iter()
+            .filter(|cmd| {
+                if query.is_empty() {
+                    return true;
+                }
+                let q = query.to_lowercase();
+                cmd.name.starts_with(&q)
+                    || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+            })
+            .count()
+    }
+
+    fn handle_slash_execute(&mut self) -> Action {
+        let query = if self.app.input.text.starts_with('/') {
+            &self.app.input.text
+        } else {
+            ""
+        };
+        let matches: Vec<&crate::app::SlashCommand> = crate::app::SLASH_COMMANDS
+            .iter()
+            .filter(|cmd| {
+                if query.is_empty() {
+                    return true;
+                }
+                let q = query.to_lowercase();
+                cmd.name.starts_with(&q)
+                    || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+            })
+            .collect();
+
+        let idx = self.app.overlay.slash_index.min(matches.len().saturating_sub(1));
+        let action = matches.get(idx).map(|cmd| cmd.action);
+
+        self.app.input.text.clear();
+        self.app.input.cursor = 0;
+        self.app.overlay.slash_visible = false;
+        self.app.overlay.slash_index = 0;
+
+        match action {
+            Some(crate::app::SlashAction::Help) => {
+                self.app.overlay.show(Overlay::Help);
+            }
+            Some(crate::app::SlashAction::Sessions) => {
+                self.app.overlay.show(Overlay::SessionList);
+                self.app.overlay.session_list_index = 0;
+                self.app.overlay.session_list =
+                    self.app_core.session_mgr.sessions().to_vec();
+            }
+            Some(crate::app::SlashAction::New) => {
+                return self.handle_new_session();
+            }
+            Some(crate::app::SlashAction::Agent) => {
+                self.app.overlay.show(Overlay::AgentPicker);
+                self.app.overlay.agent_list = self.app_core.config.agent_ids();
+                self.app.overlay.agent_picker_index = self
+                    .app
+                    .overlay
+                    .agent_list
+                    .iter()
+                    .position(|id| *id == self.app.current_agent)
+                    .unwrap_or(0);
+            }
+            Some(crate::app::SlashAction::Agents) => {
+                self.app.overlay.show(Overlay::AgentList);
+            }
+            Some(crate::app::SlashAction::Tools) => {
+                self.app.overlay.show(Overlay::ToolList);
+            }
+            Some(crate::app::SlashAction::Sidebar) => {
+                self.app.overlay.toggle(Overlay::Sidebar);
+            }
+            Some(crate::app::SlashAction::Stats) => {
+                self.app.overlay.show(Overlay::StatsHistory);
+                self.app.stats_history = self.app_core.stats_manager.daily_history(7);
+            }
+            Some(crate::app::SlashAction::Plugins) => {
+                self.app.overlay.show(Overlay::PluginList);
+                let store = self
+                    .app_core
+                    .agent_store
+                    .skill_store_for(&self.app.current_agent);
+                self.app.skill_list = store.list_skills();
+                let plugin_mgr = crate::plugin::PluginManager::new();
+                self.app.plugin_list = plugin_mgr
+                    .manifests
+                    .iter()
+                    .map(|m| crate::app::PluginEntry {
+                        name: m.plugin.name.clone(),
+                        description: m.plugin.description.clone(),
+                        enabled: plugin_mgr.is_enabled(&m.plugin.name),
+                    })
+                    .collect();
+            }
+            Some(crate::app::SlashAction::Config) => {
+                self.app.overlay.show(Overlay::Config);
+            }
+            Some(crate::app::SlashAction::Export) => {
+                return self.handle_export_session();
+            }
+            Some(crate::app::SlashAction::Feedback) => {
+                self.app.overlay.show(Overlay::Feedback);
+            }
+            Some(crate::app::SlashAction::Info) => {
+                self.app.overlay.show(Overlay::InfoPanel);
+            }
+            Some(crate::app::SlashAction::Select) => {
+                if !self.app.messages.is_empty() {
+                    self.app.overlay.selection_mode = true;
+                    self.app.overlay.selected_message =
+                        Some(self.app.messages.len().saturating_sub(1));
+                }
+            }
+            Some(crate::app::SlashAction::Clear) => {
+                self.app.messages.clear();
+                self.app.message_timestamps.clear();
+                self.app.api_messages = None;
+                self.app.tool_call_count = 0;
+                self.app.status_text.clear();
+                self.app.scroll_lines = 0;
+                self.app.max_scroll = 0;
+                self.app.overlay.tool_call_expanded.clear();
+                self.app.overlay.reasoning_expanded.clear();
+                self.app.mark_dirty();
+            }
+            Some(crate::app::SlashAction::Compact) => {
+                if let Some(_sid) = self.app_core.session_mgr.current_id().map(|s| s.to_string())
+                {
+                    let memory = self
+                        .app_core
+                        .agent_store
+                        .memory_for_mut(&self.app.current_agent);
+                    memory.analyze_sessions(
+                        self.app_core.session_mgr.sessions(),
+                        &self.app_core.session_mgr,
+                    );
+                    memory.flush();
+                    self.app.overlay.copy_feedback =
+                        Some(("✓ 上下文已压缩".to_string(), std::time::Instant::now()));
+                }
+            }
+            None => {}
         }
         Action::Continue
     }

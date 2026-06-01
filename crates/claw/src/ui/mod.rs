@@ -117,6 +117,8 @@ pub fn render(f: &mut Frame, app: &mut App) {
         completions::render_completions(f, area, app);
     }
 
+    completions::render_slash_panel(f, area, app);
+
     if let Some(idx) = app.overlay.sidebar_body_idx
         && let Some(log) = app.http_logs.get(idx)
     {
