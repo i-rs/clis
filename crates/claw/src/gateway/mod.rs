@@ -258,6 +258,7 @@ impl GatewayServer {
                 Vec::new(),
                 std::collections::HashMap::new(),
                 http_client,
+                None,
             )
             .await;
         });

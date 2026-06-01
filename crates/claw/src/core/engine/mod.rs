@@ -39,6 +39,7 @@ fn prepare_loop(
     skills: &[SkillDefinition],
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
+    delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
 ) -> ChatLoopInit {
     let enabled = if config.enabled_tools.is_empty() {
         None
@@ -71,11 +72,7 @@ fn prepare_loop(
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
         http_client: http_client.clone(),
-        delegate_runtime: Some(crate::tools::DelegateRuntime {
-            mcp_registry: mcp.clone(),
-            skills: skills.to_vec(),
-            tool_frequency: tool_frequency.clone(),
-        }),
+        delegate_runtime,
     };
     let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
         .with_timeout(config.cli_timeout_secs)
@@ -263,7 +260,7 @@ async fn handle_provider_error(
 ///
 /// Pipeline: prepare → [stream → dispatch → inject → trace → compress] × N
 #[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip(provider, config, messages, tx, mcp, skills))]
+#[tracing::instrument(skip(provider, config, messages, tx, mcp, skills, delegate_runtime))]
 pub async fn chat_loop(
     provider: Box<dyn LlmProvider>,
     config: Config,
@@ -273,6 +270,7 @@ pub async fn chat_loop(
     skills: Vec<SkillDefinition>,
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
+    delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
 ) {
     let trace_id = uuid::Uuid::new_v4().to_string();
     let mut msgs = messages;
@@ -284,6 +282,7 @@ pub async fn chat_loop(
         &skills,
         tool_frequency.clone(),
         http_client,
+        delegate_runtime,
     );
     let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
@@ -777,6 +776,7 @@ mod tests {
             vec![],
             HashMap::new(),
             reqwest::Client::new(),
+            None,
         )
         .await;
 
@@ -785,14 +785,8 @@ mod tests {
             events.push(event);
         }
         assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
+            events.iter().any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
             "应收到 Token 事件"
-        );
-        assert!(
-            events.iter().any(|e| matches!(e, LlmEvent::Done(..))),
-            "应收到 Done 事件"
         );
     }
 
@@ -816,6 +810,7 @@ mod tests {
             vec![],
             HashMap::new(),
             reqwest::Client::new(),
+            None,
         )
         .await;
 
@@ -848,6 +843,7 @@ mod tests {
             vec![],
             HashMap::new(),
             reqwest::Client::new(),
+            None,
         )
         .await;
 

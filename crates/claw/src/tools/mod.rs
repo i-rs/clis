@@ -24,15 +24,21 @@ use std::collections::HashSet;
 pub struct ToolContext {
     pub config: crate::config::Config,
     pub http_client: reqwest::Client,
-    pub delegate_runtime: Option<DelegateRuntime>,
+    pub delegate_runtime: Option<std::sync::Arc<DelegateRuntime>>,
 }
 
 /// Runtime state needed for sub-agent delegation with full tool support.
-#[derive(Clone)]
+/// Wrapped in Arc to avoid cloning large data structures for every tool call.
 pub struct DelegateRuntime {
     pub mcp_registry: crate::mcp::McpRegistry,
     pub skills: Vec<crate::skill_store::SkillDefinition>,
     pub tool_frequency: std::collections::HashMap<String, usize>,
+    pub parent_tx: tokio::sync::mpsc::UnboundedSender<crate::llm::LlmEvent>,
+    pub stats_manager: std::sync::Arc<crate::stats::StatsManager>,
+    pub user_identity: String,
+    pub user_memory: String,
+    pub user_profile: String,
+    pub recent_messages: Vec<serde_json::Value>,
 }
 
 // ── Shared helpers ──

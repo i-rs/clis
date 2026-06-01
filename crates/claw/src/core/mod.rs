@@ -182,7 +182,7 @@ pub struct AppCore {
     pub config: Config,
     pub session_mgr: SessionManager,
     pub agent_store: AgentRuntimeStore,
-    pub stats_manager: crate::stats::StatsManager,
+    pub stats_manager: std::sync::Arc<crate::stats::StatsManager>,
     #[allow(dead_code)]
     pub storage: std::sync::Arc<crate::storage::ClawStorage>,
     pub http_client: reqwest::Client,
@@ -240,10 +240,12 @@ impl AppCore {
 
         let session_mgr = SessionManager::with_storage(storage.clone());
         let agent_store = AgentRuntimeStore::new_with_storage(&config, &storage);
-        let stats_manager = crate::stats::StatsManager::with_storage(
-            storage.clone(),
-            &config.stats,
-            config.tz_offset,
+        let stats_manager = std::sync::Arc::new(
+            crate::stats::StatsManager::with_storage(
+                storage.clone(),
+                &config.stats,
+                config.tz_offset,
+            ),
         );
 
         Ok(Self {
@@ -381,6 +383,11 @@ impl AppCore {
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
             self.prepare_chat_loop(agent_id);
+        let delegate_rt = self.build_delegate_runtime(
+            agent_id,
+            llm_tx.clone(),
+            Vec::new(),
+        );
         rt.spawn(async move {
             engine::chat_loop(
                 provider,
@@ -391,6 +398,7 @@ impl AppCore {
                 skills,
                 tool_frequency,
                 http_client,
+                Some(delegate_rt),
             )
             .await;
         });
@@ -462,6 +470,35 @@ impl AppCore {
             tool_frequency,
             http_client,
         )
+    }
+
+    fn build_delegate_runtime(
+        &self,
+        agent_id: &str,
+        parent_tx: mpsc::UnboundedSender<LlmEvent>,
+        recent_messages: Vec<serde_json::Value>,
+    ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
+        let memory = self.agent_store.memory_for(agent_id);
+        let nickname = memory.assistant_nickname().map(|s| s.to_string());
+        let user_identity = if let Some(ref nick) = nickname {
+            format!("用户称呼你为{}，以这个身份与用户对话。", nick)
+        } else {
+            String::new()
+        };
+        std::sync::Arc::new(crate::tools::DelegateRuntime {
+            mcp_registry: self.agent_store.mcp_registry_for(agent_id).clone(),
+            skills: self
+                .agent_store
+                .skill_store_for(agent_id)
+                .executable_skills(),
+            tool_frequency: memory.tool_frequency().clone(),
+            parent_tx,
+            stats_manager: self.stats_manager.clone(),
+            user_identity,
+            user_memory: memory.format_user_memory(),
+            user_profile: memory.format_user_profile(),
+            recent_messages,
+        })
     }
 
     /// Build the tool index string for system prompt from discovered i-rs tools.
@@ -710,6 +747,11 @@ impl AppCore {
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
             self.prepare_chat_loop(agent_id);
+        let delegate_rt = self.build_delegate_runtime(
+            agent_id,
+            llm_tx.clone(),
+            Vec::new(),
+        );
         tokio::spawn(async move {
             engine::chat_loop(
                 provider,
@@ -720,6 +762,7 @@ impl AppCore {
                 skills,
                 tool_frequency,
                 http_client,
+                Some(delegate_rt),
             )
             .await;
         });
