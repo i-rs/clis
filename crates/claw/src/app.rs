@@ -177,6 +177,13 @@ pub enum Message {
         positive: bool,
         message: Option<String>,
     },
+    Image {
+        path: String,
+        alt_text: String,
+        width: u32,
+        height: u32,
+        format: String,
+    },
 }
 
 #[derive(Clone)]

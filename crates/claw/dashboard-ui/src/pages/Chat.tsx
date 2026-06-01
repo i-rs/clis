@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage } from '../api'
+import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage, type ImageGeneratedEvent } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -93,6 +93,19 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
                     result: m.result || '',
                     step: 0,
                     total_steps: 1,
+                  })
+                } else if (m.role === 'image') {
+                  msgs.push({
+                    role: 'image',
+                    content: '',
+                    image: {
+                      path: m.path || '',
+                      alt_text: m.alt_text || '',
+                      width: m.width || 0,
+                      height: m.height || 0,
+                      format: m.format || '',
+                      url: m.url || `/api/images/${m.path || ''}`,
+                    },
                   })
                 }
               }
@@ -295,6 +308,22 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
           })
           setRenderTick((n) => n + 1)
         },
+        onImageGenerated: (evt: ImageGeneratedEvent) => {
+          commitStreaming()
+          setMessages((prev) => [...prev, {
+            role: 'image',
+            content: '',
+            image: {
+              path: evt.path,
+              alt_text: evt.alt_text,
+              width: evt.width,
+              height: evt.height,
+              format: evt.format,
+              url: `/api/images/${evt.path}`,
+            },
+          }])
+          setRenderTick((n) => n + 1)
+        },
         onError: (error: string) => {
           commitStreaming()
           setMessages((prev) => [...prev, { role: 'error', content: error }])
@@ -452,6 +481,24 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
 
   if (message.role === 'assistant' && !hasContent && !hasReasoning && !hasToolCalls) {
     return null
+  }
+
+  if (message.role === 'image' && message.image) {
+    return (
+      <div className="message assistant">
+        <div className="message-content image-message">
+          <img
+            src={message.image.url}
+            alt={message.image.alt_text}
+            style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid #27273a' }}
+            loading="lazy"
+          />
+          {message.image.alt_text && (
+            <div className="image-caption">{message.image.alt_text}</div>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (

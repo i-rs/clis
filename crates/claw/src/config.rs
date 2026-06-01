@@ -101,6 +101,12 @@ pub struct Config {
     /// If not set, uses the system's local timezone.
     #[serde(default)]
     pub timezone: Option<String>,
+    /// Image generation configuration (external service for chart/image creation).
+    #[serde(default)]
+    pub image_gen: ImageGenConfig,
+    /// Behavior analyst sub-agent configuration (data analysis and chart generation).
+    #[serde(default)]
+    pub behavior_analyst: BehaviorAnalystConfig,
     /// Cached timezone offset computed at load time.
     #[serde(skip, default = "crate::utils::system_tz_offset")]
     pub tz_offset: FixedOffset,
@@ -368,6 +374,144 @@ fn default_dashboard_port() -> u16 {
     3000
 }
 
+// ── Image Generation Configuration ──
+
+/// Image generation provider configuration.
+///
+/// Supports multiple backends for generating charts and images:
+/// - `svg_chart`: Built-in SVG chart generation (no external service needed, always available)
+/// - `quick_chart`: QuickChart.io free chart API (supports all Chart.js chart types)
+/// - `custom_http`: User-configured HTTP API endpoint for any image generation service
+///
+/// # Example
+/// ```toml
+/// [image_gen]
+/// provider = "quick_chart"   # svg_chart | quick_chart | custom_http
+/// api_key = ""               # API key for custom_http provider
+/// base_url = ""              # Custom endpoint URL for custom_http provider
+/// default_chart_type = "bar" # Default chart type: bar, line, pie, radar
+/// default_width = 800
+/// default_height = 500
+/// images_dir = "images"      # Relative to ~/.i-rs/claw/
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageGenConfig {
+    /// Image generation provider: "svg_chart" (built-in), "quick_chart" (free API),
+    /// "custom_http" (user-configured API).
+    #[serde(default = "default_image_gen_provider")]
+    pub provider: String,
+    /// API key for the provider (required for custom_http, optional for others).
+    #[serde(default)]
+    pub api_key: String,
+    /// Base URL for the custom_http provider.
+    #[serde(default)]
+    pub base_url: String,
+    /// Default chart type: "bar", "line", "pie", "radar".
+    #[serde(default = "default_chart_type")]
+    pub default_chart_type: String,
+    /// Default image width in pixels.
+    #[serde(default = "default_image_width")]
+    pub default_width: u32,
+    /// Default image height in pixels.
+    #[serde(default = "default_image_height")]
+    pub default_height: u32,
+    /// Directory for generated images (relative to ~/.i-rs/claw/).
+    #[serde(default = "default_images_dir")]
+    pub images_dir: String,
+}
+
+fn default_image_gen_provider() -> String {
+    "svg_chart".to_string()
+}
+
+fn default_chart_type() -> String {
+    "bar".to_string()
+}
+
+fn default_image_width() -> u32 {
+    800
+}
+
+fn default_image_height() -> u32 {
+    500
+}
+
+fn default_images_dir() -> String {
+    "images".to_string()
+}
+
+impl Default for ImageGenConfig {
+    fn default() -> Self {
+        Self {
+            provider: default_image_gen_provider(),
+            api_key: String::new(),
+            base_url: String::new(),
+            default_chart_type: default_chart_type(),
+            default_width: default_image_width(),
+            default_height: default_image_height(),
+            images_dir: default_images_dir(),
+        }
+    }
+}
+
+// ── Behavior Analyst Configuration ──
+
+/// Behavior analyst sub-agent configuration.
+///
+/// This sub-agent summarizes user behavior over different time ranges and
+/// generates visual charts. It reads data from configured i-rs CLI tools,
+/// analyzes trends, and produces daily/weekly/monthly reports.
+///
+/// # Example
+/// ```toml
+/// [behavior_analyst]
+/// enabled = true
+/// daily_summary = true
+/// weekly_summary = true
+/// monthly_summary = false
+/// specific_behavior = true
+/// track_behaviors = ["weight", "mood", "sleep", "exercise", "habit"]
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BehaviorAnalystConfig {
+    /// Enable/disable the behavior analyst sub-agent.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Allow daily behavior summaries.
+    #[serde(default = "default_true")]
+    pub daily_summary: bool,
+    /// Allow weekly behavior summaries.
+    #[serde(default = "default_true")]
+    pub weekly_summary: bool,
+    /// Allow monthly behavior summaries.
+    #[serde(default)]
+    pub monthly_summary: bool,
+    /// Allow per-behavior detailed analysis (e.g., "analyze my sleep patterns").
+    #[serde(default = "default_true")]
+    pub specific_behavior: bool,
+    /// Behaviors to track. Empty or ["*"] means all installed i-rs tools.
+    /// Specify individual tools like: ["weight", "mood", "sleep", "exercise", "habit"]
+    #[serde(default)]
+    pub track_behaviors: Vec<String>,
+    /// Auto-open generated images in system viewer (macOS only).
+    #[serde(default)]
+    pub auto_open_images: bool,
+}
+
+impl Default for BehaviorAnalystConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            daily_summary: true,
+            weekly_summary: true,
+            monthly_summary: false,
+            specific_behavior: true,
+            track_behaviors: vec![],
+            auto_open_images: false,
+        }
+    }
+}
+
 /// Generic platform configuration used by Telegram/Discord/Slack.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformConfig {
@@ -441,6 +585,8 @@ impl Config {
             storage: crate::storage::StorageConfig::default(),
             stats: crate::stats::StatsConfig::default(),
             quality_judge: QualityJudgeConfig::default(),
+            image_gen: ImageGenConfig::default(),
+            behavior_analyst: BehaviorAnalystConfig::default(),
             timezone: None,
             tz_offset: crate::utils::system_tz_offset(),
         }

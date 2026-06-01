@@ -62,6 +62,17 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
         } => {
             serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
         }
+        crate::app::Message::Image { path, alt_text, width, height, format } => {
+            serde_json::json!({
+                "role": "image",
+                "path": path,
+                "alt_text": alt_text,
+                "width": width,
+                "height": height,
+                "format": format,
+                "url": format!("/api/images/{}", path)
+            })
+        }
         _ => serde_json::json!({"role": "unknown"}),
     }
 }
@@ -337,6 +348,15 @@ pub async fn chat_stream(
                     }
                     LlmEvent::NewRound => {
                         let sse = Event::default().event("new_round").data("");
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                    }
+                    LlmEvent::ImageGenerated { path, alt_text, format, width, height } => {
+                        let data = serde_json::to_string(&serde_json::json!({
+                            "path": path, "alt_text": alt_text,
+                            "format": format, "width": width, "height": height,
+                        }))
+                        .unwrap_or_default();
+                        let sse = Event::default().event("image_generated").data(data);
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     _ => continue,
@@ -823,6 +843,47 @@ pub async fn list_skills(
         })
         .collect();
     ApiResponse::ok(skills)
+}
+
+/// Serve generated images from ~/.i-rs/claw/images/.
+pub async fn serve_image(
+    Path(filename): Path<String>,
+) -> axum::response::Response {
+    use axum::body::Body;
+    use axum::http::{StatusCode, header};
+
+    if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return axum::response::Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(Body::from("Invalid filename"))
+            .expect("serve_image response builder");
+    }
+
+    let claw_dir = match crate::utils::claw_dir() {
+        Some(d) => d,
+        None => {
+            return axum::response::Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from("Cannot resolve claw directory"))
+                .expect("serve_image response builder");
+        }
+    };
+
+    let filepath = claw_dir.join("images").join(&filename);
+
+    match std::fs::read(&filepath) {
+        Ok(content) => {
+            let mime = mime_guess::from_path(&filepath).first_or_octet_stream();
+            axum::response::Response::builder()
+                .header(header::CONTENT_TYPE, mime.as_ref())
+                .body(Body::from(content))
+                .expect("serve_image response builder")
+        }
+        Err(_) => axum::response::Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Image not found"))
+            .expect("serve_image response builder"),
+    }
 }
 
 #[cfg(test)]

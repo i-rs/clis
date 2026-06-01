@@ -1,8 +1,10 @@
 pub mod calculator;
+pub mod chart_image;
 pub mod chart_render;
 pub mod chart_tool;
 pub mod delegate;
 pub mod file_ops;
+pub mod generate_image;
 pub mod i_rs;
 pub mod mcp_tools;
 pub mod quality_judge;
@@ -119,6 +121,8 @@ impl ToolRegistry {
             tools: vec![
                 Box::new(calculator::CalculatorTool),
                 Box::new(chart_tool::ChartTool),
+                Box::new(chart_image::ChartImageTool),
+                Box::new(generate_image::GenerateImageTool),
                 Box::new(file_ops::FileOpsTool),
                 Box::new(i_rs::IrsTool),
                 Box::new(search_conversations::SearchConversationsTool),

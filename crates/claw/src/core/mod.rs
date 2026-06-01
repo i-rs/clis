@@ -202,6 +202,27 @@ impl AppCore {
     pub fn with_claw_dir(mut config: Config, claw_dir: std::path::PathBuf) -> anyhow::Result<Self> {
         config.discover_i_rs_tools(&claw_dir);
 
+        if config.behavior_analyst.enabled {
+            let mut agent = crate::config::AgentConfig {
+                capabilities: vec![
+                    "数据分析".to_string(),
+                    "行为分析".to_string(),
+                    "数据可视化".to_string(),
+                    "趋势总结".to_string(),
+                    "健康报告".to_string(),
+                ],
+                ..Default::default()
+            };
+            let prompt_path = claw_dir.join("prompts").join("behavior_analyst.md");
+            if prompt_path.exists() {
+                agent.system_prompt_file = Some(prompt_path.to_string_lossy().to_string());
+            }
+            config
+                .sub_agents
+                .entry("behavior_analyst".to_string())
+                .or_insert(agent);
+        }
+
         let storage = match config.storage.backend {
             crate::storage::StorageBackend::Sqlite => {
                 #[cfg(feature = "sqlite")]

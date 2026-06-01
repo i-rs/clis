@@ -60,6 +60,14 @@ pub enum LlmEvent {
         issues: Vec<String>,
     },
     PlanProgress(Vec<crate::app::PlanStep>),
+    #[allow(dead_code)]
+    ImageGenerated {
+        path: String,
+        alt_text: String,
+        format: String,
+        width: u32,
+        height: u32,
+    },
 }
 
 #[derive(Default, Clone)]

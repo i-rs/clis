@@ -267,6 +267,16 @@ export interface ToolCallEvent {
   total_steps: number
 }
 
+// ── Image generated event ──
+
+export interface ImageGeneratedEvent {
+  path: string
+  alt_text: string
+  format: string
+  width: number
+  height: number
+}
+
 // ── SSE Chat Stream ──
 
 export type SseEventHandler = {
@@ -277,6 +287,7 @@ export type SseEventHandler = {
   onDone?: (usage: TokenUsage | null) => void
   onNewRound?: () => void
   onToolExecuted?: (evt: ToolCallEvent) => void
+  onImageGenerated?: (evt: ImageGeneratedEvent) => void
 }
 
 // ── Token usage ──
@@ -298,11 +309,19 @@ export interface ToolCallMsg {
 }
 
 export type ChatMessage = {
-  role: 'user' | 'assistant' | 'error'
+  role: 'user' | 'assistant' | 'error' | 'image'
   content: string
   reasoning?: string
   toolCalls?: ToolCallMsg[]
   tokenUsage?: TokenUsage
+  image?: {
+    path: string
+    alt_text: string
+    width: number
+    height: number
+    format: string
+    url: string
+  }
 }
 
 // ── SSE stream parsing ──
@@ -356,7 +375,13 @@ export function streamChat(sessionId: string, handlers: SseEventHandler): AbortC
                 handlers.onToolExecuted?.(parsed as ToolCallEvent)
               } catch { /* ignore parse errors */ }
               break
-          case 'done':
+            case 'image_generated':
+              try {
+                const parsed = JSON.parse(data)
+                handlers.onImageGenerated?.(parsed as ImageGeneratedEvent)
+              } catch { /* ignore parse errors */ }
+              break
+            case 'done':
               console.log('[SSE] done event data:', data)
               try {
                 const parsed = JSON.parse(data)

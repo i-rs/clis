@@ -101,6 +101,7 @@ impl Dashboard {
                 axum::routing::post(routes::post_session_feedback),
             )
             .route("/api/tools", axum::routing::get(routes::list_tools))
+            .route("/api/images/{filename}", axum::routing::get(routes::serve_image))
             .route("/api/plugins", axum::routing::get(routes::list_plugins))
             .route("/api/skills", axum::routing::get(routes::list_skills))
             .route("/api/stats", axum::routing::get(routes::get_stats))

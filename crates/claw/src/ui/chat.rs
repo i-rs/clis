@@ -333,6 +333,13 @@ fn build_message_lines(
             ..
         } => build_quality_lines(app, *score, *complete, issues),
         Message::Feedback { positive, message } => build_feedback_lines(app, *positive, message),
+        Message::Image {
+            path,
+            alt_text,
+            width: _,
+            height: _,
+            format: _,
+        } => build_image_lines(app, path, alt_text, text_width, msg_index, now),
     }
 }
 
@@ -615,6 +622,38 @@ fn build_feedback_lines(app: &App, positive: bool, message: &Option<String>) -> 
             Style::default().fg(app.config.theme.text()),
         ));
     }
+    lines.push(Line::from(Span::raw("")));
+    lines
+}
+
+fn build_image_lines(
+    app: &App,
+    path: &str,
+    alt_text: &str,
+    _width: usize,
+    idx: usize,
+    now: chrono::NaiveDateTime,
+) -> Vec<Line<'static>> {
+    let accent = app.config.theme.accent();
+    let dim = app.config.theme.dim_text();
+    let text = app.config.theme.text();
+    let ts = timestamp_label(app, idx, now);
+
+    let mut lines = vec![Line::from(vec![
+        Span::styled("🖼 ", Style::default().fg(accent)),
+        Span::styled(
+            format!("Image:{}", ts),
+            Style::default().fg(accent).add_modifier(Modifier::BOLD),
+        ),
+    ])];
+    lines.push(padded_line(
+        &format!("   描述: {}", alt_text),
+        Style::default().fg(text),
+    ));
+    lines.push(padded_line(
+        &format!("   路径: ~/.i-rs/claw/images/{} (按 Enter 打开)", path),
+        Style::default().fg(dim),
+    ));
     lines.push(Line::from(Span::raw("")));
     lines
 }

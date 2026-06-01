@@ -59,6 +59,15 @@ impl<'a> LlmEventHandler<'a> {
             LlmEvent::PlanProgress(steps) => {
                 self.app.plan_steps = steps;
             }
+            LlmEvent::ImageGenerated { path, alt_text, format: _, width, height } => {
+                self.app.messages.push(app::Message::Image {
+                    path,
+                    alt_text,
+                    width,
+                    height,
+                    format: "png".to_string(),
+                });
+            }
         }
         Action::Continue
     }
@@ -1145,6 +1154,12 @@ impl<'a> KeyEventHandler<'a> {
                     if let Some(msg) = message {
                         md.push_str(&format!("{}\n", msg));
                     }
+                    md.push_str("\n---\n\n");
+                }
+                AppMessage::Image { path, alt_text, .. } => {
+                    md.push_str("## 🖼 图片\n\n");
+                    md.push_str(&format!("- 描述: {}\n", alt_text));
+                    md.push_str(&format!("- 路径: {}\n", path));
                     md.push_str("\n---\n\n");
                 }
             }

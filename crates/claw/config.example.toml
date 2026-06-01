@@ -182,6 +182,55 @@ execution_mode = "React"
 # port = 3000
 # auth_token = "your-secret-token"    # Bearer token 认证。未设置时自动生成随机 UUID
 
+# ── 图片生成 ─────────────────────────────────────────────────────────────────
+#
+# [image_gen]
+#
+# provider:  生图后端。可选值：
+#            "svg_chart"   — 内置纯 Rust SVG 图表生成（零依赖，始终可用，兜底方案）
+#                           支持 bar/line/pie/radar 四种图表类型
+#            "quick_chart" — QuickChart.io 免费图表 API（支持 Chart.js 全部图表类型）
+#                           无需 API Key，但需要网络连接
+#            "custom_http" — 用户自配 HTTP 生图服务（如 ComfyUI、Stable Diffusion WebUI、
+#                           DALL-E API、Midjourney API 等任意兼容 OpenAI 格式的接口）
+#                           需同时配置 api_key 和 base_url
+#
+# provider = "svg_chart"
+# api_key = ""                        # custom_http 的 API Key
+# base_url = ""                       # custom_http 的生图 API 端点
+#                                     # 请求格式: POST {prompt, width, height}
+#                                     # 响应: 返回二进制图片，须携带 Content-Type 头
+#
+# default_chart_type = "bar"          # 默认图表类型: bar | line | pie | radar
+# default_width = 800                 # 默认图片宽度 (px)
+# default_height = 500                # 默认图片高度 (px)
+# images_dir = "images"               # 图片保存目录（相对于 ~/.i-rs/claw/）
+
+# ── 行为分析师子智能体 ──────────────────────────────────────────────────────
+#
+# [behavior_analyst]
+#
+# 自动注册的子智能体（无需在 [sub_agents] 中手动配置），
+# 专门用于分析 i-rs 个人数据并生成可视化报告。
+# 用户可通过对话触发，例如："帮我分析一下这周的运动和睡眠"。
+# LLM 会自动调用 delegate_task(agent_id="behavior_analyst", ...) 委托分析任务。
+#
+# enabled = false                     # 启用行为分析师（默认关闭）
+# daily_summary = true                # 允许日报（分析单天所有行为数据）
+# weekly_summary = true               # 允许周报（总结一周趋势）
+# monthly_summary = false             # 允许月报（总结一个月趋势）
+# specific_behavior = true            # 允许单项行为分析（如"分析我的睡眠"）
+#
+# track_behaviors = [                 # 要跟踪的行为列表
+#   "weight",                         #   为空或 ["*"] = 跟踪所有已安装的 i-rs 工具
+#   "mood",                           #   指定列表 = 只跟踪列出的工具
+#   "sleep",
+#   "exercise",
+#   "habit",
+# ]
+#
+# auto_open_images = false            # 是否自动在系统查看器中打开生成的图片 (macOS)
+
 # ── Agent 配置 ──────────────────────────────────────────────────────────────
 #
 # 默认智能体 "default" 始终存在，不可创建/删除/修改。
