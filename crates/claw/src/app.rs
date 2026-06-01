@@ -235,6 +235,9 @@ impl InputState {
             self.redo_stack.push(self.text.clone());
             self.text = prev;
             self.cursor = self.cursor.min(self.text.len());
+            while self.cursor > 0 && !self.text.is_char_boundary(self.cursor) {
+                self.cursor -= 1;
+            }
         }
     }
 
@@ -243,6 +246,9 @@ impl InputState {
             self.undo_stack.push(self.text.clone());
             self.text = next;
             self.cursor = self.cursor.min(self.text.len());
+            while self.cursor > 0 && !self.text.is_char_boundary(self.cursor) {
+                self.cursor -= 1;
+            }
         }
     }
 
@@ -294,8 +300,9 @@ impl InputState {
             return;
         }
         self.push_undo(Instant::now());
-        self.text.drain(..self.cursor);
-        self.cursor = 0;
+        let line_start = self.text[..self.cursor].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        self.text.drain(line_start..self.cursor);
+        self.cursor = line_start;
     }
 
     pub fn delete_to_line_end(&mut self) {
@@ -303,7 +310,11 @@ impl InputState {
             return;
         }
         self.push_undo(Instant::now());
-        self.text.drain(self.cursor..);
+        let line_end = self.text[self.cursor..]
+            .find('\n')
+            .map(|i| self.cursor + i)
+            .unwrap_or(self.text.len());
+        self.text.drain(self.cursor..line_end);
     }
 
     pub fn move_cursor_left(&mut self) {
@@ -831,6 +842,7 @@ impl App {
         self.messages.clear();
         self.message_timestamps.clear();
         self.api_messages = None;
+        self.state = AppState::Idle;
         self.tool_call_count = 0;
         self.status_text.clear();
         self.token_usage = None;

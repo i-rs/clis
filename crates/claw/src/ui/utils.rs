@@ -61,6 +61,10 @@ pub(super) fn relative_time(ts: i64) -> String {
 pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     for line in text.lines() {
+        if line.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
         if UnicodeWidthStr::width(line) <= max_width {
             lines.push(line.to_string());
             continue;

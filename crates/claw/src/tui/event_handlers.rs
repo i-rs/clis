@@ -855,18 +855,19 @@ impl<'a> KeyEventHandler<'a> {
 
     fn handle_session_list_keys(&mut self, key: KeyEvent) -> Action {
         let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let filtered = self.app.overlay.filtered_sessions();
+        let filtered_len = filtered.len();
+        let filtered_max = filtered_len.saturating_sub(1);
         match key.code {
             KeyCode::Char('d') if has_ctrl => {
                 self.app.overlay.session_confirm_delete = true;
             }
             KeyCode::Char('r') if has_ctrl => {
-                let filtered = self.app.overlay.filtered_sessions();
                 if let Some(meta) = filtered.get(self.app.overlay.session_list_index) {
                     self.app.overlay.session_rename_buf = meta.title.clone();
                 }
             }
             KeyCode::Char('y') if self.app.overlay.session_confirm_delete => {
-                let filtered = self.app.overlay.filtered_sessions();
                 if let Some(meta) = filtered.get(self.app.overlay.session_list_index) {
                     let id = meta.id.clone();
                     let is_current = self
@@ -905,11 +906,23 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.overlay.session_list_index.saturating_sub(1);
             }
             KeyCode::Down => {
-                let filtered = self.app.overlay.filtered_sessions();
-                let max = filtered.len().saturating_sub(1);
-                if self.app.overlay.session_list_index < max {
+                if self.app.overlay.session_list_index < filtered_max {
                     self.app.overlay.session_list_index += 1;
                 }
+            }
+            KeyCode::PageUp => {
+                let step = 10.min(self.app.overlay.session_list_index);
+                self.app.overlay.session_list_index -= step;
+            }
+            KeyCode::PageDown => {
+                self.app.overlay.session_list_index =
+                    (self.app.overlay.session_list_index + 10).min(filtered_max);
+            }
+            KeyCode::Home => {
+                self.app.overlay.session_list_index = 0;
+            }
+            KeyCode::End => {
+                self.app.overlay.session_list_index = filtered_max;
             }
             KeyCode::Char('/') if !self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search_mode = true;
@@ -920,12 +933,8 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Char(c) if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.push(c);
-                self.app.overlay.session_list_index = 0;
-                self.app.overlay.session_list_index = self
-                    .app
-                    .overlay
-                    .session_list_index
-                    .min(self.app.overlay.filtered_sessions().len().saturating_sub(1));
+                self.app.overlay.session_list_index =
+                    0.min(filtered_max);
             }
             KeyCode::Backspace if !self.app.overlay.session_rename_buf.is_empty()
                 && !self.app.overlay.session_search_mode =>
@@ -934,24 +943,19 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Backspace if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.pop();
-                self.app.overlay.session_list_index = 0;
-                self.app.overlay.session_list_index = self
-                    .app
-                    .overlay
-                    .session_list_index
-                    .min(self.app.overlay.filtered_sessions().len().saturating_sub(1));
+                self.app.overlay.session_list_index =
+                    0.min(filtered_max);
             }
             KeyCode::Enter => {
-                return self.handle_session_enter();
+                return self.handle_session_enter(&filtered);
             }
             _ => {}
         }
         Action::Continue
     }
 
-    fn handle_session_enter(&mut self) -> Action {
+    fn handle_session_enter(&mut self, filtered: &[crate::session::SessionMeta]) -> Action {
         if !self.app.overlay.session_rename_buf.is_empty() {
-            let filtered = self.app.overlay.filtered_sessions();
             if let Some(meta) = filtered.get(self.app.overlay.session_list_index) {
                 let title = std::mem::take(&mut self.app.overlay.session_rename_buf);
                 if !title.trim().is_empty() {
@@ -965,8 +969,6 @@ impl<'a> KeyEventHandler<'a> {
             }
             return Action::Continue;
         }
-
-        let filtered = self.app.overlay.filtered_sessions();
 
         if self.app.overlay.session_search_mode {
             self.app.overlay.session_search_mode = false;
@@ -1264,6 +1266,9 @@ impl<'a> KeyEventHandler<'a> {
                 .unwrap_or(0);
             self.app.input.text = format!("{}{} {}", &before[..word_start], selected, after);
             self.app.input.cursor = word_start + selected.len() + 1;
+        } else {
+            self.app.overlay.tab_completions.clear();
+            self.app.overlay.tab_completion_index = 0;
         }
     }
 

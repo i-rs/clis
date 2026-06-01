@@ -1,5 +1,3 @@
-use std::sync::OnceLock;
-
 use ratatui::{
     Frame,
     layout::Rect,
@@ -10,11 +8,8 @@ use ratatui::{
 
 use crate::app::{App, spinner_char};
 
-static PADDING_CACHE: OnceLock<String> = OnceLock::new();
-
-fn get_padding(width: usize) -> &'static str {
-    let s = PADDING_CACHE.get_or_init(|| " ".repeat(256));
-    &s[..width.min(s.len())]
+fn get_padding(width: usize) -> String {
+    " ".repeat(width)
 }
 
 pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {

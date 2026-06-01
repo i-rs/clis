@@ -997,13 +997,7 @@ fn wrapped_line_count(text: &str, max_width: usize) -> usize {
         return text.lines().count();
     }
     let clean = strip_ansi(text);
-    clean
-        .lines()
-        .map(|line| {
-            let w = UnicodeWidthStr::width(line);
-            if w == 0 { 1 } else { w.div_ceil(max_width) }
-        })
-        .sum()
+    utils::wrap_text(&clean, max_width).len()
 }
 
 fn is_markdown(text: &str) -> bool {
