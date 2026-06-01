@@ -11,7 +11,7 @@ pub(super) fn check_reminders() -> Option<String> {
             let is_done = item
                 .get("is_done")
                 .and_then(|v| v.as_bool())
-                .unwrap_or(true);
+                .unwrap_or(false);
             if is_done {
                 return false;
             }
@@ -27,10 +27,6 @@ pub(super) fn check_reminders() -> Option<String> {
                 .get("title")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty());
-            let _date = item
-                .get("event_date")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
             let days = item
                 .get("days_until_event")
                 .and_then(|v| v.as_i64())
@@ -59,20 +55,28 @@ pub(super) fn check_reminders() -> Option<String> {
         return None;
     }
 
-    notify_macos(
-        "i-rs-claw 提醒",
-        &format!("你有 {} 个待处理提醒", due.len()),
-    );
     Some(due.join("\n"))
 }
 
-pub(super) fn notify_macos(title: &str, message: &str) {
+pub(super) fn notify_reminders(count: usize) {
+    if count == 0 {
+        return;
+    }
+    if cfg!(target_os = "macos") {
+        let msg = format!("你有 {} 个待处理提醒", count);
+        notify_macos("i-rs-claw 提醒", &msg);
+    }
+}
+
+fn notify_macos(title: &str, message: &str) {
+    let safe_title = title.replace('\\', "\\\\").replace('"', "\\\"");
+    let safe_message = message.replace('\\', "\\\\").replace('"', "\\\"");
     let _ = std::process::Command::new("osascript")
         .args([
             "-e",
             &format!(
                 r###"display notification "{}" with title "{}""###,
-                message, title
+                safe_message, safe_title
             ),
         ])
         .output();

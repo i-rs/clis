@@ -20,6 +20,7 @@ pub fn main_loop(
 ) -> anyhow::Result<()> {
     let mut last_reminder_check = Instant::now();
     let mut last_mcp_health_check = Instant::now();
+    let mut reminder_handle: Option<std::thread::JoinHandle<Option<String>>> = None;
     const REMINDER_INTERVAL_SECS: u64 = 120;
     const MCP_HEALTH_INTERVAL_SECS: u64 = 300;
 
@@ -33,12 +34,20 @@ pub fn main_loop(
             }
         }
 
-        if last_reminder_check.elapsed().as_secs() >= REMINDER_INTERVAL_SECS && !app.is_processing()
+        if let Some(ref h) = reminder_handle
+            && h.is_finished()
         {
-            let h = std::thread::spawn(reminders::check_reminders);
-            if let Some(reminder_text) = h.join().unwrap_or(None) {
+            let handle = reminder_handle.take().unwrap();
+            if let Some(reminder_text) = handle.join().unwrap_or(None) {
                 app.reminder_text = Some(reminder_text);
             }
+        }
+
+        if reminder_handle.is_none()
+            && last_reminder_check.elapsed().as_secs() >= REMINDER_INTERVAL_SECS
+            && !app.is_processing()
+        {
+            reminder_handle = Some(std::thread::spawn(reminders::check_reminders));
             last_reminder_check = Instant::now();
         }
 
@@ -79,6 +88,10 @@ pub fn main_loop(
                 _ => {}
             }
         }
+    }
+
+    if let Some(h) = reminder_handle {
+        let _ = h.join();
     }
 
     Ok(())

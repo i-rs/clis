@@ -40,6 +40,19 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crossterm::event::EnableMouseCapture,
         crossterm::event::EnableBracketedPaste
     )?;
+
+    // Install panic hook to restore terminal on crash
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = crossterm::execute!(
+            io::stdout(),
+            crossterm::terminal::LeaveAlternateScreen,
+            crossterm::event::DisableMouseCapture,
+            crossterm::event::DisableBracketedPaste
+        );
+        let _ = crossterm::terminal::disable_raw_mode();
+        default_hook(info);
+    }));
     let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout))?;
 
     let rt = tokio::runtime::Runtime::new()?;
@@ -59,7 +72,12 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     if let Some(sid) = session_id
         && !app_core.session_mgr.switch_to(sid)
     {
-        eprintln!("⚠ 未找到会话: {}", sid);
+        // Show error in-app since stderr is invisible in alternate screen
+        app.messages.push(app::Message::Error {
+            text: format!("未找到会话: {}", sid),
+        });
+        app.message_timestamps
+            .push(chrono::Local::now().naive_local());
     }
 
     // Ensure at least one session exists
@@ -87,7 +105,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // Check for due reminders at startup
     app.reminder_text = reminders::check_reminders();
     if app.reminder_text.is_some() {
-        reminders::notify_macos("i-rs-claw 提醒", "你有即将到期或已过期的提醒事项");
+        let count = app.reminder_text.as_ref().unwrap().lines().count();
+        reminders::notify_reminders(count);
     }
 
     if app.messages.is_empty() {

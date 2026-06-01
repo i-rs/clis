@@ -88,7 +88,17 @@ fn compute_text_relevance(text: &str) -> f64 {
         .filter(|c| c.is_alphanumeric() || **c > '\x7f')
         .count();
 
-    let stopwords = ["的", "了", "在", "是", "我", "有", "和", "就", "不", "都"];
+    let stopwords = [
+        "的", "了", "在", "是", "我", "有", "和", "就", "不", "都", "the", "a", "an", "is", "are",
+        "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would",
+        "could", "should", "may", "might", "can", "shall", "to", "of", "in", "for", "on", "with",
+        "at", "by", "from", "as", "into", "through", "during", "before", "after", "above", "below",
+        "between", "and", "but", "or", "nor", "not", "so", "yet", "both", "either", "each",
+        "every", "all", "any", "few", "more", "most", "other", "some", "such", "only", "own",
+        "same", "than", "too", "very", "just", "because", "about", "up", "out", "if", "then",
+        "now", "it", "its", "he", "she", "they", "them", "this", "that", "these", "those", "what",
+        "which", "who", "whom", "how",
+    ];
     let stopword_count = text
         .split_whitespace()
         .filter(|w| {

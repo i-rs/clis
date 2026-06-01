@@ -70,6 +70,7 @@ impl<'a> LlmEventHandler<'a> {
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
         if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
+            && (text.contains('\n') || self.app.plan_steps.is_empty())
             && let Some(AppMessage::Assistant { text: t, .. }) = self.app.messages.last()
         {
             let plan_text = t.clone();
@@ -170,7 +171,7 @@ impl<'a> LlmEventHandler<'a> {
     }
 
     fn handle_done(&mut self, msgs: Vec<Value>, usage: Option<TokenUsage>) -> Action {
-        let mut msgs = msgs.clone();
+        let mut msgs = msgs;
         self.app_core
             .compress_api_messages(&mut msgs, &self.app.current_agent);
 
@@ -315,14 +316,15 @@ impl<'a> KeyEventHandler<'a> {
         match key.code {
             KeyCode::Esc if self.app.overlay.current == Some(Overlay::Feedback) => {
                 self.app.overlay.close();
+                return true;
             }
             KeyCode::Char('y') if self.app.overlay.current == Some(Overlay::Feedback) => {
                 self.handle_submit_feedback(true);
-                return false;
+                return true;
             }
             KeyCode::Char('n') if self.app.overlay.current == Some(Overlay::Feedback) => {
                 self.handle_submit_feedback(false);
-                return false;
+                return true;
             }
             KeyCode::Esc | KeyCode::Char('q') if self.app.overlay.selection_mode => {
                 self.app.overlay.selection_mode = false;
@@ -856,7 +858,7 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.overlay.session_list_index =
                     self.app.overlay.session_list_index.saturating_sub(1);
             }
-            KeyCode::Down if !self.app.overlay.session_search_mode => {
+            KeyCode::Down => {
                 let max = self.app.overlay.session_list.len().saturating_sub(1);
                 if self.app.overlay.session_list_index < max {
                     self.app.overlay.session_list_index += 1;

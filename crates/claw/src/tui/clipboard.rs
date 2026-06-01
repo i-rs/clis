@@ -30,20 +30,31 @@ pub(super) fn copy_to_clipboard(text: &str) -> bool {
         return false;
     };
 
-    std::process::Command::new(cmd)
+    let mut child = match std::process::Command::new(cmd)
         .args(args)
         .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .spawn()
-        .and_then(|mut child| {
-            use std::io::Write;
-            child
-                .stdin
-                .take()
-                .and_then(|mut stdin| stdin.write_all(text.as_bytes()).ok());
-            child.wait_with_output()
-        })
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    let Some(mut stdin) = child.stdin.take() else {
+        let _ = child.kill();
+        return false;
+    };
+
+    use std::io::Write;
+    if stdin.write_all(text.as_bytes()).is_err() {
+        let _ = child.kill();
+        return false;
+    }
+
+    drop(stdin);
+
+    child.wait().map(|s| s.success()).unwrap_or(false)
 }
 
 fn which_exists(cmd: &str) -> bool {

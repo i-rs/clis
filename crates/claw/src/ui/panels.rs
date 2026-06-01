@@ -236,18 +236,25 @@ pub(super) fn render_tool_list_panel(
     _app: &App,
     theme: &crate::theme::Theme,
 ) {
+    static TOOLS: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
+    let tools = TOOLS.get_or_init(|| {
+        crate::tools::ToolRegistry::new()
+            .tool_info()
+            .into_iter()
+            .map(|(n, d)| (n.to_string(), d.to_string()))
+            .collect()
+    });
+
     let popup_width = 60u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
     let popup_y = (area.height - popup_height) / 2;
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    let reg = crate::tools::ToolRegistry::new();
-    let tools = reg.tool_info();
     let max_width = (popup_width as usize).saturating_sub(4);
 
     let mut lines: Vec<Line> = Vec::new();
-    for (name, desc) in &tools {
+    for (name, desc) in tools {
         let display_desc = if desc.len() > max_width - 18 {
             format!("{}...", &desc[..(max_width - 21)])
         } else {
