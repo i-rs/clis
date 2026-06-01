@@ -79,6 +79,9 @@ pub struct TokenRecord {
     pub latency_ms: u64,
     /// Estimated cost in USD
     pub estimated_cost_usd: f64,
+    /// Trace ID linking this record to the chat_loop invocation.
+    #[serde(default)]
+    pub trace_id: String,
 }
 
 // ── Aggregation Results ──
@@ -264,6 +267,7 @@ impl StatsManager {
         react_rounds: u32,
         success: bool,
         latency_ms: u64,
+        trace_id: &str,
     ) -> TokenRecord {
         let total_tokens = prompt_tokens + completion_tokens;
         let estimated_cost_usd = self
@@ -285,6 +289,7 @@ impl StatsManager {
             success,
             latency_ms,
             estimated_cost_usd,
+            trace_id: trace_id.to_string(),
         }
     }
 

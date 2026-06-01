@@ -116,7 +116,7 @@ impl ClawTool for DelegateTool {
             match event {
                 LlmEvent::Token(t) => text.push_str(&t),
                 LlmEvent::Error(e) => last_error = e,
-                LlmEvent::Done(_, _) => break,
+                LlmEvent::Done(_, _, _) => break,
                 _ => {}
             }
         }

@@ -1087,6 +1087,7 @@ mod tests {
             success: true,
             latency_ms: 500,
             estimated_cost_usd: 0.0001,
+            trace_id: String::new(),
         };
         store.append_batch(&[record]).await.unwrap();
 

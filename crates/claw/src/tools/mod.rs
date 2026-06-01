@@ -5,6 +5,7 @@ pub mod delegate;
 pub mod file_ops;
 pub mod i_rs;
 pub mod mcp_tools;
+pub mod quality_judge;
 pub mod search_conversations;
 pub mod search_tools;
 pub mod skill_tool;

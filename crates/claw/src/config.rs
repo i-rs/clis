@@ -85,6 +85,9 @@ pub struct Config {
     /// Token usage statistics configuration.
     #[serde(default)]
     pub stats: crate::stats::StatsConfig,
+    /// Quality judge configuration (LLM-as-Judge for response evaluation).
+    #[serde(default)]
+    pub quality_judge: QualityJudgeConfig,
     /// Timezone offset for date/time display (e.g., "+08:00", "UTC", "-05:00").
     /// If not set, uses the system's local timezone.
     #[serde(default)]
@@ -163,6 +166,38 @@ pub enum ExecutionMode {
     /// Plan-then-Execute: LLM outputs a structured plan first, then executes step by step.
     /// Useful for complex workflows where steps need user confirmation.
     PlanThenExecute,
+}
+
+/// Quality judge configuration for LLM-as-Judge response evaluation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityJudgeConfig {
+    /// Enable LLM-as-Judge evaluation (default: false).
+    #[serde(default)]
+    pub enabled: bool,
+    /// Model to use for judging (defaults to the main model).
+    #[serde(default)]
+    pub model: Option<String>,
+    /// Only run judge when heuristic evaluation detects issues (default: true).
+    #[serde(default = "default_true")]
+    pub on_issues_only: bool,
+    /// Maximum judge evaluations per session (default: 3).
+    #[serde(default = "default_judge_max_per_session")]
+    pub max_per_session: u32,
+}
+
+fn default_judge_max_per_session() -> u32 {
+    3
+}
+
+impl Default for QualityJudgeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            model: None,
+            on_issues_only: true,
+            max_per_session: 3,
+        }
+    }
 }
 
 /// Resolved configuration for a specific agent, with all fields flattened.
@@ -384,6 +419,7 @@ impl Config {
             theme: crate::theme::Theme::default(),
             storage: crate::storage::StorageConfig::default(),
             stats: crate::stats::StatsConfig::default(),
+            quality_judge: QualityJudgeConfig::default(),
             timezone: None,
             tz_offset: crate::utils::system_tz_offset(),
         }

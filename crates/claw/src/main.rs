@@ -135,14 +135,42 @@ enum Command {
 }
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::Level::WARN.into())
-                .from_env_lossy(),
-        )
-        .with_writer(std::io::stderr)
-        .init();
+    let use_json_log = std::env::var("CLAW_LOG_FORMAT")
+        .map(|v| v.eq_ignore_ascii_case("json"))
+        .unwrap_or(false);
+
+    let trace_dir = std::env::var("CLAW_TRACE_DIR").ok();
+    let trace_path = trace_dir.as_ref().map(|dir| {
+        std::path::PathBuf::from(dir).join(format!(
+            "trace-{}.jsonl",
+            chrono::Local::now().format("%Y%m%d-%H%M%S")
+        ))
+    });
+
+    if let Some(ref path) = trace_path {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+        {
+            let subscriber = tracing_subscriber::fmt()
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::builder()
+                        .with_default_directive(tracing::Level::WARN.into())
+                        .from_env_lossy(),
+                )
+                .json()
+                .with_writer(std::sync::Arc::new(file));
+            subscriber.init();
+        } else {
+            init_default_subscriber(use_json_log);
+        }
+    } else {
+        init_default_subscriber(use_json_log);
+    }
 
     let cli = Cli::parse();
 
@@ -200,5 +228,28 @@ fn main() -> anyhow::Result<()> {
             check: Some(name), ..
         } => cli::run_mcp_check(&name),
         Command::Mcp { .. } => cli::run_mcp_list(),
+    }
+}
+
+fn init_default_subscriber(json: bool) {
+    if json {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::builder()
+                    .with_default_directive(tracing::Level::WARN.into())
+                    .from_env_lossy(),
+            )
+            .json()
+            .with_writer(std::io::stderr)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::builder()
+                    .with_default_directive(tracing::Level::WARN.into())
+                    .from_env_lossy(),
+            )
+            .with_writer(std::io::stderr)
+            .init();
     }
 }

@@ -45,7 +45,7 @@ pub enum LlmEvent {
     /// An error occurred
     Error(String),
     /// All responses complete, carries final API message list and optional token usage
-    Done(Arc<Vec<Value>>, Option<TokenUsage>),
+    Done(Arc<Vec<Value>>, Option<TokenUsage>, String),
     /// HTTP request log for debug sidebar
     HttpLog(HttpLogData),
     /// Token usage record for statistics persistence
@@ -59,6 +59,7 @@ pub enum LlmEvent {
         /// List of issues found (empty if valid)
         issues: Vec<String>,
     },
+    PlanProgress(Vec<crate::app::PlanStep>),
 }
 
 #[derive(Default, Clone)]

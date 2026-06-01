@@ -49,13 +49,16 @@ impl<'a> LlmEventHandler<'a> {
                 self.app_core.stats_manager.record(record);
                 self.app.today_stats = self.app_core.stats_manager.today_summary();
             }
-            LlmEvent::Done(msgs, usage) => return self.handle_done((*msgs).clone(), usage),
+            LlmEvent::Done(msgs, usage, _trace_id) => return self.handle_done((*msgs).clone(), usage),
             LlmEvent::Evaluation {
                 tool,
                 valid,
                 issues,
             } => {
                 self.handle_evaluation(&tool, valid, &issues);
+            }
+            LlmEvent::PlanProgress(steps) => {
+                self.app.plan_steps = steps;
             }
         }
         Action::Continue

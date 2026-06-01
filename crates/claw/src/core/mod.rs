@@ -488,7 +488,8 @@ impl AppCore {
             .iter()
             .filter_map(|m| match m {
                 crate::app::Message::ToolCall { name, result, .. } => {
-                    Some((name.as_str(), !result.starts_with("错误:")))
+                    let cat = crate::error::category_from_result(result);
+                    Some((name.as_str(), !cat.is_retryable_or_fatal()))
                 }
                 _ => None,
             })
@@ -501,7 +502,10 @@ impl AppCore {
             _ => None,
         })?;
 
-        let quality = crate::app::evaluate_response_heuristic(last_assistant, &tool_results);
+        let quality = {
+            let i_rs_tools: Vec<&str> = self.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
+            crate::app::evaluate_response_heuristic(last_assistant, &tool_results, &i_rs_tools)
+        };
         let (score, complete, references_valid, issues) = match &quality {
             crate::app::Message::Quality {
                 score,
@@ -522,6 +526,77 @@ impl AppCore {
             })),
         );
         Some(quality)
+    }
+
+    /// Run LLM-as-Judge evaluation when enabled and conditions are met.
+    /// Returns None if the judge is disabled or skipped.
+    #[allow(dead_code)]
+    pub async fn evaluate_with_judge(
+        &self,
+        session_id: &str,
+        heuristic_quality: &crate::app::Message,
+    ) -> Option<crate::tools::quality_judge::QualityJudgeResult> {
+        if !self.config.quality_judge.enabled {
+            return None;
+        }
+
+        if self.config.quality_judge.on_issues_only {
+            let has_issues = match heuristic_quality {
+                crate::app::Message::Quality { issues, .. } => !issues.is_empty(),
+                _ => true,
+            };
+            if !has_issues {
+                return None;
+            }
+        }
+
+        let messages = self.session_mgr.load_app_messages(session_id, 100);
+
+        let user_query = messages.iter().rev().find_map(|m| match m {
+            crate::app::Message::User { text } if !text.is_empty() => Some(text.clone()),
+            _ => None,
+        })?;
+
+        let last_assistant = messages.iter().rev().find_map(|m| match m {
+            crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.clone()),
+            _ => None,
+        })?;
+
+        let tool_results: Vec<(String, String)> = messages
+            .iter()
+            .filter_map(|m| match m {
+                crate::app::Message::ToolCall { name, result, .. } => {
+                    Some((name.clone(), result.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+
+        if tool_results.is_empty() {
+            return None;
+        }
+
+        let resolved = self.config.agent_config("default");
+        let judge_model = self
+            .config
+            .quality_judge
+            .model
+            .as_deref()
+            .unwrap_or(&resolved.model);
+
+        crate::tools::quality_judge::judge_quality(
+            &self.http_client,
+            &resolved.base_url,
+            &resolved.api_key,
+            judge_model,
+            &crate::tools::quality_judge::QualityJudgeRequest {
+                user_query,
+                tool_results,
+                final_response: last_assistant,
+            },
+        )
+        .await
+        .ok()
     }
 
     /// Build API messages from raw JSONL session records (no app::Message conversion).

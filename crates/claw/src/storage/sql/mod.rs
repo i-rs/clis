@@ -381,6 +381,7 @@ struct TokenRecordRow {
     prompt_tokens: i64, completion_tokens: i64, total_tokens: i64,
     has_tool_calls: i64, tool_call_count: i64, react_rounds: i64,
     success: i64, latency_ms: i64, estimated_cost_usd: f64,
+    trace_id: String,
 }
 
 impl From<TokenRecordRow> for crate::stats::TokenRecord {
@@ -393,6 +394,7 @@ impl From<TokenRecordRow> for crate::stats::TokenRecord {
             has_tool_calls: r.has_tool_calls != 0, tool_call_count: r.tool_call_count as u32,
             react_rounds: r.react_rounds as u32, success: r.success != 0,
             latency_ms: r.latency_ms as u64, estimated_cost_usd: r.estimated_cost_usd,
+            trace_id: r.trace_id,
         }
     }
 }

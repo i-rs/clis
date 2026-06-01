@@ -271,7 +271,7 @@ impl GatewayServer {
                     response = format!("Error: {}", e);
                     break;
                 }
-                crate::llm::LlmEvent::Done(api_msgs, _) => {
+                crate::llm::LlmEvent::Done(api_msgs, _, _) => {
                     let mut core = core.write().await;
                     core.session_mgr.save_api_messages(&session_uuid, &api_msgs);
                     core.session_mgr.append_message("user", &text_owned, None);

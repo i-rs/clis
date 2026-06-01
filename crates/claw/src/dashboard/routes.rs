@@ -281,7 +281,7 @@ pub async fn chat_stream(
                         let sse = Event::default().event("tool_executed").data(data);
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
-                    LlmEvent::Done(msgs, usage) => {
+                    LlmEvent::Done(msgs, usage, _trace_id) => {
                         let mut core = state.core.write().await;
                         let agent_id = core
                             .session_mgr

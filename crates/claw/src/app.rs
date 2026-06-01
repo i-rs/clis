@@ -22,12 +22,12 @@ pub fn message_from_jsonl(v: &Value) -> Option<Message> {
 /// - Basic completeness: response text is non-empty after tool execution
 pub fn evaluate_response_heuristic(
     response_text: &str,
-    tool_results: &[(&str, bool)], // (tool_name, success)
+    tool_results: &[(&str, bool)],
+    known_tools: &[&str],
 ) -> Message {
     let mut issues = Vec::new();
     let mut references_valid = 0u32;
 
-    // Check if response mentions tools that were never executed
     let executed_tools: std::collections::HashSet<&str> =
         tool_results.iter().map(|(n, _)| *n).collect();
     for (name, success) in tool_results {
@@ -36,15 +36,13 @@ pub fn evaluate_response_heuristic(
         }
         if !success {
             if response_text.contains("错误") || response_text.contains("失败") {
-                // Response acknowledges failures, good
             } else {
                 issues.push(format!("工具 '{}' 执行失败，但回复未提及", name));
             }
         }
     }
 
-    // Check for hallucinated tool mentions
-    let known_tool_patterns = ["weight", "height", "sleep", "mood", "todo", "run"];
+    let known_tool_patterns: Vec<&str> = known_tools.iter().map(|s| *s).collect();
     for pattern in &known_tool_patterns {
         if response_text.contains(*pattern)
             && !executed_tools.contains(pattern)
@@ -57,6 +55,11 @@ pub fn evaluate_response_heuristic(
     let complete = !response_text.trim().is_empty();
     if !complete {
         issues.push("回复为空".to_string());
+    }
+
+    let relevance = compute_text_relevance(response_text);
+    if relevance < 0.3 && !response_text.is_empty() {
+        issues.push(format!("回复信息密度较低 (相关度: {:.0}%)", relevance * 100.0));
     }
 
     let has_errors = !issues.is_empty();
@@ -74,6 +77,37 @@ pub fn evaluate_response_heuristic(
         references_valid,
         issues,
     }
+}
+
+fn compute_text_relevance(text: &str) -> f64 {
+    if text.is_empty() {
+        return 0.0;
+    }
+    let content_chars: Vec<char> = text.chars().collect();
+    let total = content_chars.len();
+    if total == 0 {
+        return 0.0;
+    }
+
+    let meaningful_count = content_chars
+        .iter()
+        .filter(|c| c.is_alphanumeric() || **c > '\x7f')
+        .count();
+
+    let stopwords = ["的", "了", "在", "是", "我", "有", "和", "就", "不", "都"];
+    let stopword_count = text
+        .split_whitespace()
+        .filter(|w| {
+            let lower = w.to_lowercase();
+            stopwords.iter().any(|&s| lower.contains(s)) && w.len() <= 4
+        })
+        .count();
+
+    let total_words = text.split_whitespace().count().max(1);
+    let meaningful_ratio = meaningful_count as f64 / total as f64;
+    let stopword_ratio = stopword_count as f64 / total_words as f64;
+
+    (meaningful_ratio * 0.6 + (1.0 - stopword_ratio) * 0.4).min(1.0)
 }
 
 #[derive(Clone)]

@@ -2,10 +2,12 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
 use crate::core::context::ContextManager;
+use crate::error::category_from_result;
 
 // ── System Prompt Layer ──
 
 const REMINDER_PREFIX: &str = "注意：用户有以下即将到期或已到期的提醒事项";
+const SUMMARY_PREFIX: &str = "[先前上下文摘要]";
 
 const REACT_PROMPT: &str = "\
 当用户请求涉及 **2 个或以上不同工具调用** 时：
@@ -152,9 +154,24 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
 
         // Inject structural summary for old context before compression
         if let Some(summary) = ctx_mgr.structural_summary(&msgs, params.max_conversation_turns) {
-            let _summary = summary;
-            // TODO: inject summary as system message before smart_compress drops old msgs
-            // Currently kept as a structural placeholder for future integration
+            remove_reminder_msg(&mut msgs);
+            let mut insert_pos = 1;
+            if msgs.len() > 1
+                && msgs[1].get("role").and_then(|r| r.as_str()) == Some("system")
+                && msgs[1]
+                    .get("content")
+                    .and_then(|c| c.as_str())
+                    .is_some_and(|c| c.starts_with(REMINDER_PREFIX))
+            {
+                insert_pos = 2;
+            }
+            msgs.insert(
+                insert_pos,
+                serde_json::json!({
+                    "role": "system",
+                    "content": summary,
+                }),
+            );
         }
 
         ctx_mgr.compress(&mut msgs, params.tool_frequency);
@@ -241,37 +258,41 @@ enum MessageSignificance {
 fn score_message_significance(msg: &Value) -> (MessageSignificance, u8) {
     let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("");
 
+    let content_val = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+
     if role == "system" {
+        if content_val.starts_with(SUMMARY_PREFIX) {
+            return (MessageSignificance::System, 10);
+        }
         return (MessageSignificance::System, 10);
     }
 
-    let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
-
     match role {
         "user" => {
-            if crate::utils::is_correction_message(content) {
+            if crate::utils::is_correction_message(content_val) {
                 (MessageSignificance::Correction, 9)
-            } else if crate::utils::is_decision_message(content) {
+            } else if crate::utils::is_decision_message(content_val) {
                 (MessageSignificance::Decision, 7)
-            } else if content.len() < 6 {
+            } else if content_val.len() < 6 {
                 (MessageSignificance::LowValue, 1)
             } else {
                 (MessageSignificance::Dialogue, 4)
             }
         }
         "assistant" => {
-            if crate::utils::is_decision_message(content) {
+            if crate::utils::is_decision_message(content_val) {
                 (MessageSignificance::Decision, 7)
-            } else if content.len() < 10 {
+            } else if content_val.len() < 10 {
                 (MessageSignificance::LowValue, 1)
             } else {
                 (MessageSignificance::Dialogue, 3)
             }
         }
         "tool" => {
-            if content.starts_with("错误") || content.starts_with("Error") {
+            let cat = category_from_result(content_val);
+            if cat.is_retryable_or_fatal() {
                 (MessageSignificance::LowValue, 2)
-            } else if content.len() > 20 {
+            } else if content_val.len() > 20 {
                 (MessageSignificance::ToolData, 6)
             } else {
                 (MessageSignificance::LowValue, 1)

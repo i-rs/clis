@@ -28,6 +28,7 @@ struct ChatLoopInit {
     max_retries: u32,
     max_rounds: u32,
     tool_frequency: HashMap<String, usize>,
+    plan_then_execute: bool,
 }
 
 fn prepare_loop(
@@ -80,6 +81,7 @@ fn prepare_loop(
         max_retries: config.max_tool_retries,
         max_rounds: config.max_react_rounds,
         tool_frequency,
+        plan_then_execute: config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
     }
 }
 
@@ -135,11 +137,11 @@ fn inject_results(
 ) -> Option<Duration> {
     let mut should_retry = false;
     for r in results {
-        if r.result.starts_with("错误:") {
+        if r.category.is_retryable_or_fatal() {
             let entry = retry_counts.entry(r.call.name.clone()).or_insert((0, 0));
             entry.0 += 1;
             entry.1 += 1;
-            if entry.0 <= max_retries {
+            if entry.0 <= max_retries && r.category.is_retryable() {
                 should_retry = true;
             }
         } else if let Some(entry) = retry_counts.get_mut(&r.call.name) {
@@ -177,7 +179,7 @@ fn inject_results(
             msgs.push(serde_json::json!({
                 "role": "tool", "tool_call_id": r.call.id, "content": trimmed,
             }));
-            if r.result.starts_with("错误:") {
+            if r.category.is_retryable_or_fatal() && !r.category.is_retryable() {
                 msgs.push(serde_json::json!({
                     "role": "system",
                     "content": format!(
@@ -197,13 +199,15 @@ fn inject_results(
 /// Trace all tool call results with structured logging.
 fn trace_tool_results(
     results: &[crate::core::executor::ToolCallResult],
+    trace_id: &str,
     start_time: std::time::Instant,
 ) {
     for r in results {
         tracing::info!(
+            trace_id = %trace_id,
             tool = %r.call.name,
             args = %r.call.arguments,
-            success = !r.result.starts_with("错误:"),
+            category = ?r.category,
             elapsed_ms = %start_time.elapsed().as_millis(),
             result_len = r.result.len(),
             "工具调用"
@@ -263,6 +267,7 @@ pub async fn chat_loop(
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
 ) {
+    let trace_id = uuid::Uuid::new_v4().to_string();
     let mut msgs = messages;
     let mut init = prepare_loop(
         provider.as_ref(),
@@ -276,6 +281,7 @@ pub async fn chat_loop(
     let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
     let mut consecutive_provider_errors: u32 = 0;
+    let mut plan_steps: Vec<crate::app::PlanStep> = Vec::new();
     const MAX_PROVIDER_RETRIES: u32 = 2;
     const HARD_MAX_ROUNDS: u32 = 50;
 
@@ -299,6 +305,12 @@ pub async fn chat_loop(
                 {
                     consecutive_provider_errors = 0;
                 }
+                if init.plan_then_execute && round_count == 1 {
+                    plan_steps = parse_plan_steps(&text);
+                    if !plan_steps.is_empty() {
+                        let _ = tx.send(LlmEvent::PlanProgress(plan_steps.clone()));
+                    }
+                }
                 if !text.is_empty() || !reasoning.is_empty() {
                     let mut msg = serde_json::json!({ "role": "assistant", "content": text });
                     if !reasoning.is_empty() {
@@ -306,11 +318,26 @@ pub async fn chat_loop(
                     }
                     msgs.push(msg);
                 }
-                let _ = tx.send(LlmEvent::Done(Arc::new(msgs), usage));
+                if init.plan_then_execute && !plan_steps.is_empty() {
+                    let pending = plan_steps.iter().filter(|s| !s.done).count();
+                    if pending > 0 {
+                        if let Some(step) = plan_steps.iter_mut().find(|s| !s.done) {
+                            step.done = true;
+                        }
+                        let _ = tx.send(LlmEvent::PlanProgress(plan_steps.clone()));
+                    }
+                }
+                let _ = tx.send(LlmEvent::Done(Arc::new(msgs), usage, trace_id.clone()));
                 break;
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
                 consecutive_provider_errors = 0;
+                if init.plan_then_execute && !plan_steps.is_empty() {
+                    if let Some(step) = plan_steps.iter_mut().find(|s| !s.done) {
+                        step.done = true;
+                    }
+                    let _ = tx.send(LlmEvent::PlanProgress(plan_steps.clone()));
+                }
                 let results =
                     dispatch_tools(&mut init.executor, calls, &tx, &mut msgs, &reasoning_content).await;
 
@@ -324,7 +351,7 @@ pub async fn chat_loop(
                     tokio::time::sleep(backoff).await;
                 }
 
-                trace_tool_results(&results, round_start);
+                trace_tool_results(&results, &trace_id, round_start);
 
                 init.ctx_mgr.compress(&mut msgs, &init.tool_frequency);
             }
@@ -342,6 +369,29 @@ pub async fn chat_loop(
             }
         }
     }
+}
+
+fn parse_plan_steps(text: &str) -> Vec<crate::app::PlanStep> {
+    let mut steps = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("📋") || trimmed.contains("执行计划") {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix(|c: char| c.is_ascii_digit())
+            .and_then(|s| s.strip_prefix('.'))
+            .or_else(|| trimmed.strip_prefix("- "))
+        {
+            let desc = rest.trim();
+            if !desc.is_empty() && desc.len() > 3 {
+                steps.push(crate::app::PlanStep {
+                    description: desc.to_string(),
+                    done: false,
+                });
+            }
+        }
+    }
+    steps
 }
 
 #[cfg(test)]

@@ -287,7 +287,8 @@ pub(crate) async fn openai_stream_chat_impl(
             react_rounds: 0, // Will be updated by chat_loop if needed
             success: true,
             latency_ms: duration_ms,
-            estimated_cost_usd: 0.0, // Estimated by StatsManager on consumption
+            estimated_cost_usd: 0.0,
+            trace_id: String::new(),
         }));
 
         let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {

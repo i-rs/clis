@@ -463,6 +463,7 @@ impl LlmProvider for AnthropicProvider {
             success: true,
             latency_ms: duration_ms,
             estimated_cost_usd: 0.0,
+            trace_id: String::new(),
         }));
 
         let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
