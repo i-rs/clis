@@ -248,8 +248,10 @@ pub(super) fn render_tool_list_panel(
 
     let mut lines: Vec<Line> = Vec::new();
     for (name, desc) in tools {
-        let display_desc = if desc.len() > max_width - 18 {
-            format!("{}...", &desc[..(max_width - 21)])
+        let max_desc_chars = max_width.saturating_sub(18);
+        let display_desc = if desc.chars().count() > max_desc_chars {
+            let truncated: String = desc.chars().take(max_desc_chars.saturating_sub(3)).collect();
+            format!("{}...", truncated)
         } else {
             desc.to_string()
         };
