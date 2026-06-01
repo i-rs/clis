@@ -125,11 +125,14 @@ impl ClawTool for DelegateTool {
         );
 
         let (mcp, skills, tool_frequency) = match &ctx.delegate_runtime {
-            Some(rt) => (
-                rt.mcp_registry.clone(),
-                rt.skills.clone(),
-                rt.tool_frequency.clone(),
-            ),
+            Some(rt) => {
+                let mcp = if agent_config.mcp_servers.is_empty() {
+                    rt.mcp_registry.clone()
+                } else {
+                    crate::mcp::McpRegistry::for_agent(&agent_config, &ctx.config.mcp_servers)
+                };
+                (mcp, rt.skills.clone(), rt.tool_frequency.clone())
+            }
             None => (
                 crate::mcp::McpRegistry::new(&[]),
                 vec![],
@@ -221,13 +224,10 @@ impl ClawTool for DelegateTool {
                             total_output_tokens += record.completion_tokens;
                             final_model = record.model.clone();
                         }
-                        LlmEvent::Done(_, usage, trace_id) => {
+                        LlmEvent::Done(_, usage, _trace_id) => {
                             if let Some(u) = usage {
                                 total_input_tokens += u.prompt_tokens;
                                 total_output_tokens += u.completion_tokens;
-                            }
-                            if !trace_id.is_empty() {
-                                final_model = trace_id.clone();
                             }
                             break;
                         }
@@ -245,6 +245,11 @@ impl ClawTool for DelegateTool {
                 "子智能体调用超时 ({}s)",
                 timeout_secs
             )));
+        }
+
+        // Fallback if no UsageRecord fired (shouldn't happen, but safety)
+        if final_model.is_empty() {
+            final_model = agent_config.model.clone();
         }
 
         // Persist usage (#6)
@@ -323,6 +328,29 @@ fn build_sub_agent_prompt(
         "你是一个专门处理委托任务的智能体。请基于用户提供的任务和上下文，\
          用中文简洁、专业地完成任务。你可以使用可用的工具来完成工作。",
     );
+
+    // Tool index injection
+    if let Some(rt) = &ctx.delegate_runtime {
+        if !rt.irs_tool_index.is_empty() {
+            let mut tool_index_section = String::from("\n\n## 可用工具\n");
+            let enabled = &agent_config.enabled_tools;
+            let mut has_tools = false;
+            for (name, desc) in &rt.irs_tool_index {
+                if !enabled.is_empty() && !enabled.contains(name) {
+                    continue;
+                }
+                if !desc.is_empty() {
+                    tool_index_section.push_str(&format!("\n- {}: {}", name, desc));
+                } else {
+                    tool_index_section.push_str(&format!("\n- {}", name));
+                }
+                has_tools = true;
+            }
+            if has_tools {
+                prompt.push_str(&tool_index_section);
+            }
+        }
+    }
 
     // Plan mode injection (#2)
     if let Some(rt) = &ctx.delegate_runtime {
@@ -444,7 +472,7 @@ fn resolve_auto_agent(task: &str, config: &crate::config::Config) -> Result<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use std::sync::Arc;
 
     fn test_config_with_sub_agent() -> crate::config::Config {
         let mut config = crate::test_helpers::test_config();
@@ -595,6 +623,7 @@ mod tests {
             config: crate::test_helpers::test_config(),
             http_client: reqwest::Client::new(),
             delegate_runtime: Some(Arc::new(crate::tools::DelegateRuntime {
+                irs_tool_index: std::collections::HashMap::new(),
                 mcp_registry: crate::mcp::McpRegistry::new(&[]),
                 skills: vec![],
                 tool_frequency: std::collections::HashMap::new(),
@@ -621,5 +650,67 @@ mod tests {
         let prompt = build_sub_agent_prompt(&config, &ctx);
         assert!(prompt.contains("小助手"));
         assert!(prompt.contains("当前时间"));
+    }
+
+    #[test]
+    fn test_build_sub_agent_prompt_with_tool_index() {
+        let config = crate::config::ResolvedAgentConfig {
+            agent_id: "analyst".to_string(),
+            provider: "openai".to_string(),
+            api_key: String::new(),
+            base_url: String::new(),
+            model: "gpt-4o".to_string(),
+            enabled_tools: std::collections::HashSet::from_iter([
+                "i-rs-weight".into(),
+                "i-rs-mood".into(),
+            ]),
+            system_prompt: Some("你是数据分析师".to_string()),
+            mcp_servers: vec![],
+            allowed_dirs: vec![],
+            capabilities: vec![],
+            execution_mode: crate::config::ExecutionMode::PlanThenExecute,
+        };
+        let mut tool_index = std::collections::HashMap::new();
+        tool_index.insert("i-rs-weight".into(), "体重记录管理".into());
+        tool_index.insert("i-rs-mood".into(), "情绪记录管理".into());
+        tool_index.insert("i-rs-run".into(), "跑步记录管理".into());
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: reqwest::Client::new(),
+            delegate_runtime: Some(Arc::new(crate::tools::DelegateRuntime {
+                irs_tool_index: tool_index,
+                mcp_registry: crate::mcp::McpRegistry::new(&[]),
+                skills: vec![],
+                tool_frequency: std::collections::HashMap::new(),
+                parent_tx: tokio::sync::mpsc::unbounded_channel().0,
+                stats_manager: std::sync::Arc::new(
+                    crate::stats::StatsManager::with_storage(
+                        std::sync::Arc::new(
+                            crate::storage::ClawStorage::file(
+                                std::env::temp_dir().join("claw-test-delegate-tool-index"),
+                            ),
+                        ),
+                        &Default::default(),
+                        chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                    ),
+                ),
+                user_identity: String::new(),
+                user_memory: String::new(),
+                user_profile: String::new(),
+                recent_messages: vec![],
+                tz_offset: chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                plan_then_execute: true,
+            })),
+        };
+        let prompt = build_sub_agent_prompt(&config, &ctx);
+        // System prompt from agent config
+        assert!(prompt.contains("你是数据分析师"));
+        // Tool index — only enabled tools should appear
+        assert!(prompt.contains("i-rs-weight: 体重记录管理"));
+        assert!(prompt.contains("i-rs-mood: 情绪记录管理"));
+        // Disabled tool should not appear
+        assert!(!prompt.contains("i-rs-run"));
+        // Plan mode injection
+        assert!(prompt.contains("先计划再执行"));
     }
 }

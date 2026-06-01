@@ -487,6 +487,7 @@ impl AppCore {
             String::new()
         };
         std::sync::Arc::new(crate::tools::DelegateRuntime {
+            irs_tool_index: self.config.i_rs_tool_index.clone(),
             mcp_registry: self.agent_store.mcp_registry_for(agent_id).clone(),
             skills: self
                 .agent_store

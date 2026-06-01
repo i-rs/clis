@@ -30,6 +30,7 @@ pub struct ToolContext {
 /// Runtime state needed for sub-agent delegation with full tool support.
 /// Wrapped in Arc to avoid cloning large data structures for every tool call.
 pub struct DelegateRuntime {
+    pub irs_tool_index: std::collections::HashMap<String, String>,
     pub mcp_registry: crate::mcp::McpRegistry,
     pub skills: Vec<crate::skill_store::SkillDefinition>,
     pub tool_frequency: std::collections::HashMap<String, usize>,
@@ -39,9 +40,7 @@ pub struct DelegateRuntime {
     pub user_memory: String,
     pub user_profile: String,
     pub recent_messages: Vec<serde_json::Value>,
-    /// Timezone offset for date/time injection.
     pub tz_offset: chrono::FixedOffset,
-    /// Whether to use plan-then-execute mode (vs ReAct).
     pub plan_then_execute: bool,
 }
 
