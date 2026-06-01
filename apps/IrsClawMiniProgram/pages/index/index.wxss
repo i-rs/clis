@@ -9,7 +9,7 @@
 .nav-title { font-size: 34rpx; font-weight: 700; color: var(--text); }
 
 /* Scroll */
-.messages-scroll { flex: 1; overflow: hidden; }
+.messages-scroll { flex: 1; overflow: hidden; overflow-x: hidden; }
 .msg-bottom-anchor { height: 24rpx; }
 
 /* Empty */
@@ -25,7 +25,7 @@
 
 /* Message List */
 .message-list { padding: 24rpx 24rpx 0; }
-.msg-row { display: flex; align-items: flex-start; margin-bottom: 24rpx; gap: 16rpx; }
+.msg-row { display: flex; align-items: flex-start; margin-bottom: 24rpx; gap: 16rpx; width: 100%; box-sizing: border-box; }
 .msg-row-user { flex-direction: row-reverse; }
 .msg-row-ai { flex-direction: row; }
 
@@ -37,15 +37,15 @@
 .avatar-text { font-size: 24rpx; font-weight: 700; color: #fff; }
 
 /* Message Content */
-.msg-content { max-width: 560rpx; min-width: 80rpx; }
+.msg-content { flex: 1; min-width: 0; max-width: calc(100% - 88rpx); }
 .msg-content-user { display: flex; flex-direction: column; align-items: flex-end; }
-.msg-content-ai { display: flex; flex-direction: column; align-items: flex-start; max-width: 560rpx; overflow: hidden; }
+.msg-content-ai { display: flex; flex-direction: column; align-items: flex-start; max-width: calc(100% - 88rpx); min-width: 0; overflow: hidden; }
 
 /* Bubbles */
-.msg-bubble { padding: 20rpx 28rpx; word-break: break-word; }
+.msg-bubble { padding: 20rpx 28rpx; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; box-sizing: border-box; }
 .msg-bubble-user { background: linear-gradient(135deg, #6C5CE7, #7C6CF7); border-radius: 24rpx 8rpx 24rpx 24rpx; box-shadow: 0 4rpx 20rpx rgba(108, 92, 231, 0.25); }
 .msg-bubble-ai { background: var(--ai-bg); border: 1rpx solid var(--border); border-radius: 8rpx 24rpx 24rpx 24rpx; }
-.msg-text { font-size: 30rpx; line-height: 1.7; }
+.msg-text { font-size: 30rpx; line-height: 1.7; word-break: break-word; overflow-wrap: anywhere; }
 .msg-text-user { color: #fff; }
 .msg-text-ai { color: var(--ai-text); }
 
@@ -62,24 +62,24 @@
 .thinking-text { font-size: 26rpx; color: var(--text-2); line-height: 1.7; white-space: pre-wrap; }
 
 /* ===== Tool Call Card ===== */
-.tool-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; overflow: hidden; max-width: 100%; }
+.tool-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; overflow: hidden; max-width: 100%; width: 100%; box-sizing: border-box; }
 .tool-card:active { background: var(--surface-2); }
-.tool-header { display: flex; align-items: center; padding: 16rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; max-width: 100%; overflow: hidden; }
+.tool-header { display: flex; align-items: center; padding: 16rpx 20rpx; gap: 10rpx; min-height: 72rpx; box-sizing: border-box; max-width: 100%; width: 100%; overflow: hidden; }
 .tool-status { width: 28rpx; height: 28rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .tool-status-running { background: var(--orange-bg); }
 .tool-status-done { background: var(--green-bg); }
 .tool-status-icon { font-size: 18rpx; font-weight: 700; line-height: 1; }
 .tool-status-spin { color: var(--orange); animation: spin 1s linear infinite; display: inline-block; }
 .tool-status-done .tool-status-icon { color: var(--green); }
-.tool-name { font-size: 26rpx; font-weight: 600; color: var(--text); flex-shrink: 0; max-width: 180rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-preview { font-size: 22rpx; color: var(--text-3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; min-width: 0; max-width: 200rpx; }
-.tool-chevron { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; width: 24rpx; text-align: center; }
-.tool-body { padding: 20rpx 24rpx; border-top: 1rpx solid var(--border); }
+.tool-name { font-size: 24rpx; font-weight: 600; color: var(--text); flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-preview { font-size: 20rpx; color: var(--text-3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; min-width: 0; }
+.tool-chevron { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; width: 20rpx; text-align: center; }
+.tool-body { padding: 20rpx; border-top: 1rpx solid var(--border); max-width: 100%; overflow: hidden; }
 .tool-section { margin-bottom: 16rpx; }
 .tool-section:last-child { margin-bottom: 0; }
 .tool-section-label { font-size: 22rpx; color: var(--text-3); font-weight: 600; display: block; margin-bottom: 8rpx; }
-.tool-code-wrap { background: var(--bg); border-radius: 12rpx; padding: 16rpx 20rpx; }
-.tool-code { font-size: 24rpx; color: var(--text-2); line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+.tool-code-wrap { background: var(--bg); border-radius: 12rpx; padding: 14rpx 16rpx; max-width: 100%; overflow-x: auto; box-sizing: border-box; }
+.tool-code { font-size: 22rpx; color: var(--text-2); line-height: 1.6; white-space: pre-wrap; word-break: break-all; max-width: 100%; }
 
 /* ===== Reasoning Fold (in AI message with content) ===== */
 .reasoning-fold { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; margin-bottom: 16rpx; overflow: hidden; }
