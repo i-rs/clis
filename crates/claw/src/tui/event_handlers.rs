@@ -1117,11 +1117,18 @@ impl<'a> KeyEventHandler<'a> {
                         self.app.reminder_text.as_deref(),
                         &self.app.current_agent,
                     );
+                    let recent: Vec<serde_json::Value> = self
+                        .app
+                        .api_messages
+                        .as_deref()
+                        .map(|m| m.to_vec())
+                        .unwrap_or_default();
                     self.app_core.spawn_chat_for(
                         self.rt,
                         self.llm_tx.clone(),
                         msgs,
                         &self.app.current_agent,
+                        &recent,
                     );
                 }
             }

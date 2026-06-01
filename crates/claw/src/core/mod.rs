@@ -370,7 +370,7 @@ impl AppCore {
         llm_tx: mpsc::UnboundedSender<LlmEvent>,
         messages: Vec<Value>,
     ) {
-        self.spawn_chat_for(rt, llm_tx, messages, "default")
+        self.spawn_chat_for(rt, llm_tx, messages, "default", &[])
     }
 
     /// Spawn the LLM chat loop for a specific agent.
@@ -380,13 +380,14 @@ impl AppCore {
         llm_tx: mpsc::UnboundedSender<LlmEvent>,
         messages: Vec<Value>,
         agent_id: &str,
+        recent_messages: &[Value],
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
             self.prepare_chat_loop(agent_id);
         let delegate_rt = self.build_delegate_runtime(
             agent_id,
             llm_tx.clone(),
-            Vec::new(),
+            recent_messages.to_vec(),
         );
         rt.spawn(async move {
             engine::chat_loop(
@@ -498,6 +499,9 @@ impl AppCore {
             user_memory: memory.format_user_memory(),
             user_profile: memory.format_user_profile(),
             recent_messages,
+            tz_offset: self.config.tz_offset,
+            plan_then_execute: self.config.agent_config(agent_id).execution_mode
+                == crate::config::ExecutionMode::PlanThenExecute,
         })
     }
 
@@ -744,13 +748,14 @@ impl AppCore {
         llm_tx: mpsc::UnboundedSender<LlmEvent>,
         messages: Vec<Value>,
         agent_id: &str,
+        recent_messages: &[Value],
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
             self.prepare_chat_loop(agent_id);
         let delegate_rt = self.build_delegate_runtime(
             agent_id,
             llm_tx.clone(),
-            Vec::new(),
+            recent_messages.to_vec(),
         );
         tokio::spawn(async move {
             engine::chat_loop(

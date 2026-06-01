@@ -166,6 +166,9 @@ pub struct AgentConfig {
     /// E.g., ["数据分析", "代码生成", "数据可视化"]
     #[serde(default)]
     pub capabilities: Vec<String>,
+    /// Execution mode override for this agent (None = inherit from global).
+    #[serde(default)]
+    pub execution_mode: Option<ExecutionMode>,
 }
 
 /// Execution mode for multi-step tasks.
@@ -216,7 +219,6 @@ impl Default for QualityJudgeConfig {
 /// Produced by `Config::agent_config()`.
 #[derive(Debug, Clone)]
 pub struct ResolvedAgentConfig {
-    /// Agent profile ID
     #[allow(dead_code)]
     pub agent_id: String,
     pub provider: String,
@@ -230,6 +232,7 @@ pub struct ResolvedAgentConfig {
     pub allowed_dirs: Vec<String>,
     #[allow(dead_code)]
     pub capabilities: Vec<String>,
+    pub execution_mode: ExecutionMode,
 }
 
 impl Config {
@@ -280,6 +283,9 @@ impl Config {
                 .and_then(|a| a.allowed_dirs.clone())
                 .unwrap_or_else(|| self.allowed_dirs.clone()),
             capabilities: agent.map(|a| a.capabilities.clone()).unwrap_or_default(),
+            execution_mode: agent
+                .and_then(|a| a.execution_mode.clone())
+                .unwrap_or(self.execution_mode.clone()),
         }
     }
 

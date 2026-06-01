@@ -39,6 +39,10 @@ pub struct DelegateRuntime {
     pub user_memory: String,
     pub user_profile: String,
     pub recent_messages: Vec<serde_json::Value>,
+    /// Timezone offset for date/time injection.
+    pub tz_offset: chrono::FixedOffset,
+    /// Whether to use plan-then-execute mode (vs ReAct).
+    pub plan_then_execute: bool,
 }
 
 // ── Shared helpers ──

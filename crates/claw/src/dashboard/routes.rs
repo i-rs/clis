@@ -236,7 +236,7 @@ pub async fn chat_stream(
         let records = core.session_mgr.load_messages(&session_id, 50);
         let msgs = core.build_messages_from_jsonl(&records, &agent_id);
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id);
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &records);
     }
 
     let stream_state = state.clone();
@@ -628,6 +628,7 @@ pub async fn update_agent(
         mcp_servers: None, // inherit from existing via merge
         allowed_dirs: None,
         capabilities: existing.capabilities,
+        execution_mode: existing.execution_mode,
     };
 
     core.config.agents.insert(id.clone(), agent_config);
@@ -698,8 +699,9 @@ pub async fn create_agent(
         system_prompt_file: None,
         mcp_servers: None,
         allowed_dirs: None,
-        capabilities: Vec::new(),
-    };
+            capabilities: Vec::new(),
+            execution_mode: None,
+        };
 
     // Add to config
     if let Err(e) = core.config.add_agent(&agent_id, agent_config) {

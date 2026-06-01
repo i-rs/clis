@@ -198,6 +198,7 @@ mod tests {
                 mcp_servers: vec![],
                 allowed_dirs: vec![],
                 capabilities: vec!["数据分析".to_string()],
+                execution_mode: crate::config::ExecutionMode::React,
             }],
         );
         let hint = router.routing_hint();
@@ -220,6 +221,7 @@ mod tests {
                 mcp_servers: vec![],
                 allowed_dirs: vec![],
                 capabilities: vec!["数据分析".to_string()],
+                execution_mode: crate::config::ExecutionMode::React,
             }],
         );
         let result = router.select_agent("帮我做数据分析", "default", "default");

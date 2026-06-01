@@ -525,6 +525,7 @@ mod tests {
             mcp_servers: Vec::new(),
             allowed_dirs: Vec::new(),
             capabilities: Vec::new(),
+            execution_mode: crate::config::ExecutionMode::React,
         };
         let global_servers: Vec<McpServerConfig> = Vec::new();
         let registry = McpRegistry::for_agent(&agent_config, &global_servers);
@@ -547,6 +548,7 @@ mod tests {
             mcp_servers: Vec::new(),
             allowed_dirs: Vec::new(),
             capabilities: Vec::new(),
+            execution_mode: crate::config::ExecutionMode::React,
         };
         // 构造一个带有 enabled=false 的服务器（跳过实际连接）
         let disabled_server = McpServerConfig {

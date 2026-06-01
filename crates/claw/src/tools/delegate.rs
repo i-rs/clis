@@ -68,29 +68,7 @@ impl ClawTool for DelegateTool {
 
         let agent_config = ctx.config.agent_config(&agent_id);
 
-        let mut system_prompt = String::new();
-        if let Some(sp) = &agent_config.system_prompt {
-            system_prompt.push_str(sp);
-            system_prompt.push_str("\n\n");
-        }
-
-        system_prompt.push_str("你是一个专门处理委托任务的智能体。请基于用户提供的任务和上下文，\
-             用中文简洁、专业地完成任务。你可以使用可用的工具来完成工作。");
-
-        if let Some(rt) = &ctx.delegate_runtime {
-            if !rt.user_identity.is_empty() {
-                system_prompt.push_str("\n\n");
-                system_prompt.push_str(&rt.user_identity);
-            }
-            if !rt.user_profile.is_empty() {
-                system_prompt.push_str("\n\n## 用户画像\n");
-                system_prompt.push_str(&rt.user_profile);
-            }
-            if !rt.user_memory.is_empty() {
-                system_prompt.push_str("\n\n## 用户偏好记忆\n");
-                system_prompt.push_str(&rt.user_memory);
-            }
-        }
+        let system_prompt = build_sub_agent_prompt(&agent_config, &ctx);
 
         let mut messages =
             vec![serde_json::json!({"role": "system", "content": system_prompt})];
@@ -134,7 +112,8 @@ impl ClawTool for DelegateTool {
         tracing::info!(
             agent_id = %agent_id,
             model = %agent_config.model,
-            "委托任务给子智能体（含工具支持）"
+            execution_mode = ?agent_config.execution_mode,
+            "委托任务给子智能体"
         );
 
         let provider = create_provider_for(
@@ -163,9 +142,13 @@ impl ClawTool for DelegateTool {
         if !agent_config.enabled_tools.is_empty() {
             sub_config.enabled_tools = agent_config.enabled_tools.clone();
         }
+        if !agent_config.allowed_dirs.is_empty() {
+            sub_config.allowed_dirs = agent_config.allowed_dirs.clone();
+        }
         if !ctx.config.allow_recursive_delegation {
             sub_config.exclude_delegate_tool = true;
         }
+        sub_config.execution_mode = agent_config.execution_mode;
 
         let timeout_secs = if ctx.config.delegate_timeout_secs > 0 {
             ctx.config.delegate_timeout_secs
@@ -177,7 +160,7 @@ impl ClawTool for DelegateTool {
         let parent_tx = ctx.delegate_runtime.as_ref().map(|rt| rt.parent_tx.clone());
         let http_client = ctx.http_client.clone();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             crate::core::engine::chat_loop(
                 provider,
                 sub_config,
@@ -197,7 +180,6 @@ impl ClawTool for DelegateTool {
         let mut tool_summary = Vec::new();
         let mut total_input_tokens: u32 = 0;
         let mut total_output_tokens: u32 = 0;
-        let mut final_usage: Option<crate::llm::TokenUsage> = None;
         let mut final_model = String::new();
 
         let result = tokio::time::timeout(
@@ -234,13 +216,19 @@ impl ClawTool for DelegateTool {
                             let cat = crate::error::category_from_result(e);
                             errors.push((e.clone(), cat));
                         }
+                        LlmEvent::UsageRecord(record) => {
+                            total_input_tokens += record.prompt_tokens;
+                            total_output_tokens += record.completion_tokens;
+                            final_model = record.model.clone();
+                        }
                         LlmEvent::Done(_, usage, trace_id) => {
                             if let Some(u) = usage {
                                 total_input_tokens += u.prompt_tokens;
                                 total_output_tokens += u.completion_tokens;
-                                final_usage = Some(*u);
                             }
-                            final_model = trace_id.clone();
+                            if !trace_id.is_empty() {
+                                final_model = trace_id.clone();
+                            }
                             break;
                         }
                         _ => {}
@@ -250,30 +238,30 @@ impl ClawTool for DelegateTool {
         )
         .await;
 
-        if let Some(rt) = &ctx.delegate_runtime {
-            if let Some(usage) = final_usage {
-                let record = rt.stats_manager.create_record(
-                    &format!("delegate:{}", agent_id),
-                    &final_model,
-                    &agent_config.provider,
-                    usage.prompt_tokens,
-                    usage.completion_tokens,
-                    !tool_summary.is_empty(),
-                    tool_summary.len() as u32,
-                    0,
-                    result.is_ok() && !text.is_empty(),
-                    0,
-                    &uuid::Uuid::new_v4().to_string(),
-                );
-                rt.stats_manager.record(record);
-            }
-        }
-
+        // Cancel the background task on timeout (#5)
         if result.is_err() {
+            handle.abort();
             return Err(ClawError::Timeout(format!(
                 "子智能体调用超时 ({}s)",
                 timeout_secs
             )));
+        }
+
+        // Persist usage (#6)
+        if let Some(rt) = &ctx.delegate_runtime {
+            rt.stats_manager.record(rt.stats_manager.create_record(
+                &format!("delegate:{}", agent_id),
+                &final_model,
+                &agent_config.provider,
+                total_input_tokens,
+                total_output_tokens,
+                !tool_summary.is_empty(),
+                tool_summary.len() as u32,
+                0,
+                !text.is_empty(),
+                0,
+                &uuid::Uuid::new_v4().to_string(),
+            ));
         }
 
         if text.is_empty() {
@@ -291,19 +279,77 @@ impl ClawTool for DelegateTool {
             return Err(ClawError::Execution("子智能体未返回任何内容".to_string()));
         }
 
-        let mut output = text;
+        // Structured return (#9): separate text, tools, usage into metadata
+        let mut output = serde_json::json!({
+            "text": text,
+        });
         if !tool_summary.is_empty() {
-            output.push_str("\n\n--- 子智能体工具调用 ---\n");
-            output.push_str(&tool_summary.join("\n"));
+            output["tools"] = serde_json::json!(tool_summary);
         }
         if total_input_tokens > 0 || total_output_tokens > 0 {
-            output.push_str(&format!(
-                "\n\n--- 子智能体用量 ---\n输入: {} tokens, 输出: {} tokens",
-                total_input_tokens, total_output_tokens
-            ));
+            output["usage"] = serde_json::json!({
+                "input_tokens": total_input_tokens,
+                "output_tokens": total_output_tokens,
+            });
         }
-        Ok(output)
+        Ok(serde_json::to_string(&output).unwrap_or(text))
     }
+}
+
+fn build_sub_agent_prompt(
+    agent_config: &crate::config::ResolvedAgentConfig,
+    ctx: &ToolContext,
+) -> String {
+    let mut prompt = String::new();
+
+    if let Some(sp) = &agent_config.system_prompt {
+        prompt.push_str(sp);
+        prompt.push_str("\n\n");
+    }
+
+    // Timezone-aware date/time injection (#2)
+    if let Some(rt) = &ctx.delegate_runtime {
+        let now = crate::utils::now_in_tz(rt.tz_offset);
+        prompt.push_str(&format!(
+            "当前时间: {} ({}), {} (UTC{})\n\n",
+            now.format("%Y-%m-%d").to_string(),
+            now.format("%A").to_string(),
+            now.format("%H:%M").to_string(),
+            crate::utils::tz_label(rt.tz_offset),
+        ));
+    }
+
+    prompt.push_str(
+        "你是一个专门处理委托任务的智能体。请基于用户提供的任务和上下文，\
+         用中文简洁、专业地完成任务。你可以使用可用的工具来完成工作。",
+    );
+
+    // Plan mode injection (#2)
+    if let Some(rt) = &ctx.delegate_runtime {
+        if rt.plan_then_execute {
+            prompt.push_str(
+                "\n\n## 执行模式：先计划再执行\n\
+                 请先输出一个明确的多步骤计划，逐步执行，每步完成后告知结果。",
+            );
+        }
+    }
+
+    if let Some(rt) = &ctx.delegate_runtime {
+        if !rt.user_identity.is_empty() {
+            prompt.push_str("\n\n");
+            prompt.push_str(&rt.user_identity);
+        }
+        if !rt.user_profile.is_empty() {
+            prompt.push_str("\n\n## 用户画像\n");
+            prompt.push_str(&rt.user_profile);
+        }
+        if !rt.user_memory.is_empty() {
+            prompt.push_str("\n\n## 用户偏好记忆\n");
+            prompt.push_str(&rt.user_memory);
+        }
+    }
+
+    prompt
 }
 
 fn validate_agent_exists(agent_id: &str, config: &crate::config::Config) -> Result<String, ClawError> {
@@ -323,6 +369,32 @@ fn validate_agent_exists(agent_id: &str, config: &crate::config::Config) -> Resu
     )))
 }
 
+/// Expanded keyword matching with synonyms (#7)
+fn match_capability(task: &str, capabilities: &[String]) -> bool {
+    let task_lower = task.to_lowercase();
+    for cap in capabilities {
+        if task_lower.contains(cap.to_lowercase().as_str()) {
+            return true;
+        }
+        let expanded = expand_keywords(cap);
+        for kw in &expanded {
+            if task_lower.contains(kw) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn expand_keywords(cap: &str) -> Vec<String> {
+    match cap.to_lowercase().as_str() {
+        "数据分析" => vec!["数据".to_string(), "分析".to_string(), "趋势".to_string(), "统计".to_string(), "对比".to_string(), "图表".to_string()],
+        "代码生成" => vec!["代码".to_string(), "写".to_string(), "编程".to_string(), "函数".to_string(), "实现".to_string()],
+        "数据可视化" => vec!["图表".to_string(), "可视化".to_string(), "图".to_string(), "曲线".to_string(), "饼图".to_string()],
+        _ => vec![],
+    }
+}
+
 fn resolve_auto_agent(task: &str, config: &crate::config::Config) -> Result<String, ClawError> {
     if config.sub_agents.is_empty() && config.agents.len() <= 1 {
         return Err(ClawError::NotFound(
@@ -337,17 +409,13 @@ fn resolve_auto_agent(task: &str, config: &crate::config::Config) -> Result<Stri
         .collect();
 
     for agent in &sub_agents {
-        if !agent.capabilities.is_empty() {
-            for cap in &agent.capabilities {
-                if task.contains(cap.as_str()) {
-                    tracing::info!(
-                        agent_id = %agent.agent_id,
-                        capability = %cap,
-                        "自动路由匹配子智能体"
-                    );
-                    return Ok(agent.agent_id.clone());
-                }
-            }
+        if match_capability(task, &agent.capabilities) {
+            tracing::info!(
+                agent_id = %agent.agent_id,
+                capabilities = ?agent.capabilities,
+                "自动路由匹配子智能体"
+            );
+            return Ok(agent.agent_id.clone());
         }
     }
 
@@ -359,12 +427,8 @@ fn resolve_auto_agent(task: &str, config: &crate::config::Config) -> Result<Stri
         .collect();
 
     for agent in &agents {
-        if !agent.capabilities.is_empty() {
-            for cap in &agent.capabilities {
-                if task.contains(cap.as_str()) {
-                    return Ok(agent.agent_id.clone());
-                }
-            }
+        if match_capability(task, &agent.capabilities) {
+            return Ok(agent.agent_id.clone());
         }
     }
 
@@ -375,4 +439,187 @@ fn resolve_auto_agent(task: &str, config: &crate::config::Config) -> Result<Stri
     Err(ClawError::NotFound(
         "自动路由未能匹配到合适的子智能体".to_string(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_config_with_sub_agent() -> crate::config::Config {
+        let mut config = crate::test_helpers::test_config();
+        config.sub_agents.insert(
+            "analyst".to_string(),
+            crate::config::AgentConfig {
+                model: Some("gpt-4o".to_string()),
+                capabilities: vec!["数据分析".to_string()],
+                ..Default::default()
+            },
+        );
+        config.sub_agents.insert(
+            "coder".to_string(),
+            crate::config::AgentConfig {
+                model: Some("claude-3-opus".to_string()),
+                capabilities: vec!["代码生成".to_string()],
+                ..Default::default()
+            },
+        );
+        config
+    }
+
+    #[test]
+    fn test_validate_agent_exists_ok() {
+        let config = test_config_with_sub_agent();
+        let result = validate_agent_exists("analyst", &config);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "analyst");
+    }
+
+    #[test]
+    fn test_validate_agent_exists_not_found() {
+        let config = test_config_with_sub_agent();
+        let result = validate_agent_exists("nonexistent", &config);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        match err {
+            ClawError::NotFound(msg) => {
+                assert!(msg.contains("nonexistent"));
+                assert!(msg.contains("analyst") || msg.contains("coder"));
+            }
+            _ => panic!("应为 NotFound 错误"),
+        }
+    }
+
+    #[test]
+    fn test_resolve_auto_agent_by_capability() {
+        let config = test_config_with_sub_agent();
+        let result = resolve_auto_agent("帮我分析一下数据趋势", &config);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "analyst");
+    }
+
+    #[test]
+    fn test_resolve_auto_agent_by_expanded_keyword() {
+        let config = test_config_with_sub_agent();
+        // "统计" is an expanded keyword for "数据分析"
+        let result = resolve_auto_agent("统计上个月的支出", &config);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "analyst");
+    }
+
+    #[test]
+    fn test_resolve_auto_agent_fallback_to_first() {
+        let config = test_config_with_sub_agent();
+        // No capability keywords match — falls back to first sub_agent
+        let result = resolve_auto_agent("记录体重 70kg", &config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_resolve_auto_agent_no_sub_agents() {
+        let config = crate::test_helpers::test_config();
+        let result = resolve_auto_agent("随便", &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_match_capability_exact() {
+        assert!(match_capability("数据分析报告", &["数据分析".to_string()]));
+    }
+
+    #[test]
+    fn test_match_capability_expanded() {
+        assert!(match_capability("看下趋势", &["数据分析".to_string()]));
+    }
+
+    #[test]
+    fn test_match_capability_no_match() {
+        assert!(!match_capability("记录体重", &["数据分析".to_string()]));
+    }
+
+    #[test]
+    fn test_expand_keywords_data_analysis() {
+        let expanded = expand_keywords("数据分析");
+        assert!(expanded.contains(&"趋势".to_string()));
+        assert!(expanded.contains(&"统计".to_string()));
+    }
+
+    #[test]
+    fn test_expand_keywords_unknown() {
+        let expanded = expand_keywords("翻译");
+        assert!(expanded.is_empty());
+    }
+
+    #[test]
+    fn test_build_sub_agent_prompt_uses_system_prompt() {
+        let config = crate::config::ResolvedAgentConfig {
+            agent_id: "test".to_string(),
+            provider: "openai".to_string(),
+            api_key: String::new(),
+            base_url: String::new(),
+            model: "gpt-4o-mini".to_string(),
+            enabled_tools: Default::default(),
+            system_prompt: Some("你是专业财务分析师".to_string()),
+            mcp_servers: vec![],
+            allowed_dirs: vec![],
+            capabilities: vec![],
+            execution_mode: crate::config::ExecutionMode::React,
+        };
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: reqwest::Client::new(),
+            delegate_runtime: None,
+        };
+        let prompt = build_sub_agent_prompt(&config, &ctx);
+        assert!(prompt.contains("财务分析师"));
+        assert!(prompt.contains("委托任务"));
+    }
+
+    #[test]
+    fn test_build_sub_agent_prompt_with_user_identity() {
+        use std::sync::Arc;
+        let config = crate::config::ResolvedAgentConfig {
+            agent_id: "test".to_string(),
+            provider: "openai".to_string(),
+            api_key: String::new(),
+            base_url: String::new(),
+            model: "gpt-4o-mini".to_string(),
+            enabled_tools: Default::default(),
+            system_prompt: None,
+            mcp_servers: vec![],
+            allowed_dirs: vec![],
+            capabilities: vec![],
+            execution_mode: crate::config::ExecutionMode::React,
+        };
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: reqwest::Client::new(),
+            delegate_runtime: Some(Arc::new(crate::tools::DelegateRuntime {
+                mcp_registry: crate::mcp::McpRegistry::new(&[]),
+                skills: vec![],
+                tool_frequency: std::collections::HashMap::new(),
+                parent_tx: tokio::sync::mpsc::unbounded_channel().0,
+                stats_manager: std::sync::Arc::new(
+                    crate::stats::StatsManager::with_storage(
+                        std::sync::Arc::new(
+                            crate::storage::ClawStorage::file(
+                                std::env::temp_dir().join("claw-test-delegate"),
+                            ),
+                        ),
+                        &Default::default(),
+                        chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                    ),
+                ),
+                user_identity: "用户称呼你为小助手".to_string(),
+                user_memory: String::new(),
+                user_profile: String::new(),
+                recent_messages: vec![],
+                tz_offset: chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                plan_then_execute: false,
+            })),
+        };
+        let prompt = build_sub_agent_prompt(&config, &ctx);
+        assert!(prompt.contains("小助手"));
+        assert!(prompt.contains("当前时间"));
+    }
 }
