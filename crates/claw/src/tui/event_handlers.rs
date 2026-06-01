@@ -303,23 +303,29 @@ impl<'a> KeyEventHandler<'a> {
     // ── Phase 1: global shortcuts (Ctrl+C, Ctrl+Q, etc.) ──
 
     fn handle_global_shortcuts(&self, key: KeyEvent) -> bool {
+        let m = key.modifiers;
+        let has_ctrl = m.contains(KeyModifiers::CONTROL);
+        let has_shift = m.contains(KeyModifiers::SHIFT);
         matches!(
-            (key.code, key.modifiers),
-            (KeyCode::Char('c'), m) if m == KeyModifiers::CONTROL | KeyModifiers::SHIFT
+            (key.code, has_ctrl, has_shift),
+            (KeyCode::Char('c'), true, true)
         ) || matches!(
-            (key.code, key.modifiers),
-            (KeyCode::Char('q'), KeyModifiers::CONTROL)
-                | (KeyCode::Char('c'), KeyModifiers::CONTROL)
+            (key.code, has_ctrl, has_shift),
+            (KeyCode::Char('q'), true, false)
+                | (KeyCode::Char('c'), true, false)
         )
     }
 
     fn handle_global_action(&mut self, key: KeyEvent) -> Action {
-        match (key.code, key.modifiers) {
-            (KeyCode::Char('c'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+        let m = key.modifiers;
+        let has_ctrl = m.contains(KeyModifiers::CONTROL);
+        let has_shift = m.contains(KeyModifiers::SHIFT);
+        match (key.code, has_ctrl, has_shift) {
+            (KeyCode::Char('c'), true, true) => {
                 self.handle_copy()
             }
-            (KeyCode::Char('q'), KeyModifiers::CONTROL)
-            | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Action::Quit,
+            (KeyCode::Char('q'), true, false)
+            | (KeyCode::Char('c'), true, false) => Action::Quit,
             _ => Action::Continue,
         }
     }
@@ -374,11 +380,11 @@ impl<'a> KeyEventHandler<'a> {
         }
 
         match key.code {
-            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.overlay.selection_mode = false;
                 self.app.overlay.selected_message = None;
             }
-            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.handle_delete_selected_message();
                 self.app.mark_dirty();
             }
@@ -430,20 +436,21 @@ impl<'a> KeyEventHandler<'a> {
 
     fn handle_overlay_shortcuts(&self, key: KeyEvent) -> bool {
         let is_processing = self.app.is_processing();
-        let ctrl = key.modifiers == KeyModifiers::CONTROL;
-        let ctrl_shift = key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT);
+        let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let has_shift = key.modifiers.contains(KeyModifiers::SHIFT);
 
         matches!(
-            (key.code, ctrl, ctrl_shift, is_processing),
+            (key.code, has_ctrl, has_shift, is_processing),
             (KeyCode::Char('s'), true, false, _)
                 | (KeyCode::Char('h'), true, false, _)
                 | (KeyCode::Char('i'), true, false, _)
+                | (KeyCode::Tab, true, false, _)
                 | (KeyCode::Char('f'), true, false, false)
                 | (KeyCode::Char('t'), true, false, _)
                 | (KeyCode::Char('a'), true, false, _)
-                | (KeyCode::Char('u'), false, true, _)
-                | (KeyCode::Char('p'), false, true, _)
-                | (KeyCode::Char('i'), false, true, _)
+                | (KeyCode::Char('u'), true, true, _)
+                | (KeyCode::Char('p'), true, true, _)
+                | (KeyCode::Char('i'), true, true, _)
                 | (KeyCode::Char('l'), true, false, _)
                 | (KeyCode::Char('n'), true, false, _)
                 | (KeyCode::Char('r'), true, false, _)
@@ -453,8 +460,11 @@ impl<'a> KeyEventHandler<'a> {
     }
 
     fn handle_overlay_action(&mut self, key: KeyEvent) -> Action {
-        match (key.code, key.modifiers) {
-            (KeyCode::Char('s'), KeyModifiers::CONTROL) if !self.app.messages.is_empty() => {
+        let m = key.modifiers;
+        let has_ctrl = m.contains(KeyModifiers::CONTROL);
+        let has_shift = m.contains(KeyModifiers::SHIFT);
+        match (key.code, has_ctrl, has_shift) {
+            (KeyCode::Char('s'), true, false) if !self.app.messages.is_empty() => {
                 if self.app.overlay.current == Some(Overlay::AgentList) {
                     let agent_ids: Vec<&String> = self.app.config.agents.keys().collect();
                     let idx = self
@@ -474,22 +484,22 @@ impl<'a> KeyEventHandler<'a> {
                     };
                 }
             }
-            (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('h'), true, false) => {
                 self.app.overlay.toggle(Overlay::Help);
             }
-            (KeyCode::Char('i'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('i'), true, false) | (KeyCode::Tab, true, false) => {
                 self.app.overlay.toggle(Overlay::Config);
             }
-            (KeyCode::Char('f'), KeyModifiers::CONTROL) if !self.app.is_processing() => {
+            (KeyCode::Char('f'), true, false) if !self.app.is_processing() => {
                 self.app.overlay.toggle(Overlay::Feedback);
             }
-            (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('t'), true, false) => {
                 self.app.overlay.toggle(Overlay::ToolList);
             }
-            (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('a'), true, false) => {
                 self.app.overlay.toggle(Overlay::AgentList);
             }
-            (KeyCode::Char('u'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+            (KeyCode::Char('u'), true, true) => {
                 if self.app.overlay.current == Some(Overlay::StatsHistory) {
                     self.app.overlay.close();
                 } else {
@@ -497,7 +507,7 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.stats_history = self.app_core.stats_manager.daily_history(7);
                 }
             }
-            (KeyCode::Char('p'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+            (KeyCode::Char('p'), true, true) => {
                 if self.app.overlay.current == Some(Overlay::PluginList) {
                     self.app.overlay.close();
                 } else {
@@ -519,23 +529,23 @@ impl<'a> KeyEventHandler<'a> {
                         .collect();
                 }
             }
-            (KeyCode::Char('i'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+            (KeyCode::Char('i'), true, true) => {
                 self.app.overlay.toggle(Overlay::InfoPanel);
             }
-            (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('l'), true, false) => {
                 self.app.overlay.toggle(Overlay::SessionList);
                 if self.app.overlay.is_overlay(Overlay::SessionList) {
                     self.app.overlay.session_list_index = 0;
                     self.app.overlay.session_list = self.app_core.session_mgr.sessions().to_vec();
                 }
             }
-            (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('n'), true, false) => {
                 return self.handle_new_session();
             }
-            (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('r'), true, false) => {
                 self.app.overlay.toggle(Overlay::Sidebar);
             }
-            (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('p'), true, false) => {
                 if self.app.overlay.current == Some(Overlay::AgentPicker) {
                     self.app.overlay.close();
                 } else {
@@ -550,7 +560,7 @@ impl<'a> KeyEventHandler<'a> {
                         .unwrap_or(0);
                 }
             }
-            (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('e'), true, false) => {
                 return self.handle_export_session();
             }
             _ => {}
@@ -624,7 +634,7 @@ impl<'a> KeyEventHandler<'a> {
     }
 
     fn handle_enter_key(&mut self, key: KeyEvent) -> Action {
-        if key.modifiers == KeyModifiers::ALT {
+        if key.modifiers.contains(KeyModifiers::ALT) {
             if !self.app.is_processing() {
                 self.app.insert_char('\n');
             }
@@ -667,20 +677,20 @@ impl<'a> KeyEventHandler<'a> {
             return Action::Continue;
         }
         match key.code {
-            KeyCode::Backspace if key.modifiers == KeyModifiers::NONE => {
+            KeyCode::Backspace if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.app.input.delete_word_before_cursor();
+                self.app.overlay.tab_completions.clear();
+            }
+            KeyCode::Backspace if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                 if !self.app.input.text.is_empty() {
                     self.app.delete_before_cursor();
                     self.app.overlay.tab_completions.clear();
                 }
             }
-            KeyCode::Backspace if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.input.delete_word_before_cursor();
-                self.app.overlay.tab_completions.clear();
-            }
-            KeyCode::Left if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Left if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.input.move_cursor_word_left();
             }
-            KeyCode::Right if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Right if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.input.move_cursor_word_right();
             }
             KeyCode::Left => {
@@ -695,16 +705,16 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::End => {
                 self.app.input.move_cursor_end();
             }
-            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.input.delete_to_line_start();
             }
-            KeyCode::Char('k') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.input.delete_to_line_end();
             }
-            KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('z') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.input.undo();
             }
-            KeyCode::Char('y') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.input.redo();
             }
             KeyCode::Char(c) => {
@@ -828,11 +838,12 @@ impl<'a> KeyEventHandler<'a> {
     // ── Session list ──
 
     fn handle_session_list_keys(&mut self, key: KeyEvent) -> Action {
+        let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         match key.code {
-            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('d') if has_ctrl => {
                 self.app.overlay.session_confirm_delete = true;
             }
-            KeyCode::Char('r') if key.modifiers == KeyModifiers::CONTROL => {
+            KeyCode::Char('r') if has_ctrl => {
                 let filtered = self.app.overlay.filtered_sessions();
                 if let Some(meta) = filtered.get(self.app.overlay.session_list_index) {
                     self.app.overlay.session_rename_buf = meta.title.clone();
