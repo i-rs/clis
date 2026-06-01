@@ -742,7 +742,7 @@ pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &cr
         Style::default().fg(dim),
     )));
 
-    let list = List::new(lines).block(
+    let info_list = List::new(lines).block(
         Block::default()
             .title(" ℹ Claw 状态 ")
             .title_alignment(Alignment::Center)
@@ -750,5 +750,91 @@ pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &cr
             .border_type(ratatui::widgets::BorderType::Rounded)
             .border_style(Style::default().fg(primary)),
     );
+    f.render_widget(info_list, popup_area);
+}
+
+pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.config.theme;
+    let primary = theme.primary();
+    let dim = theme.dim_text();
+    let bg = theme.background();
+
+    let themes = crate::theme::BUILT_IN_THEMES;
+    let idx = app.overlay.theme_index.min(themes.len().saturating_sub(1));
+
+    let popup_height = (themes.len() as u16).saturating_add(2);
+    let popup_width = 44u16.min(area.width.saturating_sub(8));
+    let popup_x = (area.width.saturating_sub(popup_width)) / 2;
+    let popup_y = (area.height.saturating_sub(popup_height)) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    f.render_widget(Clear, popup_area);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    for (i, preset) in themes.iter().enumerate() {
+        let selected = i == idx;
+        let preset_theme = crate::theme::Theme::from_preset(preset.name).unwrap_or_default();
+        let p_color = preset_theme.primary();
+        let s_color = preset_theme.secondary();
+        let a_color = preset_theme.accent();
+        let bg_color = preset_theme.background();
+
+        let sel_bg = if selected {
+            theme.selection_bg()
+        } else {
+            bg
+        };
+
+        let name_fg = if selected {
+            Color::White
+        } else {
+            dim
+        };
+        let label_fg = if selected { p_color } else { dim };
+
+        let prefix = if selected { " > " } else { "   " };
+
+        lines.push(Line::from(vec![
+            Span::styled(prefix.to_string(), Style::default().fg(name_fg).bg(sel_bg)),
+            Span::styled(
+                format!("{:<10}", preset.name),
+                Style::default().fg(name_fg).bg(sel_bg).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" ".to_string(), Style::default().bg(sel_bg)),
+            Span::styled(
+                format!("{:<6}", preset.label),
+                Style::default().fg(label_fg).bg(sel_bg),
+            ),
+            Span::styled("  ".to_string(), Style::default().bg(sel_bg)),
+            Span::styled("██".to_string(), Style::default().fg(p_color).bg(sel_bg)),
+            Span::styled(" ".to_string(), Style::default().bg(sel_bg)),
+            Span::styled("██".to_string(), Style::default().fg(s_color).bg(sel_bg)),
+            Span::styled(" ".to_string(), Style::default().bg(sel_bg)),
+            Span::styled("██".to_string(), Style::default().fg(a_color).bg(sel_bg)),
+            Span::styled(" ".to_string(), Style::default().bg(sel_bg)),
+            Span::styled("██".to_string(), Style::default().fg(bg_color).bg(sel_bg)),
+        ]));
+    }
+
+    lines.push(Line::from(Span::styled(
+        "",
+        Style::default().bg(bg),
+    )));
+    lines.push(Line::from(Span::styled(
+        " ↑↓ 预览  Enter 确认  Esc 取消",
+        Style::default().fg(dim).bg(bg),
+    )));
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" 🎨 主题 ")
+            .title_alignment(Alignment::Center)
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(primary))
+            .style(Style::default().bg(bg)),
+    );
+
     f.render_widget(list, popup_area);
 }

@@ -366,7 +366,8 @@ impl<'a> KeyEventHandler<'a> {
                 | Some(Overlay::StatsHistory)
                 | Some(Overlay::PluginList)
                 | Some(Overlay::InfoPanel)
-                | Some(Overlay::Config) => {
+                | Some(Overlay::Config)
+                | Some(Overlay::ThemePicker) => {
                     self.app.overlay.close();
                 }
                 Some(Overlay::Help) | Some(Overlay::Feedback) => {
@@ -581,6 +582,7 @@ impl<'a> KeyEventHandler<'a> {
             Overlay::SessionList => self.handle_session_list_keys(key),
             Overlay::Sidebar => self.handle_sidebar_keys(key),
             Overlay::AgentPicker => self.handle_agent_picker_keys(key),
+            Overlay::ThemePicker => self.handle_theme_picker_keys(key),
             _ => Action::Continue,
         }
     }
@@ -1449,12 +1451,75 @@ impl<'a> KeyEventHandler<'a> {
                         Some(("✓ 上下文已压缩".to_string(), std::time::Instant::now()));
                 }
             }
+            Some(crate::app::SlashAction::Theme) => {
+                self.app.overlay.show(Overlay::ThemePicker);
+                self.app.overlay.theme_index = crate::theme::BUILT_IN_THEMES
+                    .iter()
+                    .position(|t| {
+                        let theme = &self.app.config.theme;
+                        theme.primary.as_deref() == Some(t.primary)
+                            && theme.background.as_deref() == Some(t.background)
+                    })
+                    .unwrap_or(0);
+            }
             None => {}
         }
         Action::Continue
     }
 
-    // ── Tab completion ──
+    // ── Theme picker ──
+
+    fn handle_theme_picker_keys(&mut self, key: KeyEvent) -> Action {
+        let max = crate::theme::BUILT_IN_THEMES.len().saturating_sub(1);
+        match key.code {
+            KeyCode::Up => {
+                self.app.overlay.theme_index =
+                    self.app.overlay.theme_index.saturating_sub(1);
+                self.apply_theme_preview();
+            }
+            KeyCode::Down => {
+                if self.app.overlay.theme_index < max {
+                    self.app.overlay.theme_index += 1;
+                }
+                self.apply_theme_preview();
+            }
+            KeyCode::Enter => {
+                self.apply_theme_preview();
+                self.save_theme();
+                self.app.overlay.close();
+            }
+            KeyCode::Esc => {
+                self.app.overlay.close();
+            }
+            _ => {}
+        }
+        Action::Continue
+    }
+
+    fn apply_theme_preview(&mut self) {
+        if let Some(preset) =
+            crate::theme::BUILT_IN_THEMES.get(self.app.overlay.theme_index)
+        {
+            self.app.config.theme =
+                crate::theme::Theme::from_preset(preset.name)
+                    .unwrap_or_default();
+        }
+    }
+
+    fn save_theme(&self) {
+        let home = match dirs::home_dir() {
+            Some(h) => h,
+            None => return,
+        };
+        let theme_path = home.join(".i-rs").join("claw").join("theme.json");
+        if let Err(e) = self.app.config.theme.save(&theme_path) {
+            tracing::warn!("保存主题失败: {}", e);
+        }
+    }
+
+    // ── Export ──
+
+
 
     fn handle_tab_complete(&mut self) {
         let completions = crate::completion::get_completions(

@@ -109,6 +109,10 @@ pub fn render(f: &mut Frame, app: &mut App) {
             panels::render_backdrop(f, area);
             panels::render_feedback_prompt(f, area, &app.config.theme);
         }
+        Some(Overlay::ThemePicker) => {
+            panels::render_backdrop(f, area);
+            panels::render_theme_picker(f, area, app);
+        }
         Some(Overlay::Sidebar) => {}
         None => {}
     }

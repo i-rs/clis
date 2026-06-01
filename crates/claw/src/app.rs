@@ -446,6 +446,7 @@ pub enum SlashAction {
     Select,
     Clear,
     Compact,
+    Theme,
 }
 
 pub struct SlashCommand {
@@ -472,6 +473,7 @@ pub static SLASH_COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "/select",  desc: "选择模式",         shortcut: "Ctrl+S",       action: SlashAction::Select },
     SlashCommand { name: "/clear",   desc: "清空当前会话",     shortcut: "",             action: SlashAction::Clear },
     SlashCommand { name: "/compact", desc: "压缩上下文",       shortcut: "",             action: SlashAction::Compact },
+    SlashCommand { name: "/theme",   desc: "切换主题配色",     shortcut: "",             action: SlashAction::Theme },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -487,6 +489,7 @@ pub enum Overlay {
     StatsHistory,
     PluginList,
     InfoPanel,
+    ThemePicker,
 }
 
 pub struct OverlayState {
@@ -511,6 +514,7 @@ pub struct OverlayState {
     pub tab_completion_index: usize,
     pub slash_visible: bool,
     pub slash_index: usize,
+    pub theme_index: usize,
 }
 
 impl OverlayState {
@@ -550,6 +554,7 @@ impl OverlayState {
             tab_completion_index: 0,
             slash_visible: false,
             slash_index: 0,
+            theme_index: 0,
         }
     }
 
