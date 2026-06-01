@@ -15,16 +15,17 @@ use crate::app::{App, Message};
 pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let text_width = (area.width as usize).saturating_sub(4).max(20);
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
+    let total_msgs = app.messages.len();
 
     let mut format_cache = std::mem::take(&mut app.render_state.format_cache);
     let mut heights = std::mem::take(&mut app.render_state.heights);
 
-    if heights.len() != app.messages.len() {
+    if heights.len() != total_msgs {
         heights.clear();
         format_cache.clear();
-        heights.reserve(app.messages.len());
+        heights.reserve(total_msgs);
         for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
-            let msg_index = app.messages.len() - 1 - rev_idx;
+            let msg_index = total_msgs - 1 - rev_idx;
             heights.push(message_line_count(
                 app,
                 msg,
@@ -65,7 +66,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         end_idx = msg_skip_count + 1;
     }
 
-    let mut items: Vec<ListItem> = Vec::new();
+    let mut items: Vec<ListItem> = Vec::with_capacity(end_idx.saturating_sub(msg_skip_count));
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
         if rev_idx < msg_skip_count {
             continue;
@@ -73,7 +74,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         if rev_idx >= end_idx {
             continue;
         }
-        let msg_index = app.messages.len() - 1 - rev_idx;
+        let msg_index = total_msgs - 1 - rev_idx;
         let skip = if rev_idx == msg_skip_count {
             partial_skip
         } else {
@@ -837,10 +838,9 @@ fn build_message_lines(
                     Style::default().fg(app.config.theme.dim_text()),
                 )));
             } else if !text.is_empty() {
-                let md_lines = format_cache
-                    .get(&msg_index)
-                    .map(|arc| (**arc).clone())
-                    .unwrap_or_else(|| render_markdown(text, text_width.saturating_sub(3)));
+                let md_lines = format_cache.get(&msg_index).cloned().unwrap_or_else(|| {
+                    Arc::new(render_markdown(text, text_width.saturating_sub(3)))
+                });
                 if !is_markdown(text) || md_lines.is_empty() {
                     for wrapped in utils::wrap_text(text, text_width) {
                         lines.push(Line::from(Span::styled(
@@ -849,7 +849,7 @@ fn build_message_lines(
                         )));
                     }
                 } else {
-                    for md_line in &md_lines {
+                    for md_line in md_lines.iter() {
                         lines.push(md_line.clone());
                     }
                 }

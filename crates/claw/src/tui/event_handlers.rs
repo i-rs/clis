@@ -158,6 +158,10 @@ impl<'a> LlmEventHandler<'a> {
     }
 
     fn handle_http_log(&mut self, data: &crate::llm::HttpLogData) {
+        let msg_count = serde_json::from_str::<serde_json::Value>(&data.request_body)
+            .ok()
+            .and_then(|v| v["messages"].as_array().map(|a| a.len()))
+            .unwrap_or(0);
         self.app.add_http_log(app::HttpLog {
             timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
             status: data.status,
@@ -167,6 +171,7 @@ impl<'a> LlmEventHandler<'a> {
             completion_tokens: data.completion_tokens,
             error: data.error.clone(),
             request_body: data.request_body.clone(),
+            msg_count,
         });
     }
 

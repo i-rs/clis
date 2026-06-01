@@ -88,7 +88,7 @@ fn compute_text_relevance(text: &str) -> f64 {
         .filter(|c| c.is_alphanumeric() || **c > '\x7f')
         .count();
 
-    let stopwords = [
+    static STOPWORDS: &[&str] = &[
         "的", "了", "在", "是", "我", "有", "和", "就", "不", "都", "the", "a", "an", "is", "are",
         "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would",
         "could", "should", "may", "might", "can", "shall", "to", "of", "in", "for", "on", "with",
@@ -99,11 +99,12 @@ fn compute_text_relevance(text: &str) -> f64 {
         "now", "it", "its", "he", "she", "they", "them", "this", "that", "these", "those", "what",
         "which", "who", "whom", "how",
     ];
+
     let stopword_count = text
         .split_whitespace()
         .filter(|w| {
             let lower = w.to_lowercase();
-            stopwords.iter().any(|&s| lower.contains(s)) && w.len() <= 4
+            STOPWORDS.iter().any(|&s| lower.contains(s)) && w.len() <= 4
         })
         .count();
 
@@ -137,6 +138,7 @@ pub struct HttpLog {
     pub completion_tokens: u32,
     pub error: Option<String>,
     pub request_body: String,
+    pub msg_count: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -1077,6 +1079,7 @@ mod tests {
                 completion_tokens: 0,
                 error: None,
                 request_body: String::new(),
+                msg_count: 0,
             });
         }
         assert_eq!(app.http_logs.len(), 50);

@@ -62,13 +62,8 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
             format!("{}ms", log.duration_ms)
         };
 
-        // Count messages in request body
-        let msg_count = if let Ok(v) = serde_json::from_str::<serde_json::Value>(&log.request_body)
-        {
-            v["messages"].as_array().map(|a| a.len()).unwrap_or(0)
-        } else {
-            0
-        };
+        // Count messages in request body (pre-computed in HttpLog)
+        let msg_count = log.msg_count;
 
         // Line 1: selection indicator + timestamp + status
         items.push(ListItem::new(vec![
@@ -250,7 +245,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
-                app.overlay.session_rename_buf.clone(),
+                app.overlay.session_rename_buf.as_str(),
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),

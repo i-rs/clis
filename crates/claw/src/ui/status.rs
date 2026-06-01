@@ -35,7 +35,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
 
     if app.overlay.selection_mode {
         spans.push(Span::styled(
-            " ● [选择模式] ".to_string(),
+            " ● [选择模式] ",
             Style::default()
                 .fg(theme.accent())
                 .add_modifier(Modifier::BOLD),
@@ -63,7 +63,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
     } else {
         spans.push(Span::styled(
-            " ● 就绪 ".to_string(),
+            " ● 就绪 ",
             Style::default()
                 .fg(theme.primary())
                 .add_modifier(Modifier::BOLD),
