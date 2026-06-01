@@ -24,6 +24,21 @@ pub(super) fn truncate_str(s: &str, max_len: usize) -> String {
     }
 }
 
+pub(super) fn relative_time_at(ts: i64, now: i64) -> String {
+    let diff = now.saturating_sub(ts);
+    if diff < 60 {
+        "刚刚".to_string()
+    } else if diff < 3600 {
+        format!("{}分钟前", diff / 60)
+    } else if diff < 86400 {
+        format!("{}小时前", diff / 3600)
+    } else if diff < 2592000 {
+        format!("{}天前", diff / 86400)
+    } else {
+        format!("{}月前", diff / 2592000)
+    }
+}
+
 pub(super) fn relative_time(ts: i64) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -41,10 +56,6 @@ pub(super) fn relative_time(ts: i64) -> String {
     } else {
         format!("{}月前", diff / 2592000)
     }
-}
-
-pub(super) fn relative_time_naive(ts: chrono::NaiveDateTime) -> String {
-    relative_time(ts.and_utc().timestamp())
 }
 
 pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
