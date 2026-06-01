@@ -20,7 +20,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     let popup_x = area.x + 2;
 
     let status_height: u16 = 1;
-    let input_h = input::input_height(&app.input.text);
+    let input_h = input::input_height(&app.input.text, area.width);
     let popup_y = area
         .bottom()
         .saturating_sub(status_height + input_h + 1 + popup_height + 1);

@@ -371,7 +371,7 @@ pub(super) fn render_request_body(
 
     let inner_w = (popup_width as usize).saturating_sub(4).max(20);
     // Visible content lines (popup height minus borders minus header)
-    let visible_lines = (popup_height as usize).saturating_sub(4).max(1);
+    let visible_lines = (popup_height as usize).saturating_sub(6).max(1);
 
     let mut lines: Vec<Line> = Vec::new();
 

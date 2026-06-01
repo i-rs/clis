@@ -619,6 +619,11 @@ impl<'a> KeyEventHandler<'a> {
                 if self.app.input.text.is_empty() {
                     self.app.scroll_up();
                 } else if let Some(text) = self.app.input.navigate_up() {
+                    if self.app.input.history_index.is_some()
+                        && self.app.input.draft.is_empty()
+                    {
+                        self.app.input.draft = self.app.input.text.clone();
+                    }
                     self.app.input.text = text;
                     self.app.input.move_cursor_end();
                 }
@@ -630,8 +635,12 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.input.text = text;
                     self.app.input.move_cursor_end();
                 } else {
-                    self.app.input.text.clear();
-                    self.app.input.cursor = 0;
+                    if !self.app.input.draft.is_empty() {
+                        self.app.input.text = std::mem::take(&mut self.app.input.draft);
+                    } else {
+                        self.app.input.text.clear();
+                    }
+                    self.app.input.cursor = self.app.input.text.len();
                 }
             }
             KeyCode::Enter => return self.handle_enter_key(key),
@@ -759,12 +768,12 @@ impl<'a> KeyEventHandler<'a> {
         };
         if let Some(content) = content {
             if crate::tui::clipboard::copy_to_clipboard(&content) {
-                self.app.overlay.copy_feedback = Some("✓ 已复制".to_string());
+                self.app.overlay.copy_feedback = Some(("✓ 已复制".to_string(), std::time::Instant::now()));
             } else {
-                self.app.overlay.copy_feedback = Some("✗ 复制失败".to_string());
+                self.app.overlay.copy_feedback = Some(("✗ 复制失败".to_string(), std::time::Instant::now()));
             }
         } else {
-            self.app.overlay.copy_feedback = Some("无内容可复制".to_string());
+            self.app.overlay.copy_feedback = Some(("无内容可复制".to_string(), std::time::Instant::now()));
         }
         Action::Continue
     }
@@ -906,6 +915,9 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.overlay.session_search_mode = true;
                 self.app.overlay.session_search.clear();
             }
+            KeyCode::Char(c) if !self.app.overlay.session_rename_buf.is_empty() => {
+                self.app.overlay.session_rename_buf.push(c);
+            }
             KeyCode::Char(c) if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.push(c);
                 self.app.overlay.session_list_index = 0;
@@ -914,6 +926,11 @@ impl<'a> KeyEventHandler<'a> {
                     .overlay
                     .session_list_index
                     .min(self.app.overlay.filtered_sessions().len().saturating_sub(1));
+            }
+            KeyCode::Backspace if !self.app.overlay.session_rename_buf.is_empty()
+                && !self.app.overlay.session_search_mode =>
+            {
+                self.app.overlay.session_rename_buf.pop();
             }
             KeyCode::Backspace if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.pop();
@@ -1104,7 +1121,7 @@ impl<'a> KeyEventHandler<'a> {
 
     fn handle_export_session(&mut self) -> Action {
         if self.app.messages.is_empty() {
-            self.app.overlay.copy_feedback = Some("无消息可导出".to_string());
+            self.app.overlay.copy_feedback = Some(("无消息可导出".to_string(), std::time::Instant::now()));
             return Action::Continue;
         }
 
@@ -1213,10 +1230,10 @@ impl<'a> KeyEventHandler<'a> {
 
         match std::fs::write(&path, &md) {
             Ok(_) => {
-                self.app.overlay.copy_feedback = Some(format!("✓ 已导出: {}", filename));
+                self.app.overlay.copy_feedback = Some((format!("✓ 已导出: {}", filename), std::time::Instant::now()));
             }
             Err(e) => {
-                self.app.overlay.copy_feedback = Some(format!("✗ 导出失败: {}", e));
+                self.app.overlay.copy_feedback = Some((format!("✗ 导出失败: {}", e), std::time::Instant::now()));
             }
         }
         Action::Continue

@@ -9,8 +9,8 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::app::App;
 
-pub(super) fn input_height(input: &str) -> u16 {
-    let max_visual_width = 80usize;
+pub(super) fn input_height(input: &str, terminal_width: u16) -> u16 {
+    let max_visual_width = (terminal_width as usize).saturating_sub(4).max(20);
     let content_lines = if input.is_empty() {
         1
     } else {
@@ -18,7 +18,7 @@ pub(super) fn input_height(input: &str) -> u16 {
             .lines()
             .map(|line| {
                 let w = UnicodeWidthStr::width(line);
-                if w == 0 { 1 } else { w.div_ceil(max_visual_width.max(1)) }
+                if w == 0 { 1 } else { w.div_ceil(max_visual_width) }
             })
             .sum::<usize>()
             .max(1)

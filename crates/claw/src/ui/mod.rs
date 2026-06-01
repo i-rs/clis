@@ -18,7 +18,9 @@ pub fn render(f: &mut Frame, app: &mut App) {
     let area = f.area();
 
     let plan_height: u16 = if !app.plan_steps.is_empty() && app.is_processing() {
-        (app.plan_steps.len() as u16).min(5)
+        let steps = (app.plan_steps.len() as u16).min(5);
+        let more = if app.plan_steps.len() > 5 { 1 } else { 0 };
+        steps + 1 + more
     } else {
         0
     };
@@ -28,12 +30,12 @@ pub fn render(f: &mut Frame, app: &mut App) {
     let mut constraints = vec![Constraint::Length(1), Constraint::Min(1)];
 
     if plan_height > 0 {
-        constraints.push(Constraint::Length(1));
+        constraints.push(Constraint::Length(plan_height));
     }
 
     constraints.extend(vec![
         Constraint::Length(processing_height),
-        Constraint::Length(input::input_height(&app.input.text)),
+        Constraint::Length(input::input_height(&app.input.text, area.width)),
         Constraint::Length(1),
     ]);
 

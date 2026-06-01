@@ -231,10 +231,19 @@ fn message_line_count(
                 lines += 1;
             }
             if !result.is_empty() {
-                let cached = format_cache
-                    .entry(msg_index)
-                    .or_insert_with(|| Arc::new(utils::format_json_result(result, text_width).0));
-                lines += cached.len();
+                let cached_result = utils::format_json_result(result, text_width);
+                if !cached_result.0.is_empty() {
+                    let cached = format_cache
+                        .entry(msg_index)
+                        .or_insert_with(|| Arc::new(cached_result.0));
+                    lines += cached.len();
+                } else {
+                    lines += if has_ansi(result) {
+                        ansi_line_count(result, text_width.saturating_sub(3))
+                    } else {
+                        wrapped_line_count(result, text_width.saturating_sub(3))
+                    };
+                }
             }
             lines
         }
@@ -790,12 +799,13 @@ fn parse_ansi_line_at(raw: &str, line_start: usize, line_end: usize) -> Vec<Span
             raw_i = next_raw;
             state = next_state;
         } else {
-            let c = raw_bytes[raw_i] as char;
-            raw_i += c.len_utf8();
+            let c = raw[raw_i..].chars().next().unwrap_or('\0');
+            let c_len = c.len_utf8();
+            raw_i += c_len;
             if plain_i >= line_start && plain_i < line_end {
                 cur_text.push(c);
             }
-            plain_i += 1;
+            plain_i += c_len;
         }
     }
     if !cur_text.is_empty() {
@@ -968,6 +978,20 @@ fn indexed_color(n: i32) -> Color {
 
 // ── Markdown rendering ──
 
+fn ansi_line_count(text: &str, max_width: usize) -> usize {
+    if max_width == 0 {
+        return text.lines().count();
+    }
+    let clean = strip_ansi(text);
+    clean
+        .lines()
+        .map(|line| {
+            let w = UnicodeWidthStr::width(line);
+            if w == 0 { 1 } else { w.div_ceil(max_width) }
+        })
+        .sum()
+}
+
 fn wrapped_line_count(text: &str, max_width: usize) -> usize {
     if max_width == 0 {
         return text.lines().count();
@@ -1028,14 +1052,12 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                     .collect();
                 out.push(Line::from(spans));
             } else {
-                let plain: String = self.spans.iter().map(|(t, _)| t.as_str()).collect();
-                self.spans.clear();
-                for w in utils::wrap_text(&plain, max_width) {
-                    out.push(Line::from(Span::styled(
-                        w,
-                        Style::default().fg(Color::White),
-                    )));
+                for (text, style) in &self.spans {
+                    for w in utils::wrap_text(text, max_width) {
+                        out.push(Line::from(Span::styled(w, *style)));
+                    }
                 }
+                self.spans.clear();
             }
         }
     }

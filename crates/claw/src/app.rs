@@ -195,6 +195,7 @@ pub struct InputState {
     undo_stack: Vec<String>,
     redo_stack: Vec<String>,
     last_change: Option<Instant>,
+    pub(crate) draft: String,
 }
 
 impl InputState {
@@ -207,6 +208,7 @@ impl InputState {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             last_change: None,
+            draft: String::new(),
         }
     }
 
@@ -447,7 +449,7 @@ pub struct OverlayState {
     pub agent_list: Vec<String>,
     pub tool_call_expanded: HashSet<usize>,
     pub reasoning_expanded: HashSet<usize>,
-    pub copy_feedback: Option<String>,
+    pub copy_feedback: Option<(String, std::time::Instant)>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
 }
