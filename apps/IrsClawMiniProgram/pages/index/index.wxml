@@ -38,9 +38,9 @@
                 </view>
                 <text class="thinking-label">Thinking</text>
                 <text class="thinking-count">{{item.reasoningCount}}</text>
-                <text class="thinking-chevron">{{item.reasoningExpanded ? '▼' : '▶'}}</text>
+                <text class="thinking-chevron {{item.reasoningExpanded ? 'expanded' : 'collapsed'}}">▶</text>
               </view>
-              <view class="thinking-body" wx:if="{{item.reasoningExpanded}}">
+              <view class="thinking-body {{item.reasoningExpanded ? 'expanded' : 'collapsed'}}">
                 <text class="thinking-text">{{item.reasoning}}</text>
               </view>
             </view>
@@ -51,23 +51,27 @@
         <view class="msg-row msg-row-ai" wx:if="{{item.role === 'tool_call'}}">
           <view class="avatar avatar-tool"><text class="avatar-text">⚙</text></view>
           <view class="msg-content msg-content-ai">
-            <view class="tool-card" bindtap="onToggleTool" data-id="{{item.id}}">
+            <view class="tool-card {{(item.status === 'error' || item.error) ? 'tool-card-error' : ''}}" bindtap="onToggleTool" data-id="{{item.id}}">
               <view class="tool-header">
-                <view class="tool-status {{item.result ? 'tool-status-done' : 'tool-status-running'}}">
-                  <view class="tool-status-icon {{item.result ? '' : 'tool-status-spin'}}">{{item.result ? '✓' : '↻'}}</view>
+                <view class="tool-status {{(item.status === 'error' || item.error) ? 'tool-status-error' : (item.result ? 'tool-status-done' : 'tool-status-running')}}">
+                  <view class="tool-status-icon">{{(item.status === 'error' || item.error) ? '✕' : (item.result ? '✓' : '↻')}}</view>
                 </view>
-                <text class="tool-name">{{item.name}}</text>
-                <text class="tool-preview" wx:if="{{!item.expanded && item.result}}">{{item.preview}}</text>
-                <text class="tool-chevron">{{item.expanded ? '▼' : '▶'}}</text>
+                <text class="tool-name {{(item.status === 'error' || item.error) ? 'tool-name-error' : ''}}">{{item.name || '未知工具'}}</text>
+                <text class="tool-preview {{(item.status === 'error' || item.error) ? 'tool-preview-error' : ''}}" wx:if="{{!item.expanded && (item.result || item.error)}}">{{item.error ? item.error : item.preview}}</text>
+                <text class="tool-chevron tool-chevron-anim {{item.expanded ? 'expanded' : 'collapsed'}}">▶</text>
               </view>
-              <view class="tool-body" wx:if="{{item.expanded}}">
+              <view class="tool-body {{item.expanded ? 'expanded' : 'collapsed'}}">
                 <view class="tool-section" wx:if="{{item.args}}">
-                  <text class="tool-section-label">Args</text>
+                  <text class="tool-section-label">参数</text>
                   <view class="tool-code-wrap"><text class="tool-code">{{item.args}}</text></view>
                 </view>
-                <view class="tool-section" wx:if="{{item.result}}">
-                  <text class="tool-section-label">Result</text>
+                <view class="tool-section" wx:if="{{item.result && !item.error}}">
+                  <text class="tool-section-label">结果</text>
                   <view class="tool-code-wrap"><text class="tool-code">{{item.result}}</text></view>
+                </view>
+                <view class="tool-section" wx:if="{{item.error}}">
+                  <text class="tool-section-label">错误</text>
+                  <view class="tool-code-wrap"><text class="tool-code tool-code-error">{{item.error}}</text></view>
                 </view>
               </view>
             </view>
@@ -83,9 +87,9 @@
                 <text class="reasoning-fold-icon">◈</text>
                 <text class="reasoning-fold-label">Reasoning</text>
                 <text class="reasoning-fold-count">{{item.reasoningCount}}</text>
-                <text class="reasoning-fold-chevron">{{item.reasoningExpanded ? '▼' : '▶'}}</text>
+                <text class="reasoning-fold-chevron reasoning-fold-chevron-anim {{item.reasoningExpanded ? 'expanded' : 'collapsed'}}">▶</text>
               </view>
-              <view class="reasoning-fold-body" wx:if="{{item.reasoningExpanded}}">
+              <view class="reasoning-fold-body {{item.reasoningExpanded ? 'expanded' : 'collapsed'}}">
                 <text class="reasoning-fold-text">{{item.reasoning}}</text>
               </view>
             </view>

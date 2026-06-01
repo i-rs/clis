@@ -5,6 +5,11 @@ function genId() {
   return 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 10000)
 }
 
+function toSingleLine(text) {
+  if (!text) return ''
+  return String(text).replace(/\s+/g, ' ').trim()
+}
+
 function smartTruncate(text, maxLen) {
   if (!text || text.length <= maxLen) return text || ''
   return text.substring(0, maxLen) + '…'
@@ -177,13 +182,41 @@ Page({
       } else if (m.role === 'tool_call') {
         var tArgs = m.args || ''
         var tResult = m.result || ''
+        var tError = m.error || ''
+        if (m.success === false && !tError) {
+          tError = tResult || '执行失败'
+        }
+        if (tError) {
+          var lowerTErr = tError.toLowerCase()
+          if (lowerTErr.indexOf('"success":true') !== -1) {
+            tError = ''
+          }
+        }
+        if (!tError && tResult) {
+          var lowerTResult = tResult.toLowerCase()
+          if (lowerTResult.indexOf('error') !== -1 ||
+              lowerTResult.indexOf('failed') !== -1 ||
+              lowerTResult.indexOf('failure') !== -1 ||
+              lowerTResult.indexOf('panic') !== -1 ||
+              lowerTResult.indexOf('执行错误') !== -1) {
+            tError = tResult
+            tResult = ''
+          }
+        }
+        var tStatus = m.status || (tError ? 'error' : 'done')
+        var tDisplayResult = tStatus === 'error' ? '' : formatJson(tResult)
+        var tDisplayError = tError
+        var tPreviewSource = tStatus === 'error' ? tDisplayError : tResult
+        var tPreview = tPreviewSource ? smartTruncate(toSingleLine(tPreviewSource), 40) : ''
         msgs.push({
           id: genId(),
           role: 'tool_call',
-          name: m.name || '',
+          name: m.name || '未知工具',
           args: formatJson(tArgs),
-          result: formatJson(tResult),
-          preview: smartTruncate(tResult, 40),
+          result: tDisplayResult,
+          error: tDisplayError,
+          status: tStatus,
+          preview: tPreview,
           expanded: false
         })
       } else if (m.role === 'assistant') {
@@ -316,13 +349,42 @@ Page({
       onToolExecuted: function(toolInfo) {
         var resultStr = toolInfo.result || ''
         var argsStr = toolInfo.arguments || toolInfo.args || ''
+        var errorStr = toolInfo.error || ''
+        var successFlag = toolInfo.success
+        if (successFlag === false && !errorStr) {
+          errorStr = resultStr || '执行失败'
+        }
+        if (errorStr) {
+          var lowerErr = errorStr.toLowerCase()
+          if (lowerErr.indexOf('"success":true') !== -1) {
+            errorStr = ''
+          }
+        }
+        if (!errorStr && resultStr) {
+          var lowerResult = resultStr.toLowerCase()
+          if (lowerResult.indexOf('error') !== -1 ||
+              lowerResult.indexOf('failed') !== -1 ||
+              lowerResult.indexOf('failure') !== -1 ||
+              lowerResult.indexOf('panic') !== -1 ||
+              lowerResult.indexOf('执行错误') !== -1) {
+            errorStr = resultStr
+            resultStr = ''
+          }
+        }
+        var status = errorStr ? 'error' : 'done'
+        var displayResult = status === 'error' ? '' : formatJson(resultStr)
+        var displayError = errorStr
+        var previewSource = status === 'error' ? displayError : resultStr
+        var preview = previewSource ? smartTruncate(toSingleLine(previewSource), 40) : ''
         var toolMsg = {
           id: genId(),
           role: 'tool_call',
-          name: toolInfo.name || 'unknown',
+          name: toolInfo.name || '未知工具',
           args: formatJson(argsStr),
-          result: formatJson(resultStr),
-          preview: resultStr ? smartTruncate(resultStr, 40) : '',
+          result: displayResult,
+          error: displayError,
+          status: status,
+          preview: preview,
           expanded: false
         }
         var messages = that.data.messages.concat([toolMsg])
