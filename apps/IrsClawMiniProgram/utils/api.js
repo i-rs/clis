@@ -1,34 +1,85 @@
-var app = getApp()
-
 function baseUrl() {
-  return app.globalData.serverUrl + '/api'
+  try {
+    var app = getApp()
+    var url = app && app.globalData && app.globalData.serverUrl
+    if (!url) return null
+    return url.replace(/\/+$/, '') + '/api'
+  } catch (e) {
+    return null
+  }
 }
 
 function authHeader() {
-  var token = app.globalData.authToken
-  if (!token) return {}
-  return { Authorization: 'Bearer ' + token }
+  try {
+    var app = getApp()
+    var token = app && app.globalData && app.globalData.authToken
+    if (!token) return {}
+    return { Authorization: 'Bearer ' + token }
+  } catch (e) {
+    return {}
+  }
 }
 
 function request(method, path, data) {
   return new Promise(function(resolve, reject) {
+    var url = baseUrl()
+    if (!url) {
+      resolve({ success: false, error: '未配置服务器，请先在设置中添加服务器', code: 'NO_SERVER' })
+      return
+    }
     wx.request({
-      url: baseUrl() + path,
+      url: url + path,
       method: method,
       data: data,
       header: Object.assign({ 'Content-Type': 'application/json' }, authHeader()),
       success: function(res) {
+        if (res.statusCode === 401) {
+          resolve({ success: false, error: '认证失败，请检查 Auth Token', code: 'UNAUTHORIZED' })
+          return
+        }
+        if (res.statusCode >= 500) {
+          resolve({ success: false, error: '服务器错误 (HTTP ' + res.statusCode + ')', code: 'SERVER_ERROR' })
+          return
+        }
+        if (!res.data) {
+          resolve({ success: false, error: '响应数据为空', code: 'EMPTY_RESPONSE' })
+          return
+        }
         resolve(res.data)
       },
       fail: function(err) {
-        reject(err)
+        var msg = '网络请求失败'
+        if (err && err.errMsg) {
+          if (err.errMsg.indexOf('url') !== -1) msg = 'URL 错误: ' + err.errMsg
+          else if (err.errMsg.indexOf('timeout') !== -1) msg = '请求超时'
+          else if (err.errMsg.indexOf('fail') !== -1) msg = '连接失败，请检查服务器地址'
+        }
+        resolve({ success: false, error: msg, code: 'NETWORK_ERROR' })
       }
     })
   })
 }
 
 function healthCheck() {
-  return request('GET', '/health')
+  var url = baseUrl()
+  if (!url) return Promise.resolve({ success: false, error: '未配置服务器' })
+  return new Promise(function(resolve) {
+    wx.request({
+      url: url + '/health',
+      method: 'GET',
+      timeout: 5000,
+      success: function(res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ success: true, data: res.data })
+        } else {
+          resolve({ success: false, error: '服务器响应异常 (HTTP ' + res.statusCode + ')' })
+        }
+      },
+      fail: function() {
+        resolve({ success: false, error: '无法连接到服务器' })
+      }
+    })
+  })
 }
 
 function getConfig() {
@@ -61,6 +112,12 @@ function getSession(id) {
 
 function deleteSession(id) {
   return request('DELETE', '/sessions/' + encodeURIComponent(id))
+}
+
+function postFeedback(sessionId, positive, message) {
+  var body = { positive: positive }
+  if (message) body.message = message
+  return request('POST', '/sessions/' + encodeURIComponent(sessionId) + '/feedback', body)
 }
 
 function sendMessage(message, agentId) {
@@ -103,94 +160,21 @@ function deleteAgent(id) {
   return request('DELETE', '/agents/' + encodeURIComponent(id))
 }
 
-function postFeedback(sessionId, positive, message) {
-  var body = { positive: positive }
-  if (message) {
-    body.message = message
-  }
-  return request('POST', '/sessions/' + encodeURIComponent(sessionId) + '/feedback', body)
-}
-
 function getStats(period) {
-  period = period || 'today'
-  return request('GET', '/stats?period=' + period)
-}
-
-function streamChat(sessionId, handlers) {
-  var url = baseUrl() + '/chat/stream/' + encodeURIComponent(sessionId)
-  var task = wx.request({
-    url: url,
-    method: 'GET',
-    header: Object.assign({}, authHeader()),
-    enableChunked: true,
-    success: function() {},
-    fail: function(err) {
-      if (handlers.onError) handlers.onError(String(err))
-    }
-  })
-
-  var buffer = ''
-  var currentEvent = ''
-
-  task.onChunkReceived(function(res) {
-    var bytes = new Uint8Array(res.data)
-    var text = ''
-    for (var i = 0; i < bytes.length; i++) {
-      text += String.fromCharCode(bytes[i])
-    }
-    try {
-      text = decodeURIComponent(escape(text))
-    } catch (e) {}
-
-    buffer += text
-    var lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-
-    for (var j = 0; j < lines.length; j++) {
-      var line = lines[j].trim()
-      if (line.indexOf('event: ') === 0) {
-        currentEvent = line.slice(7).trim()
-      } else if (line.indexOf('data: ') === 0) {
-        var data = line.slice(6)
-        if (currentEvent === 'token' && handlers.onToken) {
-          handlers.onToken(data)
-        } else if (currentEvent === 'reasoning' && handlers.onReasoning) {
-          handlers.onReasoning(data)
-        } else if (currentEvent === 'status' && handlers.onStatus) {
-          handlers.onStatus(data)
-        } else if (currentEvent === 'error' && handlers.onError) {
-          handlers.onError(data)
-        } else if (currentEvent === 'new_round' && handlers.onNewRound) {
-          handlers.onNewRound()
-        } else if (currentEvent === 'tool_executed' && handlers.onToolExecuted) {
-          try {
-            var parsed = JSON.parse(data)
-            handlers.onToolExecuted(parsed)
-          } catch (e) {}
-        } else if (currentEvent === 'done' && handlers.onDone) {
-          try {
-            var doneParsed = JSON.parse(data)
-            handlers.onDone(doneParsed.usage)
-          } catch (e) {
-            handlers.onDone(null)
-          }
-        }
-      }
-    }
-  })
-
-  return task
+  return request('GET', '/stats?period=' + encodeURIComponent(period || 'all'))
 }
 
 module.exports = {
   healthCheck: healthCheck,
   getConfig: getConfig,
+  updateConfig: updateConfig,
   listSessions: listSessions,
   getCurrentSession: getCurrentSession,
   createSession: createSession,
   switchSession: switchSession,
   getSession: getSession,
   deleteSession: deleteSession,
+  postFeedback: postFeedback,
   sendMessage: sendMessage,
   listTools: listTools,
   listPlugins: listPlugins,
@@ -200,7 +184,5 @@ module.exports = {
   createAgent: createAgent,
   updateAgent: updateAgent,
   deleteAgent: deleteAgent,
-  postFeedback: postFeedback,
-  getStats: getStats,
-  streamChat: streamChat
+  getStats: getStats
 }

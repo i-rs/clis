@@ -128,7 +128,10 @@
   <!-- Connection -->
   <view class="conn-bar" wx:if="{{!isConnected}}">
     <text class="conn-dot"></text>
-    <text class="conn-text">未连接到服务器</text>
+    <text class="conn-text">{{noServer ? '未配置服务器' : '未连接到服务器'}}</text>
+    <view class="conn-action" wx:if="{{noServer}}" bindtap="onGoSettings">
+      <text>去设置</text>
+    </view>
   </view>
 
   <!-- Input Bar -->

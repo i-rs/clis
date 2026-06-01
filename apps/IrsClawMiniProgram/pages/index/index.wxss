@@ -102,9 +102,31 @@
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* Connection */
-.conn-bar { display: flex; align-items: center; justify-content: center; padding: 12rpx 24rpx; gap: 12rpx; background: var(--red-bg); flex-shrink: 0; }
-.conn-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: var(--red); }
-.conn-text { font-size: 24rpx; color: var(--red); font-weight: 500; }
+.conn-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 32rpx;
+  background: var(--orange-bg);
+  font-size: 24rpx;
+  color: var(--orange);
+}
+.conn-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--orange);
+}
+.conn-text { flex: 1; }
+.conn-action {
+  padding: 6rpx 20rpx;
+  background: var(--orange);
+  color: #fff;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+.conn-action:active { opacity: 0.7; }
 
 /* Input Bar */
 .input-bar-wrap { flex-shrink: 0; padding: 0 32rpx 40rpx; }

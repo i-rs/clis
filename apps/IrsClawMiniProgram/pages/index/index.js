@@ -45,6 +45,7 @@ Page({
     loading: false,
     menuOpen: false,
     isConnected: false,
+    noServer: false,
     currentAgent: 'default',
     inputFocused: false,
     sessionId: '',
@@ -108,10 +109,14 @@ Page({
 
   checkConnection: function() {
     var that = this
-    api.healthCheck().then(function() {
-      that.setData({ isConnected: true })
-    }).catch(function() {
-      that.setData({ isConnected: false })
+    var serverUrl = app.globalData.serverUrl
+    if (!serverUrl) {
+      that.setData({ isConnected: false, noServer: true })
+      return
+    }
+    that.setData({ noServer: false })
+    api.healthCheck().then(function(res) {
+      that.setData({ isConnected: !!(res && res.success) })
     })
   },
 

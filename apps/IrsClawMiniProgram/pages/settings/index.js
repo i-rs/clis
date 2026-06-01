@@ -58,10 +58,13 @@ Page({
 
   checkHealth: function() {
     var that = this
-    api.healthCheck().then(function() {
-      that.setData({ isConnected: true })
-    }).catch(function() {
+    var serverUrl = app.globalData.serverUrl
+    if (!serverUrl) {
       that.setData({ isConnected: false })
+      return
+    }
+    api.healthCheck().then(function(res) {
+      that.setData({ isConnected: !!(res && res.success) })
     })
   },
 
