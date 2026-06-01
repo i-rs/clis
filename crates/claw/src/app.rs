@@ -212,7 +212,7 @@ impl InputState {
 
     /// Push current text to undo stack. Coalesces with the previous push
     /// if less than 500ms have elapsed (logical-operation undo).
-    fn push_undo(&mut self, now: Instant) {
+    pub fn push_undo(&mut self, now: Instant) {
         let coalesce = self
             .last_change
             .map(|t| now.duration_since(t).as_millis() < 500)
@@ -269,19 +269,20 @@ impl InputState {
         self.push_undo(Instant::now());
         let before = &self.text[..self.cursor];
         let trimmed = before.trim_end_matches(|c: char| c.is_whitespace());
-        let word_start = trimmed
-            .char_indices()
-            .rev()
-            .position(|(_, c)| !c.is_alphanumeric() && c != '_')
-            .map(|p| {
-                let idx = trimmed.len() - p - 1;
-                trimmed
-                    .char_indices()
-                    .nth(idx)
-                    .map(|(_, c)| idx + c.len_utf8())
-                    .unwrap_or(0)
-            })
-            .unwrap_or(0);
+        let word_start = if trimmed.is_empty() {
+            0
+        } else {
+            let chars: Vec<(usize, char)> = trimmed.char_indices().collect();
+            let mut i = chars.len();
+            while i > 0 && (chars[i - 1].1.is_alphanumeric() || chars[i - 1].1 == '_') {
+                i -= 1;
+            }
+            if i < chars.len() {
+                chars[i].0
+            } else {
+                trimmed.len()
+            }
+        };
         self.text.drain(word_start..self.cursor);
         self.cursor = word_start;
     }
@@ -335,20 +336,16 @@ impl InputState {
             self.cursor = 0;
             return;
         }
-        let new_pos = trimmed
-            .char_indices()
-            .rev()
-            .position(|(_, c)| !c.is_alphanumeric() && c != '_')
-            .map(|p| {
-                let idx = trimmed.len() - p - 1;
-                trimmed
-                    .char_indices()
-                    .nth(idx)
-                    .map(|(_, c)| idx + c.len_utf8())
-                    .unwrap_or(0)
-            })
-            .unwrap_or(0);
-        self.cursor = new_pos;
+        let chars: Vec<(usize, char)> = trimmed.char_indices().collect();
+        let mut i = chars.len();
+        while i > 0 && (chars[i - 1].1.is_alphanumeric() || chars[i - 1].1 == '_') {
+            i -= 1;
+        }
+        self.cursor = if i < chars.len() {
+            chars[i].0
+        } else {
+            trimmed.len()
+        };
     }
 
     pub fn move_cursor_word_right(&mut self) {
@@ -530,6 +527,7 @@ pub enum AppState {
 pub struct RenderState {
     pub heights: Vec<usize>,
     pub format_cache: HashMap<usize, Arc<Vec<ratatui::text::Line<'static>>>>,
+    pub cached_width: usize,
 }
 
 impl RenderState {
@@ -537,6 +535,7 @@ impl RenderState {
         Self {
             heights: Vec::new(),
             format_cache: HashMap::new(),
+            cached_width: 0,
         }
     }
 
@@ -571,6 +570,7 @@ pub struct App {
     pub api_messages: Option<Vec<Value>>,
     pub token_usage: Option<crate::llm::TokenUsage>,
     pub scroll_lines: usize,
+    pub max_scroll: usize,
     pub http_logs: Vec<HttpLog>,
     pub current_reasoning: String,
     pub reminder_text: Option<String>,
@@ -600,6 +600,7 @@ impl App {
             api_messages: None,
             token_usage: None,
             scroll_lines: 0,
+            max_scroll: 0,
             http_logs: Vec::new(),
             current_reasoning: String::new(),
             reminder_text: None,
@@ -678,7 +679,7 @@ impl App {
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_lines += 3;
+        self.scroll_lines = self.scroll_lines.saturating_add(3).min(self.max_scroll);
     }
 
     pub fn scroll_down(&mut self) {
@@ -761,10 +762,13 @@ impl App {
             && text.is_empty()
         {
             self.messages.pop();
+            self.message_timestamps.pop();
         }
         self.messages.push(Message::Error {
             text: text.to_string(),
         });
+        self.message_timestamps
+            .push(chrono::Local::now().naive_local());
         self.api_messages = None;
         self.state = AppState::Idle;
         self.status_text.clear();
@@ -782,6 +786,7 @@ impl App {
             && text.is_empty()
         {
             self.messages.pop();
+            self.message_timestamps.pop();
         }
         self.api_messages = api_messages;
         self.state = AppState::Idle;
@@ -974,12 +979,17 @@ mod tests {
     fn test_scroll() {
         let mut app = App::new(test_config());
         assert_eq!(app.scroll_lines, 0);
+        app.max_scroll = 100;
         app.scroll_up();
         assert_eq!(app.scroll_lines, 3);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
+        app.max_scroll = 2;
+        app.scroll_lines = 0;
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 2);
     }
 
     #[test]

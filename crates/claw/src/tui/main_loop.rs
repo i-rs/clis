@@ -76,8 +76,10 @@ pub fn main_loop(
                     MouseEventHandler::new(app).handle(mouse);
                 }
                 Event::Paste(text) if !app.is_processing() => {
+                    app.input.push_undo(std::time::Instant::now());
                     for c in text.chars() {
-                        app.insert_char(c);
+                        app.input.text.insert(app.input.cursor, c);
+                        app.input.cursor += c.len_utf8();
                     }
                 }
                 Event::Resize(_, _) => {

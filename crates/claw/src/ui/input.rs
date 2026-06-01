@@ -5,13 +5,24 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::app::App;
 
-/// Calculate required height for input area based on content line count.
 pub(super) fn input_height(input: &str) -> u16 {
-    let content_lines = input.lines().count().max(1);
-    // content lines + hint line + top/bottom borders
+    let max_visual_width = 80usize;
+    let content_lines = if input.is_empty() {
+        1
+    } else {
+        input
+            .lines()
+            .map(|line| {
+                let w = UnicodeWidthStr::width(line);
+                if w == 0 { 1 } else { w.div_ceil(max_visual_width.max(1)) }
+            })
+            .sum::<usize>()
+            .max(1)
+    };
     (content_lines + 1 + 2).clamp(3, 20) as u16
 }
 
@@ -95,9 +106,12 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
         let pos_in_line =
             unicode_width::UnicodeWidthStr::width(&input_before[current_line_start..]);
         let prefix_width = unicode_width::UnicodeWidthStr::width(prefix.0);
-        let cursor_x = area.x + 1 + prefix_width as u16 + pos_in_line as u16;
+        let max_x = area.x + area.width.saturating_sub(2);
+        let cursor_x = (area.x + 1 + prefix_width as u16 + pos_in_line as u16).min(max_x);
         let cursor_y = area.y + 1 + line_idx as u16;
-        f.set_cursor_position((cursor_x, cursor_y));
+        if cursor_y < area.y + area.height.saturating_sub(1) {
+            f.set_cursor_position((cursor_x, cursor_y));
+        }
     } else if !app.is_processing() {
         let prefix_width = unicode_width::UnicodeWidthStr::width(prefix.0);
         let cursor_x = area.x + 1 + prefix_width as u16;

@@ -60,7 +60,11 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let mut format_cache = std::mem::take(&mut app.render_state.format_cache);
     let mut heights = std::mem::take(&mut app.render_state.heights);
 
-    if heights.len() != total_msgs {
+    if format_cache.len() > total_msgs + 20 {
+        format_cache.retain(|k, _| *k < total_msgs);
+    }
+
+    if heights.len() != total_msgs || app.render_state.cached_width != text_width {
         heights.clear();
         format_cache.clear();
         heights.reserve(total_msgs);
@@ -95,16 +99,16 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let mut end_idx = msg_skip_count;
     let mut accumulated = 0usize;
     for &h in heights[msg_skip_count..].iter() {
-        accumulated += h;
-        end_idx += 1;
-        if end_idx > msg_skip_count + 1 && accumulated > area_lines + partial_skip {
-            end_idx -= 1;
+        if accumulated + h > area_lines + partial_skip && end_idx > msg_skip_count {
             break;
         }
+        accumulated += h;
+        end_idx += 1;
     }
     if end_idx == msg_skip_count && end_idx < heights.len() {
         end_idx = msg_skip_count + 1;
     }
+    end_idx = end_idx.min(heights.len());
 
     let mut items: Vec<ListItem> = Vec::with_capacity(end_idx.saturating_sub(msg_skip_count));
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
@@ -141,11 +145,6 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         }));
 
     let total_hidden = msg_skip_count + hidden_extra;
-    if total_hidden > 0 && !items.is_empty() {
-        block = block.title(format!(" ▲ {} 条历史消息 ", total_hidden));
-        block = block.title_alignment(ratatui::layout::Alignment::Center);
-    }
-
     if total_msgs > 0 {
         let visible_end = total_msgs.saturating_sub(msg_skip_count);
         let pct = if total_msgs <= 1 {
@@ -157,8 +156,17 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         let filled = ((pct * bar_width) / 100).max(1).min(bar_width);
         let empty = bar_width - filled;
         let scroll_bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
-        block = block.title(format!(" {scroll_bar} {pct}% "));
-        block = block.title_alignment(ratatui::layout::Alignment::Right);
+
+        if total_hidden > 0 && !items.is_empty() {
+            block = block.title(format!(
+                " ▲ {} 条历史消息  {scroll_bar} {pct}% ",
+                total_hidden
+            ));
+            block = block.title_alignment(ratatui::layout::Alignment::Center);
+        } else {
+            block = block.title(format!(" {scroll_bar} {pct}% "));
+            block = block.title_alignment(ratatui::layout::Alignment::Right);
+        }
     }
 
     let list = List::new(items).block(block);
@@ -166,6 +174,8 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
 
     app.render_state.heights = heights;
     app.render_state.format_cache = format_cache;
+    app.render_state.cached_width = text_width;
+    app.max_scroll = max_scroll;
 }
 
 // ── Message line count ──
@@ -668,8 +678,10 @@ fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
     let plain = strip_ansi(text);
     let wrapped = utils::wrap_text(&plain, max_width.saturating_sub(3));
     let mut lines = Vec::new();
+    let mut plain_offset = 0usize;
     for w in &wrapped {
-        let spans = parse_ansi_line(text, &plain, w);
+        let line_end = plain_offset + w.len();
+        let spans = parse_ansi_line_at(text, plain_offset, line_end);
         if spans.is_empty() {
             lines.push(indent_line(w, Style::default().fg(Color::White)));
         } else {
@@ -677,6 +689,7 @@ fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
             result.extend(spans);
             lines.push(Line::from(result));
         }
+        plain_offset = line_end;
     }
     lines
 }
@@ -749,11 +762,7 @@ impl AnsiState {
     }
 }
 
-fn parse_ansi_line(raw: &str, plain: &str, line: &str) -> Vec<Span<'static>> {
-    let Some(line_start) = plain.find(line) else {
-        return vec![];
-    };
-    let line_end = line_start + line.len();
+fn parse_ansi_line_at(raw: &str, line_start: usize, line_end: usize) -> Vec<Span<'static>> {
     let raw_bytes = raw.as_bytes();
     let mut spans: Vec<Span<'static>> = Vec::new();
     let mut state = AnsiState {
@@ -975,13 +984,12 @@ fn wrapped_line_count(text: &str, max_width: usize) -> usize {
 
 fn is_markdown(text: &str) -> bool {
     text.contains("**")
-        || text.contains('*')
-        || text.contains('`')
-        || (text.len() > 1 && text.as_bytes()[0] == b'#')
+        || text.contains("__")
+        || text.contains("``")
+        || (text.len() > 1 && text.as_bytes()[0] == b'#' && text.as_bytes()[1] == b' ')
         || (text.len() > 1 && text.as_bytes()[0] == b'-' && text.as_bytes()[1] == b' ')
         || text.contains("\n- ")
         || text.contains("---")
-        || text.contains("___")
 }
 
 fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {

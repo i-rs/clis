@@ -67,6 +67,7 @@ impl<'a> LlmEventHandler<'a> {
                     height,
                     format: "png".to_string(),
                 });
+                self.app.message_timestamps.push(chrono::Local::now().naive_local());
             }
         }
         Action::Continue
@@ -161,6 +162,7 @@ impl<'a> LlmEventHandler<'a> {
             valid,
             issues: issues.to_vec(),
         });
+        self.app.message_timestamps.push(chrono::Local::now().naive_local());
         if !valid {
             tracing::info!(tool, issues = ?issues, "工具结果验证告警");
         }
@@ -211,8 +213,7 @@ impl<'a> LlmEventHandler<'a> {
             Some(id) => id.to_string(),
             None => {
                 tracing::warn!("未找到当前会话，跳过持久化");
-                self.app.finish_processing(None);
-                return Action::Quit;
+                return Action::Continue;
             }
         };
 
@@ -250,6 +251,7 @@ impl<'a> LlmEventHandler<'a> {
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
             self.app.messages.push(quality);
+            self.app.message_timestamps.push(chrono::Local::now().naive_local());
         }
 
         Action::Continue
@@ -312,8 +314,9 @@ impl<'a> KeyEventHandler<'a> {
         ) || matches!(
             (key.code, has_ctrl, has_shift),
             (KeyCode::Char('q'), true, false)
-                | (KeyCode::Char('c'), true, false)
-        )
+        ) || (matches!((key.code, has_ctrl), (KeyCode::Char('c'), true))
+            && !has_shift
+            && self.app.is_processing())
     }
 
     fn handle_global_action(&mut self, key: KeyEvent) -> Action {
@@ -324,8 +327,11 @@ impl<'a> KeyEventHandler<'a> {
             (KeyCode::Char('c'), true, true) => {
                 self.handle_copy()
             }
-            (KeyCode::Char('q'), true, false)
-            | (KeyCode::Char('c'), true, false) => Action::Quit,
+            (KeyCode::Char('c'), true, false) if self.app.is_processing() => {
+                self.app.add_error("用户取消请求");
+                Action::Continue
+            }
+            (KeyCode::Char('q'), true, false) => Action::Quit,
             _ => Action::Continue,
         }
     }
@@ -349,6 +355,7 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Esc | KeyCode::Char('q') if self.app.overlay.selection_mode => {
                 self.app.overlay.selection_mode = false;
                 self.app.overlay.selected_message = None;
+                return true;
             }
             KeyCode::Esc => match self.app.overlay.current {
                 Some(Overlay::ToolList)
@@ -400,11 +407,6 @@ impl<'a> KeyEventHandler<'a> {
                     && idx + 1 < self.app.messages.len()
                 {
                     self.app.overlay.selected_message = Some(idx + 1);
-                    if self.app.messages.len().saturating_sub(1) - (idx + 1) > 0
-                        && self.app.scroll_lines > 0
-                    {
-                        self.app.scroll_lines = 0;
-                    }
                 }
             }
             KeyCode::Char(' ') => {
@@ -466,13 +468,15 @@ impl<'a> KeyEventHandler<'a> {
             (KeyCode::Char('s'), true, false) if !self.app.messages.is_empty() => {
                 if self.app.overlay.current == Some(Overlay::AgentList) {
                     let agent_ids: Vec<&String> = self.app.config.agents.keys().collect();
-                    let idx = self
-                        .app
-                        .overlay
-                        .agent_picker_index
-                        .min(agent_ids.len().saturating_sub(1));
-                    if let Some(target_id) = agent_ids.get(idx).map(|s| s.as_str()) {
-                        self.app.current_agent = target_id.to_string();
+                    if !agent_ids.is_empty() {
+                        let idx = self
+                            .app
+                            .overlay
+                            .agent_picker_index
+                            .min(agent_ids.len().saturating_sub(1));
+                        if let Some(target_id) = agent_ids.get(idx).map(|s| s.as_str()) {
+                            self.app.current_agent = target_id.to_string();
+                        }
                     }
                 } else {
                     self.app.overlay.selection_mode = !self.app.overlay.selection_mode;
@@ -892,7 +896,8 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.overlay.session_list_index.saturating_sub(1);
             }
             KeyCode::Down => {
-                let max = self.app.overlay.session_list.len().saturating_sub(1);
+                let filtered = self.app.overlay.filtered_sessions();
+                let max = filtered.len().saturating_sub(1);
                 if self.app.overlay.session_list_index < max {
                     self.app.overlay.session_list_index += 1;
                 }
@@ -904,10 +909,20 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Char(c) if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.push(c);
                 self.app.overlay.session_list_index = 0;
+                self.app.overlay.session_list_index = self
+                    .app
+                    .overlay
+                    .session_list_index
+                    .min(self.app.overlay.filtered_sessions().len().saturating_sub(1));
             }
             KeyCode::Backspace if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.pop();
                 self.app.overlay.session_list_index = 0;
+                self.app.overlay.session_list_index = self
+                    .app
+                    .overlay
+                    .session_list_index
+                    .min(self.app.overlay.filtered_sessions().len().saturating_sub(1));
             }
             KeyCode::Enter => {
                 return self.handle_session_enter();
@@ -971,6 +986,10 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.status_text.clear();
                 self.app.token_usage = None;
                 self.app.plan_steps = self.app_core.session_mgr.load_plan_steps(&new_id);
+                self.app.scroll_lines = 0;
+                self.app.max_scroll = 0;
+                self.app.overlay.tool_call_expanded.clear();
+                self.app.overlay.reasoning_expanded.clear();
                 self.app.mark_dirty();
             }
         }
@@ -1007,10 +1026,17 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Up if self.app.overlay.sidebar_body_idx.is_some() => {
                 self.app.overlay.sidebar_body_scroll =
-                    self.app.overlay.sidebar_body_scroll.saturating_sub(1);
+                    self.app.overlay.sidebar_body_scroll.saturating_sub(3);
             }
             KeyCode::Down if self.app.overlay.sidebar_body_idx.is_some() => {
-                self.app.overlay.sidebar_body_scroll += 1;
+                if let Some(idx) = self.app.overlay.sidebar_body_idx
+                    && let Some(log) = self.app.http_logs.get(idx)
+                {
+                    let content_lines = log.request_body.lines().count() * 3;
+                    let max = content_lines.saturating_sub(1);
+                    self.app.overlay.sidebar_body_scroll =
+                        (self.app.overlay.sidebar_body_scroll + 3).min(max);
+                }
             }
             _ => {}
         }
@@ -1256,15 +1282,23 @@ impl<'a> MouseEventHandler<'a> {
         if self.app.overlay.sidebar_body_idx.is_some() {
             match mouse.kind {
                 MouseEventKind::ScrollDown => {
-                    self.app.overlay.sidebar_body_scroll += 1;
+                    if let Some(idx) = self.app.overlay.sidebar_body_idx
+                        && let Some(log) = self.app.http_logs.get(idx)
+                    {
+                        let max = log.request_body.lines().count() * 3;
+                        self.app.overlay.sidebar_body_scroll =
+                            (self.app.overlay.sidebar_body_scroll + 3).min(max);
+                    }
                 }
                 MouseEventKind::ScrollUp => {
                     self.app.overlay.sidebar_body_scroll =
-                        self.app.overlay.sidebar_body_scroll.saturating_sub(1);
+                        self.app.overlay.sidebar_body_scroll.saturating_sub(3);
                 }
                 _ => {}
             }
-        } else if !self.app.is_processing() && self.app.overlay.current != Some(Overlay::Sidebar) {
+        } else if !self.app.is_processing()
+            && self.app.overlay.current.is_none()
+        {
             match mouse.kind {
                 MouseEventKind::ScrollDown => self.app.scroll_down(),
                 MouseEventKind::ScrollUp => self.app.scroll_up(),
