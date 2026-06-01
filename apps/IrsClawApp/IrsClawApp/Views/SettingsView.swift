@@ -827,7 +827,9 @@ struct AgentDetailSheet: View {
                 }
             }
             .navigationTitle(agent.id)
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
@@ -900,9 +902,12 @@ struct AgentDetailSheet: View {
                 }
             }
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #endif
     }
 
+    @ViewBuilder
     private func editingContent(_ detail: AgentDetail) -> some View {
         Form {
             Section("Model") {
@@ -921,7 +926,9 @@ struct AgentDetailSheet: View {
                     .font(.caption.monospaced())
             }
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #endif
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
