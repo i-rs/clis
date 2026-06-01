@@ -39,7 +39,7 @@
 /* Message Content */
 .msg-content { max-width: 560rpx; min-width: 80rpx; }
 .msg-content-user { display: flex; flex-direction: column; align-items: flex-end; }
-.msg-content-ai { display: flex; flex-direction: column; align-items: flex-start; }
+.msg-content-ai { display: flex; flex-direction: column; align-items: flex-start; max-width: 560rpx; overflow: hidden; }
 
 /* Bubbles */
 .msg-bubble { padding: 20rpx 28rpx; word-break: break-word; }
@@ -62,17 +62,17 @@
 .thinking-text { font-size: 26rpx; color: var(--text-2); line-height: 1.7; white-space: pre-wrap; }
 
 /* ===== Tool Call Card ===== */
-.tool-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; overflow: hidden; }
+.tool-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 20rpx; overflow: hidden; max-width: 100%; }
 .tool-card:active { background: var(--surface-2); }
-.tool-header { display: flex; align-items: center; padding: 16rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; }
+.tool-header { display: flex; align-items: center; padding: 16rpx 24rpx; gap: 12rpx; min-height: 72rpx; box-sizing: border-box; max-width: 100%; overflow: hidden; }
 .tool-status { width: 28rpx; height: 28rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .tool-status-running { background: var(--orange-bg); }
 .tool-status-done { background: var(--green-bg); }
 .tool-status-icon { font-size: 18rpx; font-weight: 700; line-height: 1; }
 .tool-status-spin { color: var(--orange); animation: spin 1s linear infinite; display: inline-block; }
 .tool-status-done .tool-status-icon { color: var(--green); }
-.tool-name { font-size: 26rpx; font-weight: 600; color: var(--text); flex-shrink: 0; max-width: 240rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-preview { font-size: 22rpx; color: var(--text-3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; min-width: 0; }
+.tool-name { font-size: 26rpx; font-weight: 600; color: var(--text); flex-shrink: 0; max-width: 180rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-preview { font-size: 22rpx; color: var(--text-3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; min-width: 0; max-width: 200rpx; }
 .tool-chevron { font-size: 20rpx; color: var(--text-3); flex-shrink: 0; width: 24rpx; text-align: center; }
 .tool-body { padding: 20rpx 24rpx; border-top: 1rpx solid var(--border); }
 .tool-section { margin-bottom: 16rpx; }

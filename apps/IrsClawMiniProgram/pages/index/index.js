@@ -10,6 +10,27 @@ function smartTruncate(text, maxLen) {
   return text.substring(0, maxLen) + '…'
 }
 
+function formatJson(text) {
+  if (!text) return ''
+  var str = typeof text === 'string' ? text : String(text)
+  try {
+    var obj = JSON.parse(str)
+    if (typeof obj === 'object' && obj !== null) {
+      return JSON.stringify(obj, null, 2)
+    }
+  } catch (e) {
+    // Not valid JSON, try simple formatting
+  }
+  // If contains JSON-like structures but invalid, add line breaks
+  if (str.length > 80 && (str.indexOf('"') !== -1 || str.indexOf(',') !== -1)) {
+    return str
+      .replace(/([{,])/g, '$1\n  ')
+      .replace(/(":\s*)/g, '$1')
+      .replace(/^\s+/gm, '  ')
+  }
+  return str
+}
+
 function charCount(text) {
   if (!text || text.length === 0) return ''
   var count = text.length
@@ -118,13 +139,14 @@ Page({
       if (m.role === 'user') {
         msgs.push({ id: genId(), role: 'user', content: m.content || '' })
       } else if (m.role === 'tool_call') {
+        var tArgs = m.args || ''
         var tResult = m.result || ''
         msgs.push({
           id: genId(),
           role: 'tool_call',
           name: m.name || '',
-          args: m.args || '',
-          result: tResult,
+          args: formatJson(tArgs),
+          result: formatJson(tResult),
           preview: smartTruncate(tResult, 40),
           expanded: false
         })
@@ -257,12 +279,13 @@ Page({
 
       onToolExecuted: function(toolInfo) {
         var resultStr = toolInfo.result || ''
+        var argsStr = toolInfo.arguments || toolInfo.args || ''
         var toolMsg = {
           id: genId(),
           role: 'tool_call',
           name: toolInfo.name || 'unknown',
-          args: toolInfo.arguments || toolInfo.args || '',
-          result: resultStr,
+          args: formatJson(argsStr),
+          result: formatJson(resultStr),
           preview: resultStr ? smartTruncate(resultStr, 40) : '',
           expanded: false
         }
