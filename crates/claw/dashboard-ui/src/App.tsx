@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Lock, Sun, Moon, ChevronDown } from 'lucide-react'
+import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Lock, Sun, Moon, ChevronDown, BarChart3 } from 'lucide-react'
 import { listAgents, type AgentInfo, hasToken, setToken } from './api'
 import ChatPage from './pages/Chat'
 import SessionsPage from './pages/Sessions'
@@ -8,13 +8,15 @@ import ToolsPage from './pages/Tools'
 import PluginsPage from './pages/Plugins'
 import SkillsPage from './pages/Skills'
 import AgentsPage from './pages/Agents'
+import UsagePage from './pages/Usage'
 
-type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins' | 'skills' | 'agents'
+type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins' | 'skills' | 'agents' | 'usage'
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'chat', label: 'Chat', icon: <MessageSquareText size={18} /> },
   { id: 'sessions', label: 'Sessions', icon: <History size={18} /> },
   { id: 'agents', label: 'Agents', icon: <Bot size={18} /> },
+  { id: 'usage', label: 'Usage', icon: <BarChart3 size={18} /> },
   { id: 'config', label: 'Config', icon: <Settings size={18} /> },
   { id: 'tools', label: 'Tools', icon: <Wrench size={18} /> },
   { id: 'plugins', label: 'Plugins', icon: <Puzzle size={18} /> },
@@ -139,6 +141,8 @@ export default function App() {
         return <PluginsPage key={pageKey} />
       case 'agents':
         return <AgentsPage key={pageKey} onAgentsChange={refreshAgents} />
+      case 'usage':
+        return <UsagePage key={pageKey} />
       case 'skills':
         return <SkillsPage key={pageKey} />
     }

@@ -6,7 +6,9 @@
     <view class="nav-center">
       <text class="nav-title">Sessions</text>
     </view>
-    <view class="nav-right"></view>
+    <view class="nav-btn" bindtap="goToUsage">
+      <text class="nav-icon">📊</text>
+    </view>
   </view>
 
   <view wx:if="{{loaded && groups.length > 0}}" class="sessions-content">

@@ -1,0 +1,92 @@
+<view class="usage-page">
+  <!-- Navbar -->
+  <view class="navbar">
+    <view class="nav-btn" bindtap="goBack"><text class="nav-btn-icon">←</text></view>
+    <view class="nav-center"><text class="nav-title">使用统计</text></view>
+    <view class="nav-btn"></view>
+  </view>
+
+  <!-- Period Selector -->
+  <view class="period-bar">
+    <view wx:for="{{periods}}" wx:key="key"
+          class="period-btn {{selectedPeriod === item.key ? 'period-btn-active' : ''}}"
+          bindtap="onPeriodChange" data-period="{{item.key}}">
+      <text class="period-label">{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- Loading -->
+  <view class="loading-state" wx:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- Error -->
+  <view class="error-state" wx:if="{{error && !isLoading}}">
+    <text class="error-text">{{error}}</text>
+    <view class="retry-btn" bindtap="loadStats"><text class="retry-text">重试</text></view>
+  </view>
+
+  <!-- Stats Content -->
+  <scroll-view class="stats-scroll" scroll-y wx:if="{{stats && !isLoading && !error}}">
+    <!-- Total Stats -->
+    <view class="stats-card main-card">
+      <view class="stat-total">
+        <text class="stat-total-label">总 Tokens</text>
+        <text class="stat-total-value">{{formatNumber(stats.total_tokens)}}</text>
+      </view>
+      <view class="stat-row">
+        <view class="stat-item">
+          <text class="stat-item-value">{{formatNumber(stats.total_requests)}}</text>
+          <text class="stat-item-label">请求次数</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-item-value">{{formatCost(stats.total_cost_usd)}}</text>
+          <text class="stat-item-label">预估成本</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Today Stats -->
+    <view class="section-title" wx:if="{{stats.today}}">今日数据</view>
+    <view class="stats-card" wx:if="{{stats.today}}">
+      <view class="today-stats">
+        <view class="today-item">
+          <view class="today-icon today-icon-req"><text>📊</text></view>
+          <view class="today-info">
+            <text class="today-value">{{formatNumber(stats.today.requests)}}</text>
+            <text class="today-label">请求</text>
+          </view>
+        </view>
+        <view class="today-item">
+          <view class="today-icon today-icon-tokens"><text>💎</text></view>
+          <view class="today-info">
+            <text class="today-value">{{formatNumber(stats.today.tokens)}}</text>
+            <text class="today-label">Tokens</text>
+          </view>
+        </view>
+        <view class="today-item">
+          <view class="today-icon today-icon-cost"><text>💰</text></view>
+          <view class="today-info">
+            <text class="today-value">{{formatCost(stats.today.cost_usd)}}</text>
+            <text class="today-label">成本</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Tips -->
+    <view class="tips-card">
+      <text class="tips-title">💡 说明</text>
+      <text class="tips-text">Token 统计基于 LLM API 返回的使用量计算，实际费用可能因服务商计费方式不同而略有差异。</text>
+    </view>
+  </scroll-view>
+
+  <!-- Empty -->
+  <view class="empty-state" wx:if="{{!stats && !isLoading && !error}}">
+    <text class="empty-icon">📊</text>
+    <text class="empty-text">暂无统计数据</text>
+    <text class="empty-desc">开始对话后即可查看使用统计</text>
+  </view>
+</view>

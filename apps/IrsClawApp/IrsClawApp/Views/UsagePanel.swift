@@ -2,14 +2,23 @@ import SwiftUI
 
 struct UsagePanel: View {
     @ObservedObject var service: ClawService
+    @State private var selectedPeriod = "all"
 
     var body: some View {
         let total = service.totalTokenUsage
         List {
             Section {
                 VStack(spacing: 16) {
-                    totalRow(icon: "number", label: "Total Tokens", value: "\(total.totalTokens)")
-                        .font(.title2.weight(.semibold))
+                    if service.isLoadingStats {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else if let stats = service.stats {
+                        statsHeaderView(stats: stats)
+                    } else {
+                        totalRow(icon: "number", label: "Total Tokens", value: "\(total.totalTokens)")
+                            .font(.title2.weight(.semibold))
+                    }
 
                     HStack(spacing: 24) {
                         statItem(label: "Prompt", value: "\(total.promptTokens ?? 0)", color: .blue)
@@ -19,6 +28,19 @@ struct UsagePanel: View {
                 }
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity)
+            }
+
+            Section {
+                Picker("Period", selection: $selectedPeriod) {
+                    Text("Today").tag("today")
+                    Text("7 Days").tag("7d")
+                    Text("30 Days").tag("30d")
+                    Text("All").tag("all")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: selectedPeriod) { _, newValue in
+                    Task { await service.fetchStats(period: newValue) }
+                }
             }
 
             if !usageSessions.isEmpty {
@@ -48,7 +70,7 @@ struct UsagePanel: View {
                 }
             }
 
-            if service.sessionTokenUsage.isEmpty {
+            if service.sessionTokenUsage.isEmpty && !service.isLoadingStats && service.stats == nil {
                 Section {
                     VStack(spacing: 8) {
                         Image(systemName: "chart.bar")
@@ -66,11 +88,62 @@ struct UsagePanel: View {
                 }
             }
         }
-        #if !os(macOS)
         .listStyle(.insetGrouped)
-        #else
-        .listStyle(.inset)
-        #endif
+        .task {
+            await service.fetchStats(period: selectedPeriod)
+        }
+    }
+
+    @ViewBuilder
+    private func statsHeaderView(stats: StatsResponse) -> some View {
+        VStack(spacing: 8) {
+            if let totalTokens = stats.totalTokens {
+                totalRow(icon: "number", label: "Total Tokens", value: "\(totalTokens)")
+                    .font(.title2.weight(.semibold))
+            }
+            if let cost = stats.totalCostUsd {
+                HStack(spacing: 8) {
+                    Image(systemName: "dollarsign.circle")
+                        .foregroundStyle(.green)
+                    Text("Est. Cost")
+                    Text(String(format: "$%.4f", cost))
+                        .monospacedDigit()
+                }
+                .font(.callout)
+            }
+            if let today = stats.today {
+                Divider()
+                HStack(spacing: 16) {
+                    if let req = today.requests {
+                        VStack {
+                            Text("\(req)")
+                                .font(.headline.monospacedDigit())
+                            Text("Requests")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if let tokens = today.tokens {
+                        VStack {
+                            Text("\(tokens)")
+                                .font(.headline.monospacedDigit())
+                            Text("Today Tokens")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if let cost = today.costUsd {
+                        VStack {
+                            Text(String(format: "$%.4f", cost))
+                                .font(.headline.monospacedDigit())
+                            Text("Today Cost")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private var usageSessions: [(id: String, session: ClawSession?, usage: TokenUsage)] {

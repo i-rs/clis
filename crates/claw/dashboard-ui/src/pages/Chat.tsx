@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, type ChatMessage, type ToolCallMsg, type TokenUsage } from '../api'
+import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -16,6 +16,8 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   const [sessionTitle, setSessionTitle] = useState('')
   const [hasSession, setHasSession] = useState(false)
   const [sessionAgent, setSessionAgent] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<number>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -196,6 +198,16 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     load()
   }, [selectedAgent])
 
+  const handleFeedback = async (messageIndex: number, positive: boolean) => {
+    if (!sessionId || feedbackSubmitted.has(messageIndex)) return
+    try {
+      await postFeedback(sessionId, positive)
+      setFeedbackSubmitted((prev) => new Set([...prev, messageIndex]))
+    } catch (err) {
+      console.error('Failed to submit feedback:', err)
+    }
+  }
+
   const handleNewChat = async () => {
     if (loading) return
     abortRef.current?.abort()
@@ -205,6 +217,8 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
     setSessionTitle('New Chat')
     setSessionAgent(null)
+    setSessionId(null)
+    setFeedbackSubmitted(new Set())
     try {
       const resp = await createSession(selectedAgent !== 'default' ? selectedAgent : undefined)
       if (resp.success && resp.data) {
@@ -247,6 +261,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       }
 
       const sid = resp.data.session_id
+      setSessionId(sid)
 
       const controller = streamChat(sid, {
         onReasoning: (reasoningText: string) => {
@@ -384,6 +399,10 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
           <MessageBubble
             key={i}
             message={msg}
+            index={i}
+            onFeedback={handleFeedback}
+            hasFeedback={feedbackSubmitted.has(i)}
+            sessionId={sessionId}
           />
         ))}
         {hasStreaming && <StreamingBubble display={display} />}
@@ -426,7 +445,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
   )
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: { message: ChatMessage; index: number; onFeedback?: (i: number, p: boolean) => void; hasFeedback?: boolean; sessionId?: string | null }) {
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0
   const hasReasoning = message.reasoning && message.reasoning.length > 0
   const hasContent = !!message.content
@@ -478,6 +497,29 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               &nbsp;(↑{message.tokenUsage.prompt_tokens ?? 0} ↓{message.tokenUsage.completion_tokens ?? 0})
             </span>
           </span>
+        </div>
+      )}
+      {message.role === 'assistant' && sessionId && !hasFeedback && onFeedback && (
+        <div className="message-feedback">
+          <button
+            className="feedback-btn"
+            onClick={() => onFeedback(index, true)}
+            title="Good response"
+          >
+            <ThumbsUp size={14} />
+          </button>
+          <button
+            className="feedback-btn"
+            onClick={() => onFeedback(index, false)}
+            title="Bad response"
+          >
+            <ThumbsDown size={14} />
+          </button>
+        </div>
+      )}
+      {message.role === 'assistant' && sessionId && hasFeedback && (
+        <div className="message-feedback-submitted">
+          <span>Thanks for your feedback!</span>
         </div>
       )}
     </div>

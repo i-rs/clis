@@ -1,0 +1,70 @@
+.usage-page { display: flex; flex-direction: column; height: 100vh; background: var(--bg); overflow: hidden; }
+
+/* Navbar */
+.navbar { display: flex; align-items: center; padding: 16rpx 24rpx; padding-top: calc(16rpx + env(safe-area-inset-top)); background: transparent; flex-shrink: 0; z-index: 10; }
+.nav-btn { width: 72rpx; height: 72rpx; border-radius: 20rpx; display: flex; align-items: center; justify-content: center; }
+.nav-btn:active { background: var(--surface-2); }
+.nav-btn-icon { font-size: 36rpx; color: var(--text); }
+.nav-center { flex: 1; text-align: center; }
+.nav-title { font-size: 34rpx; font-weight: 700; color: var(--text); }
+
+/* Period Bar */
+.period-bar { display: flex; gap: 16rpx; padding: 16rpx 24rpx; background: var(--surface); border-bottom: 1rpx solid var(--border); flex-shrink: 0; }
+.period-btn { flex: 1; height: 72rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; background: var(--bg); border: 1rpx solid var(--border); }
+.period-btn-active { background: var(--accent-bg); border-color: var(--accent); }
+.period-label { font-size: 26rpx; color: var(--text-2); font-weight: 500; }
+.period-btn-active .period-label { color: var(--accent); }
+
+/* Loading */
+.loading-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24rpx; }
+.loading-spinner { width: 64rpx; height: 64rpx; border: 4rpx solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+.loading-text { font-size: 28rpx; color: var(--text-2); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error */
+.error-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24rpx; }
+.error-text { font-size: 28rpx; color: var(--red); }
+.retry-btn { padding: 16rpx 48rpx; background: var(--accent-bg); border: 1rpx solid var(--accent); border-radius: 40rpx; }
+.retry-text { font-size: 28rpx; color: var(--accent); font-weight: 600; }
+
+/* Stats Scroll */
+.stats-scroll { flex: 1; overflow: hidden; padding: 24rpx; }
+
+/* Main Card */
+.stats-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 24rpx; padding: 32rpx; margin-bottom: 24rpx; }
+.main-card { background: linear-gradient(135deg, rgba(108, 92, 231, 0.15), rgba(108, 92, 231, 0.05)); border-color: rgba(108, 92, 231, 0.3); }
+
+.stat-total { text-align: center; margin-bottom: 32rpx; }
+.stat-total-label { font-size: 28rpx; color: var(--text-2); display: block; margin-bottom: 8rpx; }
+.stat-total-value { font-size: 56rpx; font-weight: 700; color: var(--text); font-family: ui-monospace; }
+
+.stat-row { display: flex; align-items: center; justify-content: center; gap: 48rpx; }
+.stat-divider { width: 1rpx; height: 64rpx; background: var(--border); }
+.stat-item { text-align: center; }
+.stat-item-value { font-size: 36rpx; font-weight: 700; color: var(--text); font-family: ui-monospace; display: block; }
+.stat-item-label { font-size: 24rpx; color: var(--text-3); display: block; margin-top: 4rpx; }
+
+/* Section Title */
+.section-title { font-size: 28rpx; font-weight: 600; color: var(--text-2); margin-bottom: 16rpx; margin-left: 8rpx; }
+
+/* Today Stats */
+.today-stats { display: flex; gap: 24rpx; }
+.today-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 12rpx; padding: 24rpx 16rpx; background: var(--bg); border-radius: 16rpx; }
+.today-icon { width: 64rpx; height: 64rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; font-size: 32rpx; }
+.today-icon-req { background: rgba(108, 92, 231, 0.15); }
+.today-icon-tokens { background: rgba(52, 152, 255, 0.15); }
+.today-icon-cost { background: rgba(46, 204, 113, 0.15); }
+.today-info { text-align: center; }
+.today-value { font-size: 32rpx; font-weight: 700; color: var(--text); font-family: ui-monospace; display: block; }
+.today-label { font-size: 22rpx; color: var(--text-3); display: block; }
+
+/* Tips */
+.tips-card { background: var(--surface); border: 1rpx solid var(--border); border-radius: 24rpx; padding: 24rpx; }
+.tips-title { font-size: 28rpx; font-weight: 600; color: var(--text); display: block; margin-bottom: 12rpx; }
+.tips-text { font-size: 24rpx; color: var(--text-2); line-height: 1.6; display: block; }
+
+/* Empty */
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.empty-icon { font-size: 80rpx; margin-bottom: 24rpx; opacity: 0.5; }
+.empty-text { font-size: 32rpx; font-weight: 600; color: var(--text); margin-bottom: 12rpx; }
+.empty-desc { font-size: 26rpx; color: var(--text-2); }

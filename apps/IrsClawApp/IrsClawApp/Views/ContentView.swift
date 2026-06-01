@@ -162,17 +162,20 @@ struct ContentView: View {
                 PluginsPanel(service: service)
             case .usage:
                 UsagePanel(service: service)
+            case .agents:
+                AgentsSettingsView(service: service)
             }
         }
     }
 
     private var searchPrompt: String {
         switch appState.selectedTab {
-        case .sessions: "Search"
-        case .tools: "Search tools"
-        case .skills: "Search skills"
-        case .plugins: "Search plugins"
-        case .usage: "Search"
+        case .sessions: return "Search"
+        case .tools: return "Search tools"
+        case .skills: return "Search skills"
+        case .plugins: return "Search plugins"
+        case .usage: return "Search"
+        case .agents: return "Search agents"
         }
     }
 
@@ -183,6 +186,7 @@ struct ContentView: View {
         case .skills: return "Skills"
         case .plugins: return "Plugins"
         case .usage: return "Token Usage"
+        case .agents: return "Agents"
         }
     }
 
@@ -272,6 +276,9 @@ struct ContentView: View {
                     case .usage:
                         UsagePanel(service: service)
                             .navigationTitle("Token Usage")
+                    case .agents:
+                        AgentsSettingsView(service: service)
+                            .navigationTitle("Agents")
                     }
                 }
         }
@@ -548,6 +555,16 @@ struct DrawerMenuView: View {
                 ) {
                     appState.selectedTab = .usage
                     appState.drawerPath = [.usage]
+                    dismiss()
+                }
+
+                navigationCard(
+                    icon: "person.2.fill",
+                    title: "Agents",
+                    color: .teal
+                ) {
+                    appState.selectedTab = .agents
+                    appState.drawerPath = [.agents]
                     dismiss()
                 }
             }

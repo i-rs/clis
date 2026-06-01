@@ -243,6 +243,31 @@ struct TokenUsage: Codable {
     }
 }
 
+struct TokenStats: Codable {
+    let requests: Int?
+    let tokens: Int?
+    let costUsd: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case requests, tokens
+        case costUsd = "cost_usd"
+    }
+}
+
+struct StatsResponse: Codable {
+    let totalRequests: Int?
+    let totalTokens: Int?
+    let totalCostUsd: Double?
+    let today: TokenStats?
+
+    enum CodingKeys: String, CodingKey {
+        case totalRequests = "total_requests"
+        case totalTokens = "total_tokens"
+        case totalCostUsd = "total_cost_usd"
+        case today
+    }
+}
+
 extension TokenUsage {
     static func + (lhs: TokenUsage, rhs: TokenUsage) -> TokenUsage {
         TokenUsage(
@@ -300,5 +325,10 @@ enum AppMessage {
         case .status(let t): return t
         case .reasoning(let t): return t
         }
+    }
+
+    var isAssistant: Bool {
+        if case .assistant = self { return true }
+        return false
     }
 }

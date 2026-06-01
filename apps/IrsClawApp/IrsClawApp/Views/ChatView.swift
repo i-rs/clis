@@ -5,36 +5,13 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var scrollToBottom = false
     @State private var showingAddAgent = false
+    @State private var feedbackSubmitted: Set<Int> = []
     @FocusState private var isInputFocused: Bool
     @StateObject private var voiceInput = VoiceInputService()
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 6) {
-                    ForEach(Array(service.messages.enumerated()), id: \.element.id) { _, item in
-                        MessageBubbleView(
-                            message: item.message,
-                            tokenUsage: item.tokenUsage
-                        )
-                        .id(item.id)
-                    }
-
-                    Color.clear
-                        .frame(height: 1)
-                        .id("bottom")
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .onTapGesture { isInputFocused = false }
-            .animation(.smooth(duration: 0.25), value: isInputFocused)
-            .onChange(of: service.messageVersion) { _, _ in
-                withAnimation(.easeOut(duration: 0.15)) {
-                    proxy.scrollTo("bottom", anchor: .bottom)
-                }
-            }
+            messageList(proxy: proxy)
         }
         .overlay(alignment: .bottom) {
             if voiceInput.isRecording || !(voiceInput.errorMessage?.isEmpty ?? true) {
@@ -73,6 +50,57 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showingAddAgent) {
             AddAgentSheet(service: service)
+        }
+    }
+
+    // MARK: - Message List
+
+    @ViewBuilder
+    private func messageList(proxy: ScrollViewProxy) -> some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            LazyVStack(spacing: 6) {
+                ForEach(service.messages.indices, id: \.self) { index in
+                    let item = service.messages[index]
+                    MessageBubbleView(
+                        message: item.message,
+                        tokenUsage: item.tokenUsage,
+                        hasFeedback: feedbackSubmitted.contains(index),
+                        onThumbsUp: item.message.isAssistant && service.currentSession?.id != nil ? {
+                            let idx = index
+                            let pos = true
+                            return { () -> Void in
+                                Task<Void, Never> {
+                                    await submitFeedback(messageIndex: idx, positive: pos)
+                                }
+                            }()
+                        } : nil,
+                        onThumbsDown: item.message.isAssistant && service.currentSession?.id != nil ? {
+                            let idx = index
+                            let pos = false
+                            return { () -> Void in
+                                Task<Void, Never> {
+                                    await submitFeedback(messageIndex: idx, positive: pos)
+                                }
+                            }()
+                        } : nil
+                    )
+                    .id(item.id)
+                }
+
+                Color.clear
+                    .frame(height: 1)
+                    .id("bottom")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture { isInputFocused = false }
+        .animation(.smooth(duration: 0.25), value: isInputFocused)
+        .onChange(of: service.messageVersion) { _, _ in
+            withAnimation(.easeOut(duration: 0.15)) {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
         }
     }
 
@@ -228,6 +256,15 @@ struct ChatView: View {
         guard !text.isEmpty else { return }
         inputText = ""
         service.sendMessage(text)
+    }
+
+    private func submitFeedback(messageIndex: Int, positive: Bool) async {
+        guard !feedbackSubmitted.contains(messageIndex) else { return }
+        guard let sessionId = service.currentSession?.id else { return }
+        await service.postFeedback(sessionId: sessionId, positive: positive)
+        _ = await MainActor.run {
+            feedbackSubmitted.insert(messageIndex)
+        }
     }
 }
 

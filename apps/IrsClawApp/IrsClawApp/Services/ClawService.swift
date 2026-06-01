@@ -48,6 +48,8 @@ class ClawService: ObservableObject {
     @Published var messageVersion = 0
     /// Token usage per session, persisted across session switches and app restarts.
     @Published var sessionTokenUsage: [String: TokenUsage] = [:]
+    @Published var stats: StatsResponse?
+    @Published var isLoadingStats = false
 
     /// Total token usage aggregated across all sessions.
     var totalTokenUsage: TokenUsage {
@@ -762,6 +764,37 @@ class ClawService: ObservableObject {
         await fetchAgents()
     }
 
+    /// Update an existing agent profile.
+    func updateAgent(id: String, provider: String? = nil, model: String? = nil,
+                     apiKey: String? = nil, baseURL: String? = nil,
+                     systemPrompt: String? = nil, enabledTools: [String]? = nil) async {
+        var body: [String: Any] = [:]
+        if let p = provider { body["provider"] = p }
+        if let m = model { body["model"] = m }
+        if let k = apiKey { body["api_key"] = k }
+        if let b = baseURL { body["base_url"] = b }
+        if let s = systemPrompt { body["system_prompt"] = s }
+        if let tools = enabledTools { body["enabled_tools"] = tools }
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return }
+        guard let data = await put("/api/agents/\(id)", body: bodyData) else { return }
+        guard let response: ApiResponse<[String: String]> = decode(data) else { return }
+        if response.success {
+            await fetchAgents()
+        } else if let err = response.error {
+            self.errorMessage = err
+        }
+    }
+
+    /// Submit feedback for a session (thumbs up/down).
+    func postFeedback(sessionId: String, positive: Bool, message: String? = nil) async {
+        var body: [String: Any] = ["positive": positive]
+        if let msg = message { body["message"] = msg }
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return }
+        let _ = await post("/api/sessions/\(sessionId)/feedback", body: bodyData)
+    }
+
     // MARK: - Config
 
     /// Fetch sanitized configuration.
@@ -800,6 +833,19 @@ class ClawService: ObservableObject {
         guard let response: ApiResponse<[PluginInfo]> = decode(data) else { return }
         if response.success, let plugins = response.data {
             self.plugins = plugins
+        }
+    }
+
+    // MARK: - Stats
+
+    func fetchStats(period: String = "all") async {
+        isLoadingStats = true
+        defer { isLoadingStats = false }
+
+        guard let data = await get("/api/stats?period=\(period)") else { return }
+        guard let response: ApiResponse<StatsResponse> = decode(data) else { return }
+        if response.success, let stats = response.data {
+            self.stats = stats
         }
     }
 
@@ -862,6 +908,31 @@ class ClawService: ObservableObject {
         request.httpMethod = "DELETE"
         request.timeoutInterval = 10
         addAuthHeader(&request)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { return nil }
+            if httpResponse.statusCode == 401 {
+                self.errorMessage = "认证失败，请在设置中检查 Auth Token"
+                return nil
+            }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                return nil
+            }
+            return data
+        } catch {
+            return nil
+        }
+    }
+
+    private func put(_ path: String, body: Data? = nil) async -> Data? {
+        guard connectionState.isConnected else { return nil }
+        let url = URL(string: "\(baseURL)\(path)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
+        addAuthHeader(&request)
+        if let body { request.httpBody = body }
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else { return nil }

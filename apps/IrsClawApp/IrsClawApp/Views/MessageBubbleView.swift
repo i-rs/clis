@@ -8,6 +8,9 @@ extension NSFont: @unchecked @retroactive Sendable {}
 struct MessageBubbleView: View {
     let message: AppMessage
     var tokenUsage: TokenUsage?
+    var hasFeedback: Bool = false
+    var onThumbsUp: (() -> Void)? = nil
+    var onThumbsDown: (() -> Void)? = nil
     @State private var isToolExpanded = false
     @State private var isReasoningExpanded = false
 
@@ -83,6 +86,34 @@ struct MessageBubbleView: View {
                                     .padding(.bottom, 4)
                             }
                         }
+
+                    if hasFeedback {
+                        Text("Thanks for your feedback!")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+                    } else if onThumbsUp != nil || onThumbsDown != nil {
+                        HStack(spacing: 8) {
+                            Button {
+                                onThumbsUp?()
+                            } label: {
+                                Image(systemName: "hand.thumbsup")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                onThumbsDown?()
+                            } label: {
+                                Image(systemName: "hand.thumbsdown")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.leading, 4)
+                    }
                 }
 
                 Spacer(minLength: 20)

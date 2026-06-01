@@ -54,6 +54,10 @@ Page({
     wx.navigateBack()
   },
 
+  goToUsage: function() {
+    wx.navigateTo({ url: '/pages/usage/index' })
+  },
+
   loadSessions: function() {
     var that = this
     api.listSessions().then(function(res) {

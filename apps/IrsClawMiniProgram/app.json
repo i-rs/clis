@@ -2,6 +2,7 @@
   "pages": [
     "pages/index/index",
     "pages/sessions/index",
+    "pages/usage/index",
     "pages/tools/index",
     "pages/skills/index",
     "pages/plugins/index",

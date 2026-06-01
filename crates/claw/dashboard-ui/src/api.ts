@@ -83,10 +83,37 @@ export async function healthCheck(): Promise<ApiResponse<string>> {
   return res.json()
 }
 
+// ── Stats ──
+
+export interface StatsResponse {
+  total_requests: number
+  total_tokens: number
+  total_cost_usd: number
+  today: {
+    requests: number
+    tokens: number
+    cost_usd: number
+  }
+}
+
+export async function getStats(period: string = 'all'): Promise<ApiResponse<StatsResponse>> {
+  const res = await authFetch(`/stats?period=${encodeURIComponent(period)}`)
+  return res.json()
+}
+
 // ── Config ──
 
 export async function getConfig(): Promise<ApiResponse<Record<string, unknown>>> {
   const res = await authFetch('/config')
+  return res.json()
+}
+
+export async function updateConfig(body: Record<string, unknown>): Promise<ApiResponse<{ status: string }>> {
+  const res = await authFetch('/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   return res.json()
 }
 
@@ -142,6 +169,17 @@ export async function getSession(id: string): Promise<ApiResponse<{ id: string; 
 
 export async function deleteSession(id: string): Promise<ApiResponse<string>> {
   const res = await authFetch(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  return res.json()
+}
+
+export async function postFeedback(sessionId: string, positive: boolean, message?: string): Promise<ApiResponse<string>> {
+  const body: Record<string, unknown> = { positive }
+  if (message) body.message = message
+  const res = await authFetch(`/sessions/${encodeURIComponent(sessionId)}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   return res.json()
 }
 

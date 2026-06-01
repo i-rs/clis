@@ -99,6 +99,19 @@ function deleteAgent(id) {
   return request('DELETE', '/agents/' + encodeURIComponent(id))
 }
 
+function postFeedback(sessionId, positive, message) {
+  var body = { positive: positive }
+  if (message) {
+    body.message = message
+  }
+  return request('POST', '/sessions/' + encodeURIComponent(sessionId) + '/feedback', body)
+}
+
+function getStats(period) {
+  period = period || 'today'
+  return request('GET', '/stats?period=' + period)
+}
+
 function streamChat(sessionId, handlers) {
   var url = baseUrl() + '/chat/stream/' + encodeURIComponent(sessionId)
   var task = wx.request({
@@ -183,5 +196,7 @@ module.exports = {
   createAgent: createAgent,
   updateAgent: updateAgent,
   deleteAgent: deleteAgent,
+  postFeedback: postFeedback,
+  getStats: getStats,
   streamChat: streamChat
 }
