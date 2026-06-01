@@ -99,6 +99,10 @@ pub fn render(f: &mut Frame, app: &mut App) {
             panels::render_backdrop(f, area);
             panels::render_plugin_list_panel(f, area, app, &app.config.theme);
         }
+        Some(Overlay::InfoPanel) => {
+            panels::render_backdrop(f, area);
+            panels::render_info_panel(f, area, app, &app.config.theme);
+        }
         Some(Overlay::Feedback) => {
             panels::render_backdrop(f, area);
             panels::render_feedback_prompt(f, area, &app.config.theme);

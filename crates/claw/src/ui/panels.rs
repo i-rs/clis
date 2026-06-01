@@ -75,7 +75,7 @@ pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &cr
 
 pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
     let popup_width = 50u16.min(area.width.saturating_sub(4));
-    let popup_height = 28u16.min(area.height.saturating_sub(4));
+    let popup_height = 29u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
     let popup_y = (area.height - popup_height) / 2;
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
@@ -94,6 +94,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme:
         ("Ctrl+A", "Agent 管理"),
         ("Ctrl+Shift+U", "Token 用量"),
         ("Ctrl+Shift+P", "插件与技能"),
+        ("Ctrl+Shift+I", "Claw 状态面板"),
         ("Ctrl+Shift+C", "复制当前消息"),
         ("Ctrl+E", "导出会话为 Markdown"),
         ("Alt+Enter", "输入换行"),
@@ -615,4 +616,151 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &crate::t
 
     f.render_widget(block, popup);
     f.render_widget(Paragraph::new(text).alignment(Alignment::Center), inner);
+}
+
+pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+    let popup_width = 48u16.min(area.width.saturating_sub(4));
+    let popup_height = 22u16.min(area.height.saturating_sub(4));
+    let popup_x = (area.width - popup_width) / 2;
+    let popup_y = (area.height - popup_height) / 2;
+    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+
+    let primary = theme.primary();
+    let accent = theme.accent();
+    let secondary = theme.secondary();
+    let dim = theme.dim_text();
+    let text = theme.text();
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Header
+    lines.push(Line::from(vec![
+        Span::styled(
+            "  ✦ ",
+            Style::default().fg(primary).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            &app.current_agent,
+            Style::default().fg(primary).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(format!("  @{}", app.config.model), Style::default().fg(dim)),
+    ]));
+    lines.push(Line::from(Span::styled(
+        format!(
+            "  {}  |  {:?}",
+            app.config.provider, app.config.execution_mode
+        ),
+        Style::default().fg(dim),
+    )));
+    lines.push(Line::from(Span::raw("")));
+
+    // ── Usage ──
+    lines.push(Line::from(Span::styled(
+        " ── 今日用量 ──",
+        Style::default().fg(accent).add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(vec![Span::styled(
+        format!("  请求  {:>6} 次", app.today_stats.requests),
+        Style::default().fg(text),
+    )]));
+    lines.push(Line::from(vec![Span::styled(
+        format!("  Token {:>5} K", app.today_stats.tokens / 1000),
+        Style::default().fg(text),
+    )]));
+    if app.today_stats.cost_usd > 0.0001 {
+        lines.push(Line::from(vec![Span::styled(
+            format!("  费用  ${:.4}", app.today_stats.cost_usd),
+            Style::default().fg(secondary),
+        )]));
+    }
+    lines.push(Line::from(Span::raw("")));
+
+    // ── Session ──
+    lines.push(Line::from(Span::styled(
+        " ── 当前会话 ──",
+        Style::default().fg(accent).add_modifier(Modifier::BOLD),
+    )));
+    lines.push(Line::from(vec![Span::styled(
+        format!("  消息  {:>6} 条", app.messages.len()),
+        Style::default().fg(text),
+    )]));
+    lines.push(Line::from(vec![Span::styled(
+        format!("  工具调用 {:>3} 次", app.tool_call_count),
+        Style::default().fg(text),
+    )]));
+    if let Some(ref usage) = app.token_usage {
+        lines.push(Line::from(vec![Span::styled(
+            format!(
+                "  最后请求 {:>4} in + {:>4} out",
+                usage.prompt_tokens, usage.completion_tokens
+            ),
+            Style::default().fg(dim),
+        )]));
+    }
+    if !app.http_logs.is_empty() {
+        lines.push(Line::from(vec![Span::styled(
+            format!("  HTTP 日志 {:>3} 条", app.http_logs.len()),
+            Style::default().fg(dim),
+        )]));
+    }
+    lines.push(Line::from(Span::raw("")));
+
+    // ── System ──
+    lines.push(Line::from(Span::styled(
+        " ── 系统 ──",
+        Style::default().fg(accent).add_modifier(Modifier::BOLD),
+    )));
+    let agent_count = app.config.agents.len() + 1; // +1 for default
+    let mcp_count = app.config.mcp_servers.len();
+    let plugin_count = app.plugin_list.len();
+    let skill_count = app.skill_list.len();
+    lines.push(Line::from(vec![Span::styled(
+        format!("  Agent  {:>4}  ·  MCP {:>4}", agent_count, mcp_count),
+        Style::default().fg(text),
+    )]));
+    lines.push(Line::from(vec![Span::styled(
+        format!("  插件  {:>4}  ·  技能 {:>4}", plugin_count, skill_count),
+        Style::default().fg(text),
+    )]));
+    let tools_text = if app.config.enabled_tools.is_empty() {
+        "全部".to_string()
+    } else {
+        format!("{} 个", app.config.enabled_tools.len())
+    };
+    lines.push(Line::from(vec![Span::styled(
+        format!("  已启用工具  {}", tools_text),
+        Style::default().fg(text),
+    )]));
+    lines.push(Line::from(vec![Span::styled(
+        format!(
+            "  插件发现  {}",
+            if app.config.plugins_auto_discover {
+                "✓"
+            } else {
+                "✗"
+            }
+        ),
+        Style::default().fg(text),
+    )]));
+    lines.push(Line::from(Span::raw("")));
+
+    // ── Footer ──
+    lines.push(Line::from(Span::styled(
+        " ─────────────────────────────────────────────",
+        Style::default().fg(dim),
+    )));
+    lines.push(Line::from(Span::styled(
+        "  Esc 关闭  |  Ctrl+H 帮助  |  Ctrl+I 配置",
+        Style::default().fg(dim),
+    )));
+
+    let list = List::new(lines).block(
+        Block::default()
+            .title(" ℹ Claw 状态 ")
+            .title_alignment(Alignment::Center)
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(primary)),
+    );
+    f.render_widget(list, popup_area);
 }

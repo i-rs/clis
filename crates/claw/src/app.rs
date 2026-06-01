@@ -421,6 +421,7 @@ pub enum Overlay {
     AgentList,
     StatsHistory,
     PluginList,
+    InfoPanel,
 }
 
 pub struct OverlayState {

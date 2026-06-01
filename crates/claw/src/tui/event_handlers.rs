@@ -335,6 +335,7 @@ impl<'a> KeyEventHandler<'a> {
                 | Some(Overlay::AgentList)
                 | Some(Overlay::StatsHistory)
                 | Some(Overlay::PluginList)
+                | Some(Overlay::InfoPanel)
                 | Some(Overlay::Config) => {
                     self.app.overlay.close();
                 }
@@ -428,6 +429,7 @@ impl<'a> KeyEventHandler<'a> {
                 | (KeyCode::Char('a'), true, false, _)
                 | (KeyCode::Char('u'), false, true, _)
                 | (KeyCode::Char('p'), false, true, _)
+                | (KeyCode::Char('i'), false, true, _)
                 | (KeyCode::Char('l'), true, false, _)
                 | (KeyCode::Char('n'), true, false, _)
                 | (KeyCode::Char('r'), true, false, _)
@@ -502,6 +504,9 @@ impl<'a> KeyEventHandler<'a> {
                         })
                         .collect();
                 }
+            }
+            (KeyCode::Char('i'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+                self.app.overlay.toggle(Overlay::InfoPanel);
             }
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                 self.app.overlay.toggle(Overlay::SessionList);
