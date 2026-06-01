@@ -70,8 +70,7 @@ impl ClawTool for DelegateTool {
 
         let system_prompt = build_sub_agent_prompt(&agent_config, &ctx);
 
-        let mut messages =
-            vec![serde_json::json!({"role": "system", "content": system_prompt})];
+        let mut messages = vec![serde_json::json!({"role": "system", "content": system_prompt})];
 
         if let Some(rt) = &ctx.delegate_runtime {
             let recent: Vec<Value> = rt
@@ -185,57 +184,54 @@ impl ClawTool for DelegateTool {
         let mut total_output_tokens: u32 = 0;
         let mut final_model = String::new();
 
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(timeout_secs),
-            async {
-                while let Some(event) = rx.recv().await {
-                    match &event {
-                        LlmEvent::Token(t) => text.push_str(t),
-                        LlmEvent::ToolExecuted {
-                            name,
-                            result,
-                            step,
-                            total_steps,
-                            ..
-                        } => {
-                            let short = if result.len() > 200 {
-                                let s: String = result.chars().take(197).collect();
-                                format!("{}...", s)
-                            } else {
-                                result.clone()
-                            };
-                            tool_summary.push(format!("[{}] {}", name, short));
+        let result = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), async {
+            while let Some(event) = rx.recv().await {
+                match &event {
+                    LlmEvent::Token(t) => text.push_str(t),
+                    LlmEvent::ToolExecuted {
+                        name,
+                        result,
+                        step,
+                        total_steps,
+                        ..
+                    } => {
+                        let short = if result.len() > 200 {
+                            let s: String = result.chars().take(197).collect();
+                            format!("{}...", s)
+                        } else {
+                            result.clone()
+                        };
+                        tool_summary.push(format!("[{}] {}", name, short));
 
-                            if let Some(ref ptx) = parent_tx {
-                                let _ = ptx.send(LlmEvent::Status(format!(
-                                    "子智能体 [{}/{}] {}",
-                                    step + 1,
-                                    total_steps,
-                                    name
-                                )));
-                            }
+                        if let Some(ref ptx) = parent_tx {
+                            let _ = ptx.send(LlmEvent::Status(format!(
+                                "子智能体 [{}/{}] {}",
+                                step + 1,
+                                total_steps,
+                                name
+                            )));
                         }
-                        LlmEvent::Error(e) => {
-                            let cat = crate::error::category_from_result(e);
-                            errors.push((e.clone(), cat));
-                        }
-                        LlmEvent::UsageRecord(record) => {
-                            total_input_tokens += record.prompt_tokens;
-                            total_output_tokens += record.completion_tokens;
-                            final_model = record.model.clone();
-                        }
-                        LlmEvent::Done(_, usage, _trace_id) => {
-                            if let Some(u) = usage {
-                                total_input_tokens += u.prompt_tokens;
-                                total_output_tokens += u.completion_tokens;
-                            }
-                            break;
-                        }
-                        _ => {}
                     }
+                    LlmEvent::Error(e) => {
+                        let cat = crate::error::category_from_result(e);
+                        errors.push((e.clone(), cat));
+                    }
+                    LlmEvent::UsageRecord(record) => {
+                        total_input_tokens += record.prompt_tokens;
+                        total_output_tokens += record.completion_tokens;
+                        final_model = record.model.clone();
+                    }
+                    LlmEvent::Done(_, usage, _trace_id) => {
+                        if let Some(u) = usage {
+                            total_input_tokens += u.prompt_tokens;
+                            total_output_tokens += u.completion_tokens;
+                        }
+                        break;
+                    }
+                    _ => {}
                 }
-            },
-        )
+            }
+        })
         .await;
 
         // Cancel the background task on timeout (#5)
@@ -275,9 +271,7 @@ impl ClawTool for DelegateTool {
                 return Err(match cat {
                     crate::error::ErrorCategory::Timeout => ClawError::Timeout(msg.clone()),
                     crate::error::ErrorCategory::Network => ClawError::Network(msg.clone()),
-                    crate::error::ErrorCategory::Validation => {
-                        ClawError::Validation(msg.clone())
-                    }
+                    crate::error::ErrorCategory::Validation => ClawError::Validation(msg.clone()),
                     _ => ClawError::Execution(msg.clone()),
                 });
             }
@@ -380,7 +374,10 @@ fn build_sub_agent_prompt(
     prompt
 }
 
-fn validate_agent_exists(agent_id: &str, config: &crate::config::Config) -> Result<String, ClawError> {
+fn validate_agent_exists(
+    agent_id: &str,
+    config: &crate::config::Config,
+) -> Result<String, ClawError> {
     if config.agents.contains_key(agent_id) || config.sub_agents.contains_key(agent_id) {
         return Ok(agent_id.to_string());
     }
@@ -416,9 +413,28 @@ fn match_capability(task: &str, capabilities: &[String]) -> bool {
 
 fn expand_keywords(cap: &str) -> Vec<String> {
     match cap.to_lowercase().as_str() {
-        "数据分析" => vec!["数据".to_string(), "分析".to_string(), "趋势".to_string(), "统计".to_string(), "对比".to_string(), "图表".to_string()],
-        "代码生成" => vec!["代码".to_string(), "写".to_string(), "编程".to_string(), "函数".to_string(), "实现".to_string()],
-        "数据可视化" => vec!["图表".to_string(), "可视化".to_string(), "图".to_string(), "曲线".to_string(), "饼图".to_string()],
+        "数据分析" => vec![
+            "数据".to_string(),
+            "分析".to_string(),
+            "趋势".to_string(),
+            "统计".to_string(),
+            "对比".to_string(),
+            "图表".to_string(),
+        ],
+        "代码生成" => vec![
+            "代码".to_string(),
+            "写".to_string(),
+            "编程".to_string(),
+            "函数".to_string(),
+            "实现".to_string(),
+        ],
+        "数据可视化" => vec![
+            "图表".to_string(),
+            "可视化".to_string(),
+            "图".to_string(),
+            "曲线".to_string(),
+            "饼图".to_string(),
+        ],
         _ => vec![],
     }
 }
@@ -628,17 +644,13 @@ mod tests {
                 skills: vec![],
                 tool_frequency: std::collections::HashMap::new(),
                 parent_tx: tokio::sync::mpsc::unbounded_channel().0,
-                stats_manager: std::sync::Arc::new(
-                    crate::stats::StatsManager::with_storage(
-                        std::sync::Arc::new(
-                            crate::storage::ClawStorage::file(
-                                std::env::temp_dir().join("claw-test-delegate"),
-                            ),
-                        ),
-                        &Default::default(),
-                        chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
-                    ),
-                ),
+                stats_manager: std::sync::Arc::new(crate::stats::StatsManager::with_storage(
+                    std::sync::Arc::new(crate::storage::ClawStorage::file(
+                        std::env::temp_dir().join("claw-test-delegate"),
+                    )),
+                    &Default::default(),
+                    chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                )),
                 user_identity: "用户称呼你为小助手".to_string(),
                 user_memory: String::new(),
                 user_profile: String::new(),
@@ -683,17 +695,13 @@ mod tests {
                 skills: vec![],
                 tool_frequency: std::collections::HashMap::new(),
                 parent_tx: tokio::sync::mpsc::unbounded_channel().0,
-                stats_manager: std::sync::Arc::new(
-                    crate::stats::StatsManager::with_storage(
-                        std::sync::Arc::new(
-                            crate::storage::ClawStorage::file(
-                                std::env::temp_dir().join("claw-test-delegate-tool-index"),
-                            ),
-                        ),
-                        &Default::default(),
-                        chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
-                    ),
-                ),
+                stats_manager: std::sync::Arc::new(crate::stats::StatsManager::with_storage(
+                    std::sync::Arc::new(crate::storage::ClawStorage::file(
+                        std::env::temp_dir().join("claw-test-delegate-tool-index"),
+                    )),
+                    &Default::default(),
+                    chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
+                )),
                 user_identity: String::new(),
                 user_memory: String::new(),
                 user_profile: String::new(),

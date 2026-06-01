@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
 };
 
-use crate::app::App;
+use crate::app::{App, Overlay};
 
 mod chat;
 mod completions;
@@ -14,7 +14,7 @@ mod status;
 mod title;
 mod utils;
 
-pub fn render(f: &mut Frame, app: &App) {
+pub fn render(f: &mut Frame, app: &mut App) {
     let area = f.area();
 
     let plan_height: u16 = if !app.plan_steps.is_empty() && app.is_processing() {
@@ -23,8 +23,6 @@ pub fn render(f: &mut Frame, app: &App) {
         0
     };
 
-    // Show a single-line status bar during processing.
-    // Reasoning content is now rendered inline in the chat message area.
     let processing_height: u16 = 1;
 
     let mut constraints = vec![Constraint::Length(1), Constraint::Min(1)];
@@ -47,7 +45,7 @@ pub fn render(f: &mut Frame, app: &App) {
     let mut idx = 0;
     title::render_title(f, layout[idx], app);
     idx += 1;
-    if app.overlay.show_sidebar && !app.is_processing() {
+    if app.overlay.is_overlay(Overlay::Sidebar) && !app.is_processing() {
         let chat_side = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Min(1), Constraint::Percentage(35)])
@@ -68,51 +66,45 @@ pub fn render(f: &mut Frame, app: &App) {
     idx += 1;
     status::render_status(f, layout[idx], app);
 
-    if app.overlay.show_session_list {
-        panels::render_backdrop(f, area);
-        sidebar::render_session_list(f, area, app);
-    }
-
-    if app.overlay.show_agent_picker {
-        panels::render_backdrop(f, area);
-        sidebar::render_agent_picker(f, area, app);
-    }
-
-    let theme = &app.config.theme;
-
-    if app.overlay.show_help {
-        panels::render_backdrop(f, area);
-        panels::render_help_panel(f, area, theme);
-    }
-
-    if app.overlay.show_config {
-        panels::render_backdrop(f, area);
-        panels::render_config_panel(f, area, app, theme);
-    }
-
-    if app.overlay.show_tool_list {
-        panels::render_backdrop(f, area);
-        panels::render_tool_list_panel(f, area, app, theme);
-    }
-
-    if app.overlay.show_agent_list {
-        panels::render_backdrop(f, area);
-        panels::render_agent_list_panel(f, area, app, theme);
-    }
-
-    if app.overlay.show_stats_history {
-        panels::render_backdrop(f, area);
-        panels::render_stats_history_panel(f, area, app, theme);
-    }
-
-    if app.overlay.show_plugin_list {
-        panels::render_backdrop(f, area);
-        panels::render_plugin_list_panel(f, area, app, theme);
-    }
-
-    if app.overlay.show_feedback {
-        panels::render_backdrop(f, area);
-        panels::render_feedback_prompt(f, area, theme);
+    match app.overlay.current {
+        Some(Overlay::SessionList) => {
+            panels::render_backdrop(f, area);
+            sidebar::render_session_list(f, area, app);
+        }
+        Some(Overlay::AgentPicker) => {
+            panels::render_backdrop(f, area);
+            sidebar::render_agent_picker(f, area, app);
+        }
+        Some(Overlay::Help) => {
+            panels::render_backdrop(f, area);
+            panels::render_help_panel(f, area, &app.config.theme);
+        }
+        Some(Overlay::Config) => {
+            panels::render_backdrop(f, area);
+            panels::render_config_panel(f, area, app, &app.config.theme);
+        }
+        Some(Overlay::ToolList) => {
+            panels::render_backdrop(f, area);
+            panels::render_tool_list_panel(f, area, app, &app.config.theme);
+        }
+        Some(Overlay::AgentList) => {
+            panels::render_backdrop(f, area);
+            panels::render_agent_list_panel(f, area, app, &app.config.theme);
+        }
+        Some(Overlay::StatsHistory) => {
+            panels::render_backdrop(f, area);
+            panels::render_stats_history_panel(f, area, app, &app.config.theme);
+        }
+        Some(Overlay::PluginList) => {
+            panels::render_backdrop(f, area);
+            panels::render_plugin_list_panel(f, area, app, &app.config.theme);
+        }
+        Some(Overlay::Feedback) => {
+            panels::render_backdrop(f, area);
+            panels::render_feedback_prompt(f, area, &app.config.theme);
+        }
+        Some(Overlay::Sidebar) => {}
+        None => {}
     }
 
     if !app.overlay.tab_completions.is_empty() {

@@ -185,10 +185,7 @@ impl ContextManager {
         }
 
         facts.truncate(10);
-        Some(format!(
-            "[先前上下文摘要]\n{}",
-            facts.join("\n")
-        ))
+        Some(format!("[先前上下文摘要]\n{}", facts.join("\n")))
     }
 
     pub fn context_advisory(&self, msgs: &[Value]) -> String {

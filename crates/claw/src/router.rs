@@ -14,9 +14,8 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
     let task_lower = task.to_lowercase();
 
     let heavy_keywords = [
-        "统计", "分析", "图表", "对比", "比较", "汇总", "报告",
-        "stats", "chart", "analyze", "compare", "report", "summary",
-        "趋势", "规划", "计划",
+        "统计", "分析", "图表", "对比", "比较", "汇总", "报告", "stats", "chart", "analyze",
+        "compare", "report", "summary", "趋势", "规划", "计划",
     ];
     for kw in &heavy_keywords {
         if task_lower.contains(kw) {
@@ -25,8 +24,7 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
     }
 
     let complex_keywords = [
-        "同时", "并且", "然后", "分别",
-        "and", "then", "also", "plus", "both",
+        "同时", "并且", "然后", "分别", "and", "then", "also", "plus", "both",
     ];
     for kw in &complex_keywords {
         if task_lower.contains(kw) {

@@ -23,20 +23,20 @@ pub fn main_loop(
     const REMINDER_INTERVAL_SECS: u64 = 120;
     const MCP_HEALTH_INTERVAL_SECS: u64 = 300;
 
-    loop {
+    'outer: loop {
         terminal.draw(|f| crate::ui::render(f, app))?;
 
         while let Ok(event) = llm_rx.try_recv() {
             let mut handler = LlmEventHandler::new(app, app_core);
             if matches!(handler.handle(event), Action::Quit) {
-                break;
+                break 'outer;
             }
         }
 
         if last_reminder_check.elapsed().as_secs() >= REMINDER_INTERVAL_SECS && !app.is_processing()
         {
-            let h = rt.spawn_blocking(reminders::check_reminders);
-            if let Ok(Some(reminder_text)) = rt.block_on(h) {
+            let h = std::thread::spawn(reminders::check_reminders);
+            if let Some(reminder_text) = h.join().unwrap_or(None) {
                 app.reminder_text = Some(reminder_text);
             }
             last_reminder_check = Instant::now();
@@ -55,13 +55,12 @@ pub fn main_loop(
             last_mcp_health_check = Instant::now();
         }
 
-        // Handle terminal events
         if event::poll(std::time::Duration::from_millis(50))? {
             match event::read()? {
                 Event::Key(key) => {
                     let mut kh = KeyEventHandler::new(app, app_core, rt, llm_tx);
                     if matches!(kh.handle(key), Action::Quit) {
-                        break;
+                        break 'outer;
                     }
                 }
                 Event::Mouse(mouse) => {
@@ -71,6 +70,10 @@ pub fn main_loop(
                     for c in text.chars() {
                         app.insert_char(c);
                     }
+                }
+                Event::Resize(_, _) => {
+                    app.scroll_lines = 0;
+                    app.mark_dirty();
                 }
                 Event::Paste(_) => {}
                 _ => {}

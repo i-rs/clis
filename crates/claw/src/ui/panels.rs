@@ -5,8 +5,16 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, Paragraph},
 };
+use std::sync::OnceLock;
 
-use crate::app::App;
+use crate::app::{App, spinner_char_alt};
+
+static BACKDROP_FILL: OnceLock<String> = OnceLock::new();
+
+fn backdrop_fill(width: u16) -> &'static str {
+    let fill = BACKDROP_FILL.get_or_init(|| " ".repeat(512));
+    &fill[..(width as usize).min(fill.len())]
+}
 
 pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     if app.plan_steps.is_empty() {
@@ -19,7 +27,6 @@ pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
 
     let mut lines: Vec<Line> = Vec::with_capacity(max_show + 1);
 
-    // Header with summary
     lines.push(Line::from(Span::styled(
         format!(" 📋 计划 ({}/{}) ", done_count, total),
         Style::default()
@@ -55,9 +62,7 @@ pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &cr
     if !app.is_processing() || app.status_text.is_empty() {
         return;
     }
-    let dots = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
-    let frame = (app.messages.len() + app.tool_call_count) % dots.len();
-    let spinner = dots[frame];
+    let spinner = spinner_char_alt(app.spinner_start, &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
 
     let label = Line::from(Span::styled(
         format!(" {}  {}", spinner, app.status_text),
@@ -549,12 +554,11 @@ pub(super) fn render_plugin_list_panel(
 
 pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
     f.render_widget(Clear, area);
-    // Dark backdrop with subtle blue undertone
-    let fill = " ".repeat(area.width as usize);
+    let fill = backdrop_fill(area.width);
     let lines: Vec<Line> = (0..area.height)
         .map(|_| {
             Line::from(Span::styled(
-                &fill,
+                fill,
                 Style::default().bg(Color::Rgb(8, 8, 15)),
             ))
         })

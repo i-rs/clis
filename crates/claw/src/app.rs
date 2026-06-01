@@ -3,7 +3,9 @@ use crate::stats::TodaySummary;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::time::Instant;
 
 pub fn message_to_jsonl(msg: &Message) -> Value {
     serde_json::to_value(msg)
@@ -14,12 +16,6 @@ pub fn message_from_jsonl(v: &Value) -> Option<Message> {
     serde_json::from_value(v.clone()).ok()
 }
 
-/// Heuristic analysis of a final response against the executed tool calls.
-///
-/// Does lightweight checks without LLM calls:
-/// - Response references tools that were never called
-/// - Response acknowledges errors from tool results
-/// - Basic completeness: response text is non-empty after tool execution
 pub fn evaluate_response_heuristic(
     response_text: &str,
     tool_results: &[(&str, bool)],
@@ -28,22 +24,17 @@ pub fn evaluate_response_heuristic(
     let mut issues = Vec::new();
     let mut references_valid = 0u32;
 
-    let executed_tools: std::collections::HashSet<&str> =
-        tool_results.iter().map(|(n, _)| *n).collect();
+    let executed_tools: HashSet<&str> = tool_results.iter().map(|(n, _)| *n).collect();
     for (name, success) in tool_results {
         if response_text.contains(*name) {
             references_valid += 1;
         }
-        if !success {
-            if response_text.contains("错误") || response_text.contains("失败") {
-            } else {
-                issues.push(format!("工具 '{}' 执行失败，但回复未提及", name));
-            }
+        if !(*success || response_text.contains("错误") || response_text.contains("失败")) {
+            issues.push(format!("工具 '{}' 执行失败，但回复未提及", name));
         }
     }
 
-    let known_tool_patterns: Vec<&str> = known_tools.iter().map(|s| *s).collect();
-    for pattern in &known_tool_patterns {
+    for pattern in known_tools {
         if response_text.contains(*pattern)
             && !executed_tools.contains(pattern)
             && response_text.contains("i-rs")
@@ -59,7 +50,10 @@ pub fn evaluate_response_heuristic(
 
     let relevance = compute_text_relevance(response_text);
     if relevance < 0.3 && !response_text.is_empty() {
-        issues.push(format!("回复信息密度较低 (相关度: {:.0}%)", relevance * 100.0));
+        issues.push(format!(
+            "回复信息密度较低 (相关度: {:.0}%)",
+            relevance * 100.0
+        ));
     }
 
     let has_errors = !issues.is_empty();
@@ -117,24 +111,22 @@ pub struct PluginEntry {
     pub enabled: bool,
 }
 
-/// A step in the LLM's execution plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanStep {
     pub description: String,
     pub done: bool,
 }
 
-/// Record of an HTTP request to the LLM API.
 #[derive(Debug, Clone)]
 pub struct HttpLog {
-    pub timestamp: String, // formatted local time
-    pub status: u16,       // HTTP status code
-    pub duration_ms: u64,  // total request + streaming time
+    pub timestamp: String,
+    pub status: u16,
+    pub duration_ms: u64,
     pub model: String,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
-    pub error: Option<String>, // non-empty on failure
-    pub request_body: String,  // assembled JSON body sent to LLM
+    pub error: Option<String>,
+    pub request_body: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -175,7 +167,6 @@ pub enum Message {
     },
 }
 
-/// Input editing state (input text, cursor, history).
 #[derive(Clone)]
 pub struct InputState {
     pub text: String,
@@ -184,6 +175,7 @@ pub struct InputState {
     pub history_index: Option<usize>,
     undo_stack: Vec<String>,
     redo_stack: Vec<String>,
+    last_change: Option<Instant>,
 }
 
 impl InputState {
@@ -195,15 +187,26 @@ impl InputState {
             history_index: None,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
+            last_change: None,
         }
     }
 
-    fn push_undo(&mut self) {
+    /// Push current text to undo stack. Coalesces with the previous push
+    /// if less than 500ms have elapsed (logical-operation undo).
+    fn push_undo(&mut self, now: Instant) {
+        let coalesce = self
+            .last_change
+            .map(|t| now.duration_since(t).as_millis() < 500)
+            .unwrap_or(false);
+        if coalesce {
+            self.undo_stack.pop();
+        }
         self.undo_stack.push(self.text.clone());
         if self.undo_stack.len() > 100 {
             self.undo_stack.drain(..50);
         }
         self.redo_stack.clear();
+        self.last_change = Some(now);
     }
 
     pub fn undo(&mut self) {
@@ -223,7 +226,7 @@ impl InputState {
     }
 
     pub fn insert_char(&mut self, c: char) {
-        self.push_undo();
+        self.push_undo(Instant::now());
         self.text.insert(self.cursor, c);
         self.cursor += c.len_utf8();
     }
@@ -232,7 +235,7 @@ impl InputState {
         if self.cursor == 0 {
             return;
         }
-        self.push_undo();
+        self.push_undo(Instant::now());
         let prev = self.text[..self.cursor].char_indices().next_back();
         if let Some((idx, _)) = prev {
             self.text.drain(idx..self.cursor);
@@ -244,7 +247,7 @@ impl InputState {
         if self.cursor == 0 {
             return;
         }
-        self.push_undo();
+        self.push_undo(Instant::now());
         let before = &self.text[..self.cursor];
         let trimmed = before.trim_end_matches(|c: char| c.is_whitespace());
         let word_start = trimmed
@@ -268,7 +271,7 @@ impl InputState {
         if self.cursor == 0 {
             return;
         }
-        self.push_undo();
+        self.push_undo(Instant::now());
         self.text.drain(..self.cursor);
         self.cursor = 0;
     }
@@ -277,7 +280,7 @@ impl InputState {
         if self.cursor >= self.text.len() {
             return;
         }
-        self.push_undo();
+        self.push_undo(Instant::now());
         self.text.drain(self.cursor..);
     }
 
@@ -396,41 +399,43 @@ impl InputState {
     }
 }
 
-/// UI overlay state (menus, selections, feedback).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Overlay {
+    SessionList,
+    Sidebar,
+    AgentPicker,
+    Help,
+    Config,
+    Feedback,
+    ToolList,
+    AgentList,
+    StatsHistory,
+    PluginList,
+}
+
 pub struct OverlayState {
-    pub show_session_list: bool,
+    pub current: Option<Overlay>,
+    pub selection_mode: bool,
+    pub selected_message: Option<usize>,
     pub session_list_index: usize,
     pub session_list: Vec<crate::session::SessionMeta>,
     pub session_search: String,
     pub session_search_mode: bool,
     pub session_rename_buf: String,
     pub session_confirm_delete: bool,
-    pub show_sidebar: bool,
     pub sidebar_selected: usize,
     pub sidebar_body_idx: Option<usize>,
     pub sidebar_body_scroll: usize,
-    pub show_agent_picker: bool,
     pub agent_picker_index: usize,
     pub agent_list: Vec<String>,
-    pub selection_mode: bool,
-    pub selected_message: Option<usize>,
     pub tool_call_expanded: HashSet<usize>,
     pub reasoning_expanded: HashSet<usize>,
-    pub show_help: bool,
-    pub show_config: bool,
-    pub show_feedback: bool,
-    pub show_tool_list: bool,
-    pub show_agent_list: bool,
-    pub show_stats_history: bool,
-    pub show_plugin_list: bool,
     pub copy_feedback: Option<String>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
 }
 
 impl OverlayState {
-    /// Return the session list filtered by the current search query.
-    /// Clones session metadata so the caller can freely mutate overlay state.
     pub fn filtered_sessions(&self) -> Vec<crate::session::SessionMeta> {
         let q = self.session_search.to_lowercase();
         if q.is_empty() {
@@ -446,35 +451,53 @@ impl OverlayState {
 
     pub fn new(agent_list: Vec<String>) -> Self {
         Self {
-            show_session_list: false,
+            current: None,
+            selection_mode: false,
+            selected_message: None,
             session_list_index: 0,
             session_list: Vec::new(),
             session_search: String::new(),
             session_search_mode: false,
             session_rename_buf: String::new(),
             session_confirm_delete: false,
-            show_sidebar: false,
             sidebar_selected: 0,
             sidebar_body_idx: None,
             sidebar_body_scroll: 0,
-            show_agent_picker: false,
             agent_picker_index: 0,
             agent_list,
-            selection_mode: false,
-            selected_message: None,
             tool_call_expanded: HashSet::new(),
             reasoning_expanded: HashSet::new(),
-            show_help: false,
-            show_config: false,
-            show_feedback: false,
-            show_tool_list: false,
-            show_agent_list: false,
-            show_stats_history: false,
-            show_plugin_list: false,
             copy_feedback: None,
             tab_completions: Vec::new(),
             tab_completion_index: 0,
         }
+    }
+
+    pub fn is_overlay(&self, kind: Overlay) -> bool {
+        self.current == Some(kind)
+    }
+
+    pub fn show(&mut self, kind: Overlay) {
+        if self.current != Some(kind) {
+            self.current = Some(kind);
+        }
+    }
+
+    pub fn toggle(&mut self, kind: Overlay) {
+        if self.current == Some(kind) {
+            self.current = None;
+        } else {
+            self.current = Some(kind);
+        }
+    }
+
+    pub fn close(&mut self) {
+        self.current = None;
+    }
+
+    #[allow(dead_code)]
+    pub fn has_overlay(&self) -> bool {
+        self.current.is_some()
     }
 }
 
@@ -482,6 +505,38 @@ impl OverlayState {
 pub enum AppState {
     Idle,
     Processing,
+}
+
+pub struct RenderState {
+    pub heights: Vec<usize>,
+    pub format_cache: HashMap<usize, Arc<Vec<ratatui::text::Line<'static>>>>,
+}
+
+impl RenderState {
+    pub fn new() -> Self {
+        Self {
+            heights: Vec::new(),
+            format_cache: HashMap::new(),
+        }
+    }
+
+    pub fn invalidate(&mut self) {
+        self.heights.clear();
+        self.format_cache.clear();
+    }
+}
+
+pub fn spinner_char(spinner_start: Instant) -> char {
+    const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
+    let elapsed = Instant::now().duration_since(spinner_start);
+    let idx = (elapsed.as_millis() / 80) as usize % SPINNERS.len();
+    SPINNERS[idx]
+}
+
+pub fn spinner_char_alt(spinner_start: Instant, chars: &[char]) -> char {
+    let elapsed = Instant::now().duration_since(spinner_start);
+    let idx = (elapsed.as_millis() / 100) as usize % chars.len();
+    chars[idx]
 }
 
 pub struct App {
@@ -492,28 +547,21 @@ pub struct App {
     pub state: AppState,
     pub config: Config,
     pub tool_call_count: usize,
-    /// Real-time status text shown in status bar (e.g. "思考中…", "正在调用工具…")
     pub status_text: String,
-    /// Full API message list preserved across turns (includes tool call context)
     pub api_messages: Option<Vec<Value>>,
-    /// Token usage from the last LLM response
     pub token_usage: Option<crate::llm::TokenUsage>,
-    /// How many lines the user has scrolled up from the bottom (0 = bottom)
     pub scroll_lines: usize,
-    /// HTTP request logs (newest first)
     pub http_logs: Vec<HttpLog>,
-    /// Current reasoning text from LLM (DeepSeek chain-of-thought)
     pub current_reasoning: String,
-    /// Proactive reminder text from i-rs remind (shown to LLM on next user message)
     pub reminder_text: Option<String>,
-    /// Current execution plan steps (for plan-and-execute)
     pub plan_steps: Vec<PlanStep>,
-    /// Current agent profile ID
     pub current_agent: String,
     pub today_stats: TodaySummary,
     pub stats_history: Vec<crate::stats::DailyStats>,
     pub skill_list: Vec<crate::skill_store::SkillEntry>,
     pub plugin_list: Vec<PluginEntry>,
+    pub spinner_start: Instant,
+    pub render_state: RenderState,
 }
 
 impl App {
@@ -541,11 +589,17 @@ impl App {
             stats_history: Vec::new(),
             skill_list: Vec::new(),
             plugin_list: Vec::new(),
+            spinner_start: Instant::now(),
+            render_state: RenderState::new(),
         }
     }
 
     pub fn is_processing(&self) -> bool {
         matches!(self.state, AppState::Processing)
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.render_state.invalidate();
     }
 
     pub fn add_user_message(&mut self, text: &str) {
@@ -557,18 +611,15 @@ impl App {
             .push(chrono::Local::now().naive_local());
         self.state = AppState::Processing;
         self.scroll_lines = 0;
-        self.plan_steps.clear(); // Clear plan from previous turn
+        self.plan_steps.clear();
+        self.mark_dirty();
     }
 
-    // ── Input cursor manipulation ──
-
-    /// Insert a character at the cursor position.
     pub fn insert_char(&mut self, c: char) {
         self.overlay.copy_feedback.take();
         self.input.insert_char(c);
     }
 
-    /// Delete the character before the cursor (Backspace).
     pub fn delete_before_cursor(&mut self) {
         self.input.delete_before_cursor();
     }
@@ -591,49 +642,34 @@ impl App {
         self.input.move_cursor_end();
     }
 
-    /// Push text into input history (max 50 entries), reset history index.
     pub fn commit_input_to_history(&mut self, text: &str) {
         self.input.commit_to_history(text);
         self.scroll_lines = 0;
     }
 
-    /// Navigate up in input history: restore previous input.
-    /// Returns the text to put in `input`, or None if already at start.
     #[allow(dead_code)]
     pub fn navigate_history_up(&mut self) -> Option<String> {
         self.input.navigate_up()
     }
 
-    /// Navigate down in input history: go to next input, or clear if at end.
-    /// Returns Some(text) to put in `input`, or None to clear.
     #[allow(dead_code)]
     pub fn navigate_history_down(&mut self) -> Option<String> {
         self.input.navigate_down()
     }
 
-    // =============================================
-    // Message scroll
-    // =============================================
-
-    /// Scroll messages up (toward older messages) by ~3 lines.
     pub fn scroll_up(&mut self) {
         self.scroll_lines += 3;
     }
 
-    /// Scroll messages down (toward newer messages) by ~3 lines.
     pub fn scroll_down(&mut self) {
         self.scroll_lines = self.scroll_lines.saturating_sub(3);
     }
 
-    /// Update the real-time status text (shown in status bar)
     pub fn set_status(&mut self, text: &str) {
         self.status_text = text.to_string();
     }
 
-    /// Start a new assistant message. If the last message is an empty assistant,
-    /// reuse it instead of creating a new one.
     pub fn start_assistant_message(&mut self) {
-        // Capture any accumulated reasoning into the last assistant message
         if !self.current_reasoning.is_empty()
             && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
         {
@@ -651,6 +687,7 @@ impl App {
             });
             self.message_timestamps
                 .push(chrono::Local::now().naive_local());
+            self.mark_dirty();
         }
     }
 
@@ -661,6 +698,7 @@ impl App {
         }
         if let Some(Message::Assistant { text: t, .. }) = self.messages.last_mut() {
             t.push_str(text);
+            self.mark_dirty();
         }
     }
 
@@ -682,6 +720,7 @@ impl App {
         self.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.tool_call_count += 1;
+        self.mark_dirty();
     }
 
     pub fn add_http_log(&mut self, log: HttpLog) {
@@ -692,14 +731,12 @@ impl App {
     }
 
     pub fn add_error(&mut self, text: &str) {
-        // Capture any accumulated reasoning into the last assistant message
         if !self.current_reasoning.is_empty()
             && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
         {
             reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
-        // Remove trailing empty assistant message (from NewRound before error)
         if let Some(Message::Assistant { text, .. }) = self.messages.last()
             && text.is_empty()
         {
@@ -708,22 +745,19 @@ impl App {
         self.messages.push(Message::Error {
             text: text.to_string(),
         });
-        // Reset API messages so the next request rebuilds from scratch
         self.api_messages = None;
         self.state = AppState::Idle;
         self.status_text.clear();
+        self.mark_dirty();
     }
 
-    /// Finish processing and save the accumulated API messages for context preservation
     pub fn finish_processing(&mut self, api_messages: Option<Vec<Value>>) {
-        // Capture any accumulated reasoning into the last assistant message
         if !self.current_reasoning.is_empty()
             && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
         {
             reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
-        // Remove trailing empty assistant message
         if let Some(Message::Assistant { text, .. }) = self.messages.last()
             && text.is_empty()
         {
@@ -732,14 +766,9 @@ impl App {
         self.api_messages = api_messages;
         self.state = AppState::Idle;
         self.status_text.clear();
+        self.mark_dirty();
     }
 
-    // =============================================
-    // Plan-and-Execute tracking
-    // =============================================
-
-    /// Parse plan steps from assistant text.
-    /// Detects lines matching patterns like "1. description" or "- description".
     pub fn detect_plan(&mut self, text: &str) {
         if self.is_processing() {
             self.plan_steps.clear();
@@ -762,7 +791,6 @@ impl App {
         }
     }
 
-    /// Mark the next incomplete plan step as done.
     pub fn mark_next_plan_step_done(&mut self) {
         for step in &mut self.plan_steps {
             if !step.done {
@@ -772,7 +800,6 @@ impl App {
         }
     }
 
-    /// Reset app for a new session (clear messages, etc.)
     pub fn reset_for_new_session(&mut self) {
         self.messages.clear();
         self.message_timestamps.clear();
@@ -781,7 +808,7 @@ impl App {
         self.status_text.clear();
         self.token_usage = None;
         self.input = InputState::new();
-        self.overlay.show_sidebar = false;
+        self.overlay.current = None;
         self.http_logs.clear();
         self.overlay.sidebar_selected = 0;
         self.overlay.sidebar_body_idx = None;
@@ -792,9 +819,10 @@ impl App {
         self.overlay.selected_message = None;
         self.overlay.selection_mode = false;
         self.overlay.tool_call_expanded.clear();
+        self.overlay.reasoning_expanded.clear();
+        self.mark_dirty();
     }
 
-    /// Ensure message_timestamps is in sync with messages after loading from session
     pub fn sync_message_timestamps(&mut self) {
         let now = chrono::Local::now().naive_local();
         while self.message_timestamps.len() < self.messages.len() {
@@ -856,10 +884,10 @@ mod tests {
     fn test_finish_processing_removes_empty_assistant() {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
-        app.start_assistant_message(); // creates empty assistant
+        app.start_assistant_message();
         assert_eq!(app.messages.len(), 2);
         app.finish_processing(None);
-        assert_eq!(app.messages.len(), 1); // empty assistant removed
+        assert_eq!(app.messages.len(), 1);
         assert!(!app.is_processing());
     }
 
@@ -871,7 +899,7 @@ mod tests {
 
         app.add_error("something went wrong");
         assert!(!app.is_processing());
-        assert_eq!(app.messages.len(), 2); // user + error
+        assert_eq!(app.messages.len(), 2);
         assert!(
             matches!(app.messages[1], Message::Error { ref text } if text == "something went wrong")
         );
@@ -885,7 +913,7 @@ mod tests {
         app.start_assistant_message();
         assert_eq!(app.messages.len(), 2);
         app.add_error("err");
-        assert_eq!(app.messages.len(), 2); // user + error
+        assert_eq!(app.messages.len(), 2);
         assert!(matches!(app.messages[1], Message::Error { .. }));
     }
 
@@ -931,7 +959,7 @@ mod tests {
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 0); // saturating
+        assert_eq!(app.scroll_lines, 0);
     }
 
     #[test]
@@ -982,7 +1010,7 @@ mod tests {
     fn test_detect_plan_only_when_processing() {
         let mut app = App::new(test_config());
         app.detect_plan("1. first step");
-        assert!(app.plan_steps.is_empty()); // not processing
+        assert!(app.plan_steps.is_empty());
     }
 
     #[test]
@@ -1041,7 +1069,7 @@ mod tests {
             });
         }
         assert_eq!(app.http_logs.len(), 50);
-        assert_eq!(app.http_logs[0].duration_ms, 54); // newest first
+        assert_eq!(app.http_logs[0].duration_ms, 54);
     }
 
     #[test]
@@ -1068,24 +1096,24 @@ mod tests {
         input.insert_char('a');
         input.move_cursor_left();
         assert_eq!(input.cursor, 0);
-        input.move_cursor_left(); // no-op
+        input.move_cursor_left();
         assert_eq!(input.cursor, 0);
 
         input.move_cursor_right();
         assert_eq!(input.cursor, 1);
-        input.move_cursor_right(); // no-op
+        input.move_cursor_right();
         assert_eq!(input.cursor, 1);
 
-        input.delete_before_cursor(); // cursor at 1, should delete 'a'
+        input.delete_before_cursor();
         assert_eq!(input.text, "");
-        input.delete_before_cursor(); // no-op (cursor at 0)
+        input.delete_before_cursor();
         assert_eq!(input.text, "");
     }
 
     #[test]
     fn test_input_history() {
         let mut input = InputState::new();
-        assert!(input.navigate_up().is_none()); // empty
+        assert!(input.navigate_up().is_none());
 
         input.commit_to_history("hello");
         input.commit_to_history("world");
@@ -1093,17 +1121,17 @@ mod tests {
 
         assert_eq!(input.navigate_up().as_deref(), Some("world"));
         assert_eq!(input.navigate_up().as_deref(), Some("hello"));
-        assert_eq!(input.navigate_up(), None); // at start
+        assert_eq!(input.navigate_up(), None);
 
         assert_eq!(input.navigate_down().as_deref(), Some("world"));
-        assert_eq!(input.navigate_down(), None); // at end (clear)
+        assert_eq!(input.navigate_down(), None);
     }
 
     #[test]
     fn test_input_history_dedup() {
         let mut input = InputState::new();
         input.commit_to_history("same");
-        input.commit_to_history("same"); // duplicate, ignored
+        input.commit_to_history("same");
         assert_eq!(input.history.len(), 1);
     }
 
@@ -1114,7 +1142,7 @@ mod tests {
             input.commit_to_history(&format!("item{}", i));
         }
         assert_eq!(input.history.len(), 50);
-        assert_eq!(input.history[0], "item10"); // oldest dropped
+        assert_eq!(input.history[0], "item10");
         assert_eq!(input.history[49], "item59");
     }
 
@@ -1165,10 +1193,8 @@ mod tests {
             },
         ];
 
-        // No filter -> all
         assert_eq!(overlay.filtered_sessions().len(), 3);
 
-        // With filter
         overlay.session_search = "weight".to_string();
         let result = overlay.filtered_sessions();
         assert_eq!(result.len(), 2);
@@ -1199,5 +1225,33 @@ mod tests {
         }];
         overlay.session_search = "WEIGHT".to_string();
         assert_eq!(overlay.filtered_sessions().len(), 1);
+    }
+
+    #[test]
+    fn test_overlay_enum_toggle() {
+        let mut overlay = OverlayState::new(vec!["default".to_string()]);
+        assert!(overlay.current.is_none());
+
+        overlay.toggle(Overlay::Help);
+        assert_eq!(overlay.current, Some(Overlay::Help));
+
+        overlay.toggle(Overlay::Help);
+        assert!(overlay.current.is_none());
+
+        overlay.show(Overlay::SessionList);
+        assert_eq!(overlay.current, Some(Overlay::SessionList));
+
+        overlay.show(Overlay::Config);
+        assert_eq!(overlay.current, Some(Overlay::Config));
+    }
+
+    #[test]
+    fn test_render_state_invalidation() {
+        let mut rs = RenderState::new();
+        rs.heights.push(10);
+        rs.format_cache.insert(0, Arc::new(vec![]));
+        rs.invalidate();
+        assert!(rs.heights.is_empty());
+        assert!(rs.format_cache.is_empty());
     }
 }

@@ -127,7 +127,11 @@ impl SkillStore {
     /// Legacy: create with file backend only.
     pub fn for_agent(claw_dir: &Path, agent_id: &str) -> Self {
         let skills_dir = claw_dir.join("agents").join(agent_id).join("skills");
-        Self { skills_dir, storage: None, agent_id: agent_id.to_string() }
+        Self {
+            skills_dir,
+            storage: None,
+            agent_id: agent_id.to_string(),
+        }
     }
 
     fn block_on<F: std::future::Future>(f: F) -> F::Output {
@@ -153,9 +157,9 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return Self::block_on(async move {
-                storage.skills.get(&aid, &name).await.ok().flatten()
-            });
+            return Self::block_on(
+                async move { storage.skills.get(&aid, &name).await.ok().flatten() },
+            );
         }
         let path = self.skills_dir.join(format!("{}.md", name));
         if !path.exists() {
@@ -171,9 +175,9 @@ impl SkillStore {
             let aid = self.agent_id.clone();
             let name = name.to_string();
             let content = content.to_string();
-            return Self::block_on(async move {
-                storage.skills.install(&aid, &name, &content).await
-            });
+            return Self::block_on(
+                async move { storage.skills.install(&aid, &name, &content).await },
+            );
         }
         std::fs::create_dir_all(&self.skills_dir)?;
         let path = self.skills_dir.join(format!("{}.md", name));
@@ -186,9 +190,7 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return Self::block_on(async move {
-                storage.skills.remove(&aid, &name).await
-            });
+            return Self::block_on(async move { storage.skills.remove(&aid, &name).await });
         }
         let path = self.skills_dir.join(format!("{}.md", name));
         if path.exists() {
@@ -202,7 +204,11 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             return Self::block_on(async move {
-                storage.skills.list_executable(&aid).await.unwrap_or_default()
+                storage
+                    .skills
+                    .list_executable(&aid)
+                    .await
+                    .unwrap_or_default()
             });
         }
         let dir = match std::fs::read_dir(&self.skills_dir) {
@@ -212,12 +218,12 @@ impl SkillStore {
 
         let mut skills: Vec<SkillDefinition> = dir
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
+            .filter(|e| {
+                e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file()
+            })
             .filter_map(|e| {
                 let path = e.path();
-                let name = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())?;
+                let name = path.file_stem().and_then(|s| s.to_str())?;
                 let raw = std::fs::read_to_string(&path).ok()?;
                 let def = build_skill_definition(name, &raw);
                 if def.parameters.is_some() {
@@ -310,8 +316,14 @@ type = "object"
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             return Self::block_on(async move {
-                storage.skills.list(&aid).await.unwrap_or_default()
-                    .into_iter().map(|e| e.name).collect()
+                storage
+                    .skills
+                    .list(&aid)
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|e| e.name)
+                    .collect()
             });
         }
         let dir = match std::fs::read_dir(&self.skills_dir) {
@@ -320,8 +332,15 @@ type = "object"
         };
         let mut names: Vec<String> = dir
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
-            .filter_map(|e| e.path().file_stem().and_then(|s| s.to_str()).map(|s| s.to_string()))
+            .filter(|e| {
+                e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file()
+            })
+            .filter_map(|e| {
+                e.path()
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+            })
             .collect();
         names.sort();
         names
@@ -333,8 +352,17 @@ type = "object"
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             return Self::block_on(async move {
-                storage.skills.list(&aid).await.unwrap_or_default()
-                    .into_iter().map(|e| SkillEntry { name: e.name, content: e.content }).collect()
+                storage
+                    .skills
+                    .list(&aid)
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|e| SkillEntry {
+                        name: e.name,
+                        content: e.content,
+                    })
+                    .collect()
             });
         }
         let dir = match std::fs::read_dir(&self.skills_dir) {
@@ -343,9 +371,15 @@ type = "object"
         };
         let mut entries: Vec<SkillEntry> = dir
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file())
+            .filter(|e| {
+                e.path().extension().map(|ext| ext == "md").unwrap_or(false) && e.path().is_file()
+            })
             .filter_map(|e| {
-                let name = e.path().file_stem().and_then(|s| s.to_str()).map(|s| s.to_string())?;
+                let name = e
+                    .path()
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())?;
                 let content = std::fs::read_to_string(e.path()).ok()?;
                 Some(SkillEntry { name, content })
             })

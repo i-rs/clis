@@ -15,16 +15,17 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let count = app.overlay.tab_completions.len();
-    let popup_height = (count as u16).min(12).saturating_add(2); // header + footer
+    let popup_height = (count as u16).min(12).saturating_add(2);
     let popup_width = (area.width as f32 * 0.45) as u16;
     let popup_x = area.x + 2;
-    let popup_y = area.bottom().saturating_sub(
-        1  // status bar
-        + input::input_height(&app.input.text)
-        + 1  // processing
-        + popup_height
-        + 2,
-    );
+
+    let status_height: u16 = 1;
+    let input_h = input::input_height(&app.input.text);
+    let popup_y = area
+        .bottom()
+        .saturating_sub(status_height + input_h + 1 + popup_height + 1);
+
+    let popup_y = popup_y.max(area.y);
 
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
@@ -33,7 +34,6 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
 
     let mut items: Vec<ListItem> = Vec::new();
 
-    // Header
     items.push(ListItem::new(vec![Line::from(Span::styled(
         format!(" Tab 补全 ({} 个)", count),
         Style::default()
@@ -69,7 +69,6 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
         ])]));
     }
 
-    // Footer
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ────────────────────────────────────────",
         Style::default().fg(Color::DarkGray),

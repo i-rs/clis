@@ -35,7 +35,10 @@ impl QualityJudgeResult {
     pub fn from_json(json: &Value) -> Option<Self> {
         let relevance = json.get("relevance").and_then(|v| v.as_u64()).unwrap_or(2) as u8;
         let accuracy = json.get("accuracy").and_then(|v| v.as_u64()).unwrap_or(2) as u8;
-        let completeness = json.get("completeness").and_then(|v| v.as_u64()).unwrap_or(2) as u8;
+        let completeness = json
+            .get("completeness")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(2) as u8;
         let reason = json
             .get("reason")
             .and_then(|v| v.as_str())

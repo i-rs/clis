@@ -1,4 +1,6 @@
-use crate::app;
+use std::collections::HashSet;
+
+use crate::app::{self, App, Overlay};
 use crate::core;
 use crate::llm::{LlmEvent, TokenUsage};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
@@ -6,26 +8,21 @@ use serde_json::Value;
 
 use tokio::sync::mpsc;
 
-/// Result of handling a key event.
 pub enum Action {
     Continue,
     Quit,
 }
 
-// ─── LlmEventHandler ────────────────────────────────────────────
-
 pub struct LlmEventHandler<'a> {
-    pub app: &'a mut app::App,
+    pub app: &'a mut App,
     pub app_core: &'a mut core::AppCore,
 }
 
 impl<'a> LlmEventHandler<'a> {
-    pub fn new(app: &'a mut app::App, app_core: &'a mut core::AppCore) -> Self {
+    pub fn new(app: &'a mut App, app_core: &'a mut core::AppCore) -> Self {
         Self { app, app_core }
     }
 
-    /// Handle a single LlmEvent. Returns `Action::Quit` when the Done
-    /// handler encounters a fatal session error.
     pub fn handle(&mut self, event: LlmEvent) -> Action {
         match event {
             LlmEvent::NewRound => self.handle_new_round(),
@@ -49,7 +46,9 @@ impl<'a> LlmEventHandler<'a> {
                 self.app_core.stats_manager.record(record);
                 self.app.today_stats = self.app_core.stats_manager.today_summary();
             }
-            LlmEvent::Done(msgs, usage, _trace_id) => return self.handle_done((*msgs).clone(), usage),
+            LlmEvent::Done(msgs, usage, _trace_id) => {
+                return self.handle_done((*msgs).clone(), usage);
+            }
             LlmEvent::Evaluation {
                 tool,
                 valid,
@@ -71,7 +70,7 @@ impl<'a> LlmEventHandler<'a> {
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
         if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
-            && let Some(crate::app::Message::Assistant { text: t, .. }) = self.app.messages.last()
+            && let Some(AppMessage::Assistant { text: t, .. }) = self.app.messages.last()
         {
             let plan_text = t.clone();
             if !plan_text.is_empty() {
@@ -202,7 +201,6 @@ impl<'a> LlmEventHandler<'a> {
             }
         };
 
-        // Persist
         crate::tui::clipboard::save_session_messages(
             &self.app_core.session_mgr,
             &session_id,
@@ -210,7 +208,6 @@ impl<'a> LlmEventHandler<'a> {
             Some(&msgs),
         );
 
-        // Rename session based on first user message
         let needs_rename = self
             .app_core
             .session_mgr
@@ -219,7 +216,7 @@ impl<'a> LlmEventHandler<'a> {
             .unwrap_or(false);
         if needs_rename
             && let Some(first_user) = self.app.messages.iter().find_map(|m| {
-                if let crate::app::Message::User { text } = m {
+                if let app::Message::User { text } = m {
                     Some(text.clone())
                 } else {
                     None
@@ -231,13 +228,11 @@ impl<'a> LlmEventHandler<'a> {
                 .rename_session(&session_id, &first_user);
         }
 
-        // Flush pending memory writes
         self.app_core
             .agent_store
             .memory_for_mut(&self.app.current_agent)
             .flush();
 
-        // Heuristic evaluation of final response (shared with Dashboard)
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
             self.app.messages.push(quality);
         }
@@ -246,10 +241,8 @@ impl<'a> LlmEventHandler<'a> {
     }
 }
 
-// ─── KeyEventHandler ────────────────────────────────────────────
-
 pub struct KeyEventHandler<'a> {
-    pub app: &'a mut app::App,
+    pub app: &'a mut App,
     pub app_core: &'a mut core::AppCore,
     pub rt: &'a tokio::runtime::Runtime,
     pub llm_tx: &'a mpsc::UnboundedSender<LlmEvent>,
@@ -257,7 +250,7 @@ pub struct KeyEventHandler<'a> {
 
 impl<'a> KeyEventHandler<'a> {
     pub fn new(
-        app: &'a mut app::App,
+        app: &'a mut App,
         app_core: &'a mut core::AppCore,
         rt: &'a tokio::runtime::Runtime,
         llm_tx: &'a mpsc::UnboundedSender<LlmEvent>,
@@ -271,202 +264,180 @@ impl<'a> KeyEventHandler<'a> {
     }
 
     pub fn handle(&mut self, key: KeyEvent) -> Action {
+        if self.handle_global_shortcuts(key) {
+            return self.handle_global_action(key);
+        }
+        if self.handle_overlay_dismissals(key) {
+            return Action::Continue;
+        }
+        if self.handle_selection_mode(key) {
+            return Action::Continue;
+        }
+        if self.handle_overlay_shortcuts(key) {
+            return self.handle_overlay_action(key);
+        }
+        if let Some(overlay) = self.app.overlay.current {
+            return self.handle_active_overlay_keys(key, overlay);
+        }
+        if !self.app.overlay.tab_completions.is_empty() {
+            return self.handle_tab_completion(key);
+        }
+        self.handle_normal_input(key)
+    }
+
+    // ── Phase 1: global shortcuts (Ctrl+C, Ctrl+Q, etc.) ──
+
+    fn handle_global_shortcuts(&self, key: KeyEvent) -> bool {
+        matches!(
+            (key.code, key.modifiers),
+            (KeyCode::Char('c'), m) if m == KeyModifiers::CONTROL | KeyModifiers::SHIFT
+        ) || matches!(
+            (key.code, key.modifiers),
+            (KeyCode::Char('q'), KeyModifiers::CONTROL)
+                | (KeyCode::Char('c'), KeyModifiers::CONTROL)
+        )
+    }
+
+    fn handle_global_action(&mut self, key: KeyEvent) -> Action {
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('c'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+                self.handle_copy()
+            }
+            (KeyCode::Char('q'), KeyModifiers::CONTROL)
+            | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Action::Quit,
+            _ => Action::Continue,
+        }
+    }
+
+    // ── Phase 2: dismiss overlays with Esc ──
+
+    fn handle_overlay_dismissals(&mut self, key: KeyEvent) -> bool {
         match key.code {
-            // ── Global shortcuts (always active) ────────────────
-            KeyCode::Char('c')
-                if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) =>
-            {
-                return self.handle_copy();
+            KeyCode::Esc if self.app.overlay.current == Some(Overlay::Feedback) => {
+                self.app.overlay.close();
             }
-            KeyCode::Char('q') | KeyCode::Char('c') if key.modifiers == KeyModifiers::CONTROL => {
-                return Action::Quit;
+            KeyCode::Char('y') if self.app.overlay.current == Some(Overlay::Feedback) => {
+                self.handle_submit_feedback(true);
+                return false;
             }
-
-            // ── Overlay-toast dismissals (high priority) ─────────
-            KeyCode::Esc if self.app.overlay.show_feedback => {
-                self.app.overlay.show_feedback = false;
+            KeyCode::Char('n') if self.app.overlay.current == Some(Overlay::Feedback) => {
+                self.handle_submit_feedback(false);
+                return false;
             }
-            KeyCode::Char('y') if self.app.overlay.show_feedback => {
-                return self.handle_submit_feedback(true);
-            }
-            KeyCode::Char('n') if self.app.overlay.show_feedback => {
-                return self.handle_submit_feedback(false);
-            }
-            KeyCode::Esc if self.app.overlay.show_tool_list => {
-                self.app.overlay.show_tool_list = false;
-            }
-            KeyCode::Esc if self.app.overlay.show_agent_list => {
-                self.app.overlay.show_agent_list = false;
-            }
-            KeyCode::Esc if self.app.overlay.show_stats_history => {
-                self.app.overlay.show_stats_history = false;
-            }
-            KeyCode::Esc if self.app.overlay.show_plugin_list => {
-                self.app.overlay.show_plugin_list = false;
-            }
-            KeyCode::Esc if self.app.overlay.show_config => {
-                self.app.overlay.show_config = false;
-            }
-            KeyCode::Esc | KeyCode::Enter if self.app.overlay.show_help => {
-                self.app.overlay.show_help = false;
-            }
-            KeyCode::Esc if self.app.overlay.selection_mode => {
+            KeyCode::Esc | KeyCode::Char('q') if self.app.overlay.selection_mode => {
                 self.app.overlay.selection_mode = false;
                 self.app.overlay.selected_message = None;
             }
-            KeyCode::Char('q') if self.app.overlay.selection_mode => {
+            KeyCode::Esc => match self.app.overlay.current {
+                Some(Overlay::ToolList)
+                | Some(Overlay::AgentList)
+                | Some(Overlay::StatsHistory)
+                | Some(Overlay::PluginList)
+                | Some(Overlay::Config) => {
+                    self.app.overlay.close();
+                }
+                Some(Overlay::Help) | Some(Overlay::Feedback) => {
+                    self.app.overlay.close();
+                }
+                _ => {}
+            },
+            KeyCode::Enter if self.app.overlay.current == Some(Overlay::Help) => {
+                self.app.overlay.close();
+            }
+            _ => {}
+        }
+        false
+    }
+
+    // ── Phase 3: selection mode ──
+
+    fn handle_selection_mode(&mut self, key: KeyEvent) -> bool {
+        if !self.app.overlay.selection_mode {
+            return false;
+        }
+
+        match key.code {
+            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
                 self.app.overlay.selection_mode = false;
                 self.app.overlay.selected_message = None;
             }
-
-            // ── Selection mode ───────────────────────────────────
-            KeyCode::Char('s')
-                if key.modifiers == KeyModifiers::CONTROL && !self.app.messages.is_empty() =>
-            {
-                self.app.overlay.selection_mode = !self.app.overlay.selection_mode;
-                self.app.overlay.selected_message = if self.app.overlay.selection_mode {
-                    Some(self.app.messages.len().saturating_sub(1))
-                } else {
-                    None
-                };
+            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
+                self.handle_delete_selected_message();
+                self.app.mark_dirty();
             }
-            KeyCode::Char('d')
-                if key.modifiers == KeyModifiers::CONTROL && self.app.overlay.selection_mode =>
-            {
-                return self.handle_delete_selected_message();
-            }
-            KeyCode::Up if self.app.overlay.selection_mode => {
+            KeyCode::Up => {
                 if let Some(idx) = self.app.overlay.selected_message
                     && idx > 0
                 {
                     self.app.overlay.selected_message = Some(idx - 1);
                 }
             }
-            KeyCode::Down if self.app.overlay.selection_mode => {
+            KeyCode::Down => {
                 if let Some(idx) = self.app.overlay.selected_message
                     && idx + 1 < self.app.messages.len()
                 {
                     self.app.overlay.selected_message = Some(idx + 1);
-                    let bottom_is_newer_rev = self.app.messages.len().saturating_sub(1) - (idx + 1);
-                    if bottom_is_newer_rev > 0 && self.app.scroll_lines > 0 {
+                    if self.app.messages.len().saturating_sub(1) - (idx + 1) > 0
+                        && self.app.scroll_lines > 0
+                    {
                         self.app.scroll_lines = 0;
                     }
                 }
             }
-            KeyCode::Char(' ') if self.app.overlay.selection_mode => {
+            KeyCode::Char(' ') => {
                 if let Some(idx) = self.app.overlay.selected_message {
                     match self.app.messages.get(idx) {
-                        Some(crate::app::Message::ToolCall { .. })
+                        Some(AppMessage::ToolCall { .. })
                             if !self.app.overlay.tool_call_expanded.remove(&idx) =>
                         {
                             self.app.overlay.tool_call_expanded.insert(idx);
+                            self.app.mark_dirty();
                         }
-                        Some(crate::app::Message::Assistant { reasoning, .. })
+                        Some(AppMessage::Assistant { reasoning, .. })
                             if !reasoning.is_empty()
                                 && !self.app.overlay.reasoning_expanded.remove(&idx) =>
                         {
                             self.app.overlay.reasoning_expanded.insert(idx);
+                            self.app.mark_dirty();
                         }
                         _ => {}
                     }
                 }
             }
+            _ => return false,
+        }
+        true
+    }
 
-            // ── Help shortcut ────────────────────────────────────
-            KeyCode::Char('h') if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.overlay.show_help = !self.app.overlay.show_help;
-                if self.app.overlay.show_help {
-                    self.app.overlay.show_config = false;
-                }
-            }
+    // ── Phase 4: overlay shortcut keys ──
 
-            // ── Config info shortcut ─────────────────────────────
-            KeyCode::Char('i') if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.overlay.show_config = !self.app.overlay.show_config;
-                if self.app.overlay.show_config {
-                    self.app.overlay.show_help = false;
-                    self.app.overlay.show_tool_list = false;
-                    self.app.overlay.show_feedback = false;
-                }
-            }
+    fn handle_overlay_shortcuts(&self, key: KeyEvent) -> bool {
+        let is_processing = self.app.is_processing();
+        let ctrl = key.modifiers == KeyModifiers::CONTROL;
+        let ctrl_shift = key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT);
 
-            // ── Feedback shortcut ─────────────────────────────────
-            KeyCode::Char('f')
-                if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() =>
-            {
-                self.app.overlay.show_feedback = !self.app.overlay.show_feedback;
-                if self.app.overlay.show_feedback {
-                    self.app.overlay.show_help = false;
-                    self.app.overlay.show_config = false;
-                    self.app.overlay.show_tool_list = false;
-                    self.app.overlay.show_agent_list = false;
-                    self.app.overlay.show_stats_history = false;
-                }
-            }
+        matches!(
+            (key.code, ctrl, ctrl_shift, is_processing),
+            (KeyCode::Char('s'), true, false, _)
+                | (KeyCode::Char('h'), true, false, _)
+                | (KeyCode::Char('i'), true, false, _)
+                | (KeyCode::Char('f'), true, false, false)
+                | (KeyCode::Char('t'), true, false, _)
+                | (KeyCode::Char('a'), true, false, _)
+                | (KeyCode::Char('u'), false, true, _)
+                | (KeyCode::Char('p'), false, true, _)
+                | (KeyCode::Char('l'), true, false, _)
+                | (KeyCode::Char('n'), true, false, _)
+                | (KeyCode::Char('r'), true, false, _)
+                | (KeyCode::Char('p'), true, false, _)
+                | (KeyCode::Char('e'), true, false, _)
+        )
+    }
 
-            KeyCode::Char('t') if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.overlay.show_tool_list = !self.app.overlay.show_tool_list;
-                if self.app.overlay.show_tool_list {
-                    self.app.overlay.show_help = false;
-                    self.app.overlay.show_config = false;
-                    self.app.overlay.show_agent_list = false;
-                }
-            }
-
-            KeyCode::Char('a') if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.overlay.show_agent_list = !self.app.overlay.show_agent_list;
-                if self.app.overlay.show_agent_list {
-                    self.app.overlay.show_help = false;
-                    self.app.overlay.show_config = false;
-                    self.app.overlay.show_tool_list = false;
-                    self.app.overlay.show_stats_history = false;
-                }
-            }
-
-            KeyCode::Char('u')
-                if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) =>
-            {
-                self.app.overlay.show_stats_history = !self.app.overlay.show_stats_history;
-                if self.app.overlay.show_stats_history {
-                    self.app.overlay.show_help = false;
-                    self.app.overlay.show_config = false;
-                    self.app.overlay.show_tool_list = false;
-                    self.app.overlay.show_agent_list = false;
-                    self.app.overlay.show_plugin_list = false;
-                    self.app.stats_history = self.app_core.stats_manager.daily_history(7);
-                }
-            }
-
-            KeyCode::Char('p')
-                if key.modifiers == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) =>
-            {
-                self.app.overlay.show_plugin_list = !self.app.overlay.show_plugin_list;
-                if self.app.overlay.show_plugin_list {
-                    self.app.overlay.show_help = false;
-                    self.app.overlay.show_config = false;
-                    self.app.overlay.show_tool_list = false;
-                    self.app.overlay.show_agent_list = false;
-                    self.app.overlay.show_stats_history = false;
-                    let store = self
-                        .app_core
-                        .agent_store
-                        .skill_store_for(&self.app.current_agent);
-                    self.app.skill_list = store.list_skills();
-                    let plugin_mgr = crate::plugin::PluginManager::new();
-                    self.app.plugin_list = plugin_mgr
-                        .manifests
-                        .iter()
-                        .map(|m| crate::app::PluginEntry {
-                            name: m.plugin.name.clone(),
-                            description: m.plugin.description.clone(),
-                            enabled: plugin_mgr.is_enabled(&m.plugin.name),
-                        })
-                        .collect();
-                }
-            }
-
-            KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
-                if self.app.overlay.show_agent_list {
+    fn handle_overlay_action(&mut self, key: KeyEvent) -> Action {
+        match (key.code, key.modifiers) {
+            (KeyCode::Char('s'), KeyModifiers::CONTROL) if !self.app.messages.is_empty() => {
+                if self.app.overlay.current == Some(Overlay::AgentList) {
                     let agent_ids: Vec<&String> = self.app.config.agents.keys().collect();
                     let idx = self
                         .app
@@ -476,76 +447,112 @@ impl<'a> KeyEventHandler<'a> {
                     if let Some(target_id) = agent_ids.get(idx).map(|s| s.as_str()) {
                         self.app.current_agent = target_id.to_string();
                     }
+                } else {
+                    self.app.overlay.selection_mode = !self.app.overlay.selection_mode;
+                    self.app.overlay.selected_message = if self.app.overlay.selection_mode {
+                        Some(self.app.messages.len().saturating_sub(1))
+                    } else {
+                        None
+                    };
                 }
             }
-
-            KeyCode::Char('d') if key.modifiers == KeyModifiers::CONTROL => {
-                if self.app.overlay.show_agent_list {
-                    let agent_ids: Vec<String> = self.app.config.agents.keys().cloned().collect();
-                    let idx = self
-                        .app
-                        .overlay
-                        .agent_picker_index
-                        .min(agent_ids.len().saturating_sub(1));
-                    if let Some(id) = agent_ids.get(idx).cloned().filter(|id| id != "default") {
-                        self.app.config.agents.remove(&id);
-                        let _ = self.app.config.save();
-                        if self.app.current_agent == id {
-                            self.app.current_agent = "default".to_string();
-                        }
-                    }
+            (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
+                self.app.overlay.toggle(Overlay::Help);
+            }
+            (KeyCode::Char('i'), KeyModifiers::CONTROL) => {
+                self.app.overlay.toggle(Overlay::Config);
+            }
+            (KeyCode::Char('f'), KeyModifiers::CONTROL) if !self.app.is_processing() => {
+                self.app.overlay.toggle(Overlay::Feedback);
+            }
+            (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
+                self.app.overlay.toggle(Overlay::ToolList);
+            }
+            (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
+                self.app.overlay.toggle(Overlay::AgentList);
+            }
+            (KeyCode::Char('u'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+                if self.app.overlay.current == Some(Overlay::StatsHistory) {
+                    self.app.overlay.close();
+                } else {
+                    self.app.overlay.show(Overlay::StatsHistory);
+                    self.app.stats_history = self.app_core.stats_manager.daily_history(7);
                 }
             }
-
-            KeyCode::Up if self.app.overlay.show_agent_list => {
-                self.app.overlay.agent_picker_index =
-                    self.app.overlay.agent_picker_index.saturating_sub(1);
-            }
-            KeyCode::Down if self.app.overlay.show_agent_list => {
-                let max = self.app.config.agents.len().saturating_sub(1);
-                if self.app.overlay.agent_picker_index < max {
-                    self.app.overlay.agent_picker_index += 1;
+            (KeyCode::Char('p'), m) if m == (KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
+                if self.app.overlay.current == Some(Overlay::PluginList) {
+                    self.app.overlay.close();
+                } else {
+                    self.app.overlay.show(Overlay::PluginList);
+                    let store = self
+                        .app_core
+                        .agent_store
+                        .skill_store_for(&self.app.current_agent);
+                    self.app.skill_list = store.list_skills();
+                    let plugin_mgr = crate::plugin::PluginManager::new();
+                    self.app.plugin_list = plugin_mgr
+                        .manifests
+                        .iter()
+                        .map(|m| app::PluginEntry {
+                            name: m.plugin.name.clone(),
+                            description: m.plugin.description.clone(),
+                            enabled: plugin_mgr.is_enabled(&m.plugin.name),
+                        })
+                        .collect();
                 }
             }
-
-            // ── Session list overlay ─────────────────────────────
-            KeyCode::Char('l') if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.overlay.show_session_list = !self.app.overlay.show_session_list;
-                if self.app.overlay.show_session_list {
+            (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
+                self.app.overlay.toggle(Overlay::SessionList);
+                if self.app.overlay.is_overlay(Overlay::SessionList) {
                     self.app.overlay.session_list_index = 0;
                     self.app.overlay.session_list = self.app_core.session_mgr.sessions().to_vec();
                 }
             }
-            KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+            (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
                 return self.handle_new_session();
             }
-            KeyCode::Char('r') if key.modifiers == KeyModifiers::CONTROL => {
-                return self.handle_sidebar_toggle();
+            (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+                self.app.overlay.toggle(Overlay::Sidebar);
             }
-            KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
-                return self.handle_agent_picker_toggle();
+            (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
+                if self.app.overlay.current == Some(Overlay::AgentPicker) {
+                    self.app.overlay.close();
+                } else {
+                    self.app.overlay.show(Overlay::AgentPicker);
+                    self.app.overlay.agent_list = self.app_core.config.agent_ids();
+                    self.app.overlay.agent_picker_index = self
+                        .app
+                        .overlay
+                        .agent_list
+                        .iter()
+                        .position(|id| *id == self.app.current_agent)
+                        .unwrap_or(0);
+                }
             }
-            KeyCode::Char('e') if key.modifiers == KeyModifiers::CONTROL => {
+            (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
                 return self.handle_export_session();
             }
+            _ => {}
+        }
+        Action::Continue
+    }
 
-            // ── Session list keys ────────────────────────────────
-            _ if self.app.overlay.show_session_list => {
-                return self.handle_session_list_keys(key);
-            }
+    // ── Phase 5: active overlay key handling ──
 
-            // ── Sidebar keys ─────────────────────────────────────
-            _ if self.app.overlay.show_sidebar => {
-                return self.handle_sidebar_keys(key);
-            }
+    fn handle_active_overlay_keys(&mut self, key: KeyEvent, overlay: Overlay) -> Action {
+        match overlay {
+            Overlay::SessionList => self.handle_session_list_keys(key),
+            Overlay::Sidebar => self.handle_sidebar_keys(key),
+            Overlay::AgentPicker => self.handle_agent_picker_keys(key),
+            _ => Action::Continue,
+        }
+    }
 
-            // ── Agent picker keys ────────────────────────────────
-            _ if self.app.overlay.show_agent_picker => {
-                return self.handle_agent_picker_keys(key);
-            }
+    // ── Phase 6: tab completion ──
 
-            // ── Tab completions ──────────────────────────────────
-            KeyCode::Esc if !self.app.overlay.tab_completions.is_empty() => {
+    fn handle_tab_completion(&mut self, key: KeyEvent) -> Action {
+        match key.code {
+            KeyCode::Esc => {
                 self.app.overlay.tab_completions.clear();
                 self.app.overlay.tab_completion_index = 0;
             }
@@ -557,28 +564,150 @@ impl<'a> KeyEventHandler<'a> {
             {
                 self.handle_backtab_complete();
             }
-
-            // ── Normal mode (input editing + navigation) ─────────
             _ => {
+                self.app.overlay.tab_completions.clear();
+                self.app.overlay.tab_completion_index = 0;
                 return self.handle_normal_input(key);
             }
         }
         Action::Continue
     }
 
-    // ── Copy ────────────────────────────────────────────────
+    // ── Phase 7: normal input ──
+
+    fn handle_normal_input(&mut self, key: KeyEvent) -> Action {
+        match key.code {
+            KeyCode::Up if !self.app.overlay.selection_mode && !self.app.is_processing() => {
+                if self.app.input.text.is_empty() {
+                    self.app.scroll_up();
+                } else if let Some(text) = self.app.input.navigate_up() {
+                    self.app.input.text = text;
+                    self.app.input.move_cursor_end();
+                }
+            }
+            KeyCode::Down if !self.app.overlay.selection_mode && !self.app.is_processing() => {
+                if self.app.input.text.is_empty() {
+                    self.app.scroll_down();
+                } else if let Some(text) = self.app.input.navigate_down() {
+                    self.app.input.text = text;
+                    self.app.input.move_cursor_end();
+                } else {
+                    self.app.input.text.clear();
+                    self.app.input.cursor = 0;
+                }
+            }
+            KeyCode::Enter => return self.handle_enter_key(key),
+            _ => return self.handle_editing_key(key),
+        }
+        Action::Continue
+    }
+
+    fn handle_enter_key(&mut self, key: KeyEvent) -> Action {
+        if key.modifiers == KeyModifiers::ALT {
+            if !self.app.is_processing() {
+                self.app.insert_char('\n');
+            }
+            return Action::Continue;
+        }
+        if !self.app.input.text.is_empty() && !self.app.is_processing() {
+            let text = std::mem::take(&mut self.app.input.text);
+            self.app.input.cursor = 0;
+            self.app.commit_input_to_history(&text);
+            self.app.add_user_message(&text);
+            self.app_core
+                .session_mgr
+                .append_message("user", &text, None);
+            let msgs = self.app_core.build_messages_for(
+                &self.app.messages,
+                &text,
+                &self.app.api_messages,
+                self.app.reminder_text.as_deref(),
+                &self.app.current_agent,
+            );
+            let recent: Vec<Value> = self
+                .app
+                .api_messages
+                .as_deref()
+                .map(|m| m.to_vec())
+                .unwrap_or_default();
+            self.app_core.spawn_chat_for(
+                self.rt,
+                self.llm_tx.clone(),
+                msgs,
+                &self.app.current_agent,
+                &recent,
+            );
+        }
+        Action::Continue
+    }
+
+    fn handle_editing_key(&mut self, key: KeyEvent) -> Action {
+        if self.app.is_processing() {
+            return Action::Continue;
+        }
+        match key.code {
+            KeyCode::Backspace if key.modifiers == KeyModifiers::NONE => {
+                if !self.app.input.text.is_empty() {
+                    self.app.delete_before_cursor();
+                    self.app.overlay.tab_completions.clear();
+                }
+            }
+            KeyCode::Backspace if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.delete_word_before_cursor();
+                self.app.overlay.tab_completions.clear();
+            }
+            KeyCode::Left if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.move_cursor_word_left();
+            }
+            KeyCode::Right if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.move_cursor_word_right();
+            }
+            KeyCode::Left => {
+                self.app.move_cursor_left();
+            }
+            KeyCode::Right => {
+                self.app.move_cursor_right();
+            }
+            KeyCode::Home => {
+                self.app.input.move_cursor_home();
+            }
+            KeyCode::End => {
+                self.app.input.move_cursor_end();
+            }
+            KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.delete_to_line_start();
+            }
+            KeyCode::Char('k') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.delete_to_line_end();
+            }
+            KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.undo();
+            }
+            KeyCode::Char('y') if key.modifiers == KeyModifiers::CONTROL => {
+                self.app.input.redo();
+            }
+            KeyCode::Char(c) => {
+                self.app.overlay.tab_completions.clear();
+                self.app.insert_char(c);
+            }
+            _ => {}
+        }
+        Action::Continue
+    }
+
+    // ── Copy ──
 
     fn handle_copy(&mut self) -> Action {
         let content = if self.app.overlay.selection_mode {
             self.app.overlay.selected_message.and_then(|idx| {
                 self.app.messages.get(idx).map(|m| match m {
-                    crate::app::Message::User { text } => text.clone(),
-                    crate::app::Message::Assistant { text, .. } => text.clone(),
-                    crate::app::Message::ToolCall {
+                    AppMessage::User { text } => text.clone(),
+                    AppMessage::Assistant { text, .. } => text.clone(),
+                    AppMessage::ToolCall {
                         name, args, result, ..
                     } => format!("Tool: {}\nArgs: {}\nResult: {}", name, args, result),
-                    crate::app::Message::Error { text } => text.clone(),
-                    crate::app::Message::Evaluation { tool, issues, .. } => {
+                    AppMessage::Error { text } => text.clone(),
+                    AppMessage::Evaluation { tool, issues, .. } => {
                         format!("Tool Evaluation: {} | Issues: {}", tool, issues.join("; "))
                     }
                     _ => String::new(),
@@ -586,9 +715,7 @@ impl<'a> KeyEventHandler<'a> {
             })
         } else {
             self.app.messages.iter().rev().find_map(|m| match m {
-                crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
-                    Some(text.clone())
-                }
+                AppMessage::Assistant { text, .. } if !text.is_empty() => Some(text.clone()),
                 _ => None,
             })
         };
@@ -604,17 +731,26 @@ impl<'a> KeyEventHandler<'a> {
         Action::Continue
     }
 
-    fn handle_delete_selected_message(&mut self) -> Action {
+    fn handle_delete_selected_message(&mut self) {
         if let Some(idx) = self.app.overlay.selected_message {
             let idx = idx.min(self.app.messages.len().saturating_sub(1));
             self.app.messages.remove(idx);
             self.app.message_timestamps.remove(idx);
             self.app.overlay.tool_call_expanded.remove(&idx);
-            let tc = std::mem::take(&mut self.app.overlay.tool_call_expanded);
+            self.app.overlay.reasoning_expanded.remove(&idx);
+
+            let tc: HashSet<usize> = std::mem::take(&mut self.app.overlay.tool_call_expanded);
             self.app.overlay.tool_call_expanded = tc
                 .into_iter()
                 .map(|i| if i > idx { i - 1 } else { i })
                 .collect();
+
+            let re: HashSet<usize> = std::mem::take(&mut self.app.overlay.reasoning_expanded);
+            self.app.overlay.reasoning_expanded = re
+                .into_iter()
+                .map(|i| if i > idx { i - 1 } else { i })
+                .collect();
+
             if idx >= self.app.messages.len() {
                 self.app.overlay.selected_message = if self.app.messages.is_empty() {
                     None
@@ -623,11 +759,10 @@ impl<'a> KeyEventHandler<'a> {
                 };
             }
         }
-        Action::Continue
     }
 
-    fn handle_submit_feedback(&mut self, positive: bool) -> Action {
-        self.app.overlay.show_feedback = false;
+    fn handle_submit_feedback(&mut self, positive: bool) {
+        self.app.overlay.close();
         self.app.messages.push(app::Message::Feedback {
             positive,
             message: None,
@@ -647,7 +782,6 @@ impl<'a> KeyEventHandler<'a> {
                 .memory_for_mut(&self.app.current_agent)
                 .flush();
         }
-        Action::Continue
     }
 
     fn handle_new_session(&mut self) -> Action {
@@ -666,11 +800,11 @@ impl<'a> KeyEventHandler<'a> {
         }
         self.app_core.session_mgr.create_session();
         self.app.reset_for_new_session();
-        self.app.overlay.show_session_list = false;
+        self.app.overlay.close();
         Action::Continue
     }
 
-    // ── Session list sub-handler ─────────────────────────────
+    // ── Session list ──
 
     fn handle_session_list_keys(&mut self, key: KeyEvent) -> Action {
         match key.code {
@@ -715,7 +849,7 @@ impl<'a> KeyEventHandler<'a> {
                 } else if !self.app.overlay.session_rename_buf.is_empty() {
                     self.app.overlay.session_rename_buf.clear();
                 } else {
-                    self.app.overlay.show_session_list = false;
+                    self.app.overlay.close();
                 }
             }
             KeyCode::Up => {
@@ -749,7 +883,6 @@ impl<'a> KeyEventHandler<'a> {
     }
 
     fn handle_session_enter(&mut self) -> Action {
-        // If renaming, confirm rename
         if !self.app.overlay.session_rename_buf.is_empty() {
             let filtered = self.app.overlay.filtered_sessions();
             if let Some(meta) = filtered.get(self.app.overlay.session_list_index) {
@@ -763,11 +896,9 @@ impl<'a> KeyEventHandler<'a> {
             } else {
                 self.app.overlay.session_rename_buf.clear();
             }
-            // NOTE: 原代码这里 break 会退出整个 TUI（原有 bug），改为 Continue
             return Action::Continue;
         }
 
-        // Switch to selected session
         let filtered = self.app.overlay.filtered_sessions();
 
         if self.app.overlay.session_search_mode {
@@ -797,7 +928,7 @@ impl<'a> KeyEventHandler<'a> {
                 );
 
                 self.app_core.session_mgr.switch_to(&new_id);
-                let loaded = self.app_core.session_mgr.load_app_messages(&new_id, 50);
+                let loaded = self.app_core.session_mgr.load_app_messages(&new_id, 200);
                 self.app.messages = loaded;
                 self.app.sync_message_timestamps();
                 self.app.api_messages = self.app_core.session_mgr.load_api_messages(&new_id);
@@ -805,13 +936,14 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.status_text.clear();
                 self.app.token_usage = None;
                 self.app.plan_steps = self.app_core.session_mgr.load_plan_steps(&new_id);
+                self.app.mark_dirty();
             }
         }
-        self.app.overlay.show_session_list = false;
+        self.app.overlay.close();
         Action::Continue
     }
 
-    // ── Sidebar sub-handler ──────────────────────────────────
+    // ── Sidebar ──
 
     fn handle_sidebar_keys(&mut self, key: KeyEvent) -> Action {
         match key.code {
@@ -819,42 +951,30 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.overlay.sidebar_body_idx = None;
             }
             KeyCode::Esc => {
-                self.app.overlay.show_sidebar = false;
+                self.app.overlay.close();
             }
-            KeyCode::Up
-                if !self.app.overlay.show_session_list
-                    && self.app.overlay.sidebar_body_idx.is_none() =>
-            {
+            KeyCode::Up if self.app.overlay.sidebar_body_idx.is_none() => {
                 self.app.overlay.sidebar_selected =
                     self.app.overlay.sidebar_selected.saturating_sub(1);
             }
-            KeyCode::Down
-                if !self.app.overlay.show_session_list
-                    && self.app.overlay.sidebar_body_idx.is_none() =>
-            {
+            KeyCode::Down if self.app.overlay.sidebar_body_idx.is_none() => {
                 let max = self.app.http_logs.len().saturating_sub(1);
                 if self.app.overlay.sidebar_selected < max {
                     self.app.overlay.sidebar_selected += 1;
                 }
             }
             KeyCode::Enter
-                if !self.app.overlay.show_session_list
-                    && self.app.overlay.sidebar_body_idx.is_none()
+                if self.app.overlay.sidebar_body_idx.is_none()
                     && !self.app.http_logs.is_empty() =>
             {
                 self.app.overlay.sidebar_body_idx = Some(self.app.overlay.sidebar_selected);
+                self.app.overlay.sidebar_body_scroll = 0;
             }
-            KeyCode::Up
-                if !self.app.overlay.show_session_list
-                    && self.app.overlay.sidebar_body_idx.is_some() =>
-            {
+            KeyCode::Up if self.app.overlay.sidebar_body_idx.is_some() => {
                 self.app.overlay.sidebar_body_scroll =
                     self.app.overlay.sidebar_body_scroll.saturating_sub(1);
             }
-            KeyCode::Down
-                if !self.app.overlay.show_session_list
-                    && self.app.overlay.sidebar_body_idx.is_some() =>
-            {
+            KeyCode::Down if self.app.overlay.sidebar_body_idx.is_some() => {
                 self.app.overlay.sidebar_body_scroll += 1;
             }
             _ => {}
@@ -862,7 +982,7 @@ impl<'a> KeyEventHandler<'a> {
         Action::Continue
     }
 
-    // ── Agent picker sub-handler ─────────────────────────────
+    // ── Agent picker ──
 
     fn handle_agent_picker_keys(&mut self, key: KeyEvent) -> Action {
         match key.code {
@@ -886,7 +1006,6 @@ impl<'a> KeyEventHandler<'a> {
                 if let Some(ref agent_id) = agent_id
                     && *agent_id != self.app.current_agent
                 {
-                    // Save current session messages
                     if let Some(old_id) = self
                         .app_core
                         .session_mgr
@@ -912,42 +1031,12 @@ impl<'a> KeyEventHandler<'a> {
                             &self.app_core.session_mgr,
                         );
                 }
-                self.app.overlay.show_agent_picker = false;
+                self.app.overlay.close();
             }
             KeyCode::Esc => {
-                self.app.overlay.show_agent_picker = false;
+                self.app.overlay.close();
             }
             _ => {}
-        }
-        Action::Continue
-    }
-
-    // ── Sidebar shortcuts (Ctrl+R, Ctrl+S, Ctrl+P) ──────────
-
-    fn handle_sidebar_toggle(&mut self) -> Action {
-        // Ctrl+R: toggle HTTP debug sidebar
-        self.app.overlay.show_sidebar = !self.app.overlay.show_sidebar;
-        if self.app.overlay.show_sidebar {
-            self.app.overlay.show_session_list = false;
-        }
-        Action::Continue
-    }
-
-    fn handle_agent_picker_toggle(&mut self) -> Action {
-        // Ctrl+P: toggle agent picker
-        self.app.overlay.show_agent_picker = !self.app.overlay.show_agent_picker;
-        if self.app.overlay.show_agent_picker {
-            self.app.overlay.show_session_list = false;
-            self.app.overlay.show_sidebar = false;
-            self.app.overlay.sidebar_body_idx = None;
-            self.app.overlay.agent_list = self.app_core.config.agent_ids();
-            self.app.overlay.agent_picker_index = self
-                .app
-                .overlay
-                .agent_list
-                .iter()
-                .position(|id| *id == self.app.current_agent)
-                .unwrap_or(0);
         }
         Action::Continue
     }
@@ -969,21 +1058,21 @@ impl<'a> KeyEventHandler<'a> {
 
         for msg in &self.app.messages {
             match msg {
-                crate::app::Message::User { text } => {
+                AppMessage::User { text } => {
                     md.push_str("## 👤 用户\n\n");
                     md.push_str(text);
                     md.push_str("\n\n---\n\n");
                 }
-                crate::app::Message::Assistant { text, .. } => {
+                AppMessage::Assistant { text, .. } => {
                     md.push_str("## 🤖 Claw\n\n");
                     md.push_str(text);
                     md.push_str("\n\n---\n\n");
                 }
-                crate::app::Message::ToolCall {
+                AppMessage::ToolCall {
                     name, args, result, ..
                 } => {
                     md.push_str(&format!("## ⚡ 工具调用: `{}`\n\n", name));
-                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
+                    if let Ok(val) = serde_json::from_str::<Value>(args)
                         && name == "i_rs"
                     {
                         let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
@@ -1001,12 +1090,12 @@ impl<'a> KeyEventHandler<'a> {
                     }
                     md.push_str("---\n\n");
                 }
-                crate::app::Message::Error { text } => {
+                AppMessage::Error { text } => {
                     md.push_str("## ✗ 错误\n\n");
                     md.push_str(&format!("```\n{}\n```\n\n", text));
                     md.push_str("---\n\n");
                 }
-                crate::app::Message::Evaluation {
+                AppMessage::Evaluation {
                     tool,
                     valid,
                     issues,
@@ -1019,7 +1108,7 @@ impl<'a> KeyEventHandler<'a> {
                         md.push_str("\n---\n\n");
                     }
                 }
-                crate::app::Message::Quality {
+                AppMessage::Quality {
                     score,
                     complete,
                     issues,
@@ -1038,7 +1127,7 @@ impl<'a> KeyEventHandler<'a> {
                     }
                     md.push_str("\n---\n\n");
                 }
-                crate::app::Message::Feedback { positive, message } => {
+                AppMessage::Feedback { positive, message } => {
                     let icon = if *positive { "👍" } else { "👎" };
                     md.push_str(&format!("## {} 用户反馈\n\n", icon));
                     if let Some(msg) = message {
@@ -1066,137 +1155,7 @@ impl<'a> KeyEventHandler<'a> {
         Action::Continue
     }
 
-    // ── Normal input / navigation ───────────────────────────
-
-    fn handle_normal_input(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Up
-                if !self.app.overlay.selection_mode
-                    && !self.app.overlay.show_sidebar
-                    && !self.app.is_processing() =>
-            {
-                if self.app.input.text.is_empty() {
-                    self.app.scroll_up();
-                } else if let Some(text) = self.app.input.navigate_up() {
-                    self.app.input.text = text;
-                    self.app.input.move_cursor_end();
-                }
-            }
-            KeyCode::Down
-                if !self.app.overlay.selection_mode
-                    && !self.app.overlay.show_sidebar
-                    && !self.app.is_processing() =>
-            {
-                if self.app.input.text.is_empty() {
-                    self.app.scroll_down();
-                } else if let Some(text) = self.app.input.navigate_down() {
-                    self.app.input.text = text;
-                    self.app.input.move_cursor_end();
-                } else {
-                    self.app.input.text.clear();
-                    self.app.input.cursor = 0;
-                }
-            }
-            KeyCode::Enter => {
-                if key.modifiers == KeyModifiers::ALT {
-                    if !self.app.is_processing() {
-                        self.app.insert_char('\n');
-                    }
-                } else if !self.app.input.text.is_empty() && !self.app.is_processing() {
-                    let text = std::mem::take(&mut self.app.input.text);
-                    self.app.input.cursor = 0;
-                    self.app.commit_input_to_history(&text);
-                    self.app.add_user_message(&text);
-                    self.app_core
-                        .session_mgr
-                        .append_message("user", &text, None);
-                    let msgs = self.app_core.build_messages_for(
-                        &self.app.messages,
-                        &text,
-                        &self.app.api_messages,
-                        self.app.reminder_text.as_deref(),
-                        &self.app.current_agent,
-                    );
-                    let recent: Vec<serde_json::Value> = self
-                        .app
-                        .api_messages
-                        .as_deref()
-                        .map(|m| m.to_vec())
-                        .unwrap_or_default();
-                    self.app_core.spawn_chat_for(
-                        self.rt,
-                        self.llm_tx.clone(),
-                        msgs,
-                        &self.app.current_agent,
-                        &recent,
-                    );
-                }
-            }
-            KeyCode::Backspace if !self.app.input.text.is_empty() => {
-                self.app.delete_before_cursor();
-                if !self.app.overlay.tab_completions.is_empty() {
-                    self.app.overlay.tab_completions.clear();
-                    self.app.overlay.tab_completion_index = 0;
-                }
-            }
-            KeyCode::Left if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.input.move_cursor_word_left();
-            }
-            KeyCode::Right if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.input.move_cursor_word_right();
-            }
-            KeyCode::Backspace if key.modifiers == KeyModifiers::CONTROL => {
-                self.app.input.delete_word_before_cursor();
-                if !self.app.overlay.tab_completions.is_empty() {
-                    self.app.overlay.tab_completions.clear();
-                    self.app.overlay.tab_completion_index = 0;
-                }
-            }
-            KeyCode::Left => {
-                self.app.move_cursor_left();
-            }
-            KeyCode::Right => {
-                self.app.move_cursor_right();
-            }
-            KeyCode::Home => {
-                self.app.input.move_cursor_home();
-            }
-            KeyCode::End => {
-                self.app.input.move_cursor_end();
-            }
-            KeyCode::Char('u')
-                if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() =>
-            {
-                self.app.input.delete_to_line_start();
-            }
-            KeyCode::Char('k')
-                if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() =>
-            {
-                self.app.input.delete_to_line_end();
-            }
-            KeyCode::Char('z')
-                if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() =>
-            {
-                self.app.input.undo();
-            }
-            KeyCode::Char('y')
-                if key.modifiers == KeyModifiers::CONTROL && !self.app.is_processing() =>
-            {
-                self.app.input.redo();
-            }
-            KeyCode::Char(c) if !self.app.is_processing() => {
-                if !self.app.overlay.tab_completions.is_empty() {
-                    self.app.overlay.tab_completions.clear();
-                    self.app.overlay.tab_completion_index = 0;
-                }
-                self.app.insert_char(c);
-            }
-            _ => {}
-        }
-        Action::Continue
-    }
-
-    // ── Tab completion ──────────────────────────────────────
+    // ── Tab completion ──
 
     fn handle_tab_complete(&mut self) {
         let completions = crate::completion::get_completions(
@@ -1243,14 +1202,12 @@ impl<'a> KeyEventHandler<'a> {
     }
 }
 
-// ─── MouseEventHandler ──────────────────────────────────────────
-
 pub struct MouseEventHandler<'a> {
-    pub app: &'a mut app::App,
+    pub app: &'a mut App,
 }
 
 impl<'a> MouseEventHandler<'a> {
-    pub fn new(app: &'a mut app::App) -> Self {
+    pub fn new(app: &'a mut App) -> Self {
         Self { app }
     }
 
@@ -1266,12 +1223,14 @@ impl<'a> MouseEventHandler<'a> {
                 }
                 _ => {}
             }
-        } else if !self.app.is_processing() && !self.app.overlay.show_sidebar {
+        } else if !self.app.is_processing() && self.app.overlay.current != Some(Overlay::Sidebar) {
             match mouse.kind {
-                MouseEventKind::ScrollDown => self.app.scroll_up(),
-                MouseEventKind::ScrollUp => self.app.scroll_down(),
+                MouseEventKind::ScrollDown => self.app.scroll_down(),
+                MouseEventKind::ScrollUp => self.app.scroll_up(),
                 _ => {}
             }
         }
     }
 }
+
+type AppMessage = app::Message;

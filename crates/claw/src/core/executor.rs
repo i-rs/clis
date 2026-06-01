@@ -166,7 +166,8 @@ impl ToolCallExecutor {
                 self.result_cache.remove(&old);
             }
         }
-        self.result_cache.insert(key, (result, std::time::Instant::now()));
+        self.result_cache
+            .insert(key, (result, std::time::Instant::now()));
     }
 
     pub async fn execute(
@@ -212,11 +213,7 @@ impl ToolCallExecutor {
                 };
 
                 let display_result = utils::smart_truncate(&result, trunc_display);
-                let context_result = utils::compact_tool_result(
-                    &tc_name,
-                    &result,
-                    trunc_context,
-                );
+                let context_result = utils::compact_tool_result(&tc_name, &result, trunc_context);
 
                 let _ = tx.send(LlmEvent::ToolExecuted {
                     name: tc.name.clone(),

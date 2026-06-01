@@ -6,18 +6,11 @@ use ratatui::{
     widgets::Block,
 };
 
-use crate::app::App;
+use crate::app::{App, Overlay, spinner_char};
 
-/// Renders the status bar at the bottom of the TUI.
-///
-/// Design: Minimal information-dense footer with clear visual hierarchy.
-/// Left side shows transient feedback or mode indicators.
-/// Center shows system stats.
-/// Right side shows available keyboard shortcuts.
 pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.config.theme;
 
-    // Background color based on state
     let bg = if app.is_processing() {
         Color::Rgb(15, 15, 30)
     } else if app.overlay.selection_mode {
@@ -26,12 +19,10 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         theme.background()
     };
 
-    // Fill full-width background
     f.render_widget(Block::default().style(Style::default().bg(bg)), area);
 
     let mut spans: Vec<Span> = Vec::new();
 
-    // Copy feedback (transient, highest priority)
     if let Some(fb) = &app.overlay.copy_feedback {
         spans.push(Span::styled(
             format!(" {} ", fb),
@@ -43,7 +34,6 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     }
 
     if app.overlay.selection_mode {
-        // Selection mode indicator
         spans.push(Span::styled(
             " ● [选择模式] ".to_string(),
             Style::default()
@@ -55,17 +45,14 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(theme.dim_text()),
         ));
     } else if app.is_processing() {
-        const SPINNERS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧'];
-        let spinner = SPINNERS[f.count() % SPINNERS.len()];
+        let spinner = spinner_char(app.spinner_start);
         spans.push(Span::styled(
             format!(" {} {} ", spinner, app.status_text),
             Style::default()
                 .fg(theme.accent())
-                .add_modifier(Modifier::BOLD), // Amber for active processing
+                .add_modifier(Modifier::BOLD),
         ));
-        // Separator
         spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
-        // Tool & message stats
         spans.push(Span::styled(
             format!("⚙ {} ", app.tool_call_count),
             Style::default().fg(theme.primary()),
@@ -75,7 +62,6 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(theme.primary()),
         ));
     } else {
-        // Idle state — cyan dot + clean styling
         spans.push(Span::styled(
             " ● 就绪 ".to_string(),
             Style::default()
@@ -86,9 +72,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             format!("{} ", app.config.model),
             Style::default().fg(theme.dim_text()),
         ));
-        // Separator
         spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
-        // Tool & message stats
         spans.push(Span::styled(
             format!("⚙ {} ", app.tool_call_count),
             Style::default().fg(theme.primary()),
@@ -97,7 +81,6 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             format!("💬 {} ", app.messages.len()),
             Style::default().fg(theme.primary()),
         ));
-        // Today's token usage summary
         if app.today_stats.requests > 0 {
             spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
             let cost = app.today_stats.cost_usd;
@@ -109,7 +92,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
                         app.today_stats.tokens / 1000,
                         cost,
                     ),
-                    Style::default().fg(theme.accent()), // Amber
+                    Style::default().fg(theme.accent()),
                 ));
             } else {
                 spans.push(Span::styled(
@@ -122,7 +105,6 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
                 ));
             }
         }
-        // Keybindings (right side) - more subtle
         spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
         spans.push(Span::styled(
             "Ctrl+Q ",
@@ -132,7 +114,7 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
             "Ctrl+N  ",
             Style::default().fg(theme.dim_text()),
         ));
-        if !app.overlay.show_sidebar && !app.http_logs.is_empty() {
+        if !app.overlay.is_overlay(Overlay::Sidebar) && !app.http_logs.is_empty() {
             spans.push(Span::styled(
                 "Ctrl+R  ",
                 Style::default().fg(theme.dim_text()),

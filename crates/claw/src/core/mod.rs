@@ -206,29 +206,47 @@ impl AppCore {
             crate::storage::StorageBackend::Sqlite => {
                 #[cfg(feature = "sqlite")]
                 {
-                    let path = config.storage.sqlite_path.clone().unwrap_or_else(|| claw_dir.join("claw.db"));
+                    let path = config
+                        .storage
+                        .sqlite_path
+                        .clone()
+                        .unwrap_or_else(|| claw_dir.join("claw.db"));
                     std::sync::Arc::new(block_on(ClawStorage::sqlite(path))?)
                 }
                 #[cfg(not(feature = "sqlite"))]
-                anyhow::bail!("storage.backend = \"sqlite\" 但未启用 sqlite feature（需编译时添加 --features sqlite）")
+                anyhow::bail!(
+                    "storage.backend = \"sqlite\" 但未启用 sqlite feature（需编译时添加 --features sqlite）"
+                )
             }
             crate::storage::StorageBackend::Mysql => {
                 #[cfg(feature = "mysql")]
                 {
-                    let path = config.storage.sql_url.as_deref().unwrap_or("mysql://localhost:3306/i_rs_claw");
+                    let path = config
+                        .storage
+                        .sql_url
+                        .as_deref()
+                        .unwrap_or("mysql://localhost:3306/i_rs_claw");
                     std::sync::Arc::new(block_on(ClawStorage::mysql(path))?)
                 }
                 #[cfg(not(feature = "mysql"))]
-                anyhow::bail!("storage.backend = \"mysql\" 但未启用 mysql feature（需编译时添加 --features mysql）")
+                anyhow::bail!(
+                    "storage.backend = \"mysql\" 但未启用 mysql feature（需编译时添加 --features mysql）"
+                )
             }
             crate::storage::StorageBackend::Postgres => {
                 #[cfg(feature = "postgres")]
                 {
-                    let path = config.storage.sql_url.as_deref().unwrap_or("postgres://localhost:5432/i_rs_claw");
+                    let path = config
+                        .storage
+                        .sql_url
+                        .as_deref()
+                        .unwrap_or("postgres://localhost:5432/i_rs_claw");
                     std::sync::Arc::new(block_on(ClawStorage::postgres(path))?)
                 }
                 #[cfg(not(feature = "postgres"))]
-                anyhow::bail!("storage.backend = \"postgres\" 但未启用 postgres feature（需编译时添加 --features postgres）")
+                anyhow::bail!(
+                    "storage.backend = \"postgres\" 但未启用 postgres feature（需编译时添加 --features postgres）"
+                )
             }
             crate::storage::StorageBackend::Mongo => {
                 anyhow::bail!("storage.backend = \"mongodb\" 暂未实现")
@@ -240,13 +258,11 @@ impl AppCore {
 
         let session_mgr = SessionManager::with_storage(storage.clone());
         let agent_store = AgentRuntimeStore::new_with_storage(&config, &storage);
-        let stats_manager = std::sync::Arc::new(
-            crate::stats::StatsManager::with_storage(
-                storage.clone(),
-                &config.stats,
-                config.tz_offset,
-            ),
-        );
+        let stats_manager = std::sync::Arc::new(crate::stats::StatsManager::with_storage(
+            storage.clone(),
+            &config.stats,
+            config.tz_offset,
+        ));
 
         Ok(Self {
             config,
@@ -384,11 +400,8 @@ impl AppCore {
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
             self.prepare_chat_loop(agent_id);
-        let delegate_rt = self.build_delegate_runtime(
-            agent_id,
-            llm_tx.clone(),
-            recent_messages.to_vec(),
-        );
+        let delegate_rt =
+            self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
         rt.spawn(async move {
             engine::chat_loop(
                 provider,
@@ -753,11 +766,8 @@ impl AppCore {
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
             self.prepare_chat_loop(agent_id);
-        let delegate_rt = self.build_delegate_runtime(
-            agent_id,
-            llm_tx.clone(),
-            recent_messages.to_vec(),
-        );
+        let delegate_rt =
+            self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
         tokio::spawn(async move {
             engine::chat_loop(
                 provider,

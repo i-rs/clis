@@ -193,9 +193,23 @@ pub fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
 pub fn is_correction_message(text: &str) -> bool {
     let lower = text.to_lowercase();
     let corrections = [
-        "不对", "不是", "错了", "错误", "更正", "重新", "重试",
-        "no,", "not that", "wrong", "incorrect", "correction", "redo",
-        "我说的不是", "我要的是", "改一下", "修正",
+        "不对",
+        "不是",
+        "错了",
+        "错误",
+        "更正",
+        "重新",
+        "重试",
+        "no,",
+        "not that",
+        "wrong",
+        "incorrect",
+        "correction",
+        "redo",
+        "我说的不是",
+        "我要的是",
+        "改一下",
+        "修正",
     ];
     corrections.iter().any(|&k| lower.contains(k))
 }
@@ -204,9 +218,20 @@ pub fn is_correction_message(text: &str) -> bool {
 pub fn is_decision_message(text: &str) -> bool {
     let lower = text.to_lowercase();
     let decisions = [
-        "确认", "确定", "就这样", "可以了", "同意", "批准",
-        "confirm", "yes", "agreed", "approved", "that's correct",
-        "没问题", "就这么办", "好的",
+        "确认",
+        "确定",
+        "就这样",
+        "可以了",
+        "同意",
+        "批准",
+        "confirm",
+        "yes",
+        "agreed",
+        "approved",
+        "that's correct",
+        "没问题",
+        "就这么办",
+        "好的",
     ];
     decisions.iter().any(|&k| lower.contains(k))
 }
@@ -276,9 +301,7 @@ pub fn compact_tool_result(tool_name: &str, result: &str, max_chars: usize) -> S
                 summary
             }
         }
-        serde_json::Value::Array(_) => {
-            smart_truncate(result, max_chars)
-        }
+        serde_json::Value::Array(_) => smart_truncate(result, max_chars),
         _ => smart_truncate(result, max_chars),
     }
 }

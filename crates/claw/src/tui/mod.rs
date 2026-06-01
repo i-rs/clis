@@ -80,7 +80,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         .current_id()
         .ok_or_else(|| anyhow::anyhow!("无当前会话，无法加载消息"))?
         .to_string();
-    let loaded = app_core.session_mgr.load_app_messages(&session_id, 50);
+    let loaded = app_core.session_mgr.load_app_messages(&session_id, 200);
     app.messages = loaded;
     app.sync_message_timestamps();
 

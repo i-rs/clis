@@ -118,10 +118,11 @@ impl CrossSessionMemory {
     /// Load from a JSON file path (public for FileBackend).
     pub fn load_from(path: &Path) -> Self {
         if let Ok(content) = std::fs::read_to_string(path)
-            && let Ok(mut mem) = serde_json::from_str::<Self>(&content) {
-                mem.path = path.to_path_buf();
-                return mem;
-            }
+            && let Ok(mut mem) = serde_json::from_str::<Self>(&content)
+        {
+            mem.path = path.to_path_buf();
+            return mem;
+        }
         let mut mem = Self::default_memory();
         mem.path = path.to_path_buf();
         mem
@@ -158,7 +159,10 @@ impl CrossSessionMemory {
 
     /// Record a tool call to update frequency.
     pub fn record_tool_use(&mut self, tool_name: &str) {
-        let count = self.tool_frequency.entry(tool_name.to_string()).or_insert(0);
+        let count = self
+            .tool_frequency
+            .entry(tool_name.to_string())
+            .or_insert(0);
         *count += 1;
         self.update_hot_tools();
         self.dirty = true;
@@ -185,9 +189,10 @@ impl CrossSessionMemory {
             let records = session_mgr.load_messages(&meta.id, 1000);
             for record in &records {
                 if record.get("type").and_then(|t| t.as_str()) == Some("tool_call")
-                    && let Some(name) = record.get("name").and_then(|n| n.as_str()) {
-                        *self.tool_frequency.entry(name.to_string()).or_insert(0) += 1;
-                    }
+                    && let Some(name) = record.get("name").and_then(|n| n.as_str())
+                {
+                    *self.tool_frequency.entry(name.to_string()).or_insert(0) += 1;
+                }
             }
         }
         self.update_hot_tools();
@@ -241,7 +246,10 @@ impl CrossSessionMemory {
     /// Record session feedback (thumbs up/down).
     #[allow(dead_code)]
     pub fn record_session_feedback(&mut self, session_id: &str, positive: bool) {
-        let (pos, neg) = self.session_feedback.entry(session_id.to_string()).or_insert((0, 0));
+        let (pos, neg) = self
+            .session_feedback
+            .entry(session_id.to_string())
+            .or_insert((0, 0));
         if positive {
             *pos += 1;
         } else {
@@ -327,17 +335,18 @@ impl CrossSessionMemory {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let mem_snapshot = self.clone(); // cheap — all fields are Clone
-            if let Err(e) = Self::block_on(async move {
-                storage.memory.save(&aid, &mem_snapshot).await
-            }) {
+            if let Err(e) =
+                Self::block_on(async move { storage.memory.save(&aid, &mem_snapshot).await })
+            {
                 tracing::error!("持久化写入失败: {}", e);
             }
         } else if !self.path.as_os_str().is_empty() {
             // Legacy file fallback
             if let Ok(content) = serde_json::to_string_pretty(&self)
-                && let Err(e) = atomic_write(&self.path, &content) {
-                    tracing::error!("持久化写入失败: {}", e);
-                }
+                && let Err(e) = atomic_write(&self.path, &content)
+            {
+                tracing::error!("持久化写入失败: {}", e);
+            }
         }
         self.dirty = false;
     }

@@ -9,12 +9,12 @@
 //! implementations for a given database pool type, avoiding ~800 lines of
 //! duplication per dialect.
 
-#[cfg(feature = "sqlite")]
-pub mod sqlite;
 #[cfg(feature = "mysql")]
 pub mod mysql;
 #[cfg(feature = "postgres")]
 pub mod postgres;
+#[cfg(feature = "sqlite")]
+pub mod sqlite;
 
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -355,9 +355,12 @@ struct SessionRow {
 impl From<SessionRow> for crate::session::SessionMeta {
     fn from(r: SessionRow) -> Self {
         Self {
-            id: r.id, title: r.title, agent_id: r.agent_id,
+            id: r.id,
+            title: r.title,
+            agent_id: r.agent_id,
             state: serde_json::from_str(&r.state).unwrap_or_default(),
-            created_at: r.created_at, updated_at: r.updated_at,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
             message_count: r.message_count as usize,
         }
     }
@@ -377,23 +380,40 @@ struct MessageRow {
 
 #[derive(sqlx::FromRow)]
 struct TokenRecordRow {
-    id: String, timestamp: i64, agent_id: String, model: String, provider: String,
-    prompt_tokens: i64, completion_tokens: i64, total_tokens: i64,
-    has_tool_calls: i64, tool_call_count: i64, react_rounds: i64,
-    success: i64, latency_ms: i64, estimated_cost_usd: f64,
+    id: String,
+    timestamp: i64,
+    agent_id: String,
+    model: String,
+    provider: String,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    total_tokens: i64,
+    has_tool_calls: i64,
+    tool_call_count: i64,
+    react_rounds: i64,
+    success: i64,
+    latency_ms: i64,
+    estimated_cost_usd: f64,
     trace_id: String,
 }
 
 impl From<TokenRecordRow> for crate::stats::TokenRecord {
     fn from(r: TokenRecordRow) -> Self {
         Self {
-            id: r.id, timestamp: r.timestamp, agent_id: r.agent_id,
-            model: r.model, provider: r.provider,
-            prompt_tokens: r.prompt_tokens as u32, completion_tokens: r.completion_tokens as u32,
+            id: r.id,
+            timestamp: r.timestamp,
+            agent_id: r.agent_id,
+            model: r.model,
+            provider: r.provider,
+            prompt_tokens: r.prompt_tokens as u32,
+            completion_tokens: r.completion_tokens as u32,
             total_tokens: r.total_tokens as u32,
-            has_tool_calls: r.has_tool_calls != 0, tool_call_count: r.tool_call_count as u32,
-            react_rounds: r.react_rounds as u32, success: r.success != 0,
-            latency_ms: r.latency_ms as u64, estimated_cost_usd: r.estimated_cost_usd,
+            has_tool_calls: r.has_tool_calls != 0,
+            tool_call_count: r.tool_call_count as u32,
+            react_rounds: r.react_rounds as u32,
+            success: r.success != 0,
+            latency_ms: r.latency_ms as u64,
+            estimated_cost_usd: r.estimated_cost_usd,
             trace_id: r.trace_id,
         }
     }
@@ -404,17 +424,23 @@ impl From<TokenRecordRow> for crate::stats::TokenRecord {
 impl ClawStorage {
     #[cfg(feature = "sqlite")]
     pub async fn sqlite(path: std::path::PathBuf) -> anyhow::Result<Self> {
-        sqlite::SqliteBackend::new(path).await.map(|b| b.into_storage())
+        sqlite::SqliteBackend::new(path)
+            .await
+            .map(|b| b.into_storage())
     }
 
     #[cfg(feature = "mysql")]
     pub async fn mysql(url: &str) -> anyhow::Result<Self> {
-        mysql::MySqlBackend::new(url).await.map(|b| b.into_storage())
+        mysql::MySqlBackend::new(url)
+            .await
+            .map(|b| b.into_storage())
     }
 
     #[cfg(feature = "postgres")]
     pub async fn postgres(url: &str) -> anyhow::Result<Self> {
-        postgres::PgBackend::new(url).await.map(|b| b.into_storage())
+        postgres::PgBackend::new(url)
+            .await
+            .map(|b| b.into_storage())
     }
 }
 

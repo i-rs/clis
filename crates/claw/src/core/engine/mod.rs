@@ -344,8 +344,14 @@ pub async fn chat_loop(
                     }
                     let _ = tx.send(LlmEvent::PlanProgress(plan_steps.clone()));
                 }
-                let results =
-                    dispatch_tools(&mut init.executor, calls, &tx, &mut msgs, &reasoning_content).await;
+                let results = dispatch_tools(
+                    &mut init.executor,
+                    calls,
+                    &tx,
+                    &mut msgs,
+                    &reasoning_content,
+                )
+                .await;
 
                 if let Some(backoff) =
                     inject_results(&results, &mut msgs, &mut retry_counts, init.max_retries)
@@ -384,7 +390,8 @@ fn parse_plan_steps(text: &str) -> Vec<crate::app::PlanStep> {
         if trimmed.starts_with("📋") || trimmed.contains("执行计划") {
             continue;
         }
-        if let Some(rest) = trimmed.strip_prefix(|c: char| c.is_ascii_digit())
+        if let Some(rest) = trimmed
+            .strip_prefix(|c: char| c.is_ascii_digit())
             .and_then(|s| s.strip_prefix('.'))
             .or_else(|| trimmed.strip_prefix("- "))
         {
@@ -785,7 +792,9 @@ mod tests {
             events.push(event);
         }
         assert!(
-            events.iter().any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
+            events
+                .iter()
+                .any(|e| matches!(e, LlmEvent::Token(t) if t == "hello")),
             "应收到 Token 事件"
         );
     }

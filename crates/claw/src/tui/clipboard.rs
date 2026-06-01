@@ -14,22 +14,24 @@ pub(super) fn save_session_messages(
 }
 
 pub(super) fn copy_to_clipboard(text: &str) -> bool {
-    let cmd = if cfg!(target_os = "macos") {
-        ("pbcopy", &[] as &[&str])
+    let (cmd, args): (&str, &[&str]) = if cfg!(target_os = "macos") {
+        ("pbcopy", &[])
     } else if cfg!(target_os = "linux") {
-        if std::process::Command::new("wl-copy").output().is_ok() {
-            ("wl-copy", &[] as &[&str])
+        if which_exists("wl-copy") {
+            ("wl-copy", &[])
+        } else if which_exists("xclip") {
+            ("xclip", &["-selection", "clipboard"])
         } else {
-            ("xclip", &["-selection", "clipboard"] as &[&str])
+            return false;
         }
     } else if cfg!(target_os = "windows") {
-        ("clip", &[] as &[&str])
+        ("clip.exe", &[])
     } else {
         return false;
     };
 
-    std::process::Command::new(cmd.0)
-        .args(cmd.1)
+    std::process::Command::new(cmd)
+        .args(args)
         .stdin(std::process::Stdio::piped())
         .spawn()
         .and_then(|mut child| {
@@ -41,5 +43,15 @@ pub(super) fn copy_to_clipboard(text: &str) -> bool {
             child.wait_with_output()
         })
         .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+fn which_exists(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
         .unwrap_or(false)
 }

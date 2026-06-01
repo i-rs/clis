@@ -291,21 +291,20 @@ pub async fn chat_stream(
                         if let Some(last) = msgs.last()
                             && last.get("role").and_then(|r| r.as_str()) == Some("assistant")
                         {
-                                let text =
-                                    last.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                                let reasoning = last
-                                    .get("reasoning_content")
-                                    .and_then(|r| r.as_str())
-                                    .unwrap_or("");
-                                let extra = if !reasoning.is_empty() {
-                                    Some(serde_json::json!({"reasoning": reasoning}))
-                                } else {
-                                    None
-                                };
-                                if !text.is_empty() || extra.is_some() {
-                                    core.session_mgr.append_message("assistant", text, extra);
-                                }
+                            let text = last.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                            let reasoning = last
+                                .get("reasoning_content")
+                                .and_then(|r| r.as_str())
+                                .unwrap_or("");
+                            let extra = if !reasoning.is_empty() {
+                                Some(serde_json::json!({"reasoning": reasoning}))
+                            } else {
+                                None
+                            };
+                            if !text.is_empty() || extra.is_some() {
+                                core.session_mgr.append_message("assistant", text, extra);
                             }
+                        }
                         crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
                         let _quality = core.evaluate_completed_session(&sid);
                         core.agent_store.memory_for_mut(&agent_id).flush();
@@ -699,9 +698,9 @@ pub async fn create_agent(
         system_prompt_file: None,
         mcp_servers: None,
         allowed_dirs: None,
-            capabilities: Vec::new(),
-            execution_mode: None,
-        };
+        capabilities: Vec::new(),
+        execution_mode: None,
+    };
 
     // Add to config
     if let Err(e) = core.config.add_agent(&agent_id, agent_config) {

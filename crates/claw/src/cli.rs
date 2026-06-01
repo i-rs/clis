@@ -183,7 +183,10 @@ pub fn run_config() -> anyhow::Result<()> {
             "file" => cfg.storage.backend = crate::storage::StorageBackend::File,
             "sqlite" => {
                 cfg.storage.backend = crate::storage::StorageBackend::Sqlite;
-                let sqlite_default = cfg.storage.sqlite_path.as_ref()
+                let sqlite_default = cfg
+                    .storage
+                    .sqlite_path
+                    .as_ref()
                     .and_then(|p| p.to_str())
                     .unwrap_or("~/.i-rs/claw/claw.db");
                 print!("  SQLite 路径 [{}]: ", sqlite_default);
@@ -193,33 +196,49 @@ pub fn run_config() -> anyhow::Result<()> {
                 let sp = input.trim().to_string();
                 if !sp.is_empty() {
                     cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
-                        sp.replace('~', &dirs::home_dir().unwrap().to_string_lossy())
+                        sp.replace('~', &dirs::home_dir().unwrap().to_string_lossy()),
                     ));
                 } else {
                     cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
-                        sqlite_default.replace('~', &dirs::home_dir().unwrap().to_string_lossy())
+                        sqlite_default.replace('~', &dirs::home_dir().unwrap().to_string_lossy()),
                     ));
                 }
             }
             "mysql" => {
                 cfg.storage.backend = crate::storage::StorageBackend::Mysql;
-                let url_default = cfg.storage.sql_url.as_deref().unwrap_or("mysql://localhost:3306/i_rs_claw");
+                let url_default = cfg
+                    .storage
+                    .sql_url
+                    .as_deref()
+                    .unwrap_or("mysql://localhost:3306/i_rs_claw");
                 print!("  MySQL URL [{}]: ", url_default);
                 io::stdout().flush()?;
                 input.clear();
                 io::stdin().read_line(&mut input)?;
                 let url = input.trim().to_string();
-                cfg.storage.sql_url = if url.is_empty() { Some(url_default.to_string()) } else { Some(url) };
+                cfg.storage.sql_url = if url.is_empty() {
+                    Some(url_default.to_string())
+                } else {
+                    Some(url)
+                };
             }
             "postgres" => {
                 cfg.storage.backend = crate::storage::StorageBackend::Postgres;
-                let url_default = cfg.storage.sql_url.as_deref().unwrap_or("postgres://localhost:5432/i_rs_claw");
+                let url_default = cfg
+                    .storage
+                    .sql_url
+                    .as_deref()
+                    .unwrap_or("postgres://localhost:5432/i_rs_claw");
                 print!("  PostgreSQL URL [{}]: ", url_default);
                 io::stdout().flush()?;
                 input.clear();
                 io::stdin().read_line(&mut input)?;
                 let url = input.trim().to_string();
-                cfg.storage.sql_url = if url.is_empty() { Some(url_default.to_string()) } else { Some(url) };
+                cfg.storage.sql_url = if url.is_empty() {
+                    Some(url_default.to_string())
+                } else {
+                    Some(url)
+                };
             }
             _ => println!("  ⚠ 未知后端 '{}'，保留原值", trimmed),
         }

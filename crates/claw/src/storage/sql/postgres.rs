@@ -42,7 +42,9 @@ impl PgBackend {
                 updated_at BIGINT NOT NULL,
                 message_count BIGINT NOT NULL DEFAULT 0
             )",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS messages (
@@ -57,15 +59,21 @@ impl PgBackend {
                 extra TEXT,
                 created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW())::BIGINT)
             )",
-        ).execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)").execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)")
+            .execute(&self.pool)
+            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS api_cache (
                 session_id VARCHAR(36) PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
                 messages TEXT NOT NULL
             )",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS plan_steps (
@@ -75,14 +83,18 @@ impl PgBackend {
                 done BOOLEAN NOT NULL DEFAULT FALSE,
                 PRIMARY KEY (session_id, step_order)
             )",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS memory (
                 agent_id VARCHAR(64) PRIMARY KEY,
                 data TEXT NOT NULL
             )",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS token_records (
@@ -101,8 +113,12 @@ impl PgBackend {
                 latency_ms BIGINT NOT NULL,
                 estimated_cost_usd DOUBLE PRECISION NOT NULL
             )",
-        ).execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_token_ts ON token_records(timestamp)").execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_token_ts ON token_records(timestamp)")
+            .execute(&self.pool)
+            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS skills (
@@ -112,7 +128,9 @@ impl PgBackend {
                 parameters TEXT,
                 PRIMARY KEY (agent_id, name)
             )",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS tool_cache (
@@ -121,7 +139,9 @@ impl PgBackend {
                 doc TEXT NOT NULL,
                 PRIMARY KEY (agent_id, tool_name)
             )",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -129,9 +149,16 @@ impl PgBackend {
 
 // Generate all 8 trait implementations
 define_sql_stores!(
-    sqlx::PgPool, PgBackend,
-    PgSessionStore, PgMessageStore, PgApiCacheStore, PgPlanStepsStore,
-    PgMemoryStore, PgStatsStore, PgSkillStore, PgToolCacheStore,
+    sqlx::PgPool,
+    PgBackend,
+    PgSessionStore,
+    PgMessageStore,
+    PgApiCacheStore,
+    PgPlanStepsStore,
+    PgMemoryStore,
+    PgStatsStore,
+    PgSkillStore,
+    PgToolCacheStore,
     // PostgreSQL upsert via ON CONFLICT (use ? placeholders — sqlx auto-converts)
     "INSERT INTO api_cache (session_id, messages) VALUES (?, ?) ON CONFLICT (session_id) DO UPDATE SET messages = excluded.messages",
     "INSERT INTO memory (agent_id, data) VALUES (?, ?) ON CONFLICT (agent_id) DO UPDATE SET data = excluded.data",

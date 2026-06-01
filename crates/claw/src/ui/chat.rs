@@ -12,31 +12,33 @@ use unicode_width::UnicodeWidthStr;
 use super::utils;
 use crate::app::{App, Message};
 
-pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let text_width = (area.width as usize).saturating_sub(4).max(20);
     let area_lines = (area.height as usize).saturating_sub(1).max(1);
 
-    let mut format_cache: std::collections::HashMap<usize, Arc<Vec<Line<'static>>>> =
-        std::collections::HashMap::new();
+    let mut format_cache = std::mem::take(&mut app.render_state.format_cache);
+    let mut heights = std::mem::take(&mut app.render_state.heights);
 
-    // heights[0] = newest message height, heights[n-1] = oldest
-    let mut heights: Vec<usize> = Vec::with_capacity(app.messages.len());
-    for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
-        let msg_index = app.messages.len() - 1 - rev_idx;
-        heights.push(message_line_count(
-            app,
-            msg,
-            text_width,
-            msg_index,
-            &mut format_cache,
-        ));
+    if heights.len() != app.messages.len() {
+        heights.clear();
+        format_cache.clear();
+        heights.reserve(app.messages.len());
+        for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
+            let msg_index = app.messages.len() - 1 - rev_idx;
+            heights.push(message_line_count(
+                app,
+                msg,
+                text_width,
+                msg_index,
+                &mut format_cache,
+            ));
+        }
     }
 
     let total_content_height: usize = heights.iter().sum();
     let max_scroll = total_content_height.saturating_sub(1);
     let scroll_lines = app.scroll_lines.min(max_scroll);
 
-    // Determine how many whole messages to skip + partial line offset
     let mut skipped_lines = 0usize;
     let mut msg_skip_count = 0usize;
     for (i, &h) in heights.iter().enumerate() {
@@ -49,7 +51,6 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
     }
     let partial_skip = scroll_lines - skipped_lines;
 
-    // Fill viewport, always include at least one message even if partial
     let mut end_idx = msg_skip_count;
     let mut accumulated = 0usize;
     for &h in heights[msg_skip_count..].iter() {
@@ -64,7 +65,6 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
         end_idx = msg_skip_count + 1;
     }
 
-    // Build items with partial skip for the first visible message
     let mut items: Vec<ListItem> = Vec::new();
     for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
         if rev_idx < msg_skip_count {
@@ -125,15 +125,15 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &App) {
 
     let list = List::new(items).block(block);
     f.render_widget(list, area);
+
+    app.render_state.heights = heights;
+    app.render_state.format_cache = format_cache;
 }
 
-/// Check if a string contains ANSI escape codes.
 fn has_ansi(text: &str) -> bool {
     text.contains("\x1b[")
 }
 
-/// Parse ANSI-colored text into ratatui Lines with proper styling.
-/// Strips ANSI codes and wraps text to fit max_width.
 fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
     let plain = strip_ansi(text);
     let wrapped = utils::wrap_text(&plain, max_width.saturating_sub(3));
@@ -141,229 +141,313 @@ fn ansi_to_lines(text: &str, max_width: usize) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     let mut scan_offset = 0;
     for w in &wrapped {
-        let spans = parse_ansi_line(text, &plain, w, &wrapped, scan_offset);
+        let spans = parse_ansi_line(text, &plain, w);
         scan_offset = plain[scan_offset..]
             .find(w)
             .map(|i| scan_offset + i + w.len())
             .unwrap_or(scan_offset);
-        lines.push(Line::from(if spans.is_empty() {
-            vec![Span::styled(
+        if spans.is_empty() {
+            lines.push(Line::from(vec![Span::styled(
                 format!("   {}", w),
                 Style::default().fg(Color::White),
-            )]
+            )]));
         } else {
             let mut result = vec![Span::raw("   ")];
             result.extend(spans);
-            result
-        }));
+            lines.push(Line::from(result));
+        }
     }
     lines
 }
 
-/// Strip ANSI escape codes from a string.
 fn strip_ansi(text: &str) -> String {
     let mut result = String::with_capacity(text.len());
-    let mut chars = text.chars();
-    while let Some(c) = chars.next() {
-        if c == '\x1b' && chars.next() == Some('[') {
-            // Skip until we find a letter (end of escape sequence)
-            for esc_c in &mut chars {
-                if esc_c.is_ascii_alphabetic() || esc_c == '~' {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
+            i += 2;
+            while i < bytes.len() {
+                let b = bytes[i];
+                i += 1;
+                if b.is_ascii_alphabetic() || b == b'~' {
                     break;
                 }
             }
         } else {
-            result.push(c);
+            let start = i;
+            while i < bytes.len() && bytes[i] != 0x1b {
+                i += 1;
+            }
+            result.push_str(&text[start..i]);
         }
     }
     result
 }
 
-/// Parse ANSI codes from `raw` and produce Spans for the given `line` text.
-/// `line` is a wrapped segment of the plain-text version.
-/// `scan_offset` is the byte offset in `plain` where we should start searching.
-fn parse_ansi_line(
-    raw: &str,
-    plain: &str,
-    line: &str,
-    _wrapped: &[String],
-    scan_offset: usize,
-) -> Vec<Span<'static>> {
-    let line_start = match plain[scan_offset..].find(line) {
-        Some(i) => scan_offset + i,
-        None => return vec![],
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct AnsiState {
+    fg: Option<Color>,
+    bg: Option<Color>,
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    dim: bool,
+}
+
+impl AnsiState {
+    fn reset(&mut self) {
+        self.fg = None;
+        self.bg = None;
+        self.bold = false;
+        self.italic = false;
+        self.underline = false;
+        self.dim = false;
+    }
+
+    fn to_style(self) -> Style {
+        let mut s = Style::default();
+        if self.bold {
+            s = s.add_modifier(Modifier::BOLD);
+        }
+        if self.italic {
+            s = s.add_modifier(Modifier::ITALIC);
+        }
+        if self.underline {
+            s = s.add_modifier(Modifier::UNDERLINED);
+        }
+        if self.dim {
+            s = s.add_modifier(Modifier::DIM);
+        }
+        if let Some(c) = self.fg {
+            s = s.fg(c);
+        }
+        if let Some(c) = self.bg {
+            s = s.bg(c);
+        }
+        s
+    }
+}
+
+fn parse_ansi_line(raw: &str, plain: &str, line: &str) -> Vec<Span<'static>> {
+    let Some(line_start) = plain.find(line) else {
+        return vec![];
     };
+    let line_end = line_start + line.len();
 
-    // Walk raw char by char (via char_indices to guarantee char boundaries),
-    // skip ANSI escapes, and track corresponding byte position in plain.
-    let line_end_byte = line_start + line.len();
-    let mut raw_bytes = raw.char_indices();
-    let mut plain_byte_pos: usize = 0;
-    let mut raw_start: Option<usize> = None;
-    let mut raw_end: usize = raw.len();
-
-    while let Some((raw_offset, c)) = raw_bytes.next() {
-        if c == '\x1b' {
-            // Skip ANSI escape sequence
-            for (_, esc_c) in &mut raw_bytes {
-                if esc_c.is_ascii_alphabetic() || esc_c == '~' {
-                    break;
-                }
-            }
-            continue;
-        }
-
-        if raw_start.is_none() && plain_byte_pos >= line_start {
-            raw_start = Some(raw_offset);
-        }
-
-        if raw_start.is_some() && plain_byte_pos >= line_end_byte {
-            raw_end = raw_offset;
-            break;
-        }
-
-        plain_byte_pos += c.len_utf8();
-    }
-
-    let raw_start = raw_start.unwrap_or(0);
-    if raw_end <= raw_start {
-        raw_end = raw.len();
-    }
-
-    // Now parse the ANSI slice and produce Spans
-    let segment = &raw[raw_start..raw_end.min(raw.len())];
-    let text_end = line_start + line.len().min(plain.len().saturating_sub(line_start));
-    let text_segment = &plain[line_start..text_end];
-
-    // If no ANSI in this segment, return plain white
-    if !segment.contains("\x1b[") {
-        return vec![Span::styled(
-            text_segment.to_string(),
-            Style::default().fg(Color::White),
-        )];
-    }
-
-    // Parse ANSI SGR codes and build Spans
+    let raw_bytes = raw.as_bytes();
+    let plain_bytes = plain.as_bytes();
     let mut spans: Vec<Span<'static>> = Vec::new();
-    let mut bold = false;
-    let mut italic = false;
-    let mut fg_color: Option<Color> = None;
-    let mut current_text = String::new();
-    let mut i = 0;
-    let seg_bytes = segment.as_bytes();
+    let mut state = AnsiState {
+        fg: None,
+        bg: None,
+        bold: false,
+        italic: false,
+        underline: false,
+        dim: false,
+    };
+    let mut cur_text = String::new();
+    let mut raw_i = 0;
+    let mut plain_i = 0;
 
-    while i < seg_bytes.len() {
-        if seg_bytes[i] == b'\x1b' && i + 1 < seg_bytes.len() && seg_bytes[i + 1] == b'[' {
-            // Flush current text as a span
-            if !current_text.is_empty() {
-                let mut style = Style::default();
-                if bold {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                if italic {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                if let Some(c) = fg_color {
-                    style = style.fg(c);
-                }
-                spans.push(Span::styled(std::mem::take(&mut current_text), style));
+    while raw_i < raw_bytes.len() && plain_i < line_end {
+        if raw_bytes[raw_i] == 0x1b && raw_i + 1 < raw_bytes.len() && raw_bytes[raw_i + 1] == b'[' {
+            if !cur_text.is_empty() {
+                spans.push(Span::styled(
+                    std::mem::take(&mut cur_text),
+                    state.to_style(),
+                ));
             }
-
-            // Parse the SGR code
-            i += 2; // skip \x1b[
-            let mut params = Vec::new();
-            let mut num = 0i32;
-            let mut has_num = false;
-
-            while i < seg_bytes.len() {
-                let c = seg_bytes[i] as char;
-                if c == ';' {
-                    params.push(num);
-                    num = 0;
-                    has_num = false;
-                    i += 1;
-                } else if c == 'm' {
-                    if has_num || !params.is_empty() {
-                        params.push(num);
-                    }
-                    if params.is_empty() {
-                        params.push(0); // reset
-                    }
-                    // Apply SGR parameters
-                    for p in &params {
-                        match p {
-                            0 => {
-                                bold = false;
-                                italic = false;
-                                fg_color = None;
-                            }
-                            1 => bold = true,
-                            3 => italic = true,
-                            22 => bold = false,
-                            23 => italic = false,
-                            30 => fg_color = Some(Color::Black),
-                            31 => fg_color = Some(Color::Red),
-                            32 => fg_color = Some(Color::Green),
-                            33 => fg_color = Some(Color::Yellow),
-                            34 => fg_color = Some(Color::Blue),
-                            35 => fg_color = Some(Color::Magenta),
-                            36 => fg_color = Some(Color::Cyan),
-                            37 => fg_color = Some(Color::White),
-                            39 => fg_color = None,
-                            90 => fg_color = Some(Color::Rgb(128, 128, 128)),
-                            91 => fg_color = Some(Color::Rgb(255, 128, 128)),
-                            92 => fg_color = Some(Color::Rgb(128, 255, 128)),
-                            93 => fg_color = Some(Color::Rgb(255, 255, 128)),
-                            94 => fg_color = Some(Color::Rgb(128, 128, 255)),
-                            95 => fg_color = Some(Color::Rgb(255, 128, 255)),
-                            96 => fg_color = Some(Color::Rgb(128, 255, 255)),
-                            97 => fg_color = Some(Color::White),
-                            _ => {}
-                        }
-                    }
-                    i += 1;
-                    break;
-                } else if c.is_ascii_digit() {
-                    num = num * 10 + (c as i32 - '0' as i32);
-                    has_num = true;
-                    i += 1;
-                } else {
-                    // Unknown code, skip to end
-                    while i < seg_bytes.len() && seg_bytes[i] as char != 'm' {
-                        i += 1;
-                    }
-                    if i < seg_bytes.len() {
-                        i += 1;
-                    }
-                    break;
-                }
-            }
+            raw_i += 2;
+            let (next_raw, next_state) = parse_sgr(raw_bytes, raw_i, state);
+            raw_i = next_raw;
+            state = next_state;
         } else {
-            current_text.push(seg_bytes[i] as char);
-            i += 1;
+            let c = raw_bytes[raw_i] as char;
+            raw_i += c.len_utf8();
+            if plain_i >= line_start && plain_i < line_end {
+                cur_text.push(c);
+            }
+            if plain_i < plain_bytes.len() {
+                plain_i += 1;
+            }
         }
     }
 
-    // Flush remaining text
-    if !current_text.is_empty() {
-        let mut style = Style::default();
-        if bold {
-            style = style.add_modifier(Modifier::BOLD);
-        }
-        if italic {
-            style = style.add_modifier(Modifier::ITALIC);
-        }
-        if let Some(c) = fg_color {
-            style = style.fg(c);
-        }
-        spans.push(Span::styled(current_text, style));
+    if !cur_text.is_empty() {
+        spans.push(Span::styled(cur_text, state.to_style()));
     }
 
     spans
 }
 
-/// Estimate how many lines a block of text wraps to.
-/// Strips ANSI codes for accurate width calculation.
+fn parse_sgr(bytes: &[u8], start: usize, mut state: AnsiState) -> (usize, AnsiState) {
+    let mut i = start;
+    let mut params = Vec::new();
+    let mut buf = String::new();
+
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b';' || b == b':' {
+            if !buf.is_empty() {
+                if let Ok(n) = buf.parse::<i32>() {
+                    params.push(n);
+                }
+                buf.clear();
+            }
+            i += 1;
+        } else if b == b'm' {
+            if !buf.is_empty() {
+                if let Ok(n) = buf.parse::<i32>() {
+                    params.push(n);
+                }
+            } else if params.is_empty() {
+                params.push(0);
+            }
+            if params.is_empty() {
+                params.push(0);
+            }
+            i += 1;
+            break;
+        } else if b.is_ascii_digit() {
+            buf.push(b as char);
+            i += 1;
+        } else {
+            let mut j = i;
+            while j < bytes.len() && bytes[j] != b'm' {
+                j += 1;
+            }
+            i = if j < bytes.len() { j + 1 } else { j };
+            break;
+        }
+    }
+
+    apply_sgr_params(&params, &mut state);
+    (i, state)
+}
+
+fn apply_sgr_params(params: &[i32], state: &mut AnsiState) {
+    let mut pi = 0;
+    while pi < params.len() {
+        match params[pi] {
+            0 => state.reset(),
+            1 => {
+                state.bold = true;
+                state.dim = false;
+            }
+            2 => state.dim = true,
+            3 => state.italic = true,
+            4 => state.underline = true,
+            22 => {
+                state.bold = false;
+                state.dim = false;
+            }
+            23 => state.italic = false,
+            24 => state.underline = false,
+            30 => state.fg = Some(Color::Black),
+            31 => state.fg = Some(Color::Red),
+            32 => state.fg = Some(Color::Green),
+            33 => state.fg = Some(Color::Yellow),
+            34 => state.fg = Some(Color::Blue),
+            35 => state.fg = Some(Color::Magenta),
+            36 => state.fg = Some(Color::Cyan),
+            37 => state.fg = Some(Color::White),
+            38 if pi + 2 < params.len() => match params[pi + 1] {
+                2 if pi + 4 < params.len() => {
+                    state.fg = Some(Color::Rgb(
+                        params[pi + 2].clamp(0, 255) as u8,
+                        params[pi + 3].clamp(0, 255) as u8,
+                        params[pi + 4].clamp(0, 255) as u8,
+                    ));
+                    pi += 4;
+                }
+                5 if pi + 2 < params.len() => {
+                    state.fg = Some(indexed_color(params[pi + 2]));
+                    pi += 2;
+                }
+                _ => {}
+            },
+            39 => state.fg = None,
+            40 => state.bg = Some(Color::Black),
+            41 => state.bg = Some(Color::Red),
+            42 => state.bg = Some(Color::Green),
+            43 => state.bg = Some(Color::Yellow),
+            44 => state.bg = Some(Color::Blue),
+            45 => state.bg = Some(Color::Magenta),
+            46 => state.bg = Some(Color::Cyan),
+            47 => state.bg = Some(Color::White),
+            48 if pi + 2 < params.len() => match params[pi + 1] {
+                2 if pi + 4 < params.len() => {
+                    state.bg = Some(Color::Rgb(
+                        params[pi + 2].clamp(0, 255) as u8,
+                        params[pi + 3].clamp(0, 255) as u8,
+                        params[pi + 4].clamp(0, 255) as u8,
+                    ));
+                    pi += 4;
+                }
+                5 if pi + 2 < params.len() => {
+                    state.bg = Some(indexed_color(params[pi + 2]));
+                    pi += 2;
+                }
+                _ => {}
+            },
+            49 => state.bg = None,
+            90 => state.fg = Some(Color::Rgb(128, 128, 128)),
+            91 => state.fg = Some(Color::Rgb(255, 128, 128)),
+            92 => state.fg = Some(Color::Rgb(128, 255, 128)),
+            93 => state.fg = Some(Color::Rgb(255, 255, 128)),
+            94 => state.fg = Some(Color::Rgb(128, 128, 255)),
+            95 => state.fg = Some(Color::Rgb(255, 128, 255)),
+            96 => state.fg = Some(Color::Rgb(128, 255, 255)),
+            97 => state.fg = Some(Color::White),
+            100 => state.bg = Some(Color::Rgb(128, 128, 128)),
+            101 => state.bg = Some(Color::Rgb(255, 128, 128)),
+            102 => state.bg = Some(Color::Rgb(128, 255, 128)),
+            103 => state.bg = Some(Color::Rgb(255, 255, 128)),
+            104 => state.bg = Some(Color::Rgb(128, 128, 255)),
+            105 => state.bg = Some(Color::Rgb(255, 128, 255)),
+            106 => state.bg = Some(Color::Rgb(128, 255, 255)),
+            107 => state.bg = Some(Color::White),
+            _ => {}
+        }
+        pi += 1;
+    }
+}
+
+fn indexed_color(n: i32) -> Color {
+    let n = n.clamp(0, 255) as u8;
+    match n {
+        0 => Color::Black,
+        1 => Color::Red,
+        2 => Color::Green,
+        3 => Color::Yellow,
+        4 => Color::Blue,
+        5 => Color::Magenta,
+        6 => Color::Cyan,
+        7 => Color::White,
+        8 => Color::Rgb(128, 128, 128),
+        9 => Color::Rgb(255, 128, 128),
+        10 => Color::Rgb(128, 255, 128),
+        11 => Color::Rgb(255, 255, 128),
+        12 => Color::Rgb(128, 128, 255),
+        13 => Color::Rgb(255, 128, 255),
+        14 => Color::Rgb(128, 255, 255),
+        15 => Color::Rgb(255, 255, 255),
+        n if n < 232 => {
+            let n = n as u32 - 16;
+            Color::Rgb(
+                ((n / 36) * 51).min(255) as u8,
+                (((n % 36) / 6) * 51).min(255) as u8,
+                ((n % 6) * 51).min(255) as u8,
+            )
+        }
+        n => {
+            let g = ((n as u32 - 232) * 10 + 8).min(255) as u8;
+            Color::Rgb(g, g, g)
+        }
+    }
+}
+
 fn wrapped_line_count(text: &str, max_width: usize) -> usize {
     if max_width == 0 {
         return text.lines().count();
@@ -378,7 +462,6 @@ fn wrapped_line_count(text: &str, max_width: usize) -> usize {
         .sum()
 }
 
-/// Estimate the number of rendered lines a message occupies.
 fn message_line_count(
     app: &App,
     msg: &Message,
@@ -387,21 +470,14 @@ fn message_line_count(
     format_cache: &mut std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
 ) -> usize {
     match msg {
-        Message::User { text } => {
-            // header + wrapped lines + trailing blank
-            1 + wrapped_line_count(text, text_width) + 1
-        }
+        Message::User { text } => 1 + wrapped_line_count(text, text_width) + 1,
         Message::Assistant { text, reasoning } if text.is_empty() && reasoning.is_empty() => {
-            // header + "..." + trailing blank
             1 + 1 + 1
         }
         Message::Assistant { text, reasoning } => {
-            // Use SAME rendering logic as build_message_item for accurate count
-            // Pre-render and cache so Pass 3 can reuse
             let mut extra = 0usize;
-            // Reasoning toggle line
             if !reasoning.is_empty() {
-                extra += 1; // toggle header
+                extra += 1;
                 if app.overlay.reasoning_expanded.contains(&msg_index) {
                     extra += reasoning.lines().count();
                 }
@@ -423,10 +499,8 @@ fn message_line_count(
         Message::ToolCall {
             name, args, result, ..
         } => {
-            // Collapsed: only header + optional explanation
             if !app.overlay.tool_call_expanded.contains(&msg_index) {
-                let mut lines = 1; // header
-                // optional explanation line
+                let mut lines = 1;
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
                     && name == "i_rs"
                     && val.get("explanation").and_then(|v| v.as_str()).is_some()
@@ -436,15 +510,13 @@ fn message_line_count(
                 return lines;
             }
 
-            let mut lines = 1; // header
-            // optional explanation line
+            let mut lines = 1;
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
                 && name == "i_rs"
                 && val.get("explanation").and_then(|v| v.as_str()).is_some()
             {
                 lines += 1;
             }
-            // result lines — use cached format_json_result for accurate counting
             if !result.is_empty() {
                 let cached = format_cache
                     .entry(msg_index)
@@ -453,10 +525,7 @@ fn message_line_count(
             }
             lines
         }
-        Message::Error { text } => {
-            // header + wrapped lines + trailing blank
-            1 + wrapped_line_count(text, text_width) + 1
-        }
+        Message::Error { text } => 1 + wrapped_line_count(text, text_width) + 1,
         Message::Evaluation { valid, issues, .. } => {
             if *valid {
                 0
@@ -468,7 +537,6 @@ fn message_line_count(
     }
 }
 
-/// Quick check if a string contains markdown syntax worth rendering.
 fn is_markdown(text: &str) -> bool {
     text.contains("**")
         || text.contains('*')
@@ -480,14 +548,9 @@ fn is_markdown(text: &str) -> bool {
         || text.contains("___")
 }
 
-/// Render markdown text into styled ratatui lines.
-///
-/// Supports: **bold**, *italic*, `inline code`, ```code blocks```,
-/// headings (# ## ###), lists (-), and horizontal rules (---).
 fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
     let mut lines: Vec<Line<'static>> = Vec::new();
 
-    // Accumulator for one logical line (paragraph fragment)
     struct MdLine {
         spans: Vec<(String, Style)>,
         width: usize,
@@ -521,7 +584,6 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                     .collect();
                 out.push(Line::from(spans));
             } else {
-                // Wrap long lines: rebuild from plain text (loses inner styles)
                 let plain: String = self.spans.iter().map(|(t, _)| t.as_str()).collect();
                 self.spans.clear();
                 for w in utils::wrap_text(&plain, max_width) {
@@ -547,9 +609,8 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 Tag::Heading { level, .. } => {
                     acc.flush(&mut lines, max_width);
                     let n = level as u8;
-                    // Heading color: cyan for H1, lighter for deeper headings
                     let heading_color = match n {
-                        1 => Color::Rgb(34, 211, 238), // Cyan
+                        1 => Color::Rgb(34, 211, 238),
                         2 => Color::Rgb(150, 200, 220),
                         _ => Color::Rgb(180, 180, 200),
                     };
@@ -568,7 +629,6 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 Tag::List(_) => {}
                 Tag::Item => {
                     acc.flush(&mut lines, max_width);
-                    // Bullet with amber accent
                     acc.add("▸ ", Style::default().fg(Color::Rgb(251, 191, 36)));
                 }
                 Tag::Emphasis => italic = true,
@@ -596,7 +656,6 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                 TagEnd::CodeBlock => {
                     in_code_block = false;
                     if code_text.lines().any(|l| !l.trim().is_empty()) {
-                        // Code block with refined colors
                         lines.push(Line::from(Span::styled(
                             format!("{:─^width$}", " code ", width = max_width.min(40)),
                             Style::default()
@@ -661,7 +720,6 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
     lines
 }
 
-/// Build a ListItem widget from a Message.
 fn build_message_item_with_skip(
     app: &App,
     msg: &Message,
@@ -756,7 +814,6 @@ fn build_message_lines(
                     Style::default().fg(app.config.theme.dim_text()),
                 ),
             ])];
-            // Render reasoning section (collapsible)
             if !reasoning.is_empty() {
                 let toggle = if is_expanded { " [-]" } else { " [+]" };
                 lines.push(Line::from(Span::styled(
@@ -780,13 +837,11 @@ fn build_message_lines(
                     Style::default().fg(app.config.theme.dim_text()),
                 )));
             } else if !text.is_empty() {
-                // Use cached rendering from Pass 1 if available
                 let md_lines = format_cache
                     .get(&msg_index)
                     .map(|arc| (**arc).clone())
                     .unwrap_or_else(|| render_markdown(text, text_width.saturating_sub(3)));
                 if !is_markdown(text) || md_lines.is_empty() {
-                    // Fallback to simple wrapping for plain text
                     for wrapped in utils::wrap_text(text, text_width) {
                         lines.push(Line::from(Span::styled(
                             format!("   {}", wrapped),
@@ -812,7 +867,6 @@ fn build_message_lines(
             let mut lines = Vec::new();
             let is_expanded = app.overlay.tool_call_expanded.contains(&msg_index);
 
-            // Build step prefix for multi-call progress
             let step_prefix = if *total_steps > 1 {
                 format!("[{}/{}] ", *step + 1usize, total_steps)
             } else {

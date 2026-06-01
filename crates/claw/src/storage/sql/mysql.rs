@@ -42,7 +42,9 @@ impl MySqlBackend {
                 updated_at BIGINT NOT NULL,
                 message_count BIGINT NOT NULL DEFAULT 0
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS messages (
@@ -58,8 +60,12 @@ impl MySqlBackend {
                 created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP()),
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX idx_messages_session ON messages(session_id)").execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query("CREATE INDEX idx_messages_session ON messages(session_id)")
+            .execute(&self.pool)
+            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS api_cache (
@@ -67,7 +73,9 @@ impl MySqlBackend {
                 messages LONGTEXT NOT NULL,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS plan_steps (
@@ -78,14 +86,18 @@ impl MySqlBackend {
                 PRIMARY KEY (session_id, step_order),
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS memory (
                 agent_id VARCHAR(64) PRIMARY KEY,
                 data LONGTEXT NOT NULL
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS token_records (
@@ -104,8 +116,12 @@ impl MySqlBackend {
                 latency_ms BIGINT NOT NULL,
                 estimated_cost_usd DOUBLE NOT NULL
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)").execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)")
+            .execute(&self.pool)
+            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS skills (
@@ -115,7 +131,9 @@ impl MySqlBackend {
                 parameters TEXT,
                 PRIMARY KEY (agent_id, name)
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS tool_cache (
@@ -124,7 +142,9 @@ impl MySqlBackend {
                 doc LONGTEXT NOT NULL,
                 PRIMARY KEY (agent_id, tool_name)
             ) ENGINE=InnoDB",
-        ).execute(&self.pool).await?;
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -132,9 +152,16 @@ impl MySqlBackend {
 
 // Generate all 8 trait implementations
 define_sql_stores!(
-    sqlx::MySqlPool, MySqlBackend,
-    MySqlSessionStore, MySqlMessageStore, MySqlApiCacheStore, MySqlPlanStepsStore,
-    MySqlMemoryStore, MySqlStatsStore, MySqlSkillStore, MySqlToolCacheStore,
+    sqlx::MySqlPool,
+    MySqlBackend,
+    MySqlSessionStore,
+    MySqlMessageStore,
+    MySqlApiCacheStore,
+    MySqlPlanStepsStore,
+    MySqlMemoryStore,
+    MySqlStatsStore,
+    MySqlSkillStore,
+    MySqlToolCacheStore,
     "REPLACE INTO api_cache (session_id, messages) VALUES (?, ?)",
     "REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
     "REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

@@ -4,7 +4,6 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-/// Truncate a string to fit max_len visual width, appending "..." if truncated.
 pub(super) fn truncate_str(s: &str, max_len: usize) -> String {
     let width = UnicodeWidthStr::width(s);
     if width <= max_len {
@@ -25,7 +24,6 @@ pub(super) fn truncate_str(s: &str, max_len: usize) -> String {
     }
 }
 
-/// Convert a Unix timestamp to a localized relative time string.
 pub(super) fn relative_time(ts: i64) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -45,12 +43,10 @@ pub(super) fn relative_time(ts: i64) -> String {
     }
 }
 
-/// Convert a NaiveDateTime to a relative time string.
 pub(super) fn relative_time_naive(ts: chrono::NaiveDateTime) -> String {
     relative_time(ts.and_utc().timestamp())
 }
 
-/// Wrap text to fit max_width, breaking at word boundaries.
 pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     for line in text.lines() {
@@ -63,17 +59,54 @@ pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
         for word in line.split(' ') {
             let word_w = UnicodeWidthStr::width(word);
             let separator = if current.is_empty() { 0 } else { 1 };
-            if current_w + separator + word_w > max_width && !current.is_empty() {
+            if current_w + separator + word_w > max_width {
+                if current.is_empty() {
+                    for part in force_split(word, max_width) {
+                        lines.push(part);
+                    }
+                    continue;
+                }
                 lines.push(current);
                 current = String::new();
                 current_w = 0;
             }
+
             if !current.is_empty() {
                 current.push(' ');
                 current_w += 1;
             }
-            current.push_str(word);
-            current_w += word_w;
+
+            if UnicodeWidthStr::width(word) > max_width {
+                let forced = force_split(word, max_width.saturating_sub(current_w));
+                let mut first = true;
+                let mut remaining_is_long = false;
+                for part in &forced {
+                    if first {
+                        first = false;
+                        current.push_str(part);
+                        current_w += UnicodeWidthStr::width(part.as_str());
+                        if UnicodeWidthStr::width(part.as_str())
+                            > max_width.saturating_sub(current_w)
+                            && forced.len() > 1
+                        {
+                            remaining_is_long = true;
+                        }
+                    } else {
+                        lines.push(current);
+                        current = String::new();
+                        current.push_str(part);
+                        current_w = UnicodeWidthStr::width(part.as_str());
+                    }
+                }
+                if remaining_is_long {
+                    lines.push(current);
+                    current = String::new();
+                    current_w = 0;
+                }
+            } else {
+                current.push_str(word);
+                current_w += word_w;
+            }
         }
         if !current.is_empty() {
             lines.push(current);
@@ -82,12 +115,29 @@ pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     lines
 }
 
-/// Format a JSON CLI result into display lines.
-/// Returns (lines, was_json) — empty lines + false means it wasn't JSON.
+fn force_split(text: &str, max_width: usize) -> Vec<String> {
+    let max_width = max_width.max(1);
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut current_w = 0;
+    for c in text.chars() {
+        let cw = unicode_width::UnicodeWidthChar::width(c).unwrap_or(1);
+        if current_w + cw > max_width && !current.is_empty() {
+            parts.push(std::mem::take(&mut current));
+            current_w = 0;
+        }
+        current.push(c);
+        current_w += cw;
+    }
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    parts
+}
+
 pub(super) fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'static>>, bool) {
     let val = match serde_json::from_str::<serde_json::Value>(result) {
         Ok(v) => {
-            // Check if this is a CLI command result (starts with ⌘ or contains ansi codes)
             if let Some(arr) = v.as_array()
                 && arr
                     .first()
