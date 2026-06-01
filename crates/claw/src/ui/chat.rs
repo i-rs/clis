@@ -81,7 +81,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     }
 
     let total_content_height: usize = heights.iter().sum();
-    let max_scroll = total_content_height.saturating_sub(area_lines).saturating_add(1);
+    let max_scroll = total_content_height.saturating_sub(area_lines);
     let scroll_lines = app.scroll_lines.min(max_scroll);
 
     let mut skipped_lines = 0usize;
@@ -94,11 +94,12 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
             break;
         }
     }
+    let partial_skip = scroll_lines - skipped_lines;
 
     let mut end_idx = msg_skip_count;
     let mut accumulated = 0usize;
     for &h in heights[msg_skip_count..].iter() {
-        if accumulated + h > area_lines && end_idx > msg_skip_count {
+        if accumulated + h > area_lines + partial_skip && end_idx > msg_skip_count {
             break;
         }
         accumulated += h;
@@ -115,12 +116,18 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
             continue;
         }
         let msg_index = total_msgs - 1 - rev_idx;
-        items.push(build_message_item(
+        let skip = if rev_idx == msg_skip_count {
+            partial_skip
+        } else {
+            0
+        };
+        items.push(build_message_item_with_skip(
             app,
             msg,
             text_width,
             msg_index,
             &format_cache,
+            skip,
             now,
         ));
     }
@@ -254,17 +261,25 @@ fn message_line_count(
 
 // ── build_message_item_with_skip ──
 
-fn build_message_item(
+fn build_message_item_with_skip(
     app: &App,
     msg: &Message,
     text_width: usize,
     msg_index: usize,
     format_cache: &std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
+    skip_lines: usize,
     now: chrono::NaiveDateTime,
 ) -> ListItem<'static> {
     let is_selected = app.overlay.selection_mode && app.overlay.selected_message == Some(msg_index);
 
     let lines = build_message_lines(app, msg, text_width, msg_index, format_cache, now);
+    let lines: Vec<Line> = if skip_lines > 0 && skip_lines < lines.len() {
+        lines.into_iter().skip(skip_lines).collect()
+    } else if skip_lines >= lines.len() {
+        Vec::new()
+    } else {
+        lines
+    };
 
     let mut item = ListItem::new(lines);
     if is_selected {

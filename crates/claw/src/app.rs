@@ -747,7 +747,7 @@ impl App {
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_add(3).min(self.max_scroll);
+        self.scroll_lines = self.scroll_lines.saturating_add(3);
     }
 
     pub fn scroll_down(&mut self) {
@@ -1048,17 +1048,15 @@ mod tests {
     fn test_scroll() {
         let mut app = App::new(test_config());
         assert_eq!(app.scroll_lines, 0);
-        app.max_scroll = 100;
         app.scroll_up();
         assert_eq!(app.scroll_lines, 3);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
-        app.max_scroll = 2;
-        app.scroll_lines = 0;
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 2);
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 6);
     }
 
     #[test]

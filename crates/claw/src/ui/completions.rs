@@ -2,8 +2,8 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 
 use super::input;
@@ -87,8 +87,35 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn slash_picker_height(app: &App) -> u16 {
     if !app.overlay.slash_visible {
+        return 0;
+    }
+    let query = if app.input.text.starts_with('/') {
+        &app.input.text
+    } else {
+        ""
+    };
+    let count = SLASH_COMMANDS
+        .iter()
+        .filter(|cmd| {
+            if query.is_empty() {
+                return true;
+            }
+            let q = query.to_lowercase();
+            cmd.name.starts_with(&q)
+                || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+        })
+        .count();
+    if count == 0 {
+        0
+    } else {
+        (count as u16).min(8).saturating_add(1)
+    }
+}
+
+pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
+    if !app.overlay.slash_visible || area.height == 0 {
         return;
     }
 
@@ -114,73 +141,66 @@ pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let count = matches.len();
-    let max_visible = 8;
-    let visible = (count as u16).min(max_visible);
-    let popup_height = visible;
-    let popup_width = 52u16.min(area.width.saturating_sub(4));
-    let popup_x = area.x + 2;
-
-    let status_height: u16 = 1;
-    let input_h = input::input_height(&app.input.text, area.width);
-    let popup_y = area
-        .bottom()
-        .saturating_sub(status_height + input_h + 1 + popup_height);
-    let popup_y = popup_y.max(area.y);
-
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
-    f.render_widget(Clear, popup_area);
-
+    let content_lines = (area.height.saturating_sub(1)) as usize;
+    let max_visible = content_lines.max(1);
     let idx = app.overlay.slash_index.min(count.saturating_sub(1));
 
-    let bg = app.config.theme.background();
     let primary = app.config.theme.primary();
     let dim = app.config.theme.dim_text();
-    let selection_bg = Color::Rgb(30, 30, 46);
+    let bg = app.config.theme.background();
+    let border_color = app.config.theme.border();
 
-    let scroll_offset = if idx >= max_visible as usize {
-        idx - max_visible as usize + 1
+    let scroll_offset = if idx >= max_visible {
+        idx - max_visible + 1
     } else {
         0
     };
 
-    let mut items: Vec<ListItem> = Vec::new();
+    let mut lines: Vec<Line> = Vec::new();
 
     for (i, cmd) in matches.iter().enumerate().skip(scroll_offset) {
-        if i - scroll_offset >= max_visible as usize {
+        if i - scroll_offset >= max_visible {
             break;
         }
         let selected = i == idx;
 
-        let row_bg = if selected { selection_bg } else { bg };
-        let name_fg = if selected { primary } else { primary };
+        let marker = if selected { " ▌" } else { "  " };
+        let name_style = if selected {
+            Style::default().fg(primary).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
         let desc_fg = if selected { Color::White } else { dim };
         let shortcut_fg = if selected { dim } else { Color::DarkGray };
 
-        let name_mod = if selected {
-            Modifier::BOLD
-        } else {
-            Modifier::empty()
-        };
-
-        let name = format!(" {:<12}", cmd.name);
-        let desc = cmd.desc;
+        let name = format!("/{}", &cmd.name[1..]);
         let shortcut = if cmd.shortcut.is_empty() {
             String::new()
         } else {
             format!("  {}", cmd.shortcut)
         };
 
-        items.push(ListItem::new(vec![Line::from(vec![
-            Span::styled(name, Style::default().fg(name_fg).bg(row_bg).add_modifier(name_mod)),
-            Span::styled(desc, Style::default().fg(desc_fg).bg(row_bg)),
-            Span::styled(shortcut, Style::default().fg(shortcut_fg).bg(row_bg)),
-        ])]));
+        lines.push(Line::from(vec![
+            Span::styled(
+                marker,
+                if selected {
+                    Style::default().fg(primary)
+                } else {
+                    Style::default().fg(dim)
+                },
+            ),
+            Span::styled(name, name_style),
+            Span::raw("  "),
+            Span::styled(cmd.desc, Style::default().fg(desc_fg)),
+            Span::styled(shortcut, Style::default().fg(shortcut_fg)),
+        ]));
     }
 
-    let list = List::new(items).block(
-        Block::default()
-            .style(Style::default().bg(bg)),
-    );
+    let block = Block::default()
+        .borders(Borders::TOP)
+        .border_style(Style::default().fg(border_color))
+        .style(Style::default().bg(bg));
 
-    f.render_widget(list, popup_area);
+    let paragraph = Paragraph::new(Text::from(lines)).block(block);
+    f.render_widget(paragraph, area);
 }

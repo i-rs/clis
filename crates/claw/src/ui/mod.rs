@@ -26,6 +26,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
     };
 
     let processing_height: u16 = 1;
+    let slash_height = completions::slash_picker_height(app);
 
     let mut constraints = vec![Constraint::Length(1), Constraint::Min(1)];
 
@@ -35,6 +36,15 @@ pub fn render(f: &mut Frame, app: &mut App) {
 
     constraints.extend(vec![
         Constraint::Length(processing_height),
+    ]);
+
+    if slash_height > 0 {
+        constraints.extend(vec![
+            Constraint::Length(slash_height),
+        ]);
+    }
+
+    constraints.extend(vec![
         Constraint::Length(input::input_height(&app.input.text, area.width)),
         Constraint::Length(1),
     ]);
@@ -64,6 +74,10 @@ pub fn render(f: &mut Frame, app: &mut App) {
     }
     panels::render_processing(f, layout[idx], app, &app.config.theme);
     idx += 1;
+    if slash_height > 0 {
+        completions::render_slash_panel(f, layout[idx], app);
+        idx += 1;
+    }
     input::render_input(f, layout[idx], app);
     idx += 1;
     status::render_status(f, layout[idx], app);
@@ -120,8 +134,6 @@ pub fn render(f: &mut Frame, app: &mut App) {
     if !app.overlay.tab_completions.is_empty() {
         completions::render_completions(f, area, app);
     }
-
-    completions::render_slash_panel(f, area, app);
 
     if let Some(idx) = app.overlay.sidebar_body_idx
         && let Some(log) = app.http_logs.get(idx)
