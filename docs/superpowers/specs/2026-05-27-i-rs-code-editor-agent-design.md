@@ -310,9 +310,9 @@ i-rs-code 本身没有权限系统，所有需要人工介入的操作通过协�
 
 | | 开发模式 | 用户模式 |
 |--|---------|---------|
-| **代码位置** | `crates/clis/i-rs-{name}/` (monorepo) | `~/.i-rs-code/tools/i-rs-{name}/` |
+| **代码位置** | `crates/clis/i-rs-{name}/` (monorepo) | `~/.i-rs/code/tools/i-rs-{name}/` |
 | **构建方式** | `cargo build -p i-rs-{name}` (workspace) | `cargo build --release` (独立) |
-| **产物位置** | `target/debug/i-rs-{name}` | `~/.i-rs-code/bin/i-rs-{name}` |
+| **产物位置** | `target/debug/i-rs-{name}` | `~/.i-rs/code/bin/i-rs-{name}` |
 | **使用场景** | 开发 i-rs 项目本身 | 用户自定义工具 |
 
 i-rs-code 自动检测当前目录：如果在 i-rs-clis 项目内，使用开发模式；否则使用用户模式。
@@ -323,14 +323,14 @@ i-rs-code 自动检测当前目录：如果在 i-rs-clis 项目内，使用开�
 create_crate → generate source → cargo build → install binary → update manifest
 ```
 
-1. **生成源码** → `~/.i-rs-code/tools/i-rs-mood/`
+1. **生成源码** → `~/.i-rs/code/tools/i-rs-mood/`
 2. **编译** → `cargo build --release`
-3. **安装** → 复制 binary 到 `~/.i-rs-code/bin/i-rs-mood`
-4. **注册 manifest** → 写入 `~/.i-rs-code/manifest.json`
+3. **安装** → 复制 binary 到 `~/.i-rs/code/bin/i-rs-mood`
+4. **注册 manifest** → 写入 `~/.i-rs/code/manifest.json`
 
 ### Manifest 文件
 
-`~/.i-rs-code/manifest.json` 记录所有已安装的自定义工具：
+`~/.i-rs/code/manifest.json` 记录所有已安装的自定义工具：
 
 ```json
 {
@@ -338,8 +338,8 @@ create_crate → generate source → cargo build → install binary → update m
     {
       "name": "i-rs-mood",
       "version": "0.1.0",
-      "binary": "~/.i-rs-code/bin/i-rs-mood",
-      "source": "~/.i-rs-code/tools/i-rs-mood",
+      "binary": "~/.i-rs/code/bin/i-rs-mood",
+      "source": "~/.i-rs/code/tools/i-rs-mood",
       "description": "Mood tracking CLI tool",
       "commands": ["add", "list", "calendar", "stats"],
       "created_at": "2026-05-27T10:00:00Z"

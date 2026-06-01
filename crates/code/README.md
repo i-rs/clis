@@ -17,7 +17,7 @@ cargo install --path crates/code --features tui
 
 ## 配置
 
-配置文件位于 `~/.i-rs-code/config.toml`（首次运行自动生成）：
+配置文件位于 `~/.i-rs/code/config.toml`（首次运行自动生成）：
 
 ```toml
 provider = "openai"
@@ -153,7 +153,7 @@ i-rs-code agent --task-id "uuid-123"
 
 ## 会话
 
-所有会话记录保存在 `~/.i-rs-code/sessions/`。可通过 `i-rs-code search <query>` 跨会话搜索。使用 `i-rs-code tui --session <id>` 恢复历史会话。
+所有会话记录保存在 `~/.i-rs/code/sessions/`。可通过 `i-rs-code search <query>` 跨会话搜索。使用 `i-rs-code tui --session <id>` 恢复历史会话。
 
 ## AgentMessage 类型
 

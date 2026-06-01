@@ -290,9 +290,9 @@
 - **Fix**: Already properly used. Just note that it's correct.
 - **Accept**: No action needed.
 
-### L8. No `.gitignore` for `~/.i-rs-code/`
+### L8. No `.gitignore` for `~/.i-rs/code/`
 - **File**: `config.rs` (init)
-- **Fix**: Create `~/.i-rs-code/.gitignore` on first init with `*` (ignore everything).
+- **Fix**: Create `~/.i-rs/code/.gitignore` on first init with `*` (ignore everything).
 - **Accept**: Config dir not accidentally committed.
 
 ### L9. Zero-test modules need basic tests

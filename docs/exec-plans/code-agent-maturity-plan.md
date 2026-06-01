@@ -96,7 +96,7 @@ pub enum ToolError {
 - 启动时自动检测项目类型（Rust/Node/Python/Go 等）
 - 读取项目配置（`Cargo.toml`/`package.json`/`pyproject.toml`）注入 system prompt
 - 支持 `AGENTS.md` / `.cursor/rules` / `.github/copilot-instructions.md` 自动注入
-- 支持用户自定义 `~/.i-rs-code/instructions.md`
+- 支持用户自定义 `~/.i-rs/code/instructions.md`
 - **验收**: 打开 i-rs 项目时，AGENTS.md 内容自动注入 system prompt
 
 ### P2-4: System Prompt 增强
