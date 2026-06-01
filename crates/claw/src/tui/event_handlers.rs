@@ -444,7 +444,6 @@ impl<'a> KeyEventHandler<'a> {
             (KeyCode::Char('s'), true, false, _)
                 | (KeyCode::Char('h'), true, false, _)
                 | (KeyCode::Char('i'), true, false, _)
-                | (KeyCode::Tab, true, false, _)
                 | (KeyCode::Char('f'), true, false, false)
                 | (KeyCode::Char('t'), true, false, _)
                 | (KeyCode::Char('a'), true, false, _)
@@ -487,7 +486,7 @@ impl<'a> KeyEventHandler<'a> {
             (KeyCode::Char('h'), true, false) => {
                 self.app.overlay.toggle(Overlay::Help);
             }
-            (KeyCode::Char('i'), true, false) | (KeyCode::Tab, true, false) => {
+            (KeyCode::Char('i'), true, false) => {
                 self.app.overlay.toggle(Overlay::Config);
             }
             (KeyCode::Char('f'), true, false) if !self.app.is_processing() => {
@@ -594,6 +593,10 @@ impl<'a> KeyEventHandler<'a> {
                 if !self.app.is_processing() && !self.app.overlay.tab_completions.is_empty() =>
             {
                 self.handle_backtab_complete();
+            }
+            KeyCode::Tab if self.app.input.text.is_empty() && !self.app.is_processing() => {
+                self.app.overlay.tab_completions.clear();
+                self.app.overlay.toggle(Overlay::Config);
             }
             _ => {
                 self.app.overlay.tab_completions.clear();
