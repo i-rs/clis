@@ -767,7 +767,7 @@ class ClawService: ObservableObject {
     /// Update an existing agent profile.
     func updateAgent(id: String, provider: String? = nil, model: String? = nil,
                      apiKey: String? = nil, baseURL: String? = nil,
-                     systemPrompt: String? = nil, enabledTools: [String]? = nil) async {
+                     systemPrompt: String? = nil, enabledTools: [String]? = nil) async -> Bool {
         var body: [String: Any] = [:]
         if let p = provider { body["provider"] = p }
         if let m = model { body["model"] = m }
@@ -776,14 +776,47 @@ class ClawService: ObservableObject {
         if let s = systemPrompt { body["system_prompt"] = s }
         if let tools = enabledTools { body["enabled_tools"] = tools }
 
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return }
-        guard let data = await put("/api/agents/\(id)", body: bodyData) else { return }
-        guard let response: ApiResponse<[String: String]> = decode(data) else { return }
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return false }
+        guard let data = await put("/api/agents/\(id)", body: bodyData) else { return false }
+        guard let response: ApiResponse<[String: String]> = decode(data) else { return false }
         if response.success {
             await fetchAgents()
+            return true
         } else if let err = response.error {
             self.errorMessage = err
         }
+        return false
+    }
+
+    /// Get detailed config for a single agent.
+    func getAgentDetail(id: String) async -> AgentDetail? {
+        guard let data = await get("/api/agents/\(id)") else { return nil }
+        guard let response: ApiResponse<AgentDetail> = decode(data) else { return nil }
+        return response.data
+    }
+
+    /// Create a new agent profile.
+    func createAgent(id: String, provider: String? = nil, model: String? = nil,
+                      apiKey: String? = nil, baseURL: String? = nil,
+                      systemPrompt: String? = nil, enabledTools: [String]? = nil) async -> Bool {
+        var body: [String: Any] = ["id": id]
+        if let p = provider { body["provider"] = p }
+        if let m = model { body["model"] = m }
+        if let k = apiKey { body["api_key"] = k }
+        if let b = baseURL { body["base_url"] = b }
+        if let s = systemPrompt { body["system_prompt"] = s }
+        if let tools = enabledTools { body["enabled_tools"] = tools }
+
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return false }
+        guard let data = await post("/api/agents", body: bodyData) else { return false }
+        guard let response: ApiResponse<[String: String]> = decode(data) else { return false }
+        if response.success {
+            await fetchAgents()
+            return true
+        } else if let err = response.error {
+            self.errorMessage = err
+        }
+        return false
     }
 
     /// Submit feedback for a session (thumbs up/down).

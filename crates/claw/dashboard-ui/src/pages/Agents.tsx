@@ -25,7 +25,7 @@ export default function AgentsPage({ onAgentsChange }: Props) {
     setLoading(true)
     listAgents().then((resp) => {
       if (resp.success && resp.data) {
-        setAgents(resp.data)
+        setAgents(resp.data.filter((a) => !a.is_sub_agent))
       }
       setLoading(false)
     }).catch(() => setLoading(false))

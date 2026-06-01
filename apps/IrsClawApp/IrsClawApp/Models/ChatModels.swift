@@ -106,6 +106,7 @@ struct ClawAgent: Codable, Identifiable, Hashable {
     let toolCount: Int?
     let enabledTools: [String]?
     let systemPrompt: String?
+    let isSubAgent: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, provider, model
@@ -113,6 +114,29 @@ struct ClawAgent: Codable, Identifiable, Hashable {
         case toolCount = "tool_count"
         case enabledTools = "enabled_tools"
         case systemPrompt = "system_prompt"
+        case isSubAgent = "is_sub_agent"
+    }
+}
+
+struct AgentDetail: Codable {
+    let id: String
+    let provider: String
+    let model: String
+    let baseUrl: String
+    let enabledTools: [String]?
+    let toolCount: Int
+    let systemPrompt: String?
+    let mcpServers: [String]?
+    let allowedDirs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, provider, model
+        case baseUrl = "base_url"
+        case enabledTools = "enabled_tools"
+        case toolCount = "tool_count"
+        case systemPrompt = "system_prompt"
+        case mcpServers = "mcp_servers"
+        case allowedDirs = "allowed_dirs"
     }
 }
 

@@ -35,6 +35,10 @@ function getConfig() {
   return request('GET', '/config')
 }
 
+function updateConfig(body) {
+  return request('PUT', '/config', body)
+}
+
 function listSessions() {
   return request('GET', '/sessions')
 }

@@ -657,6 +657,7 @@ struct AgentsSettingsView: View {
     @ObservedObject var service: ClawService
     @State private var showingAddAgent = false
     @State private var selectedAgent: ClawAgent?
+    @State private var showingDetail = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -673,11 +674,17 @@ struct AgentsSettingsView: View {
                 Spacer()
             } else {
                 List(selection: $selectedAgent) {
-                    ForEach(service.agents) { agent in
+                    ForEach(service.agents.filter { !($0.isSubAgent ?? false) }) { agent in
                         AgentRow(agent: agent)
                             .tag(agent as ClawAgent?)
                             .contextMenu {
                                 if agent.id != "default" {
+                                    Button {
+                                        selectedAgent = agent
+                                        showingDetail = true
+                                    } label: {
+                                        Label("View Details", systemImage: "info.circle")
+                                    }
                                     Divider()
                                     Button("Delete Agent", role: .destructive) {
                                         Task { await service.deleteAgent(agent.id) }
@@ -687,7 +694,7 @@ struct AgentsSettingsView: View {
                     }
                     .onDelete { indexSet in
                         for index in indexSet {
-                            let agent = service.agents[index]
+                            let agent = service.agents.filter { !($0.isSubAgent ?? false) }[index]
                             if agent.id != "default" {
                                 Task { await service.deleteAgent(agent.id) }
                             }
@@ -710,8 +717,18 @@ struct AgentsSettingsView: View {
         .sheet(isPresented: $showingAddAgent) {
             AddAgentSheet(service: service)
         }
+        .sheet(isPresented: $showingDetail) {
+            if let agent = selectedAgent {
+                AgentDetailSheet(service: service, agent: agent)
+            }
+        }
         .onAppear {
             Task { await service.fetchAgents() }
+        }
+        .onChange(of: selectedAgent) { _, newValue in
+            if newValue != nil {
+                showingDetail = true
+            }
         }
     }
 }
@@ -780,6 +797,185 @@ struct AgentRow: View {
             LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
         } else {
             LinearGradient(colors: [.teal, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+    }
+}
+
+struct AgentDetailSheet: View {
+    @ObservedObject var service: ClawService
+    @Environment(\.dismiss) private var dismiss
+    let agent: ClawAgent
+    @State private var detail: AgentDetail?
+    @State private var isLoading = true
+    @State private var isEditing = false
+    @State private var editedProvider = ""
+    @State private var editedModel = ""
+    @State private var editedApiKey = ""
+    @State private var editedBaseURL = ""
+    @State private var editedSystemPrompt = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView("Loading...")
+                } else if let detail = detail {
+                    detailContent(detail)
+                } else {
+                    ContentUnavailableView("Failed to load agent", systemImage: "exclamationmark.triangle")
+                }
+            }
+            .navigationTitle(agent.id)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                if !isEditing && detail != nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Edit") { startEditing() }
+                    }
+                }
+            }
+        }
+        .task {
+            await loadDetail()
+        }
+    }
+
+    @ViewBuilder
+    private func detailContent(_ detail: AgentDetail) -> some View {
+        if isEditing {
+            editingContent(detail)
+        } else {
+            viewingContent(detail)
+        }
+    }
+
+    private func viewingContent(_ detail: AgentDetail) -> some View {
+        List {
+            Section("Model") {
+                LabeledContent("Provider", value: detail.provider)
+                LabeledContent("Model", value: detail.model)
+                if !detail.baseUrl.isEmpty {
+                    LabeledContent("Base URL", value: detail.baseUrl)
+                }
+            }
+
+            if let tools = detail.enabledTools, !tools.isEmpty {
+                Section("Enabled Tools (\(tools.count))") {
+                    ForEach(tools, id: \.self) { tool in
+                        Text(tool)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                }
+            }
+
+            if let prompt = detail.systemPrompt, !prompt.isEmpty {
+                Section("System Prompt") {
+                    Text(prompt)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let mcp = detail.mcpServers, !mcp.isEmpty {
+                Section("MCP Servers") {
+                    ForEach(mcp, id: \.self) { server in
+                        Text(server)
+                            .font(.system(.caption, design: .monospaced))
+                    }
+                }
+            }
+
+            if agent.id != "default" {
+                Section {
+                    Button("Delete Agent", role: .destructive) {
+                        Task {
+                            await service.deleteAgent(agent.id)
+                            dismiss()
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    private func editingContent(_ detail: AgentDetail) -> some View {
+        Form {
+            Section("Model") {
+                TextField("Provider", text: $editedProvider)
+                TextField("Model", text: $editedModel)
+            }
+
+            Section("Authentication") {
+                SecureField("API Key", text: $editedApiKey)
+                TextField("Base URL", text: $editedBaseURL)
+            }
+
+            Section("Behavior") {
+                TextEditor(text: $editedSystemPrompt)
+                    .frame(minHeight: 80)
+                    .font(.caption.monospaced())
+            }
+        }
+        .listStyle(.insetGrouped)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button {
+                    Task { await saveChanges() }
+                } label: {
+                    if isSaving {
+                        ProgressView()
+                    } else {
+                        Text("Save")
+                    }
+                }
+                .disabled(isSaving)
+            }
+        }
+    }
+
+    private func loadDetail() async {
+        if let d = await service.getAgentDetail(id: agent.id) {
+            await MainActor.run {
+                detail = d
+                editedProvider = d.provider
+                editedModel = d.model
+                editedBaseURL = d.baseUrl
+                editedSystemPrompt = d.systemPrompt ?? ""
+                isLoading = false
+            }
+        } else {
+            await MainActor.run { isLoading = false }
+        }
+    }
+
+    private func startEditing() {
+        guard let d = detail else { return }
+        editedProvider = d.provider
+        editedModel = d.model
+        editedBaseURL = d.baseUrl
+        editedSystemPrompt = d.systemPrompt ?? ""
+        isEditing = true
+    }
+
+    private func saveChanges() async {
+        isSaving = true
+        let success = await service.updateAgent(
+            id: agent.id,
+            provider: editedProvider.isEmpty ? nil : editedProvider,
+            model: editedModel.isEmpty ? nil : editedModel,
+            apiKey: editedApiKey.isEmpty ? nil : editedApiKey,
+            baseURL: editedBaseURL.isEmpty ? nil : editedBaseURL,
+            systemPrompt: editedSystemPrompt.isEmpty ? nil : editedSystemPrompt
+        )
+        isSaving = false
+        if success {
+            await loadDetail()
+            isEditing = false
         }
     }
 }

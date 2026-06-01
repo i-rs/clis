@@ -125,6 +125,7 @@ export interface AgentInfo {
   tool_count: number
   enabled_tools: string[]
   system_prompt: string | null
+  is_sub_agent?: boolean
 }
 
 // ── Sessions ──

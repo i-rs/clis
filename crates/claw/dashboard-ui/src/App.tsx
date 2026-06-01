@@ -90,8 +90,9 @@ export default function App() {
   useEffect(() => {
     listAgents().then((resp) => {
       if (resp.success && resp.data) {
-        setAgents(resp.data)
-        const exists = resp.data.some((a) => a.id === selectedAgent)
+        const userAgents = resp.data.filter((a) => !a.is_sub_agent)
+        setAgents(userAgents)
+        const exists = userAgents.some((a) => a.id === selectedAgent)
         if (!exists) setSelectedAgent('default')
       }
     })
