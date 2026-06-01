@@ -1,4 +1,5 @@
 var api = require('../../utils/api.js')
+var app = getApp()
 
 Page({
   data: {
@@ -7,6 +8,28 @@ Page({
   },
 
   onLoad: function() {
+    this.lastServerUrl = app.globalData.serverUrl || ''
+    this.lastAuthToken = app.globalData.authToken || ''
+    this.loadPlugins()
+  },
+
+  onShow: function() {
+    this.checkServerChanged()
+    this.loadPlugins()
+  },
+
+  checkServerChanged: function() {
+    var curUrl = app.globalData.serverUrl || ''
+    var curToken = app.globalData.authToken || ''
+    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
+      this.lastServerUrl = curUrl
+      this.lastAuthToken = curToken
+      this.onServerChanged()
+    }
+  },
+
+  onServerChanged: function() {
+    this.setData({ plugins: [] })
     this.loadPlugins()
   },
 

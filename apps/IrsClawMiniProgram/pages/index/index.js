@@ -59,13 +59,44 @@ Page({
   },
 
   onLoad: function() {
+    this.lastServerUrl = app.globalData.serverUrl || ''
+    this.lastAuthToken = app.globalData.authToken || ''
     this.checkConnection()
     this.loadAgents()
     this.loadOrCreateSession()
   },
 
   onShow: function() {
+    this.checkServerChanged()
     this.checkConnection()
+    this.loadAgents()
+  },
+
+  checkServerChanged: function() {
+    var curUrl = app.globalData.serverUrl || ''
+    var curToken = app.globalData.authToken || ''
+    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
+      this.lastServerUrl = curUrl
+      this.lastAuthToken = curToken
+      this.onServerChanged()
+    }
+  },
+
+  onServerChanged: function() {
+    if (this.data.streamTask) {
+      try { this.data.streamTask.abort() } catch (e) {}
+    }
+    this.setData({
+      messages: [],
+      sessionId: '',
+      sessionTitle: '',
+      streamingContent: '',
+      streamingReasoning: '',
+      streamingToolCalls: [],
+      streamTask: null
+    })
+    app.globalData.sessionId = null
+    this.loadOrCreateSession()
     this.loadAgents()
   },
 

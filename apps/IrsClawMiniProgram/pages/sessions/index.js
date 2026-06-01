@@ -43,10 +43,28 @@ Page({
   },
 
   onLoad: function() {
+    this.lastServerUrl = app.globalData.serverUrl || ''
+    this.lastAuthToken = app.globalData.authToken || ''
     this.loadSessions()
   },
 
   onShow: function() {
+    this.checkServerChanged()
+    this.loadSessions()
+  },
+
+  checkServerChanged: function() {
+    var curUrl = app.globalData.serverUrl || ''
+    var curToken = app.globalData.authToken || ''
+    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
+      this.lastServerUrl = curUrl
+      this.lastAuthToken = curToken
+      this.onServerChanged()
+    }
+  },
+
+  onServerChanged: function() {
+    this.setData({ sessions: [] })
     this.loadSessions()
   },
 

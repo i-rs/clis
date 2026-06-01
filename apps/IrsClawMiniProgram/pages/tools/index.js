@@ -48,10 +48,28 @@ Page({
   },
 
   onLoad: function() {
+    this.lastServerUrl = app.globalData.serverUrl || ''
+    this.lastAuthToken = app.globalData.authToken || ''
     this.loadTools()
   },
 
   onShow: function() {
+    this.checkServerChanged()
+    this.loadTools()
+  },
+
+  checkServerChanged: function() {
+    var curUrl = app.globalData.serverUrl || ''
+    var curToken = app.globalData.authToken || ''
+    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
+      this.lastServerUrl = curUrl
+      this.lastAuthToken = curToken
+      this.onServerChanged()
+    }
+  },
+
+  onServerChanged: function() {
+    this.setData({ tools: [] })
     this.loadTools()
   },
 

@@ -102,6 +102,7 @@ Page({
         })
         this.checkHealth()
         this.loadConfig()
+        app.notifyServerChanged()
         return
       }
     }
@@ -228,6 +229,7 @@ Page({
     })
     this.checkHealth()
     this.loadConfig()
+    app.notifyServerChanged()
     wx.showToast({ title: '已连接', icon: 'success' })
   }
 })

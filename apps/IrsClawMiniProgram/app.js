@@ -28,5 +28,17 @@ App({
         currentAgent: this.globalData.currentAgent
       })
     } catch (e) {}
+  },
+
+  notifyServerChanged() {
+    try {
+      var pages = getCurrentPages()
+      for (var i = 0; i < pages.length; i++) {
+        var page = pages[i]
+        if (page && page.onServerChanged) {
+          page.onServerChanged()
+        }
+      }
+    } catch (e) {}
   }
 })

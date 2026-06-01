@@ -16,10 +16,28 @@ Page({
   },
 
   onLoad: function() {
+    this.lastServerUrl = app.globalData.serverUrl || ''
+    this.lastAuthToken = app.globalData.authToken || ''
     this.loadStats()
   },
 
   onShow: function() {
+    this.checkServerChanged()
+    this.loadStats()
+  },
+
+  checkServerChanged: function() {
+    var curUrl = app.globalData.serverUrl || ''
+    var curToken = app.globalData.authToken || ''
+    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
+      this.lastServerUrl = curUrl
+      this.lastAuthToken = curToken
+      this.onServerChanged()
+    }
+  },
+
+  onServerChanged: function() {
+    this.setData({ stats: null })
     this.loadStats()
   },
 
