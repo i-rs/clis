@@ -88,7 +88,7 @@ struct UsagePanel: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .modifier(PlatformListStyle())
         .task {
             await service.fetchStats(period: selectedPeriod)
         }
@@ -178,5 +178,23 @@ struct UsagePanel: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
+    }
+}
+
+struct PlatformListStyle: ViewModifier {
+    #if os(macOS)
+    func body(content: Content) -> some View {
+        content.listStyle(PlainListStyle())
+    }
+    #else
+    func body(content: Content) -> some View {
+        content.listStyle(InsetGroupedListStyle())
+    }
+    #endif
+}
+
+struct UsagePanel_Previews: PreviewProvider {
+    static var previews: some View {
+        UsagePanel(service: ClawService())
     }
 }
