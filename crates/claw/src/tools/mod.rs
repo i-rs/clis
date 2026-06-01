@@ -24,6 +24,15 @@ use std::collections::HashSet;
 pub struct ToolContext {
     pub config: crate::config::Config,
     pub http_client: reqwest::Client,
+    pub delegate_runtime: Option<DelegateRuntime>,
+}
+
+/// Runtime state needed for sub-agent delegation with full tool support.
+#[derive(Clone)]
+pub struct DelegateRuntime {
+    pub mcp_registry: crate::mcp::McpRegistry,
+    pub skills: Vec<crate::skill_store::SkillDefinition>,
+    pub tool_frequency: std::collections::HashMap<String, usize>,
 }
 
 // ── Shared helpers ──
@@ -92,6 +101,7 @@ pub trait ClawTool: Send + Sync {
 /// 2. Add `Box::new(my_tool::MyTool)` to `ToolRegistry::new()`
 pub struct ToolRegistry {
     pub tools: Vec<Box<dyn ClawTool>>,
+    excluded: std::collections::HashSet<String>,
 }
 
 impl ToolRegistry {
@@ -109,7 +119,13 @@ impl ToolRegistry {
                 Box::new(vision_tool::VisionTool),
                 Box::new(web_search::WebSearchTool),
             ],
+            excluded: std::collections::HashSet::new(),
         }
+    }
+
+    pub fn exclude_tool(mut self, name: &str) -> Self {
+        self.excluded.insert(name.to_string());
+        self
     }
 
     /// Add skill tools from SkillStore (builder pattern, consumes self).
@@ -153,6 +169,7 @@ impl ToolRegistry {
         };
         self.tools
             .iter()
+            .filter(|tool| !self.excluded.contains(tool.name()))
             .map(|tool| {
                 serde_json::json!({
                     "type": "function",
@@ -262,6 +279,7 @@ mod tests {
         let ctx = ToolContext {
             config: crate::test_helpers::test_config(),
             http_client: crate::providers::shared_client(),
+            delegate_runtime: None,
         };
         let result = reg.execute("不存在", &json!({}), &ctx).await;
         assert!(result.is_err(), "未知工具应返回错误");

@@ -318,6 +318,22 @@ impl AppCore {
             )
         };
 
+        let routing_hint = {
+            let agents: Vec<crate::config::ResolvedAgentConfig> = self
+                .config
+                .agent_ids()
+                .iter()
+                .map(|id| self.config.agent_config(id))
+                .collect();
+            let sub_agents: Vec<crate::config::ResolvedAgentConfig> = self
+                .config
+                .sub_agents
+                .keys()
+                .map(|id| self.config.agent_config(id))
+                .collect();
+            crate::router::TaskRouter::new(agents, sub_agents).routing_hint()
+        };
+
         engine::build_messages(engine::MessageBuildParams {
             app_messages,
             user_text,
@@ -338,6 +354,7 @@ impl AppCore {
             max_conversation_turns: self.config.max_conversation_turns,
             tz_offset: self.config.tz_offset,
             identity: &identity,
+            routing_hint: &routing_hint,
             model: &resolved.model,
         })
     }
@@ -629,6 +646,7 @@ impl AppCore {
                 self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
                 self.config.tz_offset,
                 &identity,
+                "",
             )
         });
 

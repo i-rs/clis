@@ -148,6 +148,7 @@ mod tests {
         let ctx = ToolContext {
             config: crate::test_helpers::test_config(),
             http_client: crate::providers::shared_client(),
+            delegate_runtime: None,
         };
         let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert_eq!(result, "Execute this instruction");
@@ -165,6 +166,7 @@ mod tests {
         let ctx = ToolContext {
             config: crate::test_helpers::test_config(),
             http_client: crate::providers::shared_client(),
+            delegate_runtime: None,
         };
         let result = tool.execute(&json!({}), &ctx).await.unwrap();
         assert!(result.contains("技能已激活"));

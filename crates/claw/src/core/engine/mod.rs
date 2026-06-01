@@ -46,11 +46,13 @@ fn prepare_loop(
         Some(&config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let tool_registry = Arc::new(
-        crate::tools::ToolRegistry::new()
-            .with_skills(skills)
-            .with_mcp(mcp),
-    );
+    let mut reg = crate::tools::ToolRegistry::new()
+        .with_skills(skills)
+        .with_mcp(mcp);
+    if config.exclude_delegate_tool {
+        reg = reg.exclude_tool("delegate_task");
+    }
+    let tool_registry = Arc::new(reg);
     let tool_schemas = tool_registry.enabled_schemas(&i_rs_tool_names, enabled);
 
     let ctx_mgr = ContextManager::for_model(provider.model());
@@ -68,7 +70,12 @@ fn prepare_loop(
 
     let tool_ctx = crate::tools::ToolContext {
         config: config.clone(),
-        http_client,
+        http_client: http_client.clone(),
+        delegate_runtime: Some(crate::tools::DelegateRuntime {
+            mcp_registry: mcp.clone(),
+            skills: skills.to_vec(),
+            tool_frequency: tool_frequency.clone(),
+        }),
     };
     let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
         .with_timeout(config.cli_timeout_secs)
@@ -546,6 +553,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            routing_hint: "",
             model: "test",
         };
         let result = build_messages(params);
@@ -591,6 +599,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            routing_hint: "",
             model: "test",
         };
         let result = build_messages(params);
@@ -621,6 +630,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            routing_hint: "",
             model: "test",
         };
         let result = build_messages(params);
@@ -667,6 +677,7 @@ mod tests {
             max_conversation_turns: 8,
             tz_offset: tz_test(),
             identity: "",
+            routing_hint: "",
             model: "test",
         };
         let result = build_messages(params);
@@ -714,6 +725,7 @@ mod tests {
             max_conversation_turns: 2,
             tz_offset: tz_test(),
             identity: "",
+            routing_hint: "",
             model: "test",
         };
         let result = build_messages(params);
@@ -851,7 +863,7 @@ mod tests {
 
     #[test]
     fn test_plan_then_execute_prompt() {
-        let prompt = build_system_prompt("", "", "", "", "", true, tz_test(), "");
+        let prompt = build_system_prompt("", "", "", "", "", true, tz_test(), "", "");
         assert!(
             prompt.contains("Plan-then-Execute"),
             "plan_then_execute=true 时系统提示词应包含 Plan-then-Execute 模式说明"
@@ -861,7 +873,7 @@ mod tests {
 
     #[test]
     fn test_react_prompt_default() {
-        let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "");
+        let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "", "");
         assert!(
             prompt.contains("无需预先规划整个流程"),
             "plan_then_execute=false 时系统提示词应包含 ReAct 模式说明"
@@ -870,7 +882,7 @@ mod tests {
 
     #[test]
     fn test_build_system_prompt_date_injection() {
-        let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "");
+        let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "", "");
         let today = crate::utils::now_in_tz(tz_test())
             .format("%Y-%m-%d")
             .to_string();
@@ -880,7 +892,7 @@ mod tests {
 
     #[test]
     fn test_build_system_prompt_tool_index_injection() {
-        let prompt = build_system_prompt("★工具索引★", "", "", "", "", false, tz_test(), "");
+        let prompt = build_system_prompt("★工具索引★", "", "", "", "", false, tz_test(), "", "");
         assert!(prompt.contains("★工具索引★"), "应注入工具索引");
         assert!(
             !prompt.contains("{{TOOL_INDEX}}"),
@@ -898,6 +910,7 @@ mod tests {
             "PROFILE",
             false,
             tz_test(),
+            "",
             "",
         );
         assert!(prompt.contains("TOOLS"), "应有工具索引");

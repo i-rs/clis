@@ -53,6 +53,7 @@ pub(crate) fn build_system_prompt(
     plan_then_execute: bool,
     tz_offset: chrono::FixedOffset,
     identity: &str,
+    routing_hint: &str,
 ) -> String {
     let mut prompt = include_str!("../../../prompts/system.md").to_string();
     let now = crate::utils::now_in_tz(tz_offset);
@@ -80,6 +81,12 @@ pub(crate) fn build_system_prompt(
     prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
     prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
 
+    if !routing_hint.is_empty() {
+        prompt = prompt.replace("{{ROUTING_HINT}}", routing_hint);
+    } else {
+        prompt = prompt.replace("{{ROUTING_HINT}}", "");
+    }
+
     prompt = prompt.replace("\n\n\n\n", "\n\n");
     prompt = prompt.replace("\n\n\n", "\n\n");
 
@@ -104,6 +111,7 @@ pub struct MessageBuildParams<'a> {
     pub max_conversation_turns: usize,
     pub tz_offset: chrono::FixedOffset,
     pub identity: &'a str,
+    pub routing_hint: &'a str,
     /// Model identifier for ContextManager token sizing.
     pub model: &'a str,
 }
@@ -192,6 +200,7 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
                 params.plan_then_execute,
                 params.tz_offset,
                 params.identity,
+                params.routing_hint,
             )
         });
 

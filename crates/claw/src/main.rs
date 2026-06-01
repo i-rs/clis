@@ -13,6 +13,7 @@ mod mcp;
 mod memory;
 mod plugin;
 mod providers;
+mod router;
 mod semantic;
 mod session;
 mod skill_store;

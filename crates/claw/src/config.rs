@@ -69,6 +69,15 @@ pub struct Config {
     /// CLI subprocess execution timeout in seconds.
     #[serde(default = "default_cli_timeout_secs")]
     pub cli_timeout_secs: u64,
+    /// Sub-agent delegation timeout in seconds.
+    #[serde(default = "default_delegate_timeout_secs")]
+    pub delegate_timeout_secs: u64,
+    /// Whether sub-agents can recursively delegate (default: false).
+    #[serde(default)]
+    pub allow_recursive_delegation: bool,
+    /// Internal flag: when true, strip delegate_task from tool schemas.
+    #[serde(default, skip_serializing)]
+    pub exclude_delegate_tool: bool,
     /// Number of recent conversation turns to preserve in context.
     #[serde(default = "default_max_conversation_turns")]
     pub max_conversation_turns: usize,
@@ -105,6 +114,9 @@ fn default_max_tool_retries() -> u32 {
 }
 fn default_cli_timeout_secs() -> u64 {
     30
+}
+fn default_delegate_timeout_secs() -> u64 {
+    120
 }
 fn default_max_conversation_turns() -> usize {
     8
@@ -412,6 +424,9 @@ impl Config {
             max_react_rounds: default_max_react_rounds(),
             max_tool_retries: default_max_tool_retries(),
             cli_timeout_secs: default_cli_timeout_secs(),
+            delegate_timeout_secs: default_delegate_timeout_secs(),
+            allow_recursive_delegation: false,
+            exclude_delegate_tool: false,
             max_conversation_turns: default_max_conversation_turns(),
             execution_mode: ExecutionMode::default(),
             gateway: GatewayConfig::default(),
