@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::app::{self, App, Overlay};
 use crate::core;
 use crate::llm::{LlmEvent, TokenUsage};
@@ -45,6 +43,7 @@ impl<'a> LlmEventHandler<'a> {
             LlmEvent::UsageRecord(record) => {
                 self.app_core.stats_manager.record(record);
                 self.app.today_stats = self.app_core.stats_manager.today_summary();
+                self.app.mark_dirty();
             }
             LlmEvent::Done(msgs, usage, _trace_id) => {
                 return self.handle_done((*msgs).clone(), usage);
@@ -58,6 +57,7 @@ impl<'a> LlmEventHandler<'a> {
             }
             LlmEvent::PlanProgress(steps) => {
                 self.app.plan_steps = steps;
+                self.app.mark_dirty();
             }
             LlmEvent::ImageGenerated { path, alt_text, format: _, width, height } => {
                 self.app.messages.push(app::Message::Image {
@@ -68,6 +68,7 @@ impl<'a> LlmEventHandler<'a> {
                     format: "png".to_string(),
                 });
                 self.app.message_timestamps.push(chrono::Local::now().naive_local());
+                self.app.mark_dirty();
             }
         }
         Action::Continue
@@ -171,6 +172,7 @@ impl<'a> LlmEventHandler<'a> {
             issues: issues.to_vec(),
         });
         self.app.message_timestamps.push(chrono::Local::now().naive_local());
+        self.app.mark_dirty();
         if !valid {
             tracing::info!(tool, issues = ?issues, "工具结果验证告警");
         }
@@ -810,18 +812,18 @@ impl<'a> KeyEventHandler<'a> {
             let idx = idx.min(self.app.messages.len().saturating_sub(1));
             self.app.messages.remove(idx);
             self.app.message_timestamps.remove(idx);
-            self.app.overlay.tool_call_expanded.remove(&idx);
-            self.app.overlay.reasoning_expanded.remove(&idx);
 
-            let tc: HashSet<usize> = std::mem::take(&mut self.app.overlay.tool_call_expanded);
+            let tc = std::mem::take(&mut self.app.overlay.tool_call_expanded);
             self.app.overlay.tool_call_expanded = tc
                 .into_iter()
+                .filter(|&i| i != idx)
                 .map(|i| if i > idx { i - 1 } else { i })
                 .collect();
 
-            let re: HashSet<usize> = std::mem::take(&mut self.app.overlay.reasoning_expanded);
+            let re = std::mem::take(&mut self.app.overlay.reasoning_expanded);
             self.app.overlay.reasoning_expanded = re
                 .into_iter()
+                .filter(|&i| i != idx)
                 .map(|i| if i > idx { i - 1 } else { i })
                 .collect();
 
@@ -841,6 +843,10 @@ impl<'a> KeyEventHandler<'a> {
             positive,
             message: None,
         });
+        self.app
+            .message_timestamps
+            .push(chrono::Local::now().naive_local());
+        self.app.mark_dirty();
         if let Some(sid) = self
             .app_core
             .session_mgr
@@ -960,8 +966,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Char(c) if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.push(c);
-                self.app.overlay.session_list_index =
-                    0.min(filtered_max);
+                self.app.overlay.session_list_index = 0;
             }
             KeyCode::Backspace if !self.app.overlay.session_rename_buf.is_empty()
                 && !self.app.overlay.session_search_mode =>
@@ -970,8 +975,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Backspace if self.app.overlay.session_search_mode => {
                 self.app.overlay.session_search.pop();
-                self.app.overlay.session_list_index =
-                    0.min(filtered_max);
+                self.app.overlay.session_list_index = 0;
             }
             KeyCode::Enter => {
                 return self.handle_session_enter(&filtered);
@@ -994,6 +998,7 @@ impl<'a> KeyEventHandler<'a> {
             } else {
                 self.app.overlay.session_rename_buf.clear();
             }
+            self.app.mark_dirty();
             return Action::Continue;
         }
 
@@ -1040,6 +1045,7 @@ impl<'a> KeyEventHandler<'a> {
             }
         }
         self.app.overlay.close();
+        self.app.mark_dirty();
         Action::Continue
     }
 
@@ -1096,12 +1102,14 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Up => {
                 self.app.overlay.agent_picker_index =
                     self.app.overlay.agent_picker_index.saturating_sub(1);
+                self.app.mark_dirty();
             }
             KeyCode::Down => {
                 let max = self.app.overlay.agent_list.len().saturating_sub(1);
                 if self.app.overlay.agent_picker_index < max {
                     self.app.overlay.agent_picker_index += 1;
                 }
+                self.app.mark_dirty();
             }
             KeyCode::Enter => {
                 let agent_id = self
@@ -1139,9 +1147,11 @@ impl<'a> KeyEventHandler<'a> {
                         );
                 }
                 self.app.overlay.close();
+                self.app.mark_dirty();
             }
             KeyCode::Esc => {
                 self.app.overlay.close();
+                self.app.mark_dirty();
             }
             _ => {}
         }

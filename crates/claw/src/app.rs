@@ -198,6 +198,8 @@ pub struct InputState {
     pub(crate) draft: String,
 }
 
+pub const MAX_INPUT_LEN: usize = 64 * 1024;
+
 impl InputState {
     pub fn new() -> Self {
         Self {
@@ -210,6 +212,38 @@ impl InputState {
             last_change: None,
             draft: String::new(),
         }
+    }
+
+    /// 当前剩余可写入字节数。
+    pub fn remaining_capacity(&self) -> usize {
+        MAX_INPUT_LEN.saturating_sub(self.text.len())
+    }
+
+    /// 若 `text.len()` 超过 `MAX_INPUT_LEN`，按字符边界在 cursor 处截断，
+    /// 返回被丢弃的字节数（0 表示完整写入）。
+    pub fn insert_text_at_cursor(&mut self, text: &str) -> usize {
+        if text.is_empty() {
+            return 0;
+        }
+        self.push_undo(Instant::now());
+        let cap = self.remaining_capacity();
+        let to_insert = if text.len() <= cap {
+            text
+        } else {
+            let mut end = cap;
+            while end > 0 && !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            &text[..end]
+        };
+        let inserted_bytes = to_insert.len();
+        let dropped = text.len() - inserted_bytes;
+        if inserted_bytes == 0 {
+            return dropped;
+        }
+        self.text.insert_str(self.cursor, to_insert);
+        self.cursor += inserted_bytes;
+        dropped
     }
 
     /// Push current text to undo stack. Coalesces with the previous push
@@ -253,6 +287,9 @@ impl InputState {
     }
 
     pub fn insert_char(&mut self, c: char) {
+        if c.len_utf8() > self.remaining_capacity() {
+            return;
+        }
         self.push_undo(Instant::now());
         self.text.insert(self.cursor, c);
         self.cursor += c.len_utf8();
@@ -596,6 +633,8 @@ pub struct RenderState {
     pub heights: Vec<usize>,
     pub format_cache: HashMap<usize, Arc<Vec<ratatui::text::Line<'static>>>>,
     pub cached_width: usize,
+    pub dirty: bool,
+    pub last_drawn_at: Option<Instant>,
 }
 
 impl RenderState {
@@ -604,12 +643,21 @@ impl RenderState {
             heights: Vec::new(),
             format_cache: HashMap::new(),
             cached_width: 0,
+            dirty: true,
+            last_drawn_at: None,
         }
     }
 
     pub fn invalidate(&mut self) {
         self.heights.clear();
         self.format_cache.clear();
+        self.dirty = true;
+    }
+
+    /// 渲染成功完成后调用：清脏位并记录时间戳。
+    pub fn mark_rendered(&mut self) {
+        self.dirty = false;
+        self.last_drawn_at = Some(Instant::now());
     }
 }
 
@@ -817,6 +865,7 @@ impl App {
         if self.http_logs.len() > 50 {
             self.http_logs.pop();
         }
+        self.mark_dirty();
     }
 
     pub fn add_error(&mut self, text: &str) {

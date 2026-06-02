@@ -23,9 +23,22 @@ pub fn main_loop(
     let mut reminder_handle: Option<std::thread::JoinHandle<Option<String>>> = None;
     const REMINDER_INTERVAL_SECS: u64 = 120;
     const MCP_HEALTH_INTERVAL_SECS: u64 = 300;
+    /// Spinner 帧间隔。processing 期间即使无事件也至少每帧刷新一次。
+    const SPINNER_TICK_MS: u128 = 80;
 
     'outer: loop {
-        terminal.draw(|f| crate::ui::render(f, app))?;
+        // 条件重绘：仅在 dirty 或 processing 节拍时刷新。
+        let need_continuous = app.is_processing();
+        let spinner_tick = need_continuous
+            && app
+                .render_state
+                .last_drawn_at
+                .map(|t| t.elapsed().as_millis() >= SPINNER_TICK_MS)
+                .unwrap_or(true);
+        if app.render_state.dirty || spinner_tick {
+            terminal.draw(|f| crate::ui::render(f, app))?;
+            app.render_state.mark_rendered();
+        }
 
         while let Ok(event) = llm_rx.try_recv() {
             let mut handler = LlmEventHandler::new(app, app_core);
@@ -76,10 +89,25 @@ pub fn main_loop(
                     MouseEventHandler::new(app).handle(mouse);
                 }
                 Event::Paste(text) if !app.is_processing() => {
-                    app.input.push_undo(std::time::Instant::now());
-                    for c in text.chars() {
-                        app.input.text.insert(app.input.cursor, c);
-                        app.input.cursor += c.len_utf8();
+                    if !text.is_empty() {
+                        let dropped = app.input.insert_text_at_cursor(&text);
+                        app.overlay.tab_completions.clear();
+                        if app.overlay.slash_visible
+                            && !app.input.text.starts_with('/')
+                        {
+                            app.overlay.slash_visible = false;
+                            app.overlay.slash_index = 0;
+                        }
+                        if dropped > 0 {
+                            app.overlay.copy_feedback = Some((
+                                format!(
+                                    "粘贴已截断 (超 {} KiB 上限)",
+                                    crate::app::MAX_INPUT_LEN / 1024
+                                ),
+                                std::time::Instant::now(),
+                            ));
+                        }
+                        app.mark_dirty();
                     }
                 }
                 Event::Resize(_, _) => {

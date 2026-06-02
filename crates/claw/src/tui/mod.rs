@@ -31,7 +31,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         }
     }
 
-    // Setup terminal
+    // Setup terminal (RAII 守卫会在 ? 错误/panic 时自动恢复)
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
     crossterm::execute!(
@@ -40,12 +40,16 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crossterm::event::EnableMouseCapture,
         crossterm::event::EnableBracketedPaste
     )?;
+    let _terminal_guard = TerminalGuard::new();
 
-    // Install panic hook to restore terminal on crash
+    // Install panic hook to restore terminal on crash.
+    // 注意：守卫的 Drop 也会执行恢复，这里 hook 仅用于先尝试在 panic 信息打印前
+    // 把终端切回正常模式，避免 panic 信息被 raw mode 截断。
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
+        let mut stdout = io::stdout();
         let _ = crossterm::execute!(
-            io::stdout(),
+            stdout,
             crossterm::terminal::LeaveAlternateScreen,
             crossterm::event::DisableMouseCapture,
             crossterm::event::DisableBracketedPaste
@@ -145,8 +149,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     );
 
     app_core.shutdown();
-
-    // Restore terminal
+    // 显式 disarm：main_loop 之后由我们负责控制顺序，守卫不再做事
+    _terminal_guard.disarm();
     crossterm::terminal::disable_raw_mode()?;
     crossterm::execute!(
         io::stdout(),
@@ -190,4 +194,37 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     }
 
     result
+}
+
+/// RAII 守卫：Drop 时还原终端状态（raw mode / alt screen / mouse / paste）。
+/// 任何在创建之后发生的 `?` 错误或 panic 都会通过 Drop 自动恢复终端。
+struct TerminalGuard {
+    active: bool,
+}
+
+impl TerminalGuard {
+    fn new() -> Self {
+        Self { active: true }
+    }
+
+    /// 主动释放守卫（表示已手动完成还原）。Drop 时不再做事。
+    fn disarm(mut self) {
+        self.active = false;
+    }
+}
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        if !self.active {
+            return;
+        }
+        let mut stdout = io::stdout();
+        let _ = crossterm::execute!(
+            stdout,
+            crossterm::terminal::LeaveAlternateScreen,
+            crossterm::event::DisableMouseCapture,
+            crossterm::event::DisableBracketedPaste
+        );
+        let _ = crossterm::terminal::disable_raw_mode();
+    }
 }
