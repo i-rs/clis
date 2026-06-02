@@ -739,6 +739,11 @@ impl App {
         self.render_state.invalidate();
     }
 
+    /// 仅 UI 浮层状态变更（overlay 选择、侧边栏滚动等），不需重算聊天布局缓存。
+    pub fn mark_overlay_dirty(&mut self) {
+        self.render_state.dirty = true;
+    }
+
     pub fn add_user_message(&mut self, text: &str) {
         self.overlay.copy_feedback.take();
         self.messages.push(Message::User {
@@ -865,7 +870,7 @@ impl App {
         if self.http_logs.len() > 50 {
             self.http_logs.pop();
         }
-        self.mark_dirty();
+        self.mark_overlay_dirty();
     }
 
     pub fn add_error(&mut self, text: &str) {
@@ -1130,6 +1135,38 @@ mod tests {
         assert!(app.status_text.is_empty());
         assert!(app.http_logs.is_empty());
         assert!(app.plan_steps.is_empty());
+    }
+
+    #[test]
+    fn test_mark_overlay_dirty_preserves_chat_cache() {
+        let mut app = App::new(test_config());
+        app.render_state.dirty = false;
+        app.render_state.heights.push(3);
+        app.render_state
+            .format_cache
+            .insert(0, std::sync::Arc::new(vec![]));
+
+        app.mark_overlay_dirty();
+
+        assert!(app.render_state.dirty);
+        assert_eq!(app.render_state.heights.len(), 1);
+        assert_eq!(app.render_state.format_cache.len(), 1);
+    }
+
+    #[test]
+    fn test_mark_dirty_clears_chat_cache() {
+        let mut app = App::new(test_config());
+        app.render_state.dirty = false;
+        app.render_state.heights.push(3);
+        app.render_state
+            .format_cache
+            .insert(0, std::sync::Arc::new(vec![]));
+
+        app.mark_dirty();
+
+        assert!(app.render_state.dirty);
+        assert!(app.render_state.heights.is_empty());
+        assert!(app.render_state.format_cache.is_empty());
     }
 
     #[test]

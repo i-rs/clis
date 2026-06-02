@@ -834,6 +834,7 @@ impl<'a> KeyEventHandler<'a> {
                     Some(self.app.messages.len() - 1)
                 };
             }
+            self.app.mark_dirty();
         }
     }
 
@@ -1102,14 +1103,14 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Up => {
                 self.app.overlay.agent_picker_index =
                     self.app.overlay.agent_picker_index.saturating_sub(1);
-                self.app.mark_dirty();
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Down => {
                 let max = self.app.overlay.agent_list.len().saturating_sub(1);
                 if self.app.overlay.agent_picker_index < max {
                     self.app.overlay.agent_picker_index += 1;
                 }
-                self.app.mark_dirty();
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Enter => {
                 let agent_id = self
@@ -1147,11 +1148,11 @@ impl<'a> KeyEventHandler<'a> {
                         );
                 }
                 self.app.overlay.close();
-                self.app.mark_dirty();
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Esc => {
                 self.app.overlay.close();
-                self.app.mark_dirty();
+                self.app.mark_overlay_dirty();
             }
             _ => {}
         }
