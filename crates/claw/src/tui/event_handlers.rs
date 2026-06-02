@@ -82,15 +82,19 @@ impl<'a> LlmEventHandler<'a> {
         self.app.append_assistant_text(text);
         if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
             && (text.contains('\n') || self.app.plan_steps.is_empty())
-            && let Some(AppMessage::Assistant { text: t, .. }) = self.app.messages.last()
         {
-            let plan_text = t.clone();
-            if !plan_text.is_empty() {
-                self.app.detect_plan(&plan_text);
+            let plan_text = self.app.messages.last().and_then(|m| {
+                if let AppMessage::Assistant { text: t, .. } = m {
+                    Some(t.clone())
+                } else {
+                    None
+                }
+            });
+            if let Some(t) = plan_text.filter(|t| !t.is_empty()) {
+                self.app.detect_plan(&t);
                 if let Some(sid) = self.app_core.session_mgr.current_id() {
-                    self.app_core
-                        .session_mgr
-                        .save_plan_steps(sid, &self.app.plan_steps);
+                    let sid = sid.to_string();
+                    self.app_core.session_mgr.save_plan_steps(&sid, &self.app.plan_steps);
                 }
             }
         }
@@ -102,14 +106,11 @@ impl<'a> LlmEventHandler<'a> {
 
     fn handle_status(&mut self, text: &str) {
         self.app.set_status(text);
-        if (text.starts_with("⚡") || text.contains("并行执行"))
-            && let Some(sid) = self
-                .app_core
-                .session_mgr
-                .current_id()
-                .map(|s| s.to_string())
-        {
-            self.app_core.session_mgr.mark_waiting_for_tool(&sid);
+        if text.starts_with("⚡") || text.contains("并行执行") {
+            if let Some(sid) = self.app_core.session_mgr.current_id() {
+                let sid = sid.to_string();
+                self.app_core.session_mgr.mark_waiting_for_tool(&sid);
+            }
         }
     }
 
@@ -155,12 +156,8 @@ impl<'a> LlmEventHandler<'a> {
 
     fn handle_error(&mut self, text: &str) {
         self.app.add_error(text);
-        if let Some(sid) = self
-            .app_core
-            .session_mgr
-            .current_id()
-            .map(|s| s.to_string())
-        {
+        if let Some(sid) = self.app_core.session_mgr.current_id() {
+            let sid = sid.to_string();
             self.app_core.session_mgr.mark_error(&sid, text);
         }
     }
@@ -196,20 +193,12 @@ impl<'a> LlmEventHandler<'a> {
         });
     }
 
-    fn handle_done(&mut self, msgs: Vec<Value>, usage: Option<TokenUsage>) -> Action {
-        let mut msgs = msgs;
+    fn handle_done(&mut self, mut msgs: Vec<Value>, usage: Option<TokenUsage>) -> Action {
         self.app_core
             .compress_api_messages(&mut msgs, &self.app.current_agent);
 
-        self.app.finish_processing(Some(msgs.clone()));
-        self.app.token_usage = usage;
-
-        if let Some(sid) = self
-            .app_core
-            .session_mgr
-            .current_id()
-            .map(|s| s.to_string())
-        {
+        if let Some(sid) = self.app_core.session_mgr.current_id() {
+            let sid = sid.to_string();
             self.app_core.session_mgr.mark_active(&sid);
         }
 
@@ -223,6 +212,8 @@ impl<'a> LlmEventHandler<'a> {
             Some(id) => id.to_string(),
             None => {
                 tracing::warn!("未找到当前会话，跳过持久化");
+                self.app.finish_processing(Some(msgs));
+                self.app.token_usage = usage;
                 return Action::Continue;
             }
         };
@@ -233,6 +224,9 @@ impl<'a> LlmEventHandler<'a> {
             &self.app.messages,
             Some(&msgs),
         );
+
+        self.app.finish_processing(Some(msgs));
+        self.app.token_usage = usage;
 
         let needs_rename = self
             .app_core
@@ -865,18 +859,18 @@ impl<'a> KeyEventHandler<'a> {
             self.app.message_timestamps.remove(idx);
 
             let tc = std::mem::take(&mut self.app.overlay.tool_call_expanded);
-            self.app.overlay.tool_call_expanded = tc
-                .into_iter()
-                .filter(|&i| i != idx)
-                .map(|i| if i > idx { i - 1 } else { i })
-                .collect();
+            for i in tc {
+                if i != idx {
+                    self.app.overlay.tool_call_expanded.insert(if i > idx { i - 1 } else { i });
+                }
+            }
 
             let re = std::mem::take(&mut self.app.overlay.reasoning_expanded);
-            self.app.overlay.reasoning_expanded = re
-                .into_iter()
-                .filter(|&i| i != idx)
-                .map(|i| if i > idx { i - 1 } else { i })
-                .collect();
+            for i in re {
+                if i != idx {
+                    self.app.overlay.reasoning_expanded.insert(if i > idx { i - 1 } else { i });
+                }
+            }
 
             if idx >= self.app.messages.len() {
                 self.app.overlay.selected_message = if self.app.messages.is_empty() {
@@ -899,16 +893,11 @@ impl<'a> KeyEventHandler<'a> {
             .message_timestamps
             .push(chrono::Local::now().naive_local());
         self.app.mark_dirty();
-        if let Some(sid) = self
-            .app_core
-            .session_mgr
-            .current_id()
-            .map(|s| s.to_string())
-        {
+        if let Some(sid) = self.app_core.session_mgr.current_id() {
             self.app_core
                 .agent_store
                 .memory_for_mut(&self.app.current_agent)
-                .record_session_feedback(&sid, positive);
+                .record_session_feedback(sid, positive);
             self.app_core
                 .agent_store
                 .memory_for_mut(&self.app.current_agent)
@@ -917,15 +906,10 @@ impl<'a> KeyEventHandler<'a> {
     }
 
     fn handle_new_session(&mut self) -> Action {
-        if let Some(old_id) = self
-            .app_core
-            .session_mgr
-            .current_id()
-            .map(|id| id.to_string())
-        {
+        if let Some(old_id) = self.app_core.session_mgr.current_id() {
             crate::tui::clipboard::save_session_messages(
                 &self.app_core.session_mgr,
-                &old_id,
+                old_id,
                 &self.app.messages,
                 self.app.api_messages.as_deref(),
             );
@@ -1176,15 +1160,10 @@ impl<'a> KeyEventHandler<'a> {
                 if let Some(ref agent_id) = agent_id
                     && *agent_id != self.app.current_agent
                 {
-                    if let Some(old_id) = self
-                        .app_core
-                        .session_mgr
-                        .current_id()
-                        .map(|id| id.to_string())
-                    {
+                    if let Some(old_id) = self.app_core.session_mgr.current_id() {
                         crate::tui::clipboard::save_session_messages(
                             &self.app_core.session_mgr,
-                            &old_id,
+                            old_id,
                             &self.app.messages,
                             self.app.api_messages.as_deref(),
                         );

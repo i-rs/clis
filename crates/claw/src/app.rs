@@ -101,15 +101,14 @@ fn compute_text_relevance(text: &str) -> f64 {
     if text.is_empty() {
         return 0.0;
     }
-    let content_chars: Vec<char> = text.chars().collect();
-    let total = content_chars.len();
+    let total = text.chars().count();
     if total == 0 {
         return 0.0;
     }
 
-    let meaningful_count = content_chars
-        .iter()
-        .filter(|c| c.is_alphanumeric() || **c > '\x7f')
+    let meaningful_count = text
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c > '\x7f')
         .count();
 
     static STOPWORDS: &[&str] = &[
@@ -455,7 +454,7 @@ impl InputState {
         if self.history.last().map(|s| s.as_str()) != Some(text) {
             self.history.push(text.to_string());
             if self.history.len() > 50 {
-                self.history.remove(0);
+                self.history.drain(0..1);
             }
         }
         self.history_index = None;
@@ -679,7 +678,6 @@ impl RenderState {
 
     pub fn invalidate(&mut self) {
         self.heights.clear();
-        self.format_cache.clear();
         self.dirty = true;
     }
 
@@ -1363,7 +1361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mark_dirty_clears_chat_cache() {
+    fn test_mark_dirty_clears_heights_not_cache() {
         let mut app = App::new(test_config());
         app.render_state.dirty = false;
         app.render_state.heights.push(3);
@@ -1375,7 +1373,7 @@ mod tests {
 
         assert!(app.render_state.dirty);
         assert!(app.render_state.heights.is_empty());
-        assert!(app.render_state.format_cache.is_empty());
+        assert!(!app.render_state.format_cache.is_empty());
     }
 
     #[test]
@@ -1645,6 +1643,7 @@ mod tests {
         rs.format_cache.insert(0, Arc::new(vec![]));
         rs.invalidate();
         assert!(rs.heights.is_empty());
-        assert!(rs.format_cache.is_empty());
+        assert!(rs.dirty);
+        assert!(!rs.format_cache.is_empty());
     }
 }

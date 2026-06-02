@@ -28,26 +28,22 @@ pub fn render(f: &mut Frame, app: &mut App) {
     let processing_height: u16 = 1;
     let slash_height = completions::slash_picker_height(app);
 
-    let mut constraints = vec![Constraint::Length(1), Constraint::Min(1)];
+    let mut constraints = Vec::with_capacity(7);
+    constraints.push(Constraint::Length(1));
+    constraints.push(Constraint::Min(1));
 
     if plan_height > 0 {
         constraints.push(Constraint::Length(plan_height));
     }
 
-    constraints.extend(vec![
-        Constraint::Length(processing_height),
-    ]);
+    constraints.push(Constraint::Length(processing_height));
 
     if slash_height > 0 {
-        constraints.extend(vec![
-            Constraint::Length(slash_height),
-        ]);
+        constraints.push(Constraint::Length(slash_height));
     }
 
-    constraints.extend(vec![
-        Constraint::Length(input::input_height(&app.input.text, area.width)),
-        Constraint::Length(1),
-    ]);
+    constraints.push(Constraint::Length(input::input_height(&app.input.text, area.width)));
+    constraints.push(Constraint::Length(1));
 
     let layout = Layout::default()
         .direction(Direction::Vertical)

@@ -215,23 +215,16 @@ fn message_line_count(
         Message::ToolCall {
             name, args, result, ..
         } => {
+            let parsed_args = serde_json::from_str::<serde_json::Value>(args).ok();
+            let has_explanation = parsed_args
+                .as_ref()
+                .is_some_and(|val| name == "i_rs"
+                    && val.get("explanation").and_then(|v| v.as_str()).is_some());
+
             if !app.overlay.tool_call_expanded.contains(&msg_index) {
-                let mut lines = 1;
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
-                    && name == "i_rs"
-                    && val.get("explanation").and_then(|v| v.as_str()).is_some()
-                {
-                    lines += 1;
-                }
-                return lines;
+                return 1 + if has_explanation { 1 } else { 0 };
             }
-            let mut lines = 1;
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(args)
-                && name == "i_rs"
-                && val.get("explanation").and_then(|v| v.as_str()).is_some()
-            {
-                lines += 1;
-            }
+            let mut lines = 1 + if has_explanation { 1 } else { 0 };
             if !result.is_empty() {
                 let cached_result = utils::format_json_result(result, text_width);
                 if !cached_result.0.is_empty() {
@@ -446,9 +439,7 @@ fn build_assistant_lines(
                 lines.push(indent_line(&w, Style::default().fg(txt)));
             }
         } else {
-            for md_line in md_lines.iter() {
-                lines.push(md_line.clone());
-            }
+            lines.extend(md_lines.iter().cloned());
         }
     }
     lines.push(Line::from(Span::raw("")));
@@ -527,7 +518,7 @@ fn build_tool_call_lines(
         && let Some(cached) = format_cache.get(&idx)
     {
         if !cached.is_empty() {
-            lines.extend((**cached).clone());
+            lines.extend(cached.iter().cloned());
         } else if has_ansi(result) {
             lines.extend(ansi_to_lines(result, width));
         } else {
@@ -987,22 +978,38 @@ fn ansi_line_count(text: &str, max_width: usize) -> usize {
     if max_width == 0 {
         return text.lines().count();
     }
-    let clean = strip_ansi(text);
-    clean
-        .lines()
+    text.lines()
         .map(|line| {
-            let w = UnicodeWidthStr::width(line);
+            let w = ansi_stripped_width(line);
             if w == 0 { 1 } else { w.div_ceil(max_width) }
         })
         .sum()
 }
 
 fn wrapped_line_count(text: &str, max_width: usize) -> usize {
-    if max_width == 0 {
-        return text.lines().count();
+    ansi_line_count(text, max_width)
+}
+
+fn ansi_stripped_width(s: &str) -> usize {
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    let mut width = 0;
+    while i < bytes.len() {
+        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
+            i += 2;
+            while i < bytes.len() && !bytes[i].is_ascii_alphabetic() {
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1;
+            }
+        } else {
+            let c = s[i..].chars().next().unwrap_or('\0');
+            width += unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+            i += c.len_utf8();
+        }
     }
-    let clean = strip_ansi(text);
-    utils::wrap_text(&clean, max_width).len()
+    width
 }
 
 fn is_markdown(text: &str) -> bool {
