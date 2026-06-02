@@ -58,7 +58,7 @@
                 </view>
                 <text class="tool-name {{(item.status === 'error' || item.error) ? 'tool-name-error' : ''}}">{{item.name || '未知工具'}}</text>
                 <text class="tool-preview {{(item.status === 'error' || item.error) ? 'tool-preview-error' : ''}}" wx:if="{{!item.expanded && (item.result || item.error)}}">{{item.error ? item.error : item.preview}}</text>
-                <text class="tool-chevron tool-chevron-anim {{item.expanded ? 'expanded' : 'collapsed'}}">▶</text>
+                <view class="chev {{item.expanded ? 'open' : ''}}"></view>
               </view>
               <view class="tool-body {{item.expanded ? 'expanded' : 'collapsed'}}">
                 <view class="tool-section" wx:if="{{item.args}}">
@@ -87,7 +87,7 @@
                 <text class="reasoning-fold-icon">◈</text>
                 <text class="reasoning-fold-label">Reasoning</text>
                 <text class="reasoning-fold-count">{{item.reasoningCount}}</text>
-                <text class="reasoning-fold-chevron reasoning-fold-chevron-anim {{item.reasoningExpanded ? 'expanded' : 'collapsed'}}">▶</text>
+                <view class="chev {{item.reasoningExpanded ? 'open' : ''}}"></view>
               </view>
               <view class="reasoning-fold-body {{item.reasoningExpanded ? 'expanded' : 'collapsed'}}">
                 <text class="reasoning-fold-text">{{item.reasoning}}</text>
@@ -108,7 +108,7 @@
             <view class="reasoning-fold-header">
               <text class="reasoning-fold-icon">◈</text>
                 <text class="reasoning-fold-label">Thinking...</text>
-                <text class="reasoning-fold-chevron">▼</text>
+                <view class="chev open"></view>
             </view>
             <view class="reasoning-fold-body">
               <text class="reasoning-fold-text">{{streamingReasoning}}</text>

@@ -1,38 +1,44 @@
-page { background: var(--bg); }
+page {
+  background: var(--bg);
+  min-height: 100vh;
+}
 
 .sessions-content {
   padding: 20rpx 24rpx 40rpx;
+  position: relative;
+  z-index: 1;
 }
 
 /* Section */
-.sec-group {
-  margin-bottom: 32rpx;
-}
+.sec-group { margin-bottom: var(--s-4); }
 .sec-label {
   display: block;
-  font-size: 24rpx;
+  font-size: 22rpx;
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--text-3);
   padding: 0 8rpx 16rpx;
   text-transform: uppercase;
-  letter-spacing: 1rpx;
+  letter-spacing: 1.5rpx;
 }
 
 .sec-card {
   background: var(--surface);
-  border-radius: 24rpx;
+  border-radius: var(--r-lg);
   overflow: hidden;
-  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.12);
+  border: 1rpx solid var(--border);
+  box-shadow: var(--shadow-sm), var(--highlight);
 }
 
 /* Session Row */
 .sess-row {
   display: flex;
   align-items: center;
-  padding: 0 24rpx;
+  padding: 0 var(--s-3);
   border-bottom: 1rpx solid var(--border);
+  transition: background 0.18s;
 }
 .sess-row:last-child { border-bottom: none; }
+.sess-row:active { background: var(--surface-2); }
 
 .sess-info {
   display: flex;
@@ -44,21 +50,19 @@ page { background: var(--bg); }
 }
 
 .sess-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 36rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: var(--r-md);
   background: var(--accent-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: var(--highlight);
 }
-.sess-icon-text { font-size: 32rpx; }
+.sess-icon-text { font-size: 32rpx; line-height: 1; }
 
-.sess-body {
-  flex: 1;
-  min-width: 0;
-}
+.sess-body { flex: 1; min-width: 0; }
 .sess-title {
   font-size: 30rpx;
   font-weight: 600;
@@ -67,16 +71,18 @@ page { background: var(--bg); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.2rpx;
 }
 .sess-meta {
   display: flex;
   align-items: center;
   gap: 6rpx;
-  margin-top: 4rpx;
+  margin-top: 6rpx;
 }
 .sess-count {
   font-size: 24rpx;
   color: var(--text-3);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .sess-meta-sep {
   font-size: 24rpx;
@@ -84,11 +90,12 @@ page { background: var(--bg); }
 }
 .sess-agent {
   font-size: 20rpx;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--accent);
-  padding: 2rpx 12rpx;
+  padding: 4rpx 12rpx;
   background: var(--accent-bg);
-  border-radius: 20rpx;
+  border-radius: var(--r-full);
+  letter-spacing: 0.3rpx;
 }
 
 .sess-date {
@@ -96,13 +103,17 @@ page { background: var(--bg); }
   color: var(--text-3);
   flex-shrink: 0;
   margin-right: 8rpx;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .sess-arrow {
-  font-size: 32rpx;
+  font-size: 36rpx;
   color: var(--text-3);
   flex-shrink: 0;
   opacity: 0.5;
+  font-weight: 300;
+  transition: transform 0.18s, opacity 0.18s;
 }
+.sess-info:active .sess-arrow { transform: translateX(4rpx); opacity: 0.8; }
 
 .sess-del {
   width: 56rpx;
@@ -112,12 +123,14 @@ page { background: var(--bg); }
   justify-content: center;
   flex-shrink: 0;
   margin-left: 8rpx;
+  border-radius: 50%;
+  transition: background 0.18s;
 }
+.sess-del:active { background: var(--red-bg); }
 .sess-del-text {
   font-size: 32rpx;
   color: var(--text-3);
+  font-weight: 300;
+  transition: color 0.18s;
 }
 .sess-del:active .sess-del-text { color: var(--red); }
-
-/* Active state */
-.sess-info:active { opacity: 0.7; }

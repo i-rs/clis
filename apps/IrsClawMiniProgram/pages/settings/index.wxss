@@ -1,5 +1,11 @@
-page { background: var(--bg); }
-.settings-page { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+page {
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.settings-page {
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
 
 .config-input {
   flex: 1;
@@ -9,6 +15,7 @@ page { background: var(--bg); }
   background: transparent;
   border: none;
   outline: none;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .config-input::placeholder { color: var(--text-3); }
 
@@ -17,23 +24,26 @@ page { background: var(--bg); }
   padding: 0 24rpx;
 }
 
-.add-form {
-  margin-top: 20rpx;
-}
-
-.add-form-btn {
-  padding: 20rpx 24rpx;
-}
+.add-form { margin-top: 20rpx; }
+.add-form-btn { padding: 20rpx 24rpx; }
 
 /* Server List */
 .srv-row {
   display: flex;
   align-items: center;
-  padding: 24rpx 24rpx;
+  padding: 24rpx;
   border-bottom: 1rpx solid var(--border);
+  transition: background 0.18s;
 }
 .srv-row:last-child { border-bottom: none; }
-.srv-active { background: var(--accent-bg); }
+.srv-row:active { background: var(--surface-2); }
+
+.srv-active {
+  background: linear-gradient(90deg, var(--accent-bg) 0%, transparent 100%);
+  border-left: 4rpx solid var(--accent);
+  padding-left: 20rpx;
+}
+
 .srv-info {
   display: flex;
   align-items: center;
@@ -42,26 +52,24 @@ page { background: var(--bg); }
   min-width: 0;
 }
 .srv-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 20rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: var(--r-md);
   background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: var(--highlight);
+  transition: background 0.18s;
 }
-.srv-icon-active { background: var(--accent-bg); }
-.srv-icon-text { font-size: 32rpx; }
-.srv-body {
-  flex: 1;
-  min-width: 0;
+.srv-icon-active {
+  background: var(--accent-bg);
+  box-shadow: 0 4rpx 12rpx var(--accent-glow), var(--highlight);
 }
-.srv-name-row {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
+.srv-icon-text { font-size: 32rpx; line-height: 1; }
+.srv-body { flex: 1; min-width: 0; }
+.srv-name-row { display: flex; align-items: center; gap: 10rpx; }
 .srv-name {
   font-size: 30rpx;
   font-weight: 600;
@@ -69,6 +77,7 @@ page { background: var(--bg); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.2rpx;
 }
 .srv-check {
   font-size: 24rpx;
@@ -80,17 +89,19 @@ page { background: var(--bg); }
   font-size: 24rpx;
   color: var(--text-2);
   display: block;
-  margin-top: 2rpx;
+  margin-top: 4rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .srv-token {
   font-size: 22rpx;
   color: var(--text-3);
   display: block;
-  margin-top: 2rpx;
+  margin-top: 4rpx;
   letter-spacing: 1rpx;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .srv-del {
   width: 56rpx;
@@ -99,11 +110,20 @@ page { background: var(--bg); }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 50%;
+  transition: background 0.18s;
 }
+.srv-del:active { background: var(--red-bg); }
 .srv-del-text {
   font-size: 32rpx;
   color: var(--text-3);
+  font-weight: 300;
+  transition: color 0.18s;
 }
 .srv-del:active .srv-del-text { color: var(--red); }
-.srv-empty { padding: 40rpx; text-align: center; }
+
+.srv-empty {
+  padding: 60rpx 40rpx;
+  text-align: center;
+}
 .srv-empty-text { font-size: 28rpx; color: var(--text-3); }
