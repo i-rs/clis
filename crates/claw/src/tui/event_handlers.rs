@@ -709,6 +709,7 @@ impl<'a> KeyEventHandler<'a> {
                 &recent,
             );
         }
+        self.app.mark_dirty();
         Action::Continue
     }
 
@@ -1298,11 +1299,13 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.overlay.slash_index = 0;
                 self.app.input.text.clear();
                 self.app.input.cursor = 0;
+                self.app.mark_overlay_dirty();
                 return Action::Continue;
             }
             KeyCode::Up => {
                 self.app.overlay.slash_index =
                     self.app.overlay.slash_index.saturating_sub(1);
+                self.app.mark_overlay_dirty();
                 return Action::Continue;
             }
             KeyCode::Down => {
@@ -1310,6 +1313,7 @@ impl<'a> KeyEventHandler<'a> {
                 if self.app.overlay.slash_index < max {
                     self.app.overlay.slash_index += 1;
                 }
+                self.app.mark_overlay_dirty();
                 return Action::Continue;
             }
             KeyCode::Enter => {
@@ -1326,11 +1330,13 @@ impl<'a> KeyEventHandler<'a> {
                 } else {
                     self.app.overlay.slash_index = 0;
                 }
+                self.app.mark_overlay_dirty();
                 return Action::Continue;
             }
             KeyCode::Char(c) => {
                 self.app.insert_char(c);
                 self.app.overlay.slash_index = 0;
+                self.app.mark_overlay_dirty();
                 return Action::Continue;
             }
             _ => return Action::Continue,
@@ -1641,6 +1647,7 @@ impl<'a> MouseEventHandler<'a> {
                 MouseEventKind::ScrollUp => self.app.scroll_up(),
                 _ => {}
             }
+            self.app.mark_overlay_dirty();
         }
     }
 }
