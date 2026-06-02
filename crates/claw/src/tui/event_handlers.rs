@@ -421,6 +421,7 @@ impl<'a> KeyEventHandler<'a> {
                     && idx > 0
                 {
                     self.app.overlay.selected_message = Some(idx - 1);
+                    self.app.scroll_to_selected();
                 }
                 self.app.mark_overlay_dirty();
             }
@@ -429,26 +430,36 @@ impl<'a> KeyEventHandler<'a> {
                     && idx + 1 < self.app.messages.len()
                 {
                     self.app.overlay.selected_message = Some(idx + 1);
+                    self.app.scroll_to_selected();
                 }
                 self.app.mark_overlay_dirty();
             }
             KeyCode::Char(' ') => {
                 if let Some(idx) = self.app.overlay.selected_message {
-                    match self.app.messages.get(idx) {
-                        Some(AppMessage::ToolCall { .. })
-                            if !self.app.overlay.tool_call_expanded.remove(&idx) =>
-                        {
-                            self.app.overlay.tool_call_expanded.insert(idx);
-                            self.app.mark_dirty();
+                    let changed = match self.app.messages.get(idx) {
+                        Some(AppMessage::ToolCall { .. }) => {
+                            if !self.app.overlay.tool_call_expanded.remove(&idx) {
+                                self.app.overlay.tool_call_expanded.insert(idx);
+                                true
+                            } else {
+                                false
+                            }
                         }
-                        Some(AppMessage::Assistant { reasoning, .. })
-                            if !reasoning.is_empty()
-                                && !self.app.overlay.reasoning_expanded.remove(&idx) =>
-                        {
-                            self.app.overlay.reasoning_expanded.insert(idx);
-                            self.app.mark_dirty();
+                        Some(AppMessage::Assistant { reasoning, .. }) if !reasoning.is_empty() => {
+                            if !self.app.overlay.reasoning_expanded.remove(&idx) {
+                                self.app.overlay.reasoning_expanded.insert(idx);
+                                true
+                            } else {
+                                false
+                            }
                         }
-                        _ => {}
+                        _ => false,
+                    };
+                    if changed {
+                        self.app.mark_dirty();
+                        // 展开/折叠后高度变化，重建 heights 后让选中条跟随
+                        self.app.rebuild_heights_approx();
+                        self.app.scroll_to_selected();
                     }
                 }
             }

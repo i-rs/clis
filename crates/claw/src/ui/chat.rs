@@ -175,6 +175,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     app.render_state.heights = heights;
     app.render_state.format_cache = format_cache;
     app.render_state.cached_width = text_width;
+    app.render_state.chat_height = area.height;
     app.max_scroll = max_scroll;
 }
 
@@ -284,20 +285,26 @@ fn build_message_item_with_skip(
     let mut item = ListItem::new(lines);
     if is_selected {
         let bg = match msg {
-            Message::User { .. } => Color::Rgb(25, 35, 25),
-            Message::Assistant { .. } => Color::Rgb(25, 30, 45),
-            Message::ToolCall { .. } => Color::Rgb(25, 25, 35),
-            Message::Error { .. } => Color::Rgb(35, 15, 15),
+            Message::User { .. } => Color::Rgb(40, 90, 50),
+            Message::Assistant { .. } => Color::Rgb(50, 70, 110),
+            Message::ToolCall { .. } => Color::Rgb(70, 60, 110),
+            Message::Error { .. } => Color::Rgb(120, 40, 40),
             Message::Evaluation { valid, .. } => {
                 if *valid {
-                    Color::Rgb(20, 35, 25)
+                    Color::Rgb(35, 100, 60)
                 } else {
-                    Color::Rgb(40, 20, 15)
+                    Color::Rgb(120, 60, 30)
                 }
             }
-            _ => Color::Rgb(20, 20, 20),
+            _ => Color::Rgb(80, 80, 30),
         };
-        item = item.style(Style::default().bg(bg));
+        // 选中条：显著背景 + 前景加粗 + 反白前景，确保任何主题下都清晰可见
+        item = item.style(
+            Style::default()
+                .bg(bg)
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD | Modifier::REVERSED),
+        );
     }
     item
 }

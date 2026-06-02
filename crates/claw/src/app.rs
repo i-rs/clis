@@ -7,6 +7,30 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
+/// 按显示宽度估算行数（用于事件处理中粗略重算消息行高）。
+/// ASCII=1，CJK/全角=2，不做 ANSI/word-break，仅作 scroll_to_selected 的兜底估算。
+fn text_wrap_lines(text: &str, max_width: usize) -> usize {
+    if max_width == 0 {
+        return text.lines().count().max(1);
+    }
+    let mut total = 0usize;
+    for line in text.split('\n') {
+        let mut width = 0usize;
+        let mut local_lines = 1;
+        for c in line.chars() {
+            let cw = if (c as u32) < 0x1100 || (c as u32) == 0x2E3A { 1 } else { 2 };
+            if width + cw > max_width {
+                local_lines += 1;
+                width = cw;
+            } else {
+                width += cw;
+            }
+        }
+        total += local_lines;
+    }
+    total.max(1)
+}
+
 pub fn message_to_jsonl(msg: &Message) -> Value {
     serde_json::to_value(msg)
         .unwrap_or_else(|_| serde_json::json!({"type": "error", "text": "serialization failed"}))
@@ -633,6 +657,10 @@ pub struct RenderState {
     pub heights: Vec<usize>,
     pub format_cache: HashMap<usize, Arc<Vec<ratatui::text::Line<'static>>>>,
     pub cached_width: usize,
+    /// 聊天区渲染时的实际高度（行数），用于事件处理中估算视口行数。
+    /// 渲染后由 chat.rs 回填；事件处理可在 heights 已建好的前提下
+    /// 据此计算 scroll_lines，无需等下一次渲染。
+    pub chat_height: u16,
     pub dirty: bool,
     pub last_drawn_at: Option<Instant>,
 }
@@ -643,6 +671,7 @@ impl RenderState {
             heights: Vec::new(),
             format_cache: HashMap::new(),
             cached_width: 0,
+            chat_height: 0,
             dirty: true,
             last_drawn_at: None,
         }
@@ -805,6 +834,82 @@ impl App {
 
     pub fn scroll_down(&mut self) {
         self.scroll_lines = self.scroll_lines.saturating_sub(3);
+    }
+
+    /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
+    /// 依据 render_state.heights 估算每个消息行高；
+    /// 若缓存为空（如首屏未渲染）则放弃调整。
+    pub fn scroll_to_selected(&mut self) {
+        let Some(idx) = self.overlay.selected_message else { return };
+        let heights = &self.render_state.heights;
+        if heights.is_empty() || idx >= heights.len() {
+            return;
+        }
+        // 选中消息顶端在聊天区累积行数
+        let sel_top: usize = heights.iter().take(idx).sum();
+        let sel_height = heights[idx];
+        let sel_bottom = sel_top + sel_height;
+        // 用渲染时回填的 chat 高度算视口行数，避免依赖 max_scroll（展开/折叠后滞后）
+        let area_lines = (self.render_state.chat_height as usize).saturating_sub(1).max(1);
+        let viewport_top = self.scroll_lines;
+        let viewport_bottom = self.scroll_lines.saturating_add(area_lines);
+        // max_scroll 也要用最新的 heights 重新计算（max_scroll 是渲染时存的，旧值会错）
+        let total: usize = heights.iter().sum();
+        let new_max_scroll = total.saturating_sub(area_lines);
+
+        if sel_top < viewport_top || sel_bottom > viewport_bottom {
+            // 选中的不在视口内 → 顶部对齐到视口顶部，确保选中条完整可见
+            self.scroll_lines = sel_top;
+        }
+        // 夹到合法范围
+        self.scroll_lines = self.scroll_lines.min(new_max_scroll);
+        self.max_scroll = new_max_scroll;
+    }
+
+    /// 事件处理中调用：在 mark_dirty 清空 heights 后，用消息文本长度
+    /// 粗略估算每条消息行高，让 scroll_to_selected 在展开/折叠后
+    /// 不必等下一次渲染就能算出正确的视口位置。
+    /// 渲染时会基于 chat.rs 的真实 layout 重新精修 heights。
+    pub fn rebuild_heights_approx(&mut self) {
+        let text_width = self.render_state.cached_width.max(20);
+        let n = self.messages.len();
+        let mut heights: Vec<usize> = Vec::with_capacity(n);
+        for (i, msg) in self.messages.iter().enumerate() {
+            // 1 (顶边框) + 文本行 + 1 (底边框) + extra (展开/折叠)
+            let body = match msg {
+                Message::User { text } => 1 + text_wrap_lines(text, text_width) + 1,
+                Message::Assistant { text, reasoning } => {
+                    let mut extra = 0;
+                    if !reasoning.is_empty() {
+                        extra += 1;
+                        if self.overlay.reasoning_expanded.contains(&i) {
+                            extra += reasoning.lines().count();
+                        }
+                    }
+                    1 + text_wrap_lines(text, text_width) + 1 + extra
+                }
+                Message::ToolCall { result, .. } => {
+                    if self.overlay.tool_call_expanded.contains(&i) {
+                        let mut lines = 1;
+                        if !result.is_empty() {
+                            lines += text_wrap_lines(result, text_width.saturating_sub(3));
+                        }
+                        lines
+                    } else {
+                        1
+                    }
+                }
+                Message::Error { text } => 1 + text_wrap_lines(text, text_width) + 1,
+                Message::Image { .. } => 2,
+                _ => 1,
+            };
+            heights.push(body.max(1));
+        }
+        self.render_state.heights = heights;
+        // 同步 max_scroll 给主渲染用，避免短暂不一致
+        let area_lines = (self.render_state.chat_height as usize).saturating_sub(1).max(1);
+        let total: usize = self.render_state.heights.iter().sum();
+        self.max_scroll = total.saturating_sub(area_lines);
     }
 
     pub fn set_status(&mut self, text: &str) {
@@ -1111,6 +1216,46 @@ mod tests {
         app.scroll_up();
         app.scroll_up();
         assert_eq!(app.scroll_lines, 6);
+    }
+
+    #[test]
+    fn test_scroll_to_selected_keeps_in_view() {
+        // 5 条消息各占 3 行，总 15 行，area_lines = 10，max_scroll = 5
+        let mut app = App::new(test_config());
+        app.render_state.heights = vec![3, 3, 3, 3, 3];
+        app.render_state.chat_height = 11;
+        app.max_scroll = 5;
+        // 当前 scroll_lines=0（底部），选中 idx=0 → 选中的在视口上方 → scroll=0
+        app.overlay.selected_message = Some(0);
+        app.scroll_to_selected();
+        assert_eq!(app.scroll_lines, 0);
+    }
+
+    #[test]
+    fn test_scroll_to_selected_above_viewport() {
+        // 10 条消息各占 3 行，总 30 行，area_lines = 10，max_scroll = 20
+        let mut app = App::new(test_config());
+        app.render_state.heights = vec![3; 10];
+        app.render_state.chat_height = 11;
+        app.max_scroll = 20;
+        // 当前视口：scroll_lines=20 看到末尾。选中 idx=0 → 在视口上方 → scroll=0
+        app.overlay.selected_message = Some(0);
+        app.scroll_to_selected();
+        assert_eq!(app.scroll_lines, 0);
+    }
+
+    #[test]
+    fn test_scroll_to_selected_noop_when_visible() {
+        // 10 条消息各占 3 行，area_lines=10，max_scroll=20
+        let mut app = App::new(test_config());
+        app.render_state.heights = vec![3; 10];
+        app.render_state.chat_height = 11;
+        app.max_scroll = 20;
+        // 视口在 [0, 10)，选中 idx=2（sel_top=6, sel_bottom=9）→ 在视口内
+        app.scroll_lines = 0;
+        app.overlay.selected_message = Some(2);
+        app.scroll_to_selected();
+        assert_eq!(app.scroll_lines, 0);
     }
 
     #[test]
