@@ -426,7 +426,9 @@
  * ============================================================ */
 .thinking-body, .tool-body, .reasoning-fold-body {
   max-height: 0; opacity: 0; overflow: hidden;
-  padding-top: 0; padding-bottom: 0; border-top-width: 0;
+  padding: 0;
+  border-top-width: 0;
+  box-sizing: border-box;
   transition: max-height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
               opacity 0.24s ease,
               padding 0.32s cubic-bezier(0.16, 1, 0.3, 1),
@@ -435,7 +437,10 @@
 .thinking-body.expanded,
 .tool-body.expanded,
 .reasoning-fold-body.expanded {
-  max-height: 2000rpx; opacity: 1;
+  max-height: 2000rpx;
+  opacity: 1;
+  padding: 22rpx 24rpx;
+  border-top-width: 1rpx;
 }
 
 .thinking-chevron, .tool-chevron, .reasoning-fold-chevron {
