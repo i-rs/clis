@@ -10,7 +10,7 @@
 use crate::convstore::ConvStore;
 use crate::storage::SearchResult;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 // =============================================
@@ -378,8 +378,8 @@ fn tokenize(text: &str) -> Vec<String> {
 }
 
 /// Compute term frequency map for a list of tokens.
-fn term_frequency(tokens: &[String]) -> BTreeMap<String, usize> {
-    let mut tf = BTreeMap::new();
+fn term_frequency(tokens: &[String]) -> HashMap<String, usize> {
+    let mut tf = HashMap::new();
     for token in tokens {
         *tf.entry(token.clone()).or_insert(0) += 1;
     }
@@ -390,7 +390,7 @@ fn term_frequency(tokens: &[String]) -> BTreeMap<String, usize> {
 fn compute_relevance(
     result: &SearchResult,
     query_terms: &[String],
-    query_tf: &BTreeMap<String, usize>,
+    query_tf: &HashMap<String, usize>,
 ) -> f64 {
     if query_terms.is_empty() {
         return 0.0;

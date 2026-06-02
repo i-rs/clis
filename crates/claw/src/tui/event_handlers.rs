@@ -93,18 +93,24 @@ impl<'a> LlmEventHandler<'a> {
         if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
             && (text.contains('\n') || self.app.plan_steps.is_empty())
         {
-            let plan_text = self.app.messages.last().and_then(|m| {
+            let should_detect = self.app.messages.last().is_some_and(|m| {
                 if let AppMessage::Assistant { text: t, .. } = m {
-                    Some(t.clone())
+                    !t.is_empty()
                 } else {
-                    None
+                    false
                 }
             });
-            if let Some(t) = plan_text.filter(|t| !t.is_empty()) {
-                self.app.detect_plan(&t);
-                if let Some(sid) = self.app_core.session_mgr.current_id() {
-                    let sid = sid.to_string();
-                    self.app_core.session_mgr.save_plan_steps(&sid, &self.app.plan_steps);
+            if should_detect {
+                let plan_text = match self.app.messages.last() {
+                    Some(AppMessage::Assistant { text: t, .. }) => t.clone(),
+                    _ => String::new(),
+                };
+                if !plan_text.is_empty() {
+                    self.app.detect_plan(&plan_text);
+                    if let Some(sid) = self.app_core.session_mgr.current_id() {
+                        let sid = sid.to_string();
+                        self.app_core.session_mgr.save_plan_steps(&sid, &self.app.plan_steps);
+                    }
                 }
             }
         }
@@ -144,12 +150,11 @@ impl<'a> LlmEventHandler<'a> {
             }
         }
 
-        let agent_id = self.app.current_agent.clone();
-        let i_rs_index = self.app_core.config.i_rs_tool_index.clone();
+        let agent_id = &self.app.current_agent;
         crate::core::record_tool_memory(
             &mut self.app_core.agent_store,
-            &i_rs_index,
-            &agent_id,
+            &self.app_core.config.i_rs_tool_index,
+            agent_id,
             name,
             args,
             result,
@@ -157,7 +162,7 @@ impl<'a> LlmEventHandler<'a> {
         if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
             crate::core::record_layered_tool_memory(
                 &mut self.app_core.agent_store,
-                &agent_id,
+                agent_id,
                 name,
                 result,
             );
@@ -579,6 +584,7 @@ impl<'a> KeyEventHandler<'a> {
                 if self.app.overlay.is_overlay(Overlay::SessionList) {
                     self.app.overlay.session_list_index = 0;
                     self.app.overlay.session_list = self.app_core.session_mgr.sessions().to_vec();
+                    self.app.overlay.invalidate_session_cache();
                 }
             }
             (KeyCode::Char('n'), true, false) => {
@@ -934,7 +940,7 @@ impl<'a> KeyEventHandler<'a> {
 
     fn handle_session_list_keys(&mut self, key: KeyEvent) -> Action {
         let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        let filtered = self.app.overlay.filtered_sessions();
+        let filtered = self.app.overlay.filtered_sessions_cached();
         let filtered_len = filtered.len();
         let filtered_max = filtered_len.saturating_sub(1);
         match key.code {
@@ -958,6 +964,7 @@ impl<'a> KeyEventHandler<'a> {
                     self.app_core.session_mgr.delete_session(&id);
                     self.app.overlay.session_confirm_delete = false;
                     self.app.overlay.session_list = self.app_core.session_mgr.sessions().to_vec();
+                    self.app.overlay.invalidate_session_cache();
                     if is_current {
                         self.app.reset_for_new_session();
                     }
@@ -1042,7 +1049,7 @@ impl<'a> KeyEventHandler<'a> {
                         .rename_session(&meta.id, title.trim());
                 }
                 self.app.overlay.session_list = self.app_core.session_mgr.sessions().to_vec();
-            } else {
+                self.app.overlay.invalidate_session_cache();
                 self.app.overlay.session_rename_buf.clear();
             }
             self.app.mark_overlay_dirty();

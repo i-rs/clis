@@ -334,15 +334,14 @@ impl CrossSessionMemory {
         }
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            let mem_snapshot = self.clone(); // cheap — all fields are Clone
+            let mem_snapshot = self.clone();
             if let Err(e) =
                 Self::block_on(async move { storage.memory.save(&aid, &mem_snapshot).await })
             {
                 tracing::error!("持久化写入失败: {}", e);
             }
         } else if !self.path.as_os_str().is_empty() {
-            // Legacy file fallback
-            if let Ok(content) = serde_json::to_string_pretty(&self)
+            if let Ok(content) = serde_json::to_string_pretty(self)
                 && let Err(e) = atomic_write(&self.path, &content)
             {
                 tracing::error!("持久化写入失败: {}", e);

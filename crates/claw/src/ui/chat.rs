@@ -28,7 +28,8 @@ fn timestamp_label(app: &App, msg_index: usize, now: chrono::NaiveDateTime) -> S
 }
 
 fn indent_line(text: &str, style: Style) -> Line<'static> {
-    let mut spans = vec![Span::raw("   ")];
+    let mut spans = Vec::with_capacity(2);
+    spans.push(Span::raw("   "));
     spans.push(Span::styled(text.to_string(), style));
     Line::from(spans)
 }
@@ -59,14 +60,19 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
 
     let mut format_cache = std::mem::take(&mut app.render_state.format_cache);
     let mut heights = std::mem::take(&mut app.render_state.heights);
+    let mut tool_call_headers = std::mem::take(&mut app.render_state.tool_call_headers);
 
     if format_cache.len() > total_msgs + 20 {
         format_cache.retain(|k, _| *k < total_msgs);
+        tool_call_headers.retain(|k, _| *k < total_msgs);
     }
 
-    if heights.len() != total_msgs || app.render_state.cached_width != text_width {
+    let needs_full_rebuild = heights.len() != total_msgs
+        || app.render_state.cached_width != text_width;
+    if needs_full_rebuild {
         heights.clear();
         format_cache.clear();
+        tool_call_headers.clear();
         heights.reserve(total_msgs);
         for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
             let msg_index = total_msgs - 1 - rev_idx;
@@ -78,6 +84,14 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
                 &mut format_cache,
             ));
         }
+    } else if heights[0] == 0 {
+        heights[0] = message_line_count(
+            app,
+            app.messages.last().unwrap(),
+            text_width,
+            total_msgs - 1,
+            &mut format_cache,
+        );
     }
 
     let total_content_height: usize = heights.iter().sum();
@@ -127,6 +141,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
             text_width,
             msg_index,
             &format_cache,
+            &tool_call_headers,
             skip,
             now,
         ));
@@ -155,7 +170,10 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         let bar_width = 10;
         let filled = ((pct * bar_width) / 100).max(1).min(bar_width);
         let empty = bar_width - filled;
-        let scroll_bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
+        let scroll_bar: String = std::iter::repeat('█')
+            .take(filled)
+            .chain(std::iter::repeat('░').take(empty))
+            .collect();
 
         if total_hidden > 0 && !items.is_empty() {
             block = block.title(format!(
@@ -174,6 +192,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
 
     app.render_state.heights = heights;
     app.render_state.format_cache = format_cache;
+    app.render_state.tool_call_headers = tool_call_headers;
     app.render_state.cached_width = text_width;
     app.render_state.chat_height = area.height;
     app.max_scroll = max_scroll;
@@ -262,12 +281,13 @@ fn build_message_item_with_skip(
     text_width: usize,
     msg_index: usize,
     format_cache: &std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
+    tool_call_headers: &std::collections::HashMap<usize, (String, Option<String>)>,
     skip_lines: usize,
     now: chrono::NaiveDateTime,
 ) -> ListItem<'static> {
     let is_selected = app.overlay.selection_mode && app.overlay.selected_message == Some(msg_index);
 
-    let lines = build_message_lines(app, msg, text_width, msg_index, format_cache, now);
+    let lines = build_message_lines(app, msg, text_width, msg_index, format_cache, tool_call_headers, now);
     let lines: Vec<Line> = if skip_lines > 0 && skip_lines < lines.len() {
         lines.into_iter().skip(skip_lines).collect()
     } else if skip_lines >= lines.len() {
@@ -306,6 +326,7 @@ fn build_message_lines(
     text_width: usize,
     msg_index: usize,
     format_cache: &std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
+    tool_call_headers: &std::collections::HashMap<usize, (String, Option<String>)>,
     now: chrono::NaiveDateTime,
 ) -> Vec<Line<'static>> {
     match msg {
@@ -335,6 +356,7 @@ fn build_message_lines(
             text_width,
             msg_index,
             format_cache,
+            tool_call_headers,
             now,
         ),
         Message::Error { text } => build_error_lines(app, text, text_width, msg_index, now),
@@ -456,6 +478,7 @@ fn build_tool_call_lines(
     width: usize,
     idx: usize,
     format_cache: &std::collections::HashMap<usize, Arc<Vec<Line<'static>>>>,
+    tool_call_headers: &std::collections::HashMap<usize, (String, Option<String>)>,
     now: chrono::NaiveDateTime,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
@@ -466,36 +489,41 @@ fn build_tool_call_lines(
         String::new()
     };
 
-    let (header, detail) = if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
-        if name == "i_rs" {
-            let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
-            let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
-            let exp = val.get("explanation").and_then(|v| v.as_str());
-            (
-                format!("▸▸ {}{} {}", step_prefix, tool, cmd),
-                exp.map(|s| s.to_string()),
-            )
-        } else if name == "search_conversations" {
-            let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-            (format!("◉ 搜索历史: {}", q), None)
-        } else if name == "search_tools" {
-            let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-            (format!("◉ search: {}", q), None)
-        } else if name == "update_user_memory" {
-            ("◎ 记住用户信息".to_string(), None)
-        } else if name == "file_ops" {
-            let op = val.get("operation").and_then(|v| v.as_str()).unwrap_or("?");
-            let p = val.get("path").and_then(|v| v.as_str()).unwrap_or("?");
-            (format!("▤ {}: {}", op, p), None)
-        } else if name == "web_search" {
-            let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
-            (format!("◉ 搜索网络: {}", q), None)
-        } else {
-            (format!("▸▸ {}{}", step_prefix, name), None)
-        }
-    } else {
-        (format!("▸▸ {} {}", step_prefix, name), None)
-    };
+    let (header, detail) = tool_call_headers
+        .get(&idx)
+        .cloned()
+        .unwrap_or_else(|| {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(args) {
+                if name == "i_rs" {
+                    let tool = val.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
+                    let cmd = val.get("command").and_then(|v| v.as_str()).unwrap_or("?");
+                    let exp = val.get("explanation").and_then(|v| v.as_str());
+                    (
+                        format!("▸▸ {}{} {}", step_prefix, tool, cmd),
+                        exp.map(|s| s.to_string()),
+                    )
+                } else if name == "search_conversations" {
+                    let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("◉ 搜索历史: {}", q), None)
+                } else if name == "search_tools" {
+                    let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("◉ search: {}", q), None)
+                } else if name == "update_user_memory" {
+                    ("◎ 记住用户信息".to_string(), None)
+                } else if name == "file_ops" {
+                    let op = val.get("operation").and_then(|v| v.as_str()).unwrap_or("?");
+                    let p = val.get("path").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("▤ {}: {}", op, p), None)
+                } else if name == "web_search" {
+                    let q = val.get("query").and_then(|v| v.as_str()).unwrap_or("?");
+                    (format!("◉ 搜索网络: {}", q), None)
+                } else {
+                    (format!("▸▸ {}{}", step_prefix, name), None)
+                }
+            } else {
+                (format!("▸▸ {} {}", step_prefix, name), None)
+            }
+        });
 
     let indicator = if is_expanded { " [-]" } else { " [+]" };
     let ts = timestamp_label(app, idx, now);
@@ -812,30 +840,33 @@ fn parse_ansi_line_at(raw: &str, line_start: usize, line_end: usize) -> Vec<Span
 
 fn parse_sgr(bytes: &[u8], start: usize, mut state: AnsiState) -> (usize, AnsiState) {
     let mut i = start;
-    let mut params = Vec::new();
-    let mut buf = String::new();
+    let mut params = [0i32; 8];
+    let mut param_count = 0usize;
+    let mut num_buf = 0i32;
+    let mut has_num = false;
     while i < bytes.len() {
         let b = bytes[i];
         if b == b';' || b == b':' {
-            if !buf.is_empty() {
-                if let Ok(n) = buf.parse::<i32>() {
-                    params.push(n);
-                }
-                buf.clear();
+            if has_num && param_count < params.len() {
+                params[param_count] = num_buf;
+                param_count += 1;
             }
+            num_buf = 0;
+            has_num = false;
             i += 1;
         } else if b == b'm' {
-            if !buf.is_empty() {
-                if let Ok(n) = buf.parse::<i32>() {
-                    params.push(n);
-                }
-            } else if params.is_empty() {
-                params.push(0);
+            if has_num && param_count < params.len() {
+                params[param_count] = num_buf;
+                param_count += 1;
+            } else if param_count == 0 {
+                params[0] = 0;
+                param_count = 1;
             }
             i += 1;
             break;
         } else if b.is_ascii_digit() {
-            buf.push(b as char);
+            num_buf = num_buf * 10 + (b - b'0') as i32;
+            has_num = true;
             i += 1;
         } else {
             let mut j = i;
@@ -846,7 +877,7 @@ fn parse_sgr(bytes: &[u8], start: usize, mut state: AnsiState) -> (usize, AnsiSt
             break;
         }
     }
-    apply_sgr_params(&params, &mut state);
+    apply_sgr_params(&params[..param_count], &mut state);
     (i, state)
 }
 
@@ -1133,7 +1164,7 @@ fn render_markdown(text: &str, max_width: usize) -> Vec<Line<'static>> {
                             )));
                         }
                         lines.push(Line::from(Span::styled(
-                            "".to_string(),
+                            String::new(),
                             Style::default().bg(code_bg),
                         )));
                     }

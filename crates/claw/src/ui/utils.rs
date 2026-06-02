@@ -1,13 +1,15 @@
+use std::borrow::Cow;
+
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
 };
 use unicode_width::UnicodeWidthStr;
 
-pub(super) fn truncate_str(s: &str, max_len: usize) -> String {
+pub(super) fn truncate_str<'a>(s: &'a str, max_len: usize) -> Cow<'a, str> {
     let width = UnicodeWidthStr::width(s);
     if width <= max_len {
-        s.to_string()
+        Cow::Borrowed(s)
     } else {
         let mut out = String::new();
         let mut w = 0usize;
@@ -20,7 +22,7 @@ pub(super) fn truncate_str(s: &str, max_len: usize) -> String {
             w += cw;
         }
         out.push_str("...");
-        out
+        Cow::Owned(out)
     }
 }
 
@@ -44,28 +46,19 @@ pub(super) fn relative_time(ts: i64) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
-    let diff = now.saturating_sub(ts);
-    if diff < 60 {
-        "刚刚".to_string()
-    } else if diff < 3600 {
-        format!("{}分钟前", diff / 60)
-    } else if diff < 86400 {
-        format!("{}小时前", diff / 3600)
-    } else if diff < 2592000 {
-        format!("{}天前", diff / 86400)
-    } else {
-        format!("{}月前", diff / 2592000)
-    }
+    relative_time_at(ts, now)
 }
 
 pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
-    let mut lines = Vec::new();
+    let line_count = text.lines().count();
+    let mut lines = Vec::with_capacity(line_count);
     for line in text.lines() {
         if line.is_empty() {
             lines.push(String::new());
             continue;
         }
-        if UnicodeWidthStr::width(line) <= max_width {
+        let line_width = UnicodeWidthStr::width(line);
+        if line_width <= max_width {
             lines.push(line.to_string());
             continue;
         }
@@ -76,9 +69,7 @@ pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
             let separator = if current.is_empty() { 0 } else { 1 };
             if current_w + separator + word_w > max_width {
                 if current.is_empty() {
-                    for part in force_split(word, max_width) {
-                        lines.push(part);
-                    }
+                    lines.extend(force_split(word, max_width));
                     continue;
                 }
                 lines.push(current);
@@ -91,7 +82,7 @@ pub(super) fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
                 current_w += 1;
             }
 
-            if UnicodeWidthStr::width(word) > max_width {
+            if word_w > max_width {
                 let forced = force_split(word, max_width.saturating_sub(current_w));
                 let mut first = true;
                 let mut remaining_is_long = false;
@@ -167,15 +158,30 @@ pub(super) fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'s
     };
 
     let formatted = serde_json::to_string_pretty(&val).unwrap_or_else(|_| result.to_string());
-    let wrapped = wrap_text(&formatted, max_width.saturating_sub(4));
-    let lines: Vec<Line> = wrapped
-        .into_iter()
-        .map(|line| {
-            Line::from(Span::styled(
+    let indent_width = max_width.saturating_sub(4);
+    let mut lines = Vec::new();
+    for line in formatted.lines() {
+        if line.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "  ".to_string(),
+                Style::default().fg(Color::Rgb(160, 180, 160)),
+            )));
+            continue;
+        }
+        let line_w = UnicodeWidthStr::width(line);
+        if line_w <= indent_width {
+            lines.push(Line::from(Span::styled(
                 format!("  {}", line),
                 Style::default().fg(Color::Rgb(160, 180, 160)),
-            ))
-        })
-        .collect();
+            )));
+        } else {
+            for part in wrap_text(line, indent_width) {
+                lines.push(Line::from(Span::styled(
+                    format!("  {}", part),
+                    Style::default().fg(Color::Rgb(160, 180, 160)),
+                )));
+            }
+        }
+    }
     (lines, true)
 }

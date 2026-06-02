@@ -3,7 +3,8 @@ use crate::stats::TodaySummary;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -36,8 +37,8 @@ pub fn message_to_jsonl(msg: &Message) -> Value {
         .unwrap_or_else(|_| serde_json::json!({"type": "error", "text": "serialization failed"}))
 }
 
-pub fn message_from_jsonl(v: &Value) -> Option<Message> {
-    serde_json::from_value(v.clone()).ok()
+pub fn message_from_jsonl(v: Value) -> Option<Message> {
+    serde_json::from_value(v).ok()
 }
 
 pub fn evaluate_response_heuristic(
@@ -575,6 +576,8 @@ pub struct OverlayState {
     pub slash_visible: bool,
     pub slash_index: usize,
     pub theme_index: usize,
+    pub cached_filtered_sessions: Option<Vec<crate::session::SessionMeta>>,
+    pub cached_search_hash: u64,
 }
 
 impl OverlayState {
@@ -589,6 +592,28 @@ impl OverlayState {
                 .cloned()
                 .collect()
         }
+    }
+
+    pub fn filtered_sessions_cached(&mut self) -> Vec<crate::session::SessionMeta> {
+        use std::hash::Hasher;
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.session_search.hash(&mut hasher);
+        self.session_list.len().hash(&mut hasher);
+        let hash = hasher.finish();
+        if self.cached_search_hash == hash {
+            if let Some(ref cached) = self.cached_filtered_sessions {
+                return cached.clone();
+            }
+        }
+        let filtered = self.filtered_sessions();
+        self.cached_search_hash = hash;
+        self.cached_filtered_sessions = Some(filtered.clone());
+        filtered
+    }
+
+    pub fn invalidate_session_cache(&mut self) {
+        self.cached_filtered_sessions = None;
+        self.cached_search_hash = 0;
     }
 
     pub fn new(agent_list: Vec<String>) -> Self {
@@ -615,6 +640,8 @@ impl OverlayState {
             slash_visible: false,
             slash_index: 0,
             theme_index: 0,
+            cached_filtered_sessions: None,
+            cached_search_hash: 0,
         }
     }
 
@@ -656,12 +683,10 @@ pub struct RenderState {
     pub heights: Vec<usize>,
     pub format_cache: HashMap<usize, Arc<Vec<ratatui::text::Line<'static>>>>,
     pub cached_width: usize,
-    /// 聊天区渲染时的实际高度（行数），用于事件处理中估算视口行数。
-    /// 渲染后由 chat.rs 回填；事件处理可在 heights 已建好的前提下
-    /// 据此计算 scroll_lines，无需等下一次渲染。
     pub chat_height: u16,
     pub dirty: bool,
     pub last_drawn_at: Option<Instant>,
+    pub tool_call_headers: HashMap<usize, (String, Option<String>)>,
 }
 
 impl RenderState {
@@ -673,11 +698,21 @@ impl RenderState {
             chat_height: 0,
             dirty: true,
             last_drawn_at: None,
+            tool_call_headers: HashMap::new(),
         }
     }
 
     pub fn invalidate(&mut self) {
         self.heights.clear();
+        self.dirty = true;
+    }
+
+    pub fn invalidate_last(&mut self) {
+        if !self.heights.is_empty() {
+            self.heights[0] = 0;
+        } else {
+            self.heights.clear();
+        }
         self.dirty = true;
     }
 
@@ -714,7 +749,7 @@ pub struct App {
     pub token_usage: Option<crate::llm::TokenUsage>,
     pub scroll_lines: usize,
     pub max_scroll: usize,
-    pub http_logs: Vec<HttpLog>,
+    pub http_logs: VecDeque<HttpLog>,
     pub current_reasoning: String,
     pub reminder_text: Option<String>,
     pub plan_steps: Vec<PlanStep>,
@@ -744,7 +779,7 @@ impl App {
             token_usage: None,
             scroll_lines: 0,
             max_scroll: 0,
-            http_logs: Vec::new(),
+            http_logs: VecDeque::new(),
             current_reasoning: String::new(),
             reminder_text: None,
             plan_steps: Vec::new(),
@@ -955,7 +990,8 @@ impl App {
         }
         if let Some(Message::Assistant { text: t, .. }) = self.messages.last_mut() {
             t.push_str(text);
-            self.mark_dirty();
+            self.render_state.format_cache.remove(&(self.messages.len() - 1));
+            self.render_state.invalidate_last();
         }
     }
 
@@ -981,9 +1017,9 @@ impl App {
     }
 
     pub fn add_http_log(&mut self, log: HttpLog) {
-        self.http_logs.insert(0, log);
-        if self.http_logs.len() > 50 {
-            self.http_logs.pop();
+        self.http_logs.push_front(log);
+        while self.http_logs.len() > 50 {
+            self.http_logs.pop_back();
         }
         self.mark_overlay_dirty();
     }

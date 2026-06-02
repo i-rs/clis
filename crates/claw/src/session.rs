@@ -1,5 +1,6 @@
 use crate::storage::ClawStorage;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -115,6 +116,7 @@ fn block_on<F: std::future::Future>(f: F) -> F::Output {
 pub struct SessionManager {
     storage: Arc<ClawStorage>,
     sessions: Vec<SessionMeta>,
+    index: HashMap<String, usize>,
     current_id: Option<String>,
 }
 
@@ -129,9 +131,15 @@ impl SessionManager {
     pub fn with_storage(storage: Arc<ClawStorage>) -> Self {
         let sessions = block_on(async { storage.sessions.load_all().await.unwrap_or_default() });
         let current_id = sessions.first().map(|s| s.id.clone());
+        let index = sessions
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.id.clone(), i))
+            .collect();
         Self {
             storage,
             sessions,
+            index,
             current_id,
         }
     }
@@ -143,14 +151,28 @@ impl SessionManager {
         self.current_id.as_deref()
     }
 
+    #[inline]
+    fn find_index(&self, id: &str) -> Option<usize> {
+        self.index.get(id).copied()
+    }
+
+    fn rebuild_index(&mut self) {
+        self.index = self
+            .sessions
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.id.clone(), i))
+            .collect();
+    }
+
     pub fn current_session(&self) -> Option<&SessionMeta> {
         self.current_id
             .as_ref()
-            .and_then(|id| self.sessions.iter().find(|s| s.id == id.as_str()))
+            .and_then(|id| self.find_index(id).map(|i| &self.sessions[i]))
     }
 
     pub fn switch_to(&mut self, id: &str) -> bool {
-        if self.sessions.iter().any(|s| s.id == id) {
+        if self.find_index(id).is_some() {
             self.current_id = Some(id.to_string());
             true
         } else {
@@ -165,6 +187,7 @@ impl SessionManager {
     pub fn create_session_for(&mut self, agent_id: &str) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let now = now_secs();
+        let idx = self.sessions.len();
         self.sessions.push(SessionMeta {
             id: id.clone(),
             title: "新对话".to_string(),
@@ -174,6 +197,7 @@ impl SessionManager {
             updated_at: now,
             message_count: 0,
         });
+        self.index.insert(id.clone(), idx);
         self.current_id = Some(id.clone());
         self.save_index();
         id
@@ -181,9 +205,9 @@ impl SessionManager {
 
     #[allow(dead_code)]
     pub fn delete_session(&mut self, id: &str) -> bool {
-        let pos = self.sessions.iter().position(|s| s.id == id);
-        if let Some(idx) = pos {
+        if let Some(idx) = self.find_index(id) {
             self.sessions.remove(idx);
+            self.rebuild_index();
             let storage = self.storage.clone();
             let sid = id.to_string();
             block_on(async move {
@@ -203,11 +227,12 @@ impl SessionManager {
 
     #[allow(dead_code)]
     pub fn session_meta(&self, id: &str) -> Option<&SessionMeta> {
-        self.sessions.iter().find(|s| s.id == id)
+        self.find_index(id).map(|i| &self.sessions[i])
     }
 
     pub fn transition_state(&mut self, id: &str, new_state: SessionState) -> bool {
-        if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == id) {
+        if let Some(idx) = self.find_index(id) {
+            let meta = &mut self.sessions[idx];
             if meta.state.can_transition_to(&new_state) {
                 meta.state = new_state;
                 meta.updated_at = now_secs();
@@ -278,7 +303,7 @@ impl SessionManager {
 
     pub fn export_markdown(&self, id: &str) -> Option<String> {
         let records = self.load_messages(id, 1000);
-        let meta = self.sessions.iter().find(|s| s.id == id)?;
+        let meta = self.find_index(id).map(|i| &self.sessions[i])?;
         let mut md = format!(
             "# 会话：{}\n\n> 创建时间：{}\n\n",
             meta.title,
@@ -328,7 +353,7 @@ impl SessionManager {
 
     pub fn export_json(&self, id: &str) -> Option<String> {
         let records = self.load_messages(id, 1000);
-        let meta = self.sessions.iter().find(|s| s.id == id)?;
+        let meta = self.find_index(id).map(|i| &self.sessions[i])?;
         let export = serde_json::json!({
             "session": { "id": meta.id, "title": meta.title, "created_at": meta.created_at, "updated_at": meta.updated_at },
             "messages": records,
@@ -337,8 +362,8 @@ impl SessionManager {
     }
 
     pub fn rename_session(&mut self, id: &str, title: &str) -> bool {
-        if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == id) {
-            meta.title = title.to_string();
+        if let Some(idx) = self.find_index(id) {
+            self.sessions[idx].title = title.to_string();
             self.save_index();
             true
         } else {
@@ -368,8 +393,8 @@ impl SessionManager {
             return;
         }
 
-        let should_save = if let Some(meta) = self.sessions.iter_mut().find(|s| s.id == session_id)
-        {
+        let should_save = if let Some(idx) = self.find_index(&session_id) {
+            let meta = &mut self.sessions[idx];
             meta.message_count += 1;
             meta.updated_at = now_secs();
             meta.message_count % 5 == 0
@@ -390,7 +415,7 @@ impl SessionManager {
     pub fn load_app_messages(&self, id: &str, max_messages: usize) -> Vec<crate::app::Message> {
         self.load_messages(id, max_messages)
             .into_iter()
-            .filter_map(|v| crate::app::message_from_jsonl(&v))
+            .filter_map(crate::app::message_from_jsonl)
             .collect()
     }
 
