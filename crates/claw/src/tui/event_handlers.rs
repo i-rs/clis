@@ -262,6 +262,7 @@ impl<'a> LlmEventHandler<'a> {
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
             self.app.messages.push(quality);
             self.app.message_timestamps.push(chrono::Local::now().naive_local());
+            self.app.mark_dirty();
         }
 
         Action::Continue
@@ -582,6 +583,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             _ => {}
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -623,6 +625,7 @@ impl<'a> KeyEventHandler<'a> {
                 return self.handle_normal_input(key);
             }
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -642,6 +645,7 @@ impl<'a> KeyEventHandler<'a> {
                     self.app.input.text = text;
                     self.app.input.move_cursor_end();
                 }
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Down if !self.app.overlay.selection_mode && !self.app.is_processing() => {
                 if self.app.input.text.is_empty() {
@@ -657,6 +661,7 @@ impl<'a> KeyEventHandler<'a> {
                     }
                     self.app.input.cursor = self.app.input.text.len();
                 }
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Enter => return self.handle_enter_key(key),
             _ => return self.handle_editing_key(key),
@@ -768,6 +773,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             _ => {}
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -804,6 +810,7 @@ impl<'a> KeyEventHandler<'a> {
         } else {
             self.app.overlay.copy_feedback = Some(("无内容可复制".to_string(), std::time::Instant::now()));
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -983,6 +990,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             _ => {}
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -1093,6 +1101,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             _ => {}
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -1276,6 +1285,7 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.overlay.copy_feedback = Some((format!("✗ 导出失败: {}", e), std::time::Instant::now()));
             }
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -1487,6 +1497,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             None => {}
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -1516,6 +1527,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             _ => {}
         }
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -1571,6 +1583,7 @@ impl<'a> KeyEventHandler<'a> {
             self.app.overlay.tab_completions.clear();
             self.app.overlay.tab_completion_index = 0;
         }
+        self.app.mark_overlay_dirty();
     }
 
     fn handle_backtab_complete(&mut self) {
@@ -1589,6 +1602,7 @@ impl<'a> KeyEventHandler<'a> {
             .unwrap_or(0);
         self.app.input.text = format!("{}{} {}", &before[..word_start], selected, after);
         self.app.input.cursor = word_start + selected.len() + 1;
+        self.app.mark_overlay_dirty();
     }
 }
 
