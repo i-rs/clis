@@ -61,6 +61,20 @@ impl ClawTool for RagTool {
                 "system_prefix": {
                     "type": "string",
                     "description": "系统提示前缀 (augmented 时使用)"
+                },
+                "chunk_size": {
+                    "type": "integer",
+                    "description": "分块大小 (默认 500 字符)",
+                    "default": 500
+                },
+                "overlap": {
+                    "type": "integer",
+                    "description": "分块重叠 (默认 50 字符)",
+                    "default": 50
+                },
+                "metadata": {
+                    "type": "object",
+                    "description": "文档元数据 (ingest 时可选)"
                 }
             },
             "required": ["action"],
@@ -86,11 +100,40 @@ impl ClawTool for RagTool {
                     .get("source")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown");
-                let ids = pipeline.ingest(content, source);
+                let chunk_size = args
+                    .get("chunk_size")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(500) as usize;
+                let overlap = args
+                    .get("overlap")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(50) as usize;
+                let metadata = args.get("metadata").cloned();
+                if chunk_size != 500 || overlap != 50 {
+                    pipeline.chunk_config = crate::core::rag::ChunkConfig {
+                        chunk_size,
+                        overlap,
+                    };
+                }
+                let ids = if let Some(meta) = metadata {
+                    let meta_map: std::collections::HashMap<String, String> = meta
+                        .as_object()
+                        .map(|obj| {
+                            obj.iter()
+                                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    pipeline.ingest_with_metadata(content, source, meta_map)
+                } else {
+                    pipeline.ingest(content, source)
+                };
                 Ok(format!(
-                    "已摄入 {} 个文档块 (来源: {})",
+                    "已摄入 {} 个文档块 (来源: {}, 分块: {}字/重叠:{}字)",
                     ids.len(),
-                    source
+                    source,
+                    chunk_size,
+                    overlap
                 ))
             }
             "query" => {

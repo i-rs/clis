@@ -119,6 +119,7 @@ pub trait TypedClawTool: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value;
+    #[allow(dead_code)]
     fn output_schema(&self) -> Option<Value> {
         None
     }

@@ -32,6 +32,7 @@ pub struct OrchestrationPlan {
     pub context: String,
 }
 
+#[allow(dead_code)]
 impl OrchestrationPlan {
     pub fn sequential(steps: Vec<(String, String)>) -> Self {
         let orchestration_steps: Vec<OrchestrationStep> = steps
@@ -132,6 +133,7 @@ impl OrchestrationPlan {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_complete(&self) -> bool {
         self.steps.iter().all(|s| {
             s.status == StepStatus::Completed
@@ -159,10 +161,12 @@ pub struct OrchestrationResult {
 }
 
 impl OrchestrationResult {
+    #[allow(dead_code)]
     pub fn is_success(&self) -> bool {
         self.step_results.values().all(|r| r.is_ok())
     }
 
+    #[allow(dead_code)]
     pub fn combined_output(&self) -> String {
         let mut parts = Vec::new();
         for (idx, result) in &self.step_results {

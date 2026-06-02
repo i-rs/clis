@@ -1,5 +1,6 @@
 use crate::config::ResolvedAgentConfig;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TaskComplexity {
     Simple,
@@ -41,6 +42,7 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
     TaskComplexity::Simple
 }
 
+#[allow(dead_code)]
 pub fn semantic_classify(task: &str, tool_index: &std::collections::HashMap<String, String>) -> TaskComplexity {
     let task_lower = task.to_lowercase();
     let matched_tools: Vec<&str> = tool_index

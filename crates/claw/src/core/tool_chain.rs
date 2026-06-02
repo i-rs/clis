@@ -53,6 +53,7 @@ impl ToolChain {
         self
     }
 
+    #[allow(dead_code)]
     pub fn then_if(
         mut self,
         tool_name: &str,
@@ -69,6 +70,7 @@ impl ToolChain {
         self
     }
 
+    #[allow(dead_code)]
     pub fn resolve_args(
         template: &Value,
         context: &ChainContext,
@@ -100,6 +102,7 @@ impl ToolChain {
         }
     }
 
+    #[allow(dead_code)]
     pub fn check_condition(condition: &Option<ChainCondition>, context: &ChainContext) -> bool {
         let Some(cond) = condition else {
             return true;
@@ -141,11 +144,13 @@ impl ToolChain {
 }
 
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct ChainContext {
     pub outputs: std::collections::HashMap<String, Value>,
     pub initial_input: Value,
 }
 
+#[allow(dead_code)]
 impl ChainContext {
     pub fn new(initial_input: Value) -> Self {
         Self {
@@ -180,6 +185,7 @@ impl ChainContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ChainResult {
     pub chain_name: String,
     pub steps_completed: usize,
@@ -188,6 +194,7 @@ pub struct ChainResult {
     pub intermediate_outputs: std::collections::HashMap<String, Value>,
 }
 
+#[allow(dead_code)]
 impl ChainResult {
     pub fn is_complete(&self) -> bool {
         self.steps_completed == self.steps_total

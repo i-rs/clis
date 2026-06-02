@@ -17,11 +17,13 @@ pub enum ProgressStage {
     Failed,
 }
 
+#[allow(dead_code)]
 pub struct ToolProgressEmitter {
     tool_name: String,
     tx: mpsc::UnboundedSender<ToolProgress>,
 }
 
+#[allow(dead_code)]
 impl ToolProgressEmitter {
     pub fn new(tool_name: &str, tx: mpsc::UnboundedSender<ToolProgress>) -> Self {
         let emitter = Self {
@@ -55,10 +57,12 @@ impl ToolProgressEmitter {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct StreamingExecutionContext {
     pub progress_tx: Option<mpsc::UnboundedSender<ToolProgress>>,
 }
 
+#[allow(dead_code)]
 impl StreamingExecutionContext {
     pub fn new() -> Self {
         Self { progress_tx: None }

@@ -80,7 +80,12 @@ fn prepare_loop(
     let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
         .with_timeout(config.cli_timeout_secs)
         .with_truncation(4096, 500)
-        .with_guardrails(crate::tools::guardrails::GuardrailManager::new())
+        .with_guardrails(
+            crate::tools::guardrails::GuardrailManager::new()
+                .with_tool(Box::new(crate::tools::guardrails::DangerousToolGuardrail::new(
+                    vec!["delete".to_string(), "shell".to_string()],
+                ))),
+        )
         .with_hitl_policy(
             crate::core::hitl::HitlPolicy::new()
                 .auto_approve("i_rs")
@@ -295,7 +300,7 @@ async fn handle_provider_error(
 /// Main chat loop: stream, handle tool calls, continue until done.
 ///
 /// Pipeline: prepare → [stream → dispatch → inject → trace → compress] × N
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, unused_variables, unused_assignments)]
 #[tracing::instrument(skip(provider, config, messages, tx, mcp, skills, delegate_runtime))]
 pub async fn chat_loop(
     provider: Box<dyn LlmProvider>,
@@ -354,6 +359,9 @@ pub async fn chat_loop(
                 }
                 if init.plan_then_execute && round_count == 1 {
                     if let Some(sp) = crate::core::planning::StructuredPlan::parse_from_llm_output(&text) {
+                        if matches!(sp.status, crate::core::planning::PlanStatus::Completed) {
+                            let _ = tx.send(LlmEvent::Status("📋 计划已完成".to_string()));
+                        }
                         structured_plan = Some(sp);
                     }
                     plan_steps = parse_plan_steps(&text);
@@ -410,12 +418,17 @@ pub async fn chat_loop(
                 trace_tool_results(&results, &trace_id, round_start);
 
                 if let Ok(mut store) = init.checkpoint_store.lock() {
+                    let tool_results: std::collections::HashMap<String, String> = results
+                        .iter()
+                        .map(|r| (r.call.name.clone(), r.result.clone()))
+                        .collect();
                     store.save(
                         crate::core::checkpoint::Checkpoint::new(
                             &trace_id,
                             round_count,
                             msgs.clone(),
-                        ),
+                        )
+                        .with_tool_results(tool_results),
                     );
                 }
 

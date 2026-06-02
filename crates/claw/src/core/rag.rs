@@ -66,7 +66,7 @@ pub fn chunk_text(text: &str, config: &ChunkConfig) -> Vec<String> {
 
 pub struct RagPipeline {
     documents: Vec<RagDocument>,
-    chunk_config: ChunkConfig,
+    pub chunk_config: ChunkConfig,
 }
 
 impl RagPipeline {
@@ -77,6 +77,7 @@ impl RagPipeline {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_chunk_config(mut self, config: ChunkConfig) -> Self {
         self.chunk_config = config;
         self

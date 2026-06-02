@@ -3,6 +3,7 @@ use crate::llm::TokenUsage;
 use serde_json::Value;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ToolExecutionRecord {
     pub name: String,
     pub args: Value,
@@ -12,6 +13,7 @@ pub struct ToolExecutionRecord {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct LlmCallRecord {
     pub model: String,
     pub provider: String,
@@ -21,6 +23,7 @@ pub struct LlmCallRecord {
     pub elapsed_ms: u64,
 }
 
+#[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait AgentCallbacks: Send + Sync {
     fn on_tool_start(&self, _name: &str, _args: &Value) {}
@@ -43,6 +46,7 @@ impl CallbackChain {
         Self { callbacks: Vec::new() }
     }
 
+    #[allow(dead_code)]
     pub fn add(mut self, cb: Box<dyn AgentCallbacks>) -> Self {
         self.callbacks.push(cb);
         self
@@ -159,6 +163,7 @@ pub struct AuditLogCallback {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AuditRecord {
     pub timestamp: i64,
     pub event_type: String,
@@ -173,11 +178,13 @@ impl AuditLogCallback {
         }
     }
 
+    #[allow(dead_code)]
     pub fn drain(&self) -> Vec<AuditRecord> {
         let mut guard = self.records.lock().unwrap_or_else(|e| e.into_inner());
         std::mem::take(&mut *guard)
     }
 
+    #[allow(dead_code)]
     fn push(&self, event_type: &str, tool_name: Option<&str>, detail: String) {
         let mut guard = self.records.lock().unwrap_or_else(|e| e.into_inner());
         guard.push(AuditRecord {

@@ -113,9 +113,21 @@ impl Dashboard {
                 axum::routing::get(routes::list_checkpoints),
             )
             .route(
+                "/api/checkpoints/{id}",
+                axum::routing::get(routes::get_checkpoint_detail),
+            )
+            .route(
+                "/api/checkpoints/restore",
+                axum::routing::post(routes::restore_checkpoint),
+            )
+            .route(
                 "/api/memory/layered",
                 axum::routing::get(routes::get_layered_memory)
                     .post(routes::clear_layered_memory),
+            )
+            .route(
+                "/api/memory/search",
+                axum::routing::get(routes::search_layered_memory),
             )
             .route(
                 "/api/evals",

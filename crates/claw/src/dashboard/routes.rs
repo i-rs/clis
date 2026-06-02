@@ -218,6 +218,11 @@ pub async fn send_message(
     // Save user message
     core.session_mgr.append_message("user", &text, None);
 
+    {
+        let layered = core.agent_store.layered_memory_for_mut(&agent_id);
+        layered.record_user_statement(&text);
+    }
+
     // Drop the lock before returning
     drop(core);
 
@@ -487,7 +492,16 @@ pub async fn delete_session(
     Path(id): Path<String>,
 ) -> Json<ApiResponse<&'static str>> {
     let mut core = state.core.write().await;
+    let agent_id = core
+        .session_mgr
+        .session_meta(&id)
+        .map(|m| m.agent_id.clone())
+        .unwrap_or_else(|| "default".to_string());
     core.session_mgr.delete_session(&id);
+    {
+        let layered = core.agent_store.layered_memory_for_mut(&agent_id);
+        layered.end_session();
+    }
     drop(core);
     ApiResponse::ok("deleted")
 }
@@ -978,6 +992,84 @@ pub struct CheckpointQuery {
     pub session_id: Option<String>,
 }
 
+// ── Checkpoint Detail & Restore ──
+
+pub async fn get_checkpoint_detail(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.read().await;
+    let result = {
+        let Ok(store) = core.checkpoint_store.lock() else {
+            drop(core);
+            return ApiResponse::err("检查点存储不可用");
+        };
+        let Some(cp) = store.get(&id) else {
+            drop(store);
+            drop(core);
+            return ApiResponse::err("检查点未找到");
+        };
+        let data = serde_json::json!({
+            "id": cp.id,
+            "session_id": cp.session_id,
+            "round": cp.round,
+            "timestamp": cp.timestamp,
+            "message_count": cp.messages.len(),
+            "tool_result_count": cp.tool_results.len(),
+            "messages": cp.messages,
+            "tool_results": cp.tool_results,
+        });
+        drop(store);
+        data
+    };
+    drop(core);
+    ApiResponse::ok(result)
+}
+
+pub async fn restore_checkpoint(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Json<ApiResponse<Value>> {
+    let session_id = body
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let round = body
+        .get("round")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32;
+    if session_id.is_empty() {
+        return ApiResponse::err("需要 session_id 参数");
+    }
+    let cp_id = format!("cp_{}_{}", session_id, round);
+    let core = state.core.read().await;
+    let result = {
+        let Ok(store) = core.checkpoint_store.lock() else {
+            drop(core);
+            return ApiResponse::err("检查点存储不可用");
+        };
+        let Some(cp) = store.get(&cp_id) else {
+            drop(store);
+            drop(core);
+            return ApiResponse::err(&format!(
+                "未找到 session={} round={} 的检查点",
+                session_id, round
+            ));
+        };
+        let messages = cp.restore_messages();
+        let data = serde_json::json!({
+            "restored": true,
+            "session_id": cp.session_id,
+            "round": cp.round,
+            "message_count": messages.len(),
+        });
+        drop(store);
+        data
+    };
+    drop(core);
+    ApiResponse::ok(result)
+}
+
 // ── Layered Memory ──
 
 pub async fn get_layered_memory(
@@ -1018,6 +1110,66 @@ pub async fn clear_layered_memory(
 
 #[derive(Deserialize)]
 pub struct MemoryQuery {
+    pub agent_id: Option<String>,
+}
+
+pub async fn search_layered_memory(
+    State(state): State<AppState>,
+    Query(query): Query<MemorySearchQuery>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.read().await;
+    let agent_id = query.agent_id.as_deref().unwrap_or("default");
+    let layered = core.agent_store.layered_memory_for(agent_id);
+
+    let facts: Vec<Value> = if let Some(ref q) = query.q {
+        layered
+            .long_term
+            .search(q, 20)
+            .iter()
+            .map(|fact| {
+                serde_json::json!({
+                    "content": fact.content,
+                    "category": format!("{:?}", fact.category),
+                    "source": fact.source,
+                    "access_count": fact.access_count,
+                })
+            })
+            .collect()
+    } else if let Some(ref cat) = query.category {
+        let category = match cat.as_str() {
+            "preference" => crate::core::layered_memory::FactCategory::UserPreference,
+            "habit" => crate::core::layered_memory::FactCategory::UserHabit,
+            "tool" => crate::core::layered_memory::FactCategory::ToolResult,
+            "decision" => crate::core::layered_memory::FactCategory::Decision,
+            _ => crate::core::layered_memory::FactCategory::General,
+        };
+        layered
+            .long_term
+            .search_by_category(category, 20)
+            .iter()
+            .map(|fact| {
+                serde_json::json!({
+                    "content": fact.content,
+                    "category": format!("{:?}", fact.category),
+                    "source": fact.source,
+                    "access_count": fact.access_count,
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    drop(core);
+    ApiResponse::ok(serde_json::json!({
+        "facts": facts,
+        "total": facts.len(),
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct MemorySearchQuery {
+    pub q: Option<String>,
+    pub category: Option<String>,
     pub agent_id: Option<String>,
 }
 

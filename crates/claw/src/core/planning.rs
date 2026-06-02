@@ -44,6 +44,7 @@ pub enum PlanStatus {
     Cancelled,
 }
 
+#[allow(dead_code)]
 impl StructuredPlan {
     pub fn new(goal: &str) -> Self {
         let now = chrono::Utc::now().timestamp();

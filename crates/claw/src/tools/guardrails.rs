@@ -15,18 +15,21 @@ impl GuardrailResult {
     }
 }
 
+#[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait InputGuardrail: Send + Sync {
     fn name(&self) -> &str;
     async fn check(&self, user_input: &str) -> GuardrailResult;
 }
 
+#[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait OutputGuardrail: Send + Sync {
     fn name(&self) -> &str;
     async fn check(&self, output: &str) -> GuardrailResult;
 }
 
+#[allow(dead_code)]
 #[async_trait::async_trait]
 pub trait ToolCallGuardrail: Send + Sync {
     fn name(&self) -> &str;
@@ -68,6 +71,7 @@ impl InputGuardrail for PromptInjectionGuardrail {
 
 pub struct PiiDetectionGuardrail;
 
+#[allow(dead_code)]
 fn has_sequence_of_digits(text: &str, count: usize) -> bool {
     let mut digit_run = 0;
     for c in text.chars() {
@@ -83,6 +87,7 @@ fn has_sequence_of_digits(text: &str, count: usize) -> bool {
     false
 }
 
+#[allow(dead_code)]
 fn extract_digit_sequences(text: &str) -> Vec<String> {
     let mut sequences = Vec::new();
     let mut current = String::new();
@@ -120,6 +125,7 @@ impl OutputGuardrail for PiiDetectionGuardrail {
     }
 }
 
+#[allow(dead_code)]
 pub struct DangerousToolGuardrail {
     dangerous_tools: Vec<String>,
 }
@@ -160,11 +166,13 @@ impl GuardrailManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_input(mut self, guardrail: Box<dyn InputGuardrail>) -> Self {
         self.input_guardrails.push(guardrail);
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_output(mut self, guardrail: Box<dyn OutputGuardrail>) -> Self {
         self.output_guardrails.push(guardrail);
         self
@@ -175,6 +183,7 @@ impl GuardrailManager {
         self
     }
 
+    #[allow(dead_code)]
     pub async fn check_input(&self, user_input: &str) -> GuardrailResult {
         for g in &self.input_guardrails {
             let result = g.check(user_input).await;
@@ -185,6 +194,7 @@ impl GuardrailManager {
         GuardrailResult::allow()
     }
 
+    #[allow(dead_code)]
     pub async fn check_output(&self, output: &str) -> GuardrailResult {
         for g in &self.output_guardrails {
             let result = g.check(output).await;

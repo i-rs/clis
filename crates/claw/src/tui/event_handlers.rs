@@ -674,6 +674,10 @@ impl<'a> KeyEventHandler<'a> {
             self.app.input.cursor = 0;
             self.app.commit_input_to_history(&text);
             self.app.add_user_message(&text);
+            {
+                let lm = self.app_core.agent_store.layered_memory_for_mut(&self.app.current_agent);
+                lm.record_user_statement(&text);
+            }
             self.app_core
                 .session_mgr
                 .append_message("user", &text, None);

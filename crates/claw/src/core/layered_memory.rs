@@ -17,18 +17,22 @@ impl WorkingMemory {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_entity(&mut self, key: &str, value: &str) {
         self.entities.insert(key.to_string(), value.to_string());
     }
 
+    #[allow(dead_code)]
     pub fn get_entity(&self, key: &str) -> Option<&str> {
         self.entities.get(key).map(|s| s.as_str())
     }
 
+    #[allow(dead_code)]
     pub fn set_current_task(&mut self, task: &str) {
         self.current_task = Some(task.to_string());
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.entities.clear();
         self.pending_actions.clear();
@@ -118,6 +122,7 @@ impl LongTermMemory {
         }
     }
 
+    #[allow(dead_code)]
     pub fn search(&self, query: &str, limit: usize) -> Vec<&LongTermFact> {
         let query_lower = query.to_lowercase();
         let mut scored: Vec<(i64, &LongTermFact)> = self
@@ -138,6 +143,7 @@ impl LongTermMemory {
         scored.into_iter().take(limit).map(|(_, f)| f).collect()
     }
 
+    #[allow(dead_code)]
     pub fn search_by_category(&self, category: FactCategory, limit: usize) -> Vec<&LongTermFact> {
         self.facts
             .iter()
@@ -155,6 +161,7 @@ impl LongTermMemory {
         self.facts.truncate(self.max_facts);
     }
 
+    #[allow(dead_code)]
     pub fn decay(&mut self, max_age_days: i64) {
         let now = chrono::Utc::now().timestamp();
         self.facts.retain(|f| {
@@ -232,6 +239,7 @@ impl LayeredMemory {
         }
     }
 
+    #[allow(dead_code)]
     pub fn record_user_statement(&mut self, statement: &str) {
         let category = if statement.contains("喜欢") || statement.contains("偏好") || statement.contains("不喜欢") {
             FactCategory::UserPreference
@@ -243,6 +251,7 @@ impl LayeredMemory {
         self.long_term.add_fact(statement, "user_statement", category);
     }
 
+    #[allow(dead_code)]
     pub fn add_summary(&mut self, summary: &str, fact_count: usize) {
         self.summaries.push(MemorySummary {
             summary: summary.to_string(),
@@ -273,6 +282,7 @@ impl LayeredMemory {
         parts.join("\n\n")
     }
 
+    #[allow(dead_code)]
     pub fn build_llm_summary_prompt(&self, conversation_snippet: &str) -> String {
         let existing_facts: Vec<&str> = self.long_term.facts.iter().take(20).map(|f| f.content.as_str()).collect();
         format!(
@@ -290,6 +300,7 @@ impl LayeredMemory {
         )
     }
 
+    #[allow(dead_code)]
     pub fn end_session(&mut self) {
         self.working.clear();
         self.long_term.decay(90);

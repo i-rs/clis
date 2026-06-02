@@ -24,11 +24,13 @@ impl Checkpoint {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_tool_results(mut self, results: HashMap<String, String>) -> Self {
         self.tool_results = results;
         self
     }
 
+    #[allow(dead_code)]
     pub fn restore_messages(&self) -> Vec<Value> {
         self.messages.clone()
     }
@@ -61,20 +63,24 @@ impl CheckpointStore {
         self.checkpoints.push(checkpoint);
     }
 
+    #[allow(dead_code)]
     pub fn latest(&self) -> Option<&Checkpoint> {
         self.checkpoints.last()
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, id: &str) -> Option<&Checkpoint> {
         self.checkpoints.iter().find(|c| c.id == id)
     }
 
+    #[allow(dead_code)]
     pub fn for_round(&self, round: u32) -> Option<&Checkpoint> {
         self.checkpoints
             .iter()
             .find(|c| c.round == round)
     }
 
+    #[allow(dead_code)]
     pub fn list(&self) -> Vec<(String, u32, i64)> {
         self.checkpoints
             .iter()
@@ -82,6 +88,7 @@ impl CheckpointStore {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.checkpoints.clear();
     }

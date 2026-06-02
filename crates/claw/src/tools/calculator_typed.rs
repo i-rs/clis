@@ -14,6 +14,7 @@ pub struct CalculatorOutput {
 pub struct CalculatorTyped;
 
 impl CalculatorTyped {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self
     }

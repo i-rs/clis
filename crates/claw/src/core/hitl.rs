@@ -25,6 +25,7 @@ pub enum RiskLevel {
     High,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ConfirmationResponse {
     Approved,

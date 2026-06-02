@@ -7,6 +7,7 @@ use crate::tools::{ClawTool, ToolContext};
 ///
 /// Supports +, -, *, /, %, ^ (power), parentheses, and unary minus.
 /// No external dependencies. Rejects any non-math tokens for safety.
+#[allow(dead_code)]
 pub struct CalculatorTool;
 
 #[async_trait::async_trait]

@@ -399,6 +399,7 @@ fn validate_agent_exists(
 }
 
 /// Expanded keyword matching with synonyms (#7)
+#[allow(dead_code)]
 fn match_capability(task: &str, capabilities: &[String]) -> bool {
     let task_lower = task.to_lowercase();
     for cap in capabilities {
@@ -415,6 +416,7 @@ fn match_capability(task: &str, capabilities: &[String]) -> bool {
     false
 }
 
+#[allow(dead_code)]
 fn expand_keywords(cap: &str) -> Vec<String> {
     match cap.to_lowercase().as_str() {
         "数据分析" => vec![
@@ -450,38 +452,28 @@ fn resolve_auto_agent(task: &str, config: &crate::config::Config) -> Result<Stri
         ));
     }
 
+    let agents: Vec<crate::config::ResolvedAgentConfig> = config
+        .agents
+        .keys()
+        .map(|id| config.agent_config(id))
+        .collect();
     let sub_agents: Vec<crate::config::ResolvedAgentConfig> = config
         .sub_agents
         .keys()
         .map(|id| config.agent_config(id))
         .collect();
 
-    for agent in &sub_agents {
-        if match_capability(task, &agent.capabilities) {
-            tracing::info!(
-                agent_id = %agent.agent_id,
-                capabilities = ?agent.capabilities,
-                "自动路由匹配子智能体"
-            );
-            return Ok(agent.agent_id.clone());
-        }
+    let router = crate::router::TaskRouter::new(agents, sub_agents);
+    if let Some((agent_id, _is_sub)) = router.select_agent(task, "default", "default") {
+        tracing::info!(
+            agent_id = %agent_id,
+            "自动路由匹配智能体 (via TaskRouter)"
+        );
+        return Ok(agent_id.to_string());
     }
 
-    let agents: Vec<crate::config::ResolvedAgentConfig> = config
-        .agents
-        .keys()
-        .filter(|id| id.as_str() != "default")
-        .map(|id| config.agent_config(id))
-        .collect();
-
-    for agent in &agents {
-        if match_capability(task, &agent.capabilities) {
-            return Ok(agent.agent_id.clone());
-        }
-    }
-
-    if let Some(first) = sub_agents.first() {
-        return Ok(first.agent_id.clone());
+    if let Some(first) = config.sub_agents.keys().next() {
+        return Ok(first.clone());
     }
 
     Err(ClawError::NotFound(
