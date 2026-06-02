@@ -356,19 +356,23 @@ impl<'a> KeyEventHandler<'a> {
         match key.code {
             KeyCode::Esc if self.app.overlay.current == Some(Overlay::Feedback) => {
                 self.app.overlay.close();
+                self.app.mark_overlay_dirty();
                 return true;
             }
             KeyCode::Char('y') if self.app.overlay.current == Some(Overlay::Feedback) => {
                 self.handle_submit_feedback(true);
+                self.app.mark_overlay_dirty();
                 return true;
             }
             KeyCode::Char('n') if self.app.overlay.current == Some(Overlay::Feedback) => {
                 self.handle_submit_feedback(false);
+                self.app.mark_overlay_dirty();
                 return true;
             }
             KeyCode::Esc | KeyCode::Char('q') if self.app.overlay.selection_mode => {
                 self.app.overlay.selection_mode = false;
                 self.app.overlay.selected_message = None;
+                self.app.mark_overlay_dirty();
                 return true;
             }
             KeyCode::Esc => match self.app.overlay.current {
@@ -391,6 +395,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             _ => {}
         }
+        self.app.mark_overlay_dirty();
         false
     }
 
@@ -405,6 +410,7 @@ impl<'a> KeyEventHandler<'a> {
             KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.app.overlay.selection_mode = false;
                 self.app.overlay.selected_message = None;
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.handle_delete_selected_message();
@@ -416,6 +422,7 @@ impl<'a> KeyEventHandler<'a> {
                 {
                     self.app.overlay.selected_message = Some(idx - 1);
                 }
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Down => {
                 if let Some(idx) = self.app.overlay.selected_message
@@ -423,6 +430,7 @@ impl<'a> KeyEventHandler<'a> {
                 {
                     self.app.overlay.selected_message = Some(idx + 1);
                 }
+                self.app.mark_overlay_dirty();
             }
             KeyCode::Char(' ') => {
                 if let Some(idx) = self.app.overlay.selected_message {
@@ -890,6 +898,7 @@ impl<'a> KeyEventHandler<'a> {
         self.app_core.session_mgr.create_session();
         self.app.reset_for_new_session();
         self.app.overlay.close();
+        self.app.mark_dirty();
         Action::Continue
     }
 
