@@ -1,47 +1,6 @@
-var api = require('../../utils/api.js')
-var app = getApp()
-
-function genId() {
-  return 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 10000)
-}
-
-function toSingleLine(text) {
-  if (!text) return ''
-  return String(text).replace(/\s+/g, ' ').trim()
-}
-
-function smartTruncate(text, maxLen) {
-  if (!text || text.length <= maxLen) return text || ''
-  return text.substring(0, maxLen) + '…'
-}
-
-function formatJson(text) {
-  if (!text) return ''
-  var str = typeof text === 'string' ? text : String(text)
-  try {
-    var obj = JSON.parse(str)
-    if (typeof obj === 'object' && obj !== null) {
-      return JSON.stringify(obj, null, 2)
-    }
-  } catch (e) {
-    // Not valid JSON, try simple formatting
-  }
-  // If contains JSON-like structures but invalid, add line breaks
-  if (str.length > 80 && (str.indexOf('"') !== -1 || str.indexOf(',') !== -1)) {
-    return str
-      .replace(/([{,])/g, '$1\n  ')
-      .replace(/(":\s*)/g, '$1')
-      .replace(/^\s+/gm, '  ')
-  }
-  return str
-}
-
-function charCount(text) {
-  if (!text || text.length === 0) return ''
-  var count = text.length
-  if (count < 1000) return count + 'c'
-  return Math.floor(count / 1000) + 'k'
-}
+const api = require('../../utils/api.js')
+const helper = require('../../utils/page-helper.js')
+const app = getApp()
 
 Page({
   data: {
@@ -64,31 +23,20 @@ Page({
     streamTask: null
   },
 
-  onLoad: function() {
-    this.lastServerUrl = app.globalData.serverUrl || ''
-    this.lastAuthToken = app.globalData.authToken || ''
+  onLoad: function () {
+    helper.bindServerWatcher(this, function () { this.onServerChanged() })
     this.checkConnection()
     this.loadAgents()
     this.loadOrCreateSession()
   },
 
-  onShow: function() {
+  onShow: function () {
     this.checkServerChanged()
     this.checkConnection()
     this.loadAgents()
   },
 
-  checkServerChanged: function() {
-    var curUrl = app.globalData.serverUrl || ''
-    var curToken = app.globalData.authToken || ''
-    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
-      this.lastServerUrl = curUrl
-      this.lastAuthToken = curToken
-      this.onServerChanged()
-    }
-  },
-
-  onServerChanged: function() {
+  onServerChanged: function () {
     if (this.data.streamTask) {
       try { this.data.streamTask.abort() } catch (e) {}
     }
@@ -106,39 +54,39 @@ Page({
     this.loadAgents()
   },
 
-  onUnload: function() {
+  onUnload: function () {
     if (this.data.streamTask) {
       this.data.streamTask.abort()
     }
   },
 
-  checkConnection: function() {
-    var that = this
-    var serverUrl = app.globalData.serverUrl
+  checkConnection: function () {
+    const that = this
+    const serverUrl = app.globalData.serverUrl
     if (!serverUrl) {
       that.setData({ isConnected: false, noServer: true })
       return
     }
     that.setData({ noServer: false })
-    api.healthCheck().then(function(res) {
+    api.healthCheck().then(function (res) {
       that.setData({ isConnected: !!(res && res.success) })
     })
   },
 
-  loadAgents: function() {
-    var that = this
-    api.listAgents().then(function(res) {
+  loadAgents: function () {
+    const that = this
+    api.listAgents().then(function (res) {
       if (res.success && res.data) {
         that.setData({ agents: res.data })
       }
-    }).catch(function() {})
+    }).catch(function () {})
   },
 
-  loadOrCreateSession: function() {
-    var that = this
-    var savedSessionId = app.globalData.sessionId
+  loadOrCreateSession: function () {
+    const that = this
+    const savedSessionId = app.globalData.sessionId
     if (savedSessionId) {
-      api.getSession(savedSessionId).then(function(res) {
+      api.getSession(savedSessionId).then(function (res) {
         if (res.success && res.data) {
           that.setData({
             sessionId: res.data.id,
@@ -148,12 +96,12 @@ Page({
           return
         }
         that.createNewSession()
-      }).catch(function() {
+      }).catch(function () {
         that.createNewSession()
       })
       return
     }
-    api.getCurrentSession().then(function(res) {
+    api.getCurrentSession().then(function (res) {
       if (res.success && res.data && res.data.id) {
         that.setData({
           sessionId: res.data.id,
@@ -163,72 +111,65 @@ Page({
       } else {
         that.createNewSession()
       }
-    }).catch(function() {
+    }).catch(function () {
       that.createNewSession()
     })
   },
 
-  loadMessages: function(session) {
+  loadMessages: function (session) {
     if (!session.messages || session.messages.length === 0) {
       this.setData({ messages: [] })
       return
     }
-    var raw = session.messages
-    var msgs = []
-    for (var i = 0; i < raw.length; i++) {
-      var m = raw[i]
+    const raw = session.messages
+    const msgs = []
+    for (let i = 0; i < raw.length; i++) {
+      const m = raw[i]
       if (m.role === 'user') {
-        msgs.push({ id: genId(), role: 'user', content: m.content || '' })
+        msgs.push({ id: helper.genId('msg'), role: 'user', content: m.content || '' })
       } else if (m.role === 'tool_call') {
-        var tArgs = m.args || ''
-        var tResult = m.result || ''
-        var tError = m.error || ''
+        const tResult = m.result || ''
+        let tError = m.error || ''
         if (m.success === false && !tError) {
           tError = tResult || '执行失败'
         }
-        if (tError) {
-          var lowerTErr = tError.toLowerCase()
-          if (lowerTErr.indexOf('"success":true') !== -1) {
-            tError = ''
-          }
+        if (tError && tError.toLowerCase().indexOf('"success":true') !== -1) {
+          tError = ''
         }
+        let displayResult = tResult
         if (!tError && tResult) {
-          var lowerTResult = tResult.toLowerCase()
-          if (lowerTResult.indexOf('error') !== -1 ||
-              lowerTResult.indexOf('failed') !== -1 ||
-              lowerTResult.indexOf('failure') !== -1 ||
-              lowerTResult.indexOf('panic') !== -1 ||
-              lowerTResult.indexOf('执行错误') !== -1) {
+          const lower = tResult.toLowerCase()
+          if (/error|failed|failure|panic|执行错误/.test(lower)) {
             tError = tResult
-            tResult = ''
+            displayResult = ''
           }
         }
-        var tStatus = m.status || (tError ? 'error' : 'done')
-        var tDisplayResult = tStatus === 'error' ? '' : formatJson(tResult)
-        var tDisplayError = tError
-        var tPreviewSource = tStatus === 'error' ? tDisplayError : tResult
-        var tPreview = tPreviewSource ? smartTruncate(toSingleLine(tPreviewSource), 40) : ''
+        const tStatus = m.status || (tError ? 'error' : 'done')
+        const showResult = tStatus === 'error' ? '' : helper.formatJson(displayResult)
+        const showError = tError
+        const previewSrc = tStatus === 'error' ? showError : displayResult
+        const preview = previewSrc ? helper.smartTruncate(helper.toSingleLine(previewSrc), 40) : ''
         msgs.push({
-          id: genId(),
+          id: helper.genId('msg'),
           role: 'tool_call',
           name: m.name || '未知工具',
-          args: formatJson(tArgs),
-          result: tDisplayResult,
-          error: tDisplayError,
+          args: helper.formatJson(m.args || ''),
+          result: showResult,
+          error: showError,
           status: tStatus,
-          preview: tPreview,
+          preview: preview,
           expanded: false
         })
       } else if (m.role === 'assistant') {
-        var content = m.content || ''
-        var reasoning = m.reasoning || ''
+        const content = m.content || ''
+        const reasoning = m.reasoning || ''
         if (content || reasoning) {
           msgs.push({
-            id: genId(),
+            id: helper.genId('msg'),
             role: 'assistant',
             content: content,
             reasoning: reasoning,
-            reasoningCount: charCount(reasoning),
+            reasoningCount: helper.charCount(reasoning),
             reasoningExpanded: false
           })
         }
@@ -238,48 +179,44 @@ Page({
     this.scrollToBottom()
   },
 
-  createNewSession: function() {
-    var that = this
-    var agentId = app.globalData.currentAgent || 'default'
-    api.createSession(agentId).then(function(res) {
+  createNewSession: function () {
+    const that = this
+    const agentId = app.globalData.currentAgent || 'default'
+    api.createSession(agentId).then(function (res) {
       if (res.success && res.data) {
-        var sid = res.data.session_id || res.data.id || ''
-        that.setData({
-          sessionId: sid,
-          sessionTitle: '',
-          messages: []
-        })
+        const sid = res.data.session_id || res.data.id || ''
+        that.setData({ sessionId: sid, sessionTitle: '', messages: [] })
         app.globalData.sessionId = sid
       }
-    }).catch(function() {
+    }).catch(function () {
       wx.showToast({ title: '创建会话失败', icon: 'none' })
     })
   },
 
-  onInput: function(e) {
+  onInput: function (e) {
     this.setData({ inputText: e.detail.value })
   },
 
-  onInputFocus: function() {
+  onInputFocus: function () {
     this.setData({ inputFocused: true })
     this.onCloseMenu()
   },
 
-  onInputBlur: function() {
+  onInputBlur: function () {
     this.setData({ inputFocused: false })
   },
 
-  onSend: function() {
-    var text = this.data.inputText.trim()
+  onSend: function () {
+    const text = this.data.inputText.trim()
     if (!text || this.data.loading) return
-
-    var userMsg = {
-      id: genId(),
-      role: 'user',
-      content: text
+    if (!app.globalData.serverUrl) {
+      wx.showToast({ title: '请先配置服务器', icon: 'none' })
+      this.onGoSettings()
+      return
     }
 
-    var messages = this.data.messages.concat([userMsg])
+    const userMsg = { id: helper.genId('msg'), role: 'user', content: text }
+    const messages = this.data.messages.concat([userMsg])
     this.setData({
       messages: messages,
       inputText: '',
@@ -291,11 +228,11 @@ Page({
     })
     this.scrollToBottom()
 
-    var that = this
-    var agentId = app.globalData.currentAgent || 'default'
-    api.sendMessage(text, agentId).then(function(res) {
+    const that = this
+    const agentId = app.globalData.currentAgent || 'default'
+    api.sendMessage(text, agentId).then(function (res) {
       if (res.success && res.data) {
-        var sid = res.data.session_id || that.data.sessionId
+        const sid = res.data.session_id || that.data.sessionId
         if (!that.data.sessionId && sid) {
           that.setData({ sessionId: sid })
           app.globalData.sessionId = sid
@@ -303,96 +240,87 @@ Page({
         that.startStreaming(sid)
       } else {
         that.setData({ loading: false })
-        wx.showToast({ title: '发送失败', icon: 'none' })
+        wx.showToast({ title: (res && res.error) || '发送失败', icon: 'none' })
       }
-    }).catch(function(err) {
+    }).catch(function () {
       that.setData({ loading: false })
       wx.showToast({ title: '网络错误', icon: 'none' })
     })
   },
 
-  startStreaming: function(sessionId) {
-    var that = this
+  startStreaming: function (sessionId) {
+    const that = this
+    if (!sessionId) {
+      that.setData({ loading: false })
+      wx.showToast({ title: '会话无效', icon: 'none' })
+      return
+    }
 
-    var streamTask = api.streamChat(sessionId, {
-      onToken: function(token) {
-        that.setData({
-          streamingContent: that.data.streamingContent + token
-        })
-        that.scrollToBottom()
+    const flushContent = helper.throttle(function (val) {
+      that.setData({ streamingContent: val })
+      that.scrollToBottom()
+    }, 60)
+    const flushReasoning = helper.throttle(function (val) {
+      that.setData({ streamingReasoning: val })
+      that.scrollToBottom()
+    }, 100)
+
+    const streamTask = api.streamChat(sessionId, {
+      onToken: function (token) {
+        flushContent(that.data.streamingContent + token)
       },
-
-      onReasoning: function(text) {
-        that.setData({
-          streamingReasoning: that.data.streamingReasoning + text
-        })
-        that.scrollToBottom()
+      onReasoning: function (text) {
+        flushReasoning(that.data.streamingReasoning + text)
       },
-
-      onStatus: function(status) {},
-
-      onError: function(err) {
+      onStatus: function () {},
+      onError: function (err) {
         that.commitStreamMessage()
         that.setData({ loading: false, renderTick: 0 })
-        wx.showToast({ title: '流式错误', icon: 'none' })
+        wx.showToast({ title: (err && err.error) || '流式错误', icon: 'none' })
       },
-
-      onDone: function(usage) {
+      onDone: function () {
         that.commitStreamMessage()
         that.setData({ loading: false, renderTick: 0 })
       },
-
-      onNewRound: function() {
+      onNewRound: function () {
         that.commitStreamMessage()
       },
-
-      onToolExecuted: function(toolInfo) {
-        var resultStr = toolInfo.result || ''
-        var argsStr = toolInfo.arguments || toolInfo.args || ''
-        var errorStr = toolInfo.error || ''
-        var successFlag = toolInfo.success
-        if (successFlag === false && !errorStr) {
+      onToolExecuted: function (toolInfo) {
+        const resultStr = toolInfo.result || ''
+        const argsStr = toolInfo.arguments || toolInfo.args || ''
+        let errorStr = toolInfo.error || ''
+        if (toolInfo.success === false && !errorStr) {
           errorStr = resultStr || '执行失败'
         }
-        if (errorStr) {
-          var lowerErr = errorStr.toLowerCase()
-          if (lowerErr.indexOf('"success":true') !== -1) {
-            errorStr = ''
-          }
+        if (errorStr && errorStr.toLowerCase().indexOf('"success":true') !== -1) {
+          errorStr = ''
         }
+        let displayResult = resultStr
         if (!errorStr && resultStr) {
-          var lowerResult = resultStr.toLowerCase()
-          if (lowerResult.indexOf('error') !== -1 ||
-              lowerResult.indexOf('failed') !== -1 ||
-              lowerResult.indexOf('failure') !== -1 ||
-              lowerResult.indexOf('panic') !== -1 ||
-              lowerResult.indexOf('执行错误') !== -1) {
+          const lower = resultStr.toLowerCase()
+          if (/error|failed|failure|panic|执行错误/.test(lower)) {
             errorStr = resultStr
-            resultStr = ''
+            displayResult = ''
           }
         }
-        var status = errorStr ? 'error' : 'done'
-        var displayResult = status === 'error' ? '' : formatJson(resultStr)
-        var displayError = errorStr
-        var previewSource = status === 'error' ? displayError : resultStr
-        var preview = previewSource ? smartTruncate(toSingleLine(previewSource), 40) : ''
-        var toolMsg = {
-          id: genId(),
+        const status = errorStr ? 'error' : 'done'
+        const showResult = status === 'error' ? '' : helper.formatJson(displayResult)
+        const showError = errorStr
+        const previewSrc = status === 'error' ? showError : displayResult
+        const preview = previewSrc ? helper.smartTruncate(helper.toSingleLine(previewSrc), 40) : ''
+        const toolMsg = {
+          id: helper.genId('msg'),
           role: 'tool_call',
           name: toolInfo.name || '未知工具',
-          args: formatJson(argsStr),
-          result: displayResult,
-          error: displayError,
+          args: helper.formatJson(argsStr),
+          result: showResult,
+          error: showError,
           status: status,
           preview: preview,
           expanded: false
         }
-        var messages = that.data.messages.concat([toolMsg])
-        var tick = Date.now()
-        that.setData({
-          messages: messages,
-          renderTick: tick
-        })
+        const messages = that.data.messages.concat([toolMsg])
+        that.setData({ messages: messages, renderTick: Date.now() })
         that.scrollToBottom()
       }
     })
@@ -400,25 +328,25 @@ Page({
     this.setData({ streamTask: streamTask })
   },
 
-  commitStreamMessage: function() {
-    var content = this.data.streamingContent
-    var reasoning = this.data.streamingReasoning
+  commitStreamMessage: function () {
+    const content = this.data.streamingContent
+    const reasoning = this.data.streamingReasoning
 
     if (!content && !reasoning) {
       this.setData({ renderTick: 0 })
       return
     }
 
-    var aiMsg = {
-      id: genId(),
+    const aiMsg = {
+      id: helper.genId('msg'),
       role: 'assistant',
       content: content,
       reasoning: reasoning,
-      reasoningCount: charCount(reasoning),
+      reasoningCount: helper.charCount(reasoning),
       reasoningExpanded: false
     }
 
-    var messages = this.data.messages.concat([aiMsg])
+    const messages = this.data.messages.concat([aiMsg])
     this.setData({
       messages: messages,
       streamingContent: '',
@@ -428,7 +356,7 @@ Page({
     this.scrollToBottom()
   },
 
-  onNewChat: function() {
+  onNewChat: function () {
     if (this.data.streamTask) {
       this.data.streamTask.abort()
     }
@@ -443,77 +371,54 @@ Page({
     this.createNewSession()
   },
 
-  onToggleMenu: function() {
+  onToggleMenu: function () {
     this.setData({ menuOpen: !this.data.menuOpen })
   },
 
-  onCloseMenu: function() {
+  onCloseMenu: function () {
     this.setData({ menuOpen: false })
   },
 
-  onGoSessions: function() {
-    this.onCloseMenu()
-    wx.navigateTo({ url: '/pages/sessions/index' })
-  },
+  onGoSessions: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/sessions/index' }) },
+  onGoTools: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/tools/index' }) },
+  onGoSkills: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/skills/index' }) },
+  onGoPlugins: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/plugins/index' }) },
+  onGoAgents: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/agents/index' }) },
+  onGoSettings: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/settings/index' }) },
 
-  onGoTools: function() {
-    this.onCloseMenu()
-    wx.navigateTo({ url: '/pages/tools/index' })
-  },
-
-  onGoSkills: function() {
-    this.onCloseMenu()
-    wx.navigateTo({ url: '/pages/skills/index' })
-  },
-
-  onGoPlugins: function() {
-    this.onCloseMenu()
-    wx.navigateTo({ url: '/pages/plugins/index' })
-  },
-
-  onGoAgents: function() {
-    this.onCloseMenu()
-    wx.navigateTo({ url: '/pages/agents/index' })
-  },
-
-  onGoSettings: function() {
-    this.onCloseMenu()
-    wx.navigateTo({ url: '/pages/settings/index' })
-  },
-
-  onToggleReasoning: function(e) {
-    var id = e.currentTarget.dataset.id
-    var messages = this.data.messages
-    for (var i = 0; i < messages.length; i++) {
+  onToggleReasoning: function (e) {
+    const id = e.currentTarget.dataset.id
+    const messages = this.data.messages
+    for (let i = 0; i < messages.length; i++) {
       if (messages[i].id === id) {
-        var key = 'messages[' + i + '].reasoningExpanded'
+        const key = 'messages[' + i + '].reasoningExpanded'
         this.setData({ [key]: !messages[i].reasoningExpanded })
         break
       }
     }
   },
 
-  onToggleTool: function(e) {
-    var id = e.currentTarget.dataset.id
-    var messages = this.data.messages
-    for (var i = 0; i < messages.length; i++) {
+  onToggleTool: function (e) {
+    const id = e.currentTarget.dataset.id
+    const messages = this.data.messages
+    for (let i = 0; i < messages.length; i++) {
       if (messages[i].id === id) {
-        var key = 'messages[' + i + '].expanded'
+        const key = 'messages[' + i + '].expanded'
         this.setData({ [key]: !messages[i].expanded })
         break
       }
     }
   },
 
-  onSuggest: function(e) {
-    var text = e.currentTarget.dataset.text
+  onSuggest: function (e) {
+    const text = e.currentTarget.dataset.text
     this.setData({ inputText: text })
     this.onSend()
   },
 
-  scrollToBottom: function() {
-    var that = this
-    setTimeout(function() {
+  scrollToBottom: function () {
+    const that = this
+    setTimeout(function () {
       that.setData({ scrollTarget: 'msg-bottom' })
     }, 80)
   }

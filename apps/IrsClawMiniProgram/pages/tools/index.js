@@ -1,8 +1,9 @@
-var api = require('../../utils/api.js')
+const api = require('../../utils/api.js')
+const helper = require('../../utils/page-helper.js')
 
-var CATEGORIES = ['i-rs CLI', 'Search', 'Files', 'Memory', 'Vision', 'Visualization', 'Agent', 'MCP', 'Built-in']
+const CATEGORIES = ['i-rs CLI', 'Search', 'Files', 'Memory', 'Vision', 'Visualization', 'Agent', 'MCP', 'Built-in']
 
-var CAT_COLORS = {
+const CAT_COLORS = {
   'i-rs CLI': '#FF9500',
   'Search': '#007AFF',
   'Files': '#30B0C0',
@@ -14,7 +15,7 @@ var CAT_COLORS = {
   'Built-in': '#8E8E93'
 }
 
-var CAT_ICONS = {
+const CAT_ICONS = {
   'i-rs CLI': '⚡',
   'Search': '🔍',
   'Files': '📁',
@@ -27,6 +28,7 @@ var CAT_ICONS = {
 }
 
 function toolCategory(name) {
+  if (!name) return 'Built-in'
   if (name.indexOf('i_rs') === 0 || name === 'i-rs') return 'i-rs CLI'
   if (name.indexOf('search') >= 0 || name.indexOf('web') >= 0 || name.indexOf('curl') >= 0) return 'Search'
   if (name.indexOf('file') >= 0 || name.indexOf('semantic') >= 0 || name.indexOf('fs') === 0) return 'Files'
@@ -47,76 +49,66 @@ Page({
     groups: []
   },
 
-  onLoad: function() {
-    this.lastServerUrl = app.globalData.serverUrl || ''
-    this.lastAuthToken = app.globalData.authToken || ''
+  onLoad: function () {
+    helper.bindServerWatcher(this, function () { this.onServerChanged() })
     this.loadTools()
   },
 
-  onShow: function() {
+  onShow: function () {
     this.checkServerChanged()
     this.loadTools()
   },
 
-  checkServerChanged: function() {
-    var curUrl = app.globalData.serverUrl || ''
-    var curToken = app.globalData.authToken || ''
-    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
-      this.lastServerUrl = curUrl
-      this.lastAuthToken = curToken
-      this.onServerChanged()
-    }
-  },
-
-  onServerChanged: function() {
-    this.setData({ tools: [] })
+  onServerChanged: function () {
+    this.setData({ tools: [], groups: [] })
     this.loadTools()
   },
 
-  goBack: function() {
+  goBack: function () {
     wx.navigateBack()
   },
 
-  loadTools: function() {
-    var that = this
-    api.listTools().then(function(res) {
-      var tools = []
+  loadTools: function () {
+    const that = this
+    api.listTools().then(function (res) {
+      const tools = []
       if (res.success && res.data) {
-        for (var i = 0; i < res.data.length; i++) {
-          var t = res.data[i]
+        for (let i = 0; i < res.data.length; i++) {
+          const t = res.data[i]
           tools.push({
-            id: 't_' + i,
-            name: t.function && t.function.name ? t.function.name : (t.name || ''),
-            description: t.function && t.function.description ? t.function.description : (t.description || ''),
-            category: toolCategory(t.name || '')
+            id: helper.genId('t'),
+            name: (t.function && t.function.name) || t.name || '',
+            description: (t.function && t.function.description) || t.description || '',
+            category: toolCategory(t.name || (t.function && t.function.name) || '')
           })
         }
       }
       that.setData({ tools: tools, loaded: true })
       that.buildGroups()
-    }).catch(function() {
+    }).catch(function () {
       that.setData({ tools: [], loaded: true, groups: [] })
     })
   },
 
-  hexToRgba: function(hex, alpha) {
-    var r = parseInt(hex.slice(1,3), 16)
-    var g = parseInt(hex.slice(3,5), 16)
-    var b = parseInt(hex.slice(5,7), 16)
+  hexToRgba: function (hex, alpha) {
+    if (!hex || hex[0] !== '#' || hex.length !== 7) return 'rgba(0,0,0,' + (alpha || 0) + ')'
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')'
   },
 
-  buildGroups: function() {
-    var tools = this.data.tools
-    var groups = []
-    for (var ci = 0; ci < CATEGORIES.length; ci++) {
-      var cat = CATEGORIES[ci]
-      var items = []
-      for (var i = 0; i < tools.length; i++) {
+  buildGroups: function () {
+    const tools = this.data.tools
+    const groups = []
+    for (let ci = 0; ci < CATEGORIES.length; ci++) {
+      const cat = CATEGORIES[ci]
+      const items = []
+      for (let i = 0; i < tools.length; i++) {
         if (tools[i].category === cat) items.push(tools[i])
       }
       if (items.length > 0) {
-        var color = CAT_COLORS[cat]
+        const color = CAT_COLORS[cat]
         groups.push({
           name: cat,
           items: items,

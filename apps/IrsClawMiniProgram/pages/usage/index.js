@@ -1,5 +1,5 @@
-var api = require('../../utils/api.js')
-var app = getApp()
+const api = require('../../utils/api.js')
+const helper = require('../../utils/page-helper.js')
 
 Page({
   data: {
@@ -15,65 +15,44 @@ Page({
     error: null
   },
 
-  onLoad: function() {
-    this.lastServerUrl = app.globalData.serverUrl || ''
-    this.lastAuthToken = app.globalData.authToken || ''
+  onLoad: function () {
+    helper.bindServerWatcher(this, function () { this.onServerChanged() })
     this.loadStats()
   },
 
-  onShow: function() {
+  onShow: function () {
     this.checkServerChanged()
     this.loadStats()
   },
 
-  checkServerChanged: function() {
-    var curUrl = app.globalData.serverUrl || ''
-    var curToken = app.globalData.authToken || ''
-    if (this.lastServerUrl !== curUrl || this.lastAuthToken !== curToken) {
-      this.lastServerUrl = curUrl
-      this.lastAuthToken = curToken
-      this.onServerChanged()
-    }
-  },
-
-  onServerChanged: function() {
+  onServerChanged: function () {
     this.setData({ stats: null })
     this.loadStats()
   },
 
-  onPeriodChange: function(e) {
-    var period = e.currentTarget.dataset.period
+  onPeriodChange: function (e) {
+    const period = e.currentTarget.dataset.period
     this.setData({ selectedPeriod: period })
     this.loadStats(period)
   },
 
-  loadStats: function(period) {
-    var that = this
-    period = period || this.data.selectedPeriod
+  loadStats: function (period) {
+    const that = this
+    const p = period || this.data.selectedPeriod
     that.setData({ isLoading: true, error: null })
-    api.getStats(period).then(function(res) {
+    api.getStats(p).then(function (res) {
       if (res.success && res.data) {
-        that.setData({
-          stats: res.data,
-          isLoading: false
-        })
+        that.setData({ stats: res.data, isLoading: false })
       } else {
-        that.setData({ isLoading: false, error: res.error || '加载失败' })
+        that.setData({ isLoading: false, error: (res && res.error) || '加载失败' })
       }
-    }).catch(function(err) {
+    }).catch(function () {
       that.setData({ isLoading: false, error: '网络错误' })
     })
   },
 
-  formatNumber: function(n) {
-    if (!n && n !== 0) return '0'
-    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  },
+  formatNumber: helper.formatNumber,
+  formatCost: helper.formatCost,
 
-  formatCost: function(cost) {
-    if (!cost && cost !== 0) return '$0.00'
-    return '$' + cost.toFixed(4)
-  },
-
-  goBack: function() { wx.navigateBack() }
+  goBack: function () { wx.navigateBack() }
 })

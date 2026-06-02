@@ -8,14 +8,14 @@ page { background: var(--bg); }
   font-size: 22rpx;
   color: var(--green);
   padding: 4rpx 12rpx;
-  border: 1px solid var(--green);
+  border: 1rpx solid var(--green);
   border-radius: 20rpx;
 }
 
 .tip {
   text-align: center;
   padding: 24rpx;
-  color: var(--gray);
+  color: var(--text-3);
   font-size: 24rpx;
 }
 
@@ -44,7 +44,7 @@ page { background: var(--bg); }
   position: relative;
   width: 100%;
   max-height: 85vh;
-  background: var(--card-bg);
+  background: var(--surface);
   border-radius: 24rpx 24rpx 0 0;
   overflow: hidden;
   display: flex;
@@ -67,8 +67,13 @@ page { background: var(--bg); }
 
 .modal-close {
   font-size: 48rpx;
-  color: var(--gray);
+  color: var(--text-3);
   line-height: 1;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal-body {
@@ -84,7 +89,7 @@ page { background: var(--bg); }
 .form-label {
   display: block;
   font-size: 26rpx;
-  color: var(--text-secondary);
+  color: var(--text-2);
   margin-bottom: 12rpx;
 }
 
@@ -93,6 +98,7 @@ page { background: var(--bg); }
   height: 80rpx;
   padding: 0 24rpx;
   background: var(--bg);
+  border: 1rpx solid var(--border);
   border-radius: 12rpx;
   font-size: 28rpx;
   color: var(--text);
@@ -104,6 +110,7 @@ page { background: var(--bg); }
   min-height: 160rpx;
   padding: 24rpx;
   background: var(--bg);
+  border: 1rpx solid var(--border);
   border-radius: 12rpx;
   font-size: 28rpx;
   color: var(--text);
@@ -129,12 +136,12 @@ page { background: var(--bg); }
 }
 
 .btn-cancel {
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--text);
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--accent);
   color: #fff;
 }
 

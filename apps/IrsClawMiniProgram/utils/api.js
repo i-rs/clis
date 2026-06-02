@@ -1,9 +1,13 @@
+const DEFAULT_TIMEOUT = 15000
+const STREAM_TIMEOUT = 60000
+const RETRY_COUNT = 1
+
 function baseUrl() {
   try {
-    var app = getApp()
-    var url = app && app.globalData && app.globalData.serverUrl
+    const app = getApp()
+    const url = app && app.globalData && app.globalData.serverUrl
     if (!url) return null
-    return url.replace(/\/+$/, '') + '/api'
+    return String(url).replace(/\/+$/, '') + '/api'
   } catch (e) {
     return null
   }
@@ -11,8 +15,8 @@ function baseUrl() {
 
 function authHeader() {
   try {
-    var app = getApp()
-    var token = app && app.globalData && app.globalData.authToken
+    const app = getApp()
+    const token = app && app.globalData && app.globalData.authToken
     if (!token) return {}
     return { Authorization: 'Bearer ' + token }
   } catch (e) {
@@ -20,62 +24,92 @@ function authHeader() {
   }
 }
 
-function request(method, path, data) {
-  return new Promise(function(resolve, reject) {
-    var url = baseUrl()
+function describeError(err) {
+  const msg = (err && err.errMsg) || ''
+  if (!msg) return '网络请求失败'
+  if (/url/.test(msg)) return 'URL 错误: ' + msg
+  if (/timeout/.test(msg)) return '请求超时'
+  if (/fail/.test(msg)) return '连接失败,请检查服务器地址'
+  if (/abort/.test(msg)) return '请求已取消'
+  return msg
+}
+
+function request(method, path, data, options) {
+  options = options || {}
+  const timeout = options.timeout || DEFAULT_TIMEOUT
+  const silent = options.silent === true
+
+  return new Promise(function (resolve) {
+    const url = baseUrl()
     if (!url) {
-      resolve({ success: false, error: '未配置服务器，请先在设置中添加服务器', code: 'NO_SERVER' })
+      if (!silent) {
+        resolve({ success: false, error: '未配置服务器,请先在设置中添加服务器', code: 'NO_SERVER' })
+      } else {
+        resolve({ success: false, error: 'NO_SERVER' })
+      }
       return
     }
-    wx.request({
-      url: url + path,
-      method: method,
-      data: data,
-      header: Object.assign({ 'Content-Type': 'application/json' }, authHeader()),
-      success: function(res) {
-        if (res.statusCode === 401) {
-          resolve({ success: false, error: '认证失败，请检查 Auth Token', code: 'UNAUTHORIZED' })
-          return
+    const doRequest = function (attempt) {
+      wx.request({
+        url: url + path,
+        method: method,
+        data: data,
+        header: Object.assign({ 'Content-Type': 'application/json' }, authHeader()),
+        timeout: timeout,
+        success: function (res) {
+          if (res.statusCode === 401) {
+            resolve({ success: false, error: '认证失败,请检查 Auth Token', code: 'UNAUTHORIZED' })
+            return
+          }
+          if (res.statusCode === 403) {
+            resolve({ success: false, error: '没有权限', code: 'FORBIDDEN' })
+            return
+          }
+          if (res.statusCode >= 500) {
+            resolve({ success: false, error: '服务器错误 (HTTP ' + res.statusCode + ')', code: 'SERVER_ERROR' })
+            return
+          }
+          if (res.statusCode >= 400) {
+            const errMsg = (res.data && (res.data.error || res.data.message)) || ('请求失败 (HTTP ' + res.statusCode + ')')
+            resolve({ success: false, error: errMsg, code: 'CLIENT_ERROR' })
+            return
+          }
+          if (!res.data) {
+            resolve({ success: false, error: '响应数据为空', code: 'EMPTY_RESPONSE' })
+            return
+          }
+          resolve(res.data)
+        },
+        fail: function (err) {
+          const isNetworkIssue = /fail|timeout/.test((err && err.errMsg) || '')
+          if (isNetworkIssue && attempt < RETRY_COUNT) {
+            setTimeout(function () { doRequest(attempt + 1) }, 600)
+            return
+          }
+          resolve({ success: false, error: describeError(err), code: 'NETWORK_ERROR' })
         }
-        if (res.statusCode >= 500) {
-          resolve({ success: false, error: '服务器错误 (HTTP ' + res.statusCode + ')', code: 'SERVER_ERROR' })
-          return
-        }
-        if (!res.data) {
-          resolve({ success: false, error: '响应数据为空', code: 'EMPTY_RESPONSE' })
-          return
-        }
-        resolve(res.data)
-      },
-      fail: function(err) {
-        var msg = '网络请求失败'
-        if (err && err.errMsg) {
-          if (err.errMsg.indexOf('url') !== -1) msg = 'URL 错误: ' + err.errMsg
-          else if (err.errMsg.indexOf('timeout') !== -1) msg = '请求超时'
-          else if (err.errMsg.indexOf('fail') !== -1) msg = '连接失败，请检查服务器地址'
-        }
-        resolve({ success: false, error: msg, code: 'NETWORK_ERROR' })
-      }
-    })
+      })
+    }
+    doRequest(0)
   })
 }
 
 function healthCheck() {
-  var url = baseUrl()
+  const url = baseUrl()
   if (!url) return Promise.resolve({ success: false, error: '未配置服务器' })
-  return new Promise(function(resolve) {
+  return new Promise(function (resolve) {
     wx.request({
       url: url + '/health',
       method: 'GET',
       timeout: 5000,
-      success: function(res) {
+      success: function (res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve({ success: true, data: res.data })
         } else {
           resolve({ success: false, error: '服务器响应异常 (HTTP ' + res.statusCode + ')' })
         }
       },
-      fail: function() {
+      fail: function () {
         resolve({ success: false, error: '无法连接到服务器' })
       }
     })
@@ -115,17 +149,56 @@ function deleteSession(id) {
 }
 
 function postFeedback(sessionId, positive, message) {
-  var body = { positive: positive }
+  const body = { positive: !!positive }
   if (message) body.message = message
   return request('POST', '/sessions/' + encodeURIComponent(sessionId) + '/feedback', body)
 }
 
 function sendMessage(message, agentId) {
-  var body = { message: message }
+  const body = { message: message }
   if (agentId && agentId !== 'default') {
     body.agent_id = agentId
   }
   return request('POST', '/chat', body)
+}
+
+function streamChat(sessionId, handlers) {
+  handlers = handlers || {}
+  const url = baseUrl()
+  const task = { aborted: false, abort: function () { this.aborted = true } }
+
+  if (!url) {
+    if (handlers.onError) handlers.onError({ error: '未配置服务器', code: 'NO_SERVER' })
+    return task
+  }
+
+  const streamUrl = url + '/sessions/' + encodeURIComponent(sessionId) + '/stream'
+
+  wx.request({
+    url: streamUrl,
+    method: 'GET',
+    header: authHeader(),
+    enableChunked: true,
+    timeout: STREAM_TIMEOUT,
+    success: function (res) {
+      if (task.aborted) return
+      if (res.statusCode === 401) {
+        if (handlers.onError) handlers.onError({ error: '认证失败', code: 'UNAUTHORIZED' })
+        return
+      }
+      if (res.statusCode >= 400) {
+        if (handlers.onError) handlers.onError({ error: '流式请求失败 (HTTP ' + res.statusCode + ')', code: 'STREAM_ERROR' })
+        return
+      }
+      if (handlers.onDone) handlers.onDone(null)
+    },
+    fail: function (err) {
+      if (task.aborted) return
+      if (handlers.onError) handlers.onError({ error: describeError(err), code: 'NETWORK_ERROR' })
+    }
+  })
+
+  return task
 }
 
 function listTools() {
@@ -176,6 +249,7 @@ module.exports = {
   deleteSession: deleteSession,
   postFeedback: postFeedback,
   sendMessage: sendMessage,
+  streamChat: streamChat,
   listTools: listTools,
   listPlugins: listPlugins,
   listSkills: listSkills,
