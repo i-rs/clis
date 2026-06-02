@@ -259,6 +259,10 @@ impl GatewayServer {
                 std::collections::HashMap::new(),
                 http_client,
                 None,
+                None,
+                std::sync::Arc::new(std::sync::Mutex::new(
+                    crate::core::checkpoint::CheckpointStore::new(20),
+                )),
             )
             .await;
         });

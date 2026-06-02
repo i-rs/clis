@@ -29,6 +29,7 @@ struct ChatLoopInit {
     max_rounds: u32,
     tool_frequency: HashMap<String, usize>,
     plan_then_execute: bool,
+    checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 }
 
 fn prepare_loop(
@@ -40,6 +41,8 @@ fn prepare_loop(
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
     delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
+    layered_memory: Option<std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>>,
+    checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 ) -> ChatLoopInit {
     let enabled = if config.enabled_tools.is_empty() {
         None
@@ -76,7 +79,33 @@ fn prepare_loop(
     };
     let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
         .with_timeout(config.cli_timeout_secs)
-        .with_truncation(4096, 500);
+        .with_truncation(4096, 500)
+        .with_guardrails(crate::tools::guardrails::GuardrailManager::new())
+        .with_hitl_policy(
+            crate::core::hitl::HitlPolicy::new()
+                .auto_approve("i_rs")
+                .auto_approve("search")
+                .auto_approve("rag")
+                .auto_approve("web_search")
+                .auto_approve("chart")
+                .auto_approve("skill")
+                .auto_approve("progress")
+                .auto_approve("chain")
+                .auto_approve("orchestrate")
+                .require_confirm("file_ops")
+                .deny("delete")
+                .with_risk_threshold(crate::core::hitl::RiskLevel::High),
+        )
+        .with_callbacks(std::sync::Arc::new(
+            crate::core::callbacks::CallbackChain::new()
+                .with(Box::new(crate::core::callbacks::LoggingCallback::new()))
+                .with(Box::new(crate::core::callbacks::AuditLogCallback::new())),
+        ));
+    let executor = if let Some(ref lm) = layered_memory {
+        executor.with_layered_memory(std::sync::Arc::clone(lm))
+    } else {
+        executor
+    };
 
     ChatLoopInit {
         tool_schemas,
@@ -86,6 +115,7 @@ fn prepare_loop(
         max_rounds: config.max_react_rounds,
         tool_frequency,
         plan_then_execute: config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+        checkpoint_store,
     }
 }
 
@@ -277,6 +307,8 @@ pub async fn chat_loop(
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
     delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
+    layered_memory: Option<std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>>,
+    checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 ) {
     let trace_id = uuid::Uuid::new_v4().to_string();
     let mut msgs = messages;
@@ -289,11 +321,14 @@ pub async fn chat_loop(
         tool_frequency.clone(),
         http_client,
         delegate_runtime,
+        layered_memory,
+        checkpoint_store,
     );
     let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
     let mut consecutive_provider_errors: u32 = 0;
     let mut plan_steps: Vec<crate::app::PlanStep> = Vec::new();
+    let mut structured_plan: Option<crate::core::planning::StructuredPlan> = None;
     const MAX_PROVIDER_RETRIES: u32 = 2;
     const HARD_MAX_ROUNDS: u32 = 50;
 
@@ -318,6 +353,9 @@ pub async fn chat_loop(
                     consecutive_provider_errors = 0;
                 }
                 if init.plan_then_execute && round_count == 1 {
+                    if let Some(sp) = crate::core::planning::StructuredPlan::parse_from_llm_output(&text) {
+                        structured_plan = Some(sp);
+                    }
                     plan_steps = parse_plan_steps(&text);
                     if !plan_steps.is_empty() {
                         let _ = tx.send(LlmEvent::PlanProgress(plan_steps.clone()));
@@ -370,6 +408,16 @@ pub async fn chat_loop(
                 }
 
                 trace_tool_results(&results, &trace_id, round_start);
+
+                if let Ok(mut store) = init.checkpoint_store.lock() {
+                    store.save(
+                        crate::core::checkpoint::Checkpoint::new(
+                            &trace_id,
+                            round_count,
+                            msgs.clone(),
+                        ),
+                    );
+                }
 
                 let has_failures = results.iter().any(|r| r.category.is_retryable_or_fatal());
                 if has_failures {
@@ -802,6 +850,10 @@ mod tests {
             HashMap::new(),
             reqwest::Client::new(),
             None,
+            None,
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::core::checkpoint::CheckpointStore::new(20),
+            )),
         )
         .await;
 
@@ -838,6 +890,10 @@ mod tests {
             HashMap::new(),
             reqwest::Client::new(),
             None,
+            None,
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::core::checkpoint::CheckpointStore::new(20),
+            )),
         )
         .await;
 
@@ -871,6 +927,10 @@ mod tests {
             HashMap::new(),
             reqwest::Client::new(),
             None,
+            None,
+            std::sync::Arc::new(std::sync::Mutex::new(
+                crate::core::checkpoint::CheckpointStore::new(20),
+            )),
         )
         .await;
 

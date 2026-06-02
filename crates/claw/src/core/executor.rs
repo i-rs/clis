@@ -4,12 +4,16 @@
 //! that can be shared by both the TUI chat loop and the Dashboard SSE chat loop.
 //! Hardcoded truncation values are replaced with configurable parameters.
 
+use crate::core::callbacks::AgentCallbacks;
+use crate::core::layered_memory::LayeredMemory;
 use crate::error::{ErrorCategory, category_from_result};
 use crate::llm::{LlmEvent, ToolCallAcc};
+use crate::tools::guardrails::GuardrailManager;
 use crate::utils;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::sync::mpsc;
 
 pub struct ToolCallResult {
@@ -110,6 +114,10 @@ pub struct ToolCallExecutor {
     result_cache: HashMap<String, (String, std::time::Instant)>,
     cache_max_size: usize,
     cache_ttl_secs: u64,
+    guardrails: Option<GuardrailManager>,
+    callbacks: Option<Arc<dyn AgentCallbacks>>,
+    layered_memory: Option<Arc<Mutex<LayeredMemory>>>,
+    hitl_policy: Option<crate::core::hitl::HitlPolicy>,
 }
 
 impl ToolCallExecutor {
@@ -126,6 +134,10 @@ impl ToolCallExecutor {
             result_cache: HashMap::new(),
             cache_max_size: 50,
             cache_ttl_secs: 300,
+            guardrails: None,
+            callbacks: None,
+            layered_memory: None,
+            hitl_policy: None,
         }
     }
 
@@ -137,6 +149,26 @@ impl ToolCallExecutor {
     pub fn with_truncation(mut self, display: usize, context: usize) -> Self {
         self.truncate_display = display;
         self.truncate_context = context;
+        self
+    }
+
+    pub fn with_guardrails(mut self, mgr: GuardrailManager) -> Self {
+        self.guardrails = Some(mgr);
+        self
+    }
+
+    pub fn with_callbacks(mut self, cb: Arc<dyn AgentCallbacks>) -> Self {
+        self.callbacks = Some(cb);
+        self
+    }
+
+    pub fn with_layered_memory(mut self, mem: Arc<Mutex<LayeredMemory>>) -> Self {
+        self.layered_memory = Some(mem);
+        self
+    }
+
+    pub fn with_hitl_policy(mut self, policy: crate::core::hitl::HitlPolicy) -> Self {
+        self.hitl_policy = Some(policy);
         self
     }
 
@@ -178,7 +210,55 @@ impl ToolCallExecutor {
         let total = calls.len();
         let mut handles = Vec::with_capacity(total);
 
+        let mut filtered_calls: Vec<(usize, ToolCallAcc, Value)> = Vec::with_capacity(total);
+        let mut blocked_results: Vec<ToolCallResult> = Vec::new();
         for (step, (tc, args)) in calls.into_iter().enumerate() {
+            if let Some(ref guardrails) = self.guardrails {
+                let gr = guardrails.check_tool_call(&tc.name, &args).await;
+                if !gr.allowed {
+                    let reason = gr.reason.unwrap_or_default();
+                    tracing::warn!(tool = %tc.name, reason = %reason, "工具调用被护栏拦截");
+                    blocked_results.push(ToolCallResult {
+                        call: tc,
+                        args,
+                        result: format!("护栏拦截: {}", reason),
+                        context_result: format!("护栏拦截: {}", reason),
+                        validation: ToolResultValidation { valid: false, issues: vec![reason] },
+                        category: ErrorCategory::Validation,
+                    });
+                    continue;
+                }
+            }
+            if let Some(ref hitl) = self.hitl_policy {
+                let req = hitl.check(&tc.name, &args);
+                if hitl.should_deny(&req) {
+                    tracing::warn!(tool = %tc.name, "工具调用被 HITL 策略拒绝");
+                    let _ = tx.send(LlmEvent::Status(format!(
+                        "🚫 工具 {} 被安全策略拦截 (风险: {:?})",
+                        tc.name, req.risk_level
+                    )));
+                    blocked_results.push(ToolCallResult {
+                        call: tc,
+                        args,
+                        result: "操作被安全策略拒绝: 此工具被配置为禁止执行".to_string(),
+                        context_result: "操作被安全策略拒绝".to_string(),
+                        validation: ToolResultValidation { valid: false, issues: vec!["HITL 策略拒绝".to_string()] },
+                        category: ErrorCategory::Validation,
+                    });
+                    continue;
+                }
+                if !hitl.should_auto_approve(&req) && !hitl.should_deny(&req) {
+                    tracing::info!(tool = %tc.name, risk = ?req.risk_level, "高危操作需要确认 (自动批准模式)");
+                    let _ = tx.send(LlmEvent::Status(format!(
+                        "⚠️ 高危操作 {} (风险: {:?}) — 自动批准",
+                        tc.name, req.risk_level
+                    )));
+                }
+            }
+            filtered_calls.push((step, tc, args));
+        }
+
+        for (step, tc, args) in filtered_calls.into_iter() {
             let tx = tx.clone();
             let tc_name = tc.name.clone();
             let args_str = serde_json::to_string(&args).unwrap_or_default();
@@ -258,6 +338,14 @@ impl ToolCallExecutor {
                 }
             }
         }
-        all_results
+        for r in &all_results {
+            if let Some(ref mem) = self.layered_memory {
+                if let Ok(mut mem_guard) = mem.lock() {
+                    mem_guard.record_tool_result(&r.call.name, &r.result);
+                }
+            }
+        }
+        blocked_results.extend(all_results);
+        blocked_results
     }
 }

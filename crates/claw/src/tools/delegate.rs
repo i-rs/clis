@@ -173,6 +173,10 @@ impl ClawTool for DelegateTool {
                 tool_frequency,
                 http_client,
                 None,
+                None,
+                std::sync::Arc::new(std::sync::Mutex::new(
+                    crate::core::checkpoint::CheckpointStore::new(20),
+                )),
             )
             .await;
         });

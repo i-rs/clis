@@ -282,6 +282,14 @@ pub async fn chat_stream(
                             &args,
                             &result,
                         );
+                        if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
+                            crate::core::record_layered_tool_memory(
+                                &mut core.agent_store,
+                                &agent_id,
+                                &name,
+                                &result,
+                            );
+                        }
                         drop(core);
 
                         let data = serde_json::to_string(&serde_json::json!({
@@ -884,6 +892,172 @@ pub async fn serve_image(
             .body(Body::from("Image not found"))
             .expect("serve_image response builder"),
     }
+}
+
+// ── Guardrails ──
+
+pub async fn check_guardrails(
+    Json(body): Json<Value>,
+) -> Json<ApiResponse<Value>> {
+    let input = body.get("input").and_then(|v| v.as_str());
+    let output = body.get("output").and_then(|v| v.as_str());
+    let tool_name = body.get("tool_name").and_then(|v| v.as_str());
+    let tool_args = body.get("tool_args");
+
+    let mut results = Vec::new();
+
+    let mgr = crate::tools::guardrails::GuardrailManager::new();
+
+    if let Some(text) = input {
+        let r = mgr.check_input(text).await;
+        results.push(serde_json::json!({
+            "type": "input",
+            "allowed": r.allowed,
+            "reason": r.reason,
+        }));
+    }
+
+    if let Some(text) = output {
+        let r = mgr.check_output(text).await;
+        results.push(serde_json::json!({
+            "type": "output",
+            "allowed": r.allowed,
+            "reason": r.reason,
+        }));
+    }
+
+    if let (Some(name), Some(args)) = (tool_name, tool_args) {
+        let r = mgr.check_tool_call(name, args).await;
+        results.push(serde_json::json!({
+            "type": "tool_call",
+            "allowed": r.allowed,
+            "reason": r.reason,
+        }));
+    }
+
+    if results.is_empty() {
+        return ApiResponse::err("需要 input, output 或 tool_name+tool_args 参数");
+    }
+
+    let all_allowed = results.iter().all(|r| r["allowed"].as_bool().unwrap_or(false));
+    ApiResponse::ok(serde_json::json!({
+        "allowed": all_allowed,
+        "checks": results,
+    }))
+}
+
+// ── Checkpoints ──
+
+pub async fn list_checkpoints(
+    State(state): State<AppState>,
+    Query(query): Query<CheckpointQuery>,
+) -> Json<ApiResponse<Vec<Value>>> {
+    let core = state.core.read().await;
+    let checkpoints: Vec<Value> = if let Ok(store) = core.checkpoint_store.lock() {
+        store.list().iter().filter(|(id, _, _)| {
+            query
+                .session_id
+                .as_ref()
+                .map_or(true, |sid| id.starts_with(&format!("cp_{}_", sid)))
+        }).map(|(id, round, ts)| {
+            serde_json::json!({
+                "id": id,
+                "round": round,
+                "timestamp": ts,
+            })
+        }).collect()
+    } else {
+        Vec::new()
+    };
+    drop(core);
+    ApiResponse::ok(checkpoints)
+}
+
+#[derive(Deserialize)]
+pub struct CheckpointQuery {
+    pub session_id: Option<String>,
+}
+
+// ── Layered Memory ──
+
+pub async fn get_layered_memory(
+    State(state): State<AppState>,
+    Query(query): Query<MemoryQuery>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.read().await;
+    let agent_id = query.agent_id.as_deref().unwrap_or("default");
+    let layered = core.agent_store.layered_memory_for(agent_id);
+    let summary = layered.format_for_prompt();
+    let fact_count = layered.long_term.facts.len();
+    let entity_count = layered.working.entities.len();
+    drop(core);
+    ApiResponse::ok(serde_json::json!({
+        "agent_id": agent_id,
+        "summary": summary,
+        "document_count": fact_count,
+        "entity_count": entity_count,
+    }))
+}
+
+pub async fn clear_layered_memory(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Json<ApiResponse<&'static str>> {
+    let mut core = state.core.write().await;
+    let agent_id = body
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
+    let layered = core.agent_store.layered_memory_for_mut(agent_id);
+    layered.working.clear();
+    layered.long_term.facts.clear();
+    layered.summaries.clear();
+    drop(core);
+    ApiResponse::ok("cleared")
+}
+
+#[derive(Deserialize)]
+pub struct MemoryQuery {
+    pub agent_id: Option<String>,
+}
+
+// ── Evals ──
+
+pub async fn run_evals(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.read().await;
+    let suite = crate::core::evals::builtin_eval_suite();
+    let messages = if let Some(sid) = core.session_mgr.current_id() {
+        core.session_mgr.load_app_messages(&sid, 100)
+    } else {
+        Vec::new()
+    };
+    let tool_results: Vec<(String, String)> = messages
+        .iter()
+        .filter_map(|m| match m {
+            crate::app::Message::ToolCall { name, result, .. } => Some((name.clone(), result.clone())),
+            _ => None,
+        })
+        .collect();
+    drop(core);
+
+    let eval_results = suite.evaluate(&tool_results);
+    let passed = eval_results.iter().filter(|r| r.passed).count();
+    let total = eval_results.len();
+    let avg_score = if total > 0 {
+        eval_results.iter().map(|r| r.score).sum::<f64>() / total as f64
+    } else {
+        0.0
+    };
+
+    ApiResponse::ok(serde_json::json!({
+        "suite": suite.name,
+        "passed": passed,
+        "total": total,
+        "avg_score": avg_score,
+        "results": eval_results,
+    }))
 }
 
 #[cfg(test)]

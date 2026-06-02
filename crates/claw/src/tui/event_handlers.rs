@@ -142,6 +142,14 @@ impl<'a> LlmEventHandler<'a> {
             args,
             result,
         );
+        if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
+            crate::core::record_layered_tool_memory(
+                &mut self.app_core.agent_store,
+                &agent_id,
+                name,
+                result,
+            );
+        }
     }
 
     fn handle_error(&mut self, text: &str) {

@@ -1,4 +1,6 @@
 pub mod calculator;
+pub mod calculator_typed;
+pub mod chain_tool;
 pub mod chart_image;
 pub mod chart_render;
 pub mod chart_tool;
@@ -8,7 +10,10 @@ pub mod generate_image;
 pub mod guardrails;
 pub mod i_rs;
 pub mod mcp_tools;
+pub mod orchestration_tool;
+pub mod progress_tool;
 pub mod quality_judge;
+pub mod rag_tool;
 pub mod search_conversations;
 pub mod search_tools;
 pub mod skill_tool;
@@ -167,7 +172,7 @@ impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: vec![
-                Box::new(calculator::CalculatorTool),
+                Box::new(calculator_typed::CalculatorTyped::as_claw_tool()),
                 Box::new(chart_tool::ChartTool),
                 Box::new(chart_image::ChartImageTool),
                 Box::new(generate_image::GenerateImageTool),
@@ -178,7 +183,11 @@ impl ToolRegistry {
                 Box::new(user_memory::UserMemoryTool),
                 Box::new(delegate::DelegateTool),
                 Box::new(vision_tool::VisionTool),
+                Box::new(rag_tool::RagTool::new()),
                 Box::new(web_search::WebSearchTool),
+                Box::new(chain_tool::ChainTool::new()),
+                Box::new(orchestration_tool::OrchestrationTool::new()),
+                Box::new(progress_tool::ProgressTool::new()),
             ],
             excluded: std::collections::HashSet::new(),
         }

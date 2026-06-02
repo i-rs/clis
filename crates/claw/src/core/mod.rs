@@ -32,6 +32,7 @@ pub struct AgentRuntime {
     pub tool_cache: ToolDocCache,
     pub skill_store: SkillStore,
     pub mcp_registry: McpRegistry,
+    pub layered_memory: crate::core::layered_memory::LayeredMemory,
 }
 
 impl AgentRuntime {
@@ -50,6 +51,7 @@ impl AgentRuntime {
             mcp_registry: crate::mcp::McpRegistry::empty_for_test(),
             #[cfg(not(test))]
             mcp_registry: McpRegistry::for_agent(&resolved, &config.mcp_servers),
+            layered_memory: crate::core::layered_memory::LayeredMemory::new(),
         }
     }
 
@@ -150,6 +152,14 @@ impl AgentRuntimeStore {
         &mut self.get_mut(agent_id).mcp_registry
     }
 
+    pub fn layered_memory_for(&self, agent_id: &str) -> &crate::core::layered_memory::LayeredMemory {
+        &self.get(agent_id).layered_memory
+    }
+
+    pub fn layered_memory_for_mut(&mut self, agent_id: &str) -> &mut crate::core::layered_memory::LayeredMemory {
+        &mut self.get_mut(agent_id).layered_memory
+    }
+
     /// Refresh MCP registries for all agents (e.g. after plugin discovery).
     #[allow(dead_code)]
     pub fn refresh_mcp_registries(&mut self, config: &Config) {
@@ -196,6 +206,7 @@ pub struct AppCore {
     #[allow(dead_code)]
     pub storage: std::sync::Arc<crate::storage::ClawStorage>,
     pub http_client: reqwest::Client,
+    pub checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 }
 
 impl AppCore {
@@ -302,6 +313,9 @@ impl AppCore {
             stats_manager,
             storage,
             http_client: crate::providers::shared_client(),
+            checkpoint_store: std::sync::Arc::new(std::sync::Mutex::new(
+                crate::core::checkpoint::CheckpointStore::new(20),
+            )),
         })
     }
 
@@ -394,7 +408,17 @@ impl AppCore {
                 .tool_cache_for(agent_id)
                 .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
             skills: &self.agent_store.skill_store_for(agent_id).format_skills(),
-            user_memory: &memory.format_user_memory(),
+            user_memory: &{
+                let base = memory.format_user_memory();
+                let layered = self.agent_store.layered_memory_for(agent_id).format_for_prompt();
+                if base.is_empty() {
+                    layered
+                } else if layered.is_empty() {
+                    base
+                } else {
+                    format!("{}\n\n{}", base, layered)
+                }
+            },
             user_profile: &memory.format_user_profile(),
             reminder_text,
             system_prompt_override: resolved.system_prompt.as_deref(),
@@ -433,6 +457,7 @@ impl AppCore {
             self.prepare_chat_loop(agent_id);
         let delegate_rt =
             self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
+        let checkpoint_store = self.checkpoint_store.clone();
         rt.spawn(async move {
             engine::chat_loop(
                 provider,
@@ -444,6 +469,8 @@ impl AppCore {
                 tool_frequency,
                 http_client,
                 Some(delegate_rt),
+                None,
+                checkpoint_store,
             )
             .await;
         });
@@ -628,6 +655,29 @@ impl AppCore {
                 "issues": issues,
             })),
         );
+        {
+            let suite = crate::core::evals::builtin_eval_suite();
+            let eval_tool_results: Vec<(String, String)> = messages
+                .iter()
+                .filter_map(|m| match m {
+                    crate::app::Message::ToolCall { name, result, .. } => {
+                        Some((name.clone(), result.clone()))
+                    }
+                    _ => None,
+                })
+                .collect();
+            if !eval_tool_results.is_empty() {
+                let eval_results = suite.evaluate(&eval_tool_results);
+                let summary = suite.summary(&eval_results);
+                tracing::info!(
+                    suite = %suite.name,
+                    passed = summary.passed,
+                    total = summary.total_cases,
+                    avg_score = summary.avg_score,
+                    "EvalSuite 自动评估完成"
+                );
+            }
+        }
         Some(quality)
     }
 
@@ -799,6 +849,7 @@ impl AppCore {
             self.prepare_chat_loop(agent_id);
         let delegate_rt =
             self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
+        let checkpoint_store = self.checkpoint_store.clone();
         tokio::spawn(async move {
             engine::chat_loop(
                 provider,
@@ -810,6 +861,8 @@ impl AppCore {
                 tool_frequency,
                 http_client,
                 Some(delegate_rt),
+                None,
+                checkpoint_store,
             )
             .await;
         });
@@ -1010,6 +1063,16 @@ fn track_i_rs_usage(
             cache.save_hot_docs();
         }
     }
+}
+
+pub fn record_layered_tool_memory(
+    agent_store: &mut AgentRuntimeStore,
+    agent_id: &str,
+    name: &str,
+    result: &str,
+) {
+    let layered = agent_store.layered_memory_for_mut(agent_id);
+    layered.record_tool_result(name, result);
 }
 
 /// Bridge sync → async for storage initialization.

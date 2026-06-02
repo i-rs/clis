@@ -293,7 +293,7 @@ impl Parser {
     }
 }
 
-fn eval(expr: &str) -> Result<f64, String> {
+pub fn eval(expr: &str) -> Result<f64, String> {
     let mut lexer = Lexer::new(expr);
     let tokens = lexer.tokenize()?;
     if tokens.is_empty() {

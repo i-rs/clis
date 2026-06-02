@@ -104,6 +104,23 @@ impl Dashboard {
             .route("/api/images/{filename}", axum::routing::get(routes::serve_image))
             .route("/api/plugins", axum::routing::get(routes::list_plugins))
             .route("/api/skills", axum::routing::get(routes::list_skills))
+            .route(
+                "/api/guardrails/check",
+                axum::routing::post(routes::check_guardrails),
+            )
+            .route(
+                "/api/checkpoints",
+                axum::routing::get(routes::list_checkpoints),
+            )
+            .route(
+                "/api/memory/layered",
+                axum::routing::get(routes::get_layered_memory)
+                    .post(routes::clear_layered_memory),
+            )
+            .route(
+                "/api/evals",
+                axum::routing::get(routes::run_evals),
+            )
             .route("/api/stats", axum::routing::get(routes::get_stats))
             .route(
                 "/api/agents",
