@@ -148,7 +148,18 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         &mut llm_rx,
     );
 
+    // 退出前持久化当前会话的消息和 API 缓存，否则下次 --session 加载会丢失数据
+    if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
+        crate::tui::clipboard::save_session_messages(
+            &app_core.session_mgr,
+            &sid,
+            &app.messages,
+            app.api_messages.as_deref(),
+        );
+    }
+
     app_core.shutdown();
+
     // 显式 disarm：main_loop 之后由我们负责控制顺序，守卫不再做事
     _terminal_guard.disarm();
     crossterm::terminal::disable_raw_mode()?;

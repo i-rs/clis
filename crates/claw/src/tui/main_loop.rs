@@ -111,7 +111,6 @@ pub fn main_loop(
                     }
                 }
                 Event::Resize(_, _) => {
-                    app.scroll_lines = 0;
                     app.mark_dirty();
                 }
                 Event::Paste(_) => {}
