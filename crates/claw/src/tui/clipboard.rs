@@ -58,11 +58,27 @@ pub(super) fn copy_to_clipboard(text: &str) -> bool {
 }
 
 fn which_exists(cmd: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(cmd)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    use std::sync::OnceLock;
+    static WL_COPY: OnceLock<bool> = OnceLock::new();
+    static XCLIP: OnceLock<bool> = OnceLock::new();
+    let cache = match cmd {
+        "wl-copy" => &WL_COPY,
+        "xclip" => &XCLIP,
+        _ => return std::process::Command::new("which")
+            .arg(cmd)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false),
+    };
+    *cache.get_or_init(|| {
+        std::process::Command::new("which")
+            .arg(cmd)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    })
 }

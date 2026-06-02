@@ -141,6 +141,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
             idx,
             app.http_logs.len(),
             app.overlay.sidebar_body_scroll,
+            &mut app.overlay.sidebar_formatted_json,
         );
     }
 }

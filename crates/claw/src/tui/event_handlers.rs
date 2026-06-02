@@ -3,6 +3,7 @@ use crate::core;
 use crate::llm::{LlmEvent, TokenUsage};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use serde_json::Value;
+use std::sync::Arc;
 
 use tokio::sync::mpsc;
 
@@ -56,7 +57,8 @@ impl<'a> LlmEventHandler<'a> {
                 self.app.mark_overlay_dirty();
             }
             LlmEvent::Done(msgs, usage, _trace_id) => {
-                return self.handle_done((*msgs).clone(), usage);
+                let msgs = Arc::try_unwrap(msgs).unwrap_or_else(|arc| (*arc).clone());
+                return self.handle_done(msgs, usage);
             }
             LlmEvent::Evaluation {
                 tool,
@@ -1109,6 +1111,7 @@ impl<'a> KeyEventHandler<'a> {
         match key.code {
             KeyCode::Esc if self.app.overlay.sidebar_body_idx.is_some() => {
                 self.app.overlay.sidebar_body_idx = None;
+                self.app.overlay.sidebar_formatted_json = None;
             }
             KeyCode::Esc => {
                 self.app.overlay.close();
@@ -1128,6 +1131,7 @@ impl<'a> KeyEventHandler<'a> {
                     && !self.app.http_logs.is_empty() =>
             {
                 self.app.overlay.sidebar_body_idx = Some(self.app.overlay.sidebar_selected);
+                self.app.overlay.sidebar_formatted_json = None;
                 self.app.overlay.sidebar_body_scroll = 0;
             }
             KeyCode::Up if self.app.overlay.sidebar_body_idx.is_some() => {

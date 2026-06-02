@@ -102,15 +102,18 @@ fn compute_text_relevance(text: &str) -> f64 {
     if text.is_empty() {
         return 0.0;
     }
-    let total = text.chars().count();
-    if total == 0 {
+
+    let mut meaningful = 0usize;
+    let mut total_chars = 0usize;
+    for c in text.chars() {
+        total_chars += 1;
+        if c.is_alphanumeric() || c > '\x7f' {
+            meaningful += 1;
+        }
+    }
+    if total_chars == 0 {
         return 0.0;
     }
-
-    let meaningful_count = text
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c > '\x7f')
-        .count();
 
     static STOPWORDS: &[&str] = &[
         "的", "了", "在", "是", "我", "有", "和", "就", "不", "都", "the", "a", "an", "is", "are",
@@ -124,17 +127,17 @@ fn compute_text_relevance(text: &str) -> f64 {
         "which", "who", "whom", "how",
     ];
 
-    let stopword_count = text
-        .split_whitespace()
-        .filter(|w| {
-            let lower = w.to_lowercase();
-            STOPWORDS.iter().any(|&s| lower.contains(s)) && w.len() <= 4
-        })
-        .count();
+    let mut stopword_count = 0usize;
+    let mut total_words = 0usize;
+    for w in text.split_whitespace() {
+        total_words += 1;
+        if w.len() <= 4 && STOPWORDS.iter().any(|&s| w.eq_ignore_ascii_case(s) || w.contains(s)) {
+            stopword_count += 1;
+        }
+    }
 
-    let total_words = text.split_whitespace().count().max(1);
-    let meaningful_ratio = meaningful_count as f64 / total as f64;
-    let stopword_ratio = stopword_count as f64 / total_words as f64;
+    let meaningful_ratio = meaningful as f64 / total_chars as f64;
+    let stopword_ratio = stopword_count as f64 / total_words.max(1) as f64;
 
     (meaningful_ratio * 0.6 + (1.0 - stopword_ratio) * 0.4).min(1.0)
 }
@@ -566,6 +569,7 @@ pub struct OverlayState {
     pub sidebar_selected: usize,
     pub sidebar_body_idx: Option<usize>,
     pub sidebar_body_scroll: usize,
+    pub sidebar_formatted_json: Option<String>,
     pub agent_picker_index: usize,
     pub agent_list: Vec<String>,
     pub tool_call_expanded: HashSet<usize>,
@@ -630,6 +634,7 @@ impl OverlayState {
             sidebar_selected: 0,
             sidebar_body_idx: None,
             sidebar_body_scroll: 0,
+            sidebar_formatted_json: None,
             agent_picker_index: 0,
             agent_list,
             tool_call_expanded: HashSet::new(),

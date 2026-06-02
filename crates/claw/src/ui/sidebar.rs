@@ -355,6 +355,7 @@ pub(super) fn render_request_body(
     idx: usize,
     total: usize,
     scroll: usize,
+    cached_json: &mut Option<String>,
 ) {
     let popup_width = (area.width as f32 * 0.85) as u16;
     let popup_height = (area.height as f32 * 0.8) as u16;
@@ -362,12 +363,15 @@ pub(super) fn render_request_body(
     let popup_y = (area.height - popup_height) / 2;
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    // Pretty-print the body JSON if possible
-    let formatted = if let Ok(val) = serde_json::from_str::<serde_json::Value>(body_json) {
-        serde_json::to_string_pretty(&val).unwrap_or_else(|_| body_json.to_string())
-    } else {
-        body_json.to_string()
-    };
+    // Pretty-print the body JSON if possible (cached)
+    if cached_json.is_none() {
+        *cached_json = Some(if let Ok(val) = serde_json::from_str::<serde_json::Value>(body_json) {
+            serde_json::to_string_pretty(&val).unwrap_or_else(|_| body_json.to_string())
+        } else {
+            body_json.to_string()
+        });
+    }
+    let formatted = cached_json.as_deref().unwrap_or(body_json);
 
     let inner_w = (popup_width as usize).saturating_sub(4).max(20);
     // Visible content lines (popup height minus borders minus header)
