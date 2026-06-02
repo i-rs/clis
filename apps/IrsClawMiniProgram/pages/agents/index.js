@@ -57,9 +57,12 @@ Page({
 
   onSwitchAgent: function (e) {
     const id = e.currentTarget.dataset.id
+    if (id === app.globalData.currentAgent) return
     app.globalData.currentAgent = id
     app.saveConfig()
+    app.globalData.sessionId = null
     this.setData({ currentAgent: id })
+    app.notifyServerChanged()
     wx.showToast({ title: '已切换', icon: 'success' })
   },
 

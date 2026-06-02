@@ -155,27 +155,101 @@
   </view>
 
   <!-- Sidebar -->
-  <view class="sidebar-mask {{menuOpen ? 'sidebar-mask-show' : ''}}" bindtap="onCloseMenu"></view>
-  <view class="sidebar {{menuOpen ? 'sidebar-open' : ''}}">
+  <view class="sidebar-mask {{menuOpen ? 'sidebar-mask-show' : ''}}" bindtap="onCloseMenu" catchtouchmove="onMaskMove"></view>
+  <view class="sidebar {{menuOpen ? 'sidebar-open' : ''}} {{sidebarTouching ? 'sidebar-touching' : ''}}"
+        bindtouchstart="onSidebarTouchStart"
+        bindtouchmove="onSidebarTouchMove"
+        bindtouchend="onSidebarTouchEnd"
+        style="transform: translate3d({{menuOpen ? (sidebarOffsetX + 'rpx') : '-100%'}}, 0, 0);">
+
+    <!-- Brand Header -->
     <view class="sidebar-header">
-      <view class="sidebar-logo"><text class="sidebar-logo-text">AI</text></view>
-      <text class="sidebar-title">i-rs-claw</text>
+      <view class="sidebar-brand">
+        <view class="sidebar-logo"><text class="sidebar-logo-text">AI</text></view>
+        <view class="sidebar-brand-text">
+          <text class="sidebar-title">i-rs-claw</text>
+          <text class="sidebar-subtitle">智能助手</text>
+        </view>
+      </view>
+      <view class="sidebar-close" hover-class="sidebar-close-hover" bindtap="onCloseMenu">
+        <text class="sidebar-close-icon">×</text>
+      </view>
     </view>
-    <view class="sidebar-nav">
-      <view class="sidebar-item" bindtap="onNewChat"><text class="sidebar-item-icon">✦</text><text class="sidebar-item-text">新建会话</text></view>
-      <view class="sidebar-divider"></view>
-      <view class="sidebar-item" bindtap="onGoSessions"><text class="sidebar-item-icon">💬</text><text class="sidebar-item-text">会话历史</text></view>
-      <view class="sidebar-item" bindtap="onGoTools"><text class="sidebar-item-icon">🔧</text><text class="sidebar-item-text">工具</text></view>
-      <view class="sidebar-item" bindtap="onGoSkills"><text class="sidebar-item-icon">📖</text><text class="sidebar-item-text">技能</text></view>
-      <view class="sidebar-item" bindtap="onGoPlugins"><text class="sidebar-item-icon">🔌</text><text class="sidebar-item-text">插件</text></view>
-      <view class="sidebar-item" bindtap="onGoAgents"><text class="sidebar-item-icon">🤖</text><text class="sidebar-item-text">Agent</text></view>
-      <view class="sidebar-divider"></view>
-      <view class="sidebar-item" bindtap="onGoSettings"><text class="sidebar-item-icon">⚙️</text><text class="sidebar-item-text">设置</text></view>
+
+    <!-- Current Session Card -->
+    <view class="sidebar-session" wx:if="{{sessionId}}">
+      <view class="sidebar-session-label">当前会话</view>
+      <view class="sidebar-session-row">
+        <text class="sidebar-session-title">{{sessionTitle || '新对话'}}</text>
+        <view class="sidebar-session-tag" wx:if="{{currentAgent && currentAgent !== 'default'}}">
+          <text class="sidebar-session-tag-text">{{currentAgent}}</text>
+        </view>
+      </view>
     </view>
+
+    <!-- Nav -->
+    <scroll-view class="sidebar-nav" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="sidebar-section">
+        <text class="sidebar-section-label">快捷</text>
+        <view class="sidebar-item sidebar-item-accent" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onNewChat">
+          <view class="sidebar-item-icon-wrap sidebar-item-icon-accent">
+            <text class="sidebar-item-icon">✦</text>
+          </view>
+          <text class="sidebar-item-text">新建会话</text>
+          <text class="sidebar-item-shortcut">N</text>
+        </view>
+      </view>
+
+      <view class="sidebar-section">
+        <text class="sidebar-section-label">浏览</text>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoSessions">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">💬</text></view>
+          <text class="sidebar-item-text">会话历史</text>
+        </view>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoTools">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">🔧</text></view>
+          <text class="sidebar-item-text">工具</text>
+        </view>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoSkills">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">📖</text></view>
+          <text class="sidebar-item-text">技能</text>
+        </view>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoPlugins">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">🔌</text></view>
+          <text class="sidebar-item-text">插件</text>
+        </view>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoAgents">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">🤖</text></view>
+          <text class="sidebar-item-text">Agent</text>
+        </view>
+      </view>
+
+      <view class="sidebar-section">
+        <text class="sidebar-section-label">配置</text>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoUsage">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">📊</text></view>
+          <text class="sidebar-item-text">使用统计</text>
+        </view>
+        <view class="sidebar-item" hover-class="sidebar-item-hover" hover-stay-time="80" bindtap="onGoSettings">
+          <view class="sidebar-item-icon-wrap"><text class="sidebar-item-icon">⚙️</text></view>
+          <text class="sidebar-item-text">设置</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- Footer Status -->
     <view class="sidebar-footer">
-      <view class="sidebar-conn">
-        <view class="sidebar-conn-dot {{isConnected ? 'sidebar-conn-dot-ok' : ''}}"></view>
-        <text class="sidebar-conn-text">{{isConnected ? '已连接' : '未连接'}}</text>
+      <view class="sidebar-status">
+        <view class="sidebar-conn-row" bindtap="onGoSettings">
+          <view class="sidebar-conn-dot-wrap">
+            <view class="sidebar-conn-dot-pulse {{isConnected ? 'sidebar-conn-dot-pulse-ok' : ''}}"></view>
+            <view class="sidebar-conn-dot {{isConnected ? 'sidebar-conn-dot-ok' : ''}}"></view>
+          </view>
+          <view class="sidebar-conn-info">
+            <text class="sidebar-conn-text">{{isConnected ? '已连接' : '未连接'}}</text>
+            <text class="sidebar-conn-url">{{serverUrlDisplay}}</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>

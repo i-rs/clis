@@ -2,14 +2,24 @@ function bindServerWatcher(page, onChanged) {
   const app = getApp()
   page._lastServerUrl = app.globalData.serverUrl || ''
   page._lastAuthToken = app.globalData.authToken || ''
+  page._lastCurrentAgent = app.globalData.currentAgent || 'default'
 
   page.checkServerChanged = function () {
-    const curUrl = app.globalData.serverUrl || ''
-    const curToken = app.globalData.authToken || ''
-    if (this._lastServerUrl !== curUrl || this._lastAuthToken !== curToken) {
+    const app2 = getApp()
+    const curUrl = app2.globalData.serverUrl || ''
+    const curToken = app2.globalData.authToken || ''
+    const curAgent = app2.globalData.currentAgent || 'default'
+    if (this._lastServerUrl !== curUrl || this._lastAuthToken !== curToken || this._lastCurrentAgent !== curAgent) {
+      const serverChanged = this._lastServerUrl !== curUrl || this._lastAuthToken !== curToken
       this._lastServerUrl = curUrl
       this._lastAuthToken = curToken
-      onChanged.call(this)
+      this._lastCurrentAgent = curAgent
+      try {
+        page._configChangeKind = serverChanged ? 'server' : 'agent'
+        onChanged.call(this)
+      } finally {
+        page._configChangeKind = ''
+      }
     }
   }
 }

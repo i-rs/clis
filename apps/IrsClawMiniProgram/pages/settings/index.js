@@ -213,6 +213,7 @@ Page({
     app.globalData.serverUrl = url
     app.globalData.authToken = token
     app.saveConfig()
+    app.globalData.sessionId = null
 
     wx.removeStorageSync('claw_current_server')
     this.setData({

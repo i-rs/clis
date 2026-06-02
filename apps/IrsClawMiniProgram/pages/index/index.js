@@ -8,6 +8,9 @@ Page({
     inputText: '',
     loading: false,
     menuOpen: false,
+    sidebarOffsetX: 0,
+    sidebarTouching: false,
+    serverUrlDisplay: '',
     isConnected: false,
     noServer: false,
     currentAgent: 'default',
@@ -34,9 +37,19 @@ Page({
     this.checkServerChanged()
     this.checkConnection()
     this.loadAgents()
+    this.refreshServerUrlDisplay()
+    this.syncSessionIfChanged()
+  },
+
+  syncSessionIfChanged: function () {
+    const targetId = app.globalData.sessionId || ''
+    if (targetId && targetId !== this.data.sessionId) {
+      this.loadOrCreateSession()
+    }
   },
 
   onServerChanged: function () {
+    const kind = this._configChangeKind || 'server'
     if (this.data.streamTask) {
       try { this.data.streamTask.abort() } catch (e) {}
     }
@@ -47,11 +60,23 @@ Page({
       streamingContent: '',
       streamingReasoning: '',
       streamingToolCalls: [],
-      streamTask: null
+      streamTask: null,
+      loading: false,
+      inputText: '',
+      currentAgent: app.globalData.currentAgent || 'default'
     })
     app.globalData.sessionId = null
-    this.loadOrCreateSession()
+    this.checkConnection()
     this.loadAgents()
+    this.refreshServerUrlDisplay()
+    if (kind === 'server') {
+      this.loadOrCreateSession()
+    }
+  },
+
+  refreshServerUrlDisplay: function () {
+    const url = (app.globalData.serverUrl || '').replace(/^https?:\/\//, '').replace(/\/+$/, '')
+    this.setData({ serverUrlDisplay: url || '未配置服务器' })
   },
 
   onUnload: function () {
@@ -85,6 +110,21 @@ Page({
   loadOrCreateSession: function () {
     const that = this
     const savedSessionId = app.globalData.sessionId
+    if (savedSessionId && savedSessionId !== this.data.sessionId) {
+      if (this.data.streamTask) {
+        try { this.data.streamTask.abort() } catch (e) {}
+      }
+      this.setData({
+        messages: [],
+        sessionId: '',
+        sessionTitle: '',
+        streamingContent: '',
+        streamingReasoning: '',
+        streamingToolCalls: [],
+        streamTask: null,
+        loading: false
+      })
+    }
     if (savedSessionId) {
       api.getSession(savedSessionId).then(function (res) {
         if (res.success && res.data) {
@@ -360,6 +400,7 @@ Page({
     if (this.data.streamTask) {
       this.data.streamTask.abort()
     }
+    this.onCloseMenu()
     this.setData({
       loading: false,
       streamingContent: '',
@@ -372,11 +413,76 @@ Page({
   },
 
   onToggleMenu: function () {
-    this.setData({ menuOpen: !this.data.menuOpen })
+    const willOpen = !this.data.menuOpen
+    this.setData({
+      menuOpen: willOpen,
+      sidebarOffsetX: 0
+    })
+    if (willOpen) {
+      this.refreshServerUrlDisplay()
+    }
   },
 
   onCloseMenu: function () {
-    this.setData({ menuOpen: false })
+    if (this.data.menuOpen) {
+      try { wx.vibrateShort({ type: 'light' }) } catch (e) {}
+    }
+    this.setData({
+      menuOpen: false,
+      sidebarOffsetX: 0,
+      sidebarTouching: false
+    })
+  },
+
+  onMaskMove: function () {},
+
+  onSidebarTouchStart: function (e) {
+    if (!this.data.menuOpen) return
+    this._touchStartX = (e.touches && e.touches[0] && e.touches[0].clientX) || 0
+    this._touchStartY = (e.touches && e.touches[0] && e.touches[0].clientY) || 0
+    this._touchBaseOffset = 0
+    this.setData({ sidebarTouching: true })
+  },
+
+  onSidebarTouchMove: function (e) {
+    if (!this.data.menuOpen) return
+    if (!this._touchStartX) return
+    const t = e.touches && e.touches[0]
+    if (!t) return
+    const dx = t.clientX - this._touchStartX
+    const dy = t.clientY - this._touchStartY
+    if (Math.abs(dy) > Math.abs(dx) * 1.4) return
+    if (dx > 0) {
+      if (this._touchBaseOffset === 0) {
+        this._touchBaseOffset = -this._touchBaseOffset
+      }
+      return
+    }
+    const sidebarWidth = 300
+    const offset = Math.max(-sidebarWidth, dx)
+    this.setData({ sidebarOffsetX: offset })
+  },
+
+  onSidebarTouchEnd: function (e) {
+    if (!this.data.menuOpen) return
+    const changed = e.changedTouches && e.changedTouches[0]
+    if (!changed) {
+      this.setData({ sidebarTouching: false, sidebarOffsetX: 0 })
+      return
+    }
+    const dx = changed.clientX - this._touchStartX
+    const sidebarWidth = 300
+    if (dx < -sidebarWidth / 3 || (dx < -40 && dx <= this.data.sidebarOffsetX + 5)) {
+      this.setData({
+        menuOpen: false,
+        sidebarOffsetX: 0,
+        sidebarTouching: false
+      })
+      try { wx.vibrateShort({ type: 'light' }) } catch (e) {}
+    } else {
+      this.setData({ sidebarOffsetX: 0, sidebarTouching: false })
+    }
+    this._touchStartX = 0
   },
 
   onGoSessions: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/sessions/index' }) },
@@ -384,6 +490,7 @@ Page({
   onGoSkills: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/skills/index' }) },
   onGoPlugins: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/plugins/index' }) },
   onGoAgents: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/agents/index' }) },
+  onGoUsage: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/usage/index' }) },
   onGoSettings: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/settings/index' }) },
 
   onToggleReasoning: function (e) {
