@@ -1,6 +1,16 @@
+pub mod callbacks;
+pub mod checkpoint;
 pub mod context;
 pub mod engine;
+pub mod evals;
 pub mod executor;
+pub mod hitl;
+pub mod layered_memory;
+pub mod orchestration;
+pub mod planning;
+pub mod rag;
+pub mod streaming;
+pub mod tool_chain;
 
 use crate::app::Message;
 use crate::config::Config;

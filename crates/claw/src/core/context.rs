@@ -4,16 +4,40 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 fn estimate_tokens(text: &str) -> usize {
-    let mut cjk_count = 0usize;
-    let mut ascii_len = 0usize;
+    let mut tokens = 0usize;
+    let mut in_word = false;
+    let mut word_len = 0usize;
     for ch in text.chars() {
         if is_cjk(ch) {
-            cjk_count += 1;
+            if in_word && word_len > 0 {
+                tokens += (word_len + 3) / 4;
+                word_len = 0;
+                in_word = false;
+            }
+            tokens += 2;
+        } else if ch.is_whitespace() {
+            if in_word && word_len > 0 {
+                tokens += (word_len + 3) / 4;
+                word_len = 0;
+            }
+            in_word = false;
+            tokens += 1;
+        } else if ch.is_ascii_punctuation() {
+            if in_word && word_len > 0 {
+                tokens += (word_len + 3) / 4;
+                word_len = 0;
+            }
+            tokens += 1;
+            in_word = false;
         } else {
-            ascii_len += ch.len_utf8();
+            word_len += 1;
+            in_word = true;
         }
     }
-    cjk_count + (cjk_count / 2) + (ascii_len / 4)
+    if in_word && word_len > 0 {
+        tokens += (word_len + 3) / 4;
+    }
+    tokens.max(text.len() / 4).max(1)
 }
 
 fn is_cjk(ch: char) -> bool {

@@ -187,10 +187,16 @@ fn inject_results(
                 msgs.push(serde_json::json!({
                     "role": "system",
                     "content": format!(
-                        "工具 '{}' 连续 {} 次调用失败。请反思：\n\
-                         1. 参数是否正确？\n\
-                         2. 是否需要换一种方式完成用户请求？\n\
-                         3. 是否不需要这个工具，用其他方式回答用户？",
+                        "🔧 工具 '{}' 连续 {} 次调用失败，进入反思阶段。\n\n\
+                         请按以下步骤分析失败原因并制定替代方案：\n\
+                         1. **分析错误**：上次调用的参数是什么？错误信息暗示了什么？\n\
+                         2. **参数修正**：如果参数有误，修正后重试\n\
+                         3. **替代方案**：如果此工具确实无法完成任务：\n\
+                            - 是否有其他工具可以替代？\n\
+                            - 是否可以拆分为更简单的步骤？\n\
+                            - 是否需要向用户确认需求？\n\
+                         4. **最终兜底**：如果无法完成，请坦诚告知用户并说明原因\n\n\
+                         重要：不要无意义地重复相同的调用。",
                         r.call.name, max_retries
                     ),
                 }));
@@ -364,6 +370,18 @@ pub async fn chat_loop(
                 }
 
                 trace_tool_results(&results, &trace_id, round_start);
+
+                let has_failures = results.iter().any(|r| r.category.is_retryable_or_fatal());
+                if has_failures {
+                    msgs.push(serde_json::json!({
+                        "role": "system",
+                        "content": "⚠️ 部分工具有执行失败的记录。在继续之前，请先检查：\n\
+                         1. 是否所有工具结果都符合预期？\n\
+                         2. 失败的工具是否有替代方案？\n\
+                         3. 已成功的结果是否足够回答用户问题？\n\
+                         如果失败的工具不影响最终回答，可以忽略失败继续。"
+                    }));
+                }
 
                 init.ctx_mgr.compress(&mut msgs, &init.tool_frequency);
             }

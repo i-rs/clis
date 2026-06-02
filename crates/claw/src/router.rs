@@ -1,6 +1,5 @@
 use crate::config::ResolvedAgentConfig;
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TaskComplexity {
     Simple,
@@ -9,7 +8,6 @@ pub enum TaskComplexity {
 }
 
 /// Classify task complexity based on user input.
-#[allow(dead_code)]
 pub fn classify_complexity(task: &str) -> TaskComplexity {
     let task_lower = task.to_lowercase();
 
@@ -43,6 +41,38 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
     TaskComplexity::Simple
 }
 
+pub fn semantic_classify(task: &str, tool_index: &std::collections::HashMap<String, String>) -> TaskComplexity {
+    let task_lower = task.to_lowercase();
+    let matched_tools: Vec<&str> = tool_index
+        .keys()
+        .filter(|tool| {
+            let tool_lower = tool.to_lowercase();
+            let parts: Vec<&str> = tool_lower.split('-').collect();
+            task_lower.contains(parts.last().unwrap_or(&""))
+                || tool_index
+                    .get(*tool)
+                    .map(|desc| {
+                        let desc_lower = desc.to_lowercase();
+                        desc_lower.split_whitespace().any(|w| task_lower.contains(w))
+                    })
+                    .unwrap_or(false)
+        })
+        .map(|t| t.as_str())
+        .collect();
+    if matched_tools.len() >= 2 {
+        return TaskComplexity::Complex;
+    }
+    if matched_tools.len() == 1 {
+        let tool_name = matched_tools[0];
+        if tool_index.get(tool_name).map_or(false, |d| {
+            d.contains("统计") || d.contains("分析") || d.contains("图表")
+        }) {
+            return TaskComplexity::Heavy;
+        }
+    }
+    classify_complexity(task)
+}
+
 pub struct TaskRouter {
     agents: Vec<ResolvedAgentConfig>,
     sub_agents: Vec<ResolvedAgentConfig>,
@@ -53,7 +83,6 @@ impl TaskRouter {
         Self { agents, sub_agents }
     }
 
-    #[allow(dead_code)]
     pub fn select_agent<'a>(
         &'a self,
         task: &str,

@@ -5,6 +5,7 @@ pub mod chart_tool;
 pub mod delegate;
 pub mod file_ops;
 pub mod generate_image;
+pub mod guardrails;
 pub mod i_rs;
 pub mod mcp_tools;
 pub mod quality_judge;
@@ -101,6 +102,53 @@ pub trait ClawTool: Send + Sync {
         args: &Value,
         ctx: &ToolContext,
     ) -> Result<String, crate::error::ClawError>;
+    fn output_schema(&self) -> Option<Value> {
+        None
+    }
+}
+
+// ── Typed tool trait ──
+
+#[async_trait::async_trait]
+pub trait TypedClawTool: Send + Sync {
+    fn name(&self) -> &str;
+    fn description(&self) -> &str;
+    fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value;
+    fn output_schema(&self) -> Option<Value> {
+        None
+    }
+    async fn execute_typed(
+        &self,
+        args: &Value,
+        ctx: &ToolContext,
+    ) -> Result<Value, crate::error::ClawError>;
+}
+
+pub struct TypedToolAdapter {
+    inner: Box<dyn TypedClawTool>,
+}
+
+impl TypedToolAdapter {
+    pub fn new(tool: Box<dyn TypedClawTool>) -> Self {
+        Self { inner: tool }
+    }
+}
+
+#[async_trait::async_trait]
+impl ClawTool for TypedToolAdapter {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+    fn description(&self) -> &str {
+        self.inner.description()
+    }
+    fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value {
+        self.inner.parameter_schema(enabled_cli_tools)
+    }
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
+        let result = self.inner.execute_typed(args, ctx).await?;
+        Ok(serde_json::to_string(&result).unwrap_or_else(|e| format!("序列化错误: {}", e)))
+    }
 }
 
 // ── Tool registry ──
@@ -184,14 +232,18 @@ impl ToolRegistry {
             .iter()
             .filter(|tool| !self.excluded.contains(tool.name()))
             .map(|tool| {
-                serde_json::json!({
+                let mut schema = serde_json::json!({
                     "type": "function",
                     "function": {
                         "name": tool.name(),
                         "description": tool.description(),
                         "parameters": tool.parameter_schema(&enabled_cli),
                     }
-                })
+                });
+                if let Some(output) = tool.output_schema() {
+                    schema["function"]["output"] = output;
+                }
+                schema
             })
             .collect()
     }
