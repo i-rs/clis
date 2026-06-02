@@ -40,10 +40,20 @@ impl<'a> LlmEventHandler<'a> {
             LlmEvent::HttpLog(data) => {
                 self.handle_http_log(&data);
             }
-            LlmEvent::UsageRecord(record) => {
+            LlmEvent::UsageRecord(mut record) => {
+                if record.estimated_cost_usd == 0.0 {
+                    record.estimated_cost_usd = self.app_core.stats_manager.estimate_cost(
+                        &record.model,
+                        record.prompt_tokens,
+                        record.completion_tokens,
+                    );
+                }
+                if record.agent_id == "default" {
+                    record.agent_id = self.app.current_agent.clone();
+                }
                 self.app_core.stats_manager.record(record);
                 self.app.today_stats = self.app_core.stats_manager.today_summary();
-                self.app.mark_dirty();
+                self.app.mark_overlay_dirty();
             }
             LlmEvent::Done(msgs, usage, _trace_id) => {
                 return self.handle_done((*msgs).clone(), usage);
@@ -57,7 +67,7 @@ impl<'a> LlmEventHandler<'a> {
             }
             LlmEvent::PlanProgress(steps) => {
                 self.app.plan_steps = steps;
-                self.app.mark_dirty();
+                self.app.mark_overlay_dirty();
             }
             LlmEvent::ImageGenerated { path, alt_text, format: _, width, height } => {
                 self.app.messages.push(app::Message::Image {
@@ -536,6 +546,7 @@ impl<'a> KeyEventHandler<'a> {
                 } else {
                     self.app.overlay.show(Overlay::StatsHistory);
                     self.app.stats_history = self.app_core.stats_manager.daily_history(7);
+                    self.app.today_stats = self.app_core.stats_manager.today_summary();
                 }
             }
             (KeyCode::Char('p'), true, true) => {
@@ -746,7 +757,6 @@ impl<'a> KeyEventHandler<'a> {
                 &recent,
             );
         }
-        self.app.mark_dirty();
         Action::Continue
     }
 
@@ -917,7 +927,6 @@ impl<'a> KeyEventHandler<'a> {
         self.app_core.session_mgr.create_session();
         self.app.reset_for_new_session();
         self.app.overlay.close();
-        self.app.mark_dirty();
         Action::Continue
     }
 
@@ -1036,7 +1045,7 @@ impl<'a> KeyEventHandler<'a> {
             } else {
                 self.app.overlay.session_rename_buf.clear();
             }
-            self.app.mark_dirty();
+            self.app.mark_overlay_dirty();
             return Action::Continue;
         }
 
@@ -1083,7 +1092,7 @@ impl<'a> KeyEventHandler<'a> {
             }
         }
         self.app.overlay.close();
-        self.app.mark_dirty();
+        self.app.mark_overlay_dirty();
         Action::Continue
     }
 
@@ -1447,6 +1456,7 @@ impl<'a> KeyEventHandler<'a> {
             Some(crate::app::SlashAction::Stats) => {
                 self.app.overlay.show(Overlay::StatsHistory);
                 self.app.stats_history = self.app_core.stats_manager.daily_history(7);
+                self.app.today_stats = self.app_core.stats_manager.today_summary();
             }
             Some(crate::app::SlashAction::Plugins) => {
                 self.app.overlay.show(Overlay::PluginList);

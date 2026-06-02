@@ -107,7 +107,7 @@ pub fn main_loop(
                                 std::time::Instant::now(),
                             ));
                         }
-                        app.mark_dirty();
+                        app.mark_overlay_dirty();
                     }
                 }
                 Event::Resize(_, _) => {
