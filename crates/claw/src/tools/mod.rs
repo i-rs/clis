@@ -1,5 +1,6 @@
 pub mod calculator;
 pub mod calculator_typed;
+pub mod call_code_agent;
 pub mod chain_tool;
 pub mod chart_image;
 pub mod chart_render;
@@ -218,6 +219,7 @@ impl ToolRegistry {
                 Box::new(search_conversations::SearchConversationsTool),
                 Box::new(search_tools::SearchToolsTool),
                 Box::new(user_memory::UserMemoryTool),
+                Box::new(call_code_agent::CallCodeAgentTool),
                 Box::new(delegate::DelegateTool),
                 Box::new(vision_tool::VisionTool),
                 Box::new(rag_tool::RagTool::new()),
