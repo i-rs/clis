@@ -197,11 +197,4 @@ impl std::fmt::Debug for ClawStorage {
     }
 }
 
-impl Clone for ClawStorage {
-    fn clone(&self) -> Self {
-        // Cannot clone Box<dyn Repo> — ClawStorage is always behind Arc.
-        // This impl exists only to satisfy derive(Clone) on types that hold
-        // Option<Arc<ClawStorage>>. Never actually called.
-        unreachable!("ClawStorage is not cloneable — always shared via Arc")
-    }
-}
+

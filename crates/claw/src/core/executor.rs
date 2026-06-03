@@ -173,8 +173,10 @@ impl ToolCallExecutor {
     }
 
     fn cache_key(name: &str, args: &Value) -> String {
-        let args_hash = serde_json::to_string(args).unwrap_or_default();
-        format!("{}:{}", name, args_hash)
+        match serde_json::to_string(args) {
+            Ok(serialized) => format!("{}:{}", name, serialized),
+            Err(_) => format!("{}:__err__:{}", name, uuid::Uuid::new_v4()),
+        }
     }
 
     fn get_cached(&mut self, key: &str) -> Option<String> {
@@ -248,9 +250,10 @@ impl ToolCallExecutor {
                     continue;
                 }
                 if !hitl.should_auto_approve(&req) && !hitl.should_deny(&req) {
-                    tracing::info!(tool = %tc.name, risk = ?req.risk_level, "高危操作需要确认 (自动批准模式)");
+                    // DEV-ONLY: auto-approve during development; TODO: implement interactive confirmation before production
+                    tracing::info!(tool = %tc.name, risk = ?req.risk_level, "高危操作需要确认 — 开发阶段自动批准");
                     let _ = tx.send(LlmEvent::Status(format!(
-                        "⚠️ 高危操作 {} (风险: {:?}) — 自动批准",
+                        "⚠️ 高危操作 {} (风险: {:?}) — 自动批准 (开发模式)",
                         tc.name, req.risk_level
                     )));
                 }

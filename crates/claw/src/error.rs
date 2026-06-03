@@ -106,7 +106,7 @@ pub fn category_from_result(result: &str) -> ErrorCategory {
 /// Check if a tool result string indicates failure (backward-compatible helper).
 #[allow(dead_code)]
 pub fn is_error_result(result: &str) -> bool {
-    !category_from_result(result).is_retryable_or_fatal()
+    category_from_result(result).is_retryable_or_fatal()
 }
 
 impl ErrorCategory {

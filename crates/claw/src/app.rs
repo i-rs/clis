@@ -603,6 +603,9 @@ impl OverlayState {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.session_search.hash(&mut hasher);
         self.session_list.len().hash(&mut hasher);
+        for s in &self.session_list {
+            s.title.hash(&mut hasher);
+        }
         let hash = hasher.finish();
         if self.cached_search_hash == hash {
             if let Some(ref cached) = self.cached_filtered_sessions {

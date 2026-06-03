@@ -163,14 +163,14 @@ fn op_read(path: &Path) -> Result<String, ClawError> {
     // Truncate very large files to avoid excessive context
     let max_chars = 5000;
     let preview: String = content.chars().take(max_chars).collect();
-    let mut result = format!("📄 {} ({} 字符):\n\n", path.display(), content.len());
+    let mut result = format!("📄 {} ({} 字符):\n\n", path.display(), content.chars().count());
 
     if content.len() > max_chars {
         result.push_str(&preview);
         result.push_str(&format!(
             "\n\n... (仅显示前 {} 字符，文件共 {} 字符)",
             max_chars,
-            content.len()
+            content.chars().count()
         ));
     } else {
         result.push_str(&content);
@@ -189,7 +189,7 @@ fn op_write(path: &Path, content: &str) -> Result<String, ClawError> {
 
     // Show a preview in the response
     let preview: String = content.chars().take(200).collect();
-    let mut result = format!("✅ 已写入 {} ({} 字符)\n", path.display(), content.len());
+    let mut result = format!("✅ 已写入 {} ({} 字符)\n", path.display(), content.chars().count());
 
     if !content.is_empty() {
         result.push_str("\n预览:\n");

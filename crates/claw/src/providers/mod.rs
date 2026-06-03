@@ -22,6 +22,7 @@ pub enum ProviderKind {
     OpenAI,
     Anthropic,
     Ollama,
+    Zhipu,
 }
 
 impl ProviderKind {
@@ -30,6 +31,7 @@ impl ProviderKind {
             ProviderKind::OpenAI => "openai",
             ProviderKind::Anthropic => "anthropic",
             ProviderKind::Ollama => "ollama",
+            ProviderKind::Zhipu => "zhipu",
         }
     }
 
@@ -37,6 +39,7 @@ impl ProviderKind {
         match s.to_lowercase().as_str() {
             "anthropic" => ProviderKind::Anthropic,
             "ollama" => ProviderKind::Ollama,
+            "zhipu" => ProviderKind::Zhipu,
             other => {
                 if other != "openai" && !other.is_empty() {
                     tracing::warn!("未知 provider '{}', 回退到 OpenAI 兼容模式", other);
@@ -51,6 +54,7 @@ impl ProviderKind {
             ProviderKind::OpenAI,
             ProviderKind::Anthropic,
             ProviderKind::Ollama,
+            ProviderKind::Zhipu,
         ]
     }
 }
@@ -111,7 +115,7 @@ pub fn create_provider_for(
     model: &str,
 ) -> Box<dyn LlmProvider> {
     match ProviderKind::from_str(provider_type) {
-        ProviderKind::OpenAI => Box::new(OpenaiProvider::new(
+        ProviderKind::OpenAI | ProviderKind::Zhipu => Box::new(OpenaiProvider::new(
             client.clone(),
             api_key.to_string(),
             base_url.to_string(),
@@ -157,7 +161,6 @@ mod tests {
     #[test]
     fn test_provider_kind_from_str_unknown_defaults_to_openai() {
         assert_eq!(ProviderKind::from_str("unknown"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str("zhipu"), ProviderKind::OpenAI);
         assert_eq!(ProviderKind::from_str(""), ProviderKind::OpenAI);
     }
 
@@ -166,14 +169,22 @@ mod tests {
         assert_eq!(ProviderKind::OpenAI.as_str(), "openai");
         assert_eq!(ProviderKind::Anthropic.as_str(), "anthropic");
         assert_eq!(ProviderKind::Ollama.as_str(), "ollama");
+        assert_eq!(ProviderKind::Zhipu.as_str(), "zhipu");
     }
 
     #[test]
     fn test_provider_kind_all() {
         let all = ProviderKind::all();
-        assert_eq!(all.len(), 3);
+        assert_eq!(all.len(), 4);
         assert!(all.contains(&ProviderKind::OpenAI));
         assert!(all.contains(&ProviderKind::Anthropic));
         assert!(all.contains(&ProviderKind::Ollama));
+        assert!(all.contains(&ProviderKind::Zhipu));
+    }
+
+    #[test]
+    fn test_provider_kind_from_str_zhipu() {
+        assert_eq!(ProviderKind::from_str("zhipu"), ProviderKind::Zhipu);
+        assert_eq!(ProviderKind::from_str("Zhipu"), ProviderKind::Zhipu);
     }
 }

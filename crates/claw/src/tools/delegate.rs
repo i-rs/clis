@@ -187,6 +187,7 @@ impl ClawTool for DelegateTool {
         let mut total_input_tokens: u32 = 0;
         let mut total_output_tokens: u32 = 0;
         let mut final_model = String::new();
+        let mut usage_recorded = false;
 
         let result = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), async {
             while let Some(event) = rx.recv().await {
@@ -224,11 +225,14 @@ impl ClawTool for DelegateTool {
                         total_input_tokens += record.prompt_tokens;
                         total_output_tokens += record.completion_tokens;
                         final_model = record.model.clone();
+                        usage_recorded = true;
                     }
                     LlmEvent::Done(_, usage, _trace_id) => {
-                        if let Some(u) = usage {
-                            total_input_tokens += u.prompt_tokens;
-                            total_output_tokens += u.completion_tokens;
+                        if !usage_recorded {
+                            if let Some(u) = usage {
+                                total_input_tokens += u.prompt_tokens;
+                                total_output_tokens += u.completion_tokens;
+                            }
                         }
                         break;
                     }

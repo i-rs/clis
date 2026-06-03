@@ -482,7 +482,7 @@ pub fn run_session_list() -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
-    let session_mgr = crate::session::SessionManager::new(claw_dir().join("claw"));
+    let session_mgr = crate::session::SessionManager::new(claw_dir());
 
     let output = match format {
         "md" => session_mgr.export_markdown(session_id),

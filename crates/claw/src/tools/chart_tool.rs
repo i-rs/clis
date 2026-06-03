@@ -71,11 +71,19 @@ impl ClawTool for ChartTool {
         })
     }
 
-    async fn execute(&self, args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
+    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let tool = args
             .get("tool")
             .and_then(|v| v.as_str())
             .ok_or("缺少必要参数: tool")?;
+        if !ctx.config.i_rs_tools.is_empty()
+            && !ctx.config.i_rs_tools.iter().any(|t| t == tool)
+        {
+            return Err(ClawError::Validation(format!(
+                "未知的 i-rs 工具: '{}'",
+                tool
+            )));
+        }
         let command = args
             .get("command")
             .and_then(|v| v.as_str())

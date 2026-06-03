@@ -223,8 +223,53 @@ pub async fn send_message(
         layered.record_user_statement(&text);
     }
 
-    // Drop the lock before returning
+    // Drop the write lock before spawning LLM
     drop(core);
+
+    let (llm_tx, mut llm_rx) = mpsc::unbounded_channel::<LlmEvent>();
+    {
+        let core = state.core.read().await;
+        let records = core.session_mgr.load_messages(&sid, 50);
+        let msgs = core.build_messages_from_jsonl(&records, &agent_id);
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &records);
+    }
+
+    let bg_state = state.clone();
+    let bg_sid = sid.clone();
+    tokio::spawn(async move {
+        while let Some(event) = llm_rx.recv().await {
+            match &event {
+                LlmEvent::Done(msgs, _usage, _trace_id) => {
+                    let mut core = bg_state.core.write().await;
+                    if let Some(last) = msgs.last()
+                        && last.get("role").and_then(|r| r.as_str()) == Some("assistant")
+                    {
+                        let text = last.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                        let reasoning = last
+                            .get("reasoning_content")
+                            .and_then(|r| r.as_str())
+                            .unwrap_or("");
+                        let extra = if !reasoning.is_empty() {
+                            Some(serde_json::json!({"reasoning": reasoning}))
+                        } else {
+                            None
+                        };
+                        if !text.is_empty() || extra.is_some() {
+                            core.session_mgr.append_message("assistant", text, extra);
+                        }
+                    }
+                    crate::core::save_chat_result(&mut core.session_mgr, &bg_sid, &msgs);
+                    break;
+                }
+                LlmEvent::Error(e) => {
+                    let mut core = bg_state.core.write().await;
+                    core.session_mgr.mark_error(&bg_sid, e);
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
 
     ApiResponse::ok(serde_json::json!({
         "session_id": sid,

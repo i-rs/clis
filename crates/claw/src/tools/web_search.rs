@@ -222,15 +222,7 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
         return;
     }
 
-    // Common result field names across search APIs
-    let result_keys = [
-        "results",
-        "items",
-        "organic",
-        "organic_results",
-        "web",
-        "entries",
-    ];
+    // Check if this looks like a result item
     let title_keys = ["title", "Title", "name", "Name", "heading", "Heading"];
     let snippet_keys = [
         "snippet",
@@ -246,7 +238,6 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
         "url", "Url", "URL", "link", "Link", "href", "Href", "firstURL", "FirstURL",
     ];
 
-    // Check if this looks like a result item
     for tk in &title_keys {
         if let Some(title) = data.get(*tk).and_then(|v| v.as_str()) {
             if title.is_empty() {
@@ -288,14 +279,7 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
         }
     }
 
-    // Search for named result arrays
-    for rk in &result_keys {
-        if let Some(arr) = data.get(*rk).and_then(|v| v.as_array()) {
-            for item in arr {
-                try_extract_results(item, output, prefix, depth + 1);
-            }
-        }
-    }
+
 }
 
 fn urlencode(s: &str) -> String {

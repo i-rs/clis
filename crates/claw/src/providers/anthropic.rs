@@ -279,7 +279,7 @@ impl LlmProvider for AnthropicProvider {
 
         let mut body = serde_json::json!({
             "model": self.model,
-            "max_tokens": 8192,
+            "max_tokens": 16384,
             "stream": true,
             "messages": anthro_msgs,
         });

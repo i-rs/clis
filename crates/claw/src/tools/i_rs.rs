@@ -45,8 +45,10 @@ impl super::ClawTool for IrsTool {
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
-        // Validate tool against the whitelist of enabled i-rs CLI tools
-        if !tool.is_empty() && !ctx.config.i_rs_tools.iter().any(|t| t == tool) {
+        if tool.is_empty() {
+            return Err(ClawError::Validation("缺少必要参数: tool".to_string()));
+        }
+        if !ctx.config.i_rs_tools.iter().any(|t| t == tool) {
             return Err(ClawError::Validation(format!(
                 "未知的 i-rs 工具: '{}'，可用工具: {}",
                 tool,
