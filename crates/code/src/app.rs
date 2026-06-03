@@ -20,6 +20,12 @@ pub enum AgentMessage {
         content: String,
         #[serde(default)]
         diff: Option<String>,
+        #[serde(default)]
+        step: usize,
+        #[serde(default)]
+        total_steps: usize,
+        #[serde(default)]
+        collapsed: bool,
     },
     #[serde(rename = "system")]
     System { content: String },
@@ -111,6 +117,7 @@ pub struct App {
     pub temperature: f64,
     pub show_slash_picker: bool,
     pub slash_selected: usize,
+    pub message_generation: usize,
 }
 
 impl App {
@@ -153,6 +160,25 @@ impl App {
             temperature: 0.7,
             show_slash_picker: false,
             slash_selected: 0,
+            message_generation: 0,
+        }
+    }
+
+    pub fn push_message(&mut self, msg: AgentMessage) {
+        self.messages.push(msg);
+        self.message_generation += 1;
+        self.needs_redraw = true;
+    }
+
+    pub fn extend_messages(&mut self, msgs: impl IntoIterator<Item = AgentMessage>) {
+        let mut count = 0;
+        for m in msgs {
+            self.messages.push(m);
+            count += 1;
+        }
+        if count > 0 {
+            self.message_generation += count;
+            self.needs_redraw = true;
         }
     }
 
@@ -174,6 +200,7 @@ impl App {
 
     pub fn finish_streaming(&mut self) -> (String, String) {
         let s = self.streaming.take();
+        self.message_generation += 1;
         match s {
             Some(s) => (s.content, s.reasoning),
             None => (String::new(), String::new()),

@@ -9,6 +9,12 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
+use std::cell::RefCell;
+
+thread_local! {
+    static RENDER_CACHE: RefCell<(usize, Vec<Line<'static>>)> =
+        const { RefCell::new((0, Vec::new())) };
+}
 
 const SIDEBAR_WIDTH: u16 = 38;
 
@@ -134,23 +140,22 @@ pub fn render(frame: &mut Frame, app: &App) {
     let [chat_body, sidebar_area] =
         Layout::horizontal([Constraint::Fill(1), Constraint::Length(SIDEBAR_WIDTH)]).areas(body);
 
+    let [chat_area, input_area] =
+        Layout::vertical([Constraint::Fill(1), Constraint::Length(input_lines)])
+            .areas(chat_body);
+    render_chat(frame, chat_area, app);
+    render_input_bar(frame, input_area, app);
+
     if app.show_slash_picker {
         let picker_height = filtered_slash_commands(app).len().min(8) as u16 + 2;
-        let [chat_area, picker_area, input_area] = Layout::vertical([
-            Constraint::Fill(1),
-            Constraint::Length(picker_height),
-            Constraint::Length(input_lines),
-        ])
-        .areas(chat_body);
-        render_chat(frame, chat_area, app);
+        let picker_y = input_area.y.saturating_sub(picker_height);
+        let picker_area = Rect {
+            x: chat_area.x,
+            y: picker_y,
+            width: chat_area.width,
+            height: picker_height.min(chat_area.height.saturating_sub(1)),
+        };
         render_slash_picker(frame, picker_area, app);
-        render_input_bar(frame, input_area, app);
-    } else {
-        let [chat_area, input_area] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(input_lines)])
-                .areas(chat_body);
-        render_chat(frame, chat_area, app);
-        render_input_bar(frame, input_area, app);
     }
     crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
 
@@ -221,184 +226,26 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
-    let estimated: usize = app.messages.iter().map(|m| match m {
-        AgentMessage::User { content } | AgentMessage::System { content } => {
-            content.lines().count().max(1) + 1
+    // Cache static messages; only rebuild when message_generation changes.
+    // Streaming lines are appended separately and never cached.
+    let mut lines: Vec<Line<'static>> = RENDER_CACHE.with(|cache| {
+        let (cached_gen, cached) = &mut *cache.borrow_mut();
+        if *cached_gen != app.message_generation {
+            let new_lines = build_static_lines(app);
+            *cached_gen = app.message_generation;
+            *cached = new_lines;
         }
-        AgentMessage::Assistant { content, .. } => content.lines().count().max(1) + 2,
-        AgentMessage::ToolResult { .. } => 8,
-        AgentMessage::FileEdit { summary, .. } => summary.lines().count().max(1) + 1,
-        AgentMessage::Separator { .. } => 1,
-    }).sum::<usize>() + 40;
-    let mut lines: Vec<Line> = Vec::with_capacity(estimated);
-    let mut last_was_tool = false;
+        cached.clone()
+    });
 
-    for (msg_idx, msg) in app.messages.iter().enumerate() {
-        let is_selected = app.selected_message == Some(msg_idx);
-        let sel_prefix = if is_selected { "▶" } else { " " };
-
-        match msg {
-            AgentMessage::User { content } => {
-                last_was_tool = false;
-                lines.push(Line::from(vec![
-                    Span::styled(sel_prefix, Style::new().fg(C_ACCENT)),
-                    Span::styled("▎You", Style::new().fg(Color::Rgb(59, 130, 246)).bold()),
-                ]));
-                for line in content.lines() {
-                    lines.push(Line::from(Span::raw(format!(" {}", line))));
-                }
-            }
-            AgentMessage::Assistant {
-                content,
-                reasoning,
-                tool_calls: _,
-                reasoning_expanded,
-            } => {
-                last_was_tool = false;
-                lines.push(Line::from(vec![
-                    Span::styled(sel_prefix, Style::new().fg(C_YELLOW)),
-                    Span::styled("▎AI", Style::new().fg(C_GREEN).bold()),
-                ]));
-                if !reasoning.is_empty() {
-                    lines.push(Line::from(Span::styled(
-                        if *reasoning_expanded {
-                            strings::REASONING_VISIBLE
-                        } else {
-                            strings::REASONING_HIDDEN
-                        },
-                        Style::new().fg(C_YELLOW),
-                    )));
-                }
-                let content_lines = render_ai_content(content);
-                lines.extend(content_lines);
-            }
-            AgentMessage::ToolResult { content, diff } => {
-                let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
-                let glyph = tool_glyph(tool_name);
-                let label = if tool_name.is_empty() {
-                    "Tool"
-                } else {
-                    tool_name
-                };
-
-                let (rail_top, rail_mid) = if last_was_tool {
-                    ("│", "│")
-                } else {
-                    ("╭", "│")
-                };
-
-                lines.push(Line::from(vec![
-                    Span::styled(sel_prefix, Style::new().fg(C_YELLOW)),
-                    Span::styled(format!(" {} ", glyph), Style::new().fg(C_YELLOW)),
-                    Span::styled(label, Style::new().fg(C_YELLOW).bold()),
-                ]));
-                let tool_has_diff = is_diff_output(tool_result);
-                if !tool_result.is_empty() {
-                    let preview: String = tool_result.chars().take(1200).collect();
-                    let result_lines: Vec<&str> = preview.lines().collect();
-                    for (i, line) in result_lines.iter().enumerate().take(12) {
-                        let prefix = if i == result_lines.len().saturating_sub(1).min(11) {
-                            "╰"
-                        } else {
-                            rail_mid
-                        };
-                        if tool_has_diff {
-                            let diff_spans = render_diff_line(line);
-                            let mut spans = vec![Span::styled(
-                                format!(" {} ", prefix),
-                                Style::new().fg(Color::DarkGray),
-                            )];
-                            spans.extend(diff_spans);
-                            lines.push(Line::from(spans));
-                        } else {
-                            lines.push(Line::from(Span::styled(
-                                format!(" {} {}", prefix, line),
-                                Style::new().fg(C_TOOL_OUTPUT),
-                            )));
-                        }
-                    }
-                    if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
-                        lines.push(Line::from(Span::styled(
-                            format!(
-                                " {} … {} more bytes (Ctrl+T)",
-                                rail_top,
-                                tool_result.len().saturating_sub(preview.len())
-                            ),
-                            Style::new().fg(Color::DarkGray),
-                        )));
-                    }
-                }
-                if let Some(diff_text) = diff
-                    && !diff_text.is_empty()
-                {
-                    lines.push(Line::from(Span::styled(
-                        format!(" {} ─ diff ─", rail_mid),
-                        Style::new().fg(C_DIM),
-                    )));
-                    for line in diff_text.lines().take(12) {
-                        let diff_spans = render_diff_line(line);
-                        lines.push(Line::from(diff_spans));
-                    }
-                    if diff_text.lines().count() > 12 {
-                        lines.push(Line::from(Span::styled(
-                            format!(
-                                " {} ... +{} more lines",
-                                rail_mid,
-                                diff_text.lines().count().saturating_sub(12)
-                            ),
-                            Style::new().fg(Color::DarkGray),
-                        )));
-                    }
-                }
-                last_was_tool = true;
-            }
-            AgentMessage::FileEdit { path, summary } => {
-                last_was_tool = false;
-                lines.push(Line::from(vec![
-                    Span::styled(sel_prefix, Style::new().fg(C_FILE_EDIT)),
-                    Span::styled(format!(" ✎ {} ", path), Style::new().fg(C_FILE_EDIT).bold()),
-                ]));
-                for line in summary.lines() {
-                    let diff_spans = render_diff_line(line);
-                    lines.push(Line::from(diff_spans));
-                }
-            }
-            AgentMessage::System { content } => {
-                last_was_tool = false;
-                for line in content.lines() {
-                    if line.starts_with("──") {
-                        lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::new().fg(C_SUMMARY_GREEN).bold(),
-                        )));
-                    } else if line.starts_with("📄") || line.starts_with("🔧") {
-                        lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::new().fg(C_YELLOW),
-                        )));
-                    } else {
-                        lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::new().fg(C_DIM),
-                        )));
-                    }
-                }
-            }
-            AgentMessage::Separator { label } => {
-                last_was_tool = false;
-                let sep = if label.is_empty() {
-                    " ── done ── ".to_string()
-                } else {
-                    format!(" ── {} ── ", label)
-                };
-                lines.push(Line::from(Span::styled(sep, Style::new().fg(C_SEP))));
-            }
-        }
-        lines.push(Line::from(""));
-    }
-
-    // Streaming block
     if let Some(ref s) = app.streaming {
+        let stream_bg = C_BG_AI;
+        let stream_start = lines.len();
+
+        lines.push(Line::from(Span::styled(
+            "╌",
+            Style::new().fg(C_RAIL),
+        )));
         lines.push(Line::from(vec![Span::styled(
             "▎AI",
             Style::new().fg(C_GREEN).bold(),
@@ -408,7 +255,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             lines.push(Line::from(""));
             let glyph = tool_glyph(&tool.name);
             lines.push(Line::from(vec![Span::styled(
-                format!(" {} {} done", glyph, tool.name),
+                format!(" ✓ {} {}", glyph, tool.name),
                 Style::new().fg(C_GREEN).bold(),
             )]));
             if let Some(ref result) = tool.result {
@@ -474,7 +321,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         if !s.reasoning.is_empty() {
             let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
             let total = reasoning_lines.len();
-            // Show last 3-6 lines as live preview
             let show_count = if s.content.is_empty() {
                 6.min(total)
             } else {
@@ -506,15 +352,24 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 " ▊",
                 Style::new().fg(C_GREEN),
             )]));
-        } else if s.current_tool.is_none() && s.reasoning.is_empty() && s.tool_calls.is_empty() && s.content.is_empty() {
+        } else if s.current_tool.is_none()
+            && s.reasoning.is_empty()
+            && s.tool_calls.is_empty()
+            && s.content.is_empty()
+        {
             lines.push(Line::from(vec![Span::styled(
                 " ⏳",
                 Style::new().fg(C_DIM),
             )]));
         }
+
+        // Apply streaming background to all streaming lines
+        for line in lines.iter_mut().skip(stream_start) {
+            line.style = line.style.bg(stream_bg);
+        }
     }
 
-    // Bottom padding (prevent messages touching input bar)
+    // Bottom padding
     for _ in 0..4 {
         lines.push(Line::from(""));
     }
@@ -527,7 +382,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         app.scroll_offset.min(max_scroll)
     };
 
-    // Show "↑ N 条历史消息" at the top if scrolled away from bottom
     let hidden_msgs = app.messages.len().saturating_sub(1);
     if !app.auto_scroll && hidden_msgs > 0 {
         let mut header = vec![Line::from(Span::styled(
@@ -551,6 +405,235 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         .wrap(Wrap { trim: false })
         .scroll((scroll as u16, 0));
     frame.render_widget(paragraph, area);
+}
+
+fn msg_bg(msg: &AgentMessage) -> Color {
+    match msg {
+        AgentMessage::User { .. } => C_BG_USER,
+        AgentMessage::Assistant { .. } => C_BG_AI,
+        AgentMessage::ToolResult { .. } => C_BG_TOOL,
+        AgentMessage::System { .. } => C_BG_SYSTEM,
+        AgentMessage::FileEdit { .. } => C_BG_FILE,
+        AgentMessage::Separator { .. } => C_BG,
+    }
+}
+
+fn build_static_lines(app: &App) -> Vec<Line<'static>> {
+    let estimated: usize = app.messages.iter().map(|m| match m {
+        AgentMessage::User { content } | AgentMessage::System { content } => {
+            3 + content.lines().count().max(1) // header + top/bottom padding + content
+        }
+        AgentMessage::Assistant { content, .. } => {
+            4 + content.lines().count().max(1) // header + reasoning + top/bottom padding + content
+        }
+        AgentMessage::ToolResult { collapsed, .. } => {
+            if *collapsed { 3 } else { 10 } // header + top/bottom padding + expanded content
+        }
+        AgentMessage::FileEdit { summary, .. } => 3 + summary.lines().count().max(1),
+        AgentMessage::Separator { .. } => 1,
+    }).sum::<usize>() + 20;
+    let mut lines = Vec::with_capacity(estimated);
+
+    for (msg_idx, msg) in app.messages.iter().enumerate() {
+        let is_selected = app.selected_message == Some(msg_idx);
+        let bg = msg_bg(msg);
+
+        // Thin separator between messages (neutral bg, not part of any message block)
+        if msg_idx > 0 {
+            lines.push(Line::from(Span::styled("╌", Style::new().fg(C_RAIL))));
+        }
+
+        let line_start = lines.len();
+        lines.push(Line::from("")); // top padding for rectangle
+
+        match msg {
+            AgentMessage::User { content } => {
+                let prefix = if is_selected { "▶" } else { " " };
+                lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::new().fg(C_ACCENT)),
+                    Span::styled("▎You", Style::new().fg(Color::Rgb(59, 130, 246)).bold()),
+                ]));
+                for line in content.lines() {
+                    lines.push(Line::from(Span::raw(format!(" {}", line))));
+                }
+            }
+            AgentMessage::Assistant {
+                content,
+                reasoning,
+                tool_calls: _,
+                reasoning_expanded,
+            } => {
+                let prefix = if is_selected { "▶" } else { " " };
+                lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::new().fg(C_YELLOW)),
+                    Span::styled("▎AI", Style::new().fg(C_GREEN).bold()),
+                ]));
+                if !reasoning.is_empty() {
+                    lines.push(Line::from(Span::styled(
+                        if *reasoning_expanded {
+                            strings::REASONING_VISIBLE
+                        } else {
+                            strings::REASONING_HIDDEN
+                        },
+                        Style::new().fg(C_YELLOW),
+                    )));
+                }
+                let content_lines = render_ai_content(content);
+                lines.extend(content_lines);
+            }
+            AgentMessage::ToolResult {
+                content,
+                diff,
+                step,
+                total_steps,
+                collapsed,
+            } => {
+                let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
+                let glyph = tool_glyph(tool_name);
+                let label = if tool_name.is_empty() {
+                    "Tool".to_string()
+                } else {
+                    tool_name.to_string()
+                };
+
+                let step_str = if *total_steps > 1 {
+                    format!("[{}/{}] ", step, total_steps)
+                } else {
+                    String::new()
+                };
+
+                let prefix = if is_selected { "▶" } else { " " };
+
+                if *collapsed {
+                    lines.push(Line::from(vec![
+                        Span::styled(prefix, Style::new().fg(C_YELLOW)),
+                        Span::styled(step_str, Style::new().fg(C_DIM)),
+                        Span::styled(
+                            format!("✓ {} {} ", glyph, label),
+                            Style::new().fg(C_GREEN).bold(),
+                        ),
+                        Span::styled("(e展开)", Style::new().fg(C_DIM)),
+                    ]));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::styled(prefix, Style::new().fg(C_YELLOW)),
+                        Span::styled(step_str, Style::new().fg(C_DIM)),
+                        Span::styled(
+                            format!("{} {} ", glyph, label),
+                            Style::new().fg(C_YELLOW).bold(),
+                        ),
+                        Span::styled("(e折叠)", Style::new().fg(C_DIM)),
+                    ]));
+                    let tool_has_diff = is_diff_output(tool_result);
+                    if !tool_result.is_empty() {
+                        let preview: String = tool_result.chars().take(1200).collect();
+                        let result_lines: Vec<&str> = preview.lines().collect();
+                        for (i, line) in result_lines.iter().enumerate().take(12) {
+                            let p = if i == result_lines.len().saturating_sub(1).min(11) {
+                                "╰"
+                            } else {
+                                "│"
+                            };
+                            if tool_has_diff {
+                                let diff_spans = render_diff_line(line);
+                                let mut spans = vec![Span::styled(
+                                    format!(" {} {}", p, line),
+                                    Style::new().fg(Color::DarkGray),
+                                )];
+                                spans.extend(diff_spans);
+                                lines.push(Line::from(spans));
+                            } else {
+                                lines.push(Line::from(Span::styled(
+                                    format!(" {} {}", p, line),
+                                    Style::new().fg(C_TOOL_OUTPUT),
+                                )));
+                            }
+                        }
+                        if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
+                            lines.push(Line::from(Span::styled(
+                                format!(
+                                    " {} … {} more bytes",
+                                    "│",
+                                    tool_result.len().saturating_sub(preview.len())
+                                ),
+                                Style::new().fg(Color::DarkGray),
+                            )));
+                        }
+                    }
+                    if let Some(diff_text) = diff
+                        && !diff_text.is_empty()
+                    {
+                        lines.push(Line::from(Span::styled(
+                            " │ ─ diff ─",
+                            Style::new().fg(C_DIM),
+                        )));
+                        for diff_line in diff_text.lines().take(12) {
+                            let diff_spans = render_diff_line(diff_line);
+                            lines.push(Line::from(diff_spans));
+                        }
+                        if diff_text.lines().count() > 12 {
+                            lines.push(Line::from(Span::styled(
+                                format!(
+                                    " {} ... +{} more lines",
+                                    "│",
+                                    diff_text.lines().count().saturating_sub(12)
+                                ),
+                                Style::new().fg(Color::DarkGray),
+                            )));
+                        }
+                    }
+                }
+            }
+            AgentMessage::FileEdit { path, summary } => {
+                let prefix = if is_selected { "▶" } else { " " };
+                lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::new().fg(C_FILE_EDIT)),
+                    Span::styled(format!(" ✎ {} ", path), Style::new().fg(C_FILE_EDIT).bold()),
+                ]));
+                for diff_line in summary.lines() {
+                    let diff_spans = render_diff_line(diff_line);
+                    lines.push(Line::from(diff_spans));
+                }
+            }
+            AgentMessage::System { content } => {
+                for line in content.lines() {
+                    if line.starts_with("──") {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::new().fg(C_SUMMARY_GREEN).bold(),
+                        )));
+                    } else if line.starts_with("📄") || line.starts_with("🔧") {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::new().fg(C_YELLOW),
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", line),
+                            Style::new().fg(C_DIM),
+                        )));
+                    }
+                }
+            }
+            AgentMessage::Separator { label } => {
+                let sep = if label.is_empty() {
+                    " ── ── ".to_string()
+                } else {
+                    format!(" ── {} ── ", label)
+                };
+                lines.push(Line::from(Span::styled(sep, Style::new().fg(C_SEP))));
+            }
+        }
+
+        lines.push(Line::from("")); // bottom padding for rectangle
+
+        // Apply message-type background to all lines of this message
+        for line in lines.iter_mut().skip(line_start) {
+            line.style = Style::new().bg(bg);
+        }
+    }
+
+    lines
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
@@ -637,6 +720,9 @@ pub fn filtered_slash_commands(app: &App) -> Vec<&'static crate::tui::slash_comm
 
 fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
     let commands = filtered_slash_commands(app);
+    if commands.is_empty() {
+        return;
+    }
 
     let mut items: Vec<Line> = Vec::new();
     for (i, cmd) in commands.iter().enumerate() {
@@ -668,6 +754,7 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
         ]));
     }
 
+    frame.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(Style::new().fg(C_RAIL))
@@ -676,4 +763,36 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
 
     let paragraph = Paragraph::new(Text::from(items)).block(block);
     frame.render_widget(paragraph, area);
+}
+
+/// Find which message index contains the given virtual line number.
+/// Used by mouse click handler to toggle collapsed tool messages.
+pub fn find_message_idx(virtual_line: usize, messages: &[AgentMessage]) -> Option<usize> {
+    let mut cur = 0usize;
+    for (idx, msg) in messages.iter().enumerate() {
+        if idx > 0 {
+            cur += 1; // separator ╌
+        }
+        let msg_start = cur;
+        // Estimate total lines for this message (matches build_static_lines rectangle layout)
+        let msg_len: usize = 2 + // top + bottom padding
+            match msg {
+                AgentMessage::User { content } => 1 + content.lines().count().max(1),
+                AgentMessage::Assistant { content, reasoning, .. } => {
+                    1 + (if reasoning.is_empty() { 0 } else { 1 })
+                        + content.lines().count().max(1)
+                }
+                AgentMessage::ToolResult { collapsed, .. } => {
+                    if *collapsed { 1 } else { 6 }
+                }
+                AgentMessage::FileEdit { summary, .. } => 1 + summary.lines().count().max(1),
+                AgentMessage::System { content } => content.lines().count().max(1),
+                AgentMessage::Separator { .. } => 1,
+            };
+        cur += msg_len;
+        if virtual_line >= msg_start && virtual_line < cur {
+            return Some(idx);
+        }
+    }
+    None
 }

@@ -82,8 +82,10 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(sid) = session {
                     let sessions_dir = config::i_rs_code_dir().join("sessions");
                     if let Ok(s) = session::Session::load(sid, &sessions_dir) {
+                        let msg_count = s.messages.len();
                         app.messages = s.messages;
                         app.agent_messages = s.agent_messages;
+                        app.message_generation = msg_count;
                     }
                 }
                 tui::run(app).await?;

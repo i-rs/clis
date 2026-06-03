@@ -7,7 +7,6 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Clear, Paragraph, Wrap},
 };
-use std::path::Path;
 
 use super::utils::short_path;
 fn fmt_count(n: u32) -> String {
@@ -63,9 +62,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let content_area = chunks[0];
     let w = content_area.width.saturating_sub(2) as usize;
 
-    let mut items: Vec<Line> = Vec::with_capacity(
-        40 + app.file_changes.len().min(5) + app.plan.len().min(8),
-    );
+    let mut items: Vec<Line> = Vec::with_capacity(60 + app.file_changes.len() + app.plan.len());
 
     // Header
     items.push(section_header(
@@ -177,59 +174,46 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // File changes
     if !app.file_changes.is_empty() {
         items.push(Line::from(Span::styled(
-            "─ Files ─",
+            format!("─ Files ({}) ─", app.file_changes.len()),
             Style::default().fg(C_DIM),
         )));
-        for path in app.file_changes.iter().take(5) {
-            let fname = Path::new(path)
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| path.clone());
+        for path in app.file_changes.iter() {
+            let p = if path.len() > w {
+                format!(
+                    "..{}",
+                    &path[path.len().saturating_sub(w.saturating_sub(2))..]
+                )
+            } else {
+                path.clone()
+            };
             items.push(Line::from(Span::styled(
-                format!(" ✎ {}", fname),
+                format!(" ✎ {}", p),
                 Style::default().fg(C_FILE_EDIT),
-            )));
-        }
-        if app.file_changes.len() > 5 {
-            items.push(Line::from(Span::styled(
-                format!(" +{} more", app.file_changes.len() - 5),
-                Style::default().fg(C_DIM),
             )));
         }
         items.push(Line::from(""));
     }
 
     // LSP
-    items.push(Line::from(Span::styled(
-        "─ LSP ─",
-        Style::default().fg(C_DIM),
-    )));
     if crate::runtime::is_lsp_initialized() {
+        items.push(Line::from(Span::styled(
+            "─ LSP ─",
+            Style::default().fg(C_DIM),
+        )));
         let diag_count = crate::runtime::lsp_diagnostics();
-        let diag_label = if diag_count == 0 {
-            ("✓ clean", Color::Green)
+        if diag_count == 0 {
+            items.push(Line::from(Span::styled(
+                " ✓ clean",
+                Style::default().fg(Color::Green),
+            )));
         } else {
-            ("● errors", Color::Red)
-        };
-        items.push(Line::from(vec![
-            Span::styled(" ra ", Style::default().fg(C_LABEL)),
-            Span::styled(diag_label.0, Style::default().fg(diag_label.1)),
-            if diag_count > 0 {
-                Span::styled(
-                    format!(" ({})", diag_count),
-                    Style::default().fg(Color::Red).bold(),
-                )
-            } else {
-                Span::raw("")
-            },
-        ]));
-    } else {
-        items.push(Line::from(vec![
-            Span::styled(" ra ", Style::default().fg(C_LABEL)),
-            Span::styled("… waiting", Style::default().fg(Color::Yellow)),
-        ]));
+            items.push(Line::from(Span::styled(
+                format!(" ✗ {} errors", diag_count),
+                Style::default().fg(Color::Red).bold(),
+            )));
+        }
+        items.push(Line::from(""));
     }
-    items.push(Line::from(""));
 
     // MCP
     items.push(Line::from(Span::styled(
@@ -269,17 +253,11 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
             "─ Plan ─",
             Style::default().fg(C_DIM),
         )));
-        for step in app.plan.iter().take(8) {
+        for step in app.plan.iter() {
             let preview: String = step.chars().take(w.saturating_sub(6)).collect();
             items.push(Line::from(Span::styled(
                 format!(" {}", preview),
                 Style::default().fg(Color::Cyan),
-            )));
-        }
-        if app.plan.len() > 8 {
-            items.push(Line::from(Span::styled(
-                format!(" +{} more", app.plan.len() - 8),
-                Style::default().fg(C_DIM),
             )));
         }
         items.push(Line::from(""));
@@ -336,19 +314,27 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 
     let sidebar_max = items.len().saturating_sub(content_area.height as usize);
     let sidebar_scroll = app.sidebar_scroll.min(sidebar_max);
-    if sidebar_max > 0 {
-        let scroll_indicator = if sidebar_scroll > 0 {
-            format!(" ⇡({}/{}) Ctrl↑↓", sidebar_scroll, sidebar_max)
-        } else {
-            " Ctrl↑↓ to scroll".to_string()
-        };
-        items.push(Line::from(Span::styled(
-            scroll_indicator,
-            Style::default().fg(C_LABEL),
-        )));
-    }
     let paragraph = Paragraph::new(Text::from(items))
         .wrap(Wrap { trim: false })
         .scroll((sidebar_scroll as u16, 0));
     frame.render_widget(paragraph, content_area);
+
+    // Fixed scroll indicator at bottom
+    let indicator_area = chunks[1];
+    if sidebar_max > 0 {
+        let scroll_indicator = if sidebar_scroll > 0 {
+            format!(" ⇡({}/{})", sidebar_scroll, sidebar_max)
+        } else {
+            " scroll ↓".to_string()
+        };
+        frame.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                scroll_indicator,
+                Style::default().fg(C_LABEL),
+            ))),
+            indicator_area,
+        );
+    } else {
+        frame.render_widget(Clear, indicator_area);
+    }
 }

@@ -299,7 +299,7 @@ fn cmd_new(app: &mut App) -> Vec<AgentMessage> {
     app.status_message = None;
     app.context_usage = None;
     app.session_id = None;
-    app.messages.push(AgentMessage::Assistant {
+    app.push_message(AgentMessage::Assistant {
         content: "已开始新会话。\n\n\
              Type a message to start coding...\n\n\
              Available commands:\n  \

@@ -58,7 +58,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 
     if app.messages.is_empty() {
         let version = app.version.clone();
-        app.messages.push(AgentMessage::Assistant {
+        app.push_message(AgentMessage::Assistant {
             content: format!(
                 "Welcome to i-rs-code v{version}\n\n\
                  Type a message to start coding...\n\n\
@@ -125,11 +125,10 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                     }
                 }
                 Event::Mouse(mouse) => {
+                    let terminal_size = terminal.size().unwrap_or_default();
                     let sidebar_width = 38u16;
-                    let is_sidebar = terminal
-                        .size()
-                        .map(|s| mouse.column > s.width.saturating_sub(sidebar_width))
-                        .unwrap_or(false);
+                    let is_sidebar =
+                        mouse.column > terminal_size.width.saturating_sub(sidebar_width);
                     match mouse.kind {
                         MouseEventKind::ScrollUp => {
                             if is_sidebar {
@@ -144,6 +143,41 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                                 app.sidebar_scroll = app.sidebar_scroll.saturating_add(3);
                             } else {
                                 app.scroll_offset = app.scroll_offset.saturating_add(3);
+                            }
+                        }
+                        MouseEventKind::Down(_) => {
+                            if !is_sidebar && mouse.row > 0 {
+                                let input_lines = (app.input.content.lines().count() + 1)
+                                    .clamp(2, 8) as u16
+                                    + 2;
+                                let chat_y = 1u16;
+                                let chat_height = terminal_size
+                                    .height
+                                    .saturating_sub(1)
+                                    .saturating_sub(input_lines);
+                                if mouse.row >= chat_y
+                                    && mouse.row < chat_y + chat_height
+                                {
+                                    let vline =
+                                        (mouse.row - chat_y) as usize + app.scroll_offset;
+                                    if let Some(idx) = crate::tui::ui::find_message_idx(vline, &app.messages) {
+                                        if matches!(
+                                            app.messages[idx],
+                                            AgentMessage::ToolResult { .. }
+                                        ) {
+                                            if let AgentMessage::ToolResult {
+                                                ref mut collapsed,
+                                                ..
+                                            } = app.messages[idx]
+                                            {
+                                                *collapsed = !*collapsed;
+                                                app.message_generation += 1;
+                                            }
+                                        } else {
+                                            app.selected_message = Some(idx);
+                                        }
+                                    }
+                                }
                             }
                         }
                         _ => {}
@@ -296,7 +330,8 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                 .unwrap_or_default();
             let (content, reasoning) = app.finish_streaming();
 
-            for tc in &streamed_tc {
+            let total_tools = streamed_tc.len();
+            for (i, tc) in streamed_tc.iter().enumerate() {
                 let display = match &tc.result {
                     Some(r) => {
                         let preview: String = r.chars().take(2000).collect();
@@ -308,9 +343,12 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                     }
                     None => format!("{}\n(no result)", tc.name),
                 };
-                app.messages.push(AgentMessage::ToolResult {
+                app.push_message(AgentMessage::ToolResult {
                     content: format!("\n{}", display),
                     diff: tc.diff.clone(),
+                    step: i + 1,
+                    total_steps: total_tools,
+                    collapsed: total_tools > 1,
                 });
             }
 
@@ -323,7 +361,7 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
             app.context_usage = Some(context_pct);
             let tool_calls = extract_tool_calls(&messages);
             if !content.is_empty() || !reasoning.is_empty() || tool_calls.is_some() {
-                app.messages.push(AgentMessage::Assistant {
+                app.push_message(AgentMessage::Assistant {
                     content,
                     reasoning,
                     tool_calls,
@@ -351,11 +389,11 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                         .collect();
                     summary.push_str(&format!("\n🔧 {}", tool_str.join("  ")));
                 }
-                app.messages.push(AgentMessage::system(summary));
+                app.push_message(AgentMessage::system(summary));
             }
 
             // Separator
-            app.messages.push(AgentMessage::Separator {
+            app.push_message(AgentMessage::Separator {
                 label: String::new(),
             });
 
@@ -372,7 +410,7 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
             } else {
                 format!("Error: {}", e)
             };
-            app.messages.push(AgentMessage::Assistant {
+            app.push_message(AgentMessage::Assistant {
                 content: msg,
                 reasoning,
                 tool_calls: None,
@@ -436,7 +474,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     app.mode = AppMode::Idle;
                     let (content, reasoning) = app.finish_streaming();
                     if !content.is_empty() {
-                        app.messages.push(AgentMessage::Assistant {
+                        app.push_message(AgentMessage::Assistant {
                             content: format!("{}\n\n[Cancelled]", content),
                             reasoning,
                             tool_calls: None,
@@ -483,11 +521,11 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             match slash_command::parse(&cmd_str) {
                 Ok(cmd) => {
                     let msgs = slash_command::execute(cmd, app).await;
-                    app.messages.extend(msgs);
+                    app.extend_messages(msgs);
                     app.auto_scroll = true;
                 }
                 Err(e) => {
-                    app.messages.push(AgentMessage::system(e));
+                    app.push_message(AgentMessage::system(e));
                     app.auto_scroll = true;
                 }
             }
@@ -514,11 +552,11 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         match slash_command::parse(&prompt) {
             Ok(cmd) => {
                 let msgs = slash_command::execute(cmd, app).await;
-                app.messages.extend(msgs);
+                app.extend_messages(msgs);
                 app.auto_scroll = true;
             }
             Err(e) => {
-                app.messages.push(AgentMessage::system(e));
+                app.push_message(AgentMessage::system(e));
                 app.auto_scroll = true;
             }
         }
@@ -528,13 +566,14 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
 
     match key.code {
         KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
-            // If a message is selected, toggle that one; otherwise toggle the last assistant message
             if let Some(idx) = app.selected_message
                 && let Some(AgentMessage::Assistant {
                     reasoning_expanded, ..
                 }) = app.messages.get_mut(idx)
             {
                 *reasoning_expanded = !*reasoning_expanded;
+                app.message_generation += 1;
+                app.needs_redraw = true;
             } else {
                 for msg in app.messages.iter_mut().rev() {
                     if let AgentMessage::Assistant {
@@ -542,6 +581,26 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                     } = msg
                     {
                         *reasoning_expanded = !*reasoning_expanded;
+                        app.message_generation += 1;
+                        app.needs_redraw = true;
+                        break;
+                    }
+                }
+            }
+        }
+        KeyCode::Char('e') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+            if let Some(idx) = app.selected_message {
+                if let Some(AgentMessage::ToolResult { collapsed, .. }) = app.messages.get_mut(idx) {
+                    *collapsed = !*collapsed;
+                    app.message_generation += 1;
+                    app.needs_redraw = true;
+                }
+            } else {
+                for msg in app.messages.iter_mut().rev() {
+                    if let AgentMessage::ToolResult { collapsed, .. } = msg {
+                        *collapsed = !*collapsed;
+                        app.message_generation += 1;
+                        app.needs_redraw = true;
                         break;
                     }
                 }
@@ -572,7 +631,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                             .push(AgentMessage::system(format!("Reverted {}", path)));
                     }
                     Err(e) => {
-                        app.messages.push(AgentMessage::system(format!(
+                        app.push_message(AgentMessage::system(format!(
                             "Failed to revert {}: {}",
                             path, e
                         )));
@@ -586,12 +645,12 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 match result {
                     Ok(output) => {
                         if output.status.success() {
-                            app.messages.push(AgentMessage::system(format!(
+                            app.push_message(AgentMessage::system(format!(
                                 "Reverted {} files to session start (git stash)",
                                 files
                             )));
                         } else {
-                            app.messages.push(AgentMessage::system(format!(
+                            app.push_message(AgentMessage::system(format!(
                                 "Git stash failed: {}",
                                 String::from_utf8_lossy(&output.stderr)
                             )));
@@ -645,7 +704,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             if key.modifiers == KeyModifiers::CONTROL {
                 match c {
                     'c' if matches!(app.mode, AppMode::Idle) => {
-                        app.messages.push(AgentMessage::system(
+                        app.push_message(AgentMessage::system(
                             "按 Esc 或 q 退出。Ctrl+C 不能退出，Ctrl+B 打开调试面板。",
                         ));
                         return;
@@ -722,7 +781,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
             app.input.push_history(&prompt);
             let expanded = expand_file_refs(&prompt).await;
             app.input.cursor_pos = 0;
-            app.messages.push(AgentMessage::user(&prompt));
+            app.push_message(AgentMessage::user(&prompt));
             app.start_streaming();
             app.mode = AppMode::Waiting;
 

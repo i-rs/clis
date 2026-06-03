@@ -15,3 +15,10 @@ pub const C_DIFF_GREEN: Color = Color::Rgb(140, 200, 140);
 pub const C_DIFF_RED: Color = Color::Rgb(200, 140, 140);
 pub const C_FILE_EDIT: Color = Color::Rgb(200, 160, 200);
 pub const C_SUMMARY_GREEN: Color = Color::Rgb(80, 180, 80);
+
+// Message type background colors
+pub const C_BG_USER: Color = Color::Rgb(15, 22, 40);
+pub const C_BG_AI: Color = Color::Rgb(12, 22, 14);
+pub const C_BG_TOOL: Color = Color::Rgb(22, 18, 10);
+pub const C_BG_SYSTEM: Color = Color::Rgb(16, 16, 18);
+pub const C_BG_FILE: Color = Color::Rgb(20, 14, 22);
