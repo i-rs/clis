@@ -12,8 +12,8 @@ use ratatui::{
 use std::cell::RefCell;
 
 thread_local! {
-    static MSG_BLOCKS_CACHE: RefCell<(usize, Vec<Vec<Line<'static>>>)> =
-        const { RefCell::new((0, Vec::new())) };
+    static MSG_BLOCKS_CACHE: RefCell<(usize, u16, Vec<Vec<Line<'static>>>)> =
+        const { RefCell::new((0, 0, Vec::new())) };
     static MSG_RECTS: RefCell<Vec<(u16, u16)>> = RefCell::new(Vec::new());
 }
 
@@ -272,10 +272,36 @@ fn msg_bg(msg: &AgentMessage) -> Color {
     }
 }
 
-fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> {
+fn rounded_top_line(width: usize) -> Line<'static> {
+    if width < 2 {
+        return Line::from("");
+    }
+    Line::from(Span::styled(
+        format!("╭{}╮", "─".repeat(width - 2)),
+        Style::new().fg(c_border()),
+    ))
+}
+
+fn rounded_bottom_line(width: usize) -> Line<'static> {
+    if width < 2 {
+        return Line::from("");
+    }
+    Line::from(Span::styled(
+        format!("╰{}╯", "─".repeat(width - 2)),
+        Style::new().fg(c_border()),
+    ))
+}
+
+fn build_msg_lines(
+    msg: &AgentMessage,
+    is_selected: bool,
+    chat_width: usize,
+) -> Vec<Line<'static>> {
+    let top = rounded_top_line(chat_width);
+    let bottom = rounded_bottom_line(chat_width);
     match msg {
         AgentMessage::User { content } => {
-            let mut lines = vec![Line::from("")];
+            let mut lines = vec![top];
             // OpenCode style: clean header
             lines.push(Line::from(vec![
                 Span::styled("  ", Style::new().fg(c_muted())),
@@ -288,7 +314,7 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                     Style::new().fg(c_text()),
                 )));
             }
-            lines.push(Line::from(""));
+            lines.push(bottom);
             lines
         }
         AgentMessage::Assistant {
@@ -298,7 +324,7 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
             reasoning_expanded,
             ..
         } => {
-            let mut lines = vec![Line::from("")];
+            let mut lines = vec![top];
             // OpenCode style: clean, minimal header
             lines.push(Line::from(vec![
                 Span::styled("  ", Style::new().fg(c_muted())),
@@ -368,7 +394,7 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                     ]));
                 }
             }
-            lines.push(Line::from(""));
+            lines.push(bottom);
             lines
         }
         AgentMessage::ToolResult {
@@ -393,7 +419,7 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                 String::new()
             };
 
-            let mut lines = vec![Line::from("")];
+            let mut lines = vec![top];
 
             // OpenCode style: clean, single-line header
             if *collapsed {
@@ -494,7 +520,7 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
         }
         AgentMessage::FileEdit { path, summary } => {
             let prefix = if is_selected { "▎" } else { " " };
-            let mut lines = vec![Line::from("")];
+            let mut lines = vec![top];
             // OpenCode style: clean, simple header
             lines.push(Line::from(vec![
                 Span::styled("  ", Style::new().fg(c_muted())),
@@ -508,11 +534,11 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                 spans.extend(render_diff_line(diff_line));
                 lines.push(Line::from(spans));
             }
-            lines.push(Line::from(""));
+            lines.push(bottom);
             lines
         }
         AgentMessage::System { content } => {
-            let mut lines = vec![Line::from("")];
+            let mut lines = vec![top];
             for line in content.lines() {
                 if line.starts_with("──") {
                     lines.push(Line::from(Span::styled(
@@ -531,7 +557,7 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                     )));
                 }
             }
-            lines.push(Line::from(""));
+            lines.push(bottom);
             lines
         }
         AgentMessage::Separator { label } => {
@@ -548,20 +574,24 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
     }
 }
 
-fn build_all_msg_blocks(app: &App) -> Vec<Vec<Line<'static>>> {
+fn build_all_msg_blocks(app: &App, chat_width: usize) -> Vec<Vec<Line<'static>>> {
     app.messages
         .iter()
         .enumerate()
-        .map(|(idx, msg)| build_msg_lines(msg, app.selected_message == Some(idx)))
+        .map(|(idx, msg)| {
+            build_msg_lines(msg, app.selected_message == Some(idx), chat_width)
+        })
         .collect()
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     let mut blocks: Vec<Vec<Line<'static>>> = MSG_BLOCKS_CACHE.with(|cache| {
-        let (cached_gen, cached) = &mut *cache.borrow_mut();
-        if *cached_gen != app.message_generation {
-            *cached = build_all_msg_blocks(app);
+        let (cached_gen, cached_w, cached) = &mut *cache.borrow_mut();
+        let w = area.width;
+        if *cached_gen != app.message_generation || *cached_w != w {
+            *cached = build_all_msg_blocks(app, w as usize);
             *cached_gen = app.message_generation;
+            *cached_w = w;
         }
         cached.clone()
     });
@@ -640,6 +670,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     // Build a flat list: (block_idx_in_messages, lines, bg_color)
     let gap: usize = 1;
     let msg_count = app.messages.len();
+    // The block's top and bottom rounded borders are part of the content
+    // (built by build_msg_lines), so the total height is just sum of line counts.
     let total_height: usize = blocks.iter().map(|b| b.len()).sum::<usize>()
         + blocks.len().saturating_sub(1) * gap
         + 4;
@@ -708,6 +740,9 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             height: render_count,
         };
 
+        // Flat background — the rounded border characters are part of the
+        // line content itself (added by build_msg_lines), so we just paint
+        // the message background underneath.
         let para = Paragraph::new(Text::from(visible_slice.to_vec()))
             .style(Style::new().bg(bg))
             .block(Block::default().padding(ratatui::widgets::Padding::new(0, 0, 0, 0)))
