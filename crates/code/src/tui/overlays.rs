@@ -3,7 +3,7 @@ use crate::tui::colors::*;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -21,24 +21,23 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
     for (key, label) in strings::SHORTCUTS {
         items.push(Line::from(Span::styled(
             format!("  {:<14} {}", key, label),
-            Style::new().fg(Color::White),
+            Style::new().fg(C_TEXT),
         )));
     }
     items.push(Line::from(""));
     items.push(Line::from(Span::styled(
         "     Press any key to close",
-        Style::new().fg(C_DIM),
+        Style::new().fg(C_MUTED),
     )));
 
     let block = Block::default()
         .title(format!(" {} ", strings::SHORTCUT_TITLE))
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::new().fg(Color::Cyan));
+        .border_style(Style::new().fg(C_ACCENT))
+        .style(Style::new().bg(C_BG_SURFACE));
 
-    let paragraph = Paragraph::new(Text::from(items))
-        .block(block)
-        .alignment(Alignment::Center);
+    let paragraph = Paragraph::new(Text::from(items)).block(block).alignment(Alignment::Center);
     frame.render_widget(paragraph, overlay);
 }
 
@@ -57,12 +56,12 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
         .take((h as usize).saturating_sub(3))
         .map(|entry| {
             let status_style = match entry.response_status {
-                200 => Style::new().fg(Color::Green),
-                s if s >= 400 => Style::new().fg(Color::Red),
-                _ => Style::new().fg(Color::Yellow),
+                200 => Style::new().fg(C_GREEN),
+                s if s >= 400 => Style::new().fg(C_RED),
+                _ => Style::new().fg(C_ORANGE),
             };
             Line::from(vec![
-                Span::styled(format!("{} ", entry.time_short()), Style::new().fg(C_DIM)),
+                Span::styled(format!("{} ", entry.time_short()), Style::new().fg(C_MUTED)),
                 Span::styled(entry.status_label(), status_style),
                 Span::raw(format!(" {} ({}ms)", entry.path(), entry.duration_ms)),
             ])
@@ -73,9 +72,10 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
         .title(" Debug Log (Ctrl+B close, Ctrl+L clear, ↑↓ scroll) ")
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::new().fg(Color::Yellow));
+        .border_style(Style::new().fg(C_ORANGE))
+        .style(Style::new().bg(C_BG_SURFACE));
 
-    let paragraph = Paragraph::new(Text::from(visible))
+    let paragraph = Paragraph::new(visible)
         .block(block)
         .scroll((if scroll > 0 { scroll as u16 } else { 0 }, 0));
     frame.render_widget(paragraph, overlay);

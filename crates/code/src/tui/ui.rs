@@ -17,7 +17,7 @@ thread_local! {
     static MSG_RECTS: RefCell<Vec<(u16, u16)>> = RefCell::new(Vec::new());
 }
 
-const SIDEBAR_WIDTH: u16 = 38;
+const SIDEBAR_WIDTH: u16 = 40;
 
 fn tool_glyph(name: &str) -> &'static str {
     match name {
@@ -42,28 +42,24 @@ fn is_diff_output(text: &str) -> bool {
     let has_unified = lines
         .iter()
         .any(|l| l.starts_with("--- ") || l.starts_with("+++ ") || l.starts_with("@@ "));
-    let has_plus = lines
-        .iter()
-        .any(|l| l.starts_with('+') && !l.starts_with("+++"));
-    let has_minus = lines
-        .iter()
-        .any(|l| l.starts_with('-') && !l.starts_with("---"));
+    let has_plus = lines.iter().any(|l| l.starts_with('+') && !l.starts_with("+++"));
+    let has_minus = lines.iter().any(|l| l.starts_with('-') && !l.starts_with("---"));
     has_unified || (has_plus && has_minus)
 }
 
 fn render_diff_line(line: &str) -> Vec<Span<'static>> {
     if let Some(rest) = line.strip_prefix('+') {
         vec![
-            Span::styled("+", Style::new().green().bold()),
+            Span::styled("+", Style::new().fg(C_DIFF_GREEN).bold()),
             Span::styled(rest.to_owned(), Style::new().fg(C_DIFF_GREEN)),
         ]
     } else if let Some(rest) = line.strip_prefix('-') {
         vec![
-            Span::styled("-", Style::new().red().bold()),
+            Span::styled("-", Style::new().fg(C_DIFF_RED).bold()),
             Span::styled(rest.to_owned(), Style::new().fg(C_DIFF_RED)),
         ]
     } else if line.starts_with("@@") {
-        vec![Span::styled(line.to_owned(), Style::new().cyan())]
+        vec![Span::styled(line.to_owned(), Style::new().fg(C_DIFF_HUNK))]
     } else {
         vec![Span::raw(line.to_owned())]
     }
@@ -95,9 +91,7 @@ fn render_ai_content(content: &str) -> Vec<Line<'static>> {
                 in_code = false;
             } else {
                 in_code = true;
-                code_lang = line.strip_prefix("```")
-                    .map(|s| s.trim().to_string())
-                    .unwrap_or_default();
+                code_lang = line.strip_prefix("```").map(|s| s.trim().to_string()).unwrap_or_default();
             }
             continue;
         }
@@ -105,8 +99,37 @@ fn render_ai_content(content: &str) -> Vec<Line<'static>> {
         if in_code {
             code_buffer.push_str(line);
             code_buffer.push('\n');
+        } else if let Some(heading) = line.strip_prefix("# ") {
+            // H1 - prominent title
+            result.push(Line::from(Span::styled(
+                format!("    {}", heading),
+                Style::new().fg(C_ACCENT).bold(),
+            )));
+        } else if let Some(heading) = line.strip_prefix("## ") {
+            // H2 - section header
+            result.push(Line::from(Span::styled(
+                format!("    {}", heading),
+                Style::new().fg(C_CYAN).bold(),
+            )));
+        } else if let Some(item) = line.strip_prefix("- ") {
+            // Bullet list
+            result.push(Line::from(vec![
+                Span::styled("    ", Style::new().fg(C_TEXT)),
+                Span::styled("• ", Style::new().fg(C_ACCENT)),
+                Span::styled(item.to_string(), Style::new().fg(C_TEXT)),
+            ]));
+        } else if let Some(item) = line.strip_prefix("  - ") {
+            // Nested bullet
+            result.push(Line::from(vec![
+                Span::styled("      ", Style::new().fg(C_TEXT)),
+                Span::styled("◦ ", Style::new().fg(C_DIM)),
+                Span::styled(item.to_string(), Style::new().fg(C_TEXT)),
+            ]));
         } else {
-            result.push(Line::from(Span::raw(format!(" {}", line))));
+            result.push(Line::from(Span::styled(
+                format!("    {}", line),
+                Style::new().fg(C_TEXT),
+            )));
         }
     }
 
@@ -181,27 +204,24 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
     let context_text = if let Some(pct) = app.context_usage {
         let pct_str = format!("{:.0}%", pct * 100.0);
         let ctx_color = if pct > 0.8 {
-            Color::Red
+            C_RED
         } else if pct > 0.6 {
-            Color::Yellow
+            C_ORANGE
         } else {
-            Color::Green
+            C_GREEN
         };
-        vec![
-            Span::raw("  "),
-            Span::styled(pct_str, Style::new().fg(ctx_color)),
-        ]
+        vec![Span::raw("  "), Span::styled(pct_str, Style::new().fg(ctx_color))]
     } else {
         vec![]
     };
 
-    let sel_text = app
-        .selected_message
-        .map(|idx| Span::styled(format!(" #{} ", idx), Style::new().fg(C_YELLOW)));
+    let sel_text = app.selected_message.map(|idx| {
+        Span::styled(format!(" #{} ", idx), Style::new().fg(C_CYAN))
+    });
 
     let mut spans = vec![
-        Span::styled(" i-rs-code ", Style::new().fg(C_GREEN).bold()),
-        Span::styled(format!("v{}", app.version), Style::new().fg(C_ACCENT)),
+        Span::styled(" i-rs-code ", Style::new().fg(C_ACCENT).bold()),
+        Span::styled(format!("v{}", app.version), Style::new().fg(C_DIM)),
         Span::raw("  "),
         Span::styled(dir, Style::new().fg(C_DIM)),
     ];
@@ -210,7 +230,7 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         spans.push(s);
     }
     spans.push(Span::raw("  "));
-    spans.push(Span::styled("[?]", Style::new().fg(C_YELLOW)));
+    spans.push(Span::styled("[?]", Style::new().fg(C_ORANGE)));
 
     let text = Line::from(spans);
     let title_bg = Style::new().bg(C_BG_TITLE);
@@ -218,9 +238,10 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
     let bar = Paragraph::new(text).style(title_bg);
     frame.render_widget(bar, area);
 
+    // Subtle bottom border
     let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
         "─".repeat(area.width as usize),
-        Style::new().fg(C_RAIL),
+        Style::new().fg(C_BORDER),
     ))]));
     let sep_area = Rect {
         x: area.x,
@@ -246,11 +267,17 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
     match msg {
         AgentMessage::User { content } => {
             let mut lines = vec![Line::from("")];
+            // OpenCode style: clean header
             lines.push(Line::from(vec![
-                Span::styled("▎You", Style::new().fg(Color::Rgb(59, 130, 246)).bold()),
+                Span::styled("  ", Style::new().fg(C_MUTED)),
+                Span::styled("▎", Style::new().fg(C_CYAN)),
+                Span::styled(" You", Style::new().fg(C_TEXT).bold()),
             ]));
             for line in content.lines() {
-                lines.push(Line::from(Span::raw(format!(" {}", line))));
+                lines.push(Line::from(Span::styled(
+                    format!("    {}", line),
+                    Style::new().fg(C_TEXT),
+                )));
             }
             lines.push(Line::from(""));
             lines
@@ -262,11 +289,12 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
             reasoning_expanded,
             ..
         } => {
-            let prefix = if is_selected { "▶" } else { " " };
             let mut lines = vec![Line::from("")];
+            // OpenCode style: clean, minimal header
             lines.push(Line::from(vec![
-                Span::styled(prefix, Style::new().fg(C_YELLOW)),
-                Span::styled("▎AI", Style::new().fg(C_GREEN).bold()),
+                Span::styled("  ", Style::new().fg(C_MUTED)),
+                Span::styled("▎", Style::new().fg(C_GREEN)),
+                Span::styled(" Assistant", Style::new().fg(C_TEXT).bold()),
             ]));
             let content_lines = render_ai_content(content);
             lines.extend(content_lines);
@@ -274,24 +302,60 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
             if !reasoning.is_empty() {
                 lines.push(Line::from(""));
                 if *reasoning_expanded {
+                    // Expanded: "▎ Thought:" header with bulleted list
                     lines.push(Line::from(vec![
-                        Span::styled("▼", Style::new().fg(C_YELLOW)),
-                        Span::styled(" 思考过程", Style::new().fg(C_YELLOW)),
+                        Span::styled("  ", Style::new().fg(C_MUTED)),
+                        Span::styled("▎ ", Style::new().fg(C_YELLOW)),
+                        Span::styled("Thought", Style::new().fg(C_YELLOW).bold()),
                     ]));
                     for rline in reasoning.lines() {
-                        lines.push(Line::from(Span::styled(
-                            format!("│ {}", rline),
-                            Style::new().fg(C_DIM).italic(),
-                        )));
+                        let trimmed = rline.trim_start();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+                        // Try to detect command-like lines for special formatting
+                        if let Some(cmd) = trimmed.strip_prefix("Explore Task") {
+                            lines.push(Line::from(vec![
+                                Span::styled("    ", Style::new().fg(C_MUTED)),
+                                Span::styled("▸ ", Style::new().fg(C_ACCENT)),
+                                Span::styled("Explore Task", Style::new().fg(C_TEXT).bold()),
+                                Span::styled(cmd.to_string(), Style::new().fg(C_DIM)),
+                            ]));
+                        } else if let Some(cmd) = trimmed.strip_prefix("Exa Web Search") {
+                            lines.push(Line::from(vec![
+                                Span::styled("    ", Style::new().fg(C_MUTED)),
+                                Span::styled("▸ ", Style::new().fg(C_ACCENT)),
+                                Span::styled("Exa Web Search", Style::new().fg(C_TEXT).bold()),
+                                Span::styled(cmd.to_string(), Style::new().fg(C_DIM)),
+                            ]));
+                        } else if let Some(rest) = trimmed.strip_prefix("Read ") {
+                            lines.push(Line::from(vec![
+                                Span::styled("    ", Style::new().fg(C_MUTED)),
+                                Span::styled("↳ ", Style::new().fg(C_MUTED)),
+                                Span::styled(rest.to_string(), Style::new().fg(C_DIM)),
+                            ]));
+                        } else if trimmed.starts_with("ctrl+x")
+                            || trimmed.starts_with("ctrl+")
+                        {
+                            lines.push(Line::from(vec![
+                                Span::styled("    ", Style::new().fg(C_MUTED)),
+                                Span::styled("▸ ", Style::new().fg(C_ACCENT)),
+                                Span::styled(trimmed.to_string(), Style::new().fg(C_TEXT)),
+                            ]));
+                        } else {
+                            lines.push(Line::from(Span::styled(
+                                format!("    {}", trimmed),
+                                Style::new().fg(C_DIM),
+                            )));
+                        }
                     }
-                    lines.push(Line::from(Span::styled(
-                        "╰", Style::new().fg(C_RAIL),
-                    )));
                 } else {
-                    lines.push(Line::from(""));
+                    // Collapsed: just hint
                     lines.push(Line::from(vec![
-                        Span::styled("▶", Style::new().fg(C_YELLOW)),
-                        Span::styled(" 思考过程", Style::new().fg(C_YELLOW)),
+                        Span::styled("  ", Style::new().fg(C_MUTED)),
+                        Span::styled("▎ ", Style::new().fg(C_YELLOW)),
+                        Span::styled("Thought", Style::new().fg(C_YELLOW)),
+                        Span::styled("  (press to expand)", Style::new().fg(C_MUTED)),
                     ]));
                 }
             }
@@ -322,52 +386,50 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
 
             let mut lines = vec![Line::from("")];
 
+            // OpenCode style: clean, single-line header
             if *collapsed {
-                lines.push(Line::from(""));
                 lines.push(Line::from(vec![
-                    Span::styled("▶ ", Style::new().fg(C_DIM)),
-                    Span::styled(step_str.clone(), Style::new().fg(C_DIM)),
+                    Span::styled("  ", Style::new().fg(C_MUTED)),
+                    Span::styled("▸", Style::new().fg(C_MUTED)),
+                    Span::styled(" ", Style::new()),
+                    Span::styled(step_str.clone(), Style::new().fg(C_MUTED)),
                     Span::styled(
-                        format!("✓ {} {}", glyph, label),
-                        Style::new().fg(C_GREEN).bold(),
+                        format!("{}{}", glyph, label),
+                        Style::new().fg(C_TEXT).bold(),
                     ),
+                    Span::styled("  completed", Style::new().fg(C_MUTED)),
                 ]));
                 if !tool_result.is_empty() {
-                    let preview: String = tool_result.chars().take(600).collect();
+                    let preview: String = tool_result.chars().take(400).collect();
                     let result_lines: Vec<&str> = preview.lines().collect();
-                    let max_lines = 4;
-                    let show_lines = result_lines.len().min(max_lines);
+                    let max_lines = 3;
                     for (i, line) in result_lines.iter().enumerate().take(max_lines) {
-                        let is_last = i == show_lines.saturating_sub(1)
-                            && preview.len() >= tool_result.len();
-                        let border = if is_last { "╰" } else { "│" };
                         let truncated: String = line.chars().take(120).collect();
                         let mut content = truncated;
                         if line.chars().count() > 120 {
                             content.push('…');
                         }
                         lines.push(Line::from(Span::styled(
-                            format!("{} {}", border, content),
-                            Style::new().fg(C_TOOL_OUTPUT).bg(C_BG_TOOL_RESULT),
+                            format!("    {}", content),
+                            Style::new().fg(C_DIM),
                         )));
-                    }
-                    if preview.len() < tool_result.len() {
-                        lines.push(Line::from(Span::styled(
-                            format!(
-                                "╰ … {} more bytes",
-                                tool_result.len().saturating_sub(preview.len())
-                            ),
-                            Style::new().fg(Color::DarkGray).bg(C_BG_TOOL_RESULT),
-                        )));
+                        if i == max_lines - 1 && preview.len() < tool_result.len() {
+                            lines.push(Line::from(Span::styled(
+                                format!("    … {} more bytes", tool_result.len().saturating_sub(preview.len())),
+                                Style::new().fg(C_MUTED),
+                            )));
+                        }
                     }
                 }
             } else {
                 lines.push(Line::from(vec![
-                    Span::styled("▼ ", Style::new().fg(C_YELLOW)),
-                    Span::styled(step_str, Style::new().fg(C_DIM)),
+                    Span::styled("  ", Style::new().fg(C_MUTED)),
+                    Span::styled("▾", Style::new().fg(C_ORANGE)),
+                    Span::styled(" ", Style::new()),
+                    Span::styled(step_str, Style::new().fg(C_MUTED)),
                     Span::styled(
-                        format!("{} {}", glyph, label),
-                        Style::new().fg(C_YELLOW).bold(),
+                        format!("{}{}", glyph, label),
+                        Style::new().fg(C_ORANGE).bold(),
                     ),
                 ]));
 
@@ -375,62 +437,45 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                 if !tool_result.is_empty() {
                     let preview: String = tool_result.chars().take(1200).collect();
                     let result_lines: Vec<&str> = preview.lines().collect();
-                    for (i, line) in result_lines.iter().enumerate().take(12) {
-                        let is_last = i == result_lines.len().saturating_sub(1).min(11)
-                            && diff.as_ref().map_or(true, |d| d.is_empty());
-                        let border = if is_last { "╰" } else { "│" };
+                    for line in result_lines.iter().take(12) {
                         if tool_has_diff {
-                            let diff_spans = render_diff_line(line);
-                            let mut spans = vec![Span::styled(
-                                format!("{} {}", border, line),
-                                Style::new().fg(Color::DarkGray),
-                            )];
-                            spans.extend(diff_spans);
+                            let mut spans = vec![Span::styled("    ", Style::new().fg(C_MUTED))];
+                            spans.extend(render_diff_line(line));
                             lines.push(Line::from(spans));
                         } else {
                             lines.push(Line::from(Span::styled(
-                                format!("{} {}", border, line),
+                                format!("    {}", line),
                                 Style::new().fg(C_TOOL_OUTPUT),
                             )));
                         }
                     }
                     if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
-                        let border = if diff.as_ref().map_or(true, |d| d.is_empty()) {
-                            "╰"
-                        } else {
-                            "│"
-                        };
                         lines.push(Line::from(Span::styled(
                             format!(
-                                "{} … {} more bytes",
-                                border,
+                                "    … {} more bytes",
                                 tool_result.len().saturating_sub(preview.len())
                             ),
-                            Style::new().fg(Color::DarkGray),
+                            Style::new().fg(C_MUTED),
                         )));
                     }
                 }
-                if let Some(diff_text) = diff
-                    && !diff_text.is_empty()
-                {
-                    lines.push(Line::from(Span::styled(
-                        "│ ─ diff ─",
-                        Style::new().fg(C_DIM),
-                    )));
+                if let Some(diff_text) = diff && !diff_text.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::styled("    ", Style::new().fg(C_MUTED)),
+                        Span::styled("─ diff ─", Style::new().fg(C_DIM)),
+                    ]));
                     for diff_line in diff_text.lines().take(12) {
-                        lines.push(Line::from(render_diff_line(diff_line)));
+                        let mut spans = vec![Span::styled("    ", Style::new().fg(C_MUTED))];
+                        spans.extend(render_diff_line(diff_line));
+                        lines.push(Line::from(spans));
                     }
                     if diff_text.lines().count() > 12 {
                         lines.push(Line::from(Span::styled(
                             format!(
-                                "╰ ... +{} more lines",
+                                "    ... +{} more lines",
                                 diff_text.lines().count().saturating_sub(12)
                             ),
-                            Style::new().fg(Color::DarkGray),
-                        )));
-                    } else {
-                        lines.push(Line::from(Span::styled(
-                            "╰", Style::new().fg(Color::DarkGray),
+                            Style::new().fg(C_MUTED),
                         )));
                     }
                 }
@@ -439,14 +484,20 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
             lines
         }
         AgentMessage::FileEdit { path, summary } => {
-            let prefix = if is_selected { "▶" } else { " " };
+            let prefix = if is_selected { "▎" } else { " " };
             let mut lines = vec![Line::from("")];
+            // OpenCode style: clean, simple header
             lines.push(Line::from(vec![
-                Span::styled(prefix, Style::new().fg(C_FILE_EDIT)),
-                Span::styled(format!(" ✎ {} ", path), Style::new().fg(C_FILE_EDIT).bold()),
+                Span::styled("  ", Style::new().fg(C_MUTED)),
+                Span::styled(prefix, Style::new().fg(C_PURPLE)),
+                Span::styled(" ", Style::new()),
+                Span::styled("✎ ", Style::new().fg(C_PURPLE)),
+                Span::styled(path.clone(), Style::new().fg(C_FILE_EDIT).bold()),
             ]));
             for diff_line in summary.lines() {
-                lines.push(Line::from(render_diff_line(diff_line)));
+                let mut spans = vec![Span::styled("    ", Style::new().fg(C_MUTED))];
+                spans.extend(render_diff_line(diff_line));
+                lines.push(Line::from(spans));
             }
             lines.push(Line::from(""));
             lines
@@ -456,17 +507,17 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
             for line in content.lines() {
                 if line.starts_with("──") {
                     lines.push(Line::from(Span::styled(
-                        format!(" {}", line),
-                        Style::new().fg(C_SUMMARY_GREEN).bold(),
+                        format!("    {}", line),
+                        Style::new().fg(C_SUMMARY).bold(),
                     )));
                 } else if line.starts_with("📄") || line.starts_with("🔧") {
                     lines.push(Line::from(Span::styled(
-                        format!(" {}", line),
-                        Style::new().fg(C_YELLOW),
+                        format!("    {}", line),
+                        Style::new().fg(C_ORANGE),
                     )));
                 } else {
                     lines.push(Line::from(Span::styled(
-                        format!(" {}", line),
+                        format!("    {}", line),
                         Style::new().fg(C_DIM),
                     )));
                 }
@@ -481,8 +532,8 @@ fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> 
                 format!("── {} ──", label)
             };
             vec![Line::from(Span::styled(
-                format!(" {}", sep),
-                Style::new().fg(C_SEP),
+                format!("    {}", sep),
+                Style::new().fg(C_BORDER),
             ))]
         }
     }
@@ -507,15 +558,16 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     });
 
     if let Some(ref s) = app.streaming {
-        let mut stream_lines: Vec<Line<'static>> = vec![Line::from(vec![Span::styled(
-            "▎AI",
-            Style::new().fg(C_GREEN).bold(),
-        )])];
+        let mut stream_lines: Vec<Line<'static>> = vec![Line::from(vec![
+            Span::styled("  ", Style::new().fg(C_MUTED)),
+            Span::styled("▎", Style::new().fg(C_GREEN)),
+            Span::styled(" Assistant", Style::new().fg(C_TEXT).bold()),
+        ])];
 
         for tool in &s.tool_calls {
             let glyph = tool_glyph(&tool.name);
             stream_lines.push(Line::from(vec![
-                Span::styled("▶ ", Style::new().fg(C_DIM)),
+                Span::styled("▷ ", Style::new().fg(C_DIM)),
                 Span::styled(
                     format!("✓ {} {}", glyph, tool.name),
                     Style::new().fg(C_GREEN).bold(),
@@ -537,11 +589,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         if !s.reasoning.is_empty() {
             let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
             let total = reasoning_lines.len();
-            let show_count = if s.content.is_empty() {
-                6.min(total)
-            } else {
-                3.min(total)
-            };
+            let show_count = if s.content.is_empty() { 6.min(total) } else { 3.min(total) };
             let start = total.saturating_sub(show_count);
             stream_lines.push(Line::from(Span::styled(
                 "▼ 思考过程",
@@ -559,9 +607,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                     Style::new().fg(C_DIM).italic(),
                 )));
             }
-            stream_lines.push(Line::from(Span::styled(
-                "╰", Style::new().fg(C_RAIL),
-            )));
+            stream_lines.push(Line::from(Span::styled("╰", Style::new().fg(C_BORDER))));
         }
 
         if !s.content.is_empty() {
@@ -570,26 +616,19 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
 
         if s.current_tool.is_none() && !s.content.is_empty() {
-            stream_lines.push(Line::from(vec![Span::styled(
-                " ▊",
-                Style::new().fg(C_GREEN),
-            )]));
+            stream_lines.push(Line::from(vec![Span::styled(" ▊", Style::new().fg(C_GREEN))]));
         } else if s.current_tool.is_none()
             && s.reasoning.is_empty()
             && s.tool_calls.is_empty()
             && s.content.is_empty()
         {
-            stream_lines.push(Line::from(vec![Span::styled(
-                " ⏳",
-                Style::new().fg(C_DIM),
-            )]));
+            stream_lines.push(Line::from(vec![Span::styled(" ⏳", Style::new().fg(C_DIM))]));
         }
 
         blocks.push(stream_lines);
     }
 
     // Build a flat list: (block_idx_in_messages, lines, bg_color)
-    // gap lines between blocks are implicit
     let gap: usize = 1;
     let msg_count = app.messages.len();
     let total_height: usize = blocks.iter().map(|b| b.len()).sum::<usize>()
@@ -623,7 +662,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         // gap before this block (except first)
         if block_idx > 0 {
             virtual_y += gap;
-            // If gap line is visible, advance screen_y
             if virtual_y > scroll && screen_y < area_bottom {
                 screen_y = screen_y.saturating_add(1);
             }
@@ -631,16 +669,15 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 
         let block_end = virtual_y + block_height;
 
-        // Entirely above viewport — skip but still record placeholder rect
+        // Entirely above viewport — skip
         if block_end <= scroll {
             if is_msg {
-                rects.push((0, 0)); // placeholder, won't match any screen row
+                rects.push((0, 0));
             }
             virtual_y += block_height;
             continue;
         }
 
-        // How many lines to skip from top of block (partial scroll)
         let skip = scroll.saturating_sub(virtual_y);
         let visible_count = block_height.saturating_sub(skip);
         let remaining = (area_bottom - screen_y) as usize;
@@ -664,7 +701,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 
         let para = Paragraph::new(Text::from(visible_slice.to_vec()))
             .style(Style::new().bg(bg))
-            .block(Block::default().padding(ratatui::widgets::Padding::new(1, 1, 1, 1)))
+            .block(Block::default().padding(ratatui::widgets::Padding::new(0, 0, 0, 0)))
             .wrap(Wrap { trim: false });
         frame.render_widget(para, block_area);
 
@@ -688,14 +725,12 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             width: area.width,
             height: 1,
         };
-        let hint_para = Paragraph::new(Text::from(vec![hint_line]))
-            .style(Style::new().bg(C_BG));
+        let hint_para = Paragraph::new(Text::from(vec![hint_line])).style(Style::new().bg(C_BG));
         frame.render_widget(hint_para, hint_area);
     }
 }
 
 /// Find message index from a screen row. Uses cached rects from last render.
-/// rects[i] corresponds to messages[i], with (0,0) for off-screen messages.
 pub fn find_message_idx_from_screen(screen_row: u16) -> Option<usize> {
     MSG_RECTS.with(|r| {
         let rects = r.borrow();
@@ -709,12 +744,12 @@ pub fn find_message_idx_from_screen(screen_row: u16) -> Option<usize> {
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let prefix = "> ";
-    let hint = Line::from(Span::styled(strings::STATUS_BAR, Style::new().fg(C_DIM)));
+    let prefix = "▎ ";
+    let hint = Line::from(Span::styled(strings::STATUS_BAR, Style::new().fg(C_MUTED)));
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
         vec![
             Line::from(vec![
-                Span::styled("⏳ ", Style::new().fg(C_DIM)),
+                Span::styled("⏳ ", Style::new().fg(C_ORANGE)),
                 Span::styled(&app.input.content, Style::new().fg(C_DIM)),
             ]),
             hint,
@@ -723,7 +758,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         vec![
             Line::from(Span::styled(
                 format!("{}{}", prefix, strings::INPUT_PLACEHOLDER),
-                Style::new().fg(C_DIM),
+                Style::new().fg(C_MUTED),
             )),
             hint,
         ]
@@ -737,7 +772,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
                 let p = if i == 0 { prefix } else { "  " };
                 Line::from(Span::styled(
                     format!("{}{}", p, line),
-                    Style::new().fg(Color::Rgb(250, 250, 250)),
+                    Style::new().fg(C_TEXT),
                 ))
             })
             .collect();
@@ -745,11 +780,7 @@ fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
         result
     };
 
-    let sep_color = if matches!(app.mode, AppMode::Waiting) {
-        C_SEP
-    } else {
-        Color::Rgb(42, 42, 50)
-    };
+    let sep_color = C_BORDER;
     let input_block = Block::default()
         .borders(Borders::TOP)
         .border_style(Style::new().fg(sep_color))
@@ -799,11 +830,11 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
     let mut items: Vec<Line> = Vec::new();
     for (i, cmd) in commands.iter().enumerate() {
         let selected = i == app.slash_selected.min(commands.len().saturating_sub(1));
-        let marker = if selected { " ▌" } else { "  " };
+        let marker = if selected { "▌" } else { " " };
         let name_style = if selected {
-            Style::new().fg(Color::Cyan).bold()
+            Style::new().fg(C_ACCENT).bold()
         } else {
-            Style::new().fg(Color::White)
+            Style::new().fg(C_TEXT)
         };
         let args = if cmd.args.is_empty() {
             String::new()
@@ -814,11 +845,7 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(vec![
             Span::styled(
                 marker,
-                if selected {
-                    Style::new().fg(Color::Cyan)
-                } else {
-                    Style::new().fg(C_DIM)
-                },
+                if selected { Style::new().fg(C_ACCENT) } else { Style::new().fg(C_MUTED) },
             ),
             Span::styled(format!("/{}{}", cmd.name, args), name_style),
             Span::raw("  "),
@@ -829,9 +856,9 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::TOP)
-        .border_style(Style::new().fg(C_RAIL))
+        .border_style(Style::new().fg(C_BORDER_ACTIVE))
         .padding(ratatui::widgets::Padding::new(1, 1, 0, 0))
-        .style(Style::new().bg(C_BG_INPUT));
+        .style(Style::new().bg(C_BG_SURFACE));
 
     let paragraph = Paragraph::new(Text::from(items)).block(block);
     frame.render_widget(paragraph, area);

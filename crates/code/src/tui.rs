@@ -60,14 +60,14 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         let version = app.version.clone();
         app.push_message(AgentMessage::Assistant {
             content: format!(
-                "Welcome to i-rs-code v{version}\n\n\
-                 Type a message to start coding...\n\n\
-                 Slash commands:\n  \
-                 /help  Show all available commands\n\n\
-                 Other commands:\n  \
-                 i-rs-code chat <prompt>  One-shot conversation\n  \
-                 i-rs-code config init    Interactive setup\n  \
-                 i-rs-code config show    View configuration"
+                "# Welcome to i-rs-code v{version}\n\n\
+                 Type a message to start coding.\n\n\
+                 ## Slash commands\n\
+                 - /help  Show all available commands\n\n\
+                 ## Other commands\n\
+                 - `i-rs-code chat <prompt>`  One-shot conversation\n\
+                 - `i-rs-code config init`    Interactive setup\n\
+                 - `i-rs-code config show`    View configuration"
             ),
             reasoning: String::new(),
             tool_calls: None,
