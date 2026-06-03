@@ -25,7 +25,7 @@ impl ToolDocCache {
     pub fn for_agent_with_storage(storage: &Arc<ClawStorage>, agent_id: &str) -> Self {
         let aid = agent_id.to_string();
         let s = storage.clone();
-        let hot_docs = Self::block_on(async { s.tool_cache.load(&aid).await.unwrap_or_default() });
+        let hot_docs = crate::utils::sync_block_on(async { s.tool_cache.load(&aid).await.unwrap_or_default() });
         Self {
             hot_docs,
             cache_dir: PathBuf::new(),
@@ -54,19 +54,6 @@ impl ToolDocCache {
             cache_dir,
             storage: None,
             agent_id: agent_id.to_string(),
-        }
-    }
-
-    fn block_on<F: std::future::Future>(f: F) -> F::Output {
-        match tokio::runtime::Handle::try_current() {
-            Ok(_) => tokio::task::block_in_place(|| {
-                tokio::runtime::Runtime::new()
-                    .expect("ToolDocCache: failed to create temp runtime")
-                    .block_on(f)
-            }),
-            Err(_) => tokio::runtime::Runtime::new()
-                .expect("ToolDocCache: failed to create temp runtime")
-                .block_on(f),
         }
     }
 
@@ -149,7 +136,7 @@ impl ToolDocCache {
             let aid = self.agent_id.clone();
             let docs = self.hot_docs.clone();
             if let Err(e) =
-                Self::block_on(async move { storage.tool_cache.save(&aid, &docs).await })
+                crate::utils::sync_block_on(async move { storage.tool_cache.save(&aid, &docs).await })
             {
                 tracing::error!("持久化写入失败: {}", e);
             }

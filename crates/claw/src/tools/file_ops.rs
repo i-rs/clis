@@ -49,12 +49,19 @@ impl ClawTool for FileOpsTool {
             .get("operation")
             .and_then(|v| v.as_str())
             .unwrap_or("")
-            .trim();
+            .trim()
+            .to_string();
         let path_str = args
             .get("path")
             .and_then(|v| v.as_str())
             .unwrap_or("")
-            .trim();
+            .trim()
+            .to_string();
+        let content_for_write = args
+            .get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
         if operation.is_empty() {
             return Err(ClawError::Validation(
@@ -76,10 +83,10 @@ impl ClawTool for FileOpsTool {
 
         // Resolve the path against the first allowed directory
         let base = PathBuf::from(&ctx.config.allowed_dirs[0]);
-        let target = if Path::new(path_str).is_absolute() {
-            PathBuf::from(path_str)
+        let target = if Path::new(&path_str).is_absolute() {
+            PathBuf::from(&path_str)
         } else {
-            base.join(path_str)
+            base.join(&path_str)
         };
 
         // Check that the target is within one of the allowed directories.
@@ -120,18 +127,20 @@ impl ClawTool for FileOpsTool {
             )));
         }
 
-        match operation {
-            "read" => op_read(&canonical_target),
-            "write" => {
-                let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
-                op_write(&canonical_target, content)
-            }
-            "list" => op_list(&canonical_target),
+        let canonical_target_clone = canonical_target.clone();
+        let content_owned = content_for_write;
+        let result = tokio::task::spawn_blocking(move || match operation.as_str() {
+            "read" => op_read(&canonical_target_clone),
+            "write" => op_write(&canonical_target_clone, &content_owned),
+            "list" => op_list(&canonical_target_clone),
             other => Err(ClawError::Validation(format!(
                 "不支持的操作: '{}'。支持: read, write, list",
                 other
             ))),
-        }
+        })
+        .await
+        .map_err(|e| ClawError::Execution(format!("文件操作任务失败: {}", e)))??;
+        Ok(result)
     }
 }
 

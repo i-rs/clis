@@ -37,7 +37,7 @@ fn estimate_tokens(text: &str) -> usize {
     if in_word && word_len > 0 {
         tokens += (word_len + 3) / 4;
     }
-    tokens.max(text.len() / 4).max(1)
+    tokens.max(text.chars().count() / 2).max(1)
 }
 
 fn is_cjk(ch: char) -> bool {
@@ -111,7 +111,7 @@ impl ContextManager {
                 total += estimate_tokens(content);
             }
             if let Some(role) = msg.get("role").and_then(|r| r.as_str()) {
-                total += role.len() / 4;
+                total += (role.chars().count() + 3) / 4;
             }
             if let Some(tcs) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                 for tc in tcs {

@@ -30,7 +30,9 @@ impl ClawTool for VisionTool {
     }
 
     async fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
-        read_clipboard_image_text()
+        tokio::task::spawn_blocking(read_clipboard_image_text)
+            .await
+            .map_err(|e| ClawError::Execution(format!("视觉工具任务失败: {}", e)))?
     }
 }
 

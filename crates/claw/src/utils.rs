@@ -4,6 +4,22 @@ pub fn claw_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir().map(|h| h.join(".i-rs").join("claw"))
 }
 
+use std::sync::LazyLock;
+static SHARED_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .expect("sync_block_on: failed to create shared runtime")
+});
+
+pub fn sync_block_on<F: std::future::Future>(f: F) -> F::Output {
+    match tokio::runtime::Handle::try_current() {
+        Ok(_) => tokio::task::block_in_place(|| SHARED_RUNTIME.block_on(f)),
+        Err(_) => SHARED_RUNTIME.block_on(f),
+    }
+}
+
 // ── Timezone ──
 
 /// Get the system's local timezone offset.

@@ -134,19 +134,6 @@ impl SkillStore {
         }
     }
 
-    fn block_on<F: std::future::Future>(f: F) -> F::Output {
-        match tokio::runtime::Handle::try_current() {
-            Ok(_) => tokio::task::block_in_place(|| {
-                tokio::runtime::Runtime::new()
-                    .expect("SkillStore: failed to create temp runtime")
-                    .block_on(f)
-            }),
-            Err(_) => tokio::runtime::Runtime::new()
-                .expect("SkillStore: failed to create temp runtime")
-                .block_on(f),
-        }
-    }
-
     /// Get the skills directory path.
     pub fn path(&self) -> &PathBuf {
         &self.skills_dir
@@ -157,7 +144,7 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return Self::block_on(
+            return crate::utils::sync_block_on(
                 async move { storage.skills.get(&aid, &name).await.ok().flatten() },
             );
         }
@@ -175,7 +162,7 @@ impl SkillStore {
             let aid = self.agent_id.clone();
             let name = name.to_string();
             let content = content.to_string();
-            return Self::block_on(
+            return crate::utils::sync_block_on(
                 async move { storage.skills.install(&aid, &name, &content).await },
             );
         }
@@ -190,7 +177,7 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return Self::block_on(async move { storage.skills.remove(&aid, &name).await });
+            return crate::utils::sync_block_on(async move { storage.skills.remove(&aid, &name).await });
         }
         let path = self.skills_dir.join(format!("{}.md", name));
         if path.exists() {
@@ -203,7 +190,7 @@ impl SkillStore {
     pub fn executable_skills(&self) -> Vec<SkillDefinition> {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return Self::block_on(async move {
+            return crate::utils::sync_block_on(async move {
                 storage
                     .skills
                     .list_executable(&aid)
@@ -260,7 +247,7 @@ type = "object"
     pub fn format_skills(&self) -> String {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return Self::block_on(async move {
+            return crate::utils::sync_block_on(async move {
                 storage.skills.format_skills(&aid).await.unwrap_or_default()
             });
         }
@@ -315,7 +302,7 @@ type = "object"
     pub fn skill_names(&self) -> Vec<String> {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return Self::block_on(async move {
+            return crate::utils::sync_block_on(async move {
                 storage
                     .skills
                     .list(&aid)
@@ -351,7 +338,7 @@ type = "object"
     pub fn list_skills(&self) -> Vec<SkillEntry> {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return Self::block_on(async move {
+            return crate::utils::sync_block_on(async move {
                 storage
                     .skills
                     .list(&aid)

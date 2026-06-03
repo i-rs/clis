@@ -898,38 +898,38 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
                     .get("reasoning_content")
                     .and_then(|r| r.as_str())
                     .unwrap_or("");
-                if m.get("tool_calls").and_then(|t| t.as_array()).is_some() {
-                    if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
-                        for tc in tc_array {
-                            let name = tc
-                                .get("function")
-                                .and_then(|f| f.get("name"))
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("");
-                            let args = tc
-                                .get("function")
-                                .and_then(|f| f.get("arguments"))
-                                .and_then(|a| a.as_str())
-                                .unwrap_or("");
-                            let result = if i + 1 < api_msgs.len()
-                                && api_msgs[i + 1].get("role").and_then(|r| r.as_str())
-                                    == Some("tool")
-                            {
-                                api_msgs[i + 1]
-                                    .get("content")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("")
-                                    .to_string()
-                            } else {
-                                String::new()
-                            };
-                            records.push(serde_json::json!({
-                                "type": "tool_call",
-                                "name": name,
-                                "args": args,
-                                "result": result,
-                            }));
-                        }
+                if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
+                    let tool_call_count = tc_array.len();
+                    for (tc_idx, tc) in tc_array.iter().enumerate() {
+                        let name = tc
+                            .get("function")
+                            .and_then(|f| f.get("name"))
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("");
+                        let args = tc
+                            .get("function")
+                            .and_then(|f| f.get("arguments"))
+                            .and_then(|a| a.as_str())
+                            .unwrap_or("");
+                        let tool_result_idx = i + 1 + tc_idx;
+                        let result = if tool_result_idx < api_msgs.len()
+                            && api_msgs[tool_result_idx].get("role").and_then(|r| r.as_str())
+                                == Some("tool")
+                        {
+                            api_msgs[tool_result_idx]
+                                .get("content")
+                                .and_then(|c| c.as_str())
+                                .unwrap_or("")
+                                .to_string()
+                        } else {
+                            String::new()
+                        };
+                        records.push(serde_json::json!({
+                            "type": "tool_call",
+                            "name": name,
+                            "args": args,
+                            "result": result,
+                        }));
                     }
                     if !reasoning.is_empty() {
                         records.push(serde_json::json!({
@@ -938,7 +938,7 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
                             "reasoning": reasoning,
                         }));
                     }
-                    i += 2;
+                    i += 1 + tool_call_count;
                 } else {
                     let mut record = serde_json::json!({
                         "type": "assistant",
@@ -1078,16 +1078,7 @@ pub fn record_layered_tool_memory(
 /// Bridge sync → async for storage initialization.
 #[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
 fn block_on<F: std::future::Future>(f: F) -> F::Output {
-    match tokio::runtime::Handle::try_current() {
-        Ok(_) => tokio::task::block_in_place(|| {
-            tokio::runtime::Runtime::new()
-                .expect("block_on: failed to create temporary runtime")
-                .block_on(f)
-        }),
-        Err(_) => tokio::runtime::Runtime::new()
-            .expect("block_on: failed to create temporary runtime")
-            .block_on(f),
-    }
+    crate::utils::sync_block_on(f)
 }
 
 #[cfg(test)]

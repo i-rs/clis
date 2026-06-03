@@ -235,7 +235,13 @@ pub fn build_messages(params: MessageBuildParams) -> Vec<Value> {
         }
     }
 
-    msgs.push(serde_json::json!({"role": "user", "content": params.user_text}));
+    let last_is_current_user = msgs
+        .last()
+        .and_then(|m| m.get("content").and_then(|c| c.as_str()))
+        == Some(params.user_text);
+    if !last_is_current_user {
+        msgs.push(serde_json::json!({"role": "user", "content": params.user_text}));
+    }
 
     // First turn compression: guard against oversized system prompt + messages
     if msgs.len() > ctx_mgr.min_retain + 2 {

@@ -113,8 +113,20 @@ impl ClawTool for ChartTool {
             extra_args.split_whitespace().collect()
         };
 
-        let json_data =
-            crate::utils::run_i_rs_json(tool, command, &extra, 30).map_err(ClawError::Execution)?;
+        let tool_owned = tool.to_string();
+        let command_owned = command.to_string();
+        let extra_owned: Vec<String> = extra.iter().map(|s| s.to_string()).collect();
+        let json_data = tokio::task::spawn_blocking(move || {
+            crate::utils::run_i_rs_json(
+                &tool_owned,
+                &command_owned,
+                &extra_owned.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                30,
+            )
+        })
+        .await
+        .map_err(|e| ClawError::Execution(format!("图表工具任务失败: {}", e)))?
+        .map_err(ClawError::Execution)?;
 
         let data_points = extract_data_points(&json_data, label_field, value_field)?;
 

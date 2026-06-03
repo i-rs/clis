@@ -110,6 +110,14 @@ impl OrchestrationPlan {
         if let Some(step) = self.steps.get_mut(idx) {
             step.status = StepStatus::Failed;
         }
+        for step in &mut self.steps {
+            if step.status == StepStatus::Pending {
+                let step_id = format!("step_{}", idx);
+                if step.depends_on.contains(&step_id) {
+                    step.status = StepStatus::Skipped;
+                }
+            }
+        }
     }
 
     fn update_dependents(&mut self) {
@@ -253,11 +261,12 @@ mod tests {
     #[test]
     fn test_failed_step() {
         let mut plan = OrchestrationPlan::sequential(vec![
-            ("a".to_string(), "task".to_string()),
-            ("b".to_string(), "task2".to_string()),
+            ("a".to_string(), "task_a".to_string()),
+            ("b".to_string(), "task_b".to_string()),
         ]);
         plan.mark_failed(0);
-        assert!(!plan.is_complete());
+        assert!(plan.is_complete());
+        assert_eq!(plan.steps[1].status, StepStatus::Skipped);
         let ready = plan.ready_steps();
         assert!(ready.is_empty());
     }

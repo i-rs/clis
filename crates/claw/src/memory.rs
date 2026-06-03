@@ -52,7 +52,7 @@ impl CrossSessionMemory {
     pub fn for_agent_with_storage(storage: &Arc<ClawStorage>, agent_id: &str) -> Self {
         let aid = agent_id.to_string();
         let s = storage.clone();
-        let mut mem = Self::block_on(async {
+        let mut mem = crate::utils::sync_block_on(async {
             s.memory.load(&aid).await.unwrap_or_else(|_| {
                 // Fallback: empty memory
                 CrossSessionMemory {
@@ -131,21 +131,6 @@ impl CrossSessionMemory {
     #[allow(dead_code)]
     fn load(path: &Path) -> Self {
         Self::load_from(path)
-    }
-
-    // ── Bridge ──
-
-    fn block_on<F: std::future::Future>(f: F) -> F::Output {
-        match tokio::runtime::Handle::try_current() {
-            Ok(_) => tokio::task::block_in_place(|| {
-                tokio::runtime::Runtime::new()
-                    .expect("CrossSessionMemory: failed to create temp runtime")
-                    .block_on(f)
-            }),
-            Err(_) => tokio::runtime::Runtime::new()
-                .expect("CrossSessionMemory: failed to create temp runtime")
-                .block_on(f),
-        }
     }
 
     // =============================================
@@ -336,7 +321,7 @@ impl CrossSessionMemory {
             let aid = self.agent_id.clone();
             let mem_snapshot = self.clone();
             if let Err(e) =
-                Self::block_on(async move { storage.memory.save(&aid, &mem_snapshot).await })
+                crate::utils::sync_block_on(async move { storage.memory.save(&aid, &mem_snapshot).await })
             {
                 tracing::error!("持久化写入失败: {}", e);
             }

@@ -184,6 +184,7 @@ fn inject_results(
                 should_retry = true;
             }
         } else if let Some(entry) = retry_counts.get_mut(&r.call.name) {
+            entry.0 = 0;
             entry.1 = 0;
         }
     }
@@ -390,6 +391,15 @@ pub async fn chat_loop(
             }
             Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
                 consecutive_provider_errors = 0;
+                if calls.is_empty() {
+                    tracing::warn!("LLM returned empty tool_calls, treating as done");
+                    let _ = tx.send(LlmEvent::Done(
+                        Arc::new(msgs),
+                        None,
+                        trace_id.clone(),
+                    ));
+                    break;
+                }
                 if init.plan_then_execute && !plan_steps.is_empty() {
                     if let Some(step) = plan_steps.iter_mut().find(|s| !s.done) {
                         step.done = true;
@@ -430,18 +440,6 @@ pub async fn chat_loop(
                         )
                         .with_tool_results(tool_results),
                     );
-                }
-
-                let has_failures = results.iter().any(|r| r.category.is_retryable_or_fatal());
-                if has_failures {
-                    msgs.push(serde_json::json!({
-                        "role": "system",
-                        "content": "⚠️ 部分工具有执行失败的记录。在继续之前，请先检查：\n\
-                         1. 是否所有工具结果都符合预期？\n\
-                         2. 失败的工具是否有替代方案？\n\
-                         3. 已成功的结果是否足够回答用户问题？\n\
-                         如果失败的工具不影响最终回答，可以忽略失败继续。"
-                    }));
                 }
 
                 init.ctx_mgr.compress(&mut msgs, &init.tool_frequency);
@@ -642,7 +640,7 @@ mod tests {
             model: "test",
         };
         let result = build_messages(params);
-        assert_eq!(result.len(), 3);
+        assert_eq!(result.len(), 2);
         assert_eq!(result[0]["role"], "system");
         assert_eq!(result[0]["content"], "custom system prompt");
         assert_eq!(result[1]["role"], "user");
@@ -719,7 +717,7 @@ mod tests {
             model: "test",
         };
         let result = build_messages(params);
-        assert_eq!(result.len(), 4);
+        assert_eq!(result.len(), 3);
         assert_eq!(result[0]["role"], "system");
         assert_eq!(result[1]["role"], "system");
         assert!(result[1]["content"].as_str().unwrap().contains("吃药"));
@@ -838,7 +836,17 @@ mod tests {
             _schemas: &[Value],
             _tx: &mpsc::UnboundedSender<LlmEvent>,
         ) -> anyhow::Result<StreamResult> {
-            Ok(StreamResult::ToolCalls(Vec::new(), String::new()))
+            Ok(StreamResult::ToolCalls(
+                vec![(
+                    crate::llm::ToolCallAcc {
+                        id: "call_1".to_string(),
+                        name: "nonexistent_tool".to_string(),
+                        arguments: "{}".to_string(),
+                    },
+                    serde_json::json!({}),
+                )],
+                String::new(),
+            ))
         }
     }
 

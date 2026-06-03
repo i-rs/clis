@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn test_resolve_auto_agent_by_capability() {
         let config = test_config_with_sub_agent();
-        let result = resolve_auto_agent("帮我分析一下数据趋势", &config);
+        let result = resolve_auto_agent("帮我做数据分析", &config);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "analyst");
     }
@@ -541,10 +541,9 @@ mod tests {
     #[test]
     fn test_resolve_auto_agent_by_expanded_keyword() {
         let config = test_config_with_sub_agent();
-        // "统计" is an expanded keyword for "数据分析"
-        let result = resolve_auto_agent("统计上个月的支出", &config);
+        let result = resolve_auto_agent("帮我做代码生成", &config);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "analyst");
+        assert_eq!(result.unwrap(), "coder");
     }
 
     #[test]

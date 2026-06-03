@@ -96,23 +96,6 @@ fn default_agent_id() -> String {
     "default".to_string()
 }
 
-// ── Helpers ──
-
-/// Bridge: block on a future whether or not a tokio runtime is active.
-/// Creates a temporary single-thread runtime if none exists.
-fn block_on<F: std::future::Future>(f: F) -> F::Output {
-    match tokio::runtime::Handle::try_current() {
-        Ok(_) => tokio::task::block_in_place(|| {
-            tokio::runtime::Runtime::new()
-                .expect("block_on: failed to create temporary runtime")
-                .block_on(f)
-        }),
-        Err(_) => tokio::runtime::Runtime::new()
-            .expect("block_on: failed to create temporary runtime")
-            .block_on(f),
-    }
-}
-
 pub struct SessionManager {
     storage: Arc<ClawStorage>,
     sessions: Vec<SessionMeta>,
@@ -129,7 +112,7 @@ impl SessionManager {
 
     /// Create a SessionManager with a custom storage backend (for DI/testing).
     pub fn with_storage(storage: Arc<ClawStorage>) -> Self {
-        let sessions = block_on(async { storage.sessions.load_all().await.unwrap_or_default() });
+        let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().await.unwrap_or_default() });
         let current_id = sessions.first().map(|s| s.id.clone());
         let index = sessions
             .iter()
@@ -210,7 +193,7 @@ impl SessionManager {
             self.rebuild_index();
             let storage = self.storage.clone();
             let sid = id.to_string();
-            block_on(async move {
+            crate::utils::sync_block_on(async move {
                 let _ = storage.messages.delete_session(&sid).await;
                 let _ = storage.api_cache.delete(&sid).await;
                 let _ = storage.plan_steps.delete(&sid).await;
@@ -277,7 +260,7 @@ impl SessionManager {
         let storage = self.storage.clone();
         let sid = id.to_string();
         let steps = steps.to_vec();
-        if let Err(e) = block_on(async move { storage.plan_steps.save(&sid, &steps).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.plan_steps.save(&sid, &steps).await }) {
             tracing::error!("持久化写入失败: {}", e);
         }
     }
@@ -286,7 +269,7 @@ impl SessionManager {
     pub fn load_plan_steps(&self, id: &str) -> Vec<crate::app::PlanStep> {
         let storage = self.storage.clone();
         let sid = id.to_string();
-        block_on(async move { storage.plan_steps.load(&sid).await }).unwrap_or_default()
+        crate::utils::sync_block_on(async move { storage.plan_steps.load(&sid).await }).unwrap_or_default()
     }
 
     #[allow(dead_code)]
@@ -388,7 +371,7 @@ impl SessionManager {
 
         let storage = self.storage.clone();
         let sid = session_id.clone();
-        if let Err(e) = block_on(async move { storage.messages.append(&sid, &entry).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.messages.append(&sid, &entry).await }) {
             tracing::error!("写入会话消息失败: {}", e);
             return;
         }
@@ -409,7 +392,7 @@ impl SessionManager {
     pub fn load_messages(&self, id: &str, max_messages: usize) -> Vec<serde_json::Value> {
         let storage = self.storage.clone();
         let sid = id.to_string();
-        block_on(async move { storage.messages.load(&sid, max_messages).await }).unwrap_or_default()
+        crate::utils::sync_block_on(async move { storage.messages.load(&sid, max_messages).await }).unwrap_or_default()
     }
 
     pub fn load_app_messages(&self, id: &str, max_messages: usize) -> Vec<crate::app::Message> {
@@ -423,7 +406,7 @@ impl SessionManager {
         let storage = self.storage.clone();
         let sid = id.to_string();
         let records = records.to_vec();
-        if let Err(e) = block_on(async move { storage.messages.save_all(&sid, &records).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.messages.save_all(&sid, &records).await }) {
             tracing::error!("持久化写入失败: {}", e);
         }
     }
@@ -432,7 +415,7 @@ impl SessionManager {
         let storage = self.storage.clone();
         let sid = id.to_string();
         let messages = messages.to_vec();
-        if let Err(e) = block_on(async move { storage.api_cache.save(&sid, &messages).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.api_cache.save(&sid, &messages).await }) {
             tracing::error!("持久化写入失败: {}", e);
         }
     }
@@ -440,7 +423,7 @@ impl SessionManager {
     pub fn load_api_messages(&self, id: &str) -> Option<Vec<serde_json::Value>> {
         let storage = self.storage.clone();
         let sid = id.to_string();
-        block_on(async move { storage.api_cache.load(&sid).await }).unwrap_or(None)
+        crate::utils::sync_block_on(async move { storage.api_cache.load(&sid).await }).unwrap_or(None)
     }
 
     fn ensure_current_session(&mut self) -> Option<String> {
@@ -454,7 +437,7 @@ impl SessionManager {
     pub(crate) fn save_index(&self) {
         let storage = self.storage.clone();
         let sessions = self.sessions.clone();
-        if let Err(e) = block_on(async move { storage.sessions.save_all(&sessions).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.sessions.save_all(&sessions).await }) {
             tracing::error!("持久化写入失败: {}", e);
         }
     }

@@ -30,24 +30,12 @@ impl ConvStore {
     pub fn search(&self, query: &str, max_results: usize) -> Vec<SearchResult> {
         let storage = self.storage.clone();
         let query = query.to_string();
-        // Use block-on bridge — caller may not be in an async context
-        match tokio::runtime::Handle::try_current() {
-            Ok(h) => h.block_on(async move {
-                storage
-                    .messages
-                    .search(&query, max_results)
-                    .await
-                    .unwrap_or_default()
-            }),
-            Err(_) => tokio::runtime::Runtime::new()
-                .expect("ConvStore: failed to create temp runtime")
-                .block_on(async move {
-                    storage
-                        .messages
-                        .search(&query, max_results)
-                        .await
-                        .unwrap_or_default()
-                }),
-        }
+        crate::utils::sync_block_on(async move {
+            storage
+                .messages
+                .search(&query, max_results)
+                .await
+                .unwrap_or_default()
+        })
     }
 }

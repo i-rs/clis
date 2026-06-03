@@ -198,20 +198,6 @@ impl StatsManager {
         }
     }
 
-    /// Bridge sync → async for backend calls in sync contexts.
-    fn block_on<F: std::future::Future>(f: F) -> F::Output {
-        match tokio::runtime::Handle::try_current() {
-            Ok(_) => tokio::task::block_in_place(|| {
-                tokio::runtime::Runtime::new()
-                    .expect("StatsManager: failed to create temp runtime")
-                    .block_on(f)
-            }),
-            Err(_) => tokio::runtime::Runtime::new()
-                .expect("StatsManager: failed to create temp runtime")
-                .block_on(f),
-        }
-    }
-
     /// Record a single token usage event.
     ///
     /// This is O(1) and does not block — just pushes to the in-memory buffer.
@@ -229,7 +215,7 @@ impl StatsManager {
             drop(buffer);
             let storage = self.storage.clone();
             if let Err(e) =
-                Self::block_on(async move { storage.stats.append_batch(&records).await })
+                crate::utils::sync_block_on(async move { storage.stats.append_batch(&records).await })
             {
                 tracing::error!("刷写 token 统计失败: {}", e);
             }
@@ -247,7 +233,7 @@ impl StatsManager {
         }
         let records = std::mem::take(&mut *buffer);
         let storage = self.storage.clone();
-        if let Err(e) = Self::block_on(async move { storage.stats.append_batch(&records).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.stats.append_batch(&records).await }) {
             tracing::error!("刷写 token 统计失败: {}", e);
         }
     }
@@ -303,7 +289,7 @@ impl StatsManager {
             .timestamp();
         let storage = self.storage.clone();
         let mut records =
-            Self::block_on(
+            crate::utils::sync_block_on(
                 async move { storage.stats.read_range(Some(start_of_today), None).await },
             )
             .unwrap_or_default();
@@ -332,7 +318,7 @@ impl StatsManager {
     #[allow(dead_code)]
     pub fn query(&self, period: StatsPeriod) -> TokenStats {
         let storage = self.storage.clone();
-        let records = Self::block_on(async move { storage.stats.read_range(None, None).await })
+        let records = crate::utils::sync_block_on(async move { storage.stats.read_range(None, None).await })
             .unwrap_or_default();
 
         let mut result = aggregator::aggregate(&records, &self.pricing);
@@ -355,7 +341,7 @@ impl StatsManager {
             return;
         }
         let storage = self.storage.clone();
-        if let Err(e) = Self::block_on(async move { storage.stats.prune(keep_days).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.stats.prune(keep_days).await }) {
             tracing::error!("清理过期统计记录失败: {}", e);
         }
     }

@@ -335,6 +335,18 @@ impl ToolCallExecutor {
                 }
                 Err(e) => {
                     tracing::error!("Tool task panicked: {}", e);
+                    all_results.push(ToolCallResult {
+                        call: ToolCallAcc {
+                            id: String::new(),
+                            name: String::new(),
+                            arguments: String::new(),
+                        },
+                        args: Value::Null,
+                        result: format!("工具任务崩溃: {}", e),
+                        context_result: format!("工具任务崩溃: {}", e),
+                        validation: ToolResultValidation { valid: false, issues: vec![format!("工具任务崩溃: {}", e)] },
+                        category: ErrorCategory::Execution,
+                    });
                 }
             }
         }
