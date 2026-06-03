@@ -1,4 +1,5 @@
 use super::strings;
+use crate::app::App;
 use crate::tui::colors::*;
 use ratatui::{
     Frame,
@@ -78,5 +79,58 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
     let paragraph = Paragraph::new(visible)
         .block(block)
         .scroll((if scroll > 0 { scroll as u16 } else { 0 }, 0));
+    frame.render_widget(paragraph, overlay);
+}
+
+pub fn render_theme_picker(frame: &mut Frame, area: Rect, app: &App) {
+    use crate::tui::colors::THEMES;
+    let total = THEMES.len();
+    let selected = app.theme_picker_selected.min(total.saturating_sub(1));
+
+    let w = 50u16.min(area.width.saturating_sub(4));
+    let h = (total as u16 + 4).min(area.height.saturating_sub(4));
+    let overlay = area.centered(Constraint::Length(w), Constraint::Length(h));
+
+    frame.render_widget(Clear, overlay);
+
+    let mut items: Vec<Line> = Vec::with_capacity(total + 2);
+    items.push(Line::from(""));
+    for (i, theme) in THEMES.iter().enumerate() {
+        let is_selected = i == selected;
+        let marker = if is_selected { "▌" } else { " " };
+        let name_style = if is_selected {
+            Style::new().fg(C_ACCENT).bold()
+        } else {
+            Style::new().fg(C_TEXT)
+        };
+        let check = if theme.id == crate::tui::colors::active().id {
+            "✓"
+        } else {
+            " "
+        };
+        items.push(Line::from(vec![
+            Span::styled(
+                marker,
+                if is_selected { Style::new().fg(C_ACCENT) } else { Style::new().fg(C_MUTED) },
+            ),
+            Span::styled(format!(" {}", check), Style::new().fg(C_GREEN)),
+            Span::styled(format!("  {:<14}", theme.id), name_style),
+            Span::styled(theme.display_name, Style::new().fg(C_DIM)),
+        ]));
+    }
+    items.push(Line::from(""));
+    items.push(Line::from(Span::styled(
+        "   ↑↓ 选择   Enter 确认   Esc 取消",
+        Style::new().fg(C_MUTED),
+    )));
+
+    let block = Block::default()
+        .title(" Select Theme ")
+        .title_alignment(Alignment::Center)
+        .borders(Borders::ALL)
+        .border_style(Style::new().fg(C_ACCENT))
+        .style(Style::new().bg(C_BG_SURFACE));
+
+    let paragraph = Paragraph::new(Text::from(items)).block(block);
     frame.render_widget(paragraph, overlay);
 }

@@ -125,6 +125,8 @@ pub struct App {
     pub temperature: f64,
     pub show_slash_picker: bool,
     pub slash_selected: usize,
+    pub show_theme_picker: bool,
+    pub theme_picker_selected: usize,
     pub message_generation: usize,
 }
 
@@ -168,6 +170,8 @@ impl App {
             temperature: 0.7,
             show_slash_picker: false,
             slash_selected: 0,
+            show_theme_picker: false,
+            theme_picker_selected: 0,
             message_generation: 0,
         }
     }

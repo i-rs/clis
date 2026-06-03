@@ -442,6 +442,42 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
         return;
     }
 
+    // Theme picker mode key handling
+    if app.show_theme_picker {
+        use crate::tui::colors::{set_active, THEMES};
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                app.show_theme_picker = false;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if app.theme_picker_selected > 0 {
+                    app.theme_picker_selected -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if app.theme_picker_selected + 1 < THEMES.len() {
+                    app.theme_picker_selected += 1;
+                }
+            }
+            KeyCode::Enter => {
+                let selected = THEMES
+                    .get(app.theme_picker_selected.min(THEMES.len() - 1))
+                    .copied();
+                if let Some(theme) = selected {
+                    set_active(theme);
+                    app.push_message(AgentMessage::system(format!(
+                        "✓ Switched to theme: {} ({})",
+                        theme.display_name, theme.id
+                    )));
+                }
+                app.show_theme_picker = false;
+            }
+            _ => {}
+        }
+        app.needs_redraw = true;
+        return;
+    }
+
     // Transcript mode key handling
     if app.show_transcript {
         match key.code {

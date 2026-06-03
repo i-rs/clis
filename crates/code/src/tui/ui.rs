@@ -198,6 +198,10 @@ pub fn render(frame: &mut Frame, app: &App) {
         super::overlays::render_shortcuts_overlay(frame, area);
     }
 
+    if app.show_theme_picker {
+        super::overlays::render_theme_picker(frame, area, app);
+    }
+
     if app.show_debug {
         super::overlays::render_debug_overlay(frame, area, app);
     }
