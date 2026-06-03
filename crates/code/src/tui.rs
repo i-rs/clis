@@ -127,6 +127,12 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             }
         })?;
 
+        // Cap scroll_offset to avoid getting stuck after block height changes
+        if !app.auto_scroll {
+            let max_scroll = crate::tui::ui::get_max_scroll();
+            app.scroll_offset = app.scroll_offset.min(max_scroll);
+        }
+
         // Faster poll (15ms) when streaming so tokens render sooner
         let poll_ms = if app.streaming.is_some() { 15 } else { 50 };
         if event::poll(Duration::from_millis(poll_ms))? {
@@ -162,7 +168,12 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                         }
                         MouseEventKind::Down(_) => {
                             if !is_sidebar && mouse.row > 0 {
-                                if let Some(idx) = crate::tui::ui::find_message_idx_from_screen(mouse.row) {
+                                if let Some(_) = crate::tui::ui::streaming_click_target(mouse.row) {
+                                    if let Some(ref mut s) = app.streaming {
+                                        s.reasoning_collapsed = !s.reasoning_collapsed;
+                                        app.message_generation += 1;
+                                    }
+                                } else if let Some(idx) = crate::tui::ui::find_message_idx_from_screen(mouse.row) {
                                     match app.messages[idx] {
                                         AgentMessage::ToolResult { .. } => {
                                             if let AgentMessage::ToolResult {
@@ -317,15 +328,40 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
         }
         AgentEvent::ToolCallEnd {
             id: _id,
-            name: _name,
+            name,
             result,
         } => {
+            let mut finished_tool = None;
+            let mut tool_step = 0;
             if let Some(ref mut s) = app.streaming
                 && let Some(mut tool) = s.current_tool.take()
             {
-                tool.result = Some(result);
+                s.tool_counter += 1;
+                tool_step = s.tool_counter;
+                tool.result = Some(result.clone());
                 tool.duration_ms = s.tool_start.elapsed().as_millis() as u64;
-                s.tool_calls.push(tool);
+                finished_tool = Some(tool);
+            }
+
+            if let Some(tool) = finished_tool {
+                let preview: String = result.chars().take(2000).collect();
+                let display = if preview.len() < result.len() {
+                    format!("{}\n{}...", name, preview)
+                } else {
+                    format!("{}\n{}", name, preview)
+                };
+                app.push_message(AgentMessage::ToolResult {
+                    content: format!("\n{}", display),
+                    diff: tool.diff.clone(),
+                    step: tool_step,
+                    total_steps: 0,
+                    collapsed: true,
+                    duration_ms: tool.duration_ms,
+                });
+
+                if let Some(ref mut s) = app.streaming {
+                    s.tool_calls.push(tool);
+                }
             }
         }
         AgentEvent::Status(msg) => {
@@ -353,26 +389,17 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
             let (content, reasoning) = app.finish_streaming();
 
             let total_tools = streamed_tc.len();
-            for (i, tc) in streamed_tc.iter().enumerate() {
-                let display = match &tc.result {
-                    Some(r) => {
-                        let preview: String = r.chars().take(2000).collect();
-                        if preview.len() < r.len() {
-                            format!("{}\n{}...", tc.name, preview)
-                        } else {
-                            format!("{}\n{}", tc.name, preview)
-                        }
+            if total_tools > 1 {
+                for msg in app.messages.iter_mut().rev() {
+                    if let AgentMessage::ToolResult {
+                        total_steps, ..
+                    } = msg
+                    {
+                        *total_steps = total_tools;
+                    } else {
+                        break;
                     }
-                    None => format!("{}\n(no result)", tc.name),
-                };
-                app.push_message(AgentMessage::ToolResult {
-                    content: format!("\n{}", display),
-                    diff: tc.diff.clone(),
-                    step: i + 1,
-                    total_steps: total_tools,
-                    collapsed: total_tools > 1,
-                    duration_ms: tc.duration_ms,
-                });
+                }
             }
 
             if !messages.is_empty() {
@@ -783,10 +810,10 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                 app.needs_redraw = true;
             }
         }
-        KeyCode::Up if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+        KeyCode::Up if matches!(app.mode, AppMode::Idle) && !app.input.history.is_empty() && !app.show_slash_picker => {
             app.input.history_up();
         }
-        KeyCode::Down if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
+        KeyCode::Down if matches!(app.mode, AppMode::Idle) && app.input.history_index.is_some() && !app.show_slash_picker => {
             app.input.history_down();
         }
         KeyCode::Up => app.scroll_up(),

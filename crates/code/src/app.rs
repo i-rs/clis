@@ -89,6 +89,8 @@ pub struct StreamingState {
     pub current_tool: Option<ToolCallInfo>,
     pub tool_start: std::time::Instant,
     pub start_time: std::time::Instant,
+    pub tool_counter: usize,
+    pub reasoning_collapsed: bool,
 }
 
 pub struct App {
@@ -203,6 +205,8 @@ impl App {
             current_tool: None,
             tool_start: now,
             start_time: now,
+            tool_counter: 0,
+            reasoning_collapsed: false,
         });
     }
 

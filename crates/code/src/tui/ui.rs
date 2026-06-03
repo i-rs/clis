@@ -9,12 +9,14 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 thread_local! {
     static MSG_BLOCKS_CACHE: RefCell<(usize, u16, Vec<Vec<Line<'static>>>)> =
         const { RefCell::new((0, 0, Vec::new())) };
     static MSG_RECTS: RefCell<Vec<(u16, u16)>> = RefCell::new(Vec::new());
+    static STREAMING_RECT: RefCell<Option<(u16, u16)>> = const { RefCell::new(None) };
+    static MAX_SCROLL: Cell<usize> = const { Cell::new(0) };
 }
 
 const SIDEBAR_WIDTH: u16 = 40;
@@ -603,17 +605,6 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled(" Assistant", Style::new().fg(c_text()).bold()),
         ])];
 
-        for tool in &s.tool_calls {
-            let glyph = tool_glyph(&tool.name);
-            stream_lines.push(Line::from(vec![
-                Span::styled("▷ ", Style::new().fg(c_dim())),
-                Span::styled(
-                    format!("✓ {} {}", glyph, tool.name),
-                    Style::new().fg(c_green()).bold(),
-                ),
-            ]));
-        }
-
         if let Some(ref tool) = s.current_tool {
             let glyph = tool_glyph(&tool.name);
             stream_lines.push(Line::from(vec![
@@ -626,27 +617,37 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         }
 
         if !s.reasoning.is_empty() {
-            let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
-            let total = reasoning_lines.len();
-            let show_count = if s.content.is_empty() { 6.min(total) } else { 3.min(total) };
-            let start = total.saturating_sub(show_count);
-            stream_lines.push(Line::from(Span::styled(
-                "▼ 思考过程",
-                Style::new().fg(c_yellow()),
-            )));
-            if start > 0 {
+            if s.reasoning_collapsed {
+                stream_lines.push(Line::from(vec![
+                    Span::styled("▸ ", Style::new().fg(c_muted())),
+                    Span::styled(
+                        format!("思考过程 ({} 行)", s.reasoning.lines().count()),
+                        Style::new().fg(c_dim()),
+                    ),
+                ]));
+            } else {
+                let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
+                let total = reasoning_lines.len();
+                let show_count = if s.content.is_empty() { 6.min(total) } else { 3.min(total) };
+                let start = total.saturating_sub(show_count);
                 stream_lines.push(Line::from(Span::styled(
-                    format!("│ … {} earlier lines", start),
-                    Style::new().fg(c_dim()).italic(),
+                    "▼ 思考过程",
+                    Style::new().fg(c_yellow()),
                 )));
+                if start > 0 {
+                    stream_lines.push(Line::from(Span::styled(
+                        format!("│ … {} earlier lines", start),
+                        Style::new().fg(c_dim()).italic(),
+                    )));
+                }
+                for line in &reasoning_lines[start..] {
+                    stream_lines.push(Line::from(Span::styled(
+                        format!("│ {}", line),
+                        Style::new().fg(c_dim()).italic(),
+                    )));
+                }
+                stream_lines.push(Line::from(Span::styled("╰", Style::new().fg(c_border()))));
             }
-            for line in &reasoning_lines[start..] {
-                stream_lines.push(Line::from(Span::styled(
-                    format!("│ {}", line),
-                    Style::new().fg(c_dim()).italic(),
-                )));
-            }
-            stream_lines.push(Line::from(Span::styled("╰", Style::new().fg(c_border()))));
         }
 
         if !s.content.is_empty() {
@@ -677,6 +678,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         + 4;
 
     let max_scroll = total_height.saturating_sub(area.height as usize);
+    MAX_SCROLL.with(|m| m.set(max_scroll));
     let scroll = if app.auto_scroll {
         max_scroll
     } else {
@@ -686,6 +688,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(Clear, area);
 
     // Walk virtual coordinates, render only visible blocks
+    STREAMING_RECT.with(|r| *r.borrow_mut() = None);
     let mut rects: Vec<(u16, u16)> = Vec::with_capacity(msg_count);
     let mut virtual_y: usize = 0;
     let mut screen_y: u16 = area.y;
@@ -751,6 +754,10 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
 
         if is_msg {
             rects.push((block_area.y, block_area.height));
+        } else if app.streaming.is_some() && remaining > 0 {
+            STREAMING_RECT.with(|r| *r.borrow_mut() = Some((block_area.y, block_area.height)));
+        } else if app.streaming.is_some() {
+            STREAMING_RECT.with(|r| *r.borrow_mut() = None);
         }
 
         screen_y += render_count;
@@ -785,6 +792,23 @@ pub fn find_message_idx_from_screen(screen_row: u16) -> Option<usize> {
         }
         None
     })
+}
+
+pub fn streaming_click_target(screen_row: u16) -> Option<bool> {
+    STREAMING_RECT.with(|r| {
+        let rect = r.borrow();
+        rect.and_then(|(y, h)| {
+            if h > 0 && screen_row >= y && screen_row < y + h {
+                Some(true)
+            } else {
+                None
+            }
+        })
+    })
+}
+
+pub fn get_max_scroll() -> usize {
+    MAX_SCROLL.with(|m| m.get())
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {

@@ -190,11 +190,11 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     // LSP
+    items.push(Line::from(Span::styled(
+        "─ LSP ─",
+        Style::default().fg(c_muted()),
+    )));
     if crate::runtime::is_lsp_initialized() {
-        items.push(Line::from(Span::styled(
-            "─ LSP ─",
-            Style::default().fg(c_muted()),
-        )));
         let diag_count = crate::runtime::lsp_diagnostics();
         if diag_count == 0 {
             items.push(Line::from(Span::styled(
@@ -207,8 +207,13 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
                 Style::default().fg(c_red()).bold(),
             )));
         }
-        items.push(Line::from(""));
+    } else {
+        items.push(Line::from(Span::styled(
+            " not started",
+            Style::default().fg(c_muted()),
+        )));
     }
+    items.push(Line::from(""));
 
     // MCP
     items.push(Line::from(Span::styled(
