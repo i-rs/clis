@@ -44,3 +44,5 @@ crates/claw/examples/plugins/*/target/
 .github/code/
 .trae/
 .opencode/
+.claude/
+.codex/
