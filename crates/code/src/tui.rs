@@ -112,7 +112,9 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             }
         })?;
 
-        if event::poll(Duration::from_millis(50))? {
+        // Faster poll (15ms) when streaming so tokens render sooner
+        let poll_ms = if app.streaming.is_some() { 15 } else { 50 };
+        if event::poll(Duration::from_millis(poll_ms))? {
             match event::read()? {
                 Event::Key(key) => {
                     handle_key(key, &mut app, &event_tx).await;
@@ -903,10 +905,15 @@ fn compute_diff_from_args(args: &serde_json::Value) -> Option<String> {
         return None;
     }
     let diff = crate::diff::diff_text(old, new);
-    let mut lines: Vec<&str> = diff.patch.lines().collect();
-    if lines.len() > 20 {
-        lines.truncate(20);
-        lines.push("... (diff truncated)");
+    let line_count = diff.patch.lines().count();
+    if line_count <= 20 {
+        return Some(diff.patch);
     }
-    Some(lines.join("\n"))
+    let mut result = String::with_capacity(diff.patch.len().min(400) + 24);
+    for line in diff.patch.lines().take(20) {
+        result.push_str(line);
+        result.push('\n');
+    }
+    result.push_str("... (diff truncated)");
+    Some(result)
 }

@@ -7,6 +7,7 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Clear, Paragraph, Wrap},
 };
+use std::path::Path;
 
 use super::utils::short_path;
 fn fmt_count(n: u32) -> String {
@@ -62,7 +63,9 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let content_area = chunks[0];
     let w = content_area.width.saturating_sub(2) as usize;
 
-    let mut items: Vec<Line> = Vec::new();
+    let mut items: Vec<Line> = Vec::with_capacity(
+        40 + app.file_changes.len().min(5) + app.plan.len().min(8),
+    );
 
     // Header
     items.push(section_header(
@@ -178,16 +181,12 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(C_DIM),
         )));
         for path in app.file_changes.iter().take(5) {
-            let p = if path.len() > w {
-                format!(
-                    "..{}",
-                    &path[path.len().saturating_sub(w.saturating_sub(2))..]
-                )
-            } else {
-                path.clone()
-            };
+            let fname = Path::new(path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| path.clone());
             items.push(Line::from(Span::styled(
-                format!(" ✎ {}", p),
+                format!(" ✎ {}", fname),
                 Style::default().fg(C_FILE_EDIT),
             )));
         }

@@ -45,25 +45,25 @@ fn is_diff_output(text: &str) -> bool {
 }
 
 fn render_diff_line(line: &str) -> Vec<Span<'static>> {
-    if let Some(rest) = line.strip_prefix("+") {
+    if let Some(rest) = line.strip_prefix('+') {
         vec![
             Span::styled("+", Style::new().green().bold()),
-            Span::styled(rest.to_string(), Style::new().fg(C_DIFF_GREEN)),
+            Span::styled(rest.to_owned(), Style::new().fg(C_DIFF_GREEN)),
         ]
-    } else if let Some(rest) = line.strip_prefix("-") {
+    } else if let Some(rest) = line.strip_prefix('-') {
         vec![
             Span::styled("-", Style::new().red().bold()),
-            Span::styled(rest.to_string(), Style::new().fg(C_DIFF_RED)),
+            Span::styled(rest.to_owned(), Style::new().fg(C_DIFF_RED)),
         ]
     } else if line.starts_with("@@") {
-        vec![Span::styled(line.to_string(), Style::new().cyan())]
+        vec![Span::styled(line.to_owned(), Style::new().cyan())]
     } else {
-        vec![Span::raw(line.to_string())]
+        vec![Span::raw(line.to_owned())]
     }
 }
 
 fn render_ai_content(content: &str) -> Vec<Line<'static>> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(content.lines().count());
     let mut in_code = false;
     let mut code_lang = String::new();
     let mut code_buffer = String::new();
@@ -78,7 +78,8 @@ fn render_ai_content(content: &str) -> Vec<Line<'static>> {
                 };
                 let highlighted = highlight_code_block(&code_buffer, lang);
                 for hl_line in highlighted {
-                    let mut spans = vec![Span::raw(" ")];
+                    let mut spans = Vec::with_capacity(hl_line.len() + 1);
+                    spans.push(Span::raw(" "));
                     spans.extend(hl_line);
                     result.push(Line::from(spans));
                 }
@@ -110,7 +111,8 @@ fn render_ai_content(content: &str) -> Vec<Line<'static>> {
         };
         let highlighted = highlight_code_block(&code_buffer, lang);
         for hl_line in highlighted {
-            let mut spans = vec![Span::raw(" ")];
+            let mut spans = Vec::with_capacity(hl_line.len() + 1);
+            spans.push(Span::raw(" "));
             spans.extend(hl_line);
             result.push(Line::from(spans));
         }
@@ -219,7 +221,16 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
-    let mut lines: Vec<Line> = Vec::new();
+    let estimated: usize = app.messages.iter().map(|m| match m {
+        AgentMessage::User { content } | AgentMessage::System { content } => {
+            content.lines().count().max(1) + 1
+        }
+        AgentMessage::Assistant { content, .. } => content.lines().count().max(1) + 2,
+        AgentMessage::ToolResult { .. } => 8,
+        AgentMessage::FileEdit { summary, .. } => summary.lines().count().max(1) + 1,
+        AgentMessage::Separator { .. } => 1,
+    }).sum::<usize>() + 40;
+    let mut lines: Vec<Line> = Vec::with_capacity(estimated);
     let mut last_was_tool = false;
 
     for (msg_idx, msg) in app.messages.iter().enumerate() {
@@ -495,10 +506,10 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                 " ▊",
                 Style::new().fg(C_GREEN),
             )]));
-        } else if s.current_tool.is_none() && s.reasoning.is_empty() && s.content.is_empty() {
+        } else if s.current_tool.is_none() && s.reasoning.is_empty() && s.tool_calls.is_empty() && s.content.is_empty() {
             lines.push(Line::from(vec![Span::styled(
-                " ╎ ...",
-                Style::new().fg(C_DIM).italic(),
+                " ⏳",
+                Style::new().fg(C_DIM),
             )]));
         }
     }

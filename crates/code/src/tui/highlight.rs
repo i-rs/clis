@@ -1,13 +1,13 @@
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Span;
 use std::sync::LazyLock;
-use std::sync::Mutex;
+use std::sync::RwLock;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, Style as SyntectStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
-static HIGHLIGHTER: LazyLock<Mutex<Highlighter>> = LazyLock::new(|| Mutex::new(Highlighter::new()));
+static HIGHLIGHTER: LazyLock<RwLock<Highlighter>> = LazyLock::new(|| RwLock::new(Highlighter::new()));
 
 struct Highlighter {
     ss: SyntaxSet,
@@ -66,11 +66,12 @@ fn syntect_style_to_ratatui(style: &SyntectStyle) -> Style {
 /// Highlight a code block with optional language hint.
 /// Returns one `Vec<Span>` per line, suitable for direct use in ratatui `Line` widgets.
 pub fn highlight_code_block(code: &str, lang: Option<&str>) -> Vec<Vec<Span<'static>>> {
-    let Ok(highlighter) = HIGHLIGHTER.lock() else {
-        return code
-            .lines()
-            .map(|l| vec![Span::raw(l.to_string())])
-            .collect();
+    let Ok(highlighter) = HIGHLIGHTER.read() else {
+        let mut result = Vec::with_capacity(code.lines().count());
+        for l in code.lines() {
+            result.push(vec![Span::raw(l.to_string())]);
+        }
+        return result;
     };
     highlighter.highlight(code, lang)
 }

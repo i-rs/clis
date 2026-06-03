@@ -16,19 +16,19 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
 
     frame.render_widget(Clear, overlay);
 
-    let items: Vec<Line> = std::iter::once(Line::from(""))
-        .chain(strings::SHORTCUTS.iter().map(|(key, label)| {
-            Line::from(Span::styled(
-                format!("  {:<14} {}", key, label),
-                Style::new().fg(Color::White),
-            ))
-        }))
-        .chain(std::iter::once(Line::from("")))
-        .chain(std::iter::once(Line::from(Span::styled(
-            "     Press any key to close",
-            Style::new().fg(C_DIM),
-        ))))
-        .collect();
+    let mut items = Vec::with_capacity(strings::SHORTCUTS.len() + 3);
+    items.push(Line::from(""));
+    for (key, label) in strings::SHORTCUTS {
+        items.push(Line::from(Span::styled(
+            format!("  {:<14} {}", key, label),
+            Style::new().fg(Color::White),
+        )));
+    }
+    items.push(Line::from(""));
+    items.push(Line::from(Span::styled(
+        "     Press any key to close",
+        Style::new().fg(C_DIM),
+    )));
 
     let block = Block::default()
         .title(format!(" {} ", strings::SHORTCUT_TITLE))
