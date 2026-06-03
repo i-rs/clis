@@ -246,8 +246,8 @@ impl ToolRegistry {
 
     /// Add MCP-discovered tools (builder pattern, consumes self).
     pub fn with_mcp(mut self, mcp_registry: &crate::mcp::McpRegistry) -> Self {
-        for (client_idx, tool_def) in &mcp_registry.tools {
-            if let Some(client) = mcp_registry.clients.get(*client_idx) {
+        for (client_idx, tool_def) in mcp_registry.tools() {
+            if let Some(client) = mcp_registry.clients().get(*client_idx) {
                 self.tools.push(Box::new(mcp_tools::McpToolWrapper::new(
                     tool_def.clone(),
                     client.clone(),

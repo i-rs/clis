@@ -1,5 +1,6 @@
 use crate::dashboard::AppState;
 use crate::llm::LlmEvent;
+use crate::providers::ProviderKind;
 use crate::stats::StatsPeriod;
 use axum::{
     Json,
@@ -155,7 +156,7 @@ pub async fn update_config(
     let mut core = state.core.write().await;
 
     if let Some(p) = body.get("provider").and_then(|v| v.as_str()) {
-        core.config.provider = p.to_string();
+        core.config.provider = p.parse().expect("invalid provider");
     }
     if let Some(k) = body.get("api_key").and_then(|v| v.as_str()) {
         core.config.api_key = k.to_string();
@@ -604,8 +605,8 @@ pub async fn get_agents(State(state): State<AppState>) -> Json<ApiResponse<Vec<V
                 .get(id)
                 .or_else(|| core.config.sub_agents.get(id));
             let provider = agent
-                .and_then(|a| a.provider.as_deref())
-                .unwrap_or(&core.config.provider);
+                .and_then(|a| a.provider)
+                .unwrap_or(core.config.provider);
             let model = agent
                 .and_then(|a| a.model.as_deref())
                 .unwrap_or(&core.config.model);
@@ -679,7 +680,7 @@ pub async fn update_agent(
         provider: body
             .get("provider")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(|s| s.parse::<ProviderKind>().expect("invalid provider"))
             .or(existing.provider),
         api_key: body
             .get("api_key")
@@ -757,7 +758,7 @@ pub async fn create_agent(
         provider: body
             .get("provider")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
+            .map(|s| s.parse::<ProviderKind>().expect("invalid provider")),
         api_key: body
             .get("api_key")
             .and_then(|v| v.as_str())

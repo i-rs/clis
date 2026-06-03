@@ -162,7 +162,7 @@ pub(super) fn render_config_panel(
     let config = &app.config;
     let stats = &app.today_stats;
     let info: Vec<(String, String)> = vec![
-        ("Provider".to_string(), config.provider.clone()),
+        ("Provider".to_string(), config.provider.to_string()),
         ("Model".to_string(), config.model.clone()),
         ("Base URL".to_string(), config.base_url.clone()),
         (
@@ -317,7 +317,7 @@ pub(super) fn render_agent_list_panel(
         for (i, id) in agent_ids.iter().enumerate() {
             let agent = &app.config.agents[*id];
             let model = agent.model.as_deref().unwrap_or(&app.config.model);
-            let provider = agent.provider.as_deref().unwrap_or(&app.config.provider);
+            let provider = agent.provider.unwrap_or(app.config.provider);
             let caps = if agent.capabilities.is_empty() {
                 String::new()
             } else {

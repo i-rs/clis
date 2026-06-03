@@ -507,8 +507,8 @@ impl AppCore {
         let provider = crate::providers::create_provider_for(
             &self.http_client,
             agent
-                .and_then(|a| a.provider.as_deref())
-                .unwrap_or(&self.config.provider),
+                .and_then(|a| a.provider)
+                .unwrap_or(self.config.provider),
             agent
                 .and_then(|a| a.api_key.as_deref())
                 .unwrap_or(&self.config.api_key),

@@ -17,7 +17,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub fn test_config() -> Config {
     let mut c = Config::new();
     c.api_key = "test-key".to_string();
-    c.provider = "openai".to_string();
+    c.provider = ProviderKind::OpenAI;
     c.base_url = "http://localhost:9999/v1".to_string();
     c.model = "test-model".to_string();
     c

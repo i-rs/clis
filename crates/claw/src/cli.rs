@@ -30,11 +30,7 @@ pub fn run_config() -> anyhow::Result<()> {
         .iter()
         .map(|p| p.as_str())
         .collect();
-    let provider_default = if provider_names.contains(&cfg.provider.as_str()) {
-        cfg.provider.clone()
-    } else {
-        "openai".to_string()
-    };
+    let provider_default = cfg.provider.as_str();
     print!(
         "Provider [{}] ({}): ",
         provider_default,
@@ -45,7 +41,7 @@ pub fn run_config() -> anyhow::Result<()> {
     io::stdin().read_line(&mut input)?;
     let trimmed = input.trim().to_string();
     if !trimmed.is_empty() {
-        cfg.provider = trimmed;
+        cfg.provider = trimmed.parse().expect("invalid provider");
     }
 
     // ── API Key ──
@@ -245,7 +241,7 @@ pub fn run_config() -> anyhow::Result<()> {
     }
 
     // ── Save ──
-    let needs_api_key = cfg.provider.as_str() != "ollama";
+    let needs_api_key = cfg.provider != crate::providers::ProviderKind::Ollama;
     if needs_api_key && cfg.api_key.is_empty() {
         anyhow::bail!("{} 需要 API Key，配置未保存", cfg.provider);
     }

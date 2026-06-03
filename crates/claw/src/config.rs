@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::mcp::McpServerConfig;
+use crate::providers::ProviderKind;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_provider")]
-    pub provider: String,
+    pub provider: ProviderKind,
     pub api_key: String,
     #[serde(default = "default_base_url")]
     pub base_url: String,
@@ -145,7 +146,7 @@ fn default_true() -> bool {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentConfig {
     #[serde(default)]
-    pub provider: Option<String>,
+    pub provider: Option<ProviderKind>,
     #[serde(default)]
     pub api_key: Option<String>,
     #[serde(default)]
@@ -227,7 +228,7 @@ impl Default for QualityJudgeConfig {
 pub struct ResolvedAgentConfig {
     #[allow(dead_code)]
     pub agent_id: String,
-    pub provider: String,
+    pub provider: ProviderKind,
     pub api_key: String,
     pub base_url: String,
     pub model: String,
@@ -267,8 +268,8 @@ impl Config {
         ResolvedAgentConfig {
             agent_id: id.to_string(),
             provider: agent
-                .and_then(|a| a.provider.clone())
-                .unwrap_or_else(|| self.provider.clone()),
+                .and_then(|a| a.provider)
+                .unwrap_or(self.provider),
             api_key: agent
                 .and_then(|a| a.api_key.clone())
                 .unwrap_or_else(|| self.api_key.clone()),
@@ -540,8 +541,8 @@ pub struct WeChatPlatformConfig {
     pub agent_id: Option<String>,
 }
 
-fn default_provider() -> String {
-    "openai".to_string()
+fn default_provider() -> ProviderKind {
+    ProviderKind::OpenAI
 }
 
 fn default_base_url() -> String {
@@ -641,7 +642,7 @@ impl Config {
         }
 
         // Validate config
-        if config.provider != "ollama" && config.api_key.is_empty() {
+        if config.provider != ProviderKind::Ollama && config.api_key.is_empty() {
             anyhow::bail!("配置文件中 api_key 不能为空 (Ollama 除外)");
         }
 
@@ -665,16 +666,15 @@ impl Config {
     pub fn validate(&self) -> Vec<String> {
         let mut warnings = Vec::new();
 
-        let known_providers = ["openai", "ollama", "anthropic"];
-        if !known_providers.contains(&self.provider.as_str()) {
+        let known_providers = [ProviderKind::OpenAI, ProviderKind::Ollama, ProviderKind::Anthropic];
+        if !known_providers.contains(&self.provider) {
             tracing::info!(
-                "provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式 (支持: {})",
-                self.provider,
-                known_providers.join(", ")
+                "provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式",
+                self.provider
             );
         }
 
-        if self.provider != "ollama" && self.api_key.is_empty() {
+        if self.provider != ProviderKind::Ollama && self.api_key.is_empty() {
             warnings.push(format!("{} provider 需要设置 api_key", self.provider));
         }
 
@@ -767,9 +767,9 @@ impl Config {
         if id.contains(' ') || id.contains('/') || id.contains('\\') {
             warnings.push(format!("{} ID '{}' 包含非法字符 (空格/斜杠)", scope, id));
         }
-        if let Some(ref p) = agent.provider {
-            match p.as_str() {
-                "openai" | "ollama" | "anthropic" => {}
+        if let Some(p) = agent.provider {
+            match p {
+                ProviderKind::OpenAI | ProviderKind::Ollama | ProviderKind::Anthropic => {}
                 other => {
                     warnings.push(format!(
                         "{} '{}' 使用了未知 provider '{}'",
@@ -913,7 +913,7 @@ mod tests {
         with_env("I_RS_CLAW_API_KEY", None, || {
             let config = Config::new();
             assert!(config.api_key.is_empty());
-            assert_eq!(config.provider, "openai");
+            assert_eq!(config.provider, ProviderKind::OpenAI);
             assert_eq!(config.base_url, "https://api.openai.com/v1");
             assert_eq!(config.model, "gpt-4o-mini");
             assert!(config.enabled_tools.is_empty());

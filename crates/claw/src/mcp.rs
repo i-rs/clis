@@ -260,13 +260,12 @@ fn mcp_service_err(e: ServiceError) -> String {
 #[derive(Debug, Clone)]
 pub struct McpRegistry {
     /// All connected MCP clients.
-    pub clients: Vec<McpClient>,
+    clients: Vec<McpClient>,
     /// All discovered tools (flattened across all servers).
-    pub tools: Vec<(usize, McpToolDefinition)>, // (client_index, tool_def)
+    tools: Vec<(usize, McpToolDefinition)>, // (client_index, tool_def)
     /// O(1) tool name lookup → (client_index, tool_def).
     /// Only the first occurrence of each tool name is kept (first-server wins).
-    #[allow(dead_code)]
-    pub tool_map: HashMap<String, (usize, McpToolDefinition)>,
+    tool_map: HashMap<String, (usize, McpToolDefinition)>,
     /// Shared tokio runtime for all MCP connections.
     #[allow(dead_code)]
     rt: Arc<tokio::runtime::Runtime>,
@@ -425,6 +424,22 @@ impl McpRegistry {
         reconnected
     }
 
+    /// Get all connected MCP clients.
+    pub fn clients(&self) -> &[McpClient] {
+        &self.clients
+    }
+
+    /// Get all discovered MCP tools (flattened across all servers).
+    pub fn tools(&self) -> &[(usize, McpToolDefinition)] {
+        &self.tools
+    }
+
+    /// Look up a tool by name, returning its (client_index, tool_def).
+    #[allow(dead_code)]
+    pub fn find_tool(&self, name: &str) -> Option<&(usize, McpToolDefinition)> {
+        self.tool_map.get(name)
+    }
+
     /// Get the number of connected MCP clients.
     #[allow(dead_code)]
     pub fn client_count(&self) -> usize {
@@ -468,8 +483,8 @@ mod tests {
     #[test]
     fn test_mcp_registry_new_empty() {
         let registry = McpRegistry::new(&[]);
-        assert!(registry.clients.is_empty(), "空服务器列表不应创建客户端");
-        assert!(registry.tools.is_empty(), "空服务器列表不应发现工具");
+        assert!(registry.clients().is_empty(), "空服务器列表不应创建客户端");
+        assert!(registry.tools().is_empty(), "空服务器列表不应发现工具");
         assert_eq!(registry.tool_count(), 0);
         assert!(!registry.has_tools());
         assert_eq!(registry.client_count(), 0);
@@ -478,8 +493,8 @@ mod tests {
     #[test]
     fn test_mcp_registry_empty_for_test() {
         let registry = McpRegistry::empty_for_test();
-        assert!(registry.clients.is_empty());
-        assert!(registry.tools.is_empty());
+        assert!(registry.clients().is_empty());
+        assert!(registry.tools().is_empty());
         assert_eq!(registry.tool_count(), 0);
         assert!(!registry.has_tools());
         assert_eq!(registry.client_count(), 0);
@@ -516,7 +531,7 @@ mod tests {
         use std::collections::HashSet;
         let agent_config = crate::config::ResolvedAgentConfig {
             agent_id: "test".to_string(),
-            provider: "openai".to_string(),
+            provider: crate::providers::ProviderKind::OpenAI,
             api_key: "test-key".to_string(),
             base_url: "http://localhost:9999/v1".to_string(),
             model: "test-model".to_string(),
@@ -529,8 +544,8 @@ mod tests {
         };
         let global_servers: Vec<McpServerConfig> = Vec::new();
         let registry = McpRegistry::for_agent(&agent_config, &global_servers);
-        assert!(registry.clients.is_empty(), "无 MCP 服务器时不应创建客户端");
-        assert!(registry.tools.is_empty());
+        assert!(registry.clients().is_empty(), "无 MCP 服务器时不应创建客户端");
+        assert!(registry.tools().is_empty());
     }
 
     #[test]
@@ -539,7 +554,7 @@ mod tests {
         use std::collections::HashSet;
         let agent_config = crate::config::ResolvedAgentConfig {
             agent_id: "test".to_string(),
-            provider: "openai".to_string(),
+            provider: crate::providers::ProviderKind::OpenAI,
             api_key: "test-key".to_string(),
             base_url: "http://localhost:9999/v1".to_string(),
             model: "test-model".to_string(),
@@ -562,7 +577,7 @@ mod tests {
         };
         let global_servers = vec![disabled_server];
         let registry = McpRegistry::for_agent(&agent_config, &global_servers);
-        assert!(registry.clients.is_empty(), "disabled 服务器不应连接");
+        assert!(registry.clients().is_empty(), "disabled 服务器不应连接");
         assert_eq!(registry.server_configs.len(), 1);
     }
 

@@ -242,7 +242,7 @@ impl GatewayServer {
         let client = crate::providers::shared_client();
         let provider = crate::providers::create_provider_for(
             &client,
-            &config.provider,
+            config.provider,
             &config.api_key,
             &config.base_url,
             &config.model,

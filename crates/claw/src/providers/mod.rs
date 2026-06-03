@@ -12,13 +12,15 @@ pub use anthropic::AnthropicProvider;
 pub use ollama::OllamaProvider;
 pub use openai::OpenaiProvider;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 
 // ── Provider Kind ──
 
 /// Provider identifier used in configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ProviderKind {
     OpenAI,
     Anthropic,
@@ -26,18 +28,16 @@ pub enum ProviderKind {
     Zhipu,
 }
 
-impl ProviderKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ProviderKind::OpenAI => "openai",
-            ProviderKind::Anthropic => "anthropic",
-            ProviderKind::Ollama => "ollama",
-            ProviderKind::Zhipu => "zhipu",
-        }
+impl std::fmt::Display for ProviderKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
+}
 
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+impl std::str::FromStr for ProviderKind {
+    type Err = std::convert::Infallible;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "anthropic" => ProviderKind::Anthropic,
             "ollama" => ProviderKind::Ollama,
             "zhipu" => ProviderKind::Zhipu,
@@ -47,6 +47,17 @@ impl ProviderKind {
                 }
                 ProviderKind::OpenAI
             }
+        })
+    }
+}
+
+impl ProviderKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProviderKind::OpenAI => "openai",
+            ProviderKind::Anthropic => "anthropic",
+            ProviderKind::Ollama => "ollama",
+            ProviderKind::Zhipu => "zhipu",
         }
     }
 
@@ -100,7 +111,7 @@ pub fn create_provider(
 ) -> Box<dyn LlmProvider> {
     create_provider_for(
         client,
-        &config.provider,
+        config.provider,
         &config.api_key,
         &config.base_url,
         &config.model,
@@ -110,12 +121,12 @@ pub fn create_provider(
 /// Create a provider from individual fields (provider type, api key, base url, model).
 pub fn create_provider_for(
     client: &reqwest::Client,
-    provider_type: &str,
+    provider_type: ProviderKind,
     api_key: &str,
     base_url: &str,
     model: &str,
 ) -> Box<dyn LlmProvider> {
-    match ProviderKind::from_str(provider_type) {
+    match provider_type {
         ProviderKind::OpenAI | ProviderKind::Zhipu => Box::new(OpenaiProvider::new(
             client.clone(),
             api_key.to_string(),
@@ -144,25 +155,25 @@ mod tests {
 
     #[test]
     fn test_provider_kind_from_str_openai() {
-        assert_eq!(ProviderKind::from_str("openai"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str("OpenAI"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str("OPENAI"), ProviderKind::OpenAI);
+        assert_eq!("openai".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
+        assert_eq!("OpenAI".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
+        assert_eq!("OPENAI".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
     }
 
     #[test]
     fn test_provider_kind_from_str_anthropic() {
-        assert_eq!(ProviderKind::from_str("anthropic"), ProviderKind::Anthropic);
+        assert_eq!("anthropic".parse::<ProviderKind>().unwrap(), ProviderKind::Anthropic);
     }
 
     #[test]
     fn test_provider_kind_from_str_ollama() {
-        assert_eq!(ProviderKind::from_str("ollama"), ProviderKind::Ollama);
+        assert_eq!("ollama".parse::<ProviderKind>().unwrap(), ProviderKind::Ollama);
     }
 
     #[test]
     fn test_provider_kind_from_str_unknown_defaults_to_openai() {
-        assert_eq!(ProviderKind::from_str("unknown"), ProviderKind::OpenAI);
-        assert_eq!(ProviderKind::from_str(""), ProviderKind::OpenAI);
+        assert_eq!("unknown".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
+        assert_eq!("".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
     }
 
     #[test]
@@ -185,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_provider_kind_from_str_zhipu() {
-        assert_eq!(ProviderKind::from_str("zhipu"), ProviderKind::Zhipu);
-        assert_eq!(ProviderKind::from_str("Zhipu"), ProviderKind::Zhipu);
+        assert_eq!("zhipu".parse::<ProviderKind>().unwrap(), ProviderKind::Zhipu);
+        assert_eq!("Zhipu".parse::<ProviderKind>().unwrap(), ProviderKind::Zhipu);
     }
 }

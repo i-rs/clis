@@ -117,7 +117,7 @@ impl ClawTool for DelegateTool {
 
         let provider = create_provider_for(
             &ctx.http_client,
-            &agent_config.provider,
+            agent_config.provider,
             &agent_config.api_key,
             &agent_config.base_url,
             &agent_config.model,
@@ -261,7 +261,7 @@ impl ClawTool for DelegateTool {
             rt.stats_manager.record(rt.stats_manager.create_record(
                 &format!("delegate:{}", agent_id),
                 &final_model,
-                &agent_config.provider,
+                agent_config.provider.as_str(),
                 total_input_tokens,
                 total_output_tokens,
                 !tool_summary.is_empty(),
@@ -597,7 +597,7 @@ mod tests {
     fn test_build_sub_agent_prompt_uses_system_prompt() {
         let config = crate::config::ResolvedAgentConfig {
             agent_id: "test".to_string(),
-            provider: "openai".to_string(),
+            provider: crate::providers::ProviderKind::OpenAI,
             api_key: String::new(),
             base_url: String::new(),
             model: "gpt-4o-mini".to_string(),
@@ -623,7 +623,7 @@ mod tests {
         use std::sync::Arc;
         let config = crate::config::ResolvedAgentConfig {
             agent_id: "test".to_string(),
-            provider: "openai".to_string(),
+            provider: crate::providers::ProviderKind::OpenAI,
             api_key: String::new(),
             base_url: String::new(),
             model: "gpt-4o-mini".to_string(),
@@ -667,7 +667,7 @@ mod tests {
     fn test_build_sub_agent_prompt_with_tool_index() {
         let config = crate::config::ResolvedAgentConfig {
             agent_id: "analyst".to_string(),
-            provider: "openai".to_string(),
+            provider: crate::providers::ProviderKind::OpenAI,
             api_key: String::new(),
             base_url: String::new(),
             model: "gpt-4o".to_string(),

@@ -123,8 +123,7 @@ impl TaskRouter {
                 if agent.agent_id == default_agent_id {
                     continue;
                 }
-                let provider = agent.provider.to_lowercase();
-                if provider == "anthropic" {
+                if agent.provider == crate::providers::ProviderKind::Anthropic {
                     return Some((&agent.agent_id, false));
                 }
             }
@@ -218,7 +217,7 @@ mod tests {
             vec![],
             vec![ResolvedAgentConfig {
                 agent_id: "analyst".to_string(),
-                provider: "openai".to_string(),
+                provider: crate::providers::ProviderKind::OpenAI,
                 api_key: String::new(),
                 base_url: String::new(),
                 model: "gpt-4o".to_string(),
@@ -241,7 +240,7 @@ mod tests {
             vec![],
             vec![ResolvedAgentConfig {
                 agent_id: "analyst".to_string(),
-                provider: "openai".to_string(),
+                provider: crate::providers::ProviderKind::OpenAI,
                 api_key: String::new(),
                 base_url: String::new(),
                 model: "gpt-4o".to_string(),
