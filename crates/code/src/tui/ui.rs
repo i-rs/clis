@@ -161,32 +161,37 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     render_title_bar(frame, title_area, app);
 
+    // Layout: horizontal split into chat body + sidebar
+    let [chat_body, sidebar_area] =
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(SIDEBAR_WIDTH)]).areas(body);
+    // Chat body: vertical split into chat area + input area
+    let [chat_area, input_area] =
+        Layout::vertical([Constraint::Fill(1), Constraint::Length(input_lines)]).areas(chat_body);
+
+    render_chat(frame, chat_area, app);
+    render_input_bar(frame, input_area, app);
+    crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
+
+    // Picker (if visible) is rendered as a floating overlay at the bottom of
+    // the chat area, so it does NOT push the input bar. The picker auto-scales
+    // to the chat area and scrolls to keep the selected item visible.
     if app.show_slash_picker {
-        let picker_height = filtered_slash_commands(app).len().min(8) as u16 + 2;
-        let [chat_sidebar_row, picker_area, input_area] = Layout::vertical([
-            Constraint::Fill(1),
-            Constraint::Length(picker_height),
-            Constraint::Length(input_lines),
-        ])
-        .areas(body);
-        let [chat_area, sidebar_area] = Layout::horizontal([
-            Constraint::Fill(1),
-            Constraint::Length(SIDEBAR_WIDTH),
-        ])
-        .areas(chat_sidebar_row);
-        render_chat(frame, chat_area, app);
-        render_slash_picker(frame, picker_area, app);
-        render_input_bar(frame, input_area, app);
-        crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
-    } else {
-        let [chat_body, sidebar_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Length(SIDEBAR_WIDTH)]).areas(body);
-        let [chat_area, input_area] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(input_lines)])
-                .areas(chat_body);
-        render_chat(frame, chat_area, app);
-        render_input_bar(frame, input_area, app);
-        crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
+        let commands = filtered_slash_commands(app);
+        if !commands.is_empty() {
+            // Leave at least 3 lines of chat visible above the picker.
+            let max_picker = chat_area.height.saturating_sub(3);
+            let desired = commands.len() as u16 + 2; // +2 for top border + padding
+            let picker_height = desired.min(max_picker).max(3);
+            // Anchor the picker just above the input bar, within the chat area
+            let anchor_y = chat_area.y + chat_area.height.saturating_sub(picker_height);
+            let picker_area = Rect {
+                x: chat_area.x,
+                y: anchor_y,
+                width: chat_area.width,
+                height: picker_height,
+            };
+            render_slash_picker(frame, picker_area, app);
+        }
     }
 
     if app.show_shortcuts {
@@ -827,11 +832,38 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    let mut items: Vec<Line> = Vec::new();
-    for (i, cmd) in commands.iter().enumerate() {
-        let selected = i == app.slash_selected.min(commands.len().saturating_sub(1));
-        let marker = if selected { "▌" } else { " " };
-        let name_style = if selected {
+    // Visible rows inside the block (subtract top border + 1 padding row).
+    let visible_rows = area.height.saturating_sub(2) as usize;
+    let total = commands.len();
+
+    // Auto-scroll so the selected item is always visible.
+    let selected = app.slash_selected.min(total.saturating_sub(1));
+    let (start, end) = if total <= visible_rows || visible_rows == 0 {
+        (0usize, total.min(visible_rows))
+    } else {
+        // Try to keep selection roughly centered when scrolling.
+        let half = visible_rows / 2;
+        let s = if selected <= half {
+            0
+        } else if selected + half >= total {
+            total - visible_rows
+        } else {
+            selected - half
+        };
+        (s, s + visible_rows)
+    };
+
+    let mut items: Vec<Line> = Vec::with_capacity(end - start + 1);
+    if start > 0 {
+        items.push(Line::from(Span::styled(
+            format!("  ⋮  ({} more above)", start),
+            Style::new().fg(C_MUTED),
+        )));
+    }
+    for (i, cmd) in commands.iter().enumerate().take(end).skip(start) {
+        let is_selected = i == selected;
+        let marker = if is_selected { "▌" } else { " " };
+        let name_style = if is_selected {
             Style::new().fg(C_ACCENT).bold()
         } else {
             Style::new().fg(C_TEXT)
@@ -845,12 +877,18 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(vec![
             Span::styled(
                 marker,
-                if selected { Style::new().fg(C_ACCENT) } else { Style::new().fg(C_MUTED) },
+                if is_selected { Style::new().fg(C_ACCENT) } else { Style::new().fg(C_MUTED) },
             ),
             Span::styled(format!("/{}{}", cmd.name, args), name_style),
             Span::raw("  "),
             Span::styled(cmd.desc, Style::new().fg(C_DIM)),
         ]));
+    }
+    if end < total {
+        items.push(Line::from(Span::styled(
+            format!("  ⋮  ({} more below)", total - end),
+            Style::new().fg(C_MUTED),
+        )));
     }
 
     frame.render_widget(Clear, area);

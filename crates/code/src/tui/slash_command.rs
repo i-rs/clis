@@ -3,6 +3,7 @@ use crate::config;
 
 /// Parsed slash command variants
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum SlashCommand {
     // Tier 1 — pure in-memory
     Clear,
@@ -15,6 +16,7 @@ pub enum SlashCommand {
     Model(String),
     Temperature(f64),
     Retry,
+    Theme(#[allow(dead_code)] Option<String>),
     // Tier 3 — persistence / I/O
     Save(String),
     Load(String),
@@ -116,6 +118,12 @@ pub static COMMANDS: &[CmdHelp] = &[
         desc: "列出当前工作区文件",
         category: "工作区",
     },
+    CmdHelp {
+        name: "theme",
+        args: "[name]",
+        desc: "查看或切换主题 (opencode/tokyo/catppuccin/gruvbox/solarized/onedark/light)",
+        category: "外观",
+    },
 ];
 
 /// Parse a raw input line into a `SlashCommand`.
@@ -175,6 +183,7 @@ pub fn parse(input: &str) -> Result<SlashCommand, String> {
             }
         }
         "files" => Ok(SlashCommand::Files),
+        "theme" => Ok(SlashCommand::Theme(if arg.is_empty() { None } else { Some(arg.to_string()) })),
         _ => Err(format!(
             "Unknown command: /{}. Type /help to see available commands.",
             cmd
@@ -197,6 +206,7 @@ pub async fn execute(cmd: SlashCommand, app: &mut App) -> Vec<AgentMessage> {
         SlashCommand::Model(name) => cmd_model(app, &name),
         SlashCommand::Temperature(temp) => cmd_temperature(app, temp),
         SlashCommand::Retry => cmd_retry(app),
+        SlashCommand::Theme(name) => cmd_theme(name.as_deref()),
 
         // ── Tier 3 ──────────────────────────────────────────
         SlashCommand::Save(name) => cmd_save(app, &name).await,
@@ -568,4 +578,51 @@ async fn cmd_files(app: &App) -> Vec<AgentMessage> {
     lines.extend(files);
 
     vec![AgentMessage::system(lines.join("\n"))]
+}
+
+#[allow(dead_code)]
+fn cmd_theme(name: Option<&str>) -> Vec<AgentMessage> {
+    use crate::tui::colors::{active, find_theme, set_active, THEMES};
+
+    match name {
+        Some(name) => {
+            // Switch to specified theme
+            match find_theme(name) {
+                Some(theme) => {
+                    set_active(theme);
+                    let mut lines = vec![format!("✓ Switched to theme: {}", theme.display_name)];
+                    lines.push(String::new());
+                    lines.push(format!("  id:      {}", theme.id));
+                    lines.push(format!("  bg:      {:?}", theme.bg));
+                    lines.push(format!("  accent:  {:?}", theme.accent));
+                    lines.push(format!("  text:    {:?}", theme.text));
+                    vec![AgentMessage::system(lines.join("\n"))]
+                }
+                None => {
+                    let available: Vec<String> = THEMES.iter().map(|t| t.id.to_string()).collect();
+                    vec![AgentMessage::system(format!(
+                        "Unknown theme: '{}'\n\nAvailable themes: {}\n\nUsage: /theme <name>",
+                        name,
+                        available.join(", ")
+                    ))]
+                }
+            }
+        }
+        None => {
+            // List available themes + show current
+            let current = active();
+            let mut lines = vec![
+                format!("Current theme: {} ({})", current.display_name, current.id),
+                String::new(),
+                "── Available themes ─".to_string(),
+            ];
+            for theme in THEMES.iter() {
+                let marker = if theme.id == current.id { "▸" } else { " " };
+                lines.push(format!("  {} {:<14}  {}", marker, theme.id, theme.display_name));
+            }
+            lines.push(String::new());
+            lines.push("Usage: /theme <name>  —  e.g. /theme tokyo".to_string());
+            vec![AgentMessage::system(lines.join("\n"))]
+        }
+    }
 }
