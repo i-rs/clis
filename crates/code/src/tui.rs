@@ -72,6 +72,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             reasoning: String::new(),
             tool_calls: None,
             reasoning_expanded: false,
+            duration_ms: 0,
         });
     }
 
@@ -147,24 +148,9 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                         }
                         MouseEventKind::Down(_) => {
                             if !is_sidebar && mouse.row > 0 {
-                                let input_lines = (app.input.content.lines().count() + 1)
-                                    .clamp(2, 8) as u16
-                                    + 2;
-                                let chat_y = 1u16;
-                                let chat_height = terminal_size
-                                    .height
-                                    .saturating_sub(1)
-                                    .saturating_sub(input_lines);
-                                if mouse.row >= chat_y
-                                    && mouse.row < chat_y + chat_height
-                                {
-                                    let vline =
-                                        (mouse.row - chat_y) as usize + app.scroll_offset;
-                                    if let Some(idx) = crate::tui::ui::find_message_idx(vline, &app.messages) {
-                                        if matches!(
-                                            app.messages[idx],
-                                            AgentMessage::ToolResult { .. }
-                                        ) {
+                                if let Some(idx) = crate::tui::ui::find_message_idx_from_screen(mouse.row) {
+                                    match app.messages[idx] {
+                                        AgentMessage::ToolResult { .. } => {
                                             if let AgentMessage::ToolResult {
                                                 ref mut collapsed,
                                                 ..
@@ -173,7 +159,21 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                                                 *collapsed = !*collapsed;
                                                 app.message_generation += 1;
                                             }
-                                        } else {
+                                        }
+                                        AgentMessage::Assistant { .. } => {
+                                            if let AgentMessage::Assistant {
+                                                ref mut reasoning_expanded,
+                                                ref reasoning,
+                                                ..
+                                            } = app.messages[idx]
+                                            {
+                                                if !reasoning.is_empty() {
+                                                    *reasoning_expanded = !*reasoning_expanded;
+                                                    app.message_generation += 1;
+                                                }
+                                            }
+                                        }
+                                        _ => {
                                             app.selected_message = Some(idx);
                                         }
                                     }
@@ -294,8 +294,10 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                 args: serde_json::to_string_pretty(&args).unwrap_or_default(),
                 result: None,
                 diff,
+                duration_ms: 0,
             };
             if let Some(ref mut s) = app.streaming {
+                s.tool_start = std::time::Instant::now();
                 s.current_tool = Some(info);
             }
         }
@@ -308,6 +310,7 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                 && let Some(mut tool) = s.current_tool.take()
             {
                 tool.result = Some(result);
+                tool.duration_ms = s.tool_start.elapsed().as_millis() as u64;
                 s.tool_calls.push(tool);
             }
         }
@@ -323,6 +326,11 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
             context_pct,
         } => {
             app.status_message = None;
+            let total_duration_ms = app
+                .streaming
+                .as_ref()
+                .map(|s| s.start_time.elapsed().as_millis() as u64)
+                .unwrap_or(0);
             let streamed_tc = app
                 .streaming
                 .as_ref()
@@ -349,6 +357,7 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                     step: i + 1,
                     total_steps: total_tools,
                     collapsed: total_tools > 1,
+                    duration_ms: tc.duration_ms,
                 });
             }
 
@@ -366,6 +375,7 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                     reasoning,
                     tool_calls,
                     reasoning_expanded: false,
+                    duration_ms: total_duration_ms,
                 });
             }
 
@@ -414,9 +424,10 @@ async fn handle_event(event: AgentEvent, app: &mut App) {
                 content: msg,
                 reasoning,
                 tool_calls: None,
-                reasoning_expanded: false,
-            });
-            if matches!(app.mode, AppMode::Waiting) {
+            reasoning_expanded: false,
+            duration_ms: 0,
+        });
+        if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
         }
@@ -479,6 +490,7 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
                             reasoning,
                             tool_calls: None,
                             reasoning_expanded: false,
+                            duration_ms: 0,
                         });
                     }
                     return;
@@ -565,47 +577,6 @@ async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<AgentE
     }
 
     match key.code {
-        KeyCode::Char('r') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
-            if let Some(idx) = app.selected_message
-                && let Some(AgentMessage::Assistant {
-                    reasoning_expanded, ..
-                }) = app.messages.get_mut(idx)
-            {
-                *reasoning_expanded = !*reasoning_expanded;
-                app.message_generation += 1;
-                app.needs_redraw = true;
-            } else {
-                for msg in app.messages.iter_mut().rev() {
-                    if let AgentMessage::Assistant {
-                        reasoning_expanded, ..
-                    } = msg
-                    {
-                        *reasoning_expanded = !*reasoning_expanded;
-                        app.message_generation += 1;
-                        app.needs_redraw = true;
-                        break;
-                    }
-                }
-            }
-        }
-        KeyCode::Char('e') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
-            if let Some(idx) = app.selected_message {
-                if let Some(AgentMessage::ToolResult { collapsed, .. }) = app.messages.get_mut(idx) {
-                    *collapsed = !*collapsed;
-                    app.message_generation += 1;
-                    app.needs_redraw = true;
-                }
-            } else {
-                for msg in app.messages.iter_mut().rev() {
-                    if let AgentMessage::ToolResult { collapsed, .. } = msg {
-                        *collapsed = !*collapsed;
-                        app.message_generation += 1;
-                        app.needs_redraw = true;
-                        break;
-                    }
-                }
-            }
-        }
         KeyCode::Char('[') if matches!(app.mode, AppMode::Idle) && app.input.content.is_empty() => {
             let idx = app.selected_message.unwrap_or(app.messages.len());
             app.selected_message = Some(idx.saturating_sub(1));

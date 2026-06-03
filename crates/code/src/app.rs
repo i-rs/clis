@@ -14,6 +14,8 @@ pub enum AgentMessage {
         tool_calls: Option<Vec<serde_json::Value>>,
         #[serde(default)]
         reasoning_expanded: bool,
+        #[serde(default)]
+        duration_ms: u64,
     },
     #[serde(rename = "tool")]
     ToolResult {
@@ -26,6 +28,8 @@ pub enum AgentMessage {
         total_steps: usize,
         #[serde(default)]
         collapsed: bool,
+        #[serde(default)]
+        duration_ms: u64,
     },
     #[serde(rename = "system")]
     System { content: String },
@@ -48,6 +52,7 @@ impl AgentMessage {
             reasoning: String::new(),
             tool_calls: None,
             reasoning_expanded: false,
+            duration_ms: 0,
         }
     }
     pub fn system(content: impl Into<String>) -> Self {
@@ -74,6 +79,7 @@ pub struct ToolCallInfo {
     pub args: String,
     pub result: Option<String>,
     pub diff: Option<String>,
+    pub duration_ms: u64,
 }
 
 pub struct StreamingState {
@@ -81,6 +87,8 @@ pub struct StreamingState {
     pub reasoning: String,
     pub tool_calls: Vec<ToolCallInfo>,
     pub current_tool: Option<ToolCallInfo>,
+    pub tool_start: std::time::Instant,
+    pub start_time: std::time::Instant,
 }
 
 pub struct App {
@@ -183,11 +191,14 @@ impl App {
     }
 
     pub fn start_streaming(&mut self) {
+        let now = std::time::Instant::now();
         self.streaming = Some(StreamingState {
             content: String::new(),
             reasoning: String::new(),
             tool_calls: Vec::new(),
             current_tool: None,
+            tool_start: now,
+            start_time: now,
         });
     }
 

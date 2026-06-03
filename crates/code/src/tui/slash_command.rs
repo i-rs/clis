@@ -309,6 +309,7 @@ fn cmd_new(app: &mut App) -> Vec<AgentMessage> {
         reasoning: String::new(),
         tool_calls: None,
         reasoning_expanded: false,
+        duration_ms: 0,
     });
     vec![]
 }

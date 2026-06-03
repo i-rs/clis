@@ -39,6 +39,7 @@ pub fn render_transcript(frame: &mut Frame, app: &crate::app::App) {
                 reasoning,
                 tool_calls,
                 reasoning_expanded: _,
+                ..
             } => {
                 lines.push(Line::from(Span::styled(
                     "── Assistant ──",

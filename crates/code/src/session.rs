@@ -129,6 +129,7 @@ mod tests {
             reasoning: String::new(),
             tool_calls: Some(vec![tc]),
             reasoning_expanded: false,
+            duration_ms: 0,
         });
         s.save(&dir).expect("save with tool_calls should work");
         let loaded = Session::load(&s.id, &dir).expect("load with tool_calls should work");

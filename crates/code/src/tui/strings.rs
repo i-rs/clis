@@ -17,14 +17,10 @@ pub const SHORTCUTS: &[(&str, &str)] = &[
     ("Ctrl+T", "转录模式（完整输出）"),
     ("Ctrl+B", "HTTP 调试面板"),
     ("[ / ]", "选择上/下一条消息"),
-    ("r", "展开/折叠选中消息的思考过程"),
-    ("e", "展开/折叠工具调用详情"),
     ("↑ / ↓ / PgUp", "滚动聊天"),
     ("Tab", "补全工具名或命令（/ 开头时）"),
+    ("鼠标点击", "展开/折叠工具和思考卡片"),
 ];
-
-pub const REASONING_VISIBLE: &str = " ▼ 思考过程（按 r 折叠）";
-pub const REASONING_HIDDEN: &str = " ▶ 思考过程（按 r 展开）";
 
 pub fn scrolled_up_hint(count: usize) -> String {
     format!(" ↑ {} 条历史消息 ", count)

@@ -12,8 +12,9 @@ use ratatui::{
 use std::cell::RefCell;
 
 thread_local! {
-    static RENDER_CACHE: RefCell<(usize, Vec<Line<'static>>)> =
+    static MSG_BLOCKS_CACHE: RefCell<(usize, Vec<Vec<Line<'static>>>)> =
         const { RefCell::new((0, Vec::new())) };
+    static MSG_RECTS: RefCell<Vec<(u16, u16)>> = RefCell::new(Vec::new());
 }
 
 const SIDEBAR_WIDTH: u16 = 38;
@@ -137,27 +138,33 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     render_title_bar(frame, title_area, app);
 
-    let [chat_body, sidebar_area] =
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(SIDEBAR_WIDTH)]).areas(body);
-
-    let [chat_area, input_area] =
-        Layout::vertical([Constraint::Fill(1), Constraint::Length(input_lines)])
-            .areas(chat_body);
-    render_chat(frame, chat_area, app);
-    render_input_bar(frame, input_area, app);
-
     if app.show_slash_picker {
         let picker_height = filtered_slash_commands(app).len().min(8) as u16 + 2;
-        let picker_y = input_area.y.saturating_sub(picker_height);
-        let picker_area = Rect {
-            x: chat_area.x,
-            y: picker_y,
-            width: chat_area.width,
-            height: picker_height.min(chat_area.height.saturating_sub(1)),
-        };
+        let [chat_sidebar_row, picker_area, input_area] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(picker_height),
+            Constraint::Length(input_lines),
+        ])
+        .areas(body);
+        let [chat_area, sidebar_area] = Layout::horizontal([
+            Constraint::Fill(1),
+            Constraint::Length(SIDEBAR_WIDTH),
+        ])
+        .areas(chat_sidebar_row);
+        render_chat(frame, chat_area, app);
         render_slash_picker(frame, picker_area, app);
+        render_input_bar(frame, input_area, app);
+        crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
+    } else {
+        let [chat_body, sidebar_area] =
+            Layout::horizontal([Constraint::Fill(1), Constraint::Length(SIDEBAR_WIDTH)]).areas(body);
+        let [chat_area, input_area] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(input_lines)])
+                .areas(chat_body);
+        render_chat(frame, chat_area, app);
+        render_input_bar(frame, input_area, app);
+        crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
     }
-    crate::tui::sidebar::render_sidebar(frame, sidebar_area, app);
 
     if app.show_shortcuts {
         super::overlays::render_shortcuts_overlay(frame, area);
@@ -211,7 +218,6 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
     let bar = Paragraph::new(text).style(title_bg);
     frame.render_widget(bar, area);
 
-    // Bottom separator
     let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
         "─".repeat(area.width as usize),
         Style::new().fg(C_RAIL),
@@ -225,188 +231,6 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(sep_line, sep_area);
 }
 
-fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
-    // Cache static messages; only rebuild when message_generation changes.
-    // Streaming lines are appended separately and never cached.
-    let mut lines: Vec<Line<'static>> = RENDER_CACHE.with(|cache| {
-        let (cached_gen, cached) = &mut *cache.borrow_mut();
-        if *cached_gen != app.message_generation {
-            let new_lines = build_static_lines(app);
-            *cached_gen = app.message_generation;
-            *cached = new_lines;
-        }
-        cached.clone()
-    });
-
-    if let Some(ref s) = app.streaming {
-        let stream_bg = C_BG_AI;
-        let stream_start = lines.len();
-
-        lines.push(Line::from(Span::styled(
-            "╌",
-            Style::new().fg(C_RAIL),
-        )));
-        lines.push(Line::from(vec![Span::styled(
-            "▎AI",
-            Style::new().fg(C_GREEN).bold(),
-        )]));
-
-        for tool in &s.tool_calls {
-            lines.push(Line::from(""));
-            let glyph = tool_glyph(&tool.name);
-            lines.push(Line::from(vec![Span::styled(
-                format!(" ✓ {} {}", glyph, tool.name),
-                Style::new().fg(C_GREEN).bold(),
-            )]));
-            if let Some(ref result) = tool.result {
-                let preview: String = result.chars().take(300).collect();
-                for line in preview.lines().take(4) {
-                    lines.push(Line::from(Span::styled(
-                        format!("   └ {}", line),
-                        Style::new().fg(Color::DarkGray),
-                    )));
-                }
-                if preview.len() < result.len() || result.lines().count() > 4 {
-                    lines.push(Line::from(Span::styled(
-                        "   └ ...",
-                        Style::new().fg(Color::DarkGray),
-                    )));
-                }
-            }
-        }
-
-        if let Some(ref tool) = s.current_tool {
-            lines.push(Line::from(""));
-            let glyph = tool_glyph(&tool.name);
-            lines.push(Line::from(vec![Span::styled(
-                format!(" {} {} running...", glyph, tool.name),
-                Style::new().fg(C_ACCENT).bold(),
-            )]));
-            let preview: String = tool
-                .args
-                .chars()
-                .take(area.width.saturating_sub(8) as usize)
-                .collect();
-            for line in preview.lines() {
-                lines.push(Line::from(Span::styled(
-                    format!("   └ {}", line),
-                    Style::new().fg(Color::DarkGray),
-                )));
-            }
-            if let Some(ref diff) = tool.diff {
-                let diff_lines: Vec<&str> = diff.lines().collect();
-                let show = if diff_lines.len() > 10 {
-                    &diff_lines[..10]
-                } else {
-                    &diff_lines[..]
-                };
-                for line in show {
-                    let (sign, _rest) = line.split_at(1);
-                    let style = match sign {
-                        "+" => Style::new().fg(Color::Green),
-                        "-" => Style::new().fg(Color::Red),
-                        _ => Style::new().fg(Color::DarkGray),
-                    };
-                    lines.push(Line::from(Span::styled(format!("   {}", line), style)));
-                }
-                if diff_lines.len() > 10 {
-                    lines.push(Line::from(Span::styled(
-                        "   ... (diff truncated)",
-                        Style::new().fg(Color::DarkGray),
-                    )));
-                }
-            }
-        }
-
-        if !s.reasoning.is_empty() {
-            let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
-            let total = reasoning_lines.len();
-            let show_count = if s.content.is_empty() {
-                6.min(total)
-            } else {
-                3.min(total)
-            };
-            let start = total.saturating_sub(show_count);
-            if start > 0 {
-                lines.push(Line::from(Span::styled(
-                    format!(" ╎ … {} earlier lines", start),
-                    Style::new().fg(C_DIM).italic(),
-                )));
-            }
-            for line in &reasoning_lines[start..] {
-                lines.push(Line::from(Span::styled(
-                    format!(" ╎ {}", line),
-                    Style::new().fg(C_DIM).italic(),
-                )));
-            }
-        }
-
-        if !s.content.is_empty() {
-            let content_lines = render_ai_content(&s.content);
-            lines.extend(content_lines);
-        }
-
-        if s.current_tool.is_none() && !s.content.is_empty() {
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![Span::styled(
-                " ▊",
-                Style::new().fg(C_GREEN),
-            )]));
-        } else if s.current_tool.is_none()
-            && s.reasoning.is_empty()
-            && s.tool_calls.is_empty()
-            && s.content.is_empty()
-        {
-            lines.push(Line::from(vec![Span::styled(
-                " ⏳",
-                Style::new().fg(C_DIM),
-            )]));
-        }
-
-        // Apply streaming background to all streaming lines
-        for line in lines.iter_mut().skip(stream_start) {
-            line.style = line.style.bg(stream_bg);
-        }
-    }
-
-    // Bottom padding
-    for _ in 0..4 {
-        lines.push(Line::from(""));
-    }
-
-    let content_len = lines.len();
-    let max_scroll = content_len.saturating_sub(area.height as usize);
-    let scroll = if app.auto_scroll {
-        max_scroll
-    } else {
-        app.scroll_offset.min(max_scroll)
-    };
-
-    let hidden_msgs = app.messages.len().saturating_sub(1);
-    if !app.auto_scroll && hidden_msgs > 0 {
-        let mut header = vec![Line::from(Span::styled(
-            strings::scrolled_up_hint(hidden_msgs),
-            Style::new().fg(C_DIM),
-        ))];
-        if let Some(idx) = app.selected_message {
-            header.push(Line::from(Span::styled(
-                format!(" 📍 #{}  ", idx),
-                Style::new().fg(C_YELLOW),
-            )));
-        }
-        for h in header {
-            lines.insert(0, h);
-        }
-    }
-
-    let paragraph = Paragraph::new(Text::from(lines))
-        .style(Style::new().bg(C_BG))
-        .block(Block::default().padding(ratatui::widgets::Padding::horizontal(1)))
-        .wrap(Wrap { trim: false })
-        .scroll((scroll as u16, 0));
-    frame.render_widget(paragraph, area);
-}
-
 fn msg_bg(msg: &AgentMessage) -> Color {
     match msg {
         AgentMessage::User { .. } => C_BG_USER,
@@ -418,222 +242,470 @@ fn msg_bg(msg: &AgentMessage) -> Color {
     }
 }
 
-fn build_static_lines(app: &App) -> Vec<Line<'static>> {
-    let estimated: usize = app.messages.iter().map(|m| match m {
-        AgentMessage::User { content } | AgentMessage::System { content } => {
-            3 + content.lines().count().max(1) // header + top/bottom padding + content
-        }
-        AgentMessage::Assistant { content, .. } => {
-            4 + content.lines().count().max(1) // header + reasoning + top/bottom padding + content
-        }
-        AgentMessage::ToolResult { collapsed, .. } => {
-            if *collapsed { 3 } else { 10 } // header + top/bottom padding + expanded content
-        }
-        AgentMessage::FileEdit { summary, .. } => 3 + summary.lines().count().max(1),
-        AgentMessage::Separator { .. } => 1,
-    }).sum::<usize>() + 20;
-    let mut lines = Vec::with_capacity(estimated);
-
-    for (msg_idx, msg) in app.messages.iter().enumerate() {
-        let is_selected = app.selected_message == Some(msg_idx);
-        let bg = msg_bg(msg);
-
-        // Thin separator between messages (neutral bg, not part of any message block)
-        if msg_idx > 0 {
-            lines.push(Line::from(Span::styled("╌", Style::new().fg(C_RAIL))));
-        }
-
-        let line_start = lines.len();
-        lines.push(Line::from("")); // top padding for rectangle
-
-        match msg {
-            AgentMessage::User { content } => {
-                let prefix = if is_selected { "▶" } else { " " };
-                lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::new().fg(C_ACCENT)),
-                    Span::styled("▎You", Style::new().fg(Color::Rgb(59, 130, 246)).bold()),
-                ]));
-                for line in content.lines() {
-                    lines.push(Line::from(Span::raw(format!(" {}", line))));
-                }
+fn build_msg_lines(msg: &AgentMessage, is_selected: bool) -> Vec<Line<'static>> {
+    match msg {
+        AgentMessage::User { content } => {
+            let mut lines = vec![Line::from("")];
+            lines.push(Line::from(vec![
+                Span::styled("▎You", Style::new().fg(Color::Rgb(59, 130, 246)).bold()),
+            ]));
+            for line in content.lines() {
+                lines.push(Line::from(Span::raw(format!(" {}", line))));
             }
-            AgentMessage::Assistant {
-                content,
-                reasoning,
-                tool_calls: _,
-                reasoning_expanded,
-            } => {
-                let prefix = if is_selected { "▶" } else { " " };
-                lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::new().fg(C_YELLOW)),
-                    Span::styled("▎AI", Style::new().fg(C_GREEN).bold()),
-                ]));
-                if !reasoning.is_empty() {
+            lines.push(Line::from(""));
+            lines
+        }
+        AgentMessage::Assistant {
+            content,
+            reasoning,
+            tool_calls: _,
+            reasoning_expanded,
+            ..
+        } => {
+            let prefix = if is_selected { "▶" } else { " " };
+            let mut lines = vec![Line::from("")];
+            lines.push(Line::from(vec![
+                Span::styled(prefix, Style::new().fg(C_YELLOW)),
+                Span::styled("▎AI", Style::new().fg(C_GREEN).bold()),
+            ]));
+            let content_lines = render_ai_content(content);
+            lines.extend(content_lines);
+
+            if !reasoning.is_empty() {
+                lines.push(Line::from(""));
+                if *reasoning_expanded {
+                    lines.push(Line::from(vec![
+                        Span::styled("▼", Style::new().fg(C_YELLOW)),
+                        Span::styled(" 思考过程", Style::new().fg(C_YELLOW)),
+                    ]));
+                    for rline in reasoning.lines() {
+                        lines.push(Line::from(Span::styled(
+                            format!("│ {}", rline),
+                            Style::new().fg(C_DIM).italic(),
+                        )));
+                    }
                     lines.push(Line::from(Span::styled(
-                        if *reasoning_expanded {
-                            strings::REASONING_VISIBLE
-                        } else {
-                            strings::REASONING_HIDDEN
-                        },
-                        Style::new().fg(C_YELLOW),
+                        "╰", Style::new().fg(C_RAIL),
                     )));
-                }
-                let content_lines = render_ai_content(content);
-                lines.extend(content_lines);
-            }
-            AgentMessage::ToolResult {
-                content,
-                diff,
-                step,
-                total_steps,
-                collapsed,
-            } => {
-                let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
-                let glyph = tool_glyph(tool_name);
-                let label = if tool_name.is_empty() {
-                    "Tool".to_string()
                 } else {
-                    tool_name.to_string()
-                };
-
-                let step_str = if *total_steps > 1 {
-                    format!("[{}/{}] ", step, total_steps)
-                } else {
-                    String::new()
-                };
-
-                let prefix = if is_selected { "▶" } else { " " };
-
-                if *collapsed {
+                    lines.push(Line::from(""));
                     lines.push(Line::from(vec![
-                        Span::styled(prefix, Style::new().fg(C_YELLOW)),
-                        Span::styled(step_str, Style::new().fg(C_DIM)),
-                        Span::styled(
-                            format!("✓ {} {} ", glyph, label),
-                            Style::new().fg(C_GREEN).bold(),
-                        ),
-                        Span::styled("(e展开)", Style::new().fg(C_DIM)),
+                        Span::styled("▶", Style::new().fg(C_YELLOW)),
+                        Span::styled(" 思考过程", Style::new().fg(C_YELLOW)),
                     ]));
-                } else {
-                    lines.push(Line::from(vec![
-                        Span::styled(prefix, Style::new().fg(C_YELLOW)),
-                        Span::styled(step_str, Style::new().fg(C_DIM)),
-                        Span::styled(
-                            format!("{} {} ", glyph, label),
-                            Style::new().fg(C_YELLOW).bold(),
-                        ),
-                        Span::styled("(e折叠)", Style::new().fg(C_DIM)),
-                    ]));
-                    let tool_has_diff = is_diff_output(tool_result);
-                    if !tool_result.is_empty() {
-                        let preview: String = tool_result.chars().take(1200).collect();
-                        let result_lines: Vec<&str> = preview.lines().collect();
-                        for (i, line) in result_lines.iter().enumerate().take(12) {
-                            let p = if i == result_lines.len().saturating_sub(1).min(11) {
-                                "╰"
-                            } else {
-                                "│"
-                            };
-                            if tool_has_diff {
-                                let diff_spans = render_diff_line(line);
-                                let mut spans = vec![Span::styled(
-                                    format!(" {} {}", p, line),
-                                    Style::new().fg(Color::DarkGray),
-                                )];
-                                spans.extend(diff_spans);
-                                lines.push(Line::from(spans));
-                            } else {
-                                lines.push(Line::from(Span::styled(
-                                    format!(" {} {}", p, line),
-                                    Style::new().fg(C_TOOL_OUTPUT),
-                                )));
-                            }
-                        }
-                        if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
-                            lines.push(Line::from(Span::styled(
-                                format!(
-                                    " {} … {} more bytes",
-                                    "│",
-                                    tool_result.len().saturating_sub(preview.len())
-                                ),
-                                Style::new().fg(Color::DarkGray),
-                            )));
-                        }
-                    }
-                    if let Some(diff_text) = diff
-                        && !diff_text.is_empty()
-                    {
-                        lines.push(Line::from(Span::styled(
-                            " │ ─ diff ─",
-                            Style::new().fg(C_DIM),
-                        )));
-                        for diff_line in diff_text.lines().take(12) {
-                            let diff_spans = render_diff_line(diff_line);
-                            lines.push(Line::from(diff_spans));
-                        }
-                        if diff_text.lines().count() > 12 {
-                            lines.push(Line::from(Span::styled(
-                                format!(
-                                    " {} ... +{} more lines",
-                                    "│",
-                                    diff_text.lines().count().saturating_sub(12)
-                                ),
-                                Style::new().fg(Color::DarkGray),
-                            )));
-                        }
-                    }
                 }
             }
-            AgentMessage::FileEdit { path, summary } => {
-                let prefix = if is_selected { "▶" } else { " " };
+            lines.push(Line::from(""));
+            lines
+        }
+        AgentMessage::ToolResult {
+            content,
+            diff,
+            step,
+            total_steps,
+            collapsed,
+            ..
+        } => {
+            let (tool_name, tool_result) = content.split_once('\n').unwrap_or(("", content));
+            let glyph = tool_glyph(tool_name);
+            let label = if tool_name.is_empty() {
+                "Tool".to_string()
+            } else {
+                tool_name.to_string()
+            };
+
+            let step_str = if *total_steps > 1 {
+                format!("[{}/{}] ", step, total_steps)
+            } else {
+                String::new()
+            };
+
+            let mut lines = vec![Line::from("")];
+
+            if *collapsed {
+                lines.push(Line::from(""));
                 lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::new().fg(C_FILE_EDIT)),
-                    Span::styled(format!(" ✎ {} ", path), Style::new().fg(C_FILE_EDIT).bold()),
+                    Span::styled("▶ ", Style::new().fg(C_DIM)),
+                    Span::styled(step_str.clone(), Style::new().fg(C_DIM)),
+                    Span::styled(
+                        format!("✓ {} {}", glyph, label),
+                        Style::new().fg(C_GREEN).bold(),
+                    ),
                 ]));
-                for diff_line in summary.lines() {
-                    let diff_spans = render_diff_line(diff_line);
-                    lines.push(Line::from(diff_spans));
-                }
-            }
-            AgentMessage::System { content } => {
-                for line in content.lines() {
-                    if line.starts_with("──") {
+                if !tool_result.is_empty() {
+                    let preview: String = tool_result.chars().take(600).collect();
+                    let result_lines: Vec<&str> = preview.lines().collect();
+                    let max_lines = 4;
+                    let show_lines = result_lines.len().min(max_lines);
+                    for (i, line) in result_lines.iter().enumerate().take(max_lines) {
+                        let is_last = i == show_lines.saturating_sub(1)
+                            && preview.len() >= tool_result.len();
+                        let border = if is_last { "╰" } else { "│" };
+                        let truncated: String = line.chars().take(120).collect();
+                        let mut content = truncated;
+                        if line.chars().count() > 120 {
+                            content.push('…');
+                        }
                         lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::new().fg(C_SUMMARY_GREEN).bold(),
+                            format!("{} {}", border, content),
+                            Style::new().fg(C_TOOL_OUTPUT).bg(C_BG_TOOL_RESULT),
                         )));
-                    } else if line.starts_with("📄") || line.starts_with("🔧") {
+                    }
+                    if preview.len() < tool_result.len() {
                         lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::new().fg(C_YELLOW),
+                            format!(
+                                "╰ … {} more bytes",
+                                tool_result.len().saturating_sub(preview.len())
+                            ),
+                            Style::new().fg(Color::DarkGray).bg(C_BG_TOOL_RESULT),
+                        )));
+                    }
+                }
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled("▼ ", Style::new().fg(C_YELLOW)),
+                    Span::styled(step_str, Style::new().fg(C_DIM)),
+                    Span::styled(
+                        format!("{} {}", glyph, label),
+                        Style::new().fg(C_YELLOW).bold(),
+                    ),
+                ]));
+
+                let tool_has_diff = is_diff_output(tool_result);
+                if !tool_result.is_empty() {
+                    let preview: String = tool_result.chars().take(1200).collect();
+                    let result_lines: Vec<&str> = preview.lines().collect();
+                    for (i, line) in result_lines.iter().enumerate().take(12) {
+                        let is_last = i == result_lines.len().saturating_sub(1).min(11)
+                            && diff.as_ref().map_or(true, |d| d.is_empty());
+                        let border = if is_last { "╰" } else { "│" };
+                        if tool_has_diff {
+                            let diff_spans = render_diff_line(line);
+                            let mut spans = vec![Span::styled(
+                                format!("{} {}", border, line),
+                                Style::new().fg(Color::DarkGray),
+                            )];
+                            spans.extend(diff_spans);
+                            lines.push(Line::from(spans));
+                        } else {
+                            lines.push(Line::from(Span::styled(
+                                format!("{} {}", border, line),
+                                Style::new().fg(C_TOOL_OUTPUT),
+                            )));
+                        }
+                    }
+                    if preview.len() < tool_result.len() || tool_result.lines().count() > 12 {
+                        let border = if diff.as_ref().map_or(true, |d| d.is_empty()) {
+                            "╰"
+                        } else {
+                            "│"
+                        };
+                        lines.push(Line::from(Span::styled(
+                            format!(
+                                "{} … {} more bytes",
+                                border,
+                                tool_result.len().saturating_sub(preview.len())
+                            ),
+                            Style::new().fg(Color::DarkGray),
+                        )));
+                    }
+                }
+                if let Some(diff_text) = diff
+                    && !diff_text.is_empty()
+                {
+                    lines.push(Line::from(Span::styled(
+                        "│ ─ diff ─",
+                        Style::new().fg(C_DIM),
+                    )));
+                    for diff_line in diff_text.lines().take(12) {
+                        lines.push(Line::from(render_diff_line(diff_line)));
+                    }
+                    if diff_text.lines().count() > 12 {
+                        lines.push(Line::from(Span::styled(
+                            format!(
+                                "╰ ... +{} more lines",
+                                diff_text.lines().count().saturating_sub(12)
+                            ),
+                            Style::new().fg(Color::DarkGray),
                         )));
                     } else {
                         lines.push(Line::from(Span::styled(
-                            format!(" {}", line),
-                            Style::new().fg(C_DIM),
+                            "╰", Style::new().fg(Color::DarkGray),
                         )));
                     }
                 }
             }
-            AgentMessage::Separator { label } => {
-                let sep = if label.is_empty() {
-                    " ── ── ".to_string()
+            lines.push(Line::from(""));
+            lines
+        }
+        AgentMessage::FileEdit { path, summary } => {
+            let prefix = if is_selected { "▶" } else { " " };
+            let mut lines = vec![Line::from("")];
+            lines.push(Line::from(vec![
+                Span::styled(prefix, Style::new().fg(C_FILE_EDIT)),
+                Span::styled(format!(" ✎ {} ", path), Style::new().fg(C_FILE_EDIT).bold()),
+            ]));
+            for diff_line in summary.lines() {
+                lines.push(Line::from(render_diff_line(diff_line)));
+            }
+            lines.push(Line::from(""));
+            lines
+        }
+        AgentMessage::System { content } => {
+            let mut lines = vec![Line::from("")];
+            for line in content.lines() {
+                if line.starts_with("──") {
+                    lines.push(Line::from(Span::styled(
+                        format!(" {}", line),
+                        Style::new().fg(C_SUMMARY_GREEN).bold(),
+                    )));
+                } else if line.starts_with("📄") || line.starts_with("🔧") {
+                    lines.push(Line::from(Span::styled(
+                        format!(" {}", line),
+                        Style::new().fg(C_YELLOW),
+                    )));
                 } else {
-                    format!(" ── {} ── ", label)
-                };
-                lines.push(Line::from(Span::styled(sep, Style::new().fg(C_SEP))));
+                    lines.push(Line::from(Span::styled(
+                        format!(" {}", line),
+                        Style::new().fg(C_DIM),
+                    )));
+                }
+            }
+            lines.push(Line::from(""));
+            lines
+        }
+        AgentMessage::Separator { label } => {
+            let sep = if label.is_empty() {
+                "── ──".to_string()
+            } else {
+                format!("── {} ──", label)
+            };
+            vec![Line::from(Span::styled(
+                format!(" {}", sep),
+                Style::new().fg(C_SEP),
+            ))]
+        }
+    }
+}
+
+fn build_all_msg_blocks(app: &App) -> Vec<Vec<Line<'static>>> {
+    app.messages
+        .iter()
+        .enumerate()
+        .map(|(idx, msg)| build_msg_lines(msg, app.selected_message == Some(idx)))
+        .collect()
+}
+
+fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
+    let mut blocks: Vec<Vec<Line<'static>>> = MSG_BLOCKS_CACHE.with(|cache| {
+        let (cached_gen, cached) = &mut *cache.borrow_mut();
+        if *cached_gen != app.message_generation {
+            *cached = build_all_msg_blocks(app);
+            *cached_gen = app.message_generation;
+        }
+        cached.clone()
+    });
+
+    if let Some(ref s) = app.streaming {
+        let mut stream_lines: Vec<Line<'static>> = vec![Line::from(vec![Span::styled(
+            "▎AI",
+            Style::new().fg(C_GREEN).bold(),
+        )])];
+
+        for tool in &s.tool_calls {
+            let glyph = tool_glyph(&tool.name);
+            stream_lines.push(Line::from(vec![
+                Span::styled("▶ ", Style::new().fg(C_DIM)),
+                Span::styled(
+                    format!("✓ {} {}", glyph, tool.name),
+                    Style::new().fg(C_GREEN).bold(),
+                ),
+            ]));
+        }
+
+        if let Some(ref tool) = s.current_tool {
+            let glyph = tool_glyph(&tool.name);
+            stream_lines.push(Line::from(vec![
+                Span::styled("● ", Style::new().fg(C_ACCENT)),
+                Span::styled(
+                    format!("{} {} running...", glyph, tool.name),
+                    Style::new().fg(C_ACCENT).bold(),
+                ),
+            ]));
+        }
+
+        if !s.reasoning.is_empty() {
+            let reasoning_lines: Vec<&str> = s.reasoning.lines().collect();
+            let total = reasoning_lines.len();
+            let show_count = if s.content.is_empty() {
+                6.min(total)
+            } else {
+                3.min(total)
+            };
+            let start = total.saturating_sub(show_count);
+            stream_lines.push(Line::from(Span::styled(
+                "▼ 思考过程",
+                Style::new().fg(C_YELLOW),
+            )));
+            if start > 0 {
+                stream_lines.push(Line::from(Span::styled(
+                    format!("│ … {} earlier lines", start),
+                    Style::new().fg(C_DIM).italic(),
+                )));
+            }
+            for line in &reasoning_lines[start..] {
+                stream_lines.push(Line::from(Span::styled(
+                    format!("│ {}", line),
+                    Style::new().fg(C_DIM).italic(),
+                )));
+            }
+            stream_lines.push(Line::from(Span::styled(
+                "╰", Style::new().fg(C_RAIL),
+            )));
+        }
+
+        if !s.content.is_empty() {
+            let content_lines = render_ai_content(&s.content);
+            stream_lines.extend(content_lines);
+        }
+
+        if s.current_tool.is_none() && !s.content.is_empty() {
+            stream_lines.push(Line::from(vec![Span::styled(
+                " ▊",
+                Style::new().fg(C_GREEN),
+            )]));
+        } else if s.current_tool.is_none()
+            && s.reasoning.is_empty()
+            && s.tool_calls.is_empty()
+            && s.content.is_empty()
+        {
+            stream_lines.push(Line::from(vec![Span::styled(
+                " ⏳",
+                Style::new().fg(C_DIM),
+            )]));
+        }
+
+        blocks.push(stream_lines);
+    }
+
+    // Build a flat list: (block_idx_in_messages, lines, bg_color)
+    // gap lines between blocks are implicit
+    let gap: usize = 1;
+    let msg_count = app.messages.len();
+    let total_height: usize = blocks.iter().map(|b| b.len()).sum::<usize>()
+        + blocks.len().saturating_sub(1) * gap
+        + 4;
+
+    let max_scroll = total_height.saturating_sub(area.height as usize);
+    let scroll = if app.auto_scroll {
+        max_scroll
+    } else {
+        app.scroll_offset.min(max_scroll)
+    };
+
+    frame.render_widget(Clear, area);
+
+    // Walk virtual coordinates, render only visible blocks
+    let mut rects: Vec<(u16, u16)> = Vec::with_capacity(msg_count);
+    let mut virtual_y: usize = 0;
+    let mut screen_y: u16 = area.y;
+    let area_bottom = area.y + area.height;
+
+    for (block_idx, block_lines) in blocks.iter().enumerate() {
+        let block_height = block_lines.len();
+        let is_msg = block_idx < msg_count;
+        let bg = if is_msg {
+            msg_bg(&app.messages[block_idx])
+        } else {
+            C_BG_AI
+        };
+
+        // gap before this block (except first)
+        if block_idx > 0 {
+            virtual_y += gap;
+            // If gap line is visible, advance screen_y
+            if virtual_y > scroll && screen_y < area_bottom {
+                screen_y = screen_y.saturating_add(1);
             }
         }
 
-        lines.push(Line::from("")); // bottom padding for rectangle
+        let block_end = virtual_y + block_height;
 
-        // Apply message-type background to all lines of this message
-        for line in lines.iter_mut().skip(line_start) {
-            line.style = Style::new().bg(bg);
+        // Entirely above viewport — skip but still record placeholder rect
+        if block_end <= scroll {
+            if is_msg {
+                rects.push((0, 0)); // placeholder, won't match any screen row
+            }
+            virtual_y += block_height;
+            continue;
         }
+
+        // How many lines to skip from top of block (partial scroll)
+        let skip = scroll.saturating_sub(virtual_y);
+        let visible_count = block_height.saturating_sub(skip);
+        let remaining = (area_bottom - screen_y) as usize;
+        if remaining == 0 {
+            if is_msg {
+                rects.push((0, 0));
+            }
+            virtual_y += block_height;
+            continue;
+        }
+
+        let render_count = visible_count.min(remaining) as u16;
+        let visible_slice = &block_lines[skip..];
+
+        let block_area = Rect {
+            x: area.x,
+            y: screen_y,
+            width: area.width,
+            height: render_count,
+        };
+
+        let para = Paragraph::new(Text::from(visible_slice.to_vec()))
+            .style(Style::new().bg(bg))
+            .block(Block::default().padding(ratatui::widgets::Padding::new(1, 1, 1, 1)))
+            .wrap(Wrap { trim: false });
+        frame.render_widget(para, block_area);
+
+        if is_msg {
+            rects.push((block_area.y, block_area.height));
+        }
+
+        screen_y += render_count;
+        virtual_y += block_height;
     }
 
-    lines
+    MSG_RECTS.with(|r| *r.borrow_mut() = rects);
+
+    // Scroll indicator
+    if !app.auto_scroll && app.messages.len() > 1 {
+        let hint = strings::scrolled_up_hint(app.messages.len().saturating_sub(1));
+        let hint_line = Line::from(Span::styled(hint, Style::new().fg(C_DIM)));
+        let hint_area = Rect {
+            x: area.x,
+            y: area.y,
+            width: area.width,
+            height: 1,
+        };
+        let hint_para = Paragraph::new(Text::from(vec![hint_line]))
+            .style(Style::new().bg(C_BG));
+        frame.render_widget(hint_para, hint_area);
+    }
+}
+
+/// Find message index from a screen row. Uses cached rects from last render.
+/// rects[i] corresponds to messages[i], with (0,0) for off-screen messages.
+pub fn find_message_idx_from_screen(screen_row: u16) -> Option<usize> {
+    MSG_RECTS.with(|r| {
+        let rects = r.borrow();
+        for (idx, &(y, h)) in rects.iter().enumerate() {
+            if h > 0 && screen_row >= y && screen_row < y + h {
+                return Some(idx);
+            }
+        }
+        None
+    })
 }
 
 fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
@@ -763,36 +835,4 @@ fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
 
     let paragraph = Paragraph::new(Text::from(items)).block(block);
     frame.render_widget(paragraph, area);
-}
-
-/// Find which message index contains the given virtual line number.
-/// Used by mouse click handler to toggle collapsed tool messages.
-pub fn find_message_idx(virtual_line: usize, messages: &[AgentMessage]) -> Option<usize> {
-    let mut cur = 0usize;
-    for (idx, msg) in messages.iter().enumerate() {
-        if idx > 0 {
-            cur += 1; // separator ╌
-        }
-        let msg_start = cur;
-        // Estimate total lines for this message (matches build_static_lines rectangle layout)
-        let msg_len: usize = 2 + // top + bottom padding
-            match msg {
-                AgentMessage::User { content } => 1 + content.lines().count().max(1),
-                AgentMessage::Assistant { content, reasoning, .. } => {
-                    1 + (if reasoning.is_empty() { 0 } else { 1 })
-                        + content.lines().count().max(1)
-                }
-                AgentMessage::ToolResult { collapsed, .. } => {
-                    if *collapsed { 1 } else { 6 }
-                }
-                AgentMessage::FileEdit { summary, .. } => 1 + summary.lines().count().max(1),
-                AgentMessage::System { content } => content.lines().count().max(1),
-                AgentMessage::Separator { .. } => 1,
-            };
-        cur += msg_len;
-        if virtual_line >= msg_start && virtual_line < cur {
-            return Some(idx);
-        }
-    }
-    None
 }
