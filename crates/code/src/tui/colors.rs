@@ -415,6 +415,31 @@ pub fn active() -> &'static Theme {
     g.unwrap_or(&THEME_OPENCODE)
 }
 
+/// Run `f` with a temporary active theme. The previous active theme is
+/// restored when the closure returns, even on panic. Used for live preview
+/// in the theme picker overlay.
+pub fn with_preview<F, R>(theme: &'static Theme, f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    struct Guard(Option<&'static Theme>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            if let Some(t) = self.0 {
+                set_active(t);
+            }
+        }
+    }
+    // Save current and apply preview
+    let prev = {
+        let g = ACTIVE_THEME.lock().expect("theme lock poisoned");
+        *g
+    };
+    set_active(theme);
+    let _guard = Guard(prev);
+    f()
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Color aliases — read from active theme
 // (kept for backward compatibility with existing code)
@@ -475,43 +500,51 @@ themed!(status_idle);
 themed!(status_busy);
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Backward-compatible constants (use current default theme)
+//  Backward-compatible constants → functions (read from active theme)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub const C_BG: Color = THEME_OPENCODE.bg;
-pub const C_BG_SURFACE: Color = THEME_OPENCODE.bg_surface;
-pub const C_BG_INPUT: Color = THEME_OPENCODE.bg_input;
-pub const C_BG_TITLE: Color = THEME_OPENCODE.bg_title;
-pub const C_BORDER: Color = THEME_OPENCODE.border;
-pub const C_BORDER_ACTIVE: Color = THEME_OPENCODE.border_active;
+macro_rules! themed_const {
+    ($name:ident, $field:ident) => {
+        pub fn $name() -> Color {
+            active().$field
+        }
+    };
+}
 
-pub const C_TEXT: Color = THEME_OPENCODE.text;
-pub const C_DIM: Color = THEME_OPENCODE.dim;
-pub const C_MUTED: Color = THEME_OPENCODE.muted;
-pub const C_LABEL: Color = THEME_OPENCODE.label;
+themed_const!(c_bg, bg);
+themed_const!(c_bg_surface, bg_surface);
+themed_const!(c_bg_input, bg_input);
+themed_const!(c_bg_title, bg_title);
+themed_const!(c_border, border);
+themed_const!(c_border_active, border_active);
 
-pub const C_ACCENT: Color = THEME_OPENCODE.accent;
-pub const C_GREEN: Color = THEME_OPENCODE.green;
-pub const C_ORANGE: Color = THEME_OPENCODE.orange;
-pub const C_RED: Color = THEME_OPENCODE.red;
-pub const C_PURPLE: Color = THEME_OPENCODE.purple;
-pub const C_YELLOW: Color = THEME_OPENCODE.yellow;
-pub const C_CYAN: Color = THEME_OPENCODE.cyan;
+themed_const!(c_text, text);
+themed_const!(c_dim, dim);
+themed_const!(c_muted, muted);
+themed_const!(c_label, label);
 
-pub const C_TOOL_OUTPUT: Color = THEME_OPENCODE.tool_output;
-pub const C_FILE_EDIT: Color = THEME_OPENCODE.file_edit;
-pub const C_SUMMARY: Color = THEME_OPENCODE.summary;
+themed_const!(c_accent, accent);
+themed_const!(c_green, green);
+themed_const!(c_orange, orange);
+themed_const!(c_red, red);
+themed_const!(c_purple, purple);
+themed_const!(c_yellow, yellow);
+themed_const!(c_cyan, cyan);
 
-pub const C_DIFF_GREEN: Color = THEME_OPENCODE.diff_green;
-pub const C_DIFF_RED: Color = THEME_OPENCODE.diff_red;
-pub const C_DIFF_HUNK: Color = THEME_OPENCODE.diff_hunk;
+themed_const!(c_tool_output, tool_output);
+themed_const!(c_file_edit, file_edit);
+themed_const!(c_summary, summary);
 
-pub const C_BG_USER: Color = THEME_OPENCODE.bg_user;
-pub const C_BG_AI: Color = THEME_OPENCODE.bg_ai;
-pub const C_BG_TOOL: Color = THEME_OPENCODE.bg_tool;
-pub const C_BG_SYSTEM: Color = THEME_OPENCODE.bg_system;
-pub const C_BG_FILE: Color = THEME_OPENCODE.bg_file;
-pub const C_BG_SIDEBAR: Color = THEME_OPENCODE.bg_sidebar;
+themed_const!(c_diff_green, diff_green);
+themed_const!(c_diff_red, diff_red);
+themed_const!(c_diff_hunk, diff_hunk);
 
-pub const C_STATUS_IDLE: Color = THEME_OPENCODE.status_idle;
-pub const C_STATUS_BUSY: Color = THEME_OPENCODE.status_busy;
+themed_const!(c_bg_user, bg_user);
+themed_const!(c_bg_ai, bg_ai);
+themed_const!(c_bg_tool, bg_tool);
+themed_const!(c_bg_system, bg_system);
+themed_const!(c_bg_file, bg_file);
+themed_const!(c_bg_sidebar, bg_sidebar);
+
+themed_const!(c_status_idle, status_idle);
+themed_const!(c_status_busy, status_busy);

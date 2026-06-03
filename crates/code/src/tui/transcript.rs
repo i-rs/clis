@@ -51,7 +51,7 @@ pub fn render_transcript(frame: &mut Frame, app: &crate::app::App) {
                     for line in reasoning.lines() {
                         lines.push(Line::from(Span::styled(
                             line.to_string(),
-                            Style::default().fg(C_DIM).add_modifier(Modifier::ITALIC),
+                            Style::default().fg(c_dim()).add_modifier(Modifier::ITALIC),
                         )));
                     }
                 }
@@ -103,7 +103,7 @@ pub fn render_transcript(frame: &mut Frame, app: &crate::app::App) {
             AgentMessage::System { content } => {
                 lines.push(Line::from(Span::styled(
                     "── System ──",
-                    Style::default().fg(C_DIM),
+                    Style::default().fg(c_dim()),
                 )));
                 for line in content.lines() {
                     lines.push(Line::from(Span::raw(line.to_string())));

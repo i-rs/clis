@@ -22,25 +22,25 @@ fn fmt_count(n: u32) -> String {
 
 fn section_header(label: &'static str, width: usize) -> Line<'static> {
     Line::from(vec![
-        Span::styled(label.to_uppercase(), Style::default().fg(C_LABEL)),
+        Span::styled(label.to_uppercase(), Style::default().fg(c_label())),
         Span::styled(
             "─".repeat(width.saturating_sub(label.chars().count() + 1)),
-            Style::default().fg(C_BORDER),
+            Style::default().fg(c_border()),
         ),
     ])
 }
 
 pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(Clear, area);
-    let bg = Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(C_BG_SIDEBAR));
+    let bg = Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(c_bg_sidebar()));
     frame.render_widget(bg, area);
 
     // Left border (separator from chat)
     let sep_line = Paragraph::new(Text::from(vec![Line::from(Span::styled(
         "▏",
-        Style::default().fg(C_BORDER),
+        Style::default().fg(c_border()),
     ))]))
-    .style(Style::default().bg(C_BG));
+    .style(Style::default().bg(c_bg()));
     let sep_area = Rect {
         x: area.x,
         y: area.y,
@@ -74,7 +74,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // Directory
     items.push(Line::from(Span::styled(
         "─ Dir ─",
-        Style::default().fg(C_MUTED),
+        Style::default().fg(c_muted()),
     )));
     let short = short_path(&app.current_dir);
     let dir = if short.len() > w.saturating_sub(2) {
@@ -84,14 +84,14 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     };
     items.push(Line::from(Span::styled(
         format!(" {}", dir),
-        Style::default().fg(C_TEXT),
+        Style::default().fg(c_text()),
     )));
     items.push(Line::from(""));
 
     // Session & Version
     items.push(Line::from(Span::styled(
         "─ Session ─",
-        Style::default().fg(C_MUTED),
+        Style::default().fg(c_muted()),
     )));
     let sid = app.session_id.as_deref().unwrap_or("new");
     let sid_short = if sid.len() > 10 {
@@ -100,14 +100,14 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         sid.to_string()
     };
     items.push(Line::from(vec![
-        Span::styled(" id ", Style::default().fg(C_LABEL)),
-        Span::styled(sid_short, Style::default().fg(C_DIM)),
+        Span::styled(" id ", Style::default().fg(c_label())),
+        Span::styled(sid_short, Style::default().fg(c_dim())),
     ]));
     items.push(Line::from(vec![
-        Span::styled(" ver", Style::default().fg(C_LABEL)),
+        Span::styled(" ver", Style::default().fg(c_label())),
         Span::styled(
             format!(" {}", app.version),
-            Style::default().fg(C_CYAN),
+            Style::default().fg(c_cyan()),
         ),
     ]));
     items.push(Line::from(""));
@@ -115,7 +115,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // Model
     items.push(Line::from(Span::styled(
         "─ Model ─",
-        Style::default().fg(C_MUTED),
+        Style::default().fg(c_muted()),
     )));
     let model = app.config.effective_model();
     let model_short = if model.len() > w.saturating_sub(2) {
@@ -124,28 +124,28 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         model.to_string()
     };
     items.push(Line::from(vec![
-        Span::styled(" ▸ ", Style::default().fg(C_ACCENT)),
-        Span::styled(model_short, Style::default().fg(C_TEXT)),
+        Span::styled(" ▸ ", Style::default().fg(c_accent())),
+        Span::styled(model_short, Style::default().fg(c_text())),
     ]));
     items.push(Line::from(""));
 
     // Tokens
     items.push(Line::from(Span::styled(
         "─ Tokens ─",
-        Style::default().fg(C_MUTED),
+        Style::default().fg(c_muted()),
     )));
     let tok_in = app.token_usage.input;
     let tok_out = app.token_usage.output;
     items.push(Line::from(Span::styled(
         format!(" IN  {}    OUT  {}", fmt_count(tok_in), fmt_count(tok_out)),
-        Style::default().fg(C_GREEN),
+        Style::default().fg(c_green()),
     )));
     if let Some(ref s) = app.streaming
         && !s.content.is_empty()
     {
         items.push(Line::from(Span::styled(
             format!(" streaming: ~{} chars", fmt_count(s.content.len() as u32)),
-            Style::default().fg(C_CYAN),
+            Style::default().fg(c_cyan()),
         )));
     }
     items.push(Line::from(""));
@@ -153,11 +153,11 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // Mode + Messages
     items.push(Line::from(Span::styled(
         "─ Mode ─",
-        Style::default().fg(C_MUTED),
+        Style::default().fg(c_muted()),
     )));
     let mode_label = match app.mode {
-        crate::app::AppMode::Idle => (" idle", C_STATUS_IDLE),
-        crate::app::AppMode::Waiting => (" busy", C_STATUS_BUSY),
+        crate::app::AppMode::Idle => (" idle", c_status_idle()),
+        crate::app::AppMode::Waiting => (" busy", c_status_busy()),
     };
     items.push(Line::from(vec![Span::styled(
         mode_label.0,
@@ -165,7 +165,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     )]));
     items.push(Line::from(Span::styled(
         format!(" {} msgs", app.messages.len()),
-        Style::default().fg(C_DIM),
+        Style::default().fg(c_dim()),
     )));
     items.push(Line::from(""));
 
@@ -173,7 +173,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     if !app.file_changes.is_empty() {
         items.push(Line::from(Span::styled(
             format!("─ Files ({}) ─", app.file_changes.len()),
-            Style::default().fg(C_MUTED),
+            Style::default().fg(c_muted()),
         )));
         for path in app.file_changes.iter() {
             let p = if path.len() > w {
@@ -183,7 +183,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
             };
             items.push(Line::from(Span::styled(
                 format!(" ✎ {}", p),
-                Style::default().fg(C_FILE_EDIT),
+                Style::default().fg(c_file_edit()),
             )));
         }
         items.push(Line::from(""));
@@ -193,18 +193,18 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     if crate::runtime::is_lsp_initialized() {
         items.push(Line::from(Span::styled(
             "─ LSP ─",
-            Style::default().fg(C_MUTED),
+            Style::default().fg(c_muted()),
         )));
         let diag_count = crate::runtime::lsp_diagnostics();
         if diag_count == 0 {
             items.push(Line::from(Span::styled(
                 " ✓ clean",
-                Style::default().fg(C_GREEN),
+                Style::default().fg(c_green()),
             )));
         } else {
             items.push(Line::from(Span::styled(
                 format!(" ✗ {} errors", diag_count),
-                Style::default().fg(C_RED).bold(),
+                Style::default().fg(c_red()).bold(),
             )));
         }
         items.push(Line::from(""));
@@ -213,13 +213,13 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     // MCP
     items.push(Line::from(Span::styled(
         "─ MCP ─",
-        Style::default().fg(C_MUTED),
+        Style::default().fg(c_muted()),
     )));
     let mcp_servers = crate::runtime::mcp_connected_servers();
     if mcp_servers.is_empty() {
         items.push(Line::from(Span::styled(
             " none connected",
-            Style::default().fg(C_MUTED),
+            Style::default().fg(c_muted()),
         )));
     } else {
         for srv in mcp_servers.iter().take(4) {
@@ -229,14 +229,14 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
                 srv.clone()
             };
             items.push(Line::from(vec![
-                Span::styled(" ▸ ", Style::default().fg(C_ACCENT)),
-                Span::styled(name, Style::default().fg(C_TEXT)),
+                Span::styled(" ▸ ", Style::default().fg(c_accent())),
+                Span::styled(name, Style::default().fg(c_text())),
             ]));
         }
         if mcp_servers.len() > 4 {
             items.push(Line::from(Span::styled(
                 format!(" +{} more", mcp_servers.len() - 4),
-                Style::default().fg(C_DIM),
+                Style::default().fg(c_dim()),
             )));
         }
     }
@@ -246,13 +246,13 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     if !app.plan.is_empty() {
         items.push(Line::from(Span::styled(
             "─ Plan ─",
-            Style::default().fg(C_MUTED),
+            Style::default().fg(c_muted()),
         )));
         for step in app.plan.iter() {
             let preview: String = step.chars().take(w.saturating_sub(6)).collect();
             items.push(Line::from(Span::styled(
                 format!(" {}", preview),
-                Style::default().fg(C_CYAN),
+                Style::default().fg(c_cyan()),
             )));
         }
         items.push(Line::from(""));
@@ -262,33 +262,33 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     if let Some(ref s) = app.streaming {
         items.push(Line::from(Span::styled(
             "─ Live ─",
-            Style::default().fg(C_MUTED),
+            Style::default().fg(c_muted()),
         )));
         items.push(Line::from(Span::styled(
             format!(" {} tools done", s.tool_calls.len()),
-            Style::default().fg(C_CYAN),
+            Style::default().fg(c_cyan()),
         )));
         if let Some(ref tool) = s.current_tool {
             items.push(Line::from(vec![
-                Span::styled(" ▸ ", Style::default().fg(C_ORANGE)),
-                Span::styled(&tool.name, Style::default().fg(C_ORANGE).bold()),
+                Span::styled(" ▸ ", Style::default().fg(c_orange())),
+                Span::styled(&tool.name, Style::default().fg(c_orange()).bold()),
             ]));
             let args_preview: String = tool.args.chars().take(w.saturating_sub(4)).collect();
             for line in args_preview.lines().take(3) {
                 items.push(Line::from(Span::styled(
                     format!("   {}", line),
-                    Style::default().fg(C_MUTED),
+                    Style::default().fg(c_muted()),
                 )));
             }
         } else if !s.reasoning.is_empty() {
             items.push(Line::from(Span::styled(
                 " thinking...",
-                Style::default().fg(C_CYAN),
+                Style::default().fg(c_cyan()),
             )));
         } else if s.content.is_empty() {
             items.push(Line::from(Span::styled(
                 " connecting...",
-                Style::default().fg(C_CYAN),
+                Style::default().fg(c_cyan()),
             )));
         }
         items.push(Line::from(""));
@@ -298,12 +298,12 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     if let Some(ref msg) = app.status_message {
         items.push(Line::from(Span::styled(
             "─ Status ─",
-            Style::default().fg(C_MUTED),
+            Style::default().fg(c_muted()),
         )));
         let preview: String = msg.chars().take(w.saturating_sub(4)).collect();
         items.push(Line::from(Span::styled(
             format!(" {}", preview),
-            Style::default().fg(C_ORANGE),
+            Style::default().fg(c_orange()),
         )));
     }
 
@@ -325,7 +325,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
                 scroll_indicator,
-                Style::default().fg(C_MUTED),
+                Style::default().fg(c_muted()),
             ))),
             indicator_area,
         );

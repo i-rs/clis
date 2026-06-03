@@ -108,6 +108,20 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         terminal.draw(|f| {
             if app.show_transcript {
                 transcript::render_transcript(f, &app);
+            } else if app.show_theme_picker {
+                // Live preview: temporarily apply the highlighted theme so
+                // the entire UI (chat, sidebar, input) renders with the
+                // candidate colors. Enter confirms; Esc restores.
+                use crate::tui::colors::THEMES;
+                let total = THEMES.len();
+                let selected = app.theme_picker_selected.min(total.saturating_sub(1));
+                if let Some(&preview) = THEMES.get(selected) {
+                    crate::tui::colors::with_preview(preview, || {
+                        ui::render(f, &app);
+                    });
+                } else {
+                    ui::render(f, &app);
+                }
             } else {
                 ui::render(f, &app);
             }

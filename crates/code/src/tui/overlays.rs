@@ -22,21 +22,21 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
     for (key, label) in strings::SHORTCUTS {
         items.push(Line::from(Span::styled(
             format!("  {:<14} {}", key, label),
-            Style::new().fg(C_TEXT),
+            Style::new().fg(c_text()),
         )));
     }
     items.push(Line::from(""));
     items.push(Line::from(Span::styled(
         "     Press any key to close",
-        Style::new().fg(C_MUTED),
+        Style::new().fg(c_muted()),
     )));
 
     let block = Block::default()
         .title(format!(" {} ", strings::SHORTCUT_TITLE))
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::new().fg(C_ACCENT))
-        .style(Style::new().bg(C_BG_SURFACE));
+        .border_style(Style::new().fg(c_accent()))
+        .style(Style::new().bg(c_bg_surface()));
 
     let paragraph = Paragraph::new(Text::from(items)).block(block).alignment(Alignment::Center);
     frame.render_widget(paragraph, overlay);
@@ -57,12 +57,12 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
         .take((h as usize).saturating_sub(3))
         .map(|entry| {
             let status_style = match entry.response_status {
-                200 => Style::new().fg(C_GREEN),
-                s if s >= 400 => Style::new().fg(C_RED),
-                _ => Style::new().fg(C_ORANGE),
+                200 => Style::new().fg(c_green()),
+                s if s >= 400 => Style::new().fg(c_red()),
+                _ => Style::new().fg(c_orange()),
             };
             Line::from(vec![
-                Span::styled(format!("{} ", entry.time_short()), Style::new().fg(C_MUTED)),
+                Span::styled(format!("{} ", entry.time_short()), Style::new().fg(c_muted())),
                 Span::styled(entry.status_label(), status_style),
                 Span::raw(format!(" {} ({}ms)", entry.path(), entry.duration_ms)),
             ])
@@ -73,8 +73,8 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
         .title(" Debug Log (Ctrl+B close, Ctrl+L clear, ↑↓ scroll) ")
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::new().fg(C_ORANGE))
-        .style(Style::new().bg(C_BG_SURFACE));
+        .border_style(Style::new().fg(c_orange()))
+        .style(Style::new().bg(c_bg_surface()));
 
     let paragraph = Paragraph::new(visible)
         .block(block)
@@ -99,9 +99,9 @@ pub fn render_theme_picker(frame: &mut Frame, area: Rect, app: &App) {
         let is_selected = i == selected;
         let marker = if is_selected { "▌" } else { " " };
         let name_style = if is_selected {
-            Style::new().fg(C_ACCENT).bold()
+            Style::new().fg(c_accent()).bold()
         } else {
-            Style::new().fg(C_TEXT)
+            Style::new().fg(c_text())
         };
         let check = if theme.id == crate::tui::colors::active().id {
             "✓"
@@ -111,25 +111,25 @@ pub fn render_theme_picker(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(vec![
             Span::styled(
                 marker,
-                if is_selected { Style::new().fg(C_ACCENT) } else { Style::new().fg(C_MUTED) },
+                if is_selected { Style::new().fg(c_accent()) } else { Style::new().fg(c_muted()) },
             ),
-            Span::styled(format!(" {}", check), Style::new().fg(C_GREEN)),
+            Span::styled(format!(" {}", check), Style::new().fg(c_green())),
             Span::styled(format!("  {:<14}", theme.id), name_style),
-            Span::styled(theme.display_name, Style::new().fg(C_DIM)),
+            Span::styled(theme.display_name, Style::new().fg(c_dim())),
         ]));
     }
     items.push(Line::from(""));
     items.push(Line::from(Span::styled(
         "   ↑↓ 选择   Enter 确认   Esc 取消",
-        Style::new().fg(C_MUTED),
+        Style::new().fg(c_muted()),
     )));
 
     let block = Block::default()
         .title(" Select Theme ")
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
-        .border_style(Style::new().fg(C_ACCENT))
-        .style(Style::new().bg(C_BG_SURFACE));
+        .border_style(Style::new().fg(c_accent()))
+        .style(Style::new().bg(c_bg_surface()));
 
     let paragraph = Paragraph::new(Text::from(items)).block(block);
     frame.render_widget(paragraph, overlay);
