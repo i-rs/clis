@@ -163,10 +163,10 @@ fn extract_tools_and_response(results: &[(String, String)]) -> (Vec<String>, Str
     let mut response_parts = Vec::new();
     for (key, value) in results {
         if key == "tool_call" {
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(value) {
-                if let Some(name) = parsed.get("name").and_then(|n| n.as_str()) {
-                    tools.push(name.to_string());
-                }
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(value)
+                && let Some(name) = parsed.get("name").and_then(|n| n.as_str())
+            {
+                tools.push(name.to_string());
             }
         } else {
             response_parts.push(value.clone());

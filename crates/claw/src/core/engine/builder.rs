@@ -460,8 +460,8 @@ pub fn smart_compress(
 
     // Score and preserve semantically important messages outside the recent window
     let recent_start = msgs.len().saturating_sub(effective_recent);
-    for idx in 1..recent_start {
-        let (sig, score) = score_message_significance(&msgs[idx]);
+    for (idx, msg) in msgs.iter().enumerate().take(recent_start).skip(1) {
+        let (sig, score) = score_message_significance(msg);
         if score >= 7 {
             // Correction, Decision, ToolData — always keep
             preserve.insert(idx);

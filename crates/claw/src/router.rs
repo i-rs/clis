@@ -66,7 +66,7 @@ pub fn semantic_classify(task: &str, tool_index: &std::collections::HashMap<Stri
     }
     if matched_tools.len() == 1 {
         let tool_name = matched_tools[0];
-        if tool_index.get(tool_name).map_or(false, |d| {
+        if tool_index.get(tool_name).is_some_and(|d| {
             d.contains("统计") || d.contains("分析") || d.contains("图表")
         }) {
             return TaskComplexity::Heavy;

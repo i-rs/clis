@@ -135,7 +135,7 @@ impl RagPipeline {
                 rag_query
                     .source_filter
                     .as_ref()
-                    .map_or(true, |f| &doc.source == f)
+                    .is_none_or(|f| &doc.source == f)
             })
             .filter_map(|doc| {
                 let score = compute_relevance(&query_lower, &doc.content.to_lowercase());

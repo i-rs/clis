@@ -607,10 +607,8 @@ impl OverlayState {
             s.title.hash(&mut hasher);
         }
         let hash = hasher.finish();
-        if self.cached_search_hash == hash {
-            if let Some(ref cached) = self.cached_filtered_sessions {
-                return cached.clone();
-            }
+        if self.cached_search_hash == hash && let Some(ref cached) = self.cached_filtered_sessions {
+            return cached.clone();
         }
         let filtered = self.filtered_sessions();
         self.cached_search_hash = hash;

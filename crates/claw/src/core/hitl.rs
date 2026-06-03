@@ -139,13 +139,13 @@ impl HitlPolicy {
                 }
             }
         }
-        if let Some(args_obj) = args.as_object() {
-            if let Some(command) = args_obj.get("command").and_then(|c| c.as_str()) {
-                let lower = command.to_lowercase();
-                for cmd in &self.dangerous_commands {
-                    if lower.contains(cmd) {
-                        return true;
-                    }
+        if let Some(args_obj) = args.as_object()
+            && let Some(command) = args_obj.get("command").and_then(|c| c.as_str())
+        {
+            let lower = command.to_lowercase();
+            for cmd in &self.dangerous_commands {
+                if lower.contains(cmd) {
+                    return true;
                 }
             }
         }

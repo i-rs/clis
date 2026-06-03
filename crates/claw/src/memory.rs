@@ -330,12 +330,11 @@ impl CrossSessionMemory {
             {
                 tracing::error!("持久化写入失败: {}", e);
             }
-        } else if !self.path.as_os_str().is_empty() {
-            if let Ok(content) = serde_json::to_string_pretty(self)
-                && let Err(e) = atomic_write(&self.path, &content)
-            {
-                tracing::error!("持久化写入失败: {}", e);
-            }
+        } else if !self.path.as_os_str().is_empty()
+            && let Ok(content) = serde_json::to_string_pretty(self)
+            && let Err(e) = atomic_write(&self.path, &content)
+        {
+            tracing::error!("持久化写入失败: {}", e);
         }
         self.dirty = false;
     }

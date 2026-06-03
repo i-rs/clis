@@ -242,9 +242,10 @@ impl StructuredPlan {
                 plan = Some(StructuredPlan::new(&goal));
                 continue;
             }
-            if in_plan {
-                if let Some(ref mut p) = plan {
-                    let desc = trimmed
+            if in_plan
+                && let Some(ref mut p) = plan
+            {
+                let desc = trimmed
                         .trim_start_matches(|c: char| c.is_ascii_digit())
                         .trim_start_matches('.')
                         .trim_start_matches("- ")
@@ -268,7 +269,6 @@ impl StructuredPlan {
                     if !description.is_empty() && description.len() > 2 {
                         p.add_step(&description, tool.as_deref(), None, vec![]);
                     }
-                }
             }
         }
         plan

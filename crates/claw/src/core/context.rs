@@ -10,21 +10,21 @@ fn estimate_tokens(text: &str) -> usize {
     for ch in text.chars() {
         if is_cjk(ch) {
             if in_word && word_len > 0 {
-                tokens += (word_len + 3) / 4;
+                tokens += word_len.div_ceil(4);
                 word_len = 0;
                 in_word = false;
             }
             tokens += 2;
         } else if ch.is_whitespace() {
             if in_word && word_len > 0 {
-                tokens += (word_len + 3) / 4;
+                tokens += word_len.div_ceil(4);
                 word_len = 0;
             }
             in_word = false;
             tokens += 1;
         } else if ch.is_ascii_punctuation() {
             if in_word && word_len > 0 {
-                tokens += (word_len + 3) / 4;
+                tokens += word_len.div_ceil(4);
                 word_len = 0;
             }
             tokens += 1;
@@ -35,7 +35,7 @@ fn estimate_tokens(text: &str) -> usize {
         }
     }
     if in_word && word_len > 0 {
-        tokens += (word_len + 3) / 4;
+        tokens += word_len.div_ceil(4);
     }
     tokens.max(text.chars().count() / 2).max(1)
 }
@@ -111,7 +111,7 @@ impl ContextManager {
                 total += estimate_tokens(content);
             }
             if let Some(role) = msg.get("role").and_then(|r| r.as_str()) {
-                total += (role.chars().count() + 3) / 4;
+                total += role.chars().count().div_ceil(4);
             }
             if let Some(tcs) = msg.get("tool_calls").and_then(|t| t.as_array()) {
                 for tc in tcs {
@@ -195,10 +195,8 @@ impl ContextManager {
                         facts.push(format!("[用户纠正] {}", content));
                     }
                 }
-                "assistant" => {
-                    if content.contains("确认") || content.contains("明确") {
-                        facts.push(format!("[决策] {}", content));
-                    }
+                "assistant" if content.contains("确认") || content.contains("明确") => {
+                    facts.push(format!("[决策] {}", content));
                 }
                 _ => {}
             }

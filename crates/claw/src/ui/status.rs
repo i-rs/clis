@@ -23,16 +23,16 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
 
     let mut spans: Vec<Span> = Vec::new();
 
-    if let Some((fb, instant)) = &app.overlay.copy_feedback {
-        if instant.elapsed().as_secs() < 3 {
-            spans.push(Span::styled(
-                format!(" {} ", fb),
-                Style::default()
-                    .fg(theme.secondary())
-                    .add_modifier(Modifier::BOLD),
-            ));
-            spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
-        }
+    if let Some((fb, instant)) = &app.overlay.copy_feedback
+        && instant.elapsed().as_secs() < 3
+    {
+        spans.push(Span::styled(
+            format!(" {} ", fb),
+            Style::default()
+                .fg(theme.secondary())
+                .add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
     }
 
     if app.overlay.selection_mode {

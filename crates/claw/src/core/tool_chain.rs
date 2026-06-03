@@ -112,10 +112,10 @@ impl ToolChain {
             ConditionOp::Equals => field_val == Some(&cond.value),
             ConditionOp::NotEquals => field_val != Some(&cond.value),
             ConditionOp::Contains => {
-                if let Some(Value::String(s)) = field_val {
-                    if let Value::String(needle) = &cond.value {
-                        return s.contains(needle.as_str());
-                    }
+                if let Some(Value::String(s)) = field_val
+                    && let Value::String(needle) = &cond.value
+                {
+                    return s.contains(needle.as_str());
                 }
                 false
             }
@@ -134,10 +134,10 @@ impl ToolChain {
                 }
             }
             ConditionOp::IsEmpty => {
-                field_val.map_or(true, |v| v.is_null() || v == &Value::String(String::new()))
+                field_val.is_none_or(|v| v.is_null() || v == &Value::String(String::new()))
             }
             ConditionOp::IsNotEmpty => {
-                field_val.map_or(false, |v| !v.is_null() && v != &Value::String(String::new()))
+                field_val.is_some_and(|v| !v.is_null() && v != &Value::String(String::new()))
             }
         }
     }

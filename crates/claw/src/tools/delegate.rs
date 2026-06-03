@@ -228,11 +228,11 @@ impl ClawTool for DelegateTool {
                         usage_recorded = true;
                     }
                     LlmEvent::Done(_, usage, _trace_id) => {
-                        if !usage_recorded {
-                            if let Some(u) = usage {
-                                total_input_tokens += u.prompt_tokens;
-                                total_output_tokens += u.completion_tokens;
-                            }
+                        if !usage_recorded
+                            && let Some(u) = usage
+                        {
+                            total_input_tokens += u.prompt_tokens;
+                            total_output_tokens += u.completion_tokens;
                         }
                         break;
                     }
@@ -332,36 +332,36 @@ fn build_sub_agent_prompt(
     );
 
     // Tool index injection
-    if let Some(rt) = &ctx.delegate_runtime {
-        if !rt.irs_tool_index.is_empty() {
-            let mut tool_index_section = String::from("\n\n## 可用工具\n");
-            let enabled = &agent_config.enabled_tools;
-            let mut has_tools = false;
-            for (name, desc) in &rt.irs_tool_index {
-                if !enabled.is_empty() && !enabled.contains(name) {
-                    continue;
-                }
-                if !desc.is_empty() {
-                    tool_index_section.push_str(&format!("\n- {}: {}", name, desc));
-                } else {
-                    tool_index_section.push_str(&format!("\n- {}", name));
-                }
-                has_tools = true;
+    if let Some(rt) = &ctx.delegate_runtime
+        && !rt.irs_tool_index.is_empty()
+    {
+        let mut tool_index_section = String::from("\n\n## 可用工具\n");
+        let enabled = &agent_config.enabled_tools;
+        let mut has_tools = false;
+        for (name, desc) in &rt.irs_tool_index {
+            if !enabled.is_empty() && !enabled.contains(name) {
+                continue;
             }
-            if has_tools {
-                prompt.push_str(&tool_index_section);
+            if !desc.is_empty() {
+                tool_index_section.push_str(&format!("\n- {}: {}", name, desc));
+            } else {
+                tool_index_section.push_str(&format!("\n- {}", name));
             }
+            has_tools = true;
+        }
+        if has_tools {
+            prompt.push_str(&tool_index_section);
         }
     }
 
     // Plan mode injection (#2)
-    if let Some(rt) = &ctx.delegate_runtime {
-        if rt.plan_then_execute {
-            prompt.push_str(
-                "\n\n## 执行模式：先计划再执行\n\
-                 请先输出一个明确的多步骤计划，逐步执行，每步完成后告知结果。",
-            );
-        }
+    if let Some(rt) = &ctx.delegate_runtime
+        && rt.plan_then_execute
+    {
+        prompt.push_str(
+            "\n\n## 执行模式：先计划再执行\n\
+             请先输出一个明确的多步骤计划，逐步执行，每步完成后告知结果。",
+        );
     }
 
     if let Some(rt) = &ctx.delegate_runtime {

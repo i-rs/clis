@@ -354,10 +354,10 @@ impl ToolCallExecutor {
             }
         }
         for r in &all_results {
-            if let Some(ref mem) = self.layered_memory {
-                if let Ok(mut mem_guard) = mem.lock() {
-                    mem_guard.record_tool_result(&r.call.name, &r.result);
-                }
+            if let Some(ref mem) = self.layered_memory
+                && let Ok(mut mem_guard) = mem.lock()
+            {
+                mem_guard.record_tool_result(&r.call.name, &r.result);
             }
         }
         blocked_results.extend(all_results);

@@ -124,11 +124,11 @@ impl<'a> LlmEventHandler<'a> {
 
     fn handle_status(&mut self, text: &str) {
         self.app.set_status(text);
-        if text.starts_with("⚡") || text.contains("并行执行") {
-            if let Some(sid) = self.app_core.session_mgr.current_id() {
-                let sid = sid.to_string();
-                self.app_core.session_mgr.mark_waiting_for_tool(&sid);
-            }
+        if (text.starts_with("⚡") || text.contains("并行执行"))
+            && let Some(sid) = self.app_core.session_mgr.current_id()
+        {
+            let sid = sid.to_string();
+            self.app_core.session_mgr.mark_waiting_for_tool(&sid);
         }
     }
 
@@ -456,13 +456,10 @@ impl<'a> KeyEventHandler<'a> {
                                 false
                             }
                         }
-                        Some(AppMessage::Assistant { reasoning, .. }) if !reasoning.is_empty() => {
-                            if !self.app.overlay.reasoning_expanded.remove(&idx) {
-                                self.app.overlay.reasoning_expanded.insert(idx);
-                                true
-                            } else {
-                                false
-                            }
+                        Some(AppMessage::Assistant { reasoning, .. }) if !reasoning.is_empty()
+                            && !self.app.overlay.reasoning_expanded.remove(&idx) => {
+                            self.app.overlay.reasoning_expanded.insert(idx);
+                            true
                         }
                         _ => false,
                     };
