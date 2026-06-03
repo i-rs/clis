@@ -1,5 +1,6 @@
 use crate::error::ClawError;
-use crate::tools::{ClawTool, ToolContext};
+use crate::tools::{run_blocking, ClawTool, ToolContext};
+use crate::{opt_str, require_str};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
@@ -45,34 +46,9 @@ impl ClawTool for FileOpsTool {
     }
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
-        let operation = args
-            .get("operation")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let path_str = args
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let content_for_write = args
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        if operation.is_empty() {
-            return Err(ClawError::Validation(
-                "Please specify an operation: read, write, or list".to_string(),
-            ));
-        }
-        if path_str.is_empty() {
-            return Err(ClawError::Validation(
-                "Please specify a file path".to_string(),
-            ));
-        }
+        let operation = require_str!(args, "operation").to_string();
+        let path_str = require_str!(args, "path").to_string();
+        let content_for_write = opt_str!(args, "content", "").to_string();
 
         if ctx.config.allowed_dirs.is_empty() {
             return Err(ClawError::Validation(
@@ -129,7 +105,7 @@ impl ClawTool for FileOpsTool {
 
         let canonical_target_clone = canonical_target.clone();
         let content_owned = content_for_write;
-        let result = tokio::task::spawn_blocking(move || match operation.as_str() {
+        let result = run_blocking("file_ops", move || match operation.as_str() {
             "read" => op_read(&canonical_target_clone),
             "write" => op_write(&canonical_target_clone, &content_owned),
             "list" => op_list(&canonical_target_clone),
@@ -138,8 +114,7 @@ impl ClawTool for FileOpsTool {
                 other
             ))),
         })
-        .await
-        .map_err(|e| ClawError::Execution(format!("文件操作任务失败: {}", e)))??;
+        .await?;
         Ok(result)
     }
 }

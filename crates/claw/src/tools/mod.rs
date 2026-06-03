@@ -21,6 +21,42 @@ pub mod user_memory;
 pub mod vision_tool;
 pub mod web_search;
 
+#[macro_export]
+macro_rules! require_str {
+    ($args:expr, $key:literal) => {
+        match $args.get($key).and_then(|v| v.as_str()) {
+            Some(s) if !s.is_empty() => s,
+            _ => return Err($crate::error::ClawError::Validation(
+                format!("缺少必要参数: {}", $key),
+            )),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! opt_str {
+    ($args:expr, $key:literal, $default:expr) => {
+        $args.get($key).and_then(|v| v.as_str()).unwrap_or($default)
+    };
+}
+
+#[macro_export]
+macro_rules! opt_u64 {
+    ($args:expr, $key:literal, $default:expr) => {
+        $args.get($key).and_then(|v| v.as_u64()).unwrap_or($default)
+    };
+}
+
+pub(crate) async fn run_blocking<F, R>(label: &str, f: F) -> Result<R, crate::error::ClawError>
+where
+    F: FnOnce() -> Result<R, crate::error::ClawError> + Send + 'static,
+    R: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| crate::error::ClawError::Execution(format!("{}任务失败: {}", label, e)))?
+}
+
 use crate::skill_store::SkillDefinition;
 use serde_json::Value;
 use std::collections::HashSet;

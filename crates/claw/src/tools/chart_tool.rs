@@ -1,8 +1,9 @@
 use crate::error::ClawError;
+use crate::{opt_str, opt_u64, require_str};
 use serde_json::Value;
 
 use super::chart_render;
-use super::{ClawTool, ToolContext};
+use super::{run_blocking, ClawTool, ToolContext};
 
 /// Chart tool: generates ASCII bar charts and line charts from i-rs CLI data.
 pub struct ChartTool;
@@ -72,10 +73,7 @@ impl ClawTool for ChartTool {
     }
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
-        let tool = args
-            .get("tool")
-            .and_then(|v| v.as_str())
-            .ok_or("缺少必要参数: tool")?;
+        let tool = require_str!(args, "tool");
         if !ctx.config.i_rs_tools.is_empty()
             && !ctx.config.i_rs_tools.iter().any(|t| t == tool)
         {
@@ -84,36 +82,13 @@ impl ClawTool for ChartTool {
                 tool
             )));
         }
-        let command = args
-            .get("command")
-            .and_then(|v| v.as_str())
-            .unwrap_or("list");
-        let chart_type = args
-            .get("chart_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("bar");
-        let value_field = args
-            .get("value_field")
-            .and_then(|v| v.as_str())
-            .unwrap_or("value");
-        let label_field = args
-            .get("label_field")
-            .and_then(|v| v.as_str())
-            .unwrap_or("name");
-        let width = args
-            .get("width")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(40)
-            .clamp(20, 80) as usize;
-        let height = args
-            .get("height")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(10)
-            .clamp(5, 20) as usize;
-        let extra_args = args
-            .get("extra_args")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let command = opt_str!(args, "command", "list");
+        let chart_type = opt_str!(args, "chart_type", "bar");
+        let value_field = opt_str!(args, "value_field", "value");
+        let label_field = opt_str!(args, "label_field", "name");
+        let width = opt_u64!(args, "width", 40).clamp(20, 80) as usize;
+        let height = opt_u64!(args, "height", 10).clamp(5, 20) as usize;
+        let extra_args = opt_str!(args, "extra_args", "");
 
         let extra: Vec<&str> = if extra_args.is_empty() {
             vec![]
@@ -124,17 +99,16 @@ impl ClawTool for ChartTool {
         let tool_owned = tool.to_string();
         let command_owned = command.to_string();
         let extra_owned: Vec<String> = extra.iter().map(|s| s.to_string()).collect();
-        let json_data = tokio::task::spawn_blocking(move || {
+        let json_data = run_blocking("chart", move || {
             crate::utils::run_i_rs_json(
                 &tool_owned,
                 &command_owned,
                 &extra_owned.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
                 30,
             )
+            .map_err(ClawError::Execution)
         })
-        .await
-        .map_err(|e| ClawError::Execution(format!("图表工具任务失败: {}", e)))?
-        .map_err(ClawError::Execution)?;
+        .await?;
 
         let data_points = extract_data_points(&json_data, label_field, value_field)?;
 

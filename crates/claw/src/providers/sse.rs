@@ -1,5 +1,4 @@
 use crate::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
-use crate::stats::TokenRecord;
 use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Instant;
@@ -181,15 +180,16 @@ pub(crate) async fn openai_stream_chat_impl(
             buf.extend_from_slice(&chunk);
 
             while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
-                let line_bytes: Vec<u8> = buf.drain(..=pos).collect();
-                let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
+                let line = std::str::from_utf8(&buf[..=pos]).unwrap_or("").trim();
 
                 if line.is_empty() {
+                    buf.drain(..=pos);
                     continue;
                 }
 
                 if let Some(data) = line.strip_prefix("data: ") {
                     if data.trim() == "[DONE]" {
+                        buf.drain(..=pos);
                         continue;
                     }
 
@@ -258,6 +258,8 @@ pub(crate) async fn openai_stream_chat_impl(
                         }
                     }
                 }
+
+                buf.drain(..=pos);
             }
         }
 
@@ -272,34 +274,27 @@ pub(crate) async fn openai_stream_chat_impl(
             0
         };
 
-        // Emit usage record for statistics
-        let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
-            id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now().timestamp(),
-            agent_id: "default".to_string(),
-            model: model.to_string(),
-            provider: provider_kind.to_string(),
+        super::common::emit_usage_record(
+            tx,
+            model,
+            provider_kind,
             prompt_tokens,
             completion_tokens,
-            total_tokens: prompt_tokens + completion_tokens,
             has_tool_calls,
             tool_call_count,
-            react_rounds: 0, // Will be updated by chat_loop if needed
-            success: true,
-            latency_ms: duration_ms,
-            estimated_cost_usd: 0.0,
-            trace_id: String::new(),
-        }));
+            duration_ms,
+        );
 
-        let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
+        super::common::emit_http_log(
+            tx,
             status,
             duration_ms,
-            model: model.to_string(),
+            model,
             prompt_tokens,
             completion_tokens,
-            error: None,
-            request_body: body_json.chars().take(2000).collect::<String>(),
-        }));
+            None,
+            &body_json,
+        );
 
         if has_tool_calls {
             let mut parsed = Vec::new();
@@ -324,15 +319,16 @@ pub(crate) async fn openai_stream_chat_impl(
     } else {
         let text = response.text().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as u64;
-        let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
+        super::common::emit_http_log(
+            tx,
             status,
             duration_ms,
-            model: model.to_string(),
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            error: Some(format!("HTTP {}: {}", status, text)),
-            request_body: body_json.chars().take(2000).collect::<String>(),
-        }));
+            model,
+            0,
+            0,
+            Some(format!("HTTP {}: {}", status, text)),
+            &body_json,
+        );
         Err(anyhow::anyhow!("API 返回错误 {}: {}", status, text))
     }
 }

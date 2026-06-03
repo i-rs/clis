@@ -1,6 +1,7 @@
 use serde_json::Value;
 
 use crate::error::ClawError;
+use crate::require_str;
 use crate::tools::ToolContext;
 
 /// Built-in tool that executes `i-rs-<tool> <command>` CLI commands directly.
@@ -44,10 +45,7 @@ impl super::ClawTool for IrsTool {
     }
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
-        let tool = args.get("tool").and_then(|t| t.as_str()).unwrap_or("");
-        if tool.is_empty() {
-            return Err(ClawError::Validation("缺少必要参数: tool".to_string()));
-        }
+        let tool = require_str!(args, "tool");
         if !ctx.config.i_rs_tools.iter().any(|t| t == tool) {
             return Err(ClawError::Validation(format!(
                 "未知的 i-rs 工具: '{}'，可用工具: {}",

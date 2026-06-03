@@ -55,42 +55,71 @@ pub(crate) fn build_system_prompt(
     identity: &str,
     routing_hint: &str,
 ) -> String {
-    let mut prompt = include_str!("../../../prompts/system.md").to_string();
+    let template = include_str!("../../../prompts/system.md");
     let now = crate::utils::now_in_tz(tz_offset);
     let today = now.format("%Y-%m-%d").to_string();
     let weekday = now.format("%A").to_string();
     let time_str = now.format("%H:%M").to_string();
     let tz_label = crate::utils::tz_label(tz_offset);
-    prompt = prompt
-        .replace("{current_date}", &today)
-        .replace("{current_weekday}", &weekday)
-        .replace("{current_time}", &time_str)
-        .replace("{timezone}", &tz_label);
 
     let plan_mode = if plan_then_execute {
         PLAN_THEN_EXECUTE_PROMPT
     } else {
         REACT_PROMPT
     };
-    prompt = prompt.replace("{{PLAN_MODE}}", plan_mode);
 
-    prompt = prompt.replace("{{TOOL_INDEX}}", tool_index);
-    prompt = prompt.replace("{{IDENTITY}}", identity);
-    prompt = prompt.replace("{{HOT_TOOLS}}", hot_tools);
-    prompt = prompt.replace("{{SKILLS}}", skills);
-    prompt = prompt.replace("{{USER_MEMORY}}", user_memory);
-    prompt = prompt.replace("{{USER_PROFILE}}", user_profile);
-
-    if !routing_hint.is_empty() {
-        prompt = prompt.replace("{{ROUTING_HINT}}", routing_hint);
+    let routing_hint_val = if routing_hint.is_empty() {
+        ""
     } else {
-        prompt = prompt.replace("{{ROUTING_HINT}}", "");
+        routing_hint
+    };
+
+    let replacements: [(&str, &str); 12] = [
+        ("{current_date}", &today),
+        ("{current_weekday}", &weekday),
+        ("{current_time}", &time_str),
+        ("{timezone}", &tz_label),
+        ("{{PLAN_MODE}}", plan_mode),
+        ("{{TOOL_INDEX}}", tool_index),
+        ("{{IDENTITY}}", identity),
+        ("{{HOT_TOOLS}}", hot_tools),
+        ("{{SKILLS}}", skills),
+        ("{{USER_MEMORY}}", user_memory),
+        ("{{USER_PROFILE}}", user_profile),
+        ("{{ROUTING_HINT}}", routing_hint_val),
+    ];
+
+    let estimated_len = template.len() + tool_index.len() + hot_tools.len()
+        + skills.len() + user_memory.len() + user_profile.len();
+    let mut result = String::with_capacity(estimated_len);
+
+    let bytes = template.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'{' {
+            let mut matched = false;
+            for (pattern, value) in &replacements {
+                if template[i..].starts_with(*pattern) {
+                    result.push_str(value);
+                    i += pattern.len();
+                    matched = true;
+                    break;
+                }
+            }
+            if matched {
+                continue;
+            }
+        }
+        let c = template[i..].chars().next().unwrap();
+        result.push(c);
+        i += c.len_utf8();
     }
 
-    prompt = prompt.replace("\n\n\n\n", "\n\n");
-    prompt = prompt.replace("\n\n\n", "\n\n");
+    while result.contains("\n\n\n") {
+        result = result.replace("\n\n\n", "\n\n");
+    }
 
-    prompt
+    result
 }
 
 // ── Message Building ──

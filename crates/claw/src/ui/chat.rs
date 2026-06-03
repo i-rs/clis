@@ -245,18 +245,24 @@ fn message_line_count(
             }
             let mut lines = 1 + if has_explanation { 1 } else { 0 };
             if !result.is_empty() {
-                let cached_result = utils::format_json_result(result, text_width);
-                if !cached_result.0.is_empty() {
-                    let cached = format_cache
-                        .entry(msg_index)
-                        .or_insert_with(|| Arc::new(cached_result.0));
-                    lines += cached.len();
+                if let Some(cached) = format_cache.get(&msg_index) {
+                    if !cached.is_empty() {
+                        lines += cached.len();
+                    }
                 } else {
-                    lines += if has_ansi(result) {
-                        ansi_line_count(result, text_width.saturating_sub(3))
+                    let cached_result = utils::format_json_result(result, text_width);
+                    if !cached_result.0.is_empty() {
+                        let cached = format_cache
+                            .entry(msg_index)
+                            .or_insert_with(|| Arc::new(cached_result.0));
+                        lines += cached.len();
                     } else {
-                        wrapped_line_count(result, text_width.saturating_sub(3))
-                    };
+                        lines += if has_ansi(result) {
+                            ansi_line_count(result, text_width.saturating_sub(3))
+                        } else {
+                            wrapped_line_count(result, text_width.saturating_sub(3))
+                        };
+                    }
                 }
             }
             lines

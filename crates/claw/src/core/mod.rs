@@ -207,6 +207,7 @@ pub struct AppCore {
     pub storage: std::sync::Arc<crate::storage::ClawStorage>,
     pub http_client: reqwest::Client,
     pub checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    tool_index_cache: String,
 }
 
 impl AppCore {
@@ -306,6 +307,8 @@ impl AppCore {
             config.tz_offset,
         ));
 
+        let tool_index_cache = build_full_tool_index(&config);
+
         Ok(Self {
             config,
             session_mgr,
@@ -316,6 +319,7 @@ impl AppCore {
             checkpoint_store: std::sync::Arc::new(std::sync::Mutex::new(
                 crate::core::checkpoint::CheckpointStore::new(20),
             )),
+            tool_index_cache,
         })
     }
 
@@ -584,9 +588,13 @@ impl AppCore {
         }
 
         let enabled = &resolved.enabled_tools;
+        if enabled.is_empty() {
+            return self.tool_index_cache.clone();
+        }
+
         let mut result = String::from("## i-rs 工具索引\n\n");
         for name in &self.config.i_rs_tools {
-            if !enabled.is_empty() && !enabled.contains(name) {
+            if !enabled.contains(name) {
                 continue;
             }
             if let Some(desc) = self.config.i_rs_tool_index.get(name) {
@@ -972,6 +980,23 @@ pub fn save_chat_result(
     if !records.is_empty() {
         session_mgr.save_all_messages(session_id, &records);
     }
+}
+
+fn build_full_tool_index(config: &Config) -> String {
+    if config.i_rs_tool_index.is_empty() {
+        return String::new();
+    }
+    let mut result = String::from("## i-rs 工具索引\n\n");
+    for name in &config.i_rs_tools {
+        if let Some(desc) = config.i_rs_tool_index.get(name) {
+            if !desc.is_empty() {
+                result.push_str(&format!("- {}: {}\n", name, desc));
+            } else {
+                result.push_str(&format!("- {}\n", name));
+            }
+        }
+    }
+    result
 }
 
 /// Central side-effect handler for tool execution results.

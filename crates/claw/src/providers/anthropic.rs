@@ -1,7 +1,6 @@
 use crate::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
 use crate::providers::sse::send_with_retry;
 use crate::providers::{LlmProvider, ProviderKind};
-use crate::stats::TokenRecord;
 use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Instant;
@@ -313,15 +312,16 @@ impl LlmProvider for AnthropicProvider {
         if !response.status().is_success() {
             let text = response.text().await.unwrap_or_default();
             let duration_ms = start.elapsed().as_millis() as u64;
-            let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
+            super::common::emit_http_log(
+                tx,
                 status,
                 duration_ms,
-                model: self.model.clone(),
-                prompt_tokens: 0,
-                completion_tokens: 0,
-                error: Some(format!("HTTP {}: {}", status, text)),
-                request_body: body_json.clone(),
-            }));
+                &self.model,
+                0,
+                0,
+                Some(format!("HTTP {}: {}", status, text)),
+                &body_json,
+            );
             return Err(anyhow::anyhow!(
                 "Anthropic API 返回错误 {}: {}",
                 status,
@@ -447,34 +447,27 @@ impl LlmProvider for AnthropicProvider {
             0
         };
 
-        // Emit usage record for statistics
-        let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
-            id: uuid::Uuid::new_v4().to_string(),
-            timestamp: chrono::Utc::now().timestamp(),
-            agent_id: "default".to_string(),
-            model: self.model.clone(),
-            provider: "anthropic".to_string(),
+        super::common::emit_usage_record(
+            tx,
+            &self.model,
+            "anthropic",
             prompt_tokens,
             completion_tokens,
-            total_tokens: prompt_tokens + completion_tokens,
             has_tool_calls,
             tool_call_count,
-            react_rounds: 0,
-            success: true,
-            latency_ms: duration_ms,
-            estimated_cost_usd: 0.0,
-            trace_id: String::new(),
-        }));
+            duration_ms,
+        );
 
-        let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
+        super::common::emit_http_log(
+            tx,
             status,
             duration_ms,
-            model: self.model.clone(),
+            &self.model,
             prompt_tokens,
             completion_tokens,
-            error: None,
-            request_body: body_json.chars().take(2000).collect::<String>(),
-        }));
+            None,
+            &body_json,
+        );
 
         // Determine result type based on stop reason
         if has_tool_calls {

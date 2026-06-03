@@ -319,9 +319,14 @@ impl CrossSessionMemory {
         }
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            let mem_snapshot = self.clone();
+            let mem_value = serde_json::to_value(&*self)
+                .unwrap_or(serde_json::Value::Null);
             if let Err(e) =
-                crate::utils::sync_block_on(async move { storage.memory.save(&aid, &mem_snapshot).await })
+                crate::utils::sync_block_on(async move {
+                    let mem: Self = serde_json::from_value(mem_value)
+                        .unwrap_or_else(|_| Self::default_memory());
+                    storage.memory.save(&aid, &mem).await
+                })
             {
                 tracing::error!("持久化写入失败: {}", e);
             }

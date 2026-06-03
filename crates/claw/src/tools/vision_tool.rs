@@ -1,5 +1,5 @@
 use crate::error::ClawError;
-use crate::tools::{ClawTool, ToolContext};
+use crate::tools::{run_blocking, ClawTool, ToolContext};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
@@ -30,9 +30,7 @@ impl ClawTool for VisionTool {
     }
 
     async fn execute(&self, _args: &Value, _ctx: &ToolContext) -> Result<String, ClawError> {
-        tokio::task::spawn_blocking(read_clipboard_image_text)
-            .await
-            .map_err(|e| ClawError::Execution(format!("视觉工具任务失败: {}", e)))?
+        run_blocking("vision", read_clipboard_image_text).await
     }
 }
 

@@ -1,5 +1,6 @@
 // ── Sub-modules ──
 mod anthropic;
+pub(crate) mod common;
 pub mod image_gen;
 mod ollama;
 mod openai;
