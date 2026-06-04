@@ -1,7 +1,6 @@
 use super::components::MessageComponent;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Style;
 use crate::theme::Theme;
 
 pub(crate) struct Scroller {
@@ -15,6 +14,8 @@ pub(crate) struct Scroller {
 
 impl Scroller {
     pub fn new(components: &[Box<dyn MessageComponent>], width: u16, viewport_h: u16) -> Self {
+        // Each block has its own rounded border, so the only spacing we
+        // need between blocks is one empty row of breathing room.
         let spacing = 1u16;
         let mut offsets = Vec::with_capacity(components.len());
         let mut total = 0u16;
@@ -55,7 +56,6 @@ impl Scroller {
     ) {
         let (first, last, skip) = self.visible_range();
         let scroll_top = area.y;
-        let dim = Style::default().fg(theme.dim_text());
         for idx in first..last {
             let comp_top = self.offsets[idx].saturating_sub(self.scroll);
             if comp_top >= self.viewport_h { break; }
@@ -64,14 +64,6 @@ impl Scroller {
             let comp_area = Rect { x: area.x, y, width: area.width, height: comp_h.min(self.viewport_h.saturating_sub(comp_top)) };
             if comp_area.height == 0 { continue; }
             components[idx].render(comp_area, buf, theme, selected == Some(idx));
-            let sep_y = comp_area.y + comp_area.height;
-            if sep_y < area.y + area.height && idx + 1 < components.len() {
-                for x in area.x + 3..area.right().saturating_sub(1) {
-                    if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, sep_y)) {
-                        cell.set_char('─').set_style(dim);
-                    }
-                }
-            }
         }
     }
 }

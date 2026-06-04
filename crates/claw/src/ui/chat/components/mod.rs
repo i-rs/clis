@@ -6,6 +6,7 @@ mod evaluation;
 mod feedback;
 mod image;
 mod quality;
+mod style;
 mod tool_call;
 mod user;
 
@@ -40,22 +41,22 @@ impl MessageComponent for EmptyComponent {
 
 fn build_one(msg: &Message, idx: usize, tce: &std::collections::HashSet<usize>, re: &std::collections::HashSet<usize>) -> Box<dyn MessageComponent> {
     match msg {
-        Message::User { text } if !text.is_empty() => Box::new(user::UserBubble::new(text)),
+        Message::User { text } if !text.is_empty() => Box::new(user::UserBubble::new(text, None)),
         Message::User { .. } => Box::new(EmptyComponent),
         Message::Assistant { text, reasoning } if !text.is_empty() || !reasoning.is_empty() =>
-            Box::new(assistant::AssistantBlock::new(text, reasoning, re.contains(&idx))),
+            Box::new(assistant::AssistantBlock::new(text, reasoning, re.contains(&idx), None)),
         Message::Assistant { .. } => Box::new(EmptyComponent),
         Message::ToolCall { name, args, result, step, total_steps } =>
-            Box::new(tool_call::ToolCallCard::new(name, args, result, *step, *total_steps, tce.contains(&idx))),
-        Message::Error { text } => Box::new(error::ErrorBanner::new(text)),
+            Box::new(tool_call::ToolCallCard::new(name, args, result, *step, *total_steps, tce.contains(&idx), None)),
+        Message::Error { text } => Box::new(error::ErrorBanner::new(text, None)),
         Message::Evaluation { tool, valid, issues } if !*valid =>
-            Box::new(evaluation::EvaluationInline::new(tool, *valid, issues)),
+            Box::new(evaluation::EvaluationInline::new(tool, *valid, issues, None)),
         Message::Evaluation { .. } => Box::new(EmptyComponent),
         Message::Quality { score, complete, issues, .. } =>
-            Box::new(quality::QualityCard::new(*score, *complete, issues)),
+            Box::new(quality::QualityCard::new(*score, *complete, issues, None)),
         Message::Feedback { positive, message } =>
-            Box::new(feedback::FeedbackRow::new(*positive, message.as_deref())),
-        Message::Image { path, alt_text, width, height, format } =>
-            Box::new(image::ImageCard::new(path, alt_text, *width, *height, format)),
+            Box::new(feedback::FeedbackRow::new(*positive, message.as_deref(), None)),
+        Message::Image { path: _path, alt_text, width, height, format: _format } =>
+            Box::new(image::ImageCard::new(alt_text, *width as u16, *height as u16, None)),
     }
 }

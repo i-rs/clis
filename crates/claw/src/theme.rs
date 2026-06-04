@@ -258,7 +258,45 @@ impl Theme {
 
     #[allow(dead_code)]
     pub fn chat_bg(&self) -> Color {
+        // Slightly darker than the panel background so chat blocks
+        // visually recede and any block-level borders/surfaces pop.
         Color::Rgb(10, 10, 18)
+    }
+
+    /// Subtle surface tint for the *interior* of a message block.
+    ///
+    /// Most blocks leave the interior transparent and rely on the
+    /// gutter + border to provide structure. Special blocks (tool
+    /// cards, quality reports, error banners) can use this as a
+    /// soft fill that contrasts with `chat_bg()` without screaming
+    /// for attention.
+    #[allow(dead_code)]
+    pub fn surface(&self) -> Color {
+        Color::Rgb(22, 22, 32)
+    }
+
+    /// User-bubble interior tint (warm, friendly).
+    #[allow(dead_code)]
+    pub fn user_surface(&self) -> Color {
+        Color::Rgb(18, 26, 22)
+    }
+
+    /// Assistant-bubble interior tint (cool, calm).
+    #[allow(dead_code)]
+    pub fn assistant_surface(&self) -> Color {
+        Color::Rgb(16, 22, 32)
+    }
+
+    /// Tool-bubble interior tint (slightly purple to set it apart).
+    #[allow(dead_code)]
+    pub fn tool_surface(&self) -> Color {
+        Color::Rgb(24, 20, 32)
+    }
+
+    /// Error-bubble interior tint (red, but tasteful).
+    #[allow(dead_code)]
+    pub fn error_surface(&self) -> Color {
+        Color::Rgb(36, 18, 20)
     }
 
     #[allow(dead_code)]

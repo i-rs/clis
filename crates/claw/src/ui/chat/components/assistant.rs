@@ -1,9 +1,14 @@
+use super::style::{
+    BLOCK_LEFT_RESERVED, blend, body_line, block_border, header_line, rounded_bottom,
+    rounded_top,
+};
 use super::MessageComponent;
 use crate::theme::Theme;
 use crate::ui::chat::markdown::render_markdown;
+use crate::ui::utils;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style, Stylize};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Widget};
 
@@ -11,103 +16,200 @@ pub(crate) struct AssistantBlock {
     text: String,
     reasoning: String,
     pub reasoning_expanded: bool,
-    md_cache: std::cell::RefCell<Option<Vec<Line<'static>>>>,
-    md_width: std::cell::Cell<u16>,
+    timestamp: Option<String>,
 }
 
 impl AssistantBlock {
-    pub fn new(text: &str, reasoning: &str, reasoning_expanded: bool) -> Self {
-        Self { text: text.to_string(), reasoning: reasoning.to_string(), reasoning_expanded,
-              md_cache: std::cell::RefCell::new(None), md_width: std::cell::Cell::new(0) }
-    }
-
-    fn text_count(text: &str, width: u16) -> u16 {
-        let w = width.saturating_sub(6) as usize;
-        text.split('\n').map(|l| {
-            let c = l.chars().count();
-            if c == 0 { 1 } else { (c + w - 1) / w }
-        }).sum::<usize>().max(1) as u16
-    }
-
-    fn get_md(&self, width: u16, theme: &Theme) -> Vec<Line<'static>> {
-        if self.md_width.get() != width {
-            let w = width.saturating_sub(6) as usize;
-            let out = render_markdown(&self.text, w, theme);
-            self.md_cache.replace(Some(out));
-            self.md_width.set(width);
+    pub fn new(
+        text: &str,
+        reasoning: &str,
+        reasoning_expanded: bool,
+        timestamp: Option<&str>,
+    ) -> Self {
+        Self {
+            text: text.to_string(),
+            reasoning: reasoning.to_string(),
+            reasoning_expanded,
+            timestamp: timestamp.map(|s| s.to_string()),
         }
-        self.md_cache.borrow().clone().unwrap_or_default()
+    }
+
+    /// Number of *body* rows (excludes the top/bottom borders).
+    fn body_rows(&self, width: u16) -> u16 {
+        if self.text.is_empty() {
+            // An assistant block always shows *something* in the body
+            // slot. When there's no content yet, show a placeholder.
+            return 1;
+        }
+        let usable = width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
+        if !is_markdowny(&self.text) {
+            return utils::wrap_text(&self.text, usable.max(1))
+                .len()
+                .max(1) as u16;
+        }
+        // Use a default theme for line counting only — the actual
+        // render uses the real theme and the result has the same
+        // number of lines.
+        let theme = Theme::from_preset("midnight").unwrap_or_default();
+        let md = render_markdown(&self.text, usable, &theme);
+        md.len().max(1) as u16
+    }
+
+    fn reasoning_rows(&self) -> u16 {
+        if self.reasoning.is_empty() || !self.reasoning_expanded {
+            return 0;
+        }
+        self.reasoning.lines().filter(|l| !l.trim().is_empty()).count() as u16
     }
 }
 
+fn is_markdowny(text: &str) -> bool {
+    text.contains("**")
+        || text.contains("__")
+        || text.contains("`")
+        || text.lines().any(|l| {
+            l.starts_with("# ")
+                || l.starts_with("## ")
+                || l.starts_with("### ")
+                || l.starts_with("- ")
+                || l.starts_with("* ")
+        })
+}
+
 impl MessageComponent for AssistantBlock {
+    /// 1 (top) + 1 (header) + body + reasoning toggle + reasoning rows + 1 (bottom)
     fn height(&self, width: u16) -> u16 {
-        let body = Self::text_count(&self.text, width);
-        let mut h = 1 + body + 1;
+        let mut h = 1 + 1 + self.body_rows(width) + 1;
         if !self.reasoning.is_empty() {
-            h += 1;
-            if self.reasoning_expanded { h += self.reasoning.lines().count() as u16; }
+            h += 1; // toggle row
+            h += self.reasoning_rows();
         }
         h
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {
-        let (ac, _) = theme.assistant_colors();
-        let bg = if selected { ratatui::style::Color::Rgb(30, 40, 60) } else { theme.background() };
-        let indent = "   ";
+        let border = block_border(theme, selected);
+        let interior_bg = if selected {
+            blend(theme.assistant_surface(), theme.primary(), 0.25)
+        } else {
+            theme.assistant_surface()
+        };
+        let avatar = theme.primary();
+        let label = theme.text();
+
         let mut y = area.y;
 
-        // header: "Claw:" in accent bold
-        Paragraph::new(Line::from(vec![
-            Span::raw(indent), Span::styled("Claw", Style::default().fg(ac).add_modifier(Modifier::BOLD)),
-            Span::styled(":", Style::default().fg(theme.dim_text())),
-        ])).style(Style::default().bg(bg)).render(Rect { y, height: 1, ..area }, buf);
+        // Top border
+        Paragraph::new(rounded_top(area.width, border))
+            .style(Style::default().bg(interior_bg))
+            .render(Rect { y, height: 1, ..area }, buf);
         y += 1;
 
-        // body
-        let md = self.get_md(area.width, theme);
-        let body_h = Self::text_count(&self.text, area.width);
-        if !md.is_empty() {
-            let h = (md.len() as u16).min((area.y + area.height).saturating_sub(y));
-            if h > 0 {
-                let lines: Vec<Line> = md.into_iter().take(h as usize).map(|l| {
-                    let mut spans = l.spans; for s in &mut spans { s.style = s.style.fg(theme.text()); }
-                    Line::from(spans)
-                }).collect();
-                Paragraph::new(lines).style(Style::default().bg(bg))
-                    .render(Rect { y, height: h, ..area }, buf);
+        // Header
+        Paragraph::new(header_line("Claw", "◆", avatar, label, self.timestamp.as_deref()))
+            .style(Style::default().bg(interior_bg))
+            .render(Rect { y, height: 1, ..area }, buf);
+        y += 1;
+
+        // Body
+        let usable = area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
+        let body_h = self.body_rows(area.width);
+        let body_max = (area.y + area.height).saturating_sub(y + 1); // leave room for bottom
+
+        if self.text.is_empty() {
+            Paragraph::new(body_line(
+                "...",
+                Style::default().fg(theme.dim_text()).add_modifier(Modifier::ITALIC),
+            ))
+            .style(Style::default().bg(interior_bg))
+            .render(Rect { y, height: 1, ..area }, buf);
+            y += 1;
+        } else if is_markdowny(&self.text) {
+            let md = render_markdown(&self.text, usable, theme);
+            let take = (md.len() as u16).min(body_max).min(body_h);
+            for (i, ml) in md.iter().take(take as usize).enumerate() {
+                let mut spans: Vec<Span<'static>> = Vec::with_capacity(ml.spans.len() + 1);
+                spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
+                for s in &ml.spans {
+                    spans.push(Span::styled(s.content.clone(), s.style.fg(theme.text())));
+                }
+                Paragraph::new(Line::from(spans))
+                    .style(Style::default().bg(interior_bg))
+                    .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
             }
-            y += h;
+            y += take;
         } else {
-            let h = body_h.min((area.y + area.height).saturating_sub(y));
-            Paragraph::new(Line::from(vec![
-                Span::raw(indent), Span::styled(&self.text, Style::default().fg(theme.text())),
-            ])).style(Style::default().bg(bg)).render(Rect { y, height: h, ..area }, buf);
-            y += h;
+            let wrapped = utils::wrap_text(&self.text, usable.max(1));
+            let rows = wrapped.len().max(1).min(body_max as usize);
+            for (i, line) in wrapped.iter().take(rows).enumerate() {
+                Paragraph::new(body_line(line, Style::default().fg(theme.text())))
+                    .style(Style::default().bg(interior_bg))
+                    .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
+            }
+            y += rows as u16;
         }
 
-        // reasoning toggle
+        // Reasoning toggle + body
         if !self.reasoning.is_empty() {
             let icon = if self.reasoning_expanded { "▾" } else { "▸" };
-            Paragraph::new(Line::from(Span::styled(
-                format!("{}   {} 思考过程", indent, icon),
-                Style::default().fg(theme.dim_text()).italic(),
-            ))).style(Style::default().bg(bg))
-              .render(Rect { y, height: 1, ..area }, buf);
-            y += 1;
+            let hint = if self.reasoning_expanded {
+                "思考过程"
+            } else {
+                "思考过程 (按 Enter 展开)"
+            };
+            let mut spans: Vec<Span<'static>> = Vec::with_capacity(4);
+            spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
+            spans.push(Span::styled(
+                format!("{}  ", icon),
+                Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
+            ));
+            spans.push(Span::styled(
+                hint.to_string(),
+                Style::default()
+                    .fg(theme.dim_text())
+                    .add_modifier(Modifier::ITALIC),
+            ));
+            if y < area.y + area.height.saturating_sub(1) {
+                Paragraph::new(Line::from(spans))
+                    .style(Style::default().bg(interior_bg))
+                    .render(Rect { y, height: 1, ..area }, buf);
+                y += 1;
+            }
 
             if self.reasoning_expanded {
-                let lines: Vec<Line> = self.reasoning.lines()
-                    .map(|l| Line::from(Span::styled(
-                        format!("{}     {}", indent, l),
-                        Style::default().fg(theme.dim_text()).italic(),
-                    ))).collect();
-                let h = (lines.len() as u16).min((area.y + area.height).saturating_sub(y));
-                Paragraph::new(lines).style(Style::default().bg(bg))
-                    .render(Rect { y, height: h, ..area }, buf);
+                for rl in self
+                    .reasoning
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                {
+                    if y >= area.y + area.height.saturating_sub(1) {
+                        break;
+                    }
+                    let truncated = utils::truncate_str(rl, usable.saturating_sub(1).max(8));
+                    Paragraph::new(body_line(
+                        &truncated,
+                        Style::default()
+                            .fg(theme.dim_text())
+                            .add_modifier(Modifier::ITALIC),
+                    ))
+                    .style(Style::default().bg(interior_bg))
+                    .render(Rect { y, height: 1, ..area }, buf);
+                    y += 1;
+                }
             }
+        }
+
+        // Bottom border — drawn on top of the surface background so
+        // the rounded corner reads as a clean break, not a "bump".
+        if area.height >= 1 {
+            let by = area.y + area.height - 1;
+            Paragraph::new(rounded_bottom(area.width, border))
+                .style(Style::default().bg(interior_bg))
+                .render(Rect { y: by, height: 1, ..area }, buf);
         }
     }
 
-    fn clickable(&self) -> bool { !self.reasoning.is_empty() }
+    fn clickable(&self) -> bool {
+        !self.reasoning.is_empty()
+    }
 }
