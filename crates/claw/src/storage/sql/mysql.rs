@@ -162,6 +162,7 @@ define_sql_stores!(
     MySqlStatsStore,
     MySqlSkillStore,
     MySqlToolCacheStore,
+    "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title), agent_id=VALUES(agent_id), state=VALUES(state), created_at=VALUES(created_at), updated_at=VALUES(updated_at), message_count=VALUES(message_count)",
     "REPLACE INTO api_cache (session_id, messages) VALUES (?, ?)",
     "REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
     "REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

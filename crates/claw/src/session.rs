@@ -628,4 +628,55 @@ mod tests {
         assert_eq!(active[0].agent_id, "agent_a");
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn test_sqlite_create_does_not_wipe_messages() {
+        let path = std::env::temp_dir().join(format!("i-rs-claw-test-{}.db", uuid::Uuid::new_v4()));
+        let _ = std::fs::remove_file(&path);
+        let storage = std::sync::Arc::new(
+            crate::utils::sync_block_on(crate::storage::ClawStorage::sqlite(path.clone())).unwrap()
+        );
+
+        let mut mgr = SessionManager::with_storage(storage.clone());
+        let id_a = mgr.create_session();
+        mgr.append_message("user", "hello", None);
+        mgr.append_message("assistant", "hi there", None);
+
+        let msgs = mgr.load_messages(&id_a, 100);
+        assert_eq!(msgs.len(), 2, "before create_session");
+
+        let _id_b = mgr.create_session();
+
+        let mgr2 = SessionManager::with_storage(storage);
+        let msgs2 = mgr2.load_messages(&id_a, 100);
+        assert_eq!(msgs2.len(), 2, "messages of A should survive create_session for B");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn test_sqlite_switch_session_preserves_messages() {
+        let path = std::env::temp_dir().join(format!("i-rs-claw-test-{}.db", uuid::Uuid::new_v4()));
+        let _ = std::fs::remove_file(&path);
+        let storage = std::sync::Arc::new(
+            crate::utils::sync_block_on(crate::storage::ClawStorage::sqlite(path.clone())).unwrap()
+        );
+
+        let mut mgr = SessionManager::with_storage(storage.clone());
+        let id_a = mgr.create_session();
+        mgr.append_message("user", "msg in A", None);
+        let id_b = mgr.create_session();
+        mgr.append_message("user", "msg in B", None);
+
+        // Save & reload — verify both sessions retain their messages
+        let mgr2 = SessionManager::with_storage(storage.clone());
+        let msgs_a = mgr2.load_messages(&id_a, 100);
+        let msgs_b = mgr2.load_messages(&id_b, 100);
+        assert_eq!(msgs_a.len(), 1, "session A messages preserved");
+        assert_eq!(msgs_b.len(), 1, "session B messages preserved");
+
+        let _ = std::fs::remove_file(&path);
+    }
 }

@@ -17,7 +17,8 @@ pub mod postgres;
 pub mod sqlite;
 
 use async_trait::async_trait;
-use std::collections::HashMap;
+#[allow(unused_imports)]
+use std::collections::{HashMap, HashSet};
 
 use super::*;
 
@@ -34,6 +35,7 @@ macro_rules! define_sql_stores {
         $backend:ty,
         $sessions:ident, $messages:ident, $apicache:ident, $plansteps:ident,
         $memory:ident, $stats:ident, $skills:ident, $toolcache:ident,
+        $upsert_session:expr,
         $upsert_apicache:expr, $upsert_memory:expr, $upsert_token:expr, $upsert_skill:expr,
     ) => {
         // ── SessionRepo ──
@@ -55,12 +57,31 @@ macro_rules! define_sql_stores {
             }
 
             async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
+                // Use UPSERT + diff-based deletion to avoid FK ON DELETE CASCADE
+                // wiping messages/api_cache/plan_steps for unchanged sessions.
                 let mut tx = self.db.pool.begin().await?;
-                sqlx::query("DELETE FROM sessions").execute(&mut *tx).await?;
+
+                // 1. Build set of incoming session IDs
+                let incoming_ids: std::collections::HashSet<&str> =
+                    sessions.iter().map(|s| s.id.as_str()).collect();
+
+                // 2. Fetch existing IDs from DB
+                let existing: Vec<(String,)> =
+                    sqlx::query_as("SELECT id FROM sessions").fetch_all(&mut *tx).await?;
+
+                // 3. Delete only removed sessions (cascade will handle their child rows)
+                for (id,) in &existing {
+                    if !incoming_ids.contains(id.as_str()) {
+                        sqlx::query("DELETE FROM sessions WHERE id = ?")
+                            .bind(id)
+                            .execute(&mut *tx)
+                            .await?;
+                    }
+                }
+
+                // 4. UPSERT remaining sessions
                 for s in sessions {
-                    sqlx::query(
-                        "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    )
+                    sqlx::query($upsert_session)
                     .bind(&s.id).bind(&s.title).bind(&s.agent_id)
                     .bind(serde_json::to_string(&s.state).unwrap_or_default())
                     .bind(s.created_at).bind(s.updated_at)

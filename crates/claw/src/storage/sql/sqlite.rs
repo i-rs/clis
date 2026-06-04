@@ -82,6 +82,7 @@ define_sql_stores!(
     SqliteStatsStore,
     SqliteSkillStore,
     SqliteToolCacheStore,
+    "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, agent_id=excluded.agent_id, state=excluded.state, created_at=excluded.created_at, updated_at=excluded.updated_at, message_count=excluded.message_count",
     "INSERT OR REPLACE INTO api_cache (session_id, messages) VALUES (?, ?)",
     "INSERT OR REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
     "INSERT OR REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

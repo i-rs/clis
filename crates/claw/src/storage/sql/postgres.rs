@@ -159,6 +159,7 @@ define_sql_stores!(
     PgStatsStore,
     PgSkillStore,
     PgToolCacheStore,
+    "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET title=excluded.title, agent_id=excluded.agent_id, state=excluded.state, created_at=excluded.created_at, updated_at=excluded.updated_at, message_count=excluded.message_count",
     // PostgreSQL upsert via ON CONFLICT (use ? placeholders — sqlx auto-converts)
     "INSERT INTO api_cache (session_id, messages) VALUES (?, ?) ON CONFLICT (session_id) DO UPDATE SET messages = excluded.messages",
     "INSERT INTO memory (agent_id, data) VALUES (?, ?) ON CONFLICT (agent_id) DO UPDATE SET data = excluded.data",
