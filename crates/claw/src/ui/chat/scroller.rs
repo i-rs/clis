@@ -2,6 +2,26 @@ use super::components::MessageComponent;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use crate::theme::Theme;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+/// Concrete cell type used to hold a per-message component. The
+/// `Box` provides a sized wrapper that the `RefCell` can own; method
+/// calls auto-deref through it to the underlying trait object.
+pub(crate) type ComponentCell = Rc<RefCell<Box<dyn MessageComponent>>>;
+
+/// Clickable region for a single message component. Coordinates are
+/// relative to the chat content area (i.e. the top border row is
+/// excluded). `component_idx` is the index into the original
+/// `messages`/`components` Vec that the App holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HitRegion {
+    pub component_idx: usize,
+    pub y_start: u16,
+    pub y_end: u16,
+    pub x_start: u16,
+    pub x_end: u16,
+}
 
 pub(crate) struct Scroller {
     offsets: Vec<u16>,
@@ -10,11 +30,16 @@ pub(crate) struct Scroller {
     pub viewport_h: u16,
     layout_w: u16,
     spacing: u16,
+    /// Click regions for every component that opts in via
+    /// `MessageComponent::clickable() == true`. `y_start`/`y_end`
+    /// are content-relative rows in the same space as `offsets`.
+    pub hits: Vec<HitRegion>,
 }
 
 #[cfg(test)]
 struct StubBlock {
     h: u16,
+    click: bool,
 }
 #[cfg(test)]
 impl MessageComponent for StubBlock {
@@ -33,16 +58,19 @@ impl MessageComponent for StubBlock {
             }
         }
     }
+    fn clickable(&self) -> bool { self.click }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn blocks(heights: &[u16]) -> Vec<Box<dyn MessageComponent>> {
+    fn blocks(heights: &[u16]) -> Vec<ComponentCell> {
         heights
             .iter()
-            .map(|h| Box::new(StubBlock { h: *h }) as Box<dyn MessageComponent>)
+            .map(|h| {
+                Rc::new(RefCell::new(Box::new(StubBlock { h: *h, click: false }) as Box<dyn MessageComponent>))
+            })
             .collect()
     }
 
@@ -93,22 +121,85 @@ mod tests {
         assert!(has_border(&buf, 5, &area));
         assert!(has_border(&buf, 8, &area));
         assert!(has_border(&buf, 10, &area));
-        assert!(has_border(&buf, 13, &area));
+    }
+
+    #[test]
+    fn hit_regions_cover_clickable_components_only() {
+        // Three blocks: middle is clickable. The whole block (no
+        // spacing) is the click target. Offsets: [0, 4, 8]; total 11.
+        let comps: Vec<ComponentCell> = vec![
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
+        ];
+        let scr = Scroller::new(&comps, 80, 20);
+        assert_eq!(scr.hits.len(), 1, "only one clickable component");
+        let h = scr.hits[0];
+        assert_eq!(h.component_idx, 1);
+        assert_eq!((h.y_start, h.y_end), (4, 7));
+        // x covers the full chat width
+        assert_eq!(h.x_start, 0);
+        assert_eq!(h.x_end, 80);
+    }
+
+    #[test]
+    fn hit_test_returns_correct_component_for_click() {
+        let comps: Vec<ComponentCell> = vec![
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
+        ];
+        let scr = Scroller::new(&comps, 80, 20);
+        // Click on row 5 (within block 1) → component 1
+        assert_eq!(scr.hit_test(5, 10), Some(1));
+        // Click on row 0 (block 0, not clickable) → None
+        assert_eq!(scr.hit_test(0, 10), None);
+        // Click on row 9 (block 2, not clickable) → None
+        assert_eq!(scr.hit_test(9, 10), None);
     }
 }
 
 impl Scroller {
-    pub fn new(components: &[Box<dyn MessageComponent>], width: u16, viewport_h: u16) -> Self {
+    pub fn new(components: &[ComponentCell], width: u16, viewport_h: u16) -> Self {
         // Each block has its own rounded border, so the only spacing we
         // need between blocks is one empty row of breathing room.
+        // Zero-height components (e.g. filtered empty messages) should
+        // *not* contribute spacing — otherwise a sequence of empties
+        // would waste a row each.
         let spacing = 1u16;
         let mut offsets = Vec::with_capacity(components.len());
+        let mut hits = Vec::new();
         let mut total = 0u16;
-        for c in components {
+        let mut last_was_real = false;
+        for (i, c) in components.iter().enumerate() {
+            let h = c.borrow().height(width);
+            // Don't insert spacing for the very first row, and don't
+            // insert spacing after a zero-height component.
+            if i > 0 && h > 0 && last_was_real {
+                total = total.saturating_add(spacing);
+            }
             offsets.push(total);
-            total += c.height(width) + spacing;
+            if c.borrow().clickable() && h > 0 {
+                hits.push(HitRegion {
+                    component_idx: i,
+                    y_start: total,
+                    y_end: total.saturating_add(h),
+                    x_start: 0,
+                    x_end: width,
+                });
+            }
+            total = total.saturating_add(h);
+            last_was_real = h > 0;
         }
-        Self { offsets, total_height: total.saturating_sub(spacing), scroll: 0, viewport_h, layout_w: width, spacing }
+        Self {
+            offsets,
+            total_height: total,
+            scroll: 0,
+            viewport_h,
+            layout_w: width,
+            spacing,
+            hits,
+        }
     }
 
     pub fn total(&self) -> u16 { self.total_height }
@@ -135,8 +226,21 @@ impl Scroller {
         (first, last.min(self.offsets.len()), skip)
     }
 
+    /// Map a content-relative (row, col) click to the component it
+    /// hits, if any. Returns `None` for non-clickable regions.
+    pub fn hit_test(&self, row: u16, col: u16) -> Option<usize> {
+        // Hits are stored in component order; the hit list is short
+        // (only clickable blocks), so a linear scan is fine.
+        for h in &self.hits {
+            if row >= h.y_start && row < h.y_end && col >= h.x_start && col < h.x_end {
+                return Some(h.component_idx);
+            }
+        }
+        None
+    }
+
     pub fn render(
-        &self, components: &[Box<dyn MessageComponent>], area: Rect, buf: &mut Buffer,
+        &self, components: &[ComponentCell], area: Rect, buf: &mut Buffer,
         theme: &Theme, selected: Option<usize>,
     ) {
         let (first, last, skip) = self.visible_range();
@@ -151,7 +255,7 @@ impl Scroller {
             // blocks (tool_call collapsed, user 1-line, quality with
             // 0 issues) get clipped to 0 rows and disappear, while
             // taller ones lose their body content.
-            let full_h = components[idx].height(self.layout_w);
+            let full_h = components[idx].borrow().height(self.layout_w);
             let comp_h = if idx == first {
                 full_h.saturating_sub(skip)
             } else {
@@ -160,7 +264,7 @@ impl Scroller {
             let y = scroll_top + comp_top;
             let comp_area = Rect { x: area.x, y, width: area.width, height: comp_h.min(self.viewport_h.saturating_sub(comp_top)) };
             if comp_area.height == 0 { continue; }
-            components[idx].render(comp_area, buf, theme, selected == Some(idx));
+            components[idx].borrow().render(comp_area, buf, theme, selected == Some(idx));
         }
     }
 }

@@ -2,7 +2,7 @@ use super::style::{
     BLOCK_LEFT_RESERVED, blend, body_line, block_border, header_line, rounded_bottom,
     rounded_top,
 };
-use super::MessageComponent;
+use super::{ComponentOp, MessageComponent};
 use crate::theme::Theme;
 use crate::ui::chat::markdown::render_markdown;
 use crate::ui::utils;
@@ -85,6 +85,19 @@ impl MessageComponent for AssistantBlock {
             h += self.reasoning_rows();
         }
         h
+    }
+
+    fn clickable(&self) -> bool { !self.reasoning.is_empty() }
+
+    fn apply(&mut self, op: ComponentOp) {
+        match op {
+            ComponentOp::AppendText(delta) => self.text.push_str(&delta),
+            ComponentOp::SetText(text) => self.text = text,
+            ComponentOp::AppendReasoning(delta) => self.reasoning.push_str(&delta),
+            ComponentOp::SetReasoning(reasoning) => self.reasoning = reasoning,
+            ComponentOp::Toggle => self.reasoning_expanded = !self.reasoning_expanded,
+            _ => {}
+        }
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {
@@ -233,9 +246,5 @@ impl MessageComponent for AssistantBlock {
                 .style(Style::default().bg(interior_bg))
                 .render(Rect { y: by, height: 1, ..area }, buf);
         }
-    }
-
-    fn clickable(&self) -> bool {
-        !self.reasoning.is_empty()
     }
 }

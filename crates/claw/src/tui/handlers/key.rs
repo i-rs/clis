@@ -167,24 +167,19 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Char(' ') => {
                 if let Some(idx) = self.app.overlay.selected_message {
-                    let changed = match self.app.messages.get(idx) {
-                        Some(AppMessage::ToolCall { .. }) => {
-                            if !self.app.overlay.tool_call_expanded.remove(&idx) {
-                                self.app.overlay.tool_call_expanded.insert(idx);
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        Some(AppMessage::Assistant { reasoning, .. }) if !reasoning.is_empty()
-                            && !self.app.overlay.reasoning_expanded.remove(&idx) => {
-                            self.app.overlay.reasoning_expanded.insert(idx);
-                            true
-                        }
-                        _ => false,
-                    };
-                    if changed {
-                        self.app.mark_dirty();
+                    // Only trigger a state change when the selected
+                    // message has a component that opts into toggling
+                    // (i.e. a tool call card or an assistant with
+                    // reasoning). This is the keyboard counterpart of
+                    // the hit-test used by `mouse::handle_click`.
+                    let can_toggle = self
+                        .app
+                        .components
+                        .get(idx)
+                        .map(|c| c.borrow().clickable())
+                        .unwrap_or(false);
+                    if can_toggle {
+                        self.app.toggle_component_at(idx);
                         self.app.rebuild_heights_approx();
                         self.app.scroll_to_selected();
                     }
@@ -538,20 +533,9 @@ impl<'a> KeyEventHandler<'a> {
             let idx = idx.min(self.app.messages.len().saturating_sub(1));
             self.app.messages.remove(idx);
             self.app.message_timestamps.remove(idx);
-
-            let tc = std::mem::take(&mut self.app.overlay.tool_call_expanded);
-            for i in tc {
-                if i != idx {
-                    self.app.overlay.tool_call_expanded.insert(if i > idx { i - 1 } else { i });
-                }
-            }
-
-            let re = std::mem::take(&mut self.app.overlay.reasoning_expanded);
-            for i in re {
-                if i != idx {
-                    self.app.overlay.reasoning_expanded.insert(if i > idx { i - 1 } else { i });
-                }
-            }
+            // Drop the matching component too — state lives there
+            // now, so we just hand the slot to the caller.
+            self.app.components.remove(idx);
 
             if idx >= self.app.messages.len() {
                 self.app.overlay.selected_message = if self.app.messages.is_empty() {

@@ -16,38 +16,47 @@ use ratatui::layout::Rect;
 use crate::app::Message;
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ClickAction { ToggleExpand }
+/// Operations the App can apply to a component after construction.
+/// The default impl for `apply` is a no-op, so each component only
+/// has to opt in to the variants it cares about.
+#[derive(Debug, Clone)]
+pub enum ComponentOp {
+    /// Append streamed text delta to the assistant body.
+    AppendText(String),
+    /// Replace the assistant body wholesale (used for first-token flush).
+    SetText(String),
+    /// Append streamed reasoning delta.
+    AppendReasoning(String),
+    /// Replace the assistant reasoning wholesale.
+    SetReasoning(String),
+    /// Replace a tool call's result text. Used to backfill a real
+    /// result onto a previously-running card.
+    SetToolResult(String),
+    /// Flip the component's expand/collapse state.
+    Toggle,
+}
 
 pub trait MessageComponent {
     fn height(&self, width: u16) -> u16;
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool);
+    /// Whether the whole block should be a click target (e.g. a tool
+    /// call or an assistant message with reasoning). Components opt
+    /// in by returning `true` here.
     fn clickable(&self) -> bool { false }
+    /// Apply a mutation coming from outside (streaming tokens, click
+    /// events, etc.). Default impl is a no-op.
+    fn apply(&mut self, _op: ComponentOp) {}
 }
 
-pub fn build_components(
-    messages: &[Message],
-    tool_call_expanded: &std::collections::HashSet<usize>,
-    reasoning_expanded: &std::collections::HashSet<usize>,
-) -> Vec<Box<dyn MessageComponent>> {
-    messages.iter().enumerate().map(|(idx, msg)| build_one(msg, idx, tool_call_expanded, reasoning_expanded)).collect()
-}
-
-struct EmptyComponent;
-impl MessageComponent for EmptyComponent {
-    fn height(&self, _w: u16) -> u16 { 0 }
-    fn render(&self, _area: Rect, _buf: &mut Buffer, _theme: &Theme, _selected: bool) {}
-}
-
-fn build_one(msg: &Message, idx: usize, tce: &std::collections::HashSet<usize>, re: &std::collections::HashSet<usize>) -> Box<dyn MessageComponent> {
+pub fn build_component_for(msg: &Message) -> Box<dyn MessageComponent> {
     match msg {
         Message::User { text } if !text.is_empty() => Box::new(user::UserBubble::new(text, None)),
         Message::User { .. } => Box::new(EmptyComponent),
         Message::Assistant { text, reasoning } if !text.is_empty() || !reasoning.is_empty() =>
-            Box::new(assistant::AssistantBlock::new(text, reasoning, re.contains(&idx), None)),
+            Box::new(assistant::AssistantBlock::new(text, reasoning, false, None)),
         Message::Assistant { .. } => Box::new(EmptyComponent),
         Message::ToolCall { name, args, result, step, total_steps } =>
-            Box::new(tool_call::ToolCallCard::new(name, args, result, *step, *total_steps, tce.contains(&idx), None)),
+            Box::new(tool_call::ToolCallCard::new(name, args, result, *step, *total_steps, false, None)),
         Message::Error { text } => Box::new(error::ErrorBanner::new(text, None)),
         Message::Evaluation { tool, valid, issues } if !*valid =>
             Box::new(evaluation::EvaluationInline::new(tool, *valid, issues, None)),
@@ -59,4 +68,10 @@ fn build_one(msg: &Message, idx: usize, tce: &std::collections::HashSet<usize>, 
         Message::Image { path: _path, alt_text, width, height, format: _format } =>
             Box::new(image::ImageCard::new(alt_text, *width as u16, *height as u16, None)),
     }
+}
+
+struct EmptyComponent;
+impl MessageComponent for EmptyComponent {
+    fn height(&self, _w: u16) -> u16 { 0 }
+    fn render(&self, _area: Rect, _buf: &mut Buffer, _theme: &Theme, _selected: bool) {}
 }

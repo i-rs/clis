@@ -40,42 +40,24 @@ impl<'a> MouseEventHandler<'a> {
     }
 
     fn handle_click(&mut self, col: u16, row: u16) {
-        let offsets = &self.app.component_offsets;
-        if offsets.is_empty() { return; }
-
-        // Convert absolute screen row to content-relative row
-        let content_row = row.saturating_sub(self.app.chat_y + 1); // +1 for border
-
-        // Find the component that contains this row
-        let mut idx = offsets.len();
-        for (i, &off) in offsets.iter().enumerate() {
-            let next = if i + 1 < offsets.len() { offsets[i + 1] } else { u16::MAX };
-            if content_row >= off && content_row < next {
-                idx = i;
-                break;
-            }
+        // The click dispatch is intentionally side-effect free until
+        // we know we've landed on a clickable component. We do this
+        // with the hit regions that `render_chat` last produced:
+        // they are in screen-absolute coordinates and carry a
+        // component index, so there is no need to recompute offsets
+        // or walk the message vector here.
+        if let Some(idx) = self
+            .app
+            .hit_regions
+            .iter()
+            .find(|h| row >= h.y_start && row < h.y_end && col >= h.x_start && col < h.x_end)
+            .map(|h| h.component_idx)
+        {
+            self.app.toggle_component_at(idx);
         }
-        if idx >= self.app.messages.len() { return; }
-
-        let msg = &self.app.messages[idx];
-        match msg {
-            crate::app::Message::Assistant { reasoning, .. } if !reasoning.is_empty() => {
-                if self.app.overlay.reasoning_expanded.contains(&idx) {
-                    self.app.overlay.reasoning_expanded.remove(&idx);
-                } else {
-                    self.app.overlay.reasoning_expanded.insert(idx);
-                }
-                self.app.mark_dirty();
-            }
-            crate::app::Message::ToolCall { .. } => {
-                if self.app.overlay.tool_call_expanded.contains(&idx) {
-                    self.app.overlay.tool_call_expanded.remove(&idx);
-                } else {
-                    self.app.overlay.tool_call_expanded.insert(idx);
-                }
-                self.app.mark_dirty();
-            }
-            _ => {}
-        }
+        // `col` is currently unused beyond the hit-test bounding
+        // box, but keep the parameter so the caller signature stays
+        // stable if we add column-aware targets later.
+        let _ = col;
     }
 }

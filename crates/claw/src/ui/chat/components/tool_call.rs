@@ -1,7 +1,7 @@
 use super::style::{
     BLOCK_LEFT_RESERVED, blend, body_line, block_border, rounded_bottom, rounded_top,
 };
-use super::MessageComponent;
+use super::{ComponentOp, MessageComponent};
 use crate::theme::Theme;
 use crate::ui::utils;
 use ratatui::buffer::Buffer;
@@ -225,6 +225,16 @@ impl MessageComponent for ToolCallCard {
             }
         }
         h
+    }
+
+    fn clickable(&self) -> bool { true }
+
+    fn apply(&mut self, op: ComponentOp) {
+        match op {
+            ComponentOp::Toggle => self.expanded = !self.expanded,
+            ComponentOp::SetToolResult(result) => self.result = result,
+            _ => {}
+        }
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {

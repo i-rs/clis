@@ -13,20 +13,22 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let width = area.width;
     let viewport_h = area.height.saturating_sub(1).max(1);
 
-    let components = components::build_components(
-        &app.messages,
-        &app.overlay.tool_call_expanded,
-        &app.overlay.reasoning_expanded,
-    );
+    // If the component cache is out of sync (e.g. session load, or
+    // any path that mutated `messages` without mirroring to
+    // `components`), rebuild it. `push_component_for` keeps them in
+    // lock-step for the streaming hot path so this is normally a no-op.
+    if app.components.len() != app.messages.len() {
+        app.rebuild_components();
+    }
 
-    let mut scr = scroller::Scroller::new(&components, width, viewport_h);
+    let mut scr = scroller::Scroller::new(&app.components, width, viewport_h);
     scr.set_scroll(app.scroll_lines as u16);
 
     let theme = &app.config.theme;
     let selected = if app.overlay.selection_mode { app.overlay.selected_message } else { None };
 
     let buf = f.buffer_mut();
-    scr.render(&components, area, buf, theme, selected);
+    scr.render(&app.components, area, buf, theme, selected);
 
     // Top border
     let at_bottom = scr.scroll >= scr.max_scroll();
@@ -38,9 +40,22 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         }
     }
 
-    // Store offsets + chat area y for mouse click dispatch
-    app.component_offsets = scr.offsets().to_vec();
-    app.component_total_height = scr.total() as usize;
+    // Convert content-relative hit regions to screen-absolute
+    // coordinates, then expose them to the input handlers. Each
+    // region corresponds to exactly one clickable component, so a
+    // single binary search per click is enough.
+    let abs_y = area.y;
+    let mut hits = Vec::with_capacity(scr.hits.len());
+    for h in &scr.hits {
+        hits.push(crate::ui::chat::scroller::HitRegion {
+            component_idx: h.component_idx,
+            y_start: h.y_start + abs_y,
+            y_end: h.y_end + abs_y,
+            x_start: h.x_start + area.x,
+            x_end: h.x_end + area.x,
+        });
+    }
+    app.hit_regions = hits;
     app.chat_y = area.y;
     app.max_scroll = scr.max_scroll() as usize;
     app.scroll_lines = scr.scroll as usize;

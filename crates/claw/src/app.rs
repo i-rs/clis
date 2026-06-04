@@ -1,10 +1,15 @@
 use crate::config::Config;
 use crate::stats::TodaySummary;
+use crate::ui::chat_api::{
+    build_component_for, ComponentCell, ComponentOp, HitRegion, MessageComponent,
+};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -572,8 +577,6 @@ pub struct OverlayState {
     pub sidebar_formatted_json: Option<String>,
     pub agent_picker_index: usize,
     pub agent_list: Vec<String>,
-    pub tool_call_expanded: HashSet<usize>,
-    pub reasoning_expanded: HashSet<usize>,
     pub copy_feedback: Option<(String, std::time::Instant)>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
@@ -638,8 +641,6 @@ impl OverlayState {
             sidebar_formatted_json: None,
             agent_picker_index: 0,
             agent_list,
-            tool_call_expanded: HashSet::new(),
-            reasoning_expanded: HashSet::new(),
             copy_feedback: None,
             tab_completions: Vec::new(),
             tab_completion_index: 0,
@@ -692,7 +693,6 @@ pub struct RenderState {
     pub chat_height: u16,
     pub dirty: bool,
     pub last_drawn_at: Option<Instant>,
-    pub tool_call_headers: HashMap<usize, (String, Option<String>)>,
 }
 
 impl RenderState {
@@ -704,7 +704,6 @@ impl RenderState {
             chat_height: 0,
             dirty: true,
             last_drawn_at: None,
-            tool_call_headers: HashMap::new(),
         }
     }
 
@@ -745,6 +744,13 @@ pub fn spinner_char_alt(spinner_start: Instant, chars: &[char]) -> char {
 pub struct App {
     pub messages: Vec<Message>,
     pub message_timestamps: Vec<NaiveDateTime>,
+    /// Persistent, parallel to `messages`: the render component for
+    /// each message. State that affects layout (tool call
+    /// expand/collapse, assistant reasoning expand/collapse) lives
+    /// on the component itself, so toggling is just a `borrow_mut`
+    /// on this `Rc` and survives message inserts/pops without any
+    /// re-indexing.
+    pub components: Vec<ComponentCell>,
     pub input: InputState,
     pub overlay: OverlayState,
     pub state: AppState,
@@ -760,8 +766,11 @@ pub struct App {
     /// into view. Set to `false` whenever the user scrolls up; restored
     /// to `true` when they scroll back to the bottom.
     pub stick_to_bottom: bool,
-    pub component_offsets: Vec<u16>,
-    pub component_total_height: usize,
+    /// Clickable regions for the last render. Populated by
+    /// `render_chat`; consumed by mouse and key handlers. Each entry
+    /// covers one `clickable` component in screen-content coordinates
+    /// (so callers must convert from absolute row/col first).
+    pub hit_regions: Vec<HitRegion>,
     pub chat_y: u16,
     pub http_logs: VecDeque<HttpLog>,
     pub current_reasoning: String,
@@ -783,6 +792,7 @@ impl App {
         Self {
             messages: Vec::new(),
             message_timestamps: Vec::new(),
+            components: Vec::new(),
             input: InputState::new(),
             overlay: OverlayState::new(agent_list),
             state: AppState::Idle,
@@ -794,8 +804,7 @@ impl App {
             scroll_lines: 0,
             max_scroll: 0,
             stick_to_bottom: true,
-            component_offsets: Vec::new(),
-            component_total_height: 0,
+            hit_regions: Vec::new(),
             chat_y: 0,
             http_logs: VecDeque::new(),
             current_reasoning: String::new(),
@@ -815,6 +824,64 @@ impl App {
         matches!(self.state, AppState::Processing)
     }
 
+    /// Rebuild the entire `components` Vec from `messages`. Use this
+    /// after a wholesale replace (session load, reset). For every
+    /// other code path prefer `push_component_for` /
+    /// `pop_last_component` so component state survives.
+    pub fn rebuild_components(&mut self) {
+        self.components = self
+            .messages
+            .iter()
+            .map(|m| {
+                Rc::new(RefCell::new(build_component_for(m)))
+                    as ComponentCell
+            })
+            .collect();
+    }
+
+    /// Append the component that corresponds to `msg` at the tail of
+    /// the `components` Vec. Must be called right after pushing the
+    /// message into `self.messages`.
+    pub fn push_component_for(&mut self, msg: &Message) {
+        self.components
+            .push(Rc::new(RefCell::new(build_component_for(msg))) as ComponentCell);
+    }
+
+    /// Drop the trailing component. Must mirror a `messages.pop()`.
+    pub fn pop_last_component(&mut self) {
+        self.components.pop();
+    }
+
+    /// Apply an op to the component at `idx`. Returns `true` if the
+    /// component was actually mutated (i.e. the op landed in an arm
+    /// that changes state). No-op if `idx` is out of range.
+    pub fn apply_to_component(&mut self, idx: usize, op: ComponentOp) -> bool {
+        if let Some(c) = self.components.get(idx) {
+            // The default `apply` is a no-op; we still mark dirty
+            // because the clickable region is what changed.
+            c.borrow_mut().apply(op);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Convenience: apply to the trailing component.
+    pub fn apply_to_last_component(&mut self, op: ComponentOp) {
+        if let Some(c) = self.components.last() {
+            c.borrow_mut().apply(op);
+        }
+    }
+
+    /// Toggle the expand/collapse state of component `idx` (e.g.
+    /// from a click or Space-key event). Marks the chat cache dirty
+    /// so the next render reflects the new height.
+    pub fn toggle_component_at(&mut self, idx: usize) {
+        if self.apply_to_component(idx, ComponentOp::Toggle) {
+            self.mark_dirty();
+        }
+    }
+
     pub fn mark_dirty(&mut self) {
         self.render_state.invalidate();
     }
@@ -826,9 +893,11 @@ impl App {
 
     pub fn add_user_message(&mut self, text: &str) {
         self.overlay.copy_feedback.take();
-        self.messages.push(Message::User {
+        let msg = Message::User {
             text: text.to_string(),
-        });
+        };
+        self.push_component_for(&msg);
+        self.messages.push(msg);
         self.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.state = AppState::Processing;
@@ -986,9 +1055,9 @@ impl App {
         self.max_scroll = new_max_scroll;
     }
 
-    /// 事件处理中调用：在 mark_dirty 清空 heights 后，用消息文本长度
-    /// 粗略估算每条消息行高，让 scroll_to_selected 在展开/折叠后
-    /// 不必等下一次渲染就能算出正确的视口位置。
+    /// 事件处理中调用：在 mark_dirty 清空 heights 后，用组件自身的
+    /// `height()` 精确重算每个消息行高，让 scroll_to_selected 在
+    /// 展开/折叠后不必等下一次渲染就能算出正确的视口位置。
     /// 渲染时会基于 chat.rs 的真实 layout 重新精修 heights。
     ///
     /// heights 约定：逆序存储（heights[0] = 最新消息），与 render_chat 一致。
@@ -997,38 +1066,18 @@ impl App {
         let n = self.messages.len();
         let mut heights: Vec<usize> = Vec::with_capacity(n);
         // 逆序遍历以匹配 render_chat 的 heights 约定
-        for (rev_idx, msg) in self.messages.iter().rev().enumerate() {
-            let fwd_idx = n.saturating_sub(1).saturating_sub(rev_idx);
-            let body = match msg {
-                Message::User { text } => 1 + text_wrap_lines(text, text_width) + 1,
-                Message::Assistant { text, reasoning } => {
-                    let mut extra = 0;
-                    if !reasoning.is_empty() {
-                        extra += 1;
-                        if self.overlay.reasoning_expanded.contains(&fwd_idx) {
-                            extra += reasoning.lines().count();
-                        }
-                    }
-                    1 + text_wrap_lines(text, text_width) + 1 + extra
-                }
-                Message::ToolCall { result, .. } => {
-                    if self.overlay.tool_call_expanded.contains(&fwd_idx) {
-                        let mut lines = 1;
-                        if !result.is_empty() {
-                            lines += text_wrap_lines(result, text_width.saturating_sub(3));
-                        }
-                        lines
-                    } else {
-                        1
-                    }
-                }
-                Message::Error { text } => 1 + text_wrap_lines(text, text_width) + 1,
-                Message::Image { .. } => 3,
-                Message::Quality { issues, .. } => 3 + issues.len(),
-                Message::Feedback { .. } => 2,
-                _ => 1,
-            };
-            heights.push(body.max(1));
+        for (rev_idx, comp) in self.components.iter().rev().enumerate() {
+            // 用一个稍宽的估算宽度做单行 wrap 行数估算，避免组件
+            // 在事件处理阶段对真实 width 的依赖。
+            let _ = text_width;
+            // 当 rev_idx >= n 时说明 components 还在追赶 messages；
+            // 视为 1 行占位即可，scroll_to_selected 会保守处理。
+            if rev_idx >= n {
+                heights.push(1);
+                continue;
+            }
+            let h = comp.borrow().height(text_width as u16);
+            heights.push((h as usize).max(1));
         }
         self.render_state.heights = heights;
         // 同步 max_scroll 给主渲染用，避免短暂不一致
@@ -1054,10 +1103,12 @@ impl App {
             Some(Message::Assistant { text, .. }) if text.is_empty()
         );
         if !is_empty_assistant {
-            self.messages.push(Message::Assistant {
+            let msg = Message::Assistant {
                 text: String::new(),
                 reasoning: carried_reasoning,
-            });
+            };
+            self.push_component_for(&msg);
+            self.messages.push(msg);
             self.message_timestamps
                 .push(chrono::Local::now().naive_local());
             self.mark_dirty();
@@ -1065,8 +1116,12 @@ impl App {
             && !carried_reasoning.is_empty()
         {
             // Reuse the trailing empty Assistant so we don't end up with
-            // two adjacent empty Assistant blocks.
+            // two adjacent empty Assistant blocks. Also push the new
+            // reasoning into the matching component so the trailing
+            // assistant's `reasoning` and the component's `reasoning`
+            // stay in sync.
             reasoning.push_str(&carried_reasoning);
+            self.apply_to_last_component(ComponentOp::AppendReasoning(carried_reasoning));
             self.render_state.format_cache.remove(&(self.messages.len() - 1));
             self.render_state.invalidate_last();
         }
@@ -1087,9 +1142,15 @@ impl App {
         {
             let pending = std::mem::take(&mut self.current_reasoning);
             reasoning.push_str(&pending);
+            // Sync the trailing component too.
+            self.apply_to_last_component(ComponentOp::AppendReasoning(pending));
         }
         if let Some(Message::Assistant { text: t, .. }) = self.messages.last_mut() {
             t.push_str(text);
+            // Mirror onto the trailing component so its `height()`,
+            // body rows, and `reasoning` stay consistent with the
+            // `Message` enum.
+            self.apply_to_last_component(ComponentOp::AppendText(text.to_string()));
             self.render_state.format_cache.remove(&(self.messages.len() - 1));
             self.render_state.invalidate_last();
         }
@@ -1107,13 +1168,15 @@ impl App {
         step: usize,
         total_steps: usize,
     ) {
-        self.messages.push(Message::ToolCall {
+        let msg = Message::ToolCall {
             name: name.to_string(),
             args: args.to_string(),
             result: result.to_string(),
             step,
             total_steps,
-        });
+        };
+        self.push_component_for(&msg);
+        self.messages.push(msg);
         self.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.tool_call_count += 1;
@@ -1145,10 +1208,13 @@ impl App {
         {
             self.messages.pop();
             self.message_timestamps.pop();
+            self.components.pop();
         }
-        self.messages.push(Message::Error {
+        let msg = Message::Error {
             text: text.to_string(),
-        });
+        };
+        self.push_component_for(&msg);
+        self.messages.push(msg);
         self.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.api_messages = None;
@@ -1174,6 +1240,7 @@ impl App {
         {
             self.messages.pop();
             self.message_timestamps.pop();
+            self.components.pop();
         }
         self.api_messages = api_messages;
         self.state = AppState::Idle;
@@ -1216,6 +1283,7 @@ impl App {
     pub fn reset_for_new_session(&mut self) {
         self.messages.clear();
         self.message_timestamps.clear();
+        self.components.clear();
         self.api_messages = None;
         self.state = AppState::Idle;
         self.tool_call_count = 0;
@@ -1232,8 +1300,6 @@ impl App {
         self.overlay.session_search_mode = false;
         self.overlay.selected_message = None;
         self.overlay.selection_mode = false;
-        self.overlay.tool_call_expanded.clear();
-        self.overlay.reasoning_expanded.clear();
         self.mark_dirty();
     }
 

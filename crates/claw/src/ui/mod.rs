@@ -14,6 +14,18 @@ mod status;
 mod title;
 mod utils;
 
+pub(crate) mod chat_api {
+    //! Re-exports of the bits the App needs from the chat module.
+    //!
+    //! `chat` itself stays a private `mod`, but the App
+    //! (`crate::app`) and tests have to reach into it to build the
+    //! per-message render components and the scroller hit-region
+    //! type. We funnel those types through this tiny facade so the
+    //! privacy boundary is clear and documented.
+    pub(crate) use crate::ui::chat::components::{build_component_for, ComponentOp, MessageComponent};
+    pub(crate) use crate::ui::chat::scroller::{ComponentCell, HitRegion};
+}
+
 pub fn render(f: &mut Frame, app: &mut App) {
     let area = f.area();
 

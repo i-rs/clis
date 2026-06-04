@@ -169,8 +169,9 @@ fn handle_session_enter(handler: &mut KeyEventHandler, filtered: &[crate::sessio
             handler.app.plan_steps = handler.app_core.session_mgr.load_plan_steps(&new_id);
             handler.app.scroll_lines = 0;
             handler.app.max_scroll = 0;
-            handler.app.overlay.tool_call_expanded.clear();
-            handler.app.overlay.reasoning_expanded.clear();
+            // Component state is rebuilt from the freshly loaded
+            // messages a moment later, so we don't need to clear the
+            // hash sets here any more.
             handler.app.mark_dirty();
         }
     }
@@ -623,13 +624,12 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
         Some(crate::app::SlashAction::Clear) => {
             handler.app.messages.clear();
             handler.app.message_timestamps.clear();
+            handler.app.components.clear();
             handler.app.api_messages = None;
             handler.app.tool_call_count = 0;
             handler.app.status_text.clear();
             handler.app.scroll_lines = 0;
             handler.app.max_scroll = 0;
-            handler.app.overlay.tool_call_expanded.clear();
-            handler.app.overlay.reasoning_expanded.clear();
             handler.app.mark_dirty();
         }
         Some(crate::app::SlashAction::Compact) => {
