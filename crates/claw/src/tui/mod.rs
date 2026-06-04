@@ -7,7 +7,7 @@ use std::io;
 use tokio::sync::mpsc;
 
 mod clipboard;
-mod event_handlers;
+mod handlers;
 mod main_loop;
 mod reminders;
 

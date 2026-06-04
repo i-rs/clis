@@ -1,7 +1,7 @@
 use crate::app;
 use crate::core;
 use crate::llm::LlmEvent;
-use crate::tui::event_handlers::{Action, KeyEventHandler, LlmEventHandler, MouseEventHandler};
+use crate::tui::handlers::{Action, KeyEventHandler, LlmEventHandler, MouseEventHandler};
 use crossterm::event::{self, Event};
 use ratatui::backend::CrosstermBackend;
 use std::io;

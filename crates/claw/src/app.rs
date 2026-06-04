@@ -868,14 +868,14 @@ impl App {
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_add(3);
+        self.scroll_lines = self.scroll_lines.saturating_add(1);
         if self.max_scroll > 0 {
             self.scroll_lines = self.scroll_lines.min(self.max_scroll);
         }
     }
 
     pub fn scroll_down(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_sub(3);
+        self.scroll_lines = self.scroll_lines.saturating_sub(1);
     }
 
     /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
@@ -1259,15 +1259,21 @@ mod tests {
     fn test_scroll() {
         let mut app = App::new(test_config());
         assert_eq!(app.scroll_lines, 0);
-        // max_scroll=0 时 scroll_up 不限增长（等渲染时 clamp）
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 3);
+        assert_eq!(app.scroll_lines, 1);
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 2);
+        app.scroll_down();
+        assert_eq!(app.scroll_lines, 1);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
-        // 设置 max_scroll 后 scroll_up 受限
         app.max_scroll = 4;
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 1);
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 2);
         app.scroll_up();
         assert_eq!(app.scroll_lines, 3);
         app.scroll_up();
