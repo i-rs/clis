@@ -271,6 +271,7 @@ impl LlmProvider for AnthropicProvider {
         messages: &[Value],
         tool_schemas: &[Value],
         tx: &UnboundedSender<LlmEvent>,
+        trace_id: &str,
     ) -> anyhow::Result<StreamResult> {
         let start = Instant::now();
         let (system_prompt, anthro_msgs) = openai_to_anthropic_messages(messages);
@@ -456,6 +457,7 @@ impl LlmProvider for AnthropicProvider {
             has_tool_calls,
             tool_call_count,
             duration_ms,
+            trace_id,
         );
 
         super::common::emit_http_log(

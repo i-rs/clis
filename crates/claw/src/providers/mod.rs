@@ -85,11 +85,13 @@ pub trait LlmProvider: Send + Sync {
     /// Stream a chat completion, emitting events to `tx`.
     /// `messages` are in OpenAI-compatible format (role/content/tool_calls).
     /// `tool_schemas` are in OpenAI-compatible format.
+    /// `trace_id` links this API call to stats / checkpoints for auditing.
     async fn stream_chat(
         &self,
         messages: &[Value],
         tool_schemas: &[Value],
         tx: &UnboundedSender<LlmEvent>,
+        trace_id: &str,
     ) -> anyhow::Result<StreamResult>;
 }
 

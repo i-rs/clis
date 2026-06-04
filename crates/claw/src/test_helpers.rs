@@ -85,6 +85,7 @@ impl crate::providers::LlmProvider for MockProvider {
         _messages: &[Value],
         _tool_schemas: &[Value],
         tx: &UnboundedSender<LlmEvent>,
+        _trace_id: &str,
     ) -> anyhow::Result<StreamResult> {
         if let Some(ref result) = self.result_override {
             let result: anyhow::Result<StreamResult> = match result {

@@ -40,6 +40,7 @@ impl LlmProvider for OllamaProvider {
         messages: &[Value],
         tool_schemas: &[Value],
         tx: &UnboundedSender<LlmEvent>,
+        trace_id: &str,
     ) -> anyhow::Result<StreamResult> {
         let url = format!("{}/chat/completions", self.base_url);
         openai_stream_chat_impl(
@@ -51,6 +52,7 @@ impl LlmProvider for OllamaProvider {
             messages,
             tool_schemas,
             tx,
+            trace_id,
         )
         .await
     }

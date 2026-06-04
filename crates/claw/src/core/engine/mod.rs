@@ -130,8 +130,9 @@ async fn stream_to_llm(
     msgs: &[Value],
     tool_schemas: &[Value],
     tx: &mpsc::UnboundedSender<LlmEvent>,
+    trace_id: &str,
 ) -> anyhow::Result<StreamResult> {
-    provider.stream_chat(msgs, tool_schemas, tx).await
+    provider.stream_chat(msgs, tool_schemas, tx, trace_id).await
 }
 
 /// Stage 2: Execute — dispatch tool calls through the executor, trace results.
@@ -352,7 +353,7 @@ pub async fn chat_loop(
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
         let round_start = std::time::Instant::now();
-        match stream_to_llm(provider.as_ref(), &msgs, &init.tool_schemas, &tx).await {
+        match stream_to_llm(provider.as_ref(), &msgs, &init.tool_schemas, &tx, &trace_id).await {
             Ok(StreamResult::Text(usage, text, reasoning)) => {
                 #[allow(unused_assignments)]
                 {
@@ -835,6 +836,7 @@ mod tests {
             _msgs: &[Value],
             _schemas: &[Value],
             _tx: &mpsc::UnboundedSender<LlmEvent>,
+            _trace_id: &str,
         ) -> anyhow::Result<StreamResult> {
             Ok(StreamResult::ToolCalls(
                 vec![(

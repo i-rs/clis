@@ -135,6 +135,7 @@ pub(crate) async fn openai_stream_chat_impl(
     messages: &[Value],
     tool_schemas: &[Value],
     tx: &UnboundedSender<LlmEvent>,
+    trace_id: &str,
 ) -> anyhow::Result<StreamResult> {
     let start = Instant::now();
     let mut body = serde_json::json!({
@@ -283,6 +284,7 @@ pub(crate) async fn openai_stream_chat_impl(
             has_tool_calls,
             tool_call_count,
             duration_ms,
+            trace_id,
         );
 
         super::common::emit_http_log(

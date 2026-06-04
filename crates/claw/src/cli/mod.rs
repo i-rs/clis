@@ -86,9 +86,10 @@ pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let tid = uuid::Uuid::new_v4().to_string();
 
         tokio::spawn(async move {
-            let _ = provider.stream_chat(&msgs, &[], &tx).await;
+            let _ = provider.stream_chat(&msgs, &[], &tx, &tid).await;
         });
 
         while let Some(event) = rx.recv().await {

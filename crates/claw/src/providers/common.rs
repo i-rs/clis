@@ -15,6 +15,7 @@ pub(crate) fn emit_usage_record(
     has_tool_calls: bool,
     tool_call_count: u32,
     latency_ms: u64,
+    trace_id: &str,
 ) {
     let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
         id: uuid::Uuid::new_v4().to_string(),
@@ -31,7 +32,7 @@ pub(crate) fn emit_usage_record(
         success: true,
         latency_ms,
         estimated_cost_usd: 0.0,
-        trace_id: String::new(),
+        trace_id: trace_id.to_string(),
     }));
 }
 
