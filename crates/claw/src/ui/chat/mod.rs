@@ -63,7 +63,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
                 &mut format_cache,
             ));
         }
-    } else if heights[0] == 0 {
+    } else if heights.len() > 0 && heights[0] == 0 {
         heights[0] = message_line_count(
             app,
             app.messages.last().unwrap(),
