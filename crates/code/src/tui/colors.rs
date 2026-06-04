@@ -895,45 +895,32 @@ pub fn find_theme(name: &str) -> Option<&'static Theme> {
 //  Active Theme Holder (sync + safe for async tasks)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
-static ACTIVE_THEME: Mutex<Option<&'static Theme>> = Mutex::new(None);
+static ACTIVE_PTR: AtomicPtr<Theme> = AtomicPtr::new(std::ptr::null_mut());
 
-/// Set the active theme.
 pub fn set_active(theme: &'static Theme) {
-    let mut g = ACTIVE_THEME.lock().expect("theme lock poisoned");
-    *g = Some(theme);
+    ACTIVE_PTR.store(theme as *const Theme as *mut Theme, Ordering::Release);
 }
 
-/// Get the active theme (or default)
 pub fn active() -> &'static Theme {
-    let g = ACTIVE_THEME.lock().expect("theme lock poisoned");
-    g.unwrap_or(&THEME_OPENCODE)
+    let ptr = ACTIVE_PTR.load(Ordering::Acquire);
+    if ptr.is_null() {
+        &THEME_OPENCODE
+    } else {
+        unsafe { &*ptr }
+    }
 }
 
-/// Run `f` with a temporary active theme. The previous active theme is
-/// restored when the closure returns, even on panic. Used for live preview
-/// in the theme picker overlay.
 pub fn with_preview<F, R>(theme: &'static Theme, f: F) -> R
 where
     F: FnOnce() -> R,
 {
-    struct Guard(Option<&'static Theme>);
-    impl Drop for Guard {
-        fn drop(&mut self) {
-            if let Some(t) = self.0 {
-                set_active(t);
-            }
-        }
-    }
-    // Save current and apply preview
-    let prev = {
-        let g = ACTIVE_THEME.lock().expect("theme lock poisoned");
-        *g
-    };
+    let prev = ACTIVE_PTR.load(Ordering::Acquire);
     set_active(theme);
-    let _guard = Guard(prev);
-    f()
+    let result = f();
+    ACTIVE_PTR.store(prev, Ordering::Release);
+    result
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
