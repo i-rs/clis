@@ -215,7 +215,7 @@ impl StatsManager {
             drop(buffer);
             let storage = self.storage.clone();
             if let Err(e) =
-                crate::utils::sync_block_on(async move { storage.stats.append_batch(&records).await })
+                crate::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await })
             {
                 tracing::error!("刷写 token 统计失败: {}", e);
             }
@@ -233,7 +233,7 @@ impl StatsManager {
         }
         let records = std::mem::take(&mut *buffer);
         let storage = self.storage.clone();
-        if let Err(e) = crate::utils::sync_block_on(async move { storage.stats.append_batch(&records).await }) {
+        if let Err(e) = crate::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await }) {
             tracing::error!("刷写 token 统计失败: {}", e);
         }
     }

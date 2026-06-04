@@ -8,6 +8,30 @@ pub struct SkillEntry {
     pub content: String,
 }
 
+/// Format a list of skill entries into a system prompt section.
+/// Used by SkillStore::format_skills() for the backend-agnostic path.
+pub(crate) fn format_skill_entries(entries: &[crate::storage::SkillEntry]) -> String {
+    if entries.is_empty() {
+        return String::new();
+    }
+    let mut r = String::from("## 用户技能\n\n以下是用户定义的自定义技能指令，请在对话中遵循这些指导：\n");
+    for entry in entries {
+        let t = entry.content.trim();
+        if t.is_empty() {
+            continue;
+        }
+        let (fm, body) = parse_frontmatter(t);
+        let h = fm
+            .as_ref()
+            .and_then(|x| x.get("description"))
+            .and_then(|v| v.as_str())
+            .unwrap_or(&entry.name);
+        let content = if body.is_empty() { t } else { body };
+        r.push_str(&format!("\n### {}\n{}\n", h, content));
+    }
+    r
+}
+
 /// Full skill definition including metadata from TOML frontmatter.
 ///
 /// Skills with `parameters` defined are registered as callable tools
@@ -248,7 +272,8 @@ type = "object"
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             return crate::utils::sync_block_on(async move {
-                storage.skills.format_skills(&aid).await.unwrap_or_default()
+                let entries = storage.skills.list(&aid).await.unwrap_or_default();
+                format_skill_entries(&entries)
             });
         }
         let dir = match std::fs::read_dir(&self.skills_dir) {

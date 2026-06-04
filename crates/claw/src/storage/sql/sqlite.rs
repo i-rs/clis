@@ -148,6 +148,6 @@ mod tests {
         let mut m = crate::memory::CrossSessionMemory::default_memory();
         m.set_user_name("A");
         s.memory.save("a", &m).await.unwrap();
-        assert!(s.memory.load("a").await.unwrap().has_user_profile());
+        assert!(s.memory.load("a").await.unwrap().unwrap().has_user_profile());
     }
 }

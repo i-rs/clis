@@ -263,9 +263,9 @@ macro_rules! define_sql_stores {
 
         #[async_trait]
         impl MemoryRepo for $memory {
-            async fn load(&self, aid: &str) -> anyhow::Result<crate::memory::CrossSessionMemory> {
+            async fn load(&self, aid: &str) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
                 let row: Option<(String,)> = sqlx::query_as("SELECT data FROM memory WHERE agent_id = ?").bind(aid).fetch_optional(&self.db.pool).await?;
-                match row { Some((j,)) => Ok(serde_json::from_str(&j)?), None => Ok(crate::memory::CrossSessionMemory::default_memory()) }
+                Ok(row.map(|(j,)| serde_json::from_str(&j)).transpose()?)
             }
             async fn save(&self, aid: &str, mem: &crate::memory::CrossSessionMemory) -> anyhow::Result<()> {
                 let json = serde_json::to_string(mem)?;
@@ -281,7 +281,7 @@ macro_rules! define_sql_stores {
 
         #[async_trait]
         impl StatsRepo for $stats {
-            async fn append_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
+            async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
                 for r in records {
                     sqlx::query($upsert_token)
                         .bind(&r.id).bind(r.timestamp).bind(&r.agent_id).bind(&r.model).bind(&r.provider)
@@ -341,18 +341,6 @@ macro_rules! define_sql_stores {
                     .bind(aid).fetch_all(&self.db.pool).await?.into_iter()
                     .filter_map(|(n,c,p)| Some(crate::skill_store::SkillDefinition{name:n,description:String::new(),parameters:p.and_then(|x| serde_json::from_str(&x).ok()),content:c})).collect())
             }
-            async fn format_skills(&self, aid: &str) -> anyhow::Result<String> {
-                let rows: Vec<(String,String)> = sqlx::query_as("SELECT name, content FROM skills WHERE agent_id = ? ORDER BY name").bind(aid).fetch_all(&self.db.pool).await?;
-                if rows.is_empty() { return Ok(String::new()); }
-                let mut r = String::from("## 用户技能\n\n以下是用户定义的自定义技能指令，请在对话中遵循这些指导：\n");
-                for (name, content) in &rows {
-                    let t = content.trim(); if t.is_empty() { continue; }
-                    let (fm, body) = crate::skill_store::parse_frontmatter(t);
-                    let h = fm.as_ref().and_then(|x| x.get("description")).and_then(|v| v.as_str()).unwrap_or(name);
-                    r.push_str(&format!("\n### {}\n{}\n", h, if body.is_empty(){t}else{body}));
-                }
-                Ok(r)
-            }
         }
 
         // ── ToolCacheRepo ──
@@ -407,6 +395,7 @@ impl From<SessionRow> for crate::session::SessionMeta {
 }
 
 #[derive(sqlx::FromRow)]
+#[allow(dead_code)]
 struct MessageRow {
     r#type: String,
     text: String,

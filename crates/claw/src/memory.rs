@@ -48,14 +48,13 @@ impl CrossSessionMemory {
     // ── Constructors ──
 
     /// Create memory backed by a storage backend for a specific agent.
-    /// Loads existing data from the backend, or returns defaults.
+    /// Loads existing data from the backend, or returns defaults if none exists.
     pub fn for_agent_with_storage(storage: &Arc<ClawStorage>, agent_id: &str) -> Self {
         let aid = agent_id.to_string();
         let s = storage.clone();
         let mut mem = crate::utils::sync_block_on(async {
-            s.memory.load(&aid).await.unwrap_or_else(|_| {
-                // Fallback: empty memory
-                CrossSessionMemory {
+            s.memory.load(&aid).await.unwrap_or_else(|_| None)
+                .unwrap_or_else(|| CrossSessionMemory {
                     tool_frequency: HashMap::new(),
                     hot_tools: Vec::new(),
                     preferences: Vec::new(),
@@ -67,15 +66,10 @@ impl CrossSessionMemory {
                     dirty: false,
                     storage: None,
                     agent_id: String::new(),
-                }
-            })
+                })
         });
         mem.storage = Some(storage.clone());
         mem.agent_id = aid;
-        // Keep a fallback path in case storage is removed
-        if mem.path.as_os_str().is_empty() {
-            // Find a reasonable path; not critical since storage is set
-        }
         mem
     }
 
@@ -440,10 +434,8 @@ mod tests {
         let storage = Arc::new(ClawStorage::file(dir.clone()));
 
         // Load via repo directly (async, no nested block_on)
-        let mut mem = storage.memory.load("agent-a").await.unwrap_or_else(|_| {
-            // Insert default into the in-memory struct
-            CrossSessionMemory::default_memory()
-        });
+        let mut mem = storage.memory.load("agent-a").await.unwrap_or_else(|_| None)
+            .unwrap_or_else(CrossSessionMemory::default_memory);
         assert!(!mem.has_user_profile());
 
         mem.set_user_name("TestUser");
@@ -451,7 +443,8 @@ mod tests {
         storage.memory.save("agent-a", &mem).await.unwrap();
 
         // Load again to verify persistence
-        let loaded = storage.memory.load("agent-a").await.unwrap();
+        let loaded = storage.memory.load("agent-a").await.unwrap()
+            .expect("memory should exist after save");
         assert!(loaded.has_user_profile());
         assert_eq!(loaded.test_user_name(), Some("TestUser"));
         assert!(loaded.preferences.contains(&"dark theme".to_string()));

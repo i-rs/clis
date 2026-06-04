@@ -475,9 +475,15 @@ impl FileMemoryStore {
 
 #[async_trait]
 impl MemoryRepo for FileMemoryStore {
-    async fn load(&self, agent_id: &str) -> anyhow::Result<crate::memory::CrossSessionMemory> {
+    async fn load(&self, agent_id: &str) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
         let path = memory_path(&self.claw_dir, agent_id);
-        blocking(move || Ok(crate::memory::CrossSessionMemory::load_from(&path))).await
+        blocking(move || {
+            if !path.exists() {
+                return Ok(None);
+            }
+            Ok(Some(crate::memory::CrossSessionMemory::load_from(&path)))
+        })
+        .await
     }
 
     async fn save(
@@ -510,7 +516,7 @@ impl FileStatsStore {
 
 #[async_trait]
 impl StatsRepo for FileStatsStore {
-    async fn append_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
+    async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
         let path = stats_path(&self.claw_dir);
         let json_lines: Vec<String> = records
             .iter()
@@ -748,57 +754,6 @@ impl SkillRepo for FileSkillStore {
                 .collect();
             skills.sort_by(|a, b| a.name.cmp(&b.name));
             Ok(skills)
-        })
-        .await
-    }
-
-    async fn format_skills(&self, agent_id: &str) -> anyhow::Result<String> {
-        let dir = skills_dir(&self.claw_dir, agent_id);
-        blocking(move || {
-            let dir_entries = match std::fs::read_dir(&dir) {
-                Ok(d) => d,
-                Err(_) => return Ok(String::new()),
-            };
-            let mut entries: Vec<_> = dir_entries
-                .filter_map(|e| e.ok())
-                .filter(|e| {
-                    e.path().extension().map(|ext| ext == "md").unwrap_or(false)
-                        && e.path().is_file()
-                })
-                .collect();
-            entries.sort_by_key(|e| e.file_name());
-
-            if entries.is_empty() {
-                return Ok(String::new());
-            }
-
-            let mut result = String::from("## 用户技能\n\n");
-            result.push_str("以下是用户定义的自定义技能指令，请在对话中遵循这些指导：\n");
-
-            for entry in &entries {
-                let path = entry.path();
-                let skill_name = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("unknown");
-
-                if let Ok(raw) = std::fs::read_to_string(&path) {
-                    let trimmed = raw.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
-                    let (frontmatter, body) = crate::skill_store::parse_frontmatter(trimmed);
-                    let heading = frontmatter
-                        .as_ref()
-                        .and_then(|t| t.get("description"))
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(skill_name);
-                    let display_content = if body.is_empty() { trimmed } else { body };
-                    result.push_str(&format!("\n### {}\n{}\n", heading, display_content));
-                }
-            }
-
-            Ok(result)
         })
         .await
     }
@@ -1084,18 +1039,20 @@ mod tests {
         let (_root, claw_dir) = test_claw_dir();
         let store = FileMemoryStore::new(claw_dir);
         let mem = store.load("agent1").await.unwrap();
-        assert!(!mem.has_user_profile());
+        assert!(mem.is_none(), "no memory file yet → None");
     }
 
     #[tokio::test]
     async fn test_memory_save_and_load() {
         let (_root, claw_dir) = test_claw_dir();
         let store = FileMemoryStore::new(claw_dir);
-        let mut mem = store.load("agent1").await.unwrap();
+        let mut mem = store.load("agent1").await.unwrap()
+            .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
         mem.set_user_name("Alice");
         store.save("agent1", &mem).await.unwrap();
 
-        let loaded = store.load("agent1").await.unwrap();
+        let loaded = store.load("agent1").await.unwrap()
+            .expect("should exist after save");
         assert!(loaded.has_user_profile());
         let formatted = loaded.format_user_memory();
         assert!(formatted.contains("Alice"));
@@ -1124,7 +1081,7 @@ mod tests {
             estimated_cost_usd: 0.0001,
             trace_id: String::new(),
         };
-        store.append_batch(&[record]).await.unwrap();
+        store.upsert_batch(&[record]).await.unwrap();
 
         let records = store.read_range(None, None).await.unwrap();
         assert_eq!(records.len(), 1);
@@ -1243,7 +1200,8 @@ body"#,
         let msgs = storage.messages.load("s1", 10).await.unwrap();
         assert_eq!(msgs.len(), 1);
 
-        let mem = storage.memory.load("default").await.unwrap();
+        let mem = storage.memory.load("default").await.unwrap()
+            .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
         assert!(!mem.has_user_profile());
     }
 }
