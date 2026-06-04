@@ -52,7 +52,7 @@ impl MessageComponent for AssistantBlock {
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {
-        let (_, ac) = theme.assistant_colors();
+        let (ac, _) = theme.assistant_colors();
         let bg = if selected { ratatui::style::Color::Rgb(30, 40, 60) } else { theme.background() };
         let indent = "   ";
         let mut y = area.y;

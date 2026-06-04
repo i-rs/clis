@@ -871,15 +871,17 @@ impl App {
         self.input.navigate_down()
     }
 
+    /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
     pub fn scroll_up(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_add(1);
+        self.scroll_lines = self.scroll_lines.saturating_add(3);
         if self.max_scroll > 0 {
             self.scroll_lines = self.scroll_lines.min(self.max_scroll);
         }
     }
 
+    /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
     pub fn scroll_down(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_sub(1);
+        self.scroll_lines = self.scroll_lines.saturating_sub(3);
     }
 
     /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
@@ -1262,28 +1264,24 @@ mod tests {
     }
 
     #[test]
-    fn test_scroll() {
+     fn test_scroll() {
         let mut app = App::new(test_config());
         assert_eq!(app.scroll_lines, 0);
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 1);
+        assert_eq!(app.scroll_lines, 3);
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 2);
+        assert_eq!(app.scroll_lines, 6);
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 1);
-        app.scroll_down();
-        assert_eq!(app.scroll_lines, 0);
+        assert_eq!(app.scroll_lines, 3);
         app.scroll_down();
         assert_eq!(app.scroll_lines, 0);
-        app.max_scroll = 4;
-        app.scroll_up();
-        assert_eq!(app.scroll_lines, 1);
-        app.scroll_up();
-        assert_eq!(app.scroll_lines, 2);
+        app.scroll_down();
+        assert_eq!(app.scroll_lines, 0);
+        app.max_scroll = 5;
         app.scroll_up();
         assert_eq!(app.scroll_lines, 3);
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 4); // clamped to max_scroll
+        assert_eq!(app.scroll_lines, 5); // clamped to max_scroll
     }
 
     #[test]

@@ -79,7 +79,7 @@ impl MessageComponent for ToolCallCard {
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {
-        let (_, ac) = theme.tool_colors();
+        let (ac, _) = theme.tool_colors();
         let bg = if selected { ratatui::style::Color::Rgb(40, 35, 55) } else { theme.background() };
         let indent = "   ";
         let mut y = area.y;
