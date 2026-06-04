@@ -338,7 +338,7 @@ impl<'a> KeyEventHandler<'a> {
         match key.code {
             KeyCode::Up if can_scroll => {
                 if self.app.input.text.is_empty() {
-                    self.app.scroll_up();
+                    self.app.scroll_up_one();
                 } else if let Some(text) = self.app.input.navigate_up() {
                     if self.app.input.history_index.is_some()
                         && self.app.input.draft.is_empty()
@@ -352,7 +352,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Down if can_scroll => {
                 if self.app.input.text.is_empty() {
-                    self.app.scroll_down();
+                    self.app.scroll_down_one();
                 } else if let Some(text) = self.app.input.navigate_down() {
                     self.app.input.text = text;
                     self.app.input.move_cursor_end();
@@ -367,26 +367,21 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.mark_overlay_dirty();
             }
             KeyCode::PageUp if can_scroll => {
-                let area_lines =
-                    (self.app.render_state.chat_height as usize).saturating_sub(1).max(1);
-                self.app.scroll_lines = self.app.scroll_lines.saturating_add(area_lines);
-                if self.app.max_scroll > 0 {
-                    self.app.scroll_lines = self.app.scroll_lines.min(self.app.max_scroll);
-                }
+                self.app.scroll_page(1);
                 self.app.mark_overlay_dirty();
             }
             KeyCode::PageDown if can_scroll => {
-                let area_lines =
-                    (self.app.render_state.chat_height as usize).saturating_sub(1).max(1);
-                self.app.scroll_lines = self.app.scroll_lines.saturating_sub(area_lines);
+                self.app.scroll_page(-1);
                 self.app.mark_overlay_dirty();
             }
             KeyCode::Home if can_scroll && self.app.input.text.is_empty() => {
                 self.app.scroll_lines = self.app.max_scroll;
+                self.app.stick_to_bottom = false;
                 self.app.mark_overlay_dirty();
             }
             KeyCode::End if can_scroll && self.app.input.text.is_empty() => {
                 self.app.scroll_lines = 0;
+                self.app.stick_to_bottom = true;
                 self.app.mark_overlay_dirty();
             }
             KeyCode::Enter => return self.handle_enter_key(key),

@@ -755,6 +755,11 @@ pub struct App {
     pub token_usage: Option<crate::llm::TokenUsage>,
     pub scroll_lines: usize,
     pub max_scroll: usize,
+    /// True when the viewport is "stuck" to the bottom — i.e. the user is
+    /// reading the latest message and new content should auto-scroll
+    /// into view. Set to `false` whenever the user scrolls up; restored
+    /// to `true` when they scroll back to the bottom.
+    pub stick_to_bottom: bool,
     pub component_offsets: Vec<u16>,
     pub component_total_height: usize,
     pub chat_y: u16,
@@ -788,6 +793,7 @@ impl App {
             token_usage: None,
             scroll_lines: 0,
             max_scroll: 0,
+            stick_to_bottom: true,
             component_offsets: Vec::new(),
             component_total_height: 0,
             chat_y: 0,
@@ -879,11 +885,69 @@ impl App {
         if self.max_scroll > 0 {
             self.scroll_lines = self.scroll_lines.min(self.max_scroll);
         }
+        // Moving away from the bottom disables auto-scroll-to-bottom.
+        if self.scroll_lines > 0 {
+            self.stick_to_bottom = false;
+        }
     }
 
     /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
     pub fn scroll_down(&mut self) {
         self.scroll_lines = self.scroll_lines.saturating_sub(3);
+        if self.scroll_lines == 0 {
+            self.stick_to_bottom = true;
+        }
+    }
+
+    /// Scroll one line at a time — used by arrow keys for precise navigation.
+    pub fn scroll_up_one(&mut self) {
+        self.scroll_lines = self.scroll_lines.saturating_add(1);
+        if self.max_scroll > 0 {
+            self.scroll_lines = self.scroll_lines.min(self.max_scroll);
+        }
+        if self.scroll_lines > 0 {
+            self.stick_to_bottom = false;
+        }
+    }
+
+    /// Scroll one line at a time — used by arrow keys for precise navigation.
+    pub fn scroll_down_one(&mut self) {
+        self.scroll_lines = self.scroll_lines.saturating_sub(1);
+        if self.scroll_lines == 0 {
+            self.stick_to_bottom = true;
+        }
+    }
+
+    /// Page-scroll helper used by PageUp / PageDown.
+    /// Keeps a 2-row overlap so the user retains visual context
+    /// between pages.
+    pub fn scroll_page(&mut self, dir: i32) {
+        let area_lines =
+            (self.render_state.chat_height as usize).saturating_sub(2).max(1);
+        if dir > 0 {
+            self.scroll_lines = self.scroll_lines.saturating_add(area_lines);
+            if self.max_scroll > 0 {
+                self.scroll_lines = self.scroll_lines.min(self.max_scroll);
+            }
+            if self.scroll_lines > 0 {
+                self.stick_to_bottom = false;
+            }
+        } else if dir < 0 {
+            self.scroll_lines = self.scroll_lines.saturating_sub(area_lines);
+            if self.scroll_lines == 0 {
+                self.stick_to_bottom = true;
+            }
+        }
+    }
+
+    /// Called whenever a new message is appended to the buffer.
+    /// When the viewport is already "stuck" to the bottom (or new
+    /// enough that the new message is still visible), keep it stuck
+    /// — otherwise the user gets pulled away from the live tail.
+    pub fn scroll_to_bottom_if_stuck(&mut self) {
+        if self.stick_to_bottom {
+            self.scroll_lines = 0;
+        }
     }
 
     /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
@@ -1029,6 +1093,10 @@ impl App {
             self.render_state.format_cache.remove(&(self.messages.len() - 1));
             self.render_state.invalidate_last();
         }
+        // Streaming tokens: keep the viewport pinned to the bottom if the
+        // user is following the live tail, but don't yank them out of a
+        // back-scroll position.
+        self.scroll_to_bottom_if_stuck();
     }
 
     pub fn add_tool_call(
@@ -1049,6 +1117,7 @@ impl App {
         self.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.tool_call_count += 1;
+        self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
@@ -1085,6 +1154,7 @@ impl App {
         self.api_messages = None;
         self.state = AppState::Idle;
         self.status_text.clear();
+        self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
@@ -1108,6 +1178,7 @@ impl App {
         self.api_messages = api_messages;
         self.state = AppState::Idle;
         self.status_text.clear();
+        self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
@@ -1483,6 +1554,73 @@ mod tests {
         assert!(app.status_text.is_empty());
         assert!(app.http_logs.is_empty());
         assert!(app.plan_steps.is_empty());
+    }
+
+    #[test]
+    fn test_stick_to_bottom_tracks_scroll_position() {
+        // Sticky-bottom state should toggle correctly as the user moves
+        // up and down the chat history, and a new message should snap
+        // the viewport back to the bottom when the user was already
+        // following the live tail.
+        let mut app = App::new(test_config());
+        assert!(app.stick_to_bottom, "starts at the bottom");
+
+        app.scroll_up();
+        assert!(!app.stick_to_bottom);
+
+        app.scroll_up();
+        assert!(!app.stick_to_bottom);
+
+        app.scroll_down_one();
+        assert!(!app.stick_to_bottom, "still above the bottom");
+
+        // Walk back to the bottom with 1-line steps; stick_to_bottom
+        // re-engages the moment scroll_lines hits 0.
+        while app.scroll_lines > 0 {
+            app.scroll_down_one();
+        }
+        assert!(app.stick_to_bottom, "re-engaged at the bottom");
+
+        // Scrolling away disengages; returning re-engages.
+        app.scroll_up();
+        assert!(!app.stick_to_bottom);
+        app.scroll_lines = 0;
+        app.stick_to_bottom = true;
+
+        // New tool call should snap to bottom because we are stuck.
+        let prev_count = app.tool_call_count;
+        app.add_tool_call("weight", "{}", "ok", 0, 1);
+        assert_eq!(app.scroll_lines, 0);
+        assert_eq!(app.tool_call_count, prev_count + 1);
+
+        // When not stuck, new content must not yank the user.
+        app.scroll_up();
+        app.scroll_up();
+        let pinned = app.scroll_lines;
+        app.add_tool_call("weight2", "{}", "ok", 0, 1);
+        assert_eq!(app.scroll_lines, pinned, "back-scroll position preserved");
+    }
+
+    #[test]
+    fn test_scroll_page_uses_viewport_with_overlap() {
+        let mut app = App::new(test_config());
+        app.render_state.chat_height = 20;
+        app.max_scroll = 200;
+
+        app.scroll_page(1);
+        // 20 - 2 = 18
+        assert_eq!(app.scroll_lines, 18);
+        assert!(!app.stick_to_bottom);
+
+        app.scroll_page(1);
+        assert_eq!(app.scroll_lines, 36);
+
+        app.scroll_page(-1);
+        assert_eq!(app.scroll_lines, 18);
+
+        app.scroll_page(-1);
+        assert_eq!(app.scroll_lines, 0);
+        assert!(app.stick_to_bottom);
     }
 
     #[test]

@@ -151,24 +151,50 @@ impl MessageComponent for AssistantBlock {
 
         // Reasoning toggle + body
         if !self.reasoning.is_empty() {
-            let icon = if self.reasoning_expanded { "▾" } else { "▸" };
-            let hint = if self.reasoning_expanded {
-                "思考过程"
+            let chevron = if self.reasoning_expanded { "▾" } else { "▸" };
+            let chars = self.reasoning.chars().count();
+            let chars_label = if chars >= 1000 {
+                format!("{}k chars", chars / 1000)
             } else {
-                "思考过程 (按 Enter 展开)"
+                format!("{} chars", chars)
             };
-            let mut spans: Vec<Span<'static>> = Vec::with_capacity(4);
+            let usable = area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
+            let mut spans: Vec<Span<'static>> = Vec::with_capacity(6);
             spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
             spans.push(Span::styled(
-                format!("{}  ", icon),
-                Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
+                "🧠".to_string(),
+                Style::default().fg(theme.accent()),
             ));
+            spans.push(Span::raw(" "));
             spans.push(Span::styled(
-                hint.to_string(),
+                "思考过程".to_string(),
                 Style::default()
                     .fg(theme.dim_text())
-                    .add_modifier(Modifier::ITALIC),
+                    .add_modifier(Modifier::BOLD),
             ));
+            // Right-align-ish: push the count + chevron but stop if it
+            // would overflow the row.
+            let used: usize = spans.iter().map(|s| s.content.chars().count()).sum();
+            let tail = format!("  {}  {}", chars_label, chevron);
+            if used + tail.chars().count() <= usable {
+                spans.push(Span::styled(
+                    chars_label,
+                    Style::default().fg(theme.dim_text()),
+                ));
+                spans.push(Span::styled(
+                    format!("  {}", chevron),
+                    Style::default()
+                        .fg(theme.dim_text())
+                        .add_modifier(Modifier::BOLD),
+                ));
+            } else if used + 2 + 1 <= usable {
+                spans.push(Span::styled(
+                    format!("  {}", chevron),
+                    Style::default()
+                        .fg(theme.dim_text())
+                        .add_modifier(Modifier::BOLD),
+                ));
+            }
             if y < area.y + area.height.saturating_sub(1) {
                 Paragraph::new(Line::from(spans))
                     .style(Style::default().bg(interior_bg))
