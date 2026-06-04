@@ -106,7 +106,7 @@ impl crate::providers::LlmProvider for MockProvider {
             .iter()
             .any(|e| matches!(e, LlmEvent::ToolExecuted { .. }));
         if has_tool_calls {
-            Ok(StreamResult::ToolCalls(Vec::new(), String::new()))
+            Ok(StreamResult::ToolCalls(Vec::new(), String::new(), String::new()))
         } else {
             Ok(StreamResult::Text(None, String::new(), String::new()))
         }

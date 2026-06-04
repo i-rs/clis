@@ -139,11 +139,15 @@ async fn stream_to_llm(
 async fn dispatch_tools(
     executor: &mut crate::core::executor::ToolCallExecutor,
     calls: Vec<(crate::llm::ToolCallAcc, Value)>,
+    content: &str,
     tx: &mpsc::UnboundedSender<LlmEvent>,
     msgs: &mut Vec<Value>,
     reasoning_content: &str,
 ) -> Vec<crate::core::executor::ToolCallResult> {
-    // Build assistant tool_call message
+    // Build assistant tool_call message. Persist the prose the LLM emitted
+    // alongside the tool calls (e.g. "好的，先看看 water 工具") instead of
+    // always writing `content: null` — otherwise this text would be lost
+    // from the session and never rendered on reload.
     let tool_calls_array: Vec<Value> = calls
         .iter()
         .map(|(tc, _)| {
@@ -154,7 +158,7 @@ async fn dispatch_tools(
         })
         .collect();
     let mut assistant_msg = serde_json::json!({
-        "role": "assistant", "content": null, "tool_calls": tool_calls_array,
+        "role": "assistant", "content": content, "tool_calls": tool_calls_array,
     });
     if !reasoning_content.is_empty() {
         assistant_msg["reasoning_content"] = Value::String(reasoning_content.to_string());
@@ -390,7 +394,7 @@ pub async fn chat_loop(
                 let _ = tx.send(LlmEvent::Done(Arc::new(msgs), usage, trace_id.clone()));
                 break;
             }
-            Ok(StreamResult::ToolCalls(calls, reasoning_content)) => {
+            Ok(StreamResult::ToolCalls(calls, content, reasoning_content)) => {
                 consecutive_provider_errors = 0;
                 if calls.is_empty() {
                     tracing::warn!("LLM returned empty tool_calls, treating as done");
@@ -410,6 +414,7 @@ pub async fn chat_loop(
                 let results = dispatch_tools(
                     &mut init.executor,
                     calls,
+                    &content,
                     &tx,
                     &mut msgs,
                     &reasoning_content,
@@ -847,6 +852,7 @@ mod tests {
                     },
                     serde_json::json!({}),
                 )],
+                String::new(),
                 String::new(),
             ))
         }

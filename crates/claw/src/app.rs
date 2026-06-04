@@ -978,12 +978,13 @@ impl App {
     }
 
     pub fn start_assistant_message(&mut self) {
-        if !self.current_reasoning.is_empty()
-            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
-        {
-            reasoning.push_str(&self.current_reasoning);
-        }
-        self.current_reasoning.clear();
+        // Move any reasoning that streamed in *between* rounds (e.g. while we
+        // were waiting for a tool result) onto the Assistant message we are
+        // about to create. Previously the reasoning was only flushed when
+        // the previous message was already an Assistant, so it was silently
+        // dropped every time the last message was a `ToolCall` — which is
+        // the common case mid-conversation.
+        let carried_reasoning = std::mem::take(&mut self.current_reasoning);
         let is_empty_assistant = matches!(
             self.messages.last(),
             Some(Message::Assistant { text, .. }) if text.is_empty()
@@ -991,11 +992,19 @@ impl App {
         if !is_empty_assistant {
             self.messages.push(Message::Assistant {
                 text: String::new(),
-                reasoning: String::new(),
+                reasoning: carried_reasoning,
             });
             self.message_timestamps
                 .push(chrono::Local::now().naive_local());
             self.mark_dirty();
+        } else if let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+            && !carried_reasoning.is_empty()
+        {
+            // Reuse the trailing empty Assistant so we don't end up with
+            // two adjacent empty Assistant blocks.
+            reasoning.push_str(&carried_reasoning);
+            self.render_state.format_cache.remove(&(self.messages.len() - 1));
+            self.render_state.invalidate_last();
         }
     }
 
@@ -1003,6 +1012,17 @@ impl App {
         let last_is_assistant = matches!(self.messages.last_mut(), Some(Message::Assistant { .. }));
         if !last_is_assistant {
             self.start_assistant_message();
+        }
+        // First text on a fresh Assistant message — flush any reasoning
+        // that streamed in *before* the first token. Without this the
+        // reasoning would stay in `current_reasoning` and be discarded at
+        // the next round boundary (when the last message is a ToolCall).
+        if let Some(Message::Assistant { text: t, reasoning, .. }) = self.messages.last_mut()
+            && t.is_empty()
+            && !self.current_reasoning.is_empty()
+        {
+            let pending = std::mem::take(&mut self.current_reasoning);
+            reasoning.push_str(&pending);
         }
         if let Some(Message::Assistant { text: t, .. }) = self.messages.last_mut() {
             t.push_str(text);
@@ -1047,8 +1067,12 @@ impl App {
             reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
-        if let Some(Message::Assistant { text, .. }) = self.messages.last()
-            && text.is_empty()
+        // Only discard a trailing Assistant placeholder if it is *truly*
+        // empty (no text, no reasoning). Otherwise the error banner would
+        // eat the user's thinking content as well.
+        if let Some(Message::Assistant { text: t, reasoning }) = self.messages.last()
+            && t.is_empty()
+            && reasoning.is_empty()
         {
             self.messages.pop();
             self.message_timestamps.pop();
@@ -1071,8 +1095,12 @@ impl App {
             reasoning.push_str(&self.current_reasoning);
         }
         self.current_reasoning.clear();
-        if let Some(Message::Assistant { text, .. }) = self.messages.last()
-            && text.is_empty()
+        // Only pop the trailing Assistant placeholder if it has nothing to
+        // show. Previously we dropped it whenever `text` was empty, which
+        // threw away any reasoning that had been streamed in.
+        if let Some(Message::Assistant { text: t, reasoning }) = self.messages.last()
+            && t.is_empty()
+            && reasoning.is_empty()
         {
             self.messages.pop();
             self.message_timestamps.pop();
@@ -1204,6 +1232,65 @@ mod tests {
         app.finish_processing(None);
         assert_eq!(app.messages.len(), 1);
         assert!(!app.is_processing());
+    }
+
+    #[test]
+    fn test_finish_processing_preserves_assistant_with_reasoning_only() {
+        // Reasoning streamed in but no visible text was emitted. The
+        // placeholder Assistant must be kept so the user can see the
+        // thinking content; previously it was dropped along with the text
+        // check.
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        app.start_assistant_message();
+        app.current_reasoning.push_str("thinking hard");
+        app.finish_processing(None);
+        assert_eq!(app.messages.len(), 2);
+        if let Message::Assistant { text, reasoning } = &app.messages[1] {
+            assert!(text.is_empty());
+            assert_eq!(reasoning, "thinking hard");
+        } else {
+            panic!("expected Assistant, got other variant");
+        }
+    }
+
+    #[test]
+    fn test_start_assistant_carries_reasoning_across_tool_call() {
+        // Reasoning emitted *between* rounds (when the last message is a
+        // ToolCall) must be moved onto the new Assistant placeholder,
+        // otherwise it would be silently dropped.
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        app.start_assistant_message();
+        app.append_assistant_text("thinking out loud");
+        app.add_tool_call("i_rs", "{}", "{}", 1, 1);
+        // Simulate the LLM streaming reasoning for the next round.
+        app.current_reasoning.push_str("between-rounds thought");
+        app.start_assistant_message();
+        if let Message::Assistant { text, reasoning } = app.messages.last().unwrap() {
+            assert!(text.is_empty());
+            assert_eq!(reasoning, "between-rounds thought");
+        } else {
+            panic!("expected Assistant, got other variant");
+        }
+    }
+
+    #[test]
+    fn test_append_assistant_text_flushes_pending_reasoning() {
+        // Reasoning that streamed in *before* the first visible token must
+        // be moved onto the Assistant message as soon as text arrives.
+        let mut app = App::new(test_config());
+        app.add_user_message("hello");
+        app.start_assistant_message();
+        app.current_reasoning.push_str("planning");
+        app.append_assistant_text("hi");
+        if let Message::Assistant { text, reasoning } = &app.messages[1] {
+            assert_eq!(text, "hi");
+            assert_eq!(reasoning, "planning");
+        } else {
+            panic!("expected Assistant, got other variant");
+        }
+        assert!(app.current_reasoning.is_empty());
     }
 
     #[test]

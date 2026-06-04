@@ -80,5 +80,9 @@ pub struct ToolCallAcc {
 #[derive(Clone)]
 pub(crate) enum StreamResult {
     Text(Option<TokenUsage>, String, String), // usage + accumulated text content + accumulated reasoning content
-    ToolCalls(Vec<(ToolCallAcc, Value)>, String), // tool_calls + accumulated reasoning_content
+    // tool_calls + accumulated text content + accumulated reasoning_content.
+    // The text field carries any prose the LLM emitted *alongside* the tool
+    // calls (e.g. "好的，我先看看 water 工具"). It used to be silently
+    // dropped, which caused both rendering and persistence gaps.
+    ToolCalls(Vec<(ToolCallAcc, Value)>, String, String),
 }

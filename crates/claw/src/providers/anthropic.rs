@@ -474,6 +474,7 @@ impl LlmProvider for AnthropicProvider {
         // Determine result type based on stop reason
         if has_tool_calls {
             let mut parsed = Vec::new();
+            let mut prose = String::new();
             for block in &content_blocks {
                 if block.block_type == "tool_use" {
                     let args: Value =
@@ -493,9 +494,11 @@ impl LlmProvider for AnthropicProvider {
                         },
                         args,
                     ));
+                } else {
+                    prose.push_str(&block.text);
                 }
             }
-            Ok(StreamResult::ToolCalls(parsed, String::new()))
+            Ok(StreamResult::ToolCalls(parsed, prose, String::new()))
         } else {
             let text: String = content_blocks
                 .iter()

@@ -314,7 +314,7 @@ pub(crate) async fn openai_stream_chat_impl(
                     args,
                 ));
             }
-            return Ok(StreamResult::ToolCalls(parsed, reasoning_buf));
+            return Ok(StreamResult::ToolCalls(parsed, content_buf, reasoning_buf));
         }
 
         Ok(StreamResult::Text(usage, content_buf, reasoning_buf))

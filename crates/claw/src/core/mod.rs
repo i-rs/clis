@@ -901,12 +901,41 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
                 i += 1;
             }
             "assistant" => {
-                let text = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                let text_raw = m.get("content");
+                // OpenAI style: `content` is a string. Some providers
+                // (Anthropic, multi-modal) send an array of parts — only
+                // the text parts count for our storage.
+                let text = match text_raw {
+                    Some(Value::String(s)) => s.clone(),
+                    Some(Value::Null) | None => String::new(),
+                    Some(Value::Array(parts)) => parts
+                        .iter()
+                        .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+                        .collect::<Vec<_>>()
+                        .join(""),
+                    _ => String::new(),
+                };
+                let text = if text == "null" { String::new() } else { text };
                 let reasoning = m
                     .get("reasoning_content")
                     .and_then(|r| r.as_str())
-                    .unwrap_or("");
+                    .unwrap_or("")
+                    .to_string();
                 if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
+                    // Persist the assistant's prose (e.g. "好的，先看看
+                    // water 工具") *before* the tool calls, otherwise
+                    // session reload would silently lose the text the LLM
+                    // emitted between user input and tool execution.
+                    if !text.is_empty() || !reasoning.is_empty() {
+                        let mut rec = serde_json::json!({
+                            "type": "assistant",
+                            "text": text,
+                        });
+                        if !reasoning.is_empty() {
+                            rec["reasoning"] = serde_json::Value::String(reasoning);
+                        }
+                        records.push(rec);
+                    }
                     let tool_call_count = tc_array.len();
                     for (tc_idx, tc) in tc_array.iter().enumerate() {
                         let name = tc
@@ -939,21 +968,14 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
                             "result": result,
                         }));
                     }
-                    if !reasoning.is_empty() {
-                        records.push(serde_json::json!({
-                            "type": "assistant",
-                            "text": "",
-                            "reasoning": reasoning,
-                        }));
-                    }
                     i += 1 + tool_call_count;
                 } else {
                     let mut record = serde_json::json!({
                         "type": "assistant",
-                        "text": if text == "null" { "" } else { text },
+                        "text": text,
                     });
                     if !reasoning.is_empty() {
-                        record["reasoning"] = serde_json::Value::String(reasoning.to_string());
+                        record["reasoning"] = serde_json::Value::String(reasoning);
                     }
                     records.push(record);
                     i += 1;
@@ -1163,5 +1185,92 @@ mod tests {
         })
         .join()
         .expect("spawn_chat_for 不应 panic");
+    }
+
+    #[cfg(feature = "dashboard")]
+    #[test]
+    fn test_api_msgs_to_jsonl_preserves_text_with_tool_calls() {
+        // When the LLM emits both prose ("好的，先看看 water 工具") and
+        // tool calls, the prose must be persisted *before* the tool_call
+        // record. Otherwise session reload loses the text entirely.
+        let api_msgs = vec![
+            json!({"role": "user", "content": "记 300ml 水"}),
+            json!({
+                "role": "assistant",
+                "content": "好的，我先看看 water 工具的具体用法",
+                "tool_calls": [{
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "i_rs", "arguments": "{\"tool\":\"water\"}"}
+                }]
+            }),
+            json!({"role": "tool", "content": "tool teach output"}),
+            json!({
+                "role": "assistant",
+                "content": "已经记下啦",
+                "reasoning_content": "记录成功"
+            }),
+        ];
+        let records = super::api_msgs_to_jsonl(&api_msgs);
+        let types: Vec<&str> = records.iter().map(|r| r["type"].as_str().unwrap_or("")).collect();
+        assert_eq!(
+            types,
+            vec!["user", "assistant", "tool_call", "assistant"],
+            "should produce user / assistant(prose) / tool_call / assistant(final)"
+        );
+        assert_eq!(records[1]["text"], "好的，我先看看 water 工具的具体用法");
+        assert_eq!(records[3]["text"], "已经记下啦");
+        assert_eq!(records[3]["reasoning"], "记录成功");
+    }
+
+    #[cfg(feature = "dashboard")]
+    #[test]
+    fn test_api_msgs_to_jsonl_preserves_reasoning_with_tool_calls() {
+        // Reasoning emitted alongside tool calls (no visible prose) must
+        // still be persisted so the user can review the model's thinking.
+        let api_msgs = vec![
+            json!({"role": "user", "content": "go"}),
+            json!({
+                "role": "assistant",
+                "content": null,
+                "reasoning_content": "thinking about which tool to use",
+                "tool_calls": [{
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "i_rs", "arguments": "{}"}
+                }]
+            }),
+            json!({"role": "tool", "content": "ok"}),
+        ];
+        let records = super::api_msgs_to_jsonl(&api_msgs);
+        assert_eq!(records.len(), 3);
+        assert_eq!(records[1]["type"], "assistant");
+        assert_eq!(records[1]["reasoning"], "thinking about which tool to use");
+        assert_eq!(records[1]["text"], "");
+        assert_eq!(records[2]["type"], "tool_call");
+    }
+
+    #[cfg(feature = "dashboard")]
+    #[test]
+    fn test_api_msgs_to_jsonl_skips_truly_empty_assistant_with_tool_calls() {
+        // An assistant message that has *nothing* (no text, no reasoning)
+        // alongside tool_calls should not produce a redundant empty
+        // assistant record — the tool_call record alone is enough.
+        let api_msgs = vec![
+            json!({"role": "user", "content": "go"}),
+            json!({
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "i_rs", "arguments": "{}"}
+                }]
+            }),
+            json!({"role": "tool", "content": "ok"}),
+        ];
+        let records = super::api_msgs_to_jsonl(&api_msgs);
+        let types: Vec<&str> = records.iter().map(|r| r["type"].as_str().unwrap_or("")).collect();
+        assert_eq!(types, vec!["user", "tool_call"]);
     }
 }
