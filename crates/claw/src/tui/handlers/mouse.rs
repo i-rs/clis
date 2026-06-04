@@ -40,25 +40,19 @@ impl<'a> MouseEventHandler<'a> {
     }
 
     fn handle_click(&mut self, col: u16, row: u16) {
-        // Map screen row to a component by y-offset.
-        // The render_chat places area.y at the top of the chat viewport.
-        // component_offsets are already adjusted for scroll.
         let offsets = &self.app.component_offsets;
         if offsets.is_empty() { return; }
 
-        // Find which component this row hits
+        // Convert absolute screen row to content-relative row
+        let content_row = row.saturating_sub(self.app.chat_y + 1); // +1 for border
+
+        // Find the component that contains this row
         let mut idx = offsets.len();
         for (i, &off) in offsets.iter().enumerate() {
-            if row < off + 1 {
-                // Headers extend to the end of the viewport width
+            let next = if i + 1 < offsets.len() { offsets[i + 1] } else { u16::MAX };
+            if content_row >= off && content_row < next {
                 idx = i;
                 break;
-            }
-        }
-        // Handle click near the last component's header
-        if idx >= offsets.len() && !offsets.is_empty() {
-            if row < self.app.component_total_height as u16 {
-                idx = offsets.len() - 1;
             }
         }
         if idx >= self.app.messages.len() { return; }
