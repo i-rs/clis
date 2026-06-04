@@ -52,6 +52,8 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         }
     } else if width_changed {
         heights.clear();
+        format_cache.clear();
+        tool_call_headers.clear();
         heights.reserve(total_msgs);
         for (rev_idx, msg) in app.messages.iter().rev().enumerate() {
             let msg_index = total_msgs - 1 - rev_idx;
@@ -248,10 +250,16 @@ fn message_line_count(
             if *valid {
                 0
             } else {
-                1 + issues.len()
+                2 + issues.len()
             }
         }
-        _ => 0,
+        Message::Quality { score, issues, .. } => {
+            2 + issues.len() + if score.is_some() { 1 } else { 0 } + 1
+        }
+        Message::Feedback { message, .. } => {
+            1 + if message.as_ref().map_or(false, |m| !m.is_empty()) { 1 } else { 0 } + 1
+        }
+        Message::Image { .. } => 4,
     }
 }
 

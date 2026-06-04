@@ -951,7 +951,9 @@ impl App {
                     }
                 }
                 Message::Error { text } => 1 + text_wrap_lines(text, text_width) + 1,
-                Message::Image { .. } => 2,
+                Message::Image { .. } => 3,
+                Message::Quality { issues, .. } => 3 + issues.len(),
+                Message::Feedback { .. } => 2,
                 _ => 1,
             };
             heights.push(body.max(1));
