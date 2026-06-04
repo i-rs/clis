@@ -141,23 +141,13 @@ fn force_split(text: &str, max_width: usize) -> Vec<String> {
     parts
 }
 
-pub(super) fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'static>>, bool) {
-    let val = match serde_json::from_str::<serde_json::Value>(result) {
-        Ok(v) => {
-            if let Some(arr) = v.as_array()
-                && arr
-                    .first()
-                    .and_then(|v| v.as_str())
-                    .is_some_and(|s| s.trim().starts_with('\u{2318}'))
-            {
-                return (Vec::new(), false);
-            }
-            v
-        }
-        Err(_) => return (Vec::new(), false),
-    };
-
-    let formatted = serde_json::to_string_pretty(&val).unwrap_or_else(|_| result.to_string());
+/// Format an already-parsed JSON value into wrapped, styled lines.
+/// Returns the lines (empty if the value renders to nothing).
+///
+/// Callers that already hold a `&Value` should prefer this over
+/// re-parsing the JSON string.
+pub(super) fn format_json_lines(val: &serde_json::Value, max_width: usize) -> Vec<Line<'static>> {
+    let formatted = serde_json::to_string_pretty(val).unwrap_or_else(|_| val.to_string());
     let indent_width = max_width.saturating_sub(4);
     let mut lines = Vec::new();
     for line in formatted.lines() {
@@ -183,5 +173,5 @@ pub(super) fn format_json_result(result: &str, max_width: usize) -> (Vec<Line<'s
             }
         }
     }
-    (lines, true)
+    lines
 }

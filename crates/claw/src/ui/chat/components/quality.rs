@@ -1,4 +1,4 @@
-use super::style::{body_line, block_border, header_line, rounded_bottom, rounded_top};
+use super::style::{body_line, block_border, header_line, render_block_chrome};
 use super::MessageComponent;
 use crate::theme::Theme;
 use ratatui::buffer::Buffer;
@@ -40,28 +40,19 @@ impl MessageComponent for QualityCard {
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, _selected: bool) {
         let border = block_border(theme, false);
         let interior_bg = theme.surface();
-        let mut y = area.y;
-
-        // Top border
-        Paragraph::new(rounded_top(area.width, border))
-            .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
-        y += 1;
-
-        // Header
-        Paragraph::new(header_line(
+        let header = header_line(
             "回答质量评估",
             "◈",
             theme.accent(),
             theme.accent(),
             self.timestamp.as_deref(),
-        ))
-        .style(Style::default().bg(interior_bg))
-        .render(Rect { y, height: 1, ..area }, buf);
-        y += 1;
+        );
+        let body = render_block_chrome(area, buf, border, interior_bg, header);
+
+        let mut y = body.top;
 
         // Score + completeness row
-        if y < area.y + area.height.saturating_sub(1) {
+        if body.contains(y) {
             let mut parts = String::new();
             if let Some(s) = self.score {
                 parts.push_str(&format!("评分: {:.0}%   ", s * 100.0));
@@ -82,22 +73,17 @@ impl MessageComponent for QualityCard {
         }
 
         // Issues
-        let max_issue_rows = (area.y + area.height).saturating_sub(y + 1) as usize;
-        for (i, issue) in self.issues.iter().take(max_issue_rows).enumerate() {
+        for issue in self.issues.iter() {
+            if !body.contains(y) {
+                break;
+            }
             Paragraph::new(body_line(
                 &format!("•  {}", issue),
                 Style::default().fg(theme.accent()),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
-        }
-
-        // Bottom border
-        if area.height >= 1 {
-            let by = area.y + area.height - 1;
-            Paragraph::new(rounded_bottom(area.width, border))
-                .style(Style::default().bg(interior_bg))
-                .render(Rect { y: by, height: 1, ..area }, buf);
+            .render(Rect { y, height: 1, ..area }, buf);
+            y += 1;
         }
     }
 }

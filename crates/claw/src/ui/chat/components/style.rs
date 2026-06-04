@@ -15,8 +15,11 @@
 //! so the block reads as a single, self-contained unit.
 
 use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
+    widgets::{Paragraph, Widget},
 };
 
 use crate::theme::Theme;
@@ -107,17 +110,6 @@ pub fn body_line(text: &str, style: Style) -> Line<'static> {
     Line::from(spans)
 }
 
-/// A body line that paints the gutter bar but leaves the content slot
-/// empty (used for blank breathing rows or where the caller has placed
-/// text already).
-pub fn body_blank() -> Line<'static> {
-    Line::from(Span::raw(format!(
-        "{}{}",
-        " ".repeat(BLOCK_INDENT),
-        "▎"
-    )))
-}
-
 /// A blank line that fills the gutter (no bar). Useful as a final
 /// visual breath before the bottom border.
 pub fn body_padding() -> Line<'static> {
@@ -164,5 +156,80 @@ fn split(c: Color) -> (u8, u8, u8) {
         (r, g, b)
     } else {
         (128, 128, 128)
+    }
+}
+
+/// The interior body region of a block — the slice of rows between
+/// the header and the bottom border that the caller must fill in.
+///
+/// `top` is the first body row, `bottom` is the first row that is
+/// *not* body (i.e. the bottom border or out-of-area). Body height
+/// is therefore `bottom.saturating_sub(top)`.
+#[derive(Clone, Copy, Debug)]
+pub struct BodyArea {
+    pub top: u16,
+    pub bottom: u16,
+}
+
+impl BodyArea {
+    /// Number of rows available for body content.
+    pub fn height(&self) -> u16 {
+        self.bottom.saturating_sub(self.top)
+    }
+
+    /// True if `y` falls inside the body region. Convenience for
+    /// sequential renderers that walk rows top-down.
+    pub fn contains(&self, y: u16) -> bool {
+        y >= self.top && y < self.bottom
+    }
+}
+
+/// Render the shared block chrome — top rounded border, header line,
+/// bottom rounded border — and return the [`BodyArea`] the caller is
+/// responsible for filling in.
+///
+/// Every message component uses the same outer shape; this helper
+/// consolidates ~10 lines of `Paragraph::new(...).render(...)` per
+/// component into a single call. The caller still chooses colours,
+/// avatar glyph, label, meta (timestamp) and interior background.
+///
+/// Behaviour for degenerate `area.height < 3` matches the previous
+/// per-component implementation: bottom border may overlap top/header.
+pub fn render_block_chrome(
+    area: Rect,
+    buf: &mut Buffer,
+    border: Color,
+    interior_bg: Color,
+    header: Line<'static>,
+) -> BodyArea {
+    // Top border.
+    Paragraph::new(rounded_top(area.width, border))
+        .style(Style::default().bg(interior_bg))
+        .render(Rect { y: area.y, height: 1, ..area }, buf);
+
+    // Header.
+    Paragraph::new(header)
+        .style(Style::default().bg(interior_bg))
+        .render(
+            Rect {
+                y: area.y + 1,
+                height: 1,
+                ..area
+            },
+            buf,
+        );
+
+    // Bottom border. Always rendered at the last row, matching the
+    // previous code's `if area.height >= 1` guard.
+    if area.height >= 1 {
+        let by = area.y + area.height - 1;
+        Paragraph::new(rounded_bottom(area.width, border))
+            .style(Style::default().bg(interior_bg))
+            .render(Rect { y: by, height: 1, ..area }, buf);
+    }
+
+    BodyArea {
+        top: area.y + 2,
+        bottom: area.y + area.height.saturating_sub(1),
     }
 }

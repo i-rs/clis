@@ -1,6 +1,6 @@
 use super::style::{
     BLOCK_LEFT_RESERVED, blend, body_line, body_padding, block_border, header_line,
-    rounded_bottom, rounded_top,
+    render_block_chrome,
 };
 use super::MessageComponent;
 use crate::theme::Theme;
@@ -9,10 +9,17 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::{Paragraph, Widget};
+use std::cell::{Cell, RefCell};
 
 pub(crate) struct UserBubble {
     text: String,
     timestamp: Option<String>,
+    /// Cached `(width, body_row_count)` for `body_rows()`.
+    body_rows_cache: Cell<Option<(u16, u16)>>,
+    /// Cached wrapped lines keyed by width. User text never mutates
+    /// after construction, so the cache is valid for the bubble's
+    /// lifetime and shared between `height()` and `render()`.
+    wrapped_cache: RefCell<Option<(u16, Vec<String>)>>,
 }
 
 impl UserBubble {
@@ -20,15 +27,44 @@ impl UserBubble {
         Self {
             text: text.to_string(),
             timestamp: timestamp.map(|s| s.to_string()),
+            body_rows_cache: Cell::new(None),
+            wrapped_cache: RefCell::new(None),
         }
     }
 
     /// Number of *body* rows (excludes the top/bottom borders).
     fn body_rows(&self, width: u16) -> u16 {
+        if let Some((cached_w, cached_h)) = self.body_rows_cache.get()
+            && cached_w == width
+        {
+            return cached_h;
+        }
         let usable = width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
-        utils::wrap_text(&self.text, usable.max(1))
+        let h = utils::wrap_text(&self.text, usable.max(1))
             .len()
-            .max(1) as u16
+            .max(1) as u16;
+        self.body_rows_cache.set(Some((width, h)));
+        h
+    }
+
+    /// Return the wrapped lines for `width`, populating the cache on
+    /// the first call. The cache is held by `RefCell` so the trait's
+    /// `&self`-taking `render` can populate it.
+    fn wrapped_lines(&self, width: u16) -> std::cell::Ref<'_, Vec<String>> {
+        let cache_miss = match self.wrapped_cache.borrow().as_ref() {
+            Some((cached_w, _)) => *cached_w != width,
+            None => true,
+        };
+        if cache_miss {
+            let usable = width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
+            let wrapped = utils::wrap_text(&self.text, usable.max(1));
+            *self.wrapped_cache.borrow_mut() = Some((width, wrapped));
+        }
+        std::cell::Ref::map(self.wrapped_cache.borrow(), |opt| {
+            opt.as_ref()
+                .map(|(_, v)| v)
+                .expect("cache was just populated")
+        })
     }
 }
 
@@ -47,36 +83,15 @@ impl MessageComponent for UserBubble {
         };
         let avatar = theme.secondary();
         let label = theme.text();
-
-        let mut y = area.y;
-
-        // Top border
-        let w = area.width;
-        Paragraph::new(rounded_top(w, border))
-            .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
-        y += 1;
-
-        // Header
-        Paragraph::new(header_line(
-            "You",
-            "▰",
-            avatar,
-            label,
-            self.timestamp.as_deref(),
-        ))
-        .style(Style::default().bg(interior_bg))
-        .render(Rect { y, height: 1, ..area }, buf);
-        y += 1;
+        let header = header_line("You", "▰", avatar, label, self.timestamp.as_deref());
+        let body = render_block_chrome(area, buf, border, interior_bg, header);
 
         // Body
-        let usable = area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
         let text_style = Style::default().fg(theme.text());
-        let body_max = (area.y + area.height).saturating_sub(y + 1); // leave room for bottom
-        let wrapped = utils::wrap_text(&self.text, usable.max(1));
-        let rows = wrapped.len().max(1).min(body_max as usize);
+        let wrapped = self.wrapped_lines(area.width);
+        let rows = wrapped.len().max(1).min(body.height() as usize);
         for (i, line) in wrapped.iter().take(rows).enumerate() {
-            let line_y = y + i as u16;
+            let line_y = body.top + i as u16;
             if i == rows - 1 && rows < wrapped.len() {
                 // Show an ellipsis when the last visible row is
                 // truncated by height. We still get a clean break
@@ -93,19 +108,14 @@ impl MessageComponent for UserBubble {
         if wrapped.is_empty() {
             Paragraph::new(body_padding())
                 .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
-            y += 1;
-        } else {
-            y += rows as u16;
-        }
-
-        // Bottom border — drawn on top of the surface background so
-        // the rounded corner reads as a clean break, not a "bump".
-        if area.height >= 1 {
-            let by = area.y + area.height - 1;
-            Paragraph::new(rounded_bottom(area.width, border))
-                .style(Style::default().bg(interior_bg))
-                .render(Rect { y: by, height: 1, ..area }, buf);
+                .render(
+                    Rect {
+                        y: body.top,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
         }
     }
 }

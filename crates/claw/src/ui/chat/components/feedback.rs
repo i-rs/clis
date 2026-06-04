@@ -1,4 +1,4 @@
-use super::style::{body_line, block_border, header_line, rounded_bottom, rounded_top};
+use super::style::{body_line, block_border, header_line, render_block_chrome};
 use super::MessageComponent;
 use crate::theme::Theme;
 use ratatui::buffer::Buffer;
@@ -39,39 +39,33 @@ impl MessageComponent for FeedbackRow {
             theme.error()
         };
         let label = if self.positive { "好评" } else { "差评" };
+        let header = header_line(
+            label,
+            glyph,
+            accent_color,
+            accent_color,
+            self.timestamp.as_deref(),
+        );
+        let body = render_block_chrome(area, buf, border, interior_bg, header);
 
-        let mut y = area.y;
-
-        // Top border
-        Paragraph::new(rounded_top(area.width, border))
+        // Optional message body.
+        if let Some(m) = &self.message
+            && !m.is_empty()
+            && body.height() >= 1
+        {
+            Paragraph::new(body_line(
+                m,
+                Style::default().fg(theme.dim_text()).add_modifier(Modifier::ITALIC),
+            ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
-        y += 1;
-
-        // Header
-        Paragraph::new(header_line(label, glyph, accent_color, accent_color, self.timestamp.as_deref()))
-            .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
-        y += 1;
-
-        // Optional message body
-        if let Some(m) = &self.message {
-            if !m.is_empty() && y < area.y + area.height.saturating_sub(1) {
-                Paragraph::new(body_line(
-                    m,
-                    Style::default().fg(theme.dim_text()).add_modifier(Modifier::ITALIC),
-                ))
-                .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
-            }
-        }
-
-        // Bottom border
-        if area.height >= 1 {
-            let by = area.y + area.height - 1;
-            Paragraph::new(rounded_bottom(area.width, border))
-                .style(Style::default().bg(interior_bg))
-                .render(Rect { y: by, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y: body.top,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
         }
     }
 }

@@ -29,7 +29,6 @@ pub(crate) struct Scroller {
     pub scroll: u16,
     pub viewport_h: u16,
     layout_w: u16,
-    spacing: u16,
     /// Content-relative click regions for every component that opts
     /// in via `MessageComponent::clickable() == true`. `y_start` /
     /// `y_end` are rows in the same space as `offsets` (0 = top of
@@ -202,13 +201,10 @@ impl Scroller {
             scroll: 0,
             viewport_h,
             layout_w: width,
-            spacing,
             hits,
         }
     }
 
-    pub fn total(&self) -> u16 { self.total_height }
-    pub fn offsets(&self) -> &[u16] { &self.offsets }
     pub fn max_scroll(&self) -> u16 { self.total_height.saturating_sub(self.viewport_h) }
 
     pub fn set_scroll(&mut self, s: u16) { self.scroll = s.min(self.max_scroll()); }

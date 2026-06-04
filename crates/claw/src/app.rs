@@ -1,41 +1,16 @@
 use crate::config::Config;
 use crate::stats::TodaySummary;
 use crate::ui::chat_api::{
-    build_component_for, ClickRegionRegistry, ComponentCell, ComponentOp, MessageComponent,
+    build_component_for, ClickRegionRegistry, ComponentCell, ComponentOp,
 };
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::hash::Hash;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::Instant;
-
-/// 按显示宽度估算行数（用于事件处理中粗略重算消息行高）。
-/// ASCII=1，CJK/全角=2，不做 ANSI/word-break，仅作 scroll_to_selected 的兜底估算。
-fn text_wrap_lines(text: &str, max_width: usize) -> usize {
-    if max_width == 0 {
-        return text.lines().count().max(1);
-    }
-    let mut total = 0usize;
-    for line in text.split('\n') {
-        let mut width = 0usize;
-        let mut local_lines = 1;
-        for c in line.chars() {
-            let cw = if (c as u32) < 0x1100 || (c as u32) == 0x2E3A { 1 } else { 2 };
-            if width + cw > max_width {
-                local_lines += 1;
-                width = cw;
-            } else {
-                width += cw;
-            }
-        }
-        total += local_lines;
-    }
-    total.max(1)
-}
 
 pub fn message_to_jsonl(msg: &Message) -> Value {
     serde_json::to_value(msg)
@@ -688,7 +663,6 @@ pub enum AppState {
 
 pub struct RenderState {
     pub heights: Vec<usize>,
-    pub format_cache: HashMap<usize, Arc<Vec<ratatui::text::Line<'static>>>>,
     pub cached_width: usize,
     pub chat_height: u16,
     pub dirty: bool,
@@ -699,7 +673,6 @@ impl RenderState {
     pub fn new() -> Self {
         Self {
             heights: Vec::new(),
-            format_cache: HashMap::new(),
             cached_width: 0,
             chat_height: 0,
             dirty: true,
@@ -848,11 +821,6 @@ impl App {
     pub fn push_component_for(&mut self, msg: &Message) {
         self.components
             .push(Rc::new(RefCell::new(build_component_for(msg))) as ComponentCell);
-    }
-
-    /// Drop the trailing component. Must mirror a `messages.pop()`.
-    pub fn pop_last_component(&mut self) {
-        self.components.pop();
     }
 
     /// Apply an op to the component at `idx`. Returns `true` if the
@@ -1125,7 +1093,6 @@ impl App {
             // stay in sync.
             reasoning.push_str(&carried_reasoning);
             self.apply_to_last_component(ComponentOp::AppendReasoning(carried_reasoning));
-            self.render_state.format_cache.remove(&(self.messages.len() - 1));
             self.render_state.invalidate_last();
         }
     }
@@ -1154,7 +1121,6 @@ impl App {
             // body rows, and `reasoning` stay consistent with the
             // `Message` enum.
             self.apply_to_last_component(ComponentOp::AppendText(text.to_string()));
-            self.render_state.format_cache.remove(&(self.messages.len() - 1));
             self.render_state.invalidate_last();
         }
         // Streaming tokens: keep the viewport pinned to the bottom if the
@@ -1697,31 +1663,23 @@ mod tests {
         let mut app = App::new(test_config());
         app.render_state.dirty = false;
         app.render_state.heights.push(3);
-        app.render_state
-            .format_cache
-            .insert(0, std::sync::Arc::new(vec![]));
 
         app.mark_overlay_dirty();
 
         assert!(app.render_state.dirty);
         assert_eq!(app.render_state.heights.len(), 1);
-        assert_eq!(app.render_state.format_cache.len(), 1);
     }
 
     #[test]
-    fn test_mark_dirty_clears_heights_not_cache() {
+    fn test_mark_dirty_clears_heights() {
         let mut app = App::new(test_config());
         app.render_state.dirty = false;
         app.render_state.heights.push(3);
-        app.render_state
-            .format_cache
-            .insert(0, std::sync::Arc::new(vec![]));
 
         app.mark_dirty();
 
         assert!(app.render_state.dirty);
         assert!(app.render_state.heights.is_empty());
-        assert!(!app.render_state.format_cache.is_empty());
     }
 
     #[test]
@@ -1988,10 +1946,8 @@ mod tests {
     fn test_render_state_invalidation() {
         let mut rs = RenderState::new();
         rs.heights.push(10);
-        rs.format_cache.insert(0, Arc::new(vec![]));
         rs.invalidate();
         assert!(rs.heights.is_empty());
         assert!(rs.dirty);
-        assert!(!rs.format_cache.is_empty());
     }
 }

@@ -23,17 +23,14 @@ use crate::theme::Theme;
 pub enum ComponentOp {
     /// Append streamed text delta to the assistant body.
     AppendText(String),
-    /// Replace the assistant body wholesale (used for first-token flush).
-    SetText(String),
     /// Append streamed reasoning delta.
     AppendReasoning(String),
-    /// Replace the assistant reasoning wholesale.
-    SetReasoning(String),
-    /// Replace a tool call's result text. Used to backfill a real
-    /// result onto a previously-running card.
-    SetToolResult(String),
     /// Flip the component's expand/collapse state.
     Toggle,
+    /// Flip just the Args sub-section inside an expanded ToolCallCard.
+    ToggleArgs,
+    /// Flip just the Result sub-section inside an expanded ToolCallCard.
+    ToggleResult,
 }
 
 pub trait MessageComponent {

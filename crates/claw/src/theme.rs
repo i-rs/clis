@@ -188,6 +188,26 @@ impl Theme {
         std::fs::write(path, json)
     }
 
+    /// Cheap stable identifier for cache keys. We hash just the
+    /// color-bearing fields — the only ones that affect rendered
+    /// output — so two themes that produce identical colors share
+    /// a cache slot, and any color change invalidates the cache.
+    /// Computed in ~100 ns, far cheaper than re-rendering.
+    pub fn id(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.primary.hash(&mut h);
+        self.secondary.hash(&mut h);
+        self.text.hash(&mut h);
+        self.accent.hash(&mut h);
+        self.dim_text.hash(&mut h);
+        self.background.hash(&mut h);
+        self.tool_bg.hash(&mut h);
+        self.code_bg.hash(&mut h);
+        self.border.hash(&mut h);
+        h.finish()
+    }
+
     fn parse_hex(s: &str) -> Option<Color> {
         let s = s.trim_start_matches('#');
         if s.len() == 6 {

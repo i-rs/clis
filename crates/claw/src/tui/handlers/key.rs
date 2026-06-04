@@ -1,4 +1,5 @@
 use crate::app::{self, App, Overlay};
+use crate::ui::chat_api::ComponentOp;
 use crate::core;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui_interact::events::{is_space};
@@ -184,6 +185,26 @@ impl<'a> KeyEventHandler<'a> {
                         self.app.rebuild_heights_approx();
                         self.app.scroll_to_selected();
                     }
+                }
+            }
+            // Sub-toggles for tool-call cards: collapse Args / Result
+            // independently without collapsing the whole card. Only
+            // takes effect on a ToolCallCard (other components ignore
+            // these ops via the default `apply` no-op).
+            KeyCode::Char('a') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                if let Some(idx) = self.app.overlay.selected_message {
+                    self.app.apply_to_component(idx, ComponentOp::ToggleArgs);
+                    self.app.rebuild_heights_approx();
+                    self.app.scroll_to_selected();
+                    self.app.mark_dirty();
+                }
+            }
+            KeyCode::Char('r') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                if let Some(idx) = self.app.overlay.selected_message {
+                    self.app.apply_to_component(idx, ComponentOp::ToggleResult);
+                    self.app.rebuild_heights_approx();
+                    self.app.scroll_to_selected();
+                    self.app.mark_dirty();
                 }
             }
             _ => return false,

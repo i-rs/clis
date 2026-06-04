@@ -22,7 +22,7 @@ pub(crate) mod chat_api {
     //! per-message render components and the scroller hit-region
     //! type. We funnel those types through this tiny facade so the
     //! privacy boundary is clear and documented.
-    pub(crate) use crate::ui::chat::components::{build_component_for, ComponentOp, MessageComponent};
+    pub(crate) use crate::ui::chat::components::{build_component_for, ComponentOp};
     pub(crate) use crate::ui::chat::scroller::ComponentCell;
     pub(crate) use ratatui_interact::traits::ClickRegionRegistry;
 }

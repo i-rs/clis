@@ -7,16 +7,6 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::theme::Theme;
 
-pub(super) fn is_markdown(text: &str) -> bool {
-    text.contains("**")
-        || text.contains("__")
-        || text.contains("``")
-        || (text.len() > 1 && text.as_bytes()[0] == b'#' && text.as_bytes()[1] == b' ')
-        || (text.len() > 1 && text.as_bytes()[0] == b'-' && text.as_bytes()[1] == b' ')
-        || text.contains("\n- ")
-        || text.contains("---")
-}
-
 pub(super) fn render_markdown(text: &str, max_width: usize, theme: &Theme) -> Vec<Line<'static>> {
     let mut lines: Vec<Line<'static>> = Vec::new();
 
