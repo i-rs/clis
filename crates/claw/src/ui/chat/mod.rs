@@ -40,22 +40,11 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         }
     }
 
-    // Convert content-relative hit regions to screen-absolute
-    // coordinates, then expose them to the input handlers. Each
-    // region corresponds to exactly one clickable component, so a
-    // single binary search per click is enough.
-    let abs_y = area.y;
-    let mut hits = Vec::with_capacity(scr.hits.len());
-    for h in &scr.hits {
-        hits.push(crate::ui::chat::scroller::HitRegion {
-            component_idx: h.component_idx,
-            y_start: h.y_start + abs_y,
-            y_end: h.y_end + abs_y,
-            x_start: h.x_start + area.x,
-            x_end: h.x_end + area.x,
-        });
-    }
-    app.hit_regions = hits;
+    // Hand the scroller's content-relative click regions to the
+    // library's registry, translated to screen-absolute coordinates.
+    // The registry now owns the click dispatch — the input handlers
+    // just need the absolute row/col of the click event.
+    scr.register_clicks(area, &mut app.hit_regions);
     app.chat_y = area.y;
     app.max_scroll = scr.max_scroll() as usize;
     app.scroll_lines = scr.scroll as usize;

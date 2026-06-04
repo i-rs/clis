@@ -1,6 +1,7 @@
 use crate::app::{self, App, Overlay};
 use crate::core;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui_interact::events::{is_space};
 use serde_json::Value;
 use tokio::sync::mpsc;
 
@@ -165,7 +166,7 @@ impl<'a> KeyEventHandler<'a> {
                 }
                 self.app.mark_overlay_dirty();
             }
-            KeyCode::Char(' ') => {
+            _ if is_space(&key) => {
                 if let Some(idx) = self.app.overlay.selected_message {
                     // Only trigger a state change when the selected
                     // message has a component that opts into toggling

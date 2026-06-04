@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::stats::TodaySummary;
 use crate::ui::chat_api::{
-    build_component_for, ComponentCell, ComponentOp, HitRegion, MessageComponent,
+    build_component_for, ClickRegionRegistry, ComponentCell, ComponentOp, MessageComponent,
 };
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
@@ -768,9 +768,12 @@ pub struct App {
     pub stick_to_bottom: bool,
     /// Clickable regions for the last render. Populated by
     /// `render_chat`; consumed by mouse and key handlers. Each entry
-    /// covers one `clickable` component in screen-content coordinates
-    /// (so callers must convert from absolute row/col first).
-    pub hit_regions: Vec<HitRegion>,
+    /// covers one `clickable` component in screen-absolute
+    /// coordinates, keyed by the component index. The library
+    /// implementation handles the row/col hit-test in O(n) over
+    /// registered regions, which is fine because the registry only
+    /// contains clickable components (almost always << n_messages).
+    pub hit_regions: ClickRegionRegistry<usize>,
     pub chat_y: u16,
     pub http_logs: VecDeque<HttpLog>,
     pub current_reasoning: String,
@@ -804,7 +807,7 @@ impl App {
             scroll_lines: 0,
             max_scroll: 0,
             stick_to_bottom: true,
-            hit_regions: Vec::new(),
+            hit_regions: ClickRegionRegistry::new(),
             chat_y: 0,
             http_logs: VecDeque::new(),
             current_reasoning: String::new(),

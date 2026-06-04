@@ -23,7 +23,8 @@ pub(crate) mod chat_api {
     //! type. We funnel those types through this tiny facade so the
     //! privacy boundary is clear and documented.
     pub(crate) use crate::ui::chat::components::{build_component_for, ComponentOp, MessageComponent};
-    pub(crate) use crate::ui::chat::scroller::{ComponentCell, HitRegion};
+    pub(crate) use crate::ui::chat::scroller::ComponentCell;
+    pub(crate) use ratatui_interact::traits::ClickRegionRegistry;
 }
 
 pub fn render(f: &mut Frame, app: &mut App) {

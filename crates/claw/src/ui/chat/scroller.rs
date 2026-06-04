@@ -2,6 +2,7 @@ use super::components::MessageComponent;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use crate::theme::Theme;
+use ratatui_interact::traits::ClickRegionRegistry;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -10,17 +11,16 @@ use std::rc::Rc;
 /// calls auto-deref through it to the underlying trait object.
 pub(crate) type ComponentCell = Rc<RefCell<Box<dyn MessageComponent>>>;
 
-/// Clickable region for a single message component. Coordinates are
-/// relative to the chat content area (i.e. the top border row is
-/// excluded). `component_idx` is the index into the original
-/// `messages`/`components` Vec that the App holds.
+/// Content-relative layout entry for one clickable component. The
+/// Scroller keeps a Vec of these internally to make per-component
+/// Y math easy; the App-facing click dispatch goes through the
+/// library's `ClickRegionRegistry` instead, so the public API
+/// doesn't expose this type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HitRegion {
-    pub component_idx: usize,
-    pub y_start: u16,
-    pub y_end: u16,
-    pub x_start: u16,
-    pub x_end: u16,
+struct HitRegion {
+    component_idx: usize,
+    y_start: u16,
+    y_end: u16,
 }
 
 pub(crate) struct Scroller {
@@ -30,10 +30,12 @@ pub(crate) struct Scroller {
     pub viewport_h: u16,
     layout_w: u16,
     spacing: u16,
-    /// Click regions for every component that opts in via
-    /// `MessageComponent::clickable() == true`. `y_start`/`y_end`
-    /// are content-relative rows in the same space as `offsets`.
-    pub hits: Vec<HitRegion>,
+    /// Content-relative click regions for every component that opts
+    /// in via `MessageComponent::clickable() == true`. `y_start` /
+    /// `y_end` are rows in the same space as `offsets` (0 = top of
+    /// the chat content). `register_clicks` translates these into
+    /// screen-absolute `Rect`s when populating the click registry.
+    hits: Vec<HitRegion>,
 }
 
 #[cfg(test)]
@@ -124,38 +126,43 @@ mod tests {
     }
 
     #[test]
-    fn hit_regions_cover_clickable_components_only() {
-        // Three blocks: middle is clickable. The whole block (no
-        // spacing) is the click target. Offsets: [0, 4, 8]; total 11.
+    fn register_clicks_only_registers_clickable_components() {
+        // Three blocks: middle is clickable. Spacing=1, so offsets
+        // are [0, 4, 8] — the clickable block occupies rows 4..7.
         let comps: Vec<ComponentCell> = vec![
             Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
             Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
             Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
         ];
         let scr = Scroller::new(&comps, 80, 20);
-        assert_eq!(scr.hits.len(), 1, "only one clickable component");
-        let h = scr.hits[0];
-        assert_eq!(h.component_idx, 1);
-        assert_eq!((h.y_start, h.y_end), (4, 7));
-        // x covers the full chat width
-        assert_eq!(h.x_start, 0);
-        assert_eq!(h.x_end, 80);
+        let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+        scr.register_clicks(Rect { x: 0, y: 0, width: 80, height: 20 }, &mut reg);
+        assert_eq!(reg.len(), 1, "only one clickable component");
+        // The middle block was registered with `data = 1`. It lives
+        // on rows 4..7, so a click at (col=0, row=5) hits it.
+        assert_eq!(reg.handle_click(0, 5), Some(&1));
+        // Non-clickable blocks: no region, so no hit.
+        assert_eq!(reg.handle_click(0, 1), None);
+        assert_eq!(reg.handle_click(0, 9), None);
     }
 
     #[test]
-    fn hit_test_returns_correct_component_for_click() {
+    fn register_clicks_translates_to_screen_absolute_rect() {
+        // Clickable block at content-y [4, 7), with a chat pane at
+        // screen y=10..30. After translation the screen-absolute
+        // rect should be (0, 14, 80, 3).
         let comps: Vec<ComponentCell> = vec![
             Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
             Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
         ];
         let scr = Scroller::new(&comps, 80, 20);
-        // Click on row 5 (within block 1) → component 1
-        assert_eq!(scr.hit_test(5, 10), Some(1));
-        // Click on row 0 (block 0, not clickable) → None
-        assert_eq!(scr.hit_test(0, 10), None);
-        // Click on row 9 (block 2, not clickable) → None
-        assert_eq!(scr.hit_test(9, 10), None);
+        let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+        scr.register_clicks(Rect { x: 0, y: 10, width: 80, height: 20 }, &mut reg);
+        // Click at screen row 15 should still hit the block (it
+        // occupies screen rows 10+4..10+7 = 14..17).
+        assert_eq!(reg.handle_click(0, 15), Some(&1));
+        // Click above the block: no hit.
+        assert_eq!(reg.handle_click(0, 13), None);
     }
 }
 
@@ -184,8 +191,6 @@ impl Scroller {
                     component_idx: i,
                     y_start: total,
                     y_end: total.saturating_add(h),
-                    x_start: 0,
-                    x_end: width,
                 });
             }
             total = total.saturating_add(h);
@@ -208,6 +213,27 @@ impl Scroller {
 
     pub fn set_scroll(&mut self, s: u16) { self.scroll = s.min(self.max_scroll()); }
 
+    /// Translate the content-relative click regions into
+    /// screen-absolute `Rect`s and register them into `registry`.
+    ///
+    /// `pane` is the `Rect` that the chat content occupies on the
+    /// current frame; its `x`/`y` are added to every region's
+    /// coordinates and its `width` covers the full chat width. The
+    /// registry is cleared before being repopulated, so the caller
+    /// can keep owning it across frames.
+    pub fn register_clicks(&self, pane: Rect, registry: &mut ClickRegionRegistry<usize>) {
+        registry.clear();
+        for h in &self.hits {
+            let area = Rect {
+                x: pane.x,
+                y: pane.y + h.y_start,
+                width: pane.width,
+                height: h.y_end.saturating_sub(h.y_start),
+            };
+            registry.register(area, h.component_idx);
+        }
+    }
+
     pub fn visible_range(&self) -> (usize, usize, u16) {
         if self.offsets.is_empty() { return (0, 0, 0); }
         let scroll_end = self.scroll + self.viewport_h;
@@ -224,19 +250,6 @@ impl Scroller {
         }
         if last + 1 <= self.offsets.len() { last += 1; }
         (first, last.min(self.offsets.len()), skip)
-    }
-
-    /// Map a content-relative (row, col) click to the component it
-    /// hits, if any. Returns `None` for non-clickable regions.
-    pub fn hit_test(&self, row: u16, col: u16) -> Option<usize> {
-        // Hits are stored in component order; the hit list is short
-        // (only clickable blocks), so a linear scan is fine.
-        for h in &self.hits {
-            if row >= h.y_start && row < h.y_end && col >= h.x_start && col < h.x_end {
-                return Some(h.component_idx);
-            }
-        }
-        None
     }
 
     pub fn render(

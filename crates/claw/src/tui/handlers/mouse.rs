@@ -1,5 +1,6 @@
 use crate::app::App;
-use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{MouseEvent, MouseEventKind};
+use ratatui_interact::events::is_left_click;
 
 pub struct MouseEventHandler<'a> {
     pub app: &'a mut App,
@@ -32,7 +33,7 @@ impl<'a> MouseEventHandler<'a> {
             match mouse.kind {
                 MouseEventKind::ScrollDown => self.app.scroll_down(),
                 MouseEventKind::ScrollUp => self.app.scroll_up(),
-                MouseEventKind::Down(MouseButton::Left) => self.handle_click(mouse.column, mouse.row),
+                _ if is_left_click(&mouse) => self.handle_click(mouse.column, mouse.row),
                 _ => {}
             }
             self.app.mark_overlay_dirty();
@@ -40,24 +41,13 @@ impl<'a> MouseEventHandler<'a> {
     }
 
     fn handle_click(&mut self, col: u16, row: u16) {
-        // The click dispatch is intentionally side-effect free until
-        // we know we've landed on a clickable component. We do this
-        // with the hit regions that `render_chat` last produced:
-        // they are in screen-absolute coordinates and carry a
-        // component index, so there is no need to recompute offsets
-        // or walk the message vector here.
-        if let Some(idx) = self
-            .app
-            .hit_regions
-            .iter()
-            .find(|h| row >= h.y_start && row < h.y_end && col >= h.x_start && col < h.x_end)
-            .map(|h| h.component_idx)
-        {
+        // The library's registry does the row/col hit-test for us
+        // and returns the component index that owns that screen
+        // rectangle, or `None` if the click was on a non-clickable
+        // region. No state mutation happens until we know we've
+        // landed on something meaningful.
+        if let Some(idx) = self.app.hit_regions.handle_click(col, row).copied() {
             self.app.toggle_component_at(idx);
         }
-        // `col` is currently unused beyond the hit-test bounding
-        // box, but keep the parameter so the caller signature stays
-        // stable if we add column-aware targets later.
-        let _ = col;
     }
 }
