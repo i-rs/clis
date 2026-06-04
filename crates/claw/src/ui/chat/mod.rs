@@ -6,9 +6,9 @@ pub mod scroller;
 
 use ratatui::{Frame, layout::Rect};
 use ratatui::style::Style;
-use ratatui::widgets::Widget;
 
 use crate::app::App;
+use crate::config::Config;
 
 pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let width = area.width;
@@ -23,44 +23,33 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let mut scr = scroller::Scroller::new(&components, width, viewport_h);
     scr.set_scroll(app.scroll_lines as u16);
 
-    let theme = app.config.theme.clone();
+    let theme = &app.config.theme;
     let selected = if app.overlay.selection_mode { app.overlay.selected_message } else { None };
 
-    // Render into frame
-    let at_bottom = scr.scroll >= scr.max_scroll();
-    let border_style = Style::default().fg(if at_bottom { theme.dim_text() } else { theme.primary() });
-
-    // Render scrollbar + border first, then components
-    // Build a buffer to render into via the scroller
     let buf = f.buffer_mut();
 
-    // Render each visible component
-    scr.render(&components, area, buf, &theme, selected);
-
-    // Draw scrollbar
-    let total = scr.total();
-    let vh = scr.viewport_h;
-    if total > vh && area.width > 0 {
-        let bar_h = ((vh as f64 / total as f64) * vh as f64).max(1.0) as u16;
-        let bar_y = ((scr.scroll as f64 / total as f64) * vh as f64) as u16;
-        let bar_x = area.x + area.width.saturating_sub(1);
-        let dim = theme.dim_text();
-        for i in 0..vh {
-            let ch = if i >= bar_y && i < bar_y + bar_h { '█' } else { '░' };
-            if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(bar_x, area.y + i)) {
-                cell.set_char(ch).set_style(Style::default().fg(dim));
-            }
-        }
-    }
+    // Render visible components
+    scr.render(&components, area, buf, theme, selected);
 
     // Draw top border
+    let at_bottom = scr.scroll >= scr.max_scroll();
+    let border_color = if at_bottom { theme.dim_text() } else { theme.primary() };
+    let border_style = Style::default().fg(border_color);
     for x in area.left()..area.right() {
         if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, area.y)) {
             cell.set_char('─').set_style(border_style);
         }
     }
 
-    // Update app state
+    // Store component y-offsets for mouse click dispatch
+    let mut offsets = Vec::with_capacity(components.len());
+    let mut total = 0u16;
+    for c in &components {
+        offsets.push(total);
+        total += c.height(width);
+    }
+    app.component_offsets = offsets;
+    app.component_total_height = total as usize;
     app.max_scroll = scr.max_scroll() as usize;
     app.scroll_lines = scr.scroll as usize;
 }
