@@ -6,8 +6,20 @@
 //! - `sql/postgres.rs` (feature = "postgres")
 //!
 //! A shared macro `define_sql_stores!` generates all 8 repository trait
-//! implementations for a given database pool type, avoiding ~800 lines of
-//! duplication per dialect.
+//! implementations for a given database pool type.
+//!
+//! **PostgreSQL note:** sqlx requires `&'static str` for all SQL queries.
+//! The PG backend currently uses `?` placeholders which the PG protocol
+//! expects as `$N`. Until a proper placeholder adaptation layer is built,
+//! the PG backend is provided on a best-effort basis.
+//!
+//! ## Search semantics
+//!
+//! `MessageRepo::search` performs case-insensitive substring matching across
+//! sessions. It searches `type` = "user"|"assistant"|"error" by `text` and
+//! `type` = "tool_call" by `name`. Each result includes a 200-char excerpt and
+//! up to 2 context messages before and 1 after the match. Results are grouped
+//! by session and terminated at `max_results`.
 
 #[cfg(feature = "mysql")]
 pub mod mysql;
@@ -17,18 +29,12 @@ pub mod postgres;
 pub mod sqlite;
 
 use async_trait::async_trait;
-#[allow(unused_imports)]
 use std::collections::{HashMap, HashSet};
 
 use super::*;
 
 /// Generates the 8 store wrapper structs + their trait implementations
 /// for a given database pool type.
-///
-/// Usage inside each dialect module:
-/// ```ignore
-/// define_sql_stores!(MyPool, MyBackend, MySessionStore, MyMessageStore, …);
-/// ```
 macro_rules! define_sql_stores {
     (
         $pool:ty,
@@ -57,19 +63,14 @@ macro_rules! define_sql_stores {
             }
 
             async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
-                // Use UPSERT + diff-based deletion to avoid FK ON DELETE CASCADE
-                // wiping messages/api_cache/plan_steps for unchanged sessions.
                 let mut tx = self.db.pool.begin().await?;
 
-                // 1. Build set of incoming session IDs
-                let incoming_ids: std::collections::HashSet<&str> =
+                let incoming_ids: HashSet<&str> =
                     sessions.iter().map(|s| s.id.as_str()).collect();
 
-                // 2. Fetch existing IDs from DB
                 let existing: Vec<(String,)> =
                     sqlx::query_as("SELECT id FROM sessions").fetch_all(&mut *tx).await?;
 
-                // 3. Delete only removed sessions (cascade will handle their child rows)
                 for (id,) in &existing {
                     if !incoming_ids.contains(id.as_str()) {
                         sqlx::query("DELETE FROM sessions WHERE id = ?")
@@ -79,14 +80,13 @@ macro_rules! define_sql_stores {
                     }
                 }
 
-                // 4. UPSERT remaining sessions
                 for s in sessions {
                     sqlx::query($upsert_session)
-                    .bind(&s.id).bind(&s.title).bind(&s.agent_id)
-                    .bind(serde_json::to_string(&s.state).unwrap_or_default())
-                    .bind(s.created_at).bind(s.updated_at)
-                    .bind(s.message_count as i64)
-                    .execute(&mut *tx).await?;
+                        .bind(&s.id).bind(&s.title).bind(&s.agent_id)
+                        .bind(serde_json::to_string(&s.state).unwrap_or_default())
+                        .bind(s.created_at).bind(s.updated_at)
+                        .bind(s.message_count as i64)
+                        .execute(&mut *tx).await?;
                 }
                 tx.commit().await?;
                 Ok(())
@@ -120,60 +120,79 @@ macro_rules! define_sql_stores {
             }
 
             async fn load(&self, session_id: &str, limit: usize) -> anyhow::Result<Vec<serde_json::Value>> {
+                // Subquery to fetch the last N messages directly in ASC order,
+                // avoiding materialize-then-reverse of the full result set.
                 let rows: Vec<MessageRow> = sqlx::query_as(
-                    "SELECT type, text, name, args, result, reasoning, extra FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+                    "SELECT type, text, name, args, result, reasoning, extra FROM messages WHERE session_id = ? AND id > (SELECT COALESCE(MAX(id), 0) FROM messages WHERE session_id = ?) - ? ORDER BY id ASC",
                 )
-                .bind(session_id).bind(limit as i64)
+                .bind(session_id).bind(session_id).bind(limit as i64)
                 .fetch_all(&self.db.pool).await?;
-                Ok(rows.into_iter().rev().filter_map(|r| serde_json::from_str(&r.extra).ok()).collect())
+                Ok(rows.into_iter().filter_map(|r| serde_json::from_str(&r.extra).ok()).collect())
             }
 
             async fn save_all(&self, session_id: &str, records: &[serde_json::Value]) -> anyhow::Result<()> {
                 let mut tx = self.db.pool.begin().await?;
                 sqlx::query("DELETE FROM messages WHERE session_id = ?").bind(session_id).execute(&mut *tx).await?;
-                for entry in records {
-                    let msg_type = entry["type"].as_str().unwrap_or("");
-                    let text = entry["text"].as_str().unwrap_or("");
-                    let name = entry["name"].as_str();
-                    let args = entry["args"].as_str();
-                    let result = entry["result"].as_str();
-                    let reasoning = entry["reasoning"].as_str();
-                    let extra = serde_json::to_string(entry)?;
-                    sqlx::query("INSERT INTO messages (session_id, type, text, name, args, result, reasoning, extra) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-                        .bind(session_id).bind(msg_type).bind(text).bind(name).bind(args).bind(result).bind(reasoning).bind(&extra)
-                        .execute(&mut *tx).await?;
+
+                for chunk in records.chunks(100) {
+                    let mut q = sqlx::QueryBuilder::new(
+                        "INSERT INTO messages (session_id, type, text, name, args, result, reasoning, extra) ",
+                    );
+                    q.push_values(chunk, |mut sep, entry| {
+                        let msg_type = entry["type"].as_str().unwrap_or("");
+                        let text = entry["text"].as_str().unwrap_or("");
+                        let name = entry["name"].as_str();
+                        let args = entry["args"].as_str();
+                        let result = entry["result"].as_str();
+                        let reasoning = entry["reasoning"].as_str();
+                        let extra = serde_json::to_string(entry).unwrap_or_default();
+                        sep.push_bind(session_id).push_bind(msg_type).push_bind(text)
+                           .push_bind(name).push_bind(args).push_bind(result)
+                           .push_bind(reasoning).push_bind(extra);
+                    });
+                    q.build().execute(&mut *tx).await?;
                 }
                 tx.commit().await?;
                 Ok(())
             }
 
             async fn search(&self, query: &str, max_results: usize) -> anyhow::Result<Vec<SearchResult>> {
-                let q = query.to_lowercase();
-                if q.trim().is_empty() { return Ok(Vec::new()); }
-                let sessions: Vec<crate::session::SessionMeta> = {
-                    let rows = sqlx::query_as::<_, SessionRow>("SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions")
-                        .fetch_all(&self.db.pool).await?;
-                    rows.into_iter().map(|r| r.into()).collect()
-                };
+                let q = query.trim().to_lowercase();
+                if q.is_empty() { return Ok(Vec::new()); }
+
+                let like_pattern = format!("%{}%", q);
+                let candidate_rows: Vec<(String,)> = sqlx::query_as(
+                    "SELECT DISTINCT m.session_id FROM messages m WHERE m.type IN ('user','assistant','error') AND lower(m.text) LIKE ? UNION SELECT DISTINCT m.session_id FROM messages m WHERE m.type = 'tool_call' AND lower(m.name) LIKE ?",
+                )
+                .bind(&like_pattern).bind(&like_pattern)
+                .fetch_all(&self.db.pool).await?;
+
                 let mut results = Vec::new();
-                for meta in &sessions {
+                for (sid,) in &candidate_rows {
+                    let session_rows: Vec<SessionRow> = sqlx::query_as(
+                        "SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ?",
+                    ).bind(sid).fetch_all(&self.db.pool).await?;
+                    if session_rows.is_empty() { continue; }
+                    let meta: crate::session::SessionMeta = session_rows[0].clone().into();
+
                     let rows: Vec<MessageRow> = sqlx::query_as(
                         "SELECT type, text, name, args, result, reasoning, extra FROM messages WHERE session_id = ? ORDER BY id",
-                    ).bind(&meta.id).fetch_all(&self.db.pool).await?;
+                    ).bind(sid).fetch_all(&self.db.pool).await?;
+
                     for (i, row) in rows.iter().enumerate() {
                         let mt = &row.r#type;
                         let searchable = match mt.as_str() {
                             "user"|"assistant"|"error" => row.text.to_lowercase(),
-                            "tool_call" => format!("[tool: {}]", row.name).to_lowercase(),
+                            "tool_call" => row.name_str().to_lowercase(),
                             _ => continue,
                         };
                         if !searchable.contains(&q) { continue; }
                         let excerpt = match mt.as_str() {
-                            "tool_call" => format!("[工具调用: {}]", row.name),
+                            "tool_call" => format!("[工具调用: {}]", row.name_str()),
                             _ => { let t: String = row.text.chars().take(200).collect(); if row.text.len()>200 {format!("{}...",t)} else {t} }
                         };
                         let ctx_before: Vec<String> = rows[i.saturating_sub(2)..i].iter().map(|m| m.text.chars().take(100).collect()).collect();
-                        let ctx_after: Vec<String> = if i+1<rows.len() { rows[i+1..=std::cmp::min(i+1, rows.len()-1)].iter().map(|m| m.text.chars().take(100).collect()).collect() } else {vec![]};
+                        let ctx_after: Vec<String> = rows[i+1..].iter().take(1).map(|m| m.text.chars().take(100).collect()).collect();
                         results.push(SearchResult { session_id: meta.id.clone(), session_title: meta.title.clone(), message_type: mt.clone(), excerpt, context_before: ctx_before, context_after: ctx_after, updated_at: meta.updated_at });
                         if results.len() >= max_results { return Ok(results); }
                     }
@@ -183,8 +202,6 @@ macro_rules! define_sql_stores {
 
             async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
                 sqlx::query("DELETE FROM messages WHERE session_id = ?").bind(session_id).execute(&self.db.pool).await?;
-                sqlx::query("DELETE FROM api_cache WHERE session_id = ?").bind(session_id).execute(&self.db.pool).await?;
-                sqlx::query("DELETE FROM plan_steps WHERE session_id = ?").bind(session_id).execute(&self.db.pool).await?;
                 Ok(())
             }
         }
@@ -271,12 +288,13 @@ macro_rules! define_sql_stores {
                         .bind(r.prompt_tokens as i64).bind(r.completion_tokens as i64).bind(r.total_tokens as i64)
                         .bind(r.has_tool_calls as i64).bind(r.tool_call_count as i64).bind(r.react_rounds as i64)
                         .bind(r.success as i64).bind(r.latency_ms as i64).bind(r.estimated_cost_usd)
+                        .bind(&r.trace_id)
                         .execute(&self.db.pool).await?;
                 }
                 Ok(())
             }
             async fn read_range(&self, from: Option<i64>, to: Option<i64>) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
-                macro_rules! cols { () => { "SELECT id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd FROM token_records" }; }
+                macro_rules! cols { () => { "SELECT id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id FROM token_records" }; }
                 let rows: Vec<TokenRecordRow> = match (from, to) {
                     (Some(f), Some(t)) => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp")).bind(f).bind(t).fetch_all(&self.db.pool).await?,
                     (Some(f), None)     => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ? ORDER BY timestamp")).bind(f).fetch_all(&self.db.pool).await?,
@@ -351,7 +369,8 @@ macro_rules! define_sql_stores {
                 let mut tx = self.db.pool.begin().await?;
                 sqlx::query("DELETE FROM tool_cache WHERE agent_id = ?").bind(aid).execute(&mut *tx).await?;
                 for (tn, doc) in docs {
-                    sqlx::query("INSERT INTO tool_cache (agent_id, tool_name, doc) VALUES (?, ?, ?)").bind(aid).bind(tn).bind(doc).execute(&mut *tx).await?;
+                    sqlx::query("INSERT INTO tool_cache (agent_id, tool_name, doc) VALUES (?, ?, ?)")
+                        .bind(aid).bind(tn).bind(doc).execute(&mut *tx).await?;
                 }
                 tx.commit().await?;
                 Ok(())
@@ -362,7 +381,7 @@ macro_rules! define_sql_stores {
 
 // ── Shared row types ──
 
-#[derive(sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 struct SessionRow {
     id: String,
     title: String,
@@ -388,15 +407,20 @@ impl From<SessionRow> for crate::session::SessionMeta {
 }
 
 #[derive(sqlx::FromRow)]
-#[allow(dead_code)]
 struct MessageRow {
     r#type: String,
     text: String,
-    name: String,
-    args: String,
-    result: String,
-    reasoning: String,
+    name: Option<String>,
+    args: Option<String>,
+    result: Option<String>,
+    reasoning: Option<String>,
     extra: String,
+}
+
+impl MessageRow {
+    fn name_str(&self) -> &str {
+        self.name.as_deref().unwrap_or("")
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -415,7 +439,7 @@ struct TokenRecordRow {
     success: i64,
     latency_ms: i64,
     estimated_cost_usd: f64,
-    trace_id: String,
+    trace_id: Option<String>,
 }
 
 impl From<TokenRecordRow> for crate::stats::TokenRecord {
@@ -435,7 +459,7 @@ impl From<TokenRecordRow> for crate::stats::TokenRecord {
             success: r.success != 0,
             latency_ms: r.latency_ms as u64,
             estimated_cost_usd: r.estimated_cost_usd,
-            trace_id: r.trace_id,
+            trace_id: r.trace_id.unwrap_or_default(),
         }
     }
 }

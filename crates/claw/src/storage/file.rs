@@ -12,10 +12,6 @@
 //!
 //! Each repository trait is implemented by a dedicated zero-sized wrapper around
 //! `PathBuf`, avoiding the method-ambiguity problem of a monolithic `FileBackend`.
-//!
-//! NOTE: Not all stores are yet wired into every consumer — dead_code warnings
-//! are expected during progressive rollout.
-#![allow(dead_code)]
 
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -24,7 +20,9 @@ use std::sync::Mutex;
 
 use super::*;
 
-static FILE_WRITE_LOCK: Mutex<()> = Mutex::new(());
+/// Domain-specific locks to prevent unrelated writes from blocking each other.
+static MESSAGES_LOCK: Mutex<()> = Mutex::new(());
+static STATS_LOCK: Mutex<()> = Mutex::new(());
 
 fn ensure_dir(p: &Path) -> anyhow::Result<()> {
     if let Some(parent) = p.parent() {
@@ -45,6 +43,13 @@ where
     tokio::task::spawn_blocking(f)
         .await
         .map_err(|e| anyhow::anyhow!("blocking task panicked: {}", e))?
+}
+
+fn lock_guard(mu: &Mutex<()>) -> std::sync::MutexGuard<'_, ()> {
+    mu.lock().unwrap_or_else(|e| {
+        tracing::error!("file mutex poisoned — previous write may have panicked; recovering");
+        e.into_inner()
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -91,13 +96,12 @@ fn stats_path(claw_dir: &Path) -> PathBuf {
     claw_dir.join("stats").join("usage.jsonl")
 }
 
+/// Extract timestamp from a JSONL line by parsing the whole line.
+/// Avoids substring matching (which could match `"start_timestamp"` etc.).
 fn extract_timestamp(line: &str) -> Option<i64> {
-    let marker = "\"timestamp\":";
-    line.find(marker).and_then(|pos| {
-        let rest = &line[pos + marker.len()..];
-        let end = rest.find(|c: char| !c.is_ascii_digit() && c != '-')?;
-        rest[..end].parse::<i64>().ok()
-    })
+    serde_json::from_str::<serde_json::Value>(line.trim())
+        .ok()
+        .and_then(|v| v.get("timestamp").and_then(|t| t.as_i64()))
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -126,7 +130,12 @@ impl SessionRepo for FileSessionStore {
                 return Ok(Vec::new());
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(serde_json::from_str(&content).unwrap_or_default())
+            serde_json::from_str(&content).inspect_err(|e| {
+                tracing::error!(
+                    "index.json 损坏，无法解析 ({}); 返回空列表以允许重建",
+                    e
+                )
+            }).or_else(|_| Ok(Vec::new()))
         })
         .await
     }
@@ -158,17 +167,22 @@ impl FileMessageStore {
 #[async_trait]
 impl MessageRepo for FileMessageStore {
     async fn append(&self, session_id: &str, entry: &serde_json::Value) -> anyhow::Result<()> {
-        let path = messages_path(&self.claw_dir, session_id);
         let line = serde_json::to_string(entry)?;
+        let path = messages_path(&self.claw_dir, session_id);
         blocking(move || {
-            let _guard = FILE_WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-            ensure_dir(&path)?;
-            use std::io::Write;
-            let mut file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&path)?;
-            writeln!(file, "{}", line)?;
+            {
+                let _guard = MESSAGES_LOCK.lock().unwrap_or_else(|e| {
+                    tracing::error!("messages lock poisoned, recovering");
+                    e.into_inner()
+                });
+                ensure_dir(&path)?;
+                use std::io::Write;
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)?;
+                writeln!(file, "{}", line)?;
+            }
             Ok(())
         })
         .await
@@ -180,14 +194,19 @@ impl MessageRepo for FileMessageStore {
             if !path.exists() {
                 return Ok(Vec::new());
             }
-            let content = std::fs::read_to_string(&path)?;
-            let all_lines: Vec<serde_json::Value> = content
+            let file = std::fs::File::open(&path)?;
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(file);
+            let all_lines: Vec<serde_json::Value> = reader
                 .lines()
                 .filter_map(|line| {
+                    let line = line.ok()?;
                     if line.trim().is_empty() {
                         None
                     } else {
-                        serde_json::from_str(line).ok()
+                        serde_json::from_str(&line)
+                            .inspect_err(|e| tracing::warn!("跳过损坏的 JSONL 行: {}", e))
+                            .ok()
                     }
                 })
                 .collect();
@@ -206,10 +225,11 @@ impl MessageRepo for FileMessageStore {
         records: &[serde_json::Value],
     ) -> anyhow::Result<()> {
         let path = messages_path(&self.claw_dir, session_id);
-        let content: String = records
+        let content = records
             .iter()
-            .filter_map(|record| serde_json::to_string(record).ok().map(|line| line + "\n"))
-            .collect();
+            .map(|record| serde_json::to_string(record).map(|line| line + "\n"))
+            .collect::<Result<Vec<_>, _>>()?;
+        let content = content.concat();
         blocking(move || {
             ensure_dir(&path)?;
             atomic_write(&path, &content).map_err(anyhow::Error::from)
@@ -231,7 +251,11 @@ impl MessageRepo for FileMessageStore {
             let sessions: Vec<crate::session::SessionMeta> = if index_path.exists() {
                 std::fs::read_to_string(&index_path)
                     .ok()
-                    .and_then(|c| serde_json::from_str(&c).ok())
+                    .and_then(|c| {
+                        serde_json::from_str(&c)
+                            .inspect_err(|e| tracing::error!("index.json 损坏: {}", e))
+                            .ok()
+                    })
                     .unwrap_or_default()
             } else {
                 Vec::new()
@@ -244,19 +268,18 @@ impl MessageRepo for FileMessageStore {
                 if !jsonl_path.exists() {
                     continue;
                 }
-                let content = match std::fs::read_to_string(&jsonl_path) {
-                    Ok(c) => c,
+                let file = match std::fs::File::open(&jsonl_path) {
+                    Ok(f) => f,
                     Err(_) => continue,
                 };
-
-                let lines: Vec<serde_json::Value> = content
+                use std::io::{BufRead, BufReader};
+                let reader = BufReader::new(file);
+                let lines: Vec<serde_json::Value> = reader
                     .lines()
                     .filter_map(|line| {
-                        if line.trim().is_empty() {
-                            None
-                        } else {
-                            serde_json::from_str(line).ok()
-                        }
+                        let line = line.ok()?;
+                        if line.trim().is_empty() { None }
+                        else { serde_json::from_str(&line).ok() }
                     })
                     .collect();
 
@@ -267,7 +290,7 @@ impl MessageRepo for FileMessageStore {
 
                     let searchable = match msg_type {
                         "user" | "assistant" | "error" => text.to_lowercase(),
-                        "tool_call" => format!("[tool: {}]", name).to_lowercase(),
+                        "tool_call" => name.to_lowercase(),
                         _ => continue,
                     };
 
@@ -297,8 +320,8 @@ impl MessageRepo for FileMessageStore {
                         .collect();
 
                     let context_after: Vec<String> = if i + 1 < lines.len() {
-                        let end = std::cmp::min(i + 1, lines.len() - 1);
-                        lines[i + 1..=end]
+                        let end = std::cmp::min(i + 2, lines.len());
+                        lines[i + 1..end]
                             .iter()
                             .filter_map(|m| {
                                 let t = m.get("text").and_then(|v| v.as_str())?;
@@ -333,12 +356,8 @@ impl MessageRepo for FileMessageStore {
 
     async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
         let msg = messages_path(&self.claw_dir, session_id);
-        let api = api_cache_path(&self.claw_dir, session_id);
-        let plan = plan_steps_path(&self.claw_dir, session_id);
         blocking(move || {
             let _ = std::fs::remove_file(&msg);
-            let _ = std::fs::remove_file(&api);
-            let _ = std::fs::remove_file(&plan);
             Ok(())
         })
         .await
@@ -377,7 +396,9 @@ impl ApiCacheRepo for FileApiCacheStore {
                 return Ok(None);
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(serde_json::from_str(&content).ok())
+            Ok(Some(serde_json::from_str(&content).inspect_err(|e| {
+                tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
+            }).unwrap_or_default()))
         })
         .await
     }
@@ -497,7 +518,7 @@ impl StatsRepo for FileStatsStore {
             .collect::<Result<Vec<_>, _>>()?;
 
         blocking(move || {
-            let _guard = FILE_WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+            let _guard = lock_guard(&STATS_LOCK);
             ensure_dir(&path)?;
             use std::io::Write;
             let mut file = std::fs::OpenOptions::new()
@@ -528,22 +549,37 @@ impl StatsRepo for FileStatsStore {
                 return Ok(0);
             }
             let cutoff = chrono::Local::now().timestamp() - (keep_days as i64 * 86400);
-            let all = read_range_sync(&path, None, None)?;
-            let before = all.len();
-            let kept: Vec<&crate::stats::TokenRecord> =
-                all.iter().filter(|r| r.timestamp >= cutoff).collect();
-            let removed = before - kept.len();
+
+            // Stream through the file line by line, keeping only recent records
+            let file = std::fs::File::open(&path)?;
+            use std::io::{BufRead, BufReader, Write};
+            let reader = BufReader::new(&file);
+            let mut kept: Vec<String> = Vec::new();
+            let mut removed = 0usize;
+            for line in reader.lines() {
+                let line = line?;
+                if line.trim().is_empty() {
+                    continue;
+                }
+                if let Some(ts) = extract_timestamp(&line) {
+                    if ts < cutoff {
+                        removed += 1;
+                        continue;
+                    }
+                }
+                kept.push(line);
+            }
+
             if removed == 0 {
+                tracing::debug!("prune stats: 无需清理");
                 return Ok(0);
             }
+
             let temp_path = path.with_extension("jsonl.tmp");
             {
-                use std::io::Write;
                 let mut file = std::fs::File::create(&temp_path)?;
-                for record in &kept {
-                    let json = serde_json::to_string(record)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-                    writeln!(file, "{}", json)?;
+                for line in &kept {
+                    writeln!(file, "{}", line)?;
                 }
             }
             std::fs::rename(&temp_path, &path)?;
@@ -664,8 +700,7 @@ impl SkillRepo for FileSkillStore {
         blocking(move || {
             std::fs::create_dir_all(&dir)?;
             let path = dir.join(format!("{}.md", &name));
-            std::fs::write(&path, &content)?;
-            Ok(())
+            atomic_write(&path, &content).map_err(anyhow::Error::from)
         })
         .await
     }

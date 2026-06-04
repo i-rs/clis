@@ -114,14 +114,27 @@ impl MySqlBackend {
                 react_rounds BIGINT NOT NULL,
                 success TINYINT NOT NULL,
                 latency_ms BIGINT NOT NULL,
-                estimated_cost_usd DOUBLE NOT NULL
+                estimated_cost_usd DOUBLE NOT NULL,
+                trace_id VARCHAR(64) NOT NULL DEFAULT ''
             ) ENGINE=InnoDB",
         )
         .execute(&self.pool)
         .await?;
+        // MySQL doesn't support CREATE INDEX IF NOT EXISTS; wrap in a procedural
+        // guard so migrate() stays idempotent.
+        sqlx::query(
+            "SELECT 1 FROM information_schema.statistics
+             WHERE table_schema = DATABASE()
+               AND table_name = 'token_records'
+               AND index_name = 'idx_token_ts'
+             LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
         sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)")
             .execute(&self.pool)
-            .await?;
+            .await
+            .or_else(|_| Ok::<_, anyhow::Error>(()))?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS skills (
@@ -163,8 +176,8 @@ define_sql_stores!(
     MySqlSkillStore,
     MySqlToolCacheStore,
     "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title), agent_id=VALUES(agent_id), state=VALUES(state), created_at=VALUES(created_at), updated_at=VALUES(updated_at), message_count=VALUES(message_count)",
-    "REPLACE INTO api_cache (session_id, messages) VALUES (?, ?)",
-    "REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
-    "REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-    "REPLACE INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?)",
+    "INSERT INTO api_cache (session_id, messages) VALUES (?, ?) ON DUPLICATE KEY UPDATE messages=VALUES(messages)",
+    "INSERT INTO memory (agent_id, data) VALUES (?, ?) ON DUPLICATE KEY UPDATE data=VALUES(data)",
+    "INSERT INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE timestamp=VALUES(timestamp), agent_id=VALUES(agent_id), model=VALUES(model), provider=VALUES(provider), prompt_tokens=VALUES(prompt_tokens), completion_tokens=VALUES(completion_tokens), total_tokens=VALUES(total_tokens), has_tool_calls=VALUES(has_tool_calls), tool_call_count=VALUES(tool_call_count), react_rounds=VALUES(react_rounds), success=VALUES(success), latency_ms=VALUES(latency_ms), estimated_cost_usd=VALUES(estimated_cost_usd), trace_id=VALUES(trace_id)",
+    "INSERT INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE content=VALUES(content), parameters=VALUES(parameters)",
 );

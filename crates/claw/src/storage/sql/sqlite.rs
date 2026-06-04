@@ -1,6 +1,7 @@
 //! SQLite storage backend.
 
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use super::*;
@@ -15,8 +16,13 @@ impl SqliteBackend {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let url = format!("sqlite:{}?mode=rwc", path.display());
-        let pool = sqlx::SqlitePool::connect(&url).await?;
+        // PRAGMA foreign_keys is per-connection; SqliteConnectOptions.foreign_keys(true)
+        // ensures every connection in the pool has FK enforced, not just the first.
+        let url = format!("sqlite:{}", path.display());
+        let options = sqlx::sqlite::SqliteConnectOptions::from_str(&url)?
+            .create_if_missing(true)
+            .foreign_keys(true);
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
         let backend = Self { pool };
         backend.migrate().await?;
         Ok(backend)
@@ -24,7 +30,9 @@ impl SqliteBackend {
 
     #[cfg(test)]
     pub async fn new_in_memory() -> anyhow::Result<Self> {
-        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await?;
+        let options = sqlx::sqlite::SqliteConnectOptions::from_str("sqlite::memory:")?
+            .foreign_keys(true);
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
         let backend = Self { pool };
         backend.migrate().await?;
         Ok(backend)
@@ -57,15 +65,12 @@ impl SqliteBackend {
         )
         .execute(&self.pool)
         .await?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS token_records (id TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, agent_id TEXT NOT NULL, model TEXT NOT NULL, provider TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, has_tool_calls INTEGER NOT NULL, tool_call_count INTEGER NOT NULL, react_rounds INTEGER NOT NULL, success INTEGER NOT NULL, latency_ms INTEGER NOT NULL, estimated_cost_usd REAL NOT NULL)").execute(&self.pool).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS token_records (id TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, agent_id TEXT NOT NULL, model TEXT NOT NULL, provider TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, has_tool_calls INTEGER NOT NULL, tool_call_count INTEGER NOT NULL, react_rounds INTEGER NOT NULL, success INTEGER NOT NULL, latency_ms INTEGER NOT NULL, estimated_cost_usd REAL NOT NULL, trace_id TEXT NOT NULL DEFAULT '')").execute(&self.pool).await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_token_ts ON token_records(timestamp)")
             .execute(&self.pool)
             .await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS skills (agent_id TEXT NOT NULL, name TEXT NOT NULL, content TEXT NOT NULL, parameters TEXT, PRIMARY KEY (agent_id, name))").execute(&self.pool).await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS tool_cache (agent_id TEXT NOT NULL, tool_name TEXT NOT NULL, doc TEXT NOT NULL, PRIMARY KEY (agent_id, tool_name))").execute(&self.pool).await?;
-        sqlx::query("PRAGMA foreign_keys = ON")
-            .execute(&self.pool)
-            .await?;
         Ok(())
     }
 }
@@ -85,7 +90,7 @@ define_sql_stores!(
     "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, agent_id=excluded.agent_id, state=excluded.state, created_at=excluded.created_at, updated_at=excluded.updated_at, message_count=excluded.message_count",
     "INSERT OR REPLACE INTO api_cache (session_id, messages) VALUES (?, ?)",
     "INSERT OR REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
-    "INSERT OR REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    "INSERT OR REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     "INSERT OR REPLACE INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?)",
 );
 
