@@ -632,13 +632,13 @@ impl AppCore {
                 _ => None,
             })
             .collect();
-        if tool_results.is_empty() {
-            return None;
-        }
         let last_assistant = messages.iter().rev().find_map(|m| match m {
             crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.as_str()),
             _ => None,
         })?;
+        if last_assistant.is_empty() {
+            return None;
+        }
 
         let quality = {
             let i_rs_tools: Vec<&str> = self.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
