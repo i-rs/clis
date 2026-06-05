@@ -165,7 +165,7 @@ function sendMessage(message, agentId) {
 function streamChat(sessionId, handlers) {
   handlers = handlers || {}
   const url = baseUrl()
-  const task = { aborted: false, abort: function () { this.aborted = true } }
+  const task = { aborted: false, _realTask: null, abort: function () { this.aborted = true; if (this._realTask && this._realTask.abort) { try { this._realTask.abort() } catch (e) {} } } }
 
   if (!url) {
     if (handlers.onError) handlers.onError({ error: '未配置服务器', code: 'NO_SERVER' })
@@ -174,7 +174,44 @@ function streamChat(sessionId, handlers) {
 
   const streamUrl = url + '/chat/stream/' + encodeURIComponent(sessionId)
 
-  wx.request({
+  // SSE buffer accumulator: chunks may split a single SSE event across
+  // multiple onChunkReceived callbacks, so we maintain a running buffer
+  // and only parse complete (terminated by blank line) events.
+  var buffer = ''
+  var currentEvent = ''
+  var currentData = ''
+  var receivedAny = false
+  var doneFired = false
+
+  function processLine(line) {
+    if (line.indexOf('event: ') === 0) {
+      currentEvent = line.substring(7).trim()
+    } else if (line.indexOf('data: ') === 0) {
+      if (currentData) currentData += '\n'
+      currentData += line.substring(6)
+    } else if (line === '') {
+      // blank line = event boundary
+      if (currentEvent && currentData) {
+        receivedAny = true
+        handleSseEvent(currentEvent, currentData, handlers)
+        if (currentEvent === 'done') doneFired = true
+      }
+      currentEvent = ''
+      currentData = ''
+    }
+  }
+
+  function feedChunk(text) {
+    buffer += text
+    var lines = buffer.split('\n')
+    // last element may be incomplete (no trailing newline), keep it in buffer
+    buffer = lines.pop() || ''
+    for (var i = 0; i < lines.length; i++) {
+      processLine(lines[i].replace(/\r$/, ''))
+    }
+  }
+
+  var realTask = wx.request({
     url: streamUrl,
     method: 'GET',
     header: authHeader(),
@@ -182,59 +219,34 @@ function streamChat(sessionId, handlers) {
     timeout: STREAM_TIMEOUT,
     success: function (res) {
       if (task.aborted) return
-      if (res.statusCode === 401) {
+      // With enableChunked:true the body comes via onChunkReceived, but
+      // some platforms may still deliver a final payload here. Drain it
+      // to be safe, then ensure onDone is fired exactly once.
+      if (res && res.statusCode === 401) {
         if (handlers.onError) handlers.onError({ error: '认证失败', code: 'UNAUTHORIZED' })
         return
       }
-      if (res.statusCode >= 400) {
+      if (res && res.statusCode >= 400) {
         if (handlers.onError) handlers.onError({ error: '流式请求失败 (HTTP ' + res.statusCode + ')', code: 'STREAM_ERROR' })
         return
       }
-      // Parse SSE events from the response data
-      var rawData = res.data
-      // Convert ArrayBuffer to string if needed (Content-Type: text/event-stream)
-      if (rawData && rawData.byteLength !== undefined) {
-        var bytes = new Uint8Array(rawData)
-        var str = ''
-        for (var i = 0; i < bytes.length; i++) {
-          str += String.fromCharCode(bytes[i])
+      // Flush any trailing partial event that didn't end with a blank line
+      if (buffer) {
+        var trailing = buffer
+        buffer = ''
+        var tailLines = trailing.split('\n')
+        for (var j = 0; j < tailLines.length; j++) {
+          processLine(tailLines[j].replace(/\r$/, ''))
         }
-        rawData = str
-      }
-      if (typeof rawData === 'string' && rawData.indexOf('event:') !== -1) {
-        // SSE text received — parse all events and fire handlers
-        var lines = rawData.split('\n')
-        var currentEvent = ''
-        var currentData = ''
-        var hasEvents = false
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i]
-          if (line.indexOf('event: ') === 0) {
-            currentEvent = line.substring(7).trim()
-          } else if (line.indexOf('data: ') === 0) {
-            if (currentData) currentData += '\n'
-            currentData += line.substring(6)
-          } else if (line === '' || line === '\r') {
-            // Empty line = event boundary — fire handler
-            if (currentEvent && currentData) {
-              hasEvents = true
-              handleSseEvent(currentEvent, currentData, handlers)
-            }
-            currentEvent = ''
-            currentData = ''
-          }
-        }
-        // Flush any remaining event
         if (currentEvent && currentData) {
-          hasEvents = true
           handleSseEvent(currentEvent, currentData, handlers)
+          if (currentEvent === 'done') doneFired = true
+          currentEvent = ''
+          currentData = ''
         }
-        if (!hasEvents && handlers.onDone) {
-          handlers.onDone(null)
-        }
-      } else {
-        // No SSE data — just signal done
-        if (handlers.onDone) handlers.onDone(null)
+      }
+      if (!doneFired && handlers.onDone) {
+        handlers.onDone(null, null)
       }
     },
     fail: function (err) {
@@ -242,6 +254,29 @@ function streamChat(sessionId, handlers) {
       if (handlers.onError) handlers.onError({ error: describeError(err), code: 'NETWORK_ERROR' })
     }
   })
+
+  task._realTask = realTask
+
+  // Primary data path: chunks arrive progressively as the LLM streams.
+  try {
+    realTask.onChunkReceived(function (res) {
+      if (task.aborted) return
+      if (!res || !res.data) return
+      var bytes = new Uint8Array(res.data)
+      var text = ''
+      for (var i = 0; i < bytes.length; i++) {
+        text += String.fromCharCode(bytes[i])
+      }
+      // bytes are UTF-8 — decode multi-byte sequences
+      try {
+        text = decodeURIComponent(escape(text))
+      } catch (e) {}
+      feedChunk(text)
+    })
+  } catch (e) {
+    // Some runtimes don't expose onChunkReceived; fall back to success path
+    console.warn('[SSE] onChunkReceived unavailable:', e)
+  }
 
   return task
 }
@@ -280,6 +315,14 @@ function handleSseEvent(event, data, handlers) {
           } catch (e) {}
         }
         break
+      case 'image_generated':
+        if (handlers.onImageGenerated) {
+          try {
+            var imgInfo = JSON.parse(data)
+            handlers.onImageGenerated(imgInfo)
+          } catch (e) {}
+        }
+        break
       case 'quality_score':
         if (handlers.onQuality) {
           try {
@@ -296,7 +339,7 @@ function handleSseEvent(event, data, handlers) {
             var quality = doneData.quality || null
             handlers.onDone(usage, quality)
           } catch (e) {
-            handlers.onDone(null)
+            handlers.onDone(null, null)
           }
         }
         break

@@ -2,6 +2,30 @@ const api = require('../../utils/api.js')
 const helper = require('../../utils/page-helper.js')
 const app = getApp()
 
+// Quality score is 0.0-1.0; render as percentage (e.g. 80%). Returns '' if invalid.
+function formatScorePct(score) {
+  if (score === null || score === undefined || score === '') return ''
+  const n = Number(score)
+  if (isNaN(n)) return ''
+  return Math.round(n * 100) + '%'
+}
+
+// Convert a server-side image path (e.g. "/tmp/.../foo.png" or "uploads/foo.png")
+// into a URL consumable by <image src>. Returns '' if the path can't be resolved.
+function buildImageUrl(path) {
+  if (!path) return ''
+  const p = String(path)
+  // Already absolute URL
+  if (/^https?:\/\//i.test(p)) return p
+  const base = (app.globalData.serverUrl || '').replace(/\/+$/, '')
+  if (!base) return p
+  // Server's dashboard serves /api/images/{filename}; the path we receive
+  // is typically the full filesystem path, so extract the basename.
+  const basename = p.split('/').pop()
+  if (!basename) return ''
+  return base + '/api/images/' + encodeURIComponent(basename)
+}
+
 Page({
   data: {
     messages: [],
@@ -213,6 +237,35 @@ Page({
             reasoningExpanded: false
           })
         }
+      } else if (m.role === 'quality') {
+        const score = (m.score !== undefined && m.score !== null) ? m.score : null
+        msgs.push({
+          id: helper.genId('qlt'),
+          role: 'quality',
+          score: score,
+          scorePct: formatScorePct(score),
+          complete: m.complete !== false,
+          issues: m.issues || [],
+          referencesValid: m.references_valid || 0
+        })
+      } else if (m.role === 'evaluation') {
+        msgs.push({
+          id: helper.genId('eva'),
+          role: 'evaluation',
+          tool: m.tool || '',
+          valid: m.valid !== false,
+          issues: m.issues || []
+        })
+      } else if (m.role === 'image') {
+        const imgUrl = m.url ? String(m.url) : buildImageUrl(m.path || '')
+        msgs.push({
+          id: helper.genId('img'),
+          role: 'image',
+          url: imgUrl,
+          altText: m.alt_text || '',
+          width: m.width || 0,
+          height: m.height || 0
+        })
       }
     }
     this.setData({ messages: msgs })
@@ -296,43 +349,51 @@ Page({
       return
     }
 
-    // wx.request buffers the entire SSE response, so all events arrive
-    // synchronously in one success callback. Use local accumulators to
-    // avoid data loss from async setData / throttle.
+    // SSE chunks arrive progressively via onChunkReceived, so we
+    // accumulate locally and throttle setData to keep the UI responsive
+    // without flooding the renderer.
     var accContent = ''
     var accReasoning = ''
+    var pendingFlush = false
+
+    function scheduleFlush() {
+      if (pendingFlush) return
+      pendingFlush = true
+      setTimeout(function () {
+        pendingFlush = false
+        that.setData({
+          streamingContent: accContent,
+          streamingReasoning: accReasoning,
+          renderTick: Date.now()
+        })
+        that.scrollToBottom()
+      }, 60)
+    }
 
     const streamTask = api.streamChat(sessionId, {
       onToken: function (token) {
         accContent += token
+        scheduleFlush()
       },
       onReasoning: function (text) {
         accReasoning += text
+        scheduleFlush()
       },
       onStatus: function () {},
       onError: function (err) {
-        that.setData({ loading: false, renderTick: 0 })
+        that.setData({ loading: false, renderTick: 0, streamingContent: '', streamingReasoning: '' })
         wx.showToast({ title: (err && err.error) || '流式错误', icon: 'none' })
       },
       onDone: function (usage, quality) {
         that.commitStreamMessage(usage, accContent, accReasoning)
-        // If quality data received separately (not from done event), it's already added by onQuality
         if (quality && !that.data._qualityAdded) {
-          const qualityMsg = {
-            id: helper.genId('qlt'),
-            role: 'quality',
-            score: (quality.score !== null && quality.score !== undefined) ? quality.score : '',
-            complete: !!quality.complete,
-            issues: quality.issues || [],
-            referencesValid: !!quality.references_valid
-          }
-          that.setData({
-            messages: that.data.messages.concat([qualityMsg]),
-            _qualityAdded: true
-          })
+          that.appendQualityMessage(quality)
         }
-        that.setData({ loading: false, renderTick: 0, _qualityAdded: false })
+        that.setData({ loading: false, renderTick: 0, _qualityAdded: false, streamingContent: '', streamingReasoning: '' })
         that.scrollToBottom()
+        // After streaming ends the server persists quality/evaluation
+        // messages to history; reload so they appear in the chat.
+        that.reloadAfterStream(sessionId)
       },
       onNewRound: function () {
         that.commitStreamMessage(null, accContent, accReasoning)
@@ -390,24 +451,62 @@ Page({
         that.setData({ messages: messages, renderTick: Date.now() })
         that.scrollToBottom()
       },
+      onImageGenerated: function (imgInfo) {
+        if (!imgInfo) return
+        const imgMsg = {
+          id: helper.genId('img'),
+          role: 'image',
+          url: buildImageUrl(imgInfo.path || ''),
+          altText: imgInfo.alt_text || '',
+          width: imgInfo.width || 0,
+          height: imgInfo.height || 0
+        }
+        const messages = that.data.messages.concat([imgMsg])
+        that.setData({ messages: messages, renderTick: Date.now() })
+        that.scrollToBottom()
+      },
       onQuality: function (qualityInfo) {
         if (!qualityInfo) return
         that.setData({ _qualityAdded: true })
-        const qualityMsg = {
-          id: helper.genId('qlt'),
-          role: 'quality',
-          score: (qualityInfo.score !== null && qualityInfo.score !== undefined) ? qualityInfo.score : '',
-          complete: !!qualityInfo.complete,
-          issues: qualityInfo.issues || [],
-          referencesValid: !!qualityInfo.references_valid
-        }
-        const messages = that.data.messages.concat([qualityMsg])
-        that.setData({ messages: messages, renderTick: Date.now() })
-        that.scrollToBottom()
+        that.appendQualityMessage(qualityInfo)
       }
     })
 
     this.setData({ streamTask: streamTask })
+  },
+
+  // Append a quality message to the chat (used by onDone and onQuality).
+  appendQualityMessage: function (qualityInfo) {
+    const score = (qualityInfo.score !== undefined && qualityInfo.score !== null) ? qualityInfo.score : null
+    const qualityMsg = {
+      id: helper.genId('qlt'),
+      role: 'quality',
+      score: score,
+      scorePct: formatScorePct(score),
+      complete: !!qualityInfo.complete,
+      issues: qualityInfo.issues || [],
+      referencesValid: qualityInfo.references_valid || 0
+    }
+    const messages = this.data.messages.concat([qualityMsg])
+    this.setData({ messages: messages, renderTick: Date.now() })
+    this.scrollToBottom()
+  },
+
+  // After streaming completes, the server persists trailing quality /
+  // evaluation messages to history. Reload silently to surface them
+  // without disturbing the chat (no loading spinner).
+  reloadAfterStream: function (sessionId) {
+    const that = this
+    api.getSession(sessionId).then(function (res) {
+      if (res && res.success && res.data) {
+        // Only reload if there are more server-side messages than what we
+        // currently show (i.e. a quality/evaluation was appended post-done).
+        const serverCount = (res.data.messages && res.data.messages.length) || 0
+        if (serverCount > that.data.messages.length) {
+          that.loadMessages(res.data)
+        }
+      }
+    }).catch(function () {})
   },
 
   commitStreamMessage: function (tokenUsage, content, reasoning) {

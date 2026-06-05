@@ -110,45 +110,56 @@
             </view>
           </view>
         </view>
-      </view>
 
-      <!-- ===== Quality Score ===== -->
-      <view class="msg-row msg-row-ai" wx:if="{{item.role === 'quality'}}">
-        <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
-        <view class="msg-content msg-content-ai">
-          <view class="quality-card">
-            <view class="quality-header">
-              <text class="quality-label">回答质量</text>
-              <text class="quality-score {{item.score > 5 ? 'quality-score-high' : 'quality-score-low'}}">{{item.score}}</text>
-            </view>
-            <view class="quality-details" wx:if="{{item.issues && item.issues.length > 0}}">
-              <view wx:for="{{item.issues}}" wx:key="*this">
-                <text class="quality-issue">• {{item}}</text>
-              </view>
-            </view>
-            <view class="quality-validity" wx:if="{{item.referencesValid}}">
-              <text class="quality-valid-text">✓ 引用有效</text>
-            </view>
-            <view class="quality-validity" wx:if="{{!item.complete}}">
-              <text class="quality-warn-text">⚠ 回答可能不完整</text>
+        <!-- ===== Image Generated ===== -->
+        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'image'}}">
+          <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
+          <view class="msg-content msg-content-ai">
+            <view class="img-card">
+              <image class="img-msg" src="{{item.url}}" mode="widthFix" lazy-load show-menu-by-longpress="{{true}}" wx:if="{{item.url}}" />
+              <text class="img-caption" wx:if="{{item.altText}}">{{item.altText}}</text>
             </view>
           </view>
         </view>
-      </view>
 
-      <!-- ===== Evaluation ===== -->
-      <view class="msg-row msg-row-ai" wx:if="{{item.role === 'evaluation'}}">
-        <view class="avatar avatar-tool"><text class="avatar-text">◉</text></view>
-        <view class="msg-content msg-content-ai">
-          <view class="eval-card {{item.valid ? '' : 'eval-card-invalid'}}">
-            <view class="eval-header">
-              <text class="eval-icon">{{item.valid ? '✓' : '✗'}}</text>
-              <text class="eval-tool">工具: {{item.tool}}</text>
-              <text class="eval-badge {{item.valid ? 'eval-badge-ok' : 'eval-badge-fail'}}">{{item.valid ? '有效' : '问题'}}</text>
+        <!-- ===== Quality Score ===== -->
+        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'quality'}}">
+          <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
+          <view class="msg-content msg-content-ai">
+            <view class="quality-card">
+              <view class="quality-header">
+                <text class="quality-label">回答质量</text>
+                <text class="quality-score {{item.score >= 0.7 ? 'quality-score-high' : (item.score >= 0.4 ? 'quality-score-mid' : 'quality-score-low')}}">{{item.scorePct || '—'}}</text>
+              </view>
+              <view class="quality-details" wx:if="{{item.issues && item.issues.length > 0}}">
+                <view wx:for="{{item.issues}}" wx:key="*this" wx:for-item="iss">
+                  <text class="quality-issue">• {{iss}}</text>
+                </view>
+              </view>
+              <view class="quality-validity" wx:if="{{item.referencesValid > 0}}">
+                <text class="quality-valid-text">✓ 引用有效 ({{item.referencesValid}})</text>
+              </view>
+              <view class="quality-validity" wx:if="{{!item.complete}}">
+                <text class="quality-warn-text">⚠ 回答可能不完整</text>
+              </view>
             </view>
-            <view class="eval-issues" wx:if="{{item.issues && item.issues.length > 0}}">
-              <view wx:for="{{item.issues}}" wx:key="*this">
-                <text class="eval-issue">• {{item}}</text>
+          </view>
+        </view>
+
+        <!-- ===== Evaluation ===== -->
+        <view class="msg-row msg-row-ai" wx:if="{{item.role === 'evaluation'}}">
+          <view class="avatar avatar-tool"><text class="avatar-text">◉</text></view>
+          <view class="msg-content msg-content-ai">
+            <view class="eval-card {{item.valid ? '' : 'eval-card-invalid'}}">
+              <view class="eval-header">
+                <text class="eval-icon">{{item.valid ? '✓' : '✗'}}</text>
+                <text class="eval-tool">工具: {{item.tool}}</text>
+                <text class="eval-badge {{item.valid ? 'eval-badge-ok' : 'eval-badge-fail'}}">{{item.valid ? '有效' : '问题'}}</text>
+              </view>
+              <view class="eval-issues" wx:if="{{item.issues && item.issues.length > 0}}">
+                <view wx:for="{{item.issues}}" wx:key="*this" wx:for-item="iss">
+                  <text class="eval-issue">• {{iss}}</text>
+                </view>
               </view>
             </view>
           </view>
