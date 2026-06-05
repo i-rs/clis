@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::ui::chat_api::ComponentOp;
 use crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui_interact::events::is_left_click;
 
@@ -42,12 +43,18 @@ impl<'a> MouseEventHandler<'a> {
 
     fn handle_click(&mut self, col: u16, row: u16) {
         // The library's registry does the row/col hit-test for us
-        // and returns the component index that owns that screen
-        // rectangle, or `None` if the click was on a non-clickable
-        // region. No state mutation happens until we know we've
-        // landed on something meaningful.
-        if let Some(idx) = self.app.hit_regions.handle_click(col, row).copied() {
-            self.app.toggle_component_at(idx);
+        // and returns encoded `(component_idx << 4) | op_variant`
+        // data, or `None` if the click was on a non-clickable region.
+        if let Some(data) = self.app.hit_regions.handle_click(col, row).copied() {
+            let idx = data >> 4;
+            let op = match data & 0xF {
+                1 => ComponentOp::ToggleArgs,
+                2 => ComponentOp::ToggleResult,
+                _ => ComponentOp::Toggle,
+            };
+            if self.app.apply_to_component(idx, op) {
+                self.app.mark_dirty();
+            }
         }
     }
 }

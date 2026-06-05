@@ -57,6 +57,18 @@ pub struct Config {
     /// Each agent can override provider, model, tools, and system prompt.
     #[serde(default)]
     pub agents: HashMap<String, AgentConfig>,
+    /// Named provider configurations for LLM backends.
+    /// Each entry is a (name, ProviderConfig) pair that can be
+    /// referenced by agents via `provider_ref`.
+    /// If empty at load time, legacy top-level fields (provider/
+    /// api_key/base_url/model) are auto-migrated into a "default"
+    /// provider entry.
+    #[serde(default)]
+    pub providers: HashMap<String, ProviderConfig>,
+    /// Name of the default provider to use when an agent does not
+    /// specify `provider_ref`. Defaults to "default".
+    #[serde(default = "default_providers_default_provider")]
+    pub default_provider: String,
     /// Sub-agent profiles for delegation only (not shown in TUI).
     /// Accessible via delegate_task tool.
     #[serde(default)]
@@ -133,6 +145,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_providers_default_provider() -> String {
+    "default".to_string()
+}
+
 // ── Agent Configuration ──
 
 /// Configuration for a named agent profile.
@@ -153,6 +169,12 @@ pub struct AgentConfig {
     pub base_url: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
+    /// Reference to a named provider config in the `[providers]` section.
+    /// When set, the provider/api_key/base_url fields below are ignored
+    /// for this agent; only `model` still acts as an override on top of
+    /// the referenced provider config.
+    #[serde(default)]
+    pub provider_ref: Option<String>,
     #[serde(default)]
     pub enabled_tools: Option<HashSet<String>>,
     /// Inline system prompt override (takes precedence over file).
@@ -222,6 +244,21 @@ impl Default for QualityJudgeConfig {
     }
 }
 
+
+/// A named provider configuration.
+///
+/// Defines the connection parameters for a single LLM provider.
+/// Multiple provider configs can be defined under the `[providers]`
+/// section of the config file and referenced by agents via
+/// `provider_ref`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderConfig {
+    pub provider: ProviderKind,
+    pub api_key: String,
+    pub base_url: String,
+    pub model: String,
+}
+
 /// Resolved configuration for a specific agent, with all fields flattened.
 /// Produced by `Config::agent_config()`.
 #[derive(Debug, Clone)]
@@ -265,20 +302,22 @@ impl Config {
                 })
         });
 
+        let base = self.resolve_provider_config(agent);
+
         ResolvedAgentConfig {
             agent_id: id.to_string(),
             provider: agent
                 .and_then(|a| a.provider)
-                .unwrap_or(self.provider),
+                .unwrap_or(base.provider),
             api_key: agent
                 .and_then(|a| a.api_key.clone())
-                .unwrap_or_else(|| self.api_key.clone()),
+                .unwrap_or(base.api_key),
             base_url: agent
                 .and_then(|a| a.base_url.clone())
-                .unwrap_or_else(|| self.base_url.clone()),
+                .unwrap_or(base.base_url),
             model: agent
                 .and_then(|a| a.model.clone())
-                .unwrap_or_else(|| self.model.clone()),
+                .unwrap_or(base.model),
             enabled_tools: agent
                 .and_then(|a| a.enabled_tools.clone())
                 .unwrap_or_else(|| self.enabled_tools.clone()),
@@ -304,6 +343,34 @@ impl Config {
             ids.insert(0, "default".to_string());
         }
         ids
+    }
+
+    /// Resolve provider configuration with the following precedence:
+    /// 1. Agent's `provider_ref` → look up in `providers` map
+    /// 2. `default_provider` → look up in `providers` map
+    /// 3. Legacy top-level `provider`/`api_key`/`base_url`/`model` fields
+    ///
+    /// This allows gradual migration: existing configs with top-level
+    /// fields continue to work, while new configs can use the richer
+    /// named-provider setup.
+    pub fn resolve_provider_config(&self, agent: Option<&AgentConfig>) -> ProviderConfig {
+        // 1. Try agent's provider_ref
+        if let Some(ref_name) = agent.and_then(|a| a.provider_ref.as_ref()) {
+            if let Some(pc) = self.providers.get(ref_name) {
+                return pc.clone();
+            }
+        }
+        // 2. Try default_provider
+        if let Some(pc) = self.providers.get(&self.default_provider) {
+            return pc.clone();
+        }
+        // 3. Legacy fallback
+        ProviderConfig {
+            provider: self.provider,
+            api_key: self.api_key.clone(),
+            base_url: self.base_url.clone(),
+            model: self.model.clone(),
+        }
     }
 
     /// Get the list of ALL agent IDs (including sub_agents).
@@ -561,6 +628,8 @@ impl Config {
             provider: default_provider(),
             base_url: default_base_url(),
             model: default_model(),
+            providers: HashMap::new(),
+            default_provider: default_providers_default_provider(),
             enabled_tools: HashSet::new(),
             i_rs_tools: Vec::new(),
             i_rs_tool_index: HashMap::new(),
@@ -633,6 +702,26 @@ impl Config {
             config.api_key = env_key;
         }
 
+        // Auto-migrate legacy top-level provider fields into providers map.
+        // This lets old configs (which store provider/api_key/base_url/model
+        // at the top level) work seamlessly with the new named-provider system.
+        if config.providers.is_empty() && !config.api_key.is_empty() {
+            config.providers.insert("default".to_string(), ProviderConfig {
+                provider: config.provider,
+                api_key: config.api_key.clone(),
+                base_url: config.base_url.clone(),
+                model: config.model.clone(),
+            });
+        }
+
+        // Validate default_provider exists in providers map, or add a
+        // placeholder so resolution doesn't panic at runtime.
+        if !config.providers.contains_key(&config.default_provider) {
+            if config.providers.contains_key("default") {
+                config.default_provider = "default".to_string();
+            }
+        }
+
         // Ensure "default" agent always exists (safety net against manual config edits)
         if config.agents.contains_key("default") {
             config.agents.remove("default");
@@ -641,9 +730,20 @@ impl Config {
             );
         }
 
-        // Validate config
-        if config.provider != ProviderKind::Ollama && config.api_key.is_empty() {
-            anyhow::bail!("配置文件中 api_key 不能为空 (Ollama 除外)");
+        // Validate config - check both providers map and legacy fields
+        {
+            let has_providers = !config.providers.is_empty();
+            let has_valid_default = config.providers.get(&config.default_provider)
+                .map(|pc| pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty())
+                .unwrap_or(false);
+            let has_legacy = config.provider != ProviderKind::Ollama && !config.api_key.is_empty();
+
+            if !has_valid_default && !has_legacy && has_providers {
+                anyhow::bail!("配置文件中的 default provider '{}' 需要设置 api_key (Ollama 除外)", config.default_provider);
+            }
+            if !has_providers && config.provider != ProviderKind::Ollama && config.api_key.is_empty() {
+                anyhow::bail!("配置文件中 api_key 不能为空 (Ollama 除外)");
+            }
         }
 
         // Print non-fatal validation warnings
@@ -666,24 +766,38 @@ impl Config {
     pub fn validate(&self) -> Vec<String> {
         let mut warnings = Vec::new();
 
-        let known_providers = [ProviderKind::OpenAI, ProviderKind::Ollama, ProviderKind::Anthropic];
-        if !known_providers.contains(&self.provider) {
-            tracing::info!(
-                "provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式",
-                self.provider
-            );
+        // Validate named providers in the providers map
+        for (name, pc) in &self.providers {
+            let known_providers = [ProviderKind::OpenAI, ProviderKind::Ollama, ProviderKind::Anthropic];
+            if !known_providers.contains(&pc.provider) {
+                tracing::info!(
+                    "provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式",
+                    name
+                );
+            }
+            if pc.provider != ProviderKind::Ollama && pc.api_key.is_empty() {
+                warnings.push(format!("provider '{}' 需要设置 api_key", name));
+            }
+            if pc.model.is_empty() {
+                warnings.push(format!("provider '{}' 未设置 model", name));
+            }
+            if !pc.base_url.is_empty() && !pc.base_url.starts_with("http") {
+                warnings.push(format!("provider '{}' 的 base_url 应该以 http:// 或 https:// 开头", name));
+            }
         }
 
-        if self.provider != ProviderKind::Ollama && self.api_key.is_empty() {
-            warnings.push(format!("{} provider 需要设置 api_key", self.provider));
-        }
-
-        if self.model.is_empty() {
-            warnings.push("model 未设置".to_string());
-        }
-
-        if !self.base_url.is_empty() && !self.base_url.starts_with("http") {
-            warnings.push("base_url 应该以 http:// 或 https:// 开头".to_string());
+        // Also validate legacy top-level fields for backward compat
+        // (only when they're the primary source, not auto-migrated)
+        if self.providers.is_empty() || !self.providers.contains_key(&self.default_provider) {
+            if self.provider != ProviderKind::Ollama && self.api_key.is_empty() {
+                warnings.push(format!("{} provider 需要设置 api_key", self.provider));
+            }
+            if self.model.is_empty() {
+                warnings.push("model 未设置".to_string());
+            }
+            if !self.base_url.is_empty() && !self.base_url.starts_with("http") {
+                warnings.push("base_url 应该以 http:// 或 https:// 开头".to_string());
+            }
         }
 
         if self.dashboard.enabled && self.dashboard.port > 0 && self.dashboard.port < 1024 {

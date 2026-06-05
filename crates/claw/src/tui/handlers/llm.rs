@@ -223,7 +223,7 @@ impl<'a> LlmEventHandler<'a> {
             Some(id) => id.to_string(),
             None => {
                 tracing::warn!("未找到当前会话，跳过持久化");
-                self.app.finish_processing(Some(msgs));
+                self.app.finish_processing(Some(msgs.clone()));
                 self.app.token_usage = usage;
 
                 // Backfill token usage onto the last Assistant message.
@@ -237,14 +237,7 @@ impl<'a> LlmEventHandler<'a> {
             }
         };
 
-        crate::tui::clipboard::save_session_messages(
-            &self.app_core.session_mgr,
-            &session_id,
-            &self.app.messages,
-            Some(&msgs),
-        );
-
-        self.app.finish_processing(Some(msgs));
+        self.app.finish_processing(Some(msgs.clone()));
         self.app.token_usage = usage;
 
         // Backfill token usage onto the last Assistant message so
@@ -256,6 +249,15 @@ impl<'a> LlmEventHandler<'a> {
         }
 
         self.app.rebuild_components();
+
+        // Persist messages AFTER token_usage has been backfilled so
+        // re-loaded sessions show usage in the block header.
+        crate::tui::clipboard::save_session_messages(
+            &self.app_core.session_mgr,
+            &session_id,
+            &self.app.messages,
+            Some(&msgs),
+        );
 
         let needs_rename = self
             .app_core

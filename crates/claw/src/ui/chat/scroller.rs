@@ -1,4 +1,4 @@
-use super::components::MessageComponent;
+use super::components::{ComponentOp, MessageComponent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use crate::theme::Theme;
@@ -16,11 +16,12 @@ pub(crate) type ComponentCell = Rc<RefCell<Box<dyn MessageComponent>>>;
 /// Y math easy; the App-facing click dispatch goes through the
 /// library's `ClickRegionRegistry` instead, so the public API
 /// doesn't expose this type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct HitRegion {
     component_idx: usize,
     y_start: u16,
     y_end: u16,
+    op: ComponentOp,
 }
 
 pub(crate) struct Scroller {
@@ -139,7 +140,7 @@ mod tests {
         assert_eq!(reg.len(), 1, "only one clickable component");
         // The middle block was registered with `data = 1`. It lives
         // on rows 4..7, so a click at (col=0, row=5) hits it.
-        assert_eq!(reg.handle_click(0, 5), Some(&1));
+        assert_eq!(reg.handle_click(0, 5), Some(&16));
         // Non-clickable blocks: no region, so no hit.
         assert_eq!(reg.handle_click(0, 1), None);
         assert_eq!(reg.handle_click(0, 9), None);
@@ -159,7 +160,7 @@ mod tests {
         scr.register_clicks(Rect { x: 0, y: 10, width: 80, height: 20 }, &mut reg);
         // Click at screen row 15 should still hit the block (it
         // occupies screen rows 10+4..10+7 = 14..17).
-        assert_eq!(reg.handle_click(0, 15), Some(&1));
+        assert_eq!(reg.handle_click(0, 15), Some(&16));
         // Click above the block: no hit.
         assert_eq!(reg.handle_click(0, 13), None);
     }
@@ -179,8 +180,8 @@ mod tests {
         scr.register_clicks(Rect { x: 0, y: 10, width: 80, height: 5 }, &mut reg);
         // After scroll=2 the block shifts from content-y 4..7 to
         // screen rows 10+(4-2)..10+(6-2) = 12..15.
-        assert_eq!(reg.handle_click(0, 12), Some(&1), "click within shifted block (top edge)");
-        assert_eq!(reg.handle_click(0, 14), Some(&1), "click within shifted block (middle)");
+        assert_eq!(reg.handle_click(0, 12), Some(&16), "click within shifted block (top edge)");
+        assert_eq!(reg.handle_click(0, 14), Some(&16), "click within shifted block (middle)");
         // The old code would have registered at screen-y 14..17 but
         // after shift the block is actually at 12..15, so a click at
         // row 16 should now miss.
@@ -228,11 +229,24 @@ impl Scroller {
             }
             offsets.push(total);
             if c.borrow().clickable() && h > 0 {
-                hits.push(HitRegion {
-                    component_idx: i,
-                    y_start: total,
-                    y_end: total.saturating_add(h),
-                });
+                let extras = c.borrow().extra_click_targets(width);
+                if extras.is_empty() {
+                    hits.push(HitRegion {
+                        component_idx: i,
+                        y_start: total,
+                        y_end: total.saturating_add(h),
+                        op: ComponentOp::Toggle,
+                    });
+                } else {
+                    for (y_offset, height, op) in extras {
+                        hits.push(HitRegion {
+                            component_idx: i,
+                            y_start: total.saturating_add(y_offset),
+                            y_end: total.saturating_add(y_offset).saturating_add(height),
+                            op,
+                        });
+                    }
+                }
             }
             total = total.saturating_add(h);
             last_was_real = h > 0;
@@ -277,10 +291,22 @@ impl Scroller {
                     width: pane.width,
                     height: visible_end.saturating_sub(visible_start),
                 };
-                registry.register(area, h.component_idx);
+                let variant = Self::op_variant(&h.op);
+                let data = (h.component_idx << 4) | variant;
+                registry.register(area, data);
             }
         }
     }
+
+
+pub fn op_variant(op: &ComponentOp) -> usize {
+    match op {
+        ComponentOp::Toggle => 0,
+        ComponentOp::ToggleArgs => 1,
+        ComponentOp::ToggleResult => 2,
+        _ => 0,
+    }
+}
 
     pub fn visible_range(&self) -> (usize, usize, u16) {
         if self.offsets.is_empty() { return (0, 0, 0); }

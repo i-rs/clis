@@ -398,6 +398,32 @@ impl MessageComponent for ToolCallCard {
         h
     }
 
+    fn extra_click_targets(&self, width: u16) -> Vec<(u16, u16, ComponentOp)> {
+        if !self.expanded {
+            return vec![];
+        }
+        let mut targets = Vec::new();
+        // Header (top border + glyph line): rows 0..2
+        targets.push((0, 2, ComponentOp::Toggle));
+        // Walk through body layout matching render order
+        let mut y = 2u16; // after top border and header
+        y += 1; // divider
+        if self.explanation().is_some() {
+            y += 1;
+        }
+        if !self.args.is_empty() {
+            targets.push((y, 1, ComponentOp::ToggleArgs));
+            y += 1;
+            if self.args_expanded {
+                y = y.saturating_add(self.args_rows(width));
+            }
+        }
+        if !self.result.is_empty() {
+            targets.push((y, 1, ComponentOp::ToggleResult));
+        }
+        targets
+    }
+
     fn clickable(&self) -> bool { true }
 
     fn apply(&mut self, op: ComponentOp) {

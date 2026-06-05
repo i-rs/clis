@@ -133,6 +133,7 @@ pub struct App {
 }
 
 impl App {
+    const MAX_MESSAGES: usize = 300;
     pub fn new(config: Config, session_id: Option<String>) -> Self {
         let current_dir = std::env::current_dir()
             .map(|p| p.display().to_string())
@@ -178,10 +179,21 @@ impl App {
         }
     }
 
+    fn trim_messages(&mut self) {
+        if self.messages.len() > Self::MAX_MESSAGES {
+            let excess = self.messages.len() - Self::MAX_MESSAGES;
+            self.messages.drain(0..excess);
+            if let Some(ref mut idx) = self.selected_message {
+                *idx = idx.saturating_sub(excess);
+            }
+        }
+    }
+
     pub fn push_message(&mut self, msg: AgentMessage) {
         self.messages.push(msg);
         self.message_generation += 1;
         self.needs_redraw = true;
+        self.trim_messages();
     }
 
     pub fn extend_messages(&mut self, msgs: impl IntoIterator<Item = AgentMessage>) {
@@ -193,6 +205,7 @@ impl App {
         if count > 0 {
             self.message_generation += count;
             self.needs_redraw = true;
+            self.trim_messages();
         }
     }
 
@@ -216,6 +229,7 @@ impl App {
             s.content.push_str(token);
         }
     }
+
 
     pub fn finish_streaming(&mut self) -> (String, String) {
         let s = self.streaming.take();

@@ -19,7 +19,7 @@ use crate::theme::Theme;
 /// Operations the App can apply to a component after construction.
 /// The default impl for `apply` is a no-op, so each component only
 /// has to opt in to the variants it cares about.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ComponentOp {
     /// Append streamed text delta to the assistant body.
     AppendText(String),
@@ -43,6 +43,15 @@ pub trait MessageComponent {
     /// Apply a mutation coming from outside (streaming tokens, click
     /// events, etc.). Default impl is a no-op.
     fn apply(&mut self, _op: ComponentOp) {}
+
+    /// Sub-regions within the component that act as click targets.
+    /// Each tuple is (y_offset, height, op). When non-empty the
+    /// Scroller registers these regions *instead* of the full-area
+    /// click so that individual sub-sections (e.g. Args / Result
+    /// headers) can receive their own ComponentOp.
+    fn extra_click_targets(&self, _width: u16) -> Vec<(u16, u16, ComponentOp)> {
+        vec![]
+    }
 }
 
 pub fn build_component_for(msg: &Message) -> Box<dyn MessageComponent> {

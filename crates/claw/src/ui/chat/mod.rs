@@ -25,8 +25,12 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let theme = &app.config.theme;
     let selected = if app.overlay.selection_mode { app.overlay.selected_message } else { None };
 
+    // Render components one row below area.y so the '─' border
+    // at area.y does not overwrite the top border of the first
+    // component.
+    let inner_area = Rect { y: area.y + 1, ..area };
     let buf = f.buffer_mut();
-    scr.render(&app.components, area, buf, theme, selected);
+    scr.render(&app.components, inner_area, buf, theme, selected);
 
     // Top border
     let at_bottom = scr.scroll >= scr.max_scroll();
@@ -42,7 +46,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // library's registry, translated to screen-absolute coordinates.
     // The registry now owns the click dispatch — the input handlers
     // just need the absolute row/col of the click event.
-    scr.register_clicks(area, &mut app.hit_regions);
+    scr.register_clicks(inner_area, &mut app.hit_regions);
     app.chat_y = area.y;
     app.max_scroll = scr.max_scroll() as usize;
     app.scroll_lines = scr.scroll as usize;
