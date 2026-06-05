@@ -45,12 +45,18 @@ impl AssistantBlock {
         }
     }
 
-    fn reasoning_rows(&self) -> u16 {
+    fn reasoning_rows(&self, width: u16) -> u16 {
         if self.reasoning.is_empty() { return 0; }
         if let Some(h) = self.reasoning_height_cache.get() { return h; }
-        let h = self.reasoning.lines().count() as u16;
-        self.reasoning_height_cache.set(Some(h));
-        h
+        let indent = super::BLOCK_INDENT + 2;
+        let usable = (width as usize).saturating_sub(indent + 4).max(8);
+        let mut total = 0u16;
+        for line in self.reasoning.lines() {
+            let w = unicode_width::UnicodeWidthStr::width(line);
+            if w == 0 { total += 1; } else { total += ((w + usable - 1) / usable) as u16; }
+        }
+        self.reasoning_height_cache.set(Some(total));
+        total
     }
 }
 
@@ -64,7 +70,7 @@ impl super::MessageComponent for AssistantBlock {
         if !self.reasoning.is_empty() {
             h += 1; // toggle row
             if self.reasoning_expanded {
-                h += self.reasoning_rows();
+                h += self.reasoning_rows(width);
             }
         }
         self.height_cache.set(Some((width, h)));
@@ -179,30 +185,33 @@ impl super::MessageComponent for AssistantBlock {
                 let reason_style = Style::default()
                     .fg(c_dim())
                     .add_modifier(Modifier::ITALIC);
+                let indent = super::BLOCK_INDENT + 2;
+                let usable = (area.width as usize).saturating_sub(indent + 4).max(8);
                 for rl in self.reasoning.lines() {
                     if !body.contains(y) { break; }
-                    let indent = super::BLOCK_INDENT + 2; // extra indent for thinking content
-                    let usable = (area.width as usize).saturating_sub(indent + 4).max(8);
-                    let truncated: String = {
-                        let mut s = String::with_capacity(usable.min(rl.len()));
+                    let mut remaining = rl;
+                    while !remaining.is_empty() {
+                        if !body.contains(y) { break; }
+                        let mut split_pos = 0;
                         let mut col = 0usize;
-                        for c in rl.chars() {
-                            let w = unicode_width::UnicodeWidthChar::width(c).unwrap_or(1);
-                            if col + w > usable { s.push('…'); break; }
+                        for (byte_idx, ch) in remaining.char_indices() {
+                            let w = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(1);
+                            if col + w > usable { break; }
                             col += w;
-                            s.push(c);
+                            split_pos = byte_idx + ch.len_utf8();
                         }
-                        s
-                    };
-                    let spans: Vec<Span<'static>> = vec![
-                        Span::raw(" ".repeat(indent)),
-                        Span::styled("┊ ", Style::default().fg(c_muted())),
-                        Span::styled(truncated, reason_style),
-                    ];
-                    Paragraph::new(Line::from(spans))
-                        .style(Style::default().bg(interior_bg))
-                        .render(Rect { y, height: 1, ..area }, buf);
-                    y += 1;
+                        let (segment, rest) = remaining.split_at(split_pos);
+                        let spans: Vec<Span<'static>> = vec![
+                            Span::raw(" ".repeat(indent)),
+                            Span::styled("┊ ", Style::default().fg(c_muted())),
+                            Span::styled(segment.to_string(), reason_style),
+                        ];
+                        Paragraph::new(Line::from(spans))
+                            .style(Style::default().bg(interior_bg))
+                            .render(Rect { y, height: 1, ..area }, buf);
+                        y += 1;
+                        remaining = rest;
+                    }
                 }
             }
         }
