@@ -296,30 +296,26 @@ Page({
       return
     }
 
-    const flushContent = helper.throttle(function (val) {
-      that.setData({ streamingContent: val })
-      that.scrollToBottom()
-    }, 60)
-    const flushReasoning = helper.throttle(function (val) {
-      that.setData({ streamingReasoning: val })
-      that.scrollToBottom()
-    }, 100)
+    // wx.request buffers the entire SSE response, so all events arrive
+    // synchronously in one success callback. Use local accumulators to
+    // avoid data loss from async setData / throttle.
+    var accContent = ''
+    var accReasoning = ''
 
     const streamTask = api.streamChat(sessionId, {
       onToken: function (token) {
-        flushContent(that.data.streamingContent + token)
+        accContent += token
       },
       onReasoning: function (text) {
-        flushReasoning(that.data.streamingReasoning + text)
+        accReasoning += text
       },
       onStatus: function () {},
       onError: function (err) {
-        that.commitStreamMessage()
         that.setData({ loading: false, renderTick: 0 })
         wx.showToast({ title: (err && err.error) || '流式错误', icon: 'none' })
       },
       onDone: function (usage, quality) {
-        that.commitStreamMessage(usage)
+        that.commitStreamMessage(usage, accContent, accReasoning)
         // If quality data received separately (not from done event), it's already added by onQuality
         if (quality && !that.data._qualityAdded) {
           const qualityMsg = {
@@ -339,7 +335,9 @@ Page({
         that.scrollToBottom()
       },
       onNewRound: function () {
-        that.commitStreamMessage()
+        that.commitStreamMessage(null, accContent, accReasoning)
+        accContent = ''
+        accReasoning = ''
       },
       onToolExecuted: function (toolInfo) {
         const resultStr = toolInfo.result || ''
@@ -412,9 +410,9 @@ Page({
     this.setData({ streamTask: streamTask })
   },
 
-  commitStreamMessage: function (tokenUsage) {
-    const content = this.data.streamingContent
-    const reasoning = this.data.streamingReasoning
+  commitStreamMessage: function (tokenUsage, content, reasoning) {
+    if (content === undefined) content = this.data.streamingContent
+    if (reasoning === undefined) reasoning = this.data.streamingReasoning
 
     if (!content && !reasoning) {
       this.setData({ renderTick: 0 })

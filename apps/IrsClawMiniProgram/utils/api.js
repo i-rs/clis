@@ -172,7 +172,7 @@ function streamChat(sessionId, handlers) {
     return task
   }
 
-  const streamUrl = url + '/sessions/' + encodeURIComponent(sessionId) + '/stream'
+  const streamUrl = url + '/chat/stream/' + encodeURIComponent(sessionId)
 
   wx.request({
     url: streamUrl,
@@ -192,8 +192,17 @@ function streamChat(sessionId, handlers) {
       }
       // Parse SSE events from the response data
       var rawData = res.data
+      // Convert ArrayBuffer to string if needed (Content-Type: text/event-stream)
+      if (rawData && rawData.byteLength !== undefined) {
+        var bytes = new Uint8Array(rawData)
+        var str = ''
+        for (var i = 0; i < bytes.length; i++) {
+          str += String.fromCharCode(bytes[i])
+        }
+        rawData = str
+      }
       if (typeof rawData === 'string' && rawData.indexOf('event:') !== -1) {
-        // SSE text received — parse events
+        // SSE text received — parse all events and fire handlers
         var lines = rawData.split('\n')
         var currentEvent = ''
         var currentData = ''
