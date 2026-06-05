@@ -53,7 +53,7 @@ class ClawService: ObservableObject {
 
     /// Total token usage aggregated across all sessions.
     var totalTokenUsage: TokenUsage {
-        sessionTokenUsage.values.reduce(TokenUsage(promptTokens: 0, completionTokens: 0)) { acc, usage in
+        sessionTokenUsage.values.reduce(TokenUsage(promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0)) { acc, usage in
             acc + usage
         }
     }
@@ -712,7 +712,7 @@ class ClawService: ObservableObject {
                 }
                 // Accumulate per-session for global tracking
                 if let sid = currentSession?.id {
-                    let existing = sessionTokenUsage[sid] ?? TokenUsage(promptTokens: 0, completionTokens: 0)
+                    let existing = sessionTokenUsage[sid] ?? TokenUsage(promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0)
                     sessionTokenUsage[sid] = existing + usage
                     saveSessionTokenUsage()
                 }
