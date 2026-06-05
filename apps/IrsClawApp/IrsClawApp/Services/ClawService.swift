@@ -360,7 +360,7 @@ class ClawService: ObservableObject {
 
         if agents.isEmpty {
             print("[loadInitialData] no agents found, creating default...")
-            await createAgent(id: "default", provider: nil, model: nil, apiKey: nil, baseURL: nil, systemPrompt: nil)
+            await createAgent(id: "default", provider: nil, model: nil, apiKey: nil, baseURL: nil, systemPrompt: nil, providerRef: nil)
             await fetchAgents()
         }
 
@@ -717,6 +717,35 @@ class ClawService: ObservableObject {
                     saveSessionTokenUsage()
                 }
             }
+            // Parse quality score from done event: {"quality": {"score": "good", "complete": true, ...}}
+            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any],
+               let qualityDict = json["quality"] as? [String: Any] {
+                let score = String(describing: qualityDict["score"] ?? "")
+                let complete = qualityDict["complete"] as? Bool ?? false
+                let issues = qualityDict["issues"] as? [String] ?? []
+                let referencesValid = qualityDict["references_valid"] as? Bool ?? false
+                messages.append(MessageItem(message: .quality(score: score, complete: complete, issues: issues, referencesValid: referencesValid)))
+                messageVersion += 1
+            }
+
+        case "evaluation":
+            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any] {
+                let tool = json["tool"] as? String ?? ""
+                let valid = json["valid"] as? Bool ?? false
+                let issues = json["issues"] as? [String] ?? []
+                messages.append(MessageItem(message: .evaluation(tool: tool, valid: valid, issues: issues)))
+                messageVersion += 1
+            }
+
+        case "quality_score":
+            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any] {
+                let score = String(describing: json["score"] ?? "")
+                let complete = json["complete"] as? Bool ?? false
+                let issues = json["issues"] as? [String] ?? []
+                let referencesValid = json["references_valid"] as? Bool ?? false
+                messages.append(MessageItem(message: .quality(score: score, complete: complete, issues: issues, referencesValid: referencesValid)))
+                messageVersion += 1
+            }
 
         case "error":
             messages.append(MessageItem(message: .error(text: data)))
@@ -740,13 +769,15 @@ class ClawService: ObservableObject {
 
     /// Create a new agent profile.
     func createAgent(id: String, provider: String?, model: String?,
-                     apiKey: String?, baseURL: String?, systemPrompt: String?) async {
+                     apiKey: String?, baseURL: String?, systemPrompt: String?,
+                     providerRef: String? = nil) async {
         var body: [String: Any] = ["id": id]
         if let p = provider { body["provider"] = p }
         if let m = model { body["model"] = m }
         if let k = apiKey { body["api_key"] = k }
         if let b = baseURL { body["base_url"] = b }
         if let s = systemPrompt { body["system_prompt"] = s }
+        if let r = providerRef { body["provider_ref"] = r }
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return }
         guard let data = await post("/api/agents", body: bodyData) else { return }
@@ -767,7 +798,8 @@ class ClawService: ObservableObject {
     /// Update an existing agent profile.
     func updateAgent(id: String, provider: String? = nil, model: String? = nil,
                      apiKey: String? = nil, baseURL: String? = nil,
-                     systemPrompt: String? = nil, enabledTools: [String]? = nil) async -> Bool {
+                     systemPrompt: String? = nil, enabledTools: [String]? = nil,
+                     providerRef: String? = nil) async -> Bool {
         var body: [String: Any] = [:]
         if let p = provider { body["provider"] = p }
         if let m = model { body["model"] = m }
@@ -775,6 +807,7 @@ class ClawService: ObservableObject {
         if let b = baseURL { body["base_url"] = b }
         if let s = systemPrompt { body["system_prompt"] = s }
         if let tools = enabledTools { body["enabled_tools"] = tools }
+        if let r = providerRef { body["provider_ref"] = r }
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return false }
         guard let data = await put("/api/agents/\(id)", body: bodyData) else { return false }
@@ -798,7 +831,8 @@ class ClawService: ObservableObject {
     /// Create a new agent profile.
     func createAgent(id: String, provider: String? = nil, model: String? = nil,
                       apiKey: String? = nil, baseURL: String? = nil,
-                      systemPrompt: String? = nil, enabledTools: [String]? = nil) async -> Bool {
+                      systemPrompt: String? = nil, enabledTools: [String]? = nil,
+                      providerRef: String? = nil) async -> Bool {
         var body: [String: Any] = ["id": id]
         if let p = provider { body["provider"] = p }
         if let m = model { body["model"] = m }
@@ -806,6 +840,7 @@ class ClawService: ObservableObject {
         if let b = baseURL { body["base_url"] = b }
         if let s = systemPrompt { body["system_prompt"] = s }
         if let tools = enabledTools { body["enabled_tools"] = tools }
+        if let r = providerRef { body["provider_ref"] = r }
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return false }
         guard let data = await post("/api/agents", body: bodyData) else { return false }

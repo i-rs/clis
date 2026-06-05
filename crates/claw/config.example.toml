@@ -328,3 +328,48 @@ execution_mode = "React"
 #   [stats.pricing]
 #   # "my-custom-model" = { input = 1.0, output = 3.0 }
 #   # "gpt-4o" = { input = 2.0, output = 8.0 }
+
+# ── 回答质量评判 (LLM-as-Judge) ──────────────────────────────────────────────
+#
+# 开启后，每次 LLM 完成回答后会由评判模型自动评估回答质量，
+# 结果存入会话记录并可通过客户端查看。
+#
+[quality_judge]
+# enabled = false                          # 启用评判（默认关闭）
+# model = "gpt-4o-mini"                    # 评判模型（默认与主模型一致）
+# on_issues_only = true                    # 仅在启发式检测到问题时运行评判（默认 true）
+# max_per_session = 3                      # 每会话最多评判次数（默认 3）
+
+# ── UI 主题 ─────────────────────────────────────────────────────────────────
+#
+# 可通过 ~/.i-rs/claw/theme.json 自定义主题颜色。
+# 文件不存在则使用默认主题（midnight 午夜暗色）。
+# 支持的字段：
+#
+# {
+#   "primary": "#7C3AED",     # 主色调
+#   "secondary": "#6B7280",   # 次要色
+#   "error": "#EF4444",       # 错误色
+#   "background": "#1E1E2E",  # 背景色
+#   "text": "#E0E0E0",        # 文本色
+#   "dim_text": "#9CA3AF",    # 弱文本色
+#   "accent": "#818CF8",      # 强调色
+#   "tool_bg": "#1A1A2E",     # 工具调用背景
+#   "code_bg": "#16162A",     # 代码块背景
+#   "selection_bg": "#3730A3",# 选择背景
+#   "border": "#374151",      # 边框色
+#   "sidebar_bg": "#16162A"   # 侧边栏背景
+# }
+#
+# 内置 20 个预设主题（可通过生成 theme.json 切换）：
+#   midnight 午夜    ocean 海洋     forest 森林
+#   sunset 日落      rose 玫瑰     mono 单色
+#   lavender 薰衣草  crimson 绯红  aurora 极光
+#   amber 琥珀       sakura 樱花   slate 石板
+#   candy 糖果       mint 薄荷     gold 金色
+#   nebula 星云      copper 铜色   jade 玉色
+#   plum 梅子
+#
+# 快速生成 theme.json 预设：
+#   i-rs-claw theme list       # 列出所有预设
+#   i-rs-claw theme apply <name>  # 应用预设

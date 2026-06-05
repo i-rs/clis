@@ -277,6 +277,7 @@ pub async fn send_message(
                         }
                     }
                     crate::core::save_chat_result(&mut core.session_mgr, &bg_sid, msgs);
+                    let _ = core.evaluate_completed_session(&bg_sid);
                     break;
                 }
                 LlmEvent::Error(e) => {
@@ -393,12 +394,28 @@ pub async fn chat_stream(
                             }
                         }
                         crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
-                        let _quality = core.evaluate_completed_session(&sid);
+                        let quality_msg = core.evaluate_completed_session(&sid);
                         core.agent_store.memory_for_mut(&agent_id).flush();
                         drop(core);
 
-                        let data = serde_json::to_string(&serde_json::json!({"usage": usage}))
-                            .unwrap_or_default();
+                        let quality_data = quality_msg.as_ref().and_then(|q| {
+                            if let crate::app::Message::Quality { score, complete, issues, references_valid } = q {
+                                Some(serde_json::json!({
+                                    "score": score,
+                                    "complete": complete,
+                                    "issues": issues,
+                                    "references_valid": references_valid,
+                                }))
+                            } else {
+                                None
+                            }
+                        });
+
+                        let mut done_json = serde_json::json!({"usage": usage});
+                        if let Some(ref qd) = quality_data {
+                            done_json["quality"] = qd.clone();
+                        }
+                        let data = serde_json::to_string(&done_json).unwrap_or_default();
                         let sse = Event::default().event("done").data(data);
                         return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
                     }
@@ -433,6 +450,16 @@ pub async fn chat_stream(
                         }))
                         .unwrap_or_default();
                         let sse = Event::default().event("image_generated").data(data);
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                    }
+                    LlmEvent::Evaluation { tool, valid, issues } => {
+                        let data = serde_json::to_string(&serde_json::json!({
+                            "tool": tool,
+                            "valid": valid,
+                            "issues": issues,
+                        }))
+                        .unwrap_or_default();
+                        let sse = Event::default().event("evaluation").data(data);
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     _ => continue,

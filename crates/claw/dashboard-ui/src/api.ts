@@ -278,6 +278,19 @@ export interface ImageGeneratedEvent {
   height: number
 }
 
+export interface EvaluationEvent {
+  tool: string
+  valid: boolean
+  issues: string[]
+}
+
+export interface QualityScore {
+  score: string
+  complete: boolean
+  issues: string[]
+  references_valid: boolean
+}
+
 // ── SSE Chat Stream ──
 
 export type SseEventHandler = {
@@ -285,10 +298,12 @@ export type SseEventHandler = {
   onReasoning?: (text: string) => void
   onStatus?: (text: string) => void
   onError?: (error: string) => void
-  onDone?: (usage: TokenUsage | null) => void
+  onDone?: (usage: TokenUsage | null, quality?: QualityScore | null) => void
   onNewRound?: () => void
   onToolExecuted?: (evt: ToolCallEvent) => void
   onImageGenerated?: (evt: ImageGeneratedEvent) => void
+  onEvaluation?: (evt: EvaluationEvent) => void
+  onQualityScore?: (evt: QualityScore) => void
 }
 
 // ── Token usage ──
@@ -297,6 +312,7 @@ export interface TokenUsage {
   prompt_tokens?: number
   completion_tokens?: number
   total_tokens?: number
+  estimated_cost_usd?: number
 }
 
 // ── Chat message type ──
@@ -310,7 +326,7 @@ export interface ToolCallMsg {
 }
 
 export type ChatMessage = {
-  role: 'user' | 'assistant' | 'error' | 'image'
+  role: 'user' | 'assistant' | 'error' | 'image' | 'evaluation' | 'quality'
   content: string
   reasoning?: string
   toolCalls?: ToolCallMsg[]
@@ -323,6 +339,8 @@ export type ChatMessage = {
     format: string
     url: string
   }
+  evaluation?: EvaluationEvent
+  quality?: QualityScore
 }
 
 // ── SSE stream parsing ──
@@ -387,8 +405,21 @@ export function streamChat(sessionId: string, handlers: SseEventHandler): AbortC
               try {
                 const parsed = JSON.parse(data)
                 console.log('[SSE] parsed.usage:', parsed.usage)
-                handlers.onDone?.(parsed.usage)
+                const quality: QualityScore | null = parsed.quality || null
+                handlers.onDone?.(parsed.usage, quality)
               } catch (e) { console.error('[SSE] failed to parse done data:', data, e) }
+              break
+            case 'evaluation':
+              try {
+                const parsed = JSON.parse(data) as EvaluationEvent
+                handlers.onEvaluation?.(parsed)
+              } catch { /* ignore parse errors */ }
+              break
+            case 'quality_score':
+              try {
+                const parsed = JSON.parse(data) as QualityScore
+                handlers.onQualityScore?.(parsed)
+              } catch { /* ignore parse errors */ }
               break
           }
         }

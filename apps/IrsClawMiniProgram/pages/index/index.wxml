@@ -96,6 +96,61 @@
             <view class="msg-bubble msg-bubble-ai">
               <text class="msg-text msg-text-ai">{{item.content}}</text>
             </view>
+            <view class="msg-token-usage" wx:if="{{item.tokenUsage}}">
+              <text class="msg-token-text">↑{{item.tokenUsage.prompt_tokens || 0}} ↓{{item.tokenUsage.completion_tokens || 0}}</text>
+              <text class="msg-cost-text" wx:if="{{item.tokenUsage.estimated_cost_usd}}">${{item.tokenUsage.estimated_cost_usd}}</text>
+            </view>
+            <view class="msg-feedback" wx:if="{{!item.feedbackGiven}}">
+              <view class="feedback-btn feedback-like" bindtap="onFeedback" data-id="{{item.id}}" data-positive="true">
+                <text class="feedback-icon">👍</text>
+              </view>
+              <view class="feedback-btn feedback-dislike" bindtap="onFeedback" data-id="{{item.id}}" data-positive="false">
+                <text class="feedback-icon">👎</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- ===== Quality Score ===== -->
+      <view class="msg-row msg-row-ai" wx:if="{{item.role === 'quality'}}">
+        <view class="avatar avatar-ai"><text class="avatar-text">AI</text></view>
+        <view class="msg-content msg-content-ai">
+          <view class="quality-card">
+            <view class="quality-header">
+              <text class="quality-label">回答质量</text>
+              <text class="quality-score {{item.score > 5 ? 'quality-score-high' : 'quality-score-low'}}">{{item.score}}</text>
+            </view>
+            <view class="quality-details" wx:if="{{item.issues && item.issues.length > 0}}">
+              <view wx:for="{{item.issues}}" wx:key="*this">
+                <text class="quality-issue">• {{item}}</text>
+              </view>
+            </view>
+            <view class="quality-validity" wx:if="{{item.referencesValid}}">
+              <text class="quality-valid-text">✓ 引用有效</text>
+            </view>
+            <view class="quality-validity" wx:if="{{!item.complete}}">
+              <text class="quality-warn-text">⚠ 回答可能不完整</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- ===== Evaluation ===== -->
+      <view class="msg-row msg-row-ai" wx:if="{{item.role === 'evaluation'}}">
+        <view class="avatar avatar-tool"><text class="avatar-text">◉</text></view>
+        <view class="msg-content msg-content-ai">
+          <view class="eval-card {{item.valid ? '' : 'eval-card-invalid'}}">
+            <view class="eval-header">
+              <text class="eval-icon">{{item.valid ? '✓' : '✗'}}</text>
+              <text class="eval-tool">工具: {{item.tool}}</text>
+              <text class="eval-badge {{item.valid ? 'eval-badge-ok' : 'eval-badge-fail'}}">{{item.valid ? '有效' : '问题'}}</text>
+            </view>
+            <view class="eval-issues" wx:if="{{item.issues && item.issues.length > 0}}">
+              <view wx:for="{{item.issues}}" wx:key="*this">
+                <text class="eval-issue">• {{item}}</text>
+              </view>
+            </view>
           </view>
         </view>
       </view>

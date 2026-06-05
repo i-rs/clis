@@ -107,6 +107,7 @@ struct ClawAgent: Codable, Identifiable, Hashable {
     let enabledTools: [String]?
     let systemPrompt: String?
     let isSubAgent: Bool?
+    let providerRef: String?
 
     enum CodingKeys: String, CodingKey {
         case id, provider, model
@@ -115,6 +116,7 @@ struct ClawAgent: Codable, Identifiable, Hashable {
         case enabledTools = "enabled_tools"
         case systemPrompt = "system_prompt"
         case isSubAgent = "is_sub_agent"
+        case providerRef = "provider_ref"
     }
 }
 
@@ -128,6 +130,7 @@ struct AgentDetail: Codable {
     let systemPrompt: String?
     let mcpServers: [String]?
     let allowedDirs: [String]?
+    let providerRef: String?
 
     enum CodingKeys: String, CodingKey {
         case id, provider, model
@@ -137,6 +140,7 @@ struct AgentDetail: Codable {
         case systemPrompt = "system_prompt"
         case mcpServers = "mcp_servers"
         case allowedDirs = "allowed_dirs"
+        case providerRef = "provider_ref"
     }
 }
 
@@ -148,12 +152,16 @@ struct ClawConfig: Codable {
     let enabledTools: [String]?
     let mcpServers: [MCPServerConfig]?
     let pluginsAutoDiscover: Bool?
+    let providers: [String: ProviderConfig]?
+    let defaultProvider: String?
 
     enum CodingKeys: String, CodingKey {
         case provider, model
         case enabledTools = "enabled_tools"
         case mcpServers = "mcp_servers"
         case pluginsAutoDiscover = "plugins_auto_discover"
+        case providers
+        case defaultProvider = "default_provider"
     }
 }
 
@@ -162,6 +170,21 @@ struct MCPServerConfig: Codable {
     let command: String?
     let args: [String]?
     let url: String?
+}
+
+/// A named provider configuration matching [providers] in config.toml
+struct ProviderConfig: Codable {
+    let provider: String
+    let apiKey: String
+    let baseUrl: String
+    let model: String
+
+    enum CodingKeys: String, CodingKey {
+        case provider
+        case apiKey = "api_key"
+        case baseUrl = "base_url"
+        case model
+    }
 }
 
 // MARK: - Tool
@@ -250,20 +273,47 @@ enum SseEvent {
     case toolExecuted(name: String, args: String, result: String, step: Int, totalSteps: Int)
     case newRound
     case done(usage: TokenUsage?)
+    case evaluation(tool: String, valid: Bool, issues: [String])
+    case qualityScore(score: String, complete: Bool, issues: [String], referencesValid: Bool)
     case error(String)
 }
 
 struct TokenUsage: Codable {
     let promptTokens: Int?
     let completionTokens: Int?
+    let estimatedCostUsd: Double?
 
     enum CodingKeys: String, CodingKey {
         case promptTokens = "prompt_tokens"
         case completionTokens = "completion_tokens"
+        case estimatedCostUsd = "estimated_cost_usd"
     }
 
     var totalTokens: Int {
         (promptTokens ?? 0) + (completionTokens ?? 0)
+    }
+
+    /// Formatted token string: ↑prompt ↓completion
+    var formattedTokens: String {
+        let p = promptTokens ?? 0
+        let c = completionTokens ?? 0
+        let fmt = { (n: Int) -> String in
+            if n >= 1000 { return String(format: "%.1fk", Double(n) / 1000.0) }
+            return "\(n)"
+        }
+        return "↑\(fmt(p)) ↓\(fmt(c))"
+    }
+
+    /// Total estimated cost in USD
+    var totalCost: Double? {
+        estimatedCostUsd
+    }
+
+    /// Formatted cost string
+    var formattedCost: String? {
+        guard let cost = estimatedCostUsd, cost > 0 else { return nil }
+        if cost < 0.01 { return String(format: "$%.4f", cost) }
+        return String(format: "$%.3f", cost)
     }
 }
 
@@ -296,7 +346,8 @@ extension TokenUsage {
     static func + (lhs: TokenUsage, rhs: TokenUsage) -> TokenUsage {
         TokenUsage(
             promptTokens: (lhs.promptTokens ?? 0) + (rhs.promptTokens ?? 0),
-            completionTokens: (lhs.completionTokens ?? 0) + (rhs.completionTokens ?? 0)
+            completionTokens: (lhs.completionTokens ?? 0) + (rhs.completionTokens ?? 0),
+            estimatedCostUsd: (lhs.estimatedCostUsd ?? 0) + (rhs.estimatedCostUsd ?? 0)
         )
     }
 }
@@ -339,6 +390,8 @@ enum AppMessage {
     case error(text: String)
     case status(text: String)
     case reasoning(text: String)
+    case evaluation(tool: String, valid: Bool, issues: [String])
+    case quality(score: String, complete: Bool, issues: [String], referencesValid: Bool)
 
     var text: String {
         switch self {
@@ -348,6 +401,8 @@ enum AppMessage {
         case .error(let t): return t
         case .status(let t): return t
         case .reasoning(let t): return t
+        case .evaluation(let tool, let valid, _): return "📋 \(tool): \(valid ? "✓" : "✗")"
+        case .quality(let score, _, _, _): return "⭐ 质量评分: \(score)"
         }
     }
 

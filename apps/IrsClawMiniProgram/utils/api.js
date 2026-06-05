@@ -190,7 +190,43 @@ function streamChat(sessionId, handlers) {
         if (handlers.onError) handlers.onError({ error: '流式请求失败 (HTTP ' + res.statusCode + ')', code: 'STREAM_ERROR' })
         return
       }
-      if (handlers.onDone) handlers.onDone(null)
+      // Parse SSE events from the response data
+      var rawData = res.data
+      if (typeof rawData === 'string' && rawData.indexOf('event:') !== -1) {
+        // SSE text received — parse events
+        var lines = rawData.split('\n')
+        var currentEvent = ''
+        var currentData = ''
+        var hasEvents = false
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i]
+          if (line.indexOf('event: ') === 0) {
+            currentEvent = line.substring(7).trim()
+          } else if (line.indexOf('data: ') === 0) {
+            if (currentData) currentData += '\n'
+            currentData += line.substring(6)
+          } else if (line === '' || line === '\r') {
+            // Empty line = event boundary — fire handler
+            if (currentEvent && currentData) {
+              hasEvents = true
+              handleSseEvent(currentEvent, currentData, handlers)
+            }
+            currentEvent = ''
+            currentData = ''
+          }
+        }
+        // Flush any remaining event
+        if (currentEvent && currentData) {
+          hasEvents = true
+          handleSseEvent(currentEvent, currentData, handlers)
+        }
+        if (!hasEvents && handlers.onDone) {
+          handlers.onDone(null)
+        }
+      } else {
+        // No SSE data — just signal done
+        if (handlers.onDone) handlers.onDone(null)
+      }
     },
     fail: function (err) {
       if (task.aborted) return
@@ -199,6 +235,71 @@ function streamChat(sessionId, handlers) {
   })
 
   return task
+}
+
+/** Process a single SSE event from streamChat */
+function handleSseEvent(event, data, handlers) {
+  try {
+    switch (event) {
+      case 'token':
+        if (handlers.onToken) handlers.onToken(data)
+        break
+      case 'reasoning':
+        if (handlers.onReasoning) handlers.onReasoning(data)
+        break
+      case 'status':
+        if (handlers.onStatus) handlers.onStatus(data)
+        break
+      case 'new_round':
+        if (handlers.onNewRound) handlers.onNewRound()
+        break
+      case 'tool_executed':
+        if (handlers.onToolExecuted) {
+          try {
+            var info = JSON.parse(data)
+            handlers.onToolExecuted(info)
+          } catch (e) {
+            handlers.onToolExecuted({ name: data, args: '', result: '' })
+          }
+        }
+        break
+      case 'evaluation':
+        if (handlers.onEvaluation) {
+          try {
+            var evalInfo = JSON.parse(data)
+            handlers.onEvaluation(evalInfo)
+          } catch (e) {}
+        }
+        break
+      case 'quality_score':
+        if (handlers.onQuality) {
+          try {
+            var qualityInfo = JSON.parse(data)
+            handlers.onQuality(qualityInfo)
+          } catch (e) {}
+        }
+        break
+      case 'done':
+        if (handlers.onDone) {
+          try {
+            var doneData = JSON.parse(data)
+            var usage = doneData.usage || null
+            var quality = doneData.quality || null
+            handlers.onDone(usage, quality)
+          } catch (e) {
+            handlers.onDone(null)
+          }
+        }
+        break
+      case 'error':
+        if (handlers.onError) handlers.onError({ error: data, code: 'LLM_ERROR' })
+        break
+      default:
+        break
+    }
+  } catch (e) {
+    console.error('[SSE] handler error:', e)
+  }
 }
 
 function listTools() {

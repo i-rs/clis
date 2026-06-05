@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage, type ImageGeneratedEvent } from '../api'
+import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage, type ImageGeneratedEvent, type EvaluationEvent, type QualityScore } from '../api'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -329,21 +329,42 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
           setMessages((prev) => [...prev, { role: 'error', content: error }])
           setLoading(false)
         },
-        onDone: (usage: TokenUsage | null) => {
-          console.log('[DEBUG] onDone received:', JSON.stringify(usage))
+        onDone: (usage: TokenUsage | null, quality?: QualityScore | null) => {
+          console.log('[DEBUG] onDone received:', JSON.stringify(usage), 'quality:', quality)
           commitStreaming()
-          if (usage) {
+          if (usage || quality) {
             setMessages((prev) => {
               const lastIdx = prev.length - 1
               if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
                 const updated = [...prev]
-                updated[lastIdx] = { ...updated[lastIdx], tokenUsage: usage }
+                if (usage) updated[lastIdx] = { ...updated[lastIdx], tokenUsage: usage }
+                if (quality) updated[lastIdx] = { ...updated[lastIdx], quality }
                 return updated
               }
               return prev
             })
           }
           setLoading(false)
+        },
+        onEvaluation: (evt: EvaluationEvent) => {
+          setMessages((prev) => [...prev, {
+            role: 'evaluation',
+            content: '',
+            evaluation: evt,
+          }])
+          setRenderTick((n) => n + 1)
+        },
+        onQualityScore: (evt: QualityScore) => {
+          setMessages((prev) => {
+            const lastIdx = prev.length - 1
+            if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+              const updated = [...prev]
+              updated[lastIdx] = { ...updated[lastIdx], quality: evt }
+              return updated
+            }
+            return prev
+          })
+          setRenderTick((n) => n + 1)
         },
       })
       abortRef.current = controller
@@ -542,6 +563,9 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
               : `${(message.tokenUsage.prompt_tokens ?? 0) + (message.tokenUsage.completion_tokens ?? 0)} tokens`}
             <span className="token-stats-detail">
               &nbsp;(↑{message.tokenUsage.prompt_tokens ?? 0} ↓{message.tokenUsage.completion_tokens ?? 0})
+              {message.tokenUsage.estimated_cost_usd != null && (
+                <> | ${Number(message.tokenUsage.estimated_cost_usd).toFixed(6)}</>
+              )}
             </span>
           </span>
         </div>
@@ -567,6 +591,34 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
       {message.role === 'assistant' && sessionId && hasFeedback && (
         <div className="message-feedback-submitted">
           <span>Thanks for your feedback!</span>
+        </div>
+      )}
+      {message.quality && (
+        <div className="message-quality">
+          <span className="quality-badge">
+            {'⭐'.repeat(Math.max(0, ['poor', 'fair', 'good', 'excellent'].indexOf(message.quality.score) + 1))}
+            {' '}Quality: {message.quality.score}
+          </span>
+          {message.quality.issues.length > 0 && (
+            <div className="quality-issues">
+              <small>{message.quality.issues.join('; ')}</small>
+            </div>
+          )}
+        </div>
+      )}
+      {message.role === 'evaluation' && message.evaluation && (
+        <div className="message-evaluation">
+          <span className={`eval-badge ${message.evaluation.valid ? 'valid' : 'invalid'}`}>
+            {message.evaluation.valid ? '✓' : '✗'}
+          </span>
+          <code className="eval-tool">{message.evaluation.tool}</code>
+          {message.evaluation.issues.length > 0 && (
+            <div className="eval-issues">
+              {message.evaluation.issues.map((issue, i) => (
+                <div key={i} className="eval-issue"><small>{issue}</small></div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

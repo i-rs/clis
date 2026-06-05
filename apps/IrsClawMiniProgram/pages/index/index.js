@@ -318,9 +318,25 @@ Page({
         that.setData({ loading: false, renderTick: 0 })
         wx.showToast({ title: (err && err.error) || '流式错误', icon: 'none' })
       },
-      onDone: function () {
-        that.commitStreamMessage()
-        that.setData({ loading: false, renderTick: 0 })
+      onDone: function (usage, quality) {
+        that.commitStreamMessage(usage)
+        // If quality data received separately (not from done event), it's already added by onQuality
+        if (quality && !that.data._qualityAdded) {
+          const qualityMsg = {
+            id: helper.genId('qlt'),
+            role: 'quality',
+            score: (quality.score !== null && quality.score !== undefined) ? quality.score : '',
+            complete: !!quality.complete,
+            issues: quality.issues || [],
+            referencesValid: !!quality.references_valid
+          }
+          that.setData({
+            messages: that.data.messages.concat([qualityMsg]),
+            _qualityAdded: true
+          })
+        }
+        that.setData({ loading: false, renderTick: 0, _qualityAdded: false })
+        that.scrollToBottom()
       },
       onNewRound: function () {
         that.commitStreamMessage()
@@ -362,13 +378,41 @@ Page({
         const messages = that.data.messages.concat([toolMsg])
         that.setData({ messages: messages, renderTick: Date.now() })
         that.scrollToBottom()
+      },
+      onEvaluation: function (evalInfo) {
+        if (!evalInfo) return
+        const evalMsg = {
+          id: helper.genId('eva'),
+          role: 'evaluation',
+          tool: evalInfo.tool || '',
+          valid: !!evalInfo.valid,
+          issues: evalInfo.issues || []
+        }
+        const messages = that.data.messages.concat([evalMsg])
+        that.setData({ messages: messages, renderTick: Date.now() })
+        that.scrollToBottom()
+      },
+      onQuality: function (qualityInfo) {
+        if (!qualityInfo) return
+        that.setData({ _qualityAdded: true })
+        const qualityMsg = {
+          id: helper.genId('qlt'),
+          role: 'quality',
+          score: (qualityInfo.score !== null && qualityInfo.score !== undefined) ? qualityInfo.score : '',
+          complete: !!qualityInfo.complete,
+          issues: qualityInfo.issues || [],
+          referencesValid: !!qualityInfo.references_valid
+        }
+        const messages = that.data.messages.concat([qualityMsg])
+        that.setData({ messages: messages, renderTick: Date.now() })
+        that.scrollToBottom()
       }
     })
 
     this.setData({ streamTask: streamTask })
   },
 
-  commitStreamMessage: function () {
+  commitStreamMessage: function (tokenUsage) {
     const content = this.data.streamingContent
     const reasoning = this.data.streamingReasoning
 
@@ -383,7 +427,8 @@ Page({
       content: content,
       reasoning: reasoning,
       reasoningCount: helper.charCount(reasoning),
-      reasoningExpanded: false
+      reasoningExpanded: false,
+      tokenUsage: tokenUsage || null
     }
 
     const messages = this.data.messages.concat([aiMsg])
@@ -394,6 +439,34 @@ Page({
       renderTick: 0
     })
     this.scrollToBottom()
+  },
+
+  onFeedback: function (e) {
+    const id = e.currentTarget.dataset.id
+    const positive = e.currentTarget.dataset.positive === 'true'
+    if (!this.data.sessionId) {
+      wx.showToast({ title: '无活动会话', icon: 'none' })
+      return
+    }
+    const that = this
+    api.postFeedback(this.data.sessionId, positive, '').then(function (res) {
+      if (res && res.success) {
+        wx.showToast({ title: positive ? '已点赞' : '已点踩', icon: 'success' })
+        // Update message to show feedback was given
+        const messages = that.data.messages
+        for (var i = 0; i < messages.length; i++) {
+          if (messages[i].id === id) {
+            const key = 'messages[' + i + '].feedbackGiven'
+            that.setData({ [key]: true })
+            break
+          }
+        }
+      } else {
+        wx.showToast({ title: '反馈提交失败', icon: 'none' })
+      }
+    }).catch(function () {
+      wx.showToast({ title: '网络错误', icon: 'none' })
+    })
   },
 
   onNewChat: function () {
