@@ -70,44 +70,42 @@ struct SessionListView: View {
     }
 
     private var sessionsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 24) {
-                ForEach(groupedSessions, id: \.0) { section, items in
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(section)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 20)
-
-                        VStack(spacing: 0) {
-                            ForEach(items) { session in
-                                SessionRowCard(
-                                    session: session,
-                                    isSelected: session.id == service.currentSession?.id
-                                ) {
-                                    service.switchToSession(session.id)
-                                    appState.drawerPath.removeLast()
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        service.deleteSession(session.id)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-
-                                if session.id != items.last?.id {
-                                    Divider()
-                                        .padding(.leading, 64)
-                                }
+        List {
+            ForEach(groupedSessions, id: \.0) { section, items in
+                Section {
+                    ForEach(items) { session in
+                        SessionRowCard(
+                            session: session,
+                            isSelected: session.id == service.currentSession?.id
+                        )
+                        .contentShape(Rectangle())
+                        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                        .listRowSeparator(.hidden)
+                        .onTapGesture {
+                            service.switchToSession(session.id)
+                            appState.drawerPath.removeLast()
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                service.deleteSession(session.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
                         }
                     }
+                } header: {
+                    Text(section)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
+                        .padding(.top, 16)
+                        .padding(.leading, 20)
                 }
             }
-            .padding(.vertical, 16)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color.platformWindowBackground)
     }
 }
@@ -115,61 +113,57 @@ struct SessionListView: View {
 struct SessionRowCard: View {
     let session: ClawSession
     let isSelected: Bool
-    let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
-                        .frame(width: 44, height: 44)
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.1))
+                    .frame(width: 44, height: 44)
 
-                    Image(systemName: "bubble.left.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.title)
-                        .font(.body)
-                        .fontWeight(isSelected ? .semibold : .medium)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    HStack(spacing: 8) {
-                        Label("\(session.messageCount)", systemImage: "text.bubble.fill")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-
-                        if let agentId = session.agentId, agentId != "default" {
-                            Text(agentId)
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                                .foregroundStyle(Color.accentColor)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.12))
-                                .clipShape(Capsule())
-                        }
-
-                        Spacer()
-
-                        Text(session.shortDate)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                Image(systemName: "bubble.left.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.title)
+                    .font(.body)
+                    .fontWeight(isSelected ? .semibold : .medium)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                HStack(spacing: 8) {
+                    Label("\(session.messageCount)", systemImage: "text.bubble.fill")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+
+                    if let agentId = session.agentId, agentId != "default" {
+                        Text(agentId)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+
+                    Text(session.shortDate)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 
