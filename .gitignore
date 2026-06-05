@@ -47,3 +47,5 @@ crates/claw/examples/plugins/*/target/
 .claude/
 .codex/
 .omx/
+# Git worktrees
+.worktrees/
