@@ -28,10 +28,21 @@ pub async fn handle_event(event: AgentEvent, app: &mut App) {
             {
                 let rel = super::super::make_relative(&app.current_dir, path);
                 app.file_changes.insert(rel.clone());
-                if !matches!(name.as_str(), "delete")
-                    && let Ok(content) = tokio::fs::read_to_string(path).await
-                {
-                    app.last_file_states.push((rel, content));
+                if !matches!(name.as_str(), "delete") {
+                    match tokio::fs::read_to_string(path).await {
+                        Ok(content) => {
+                            app.last_file_states.push((rel, content));
+                        }
+                        Err(_) if name.as_str() == "write" => {
+                            // New file — record empty state so Ctrl+Z can remove it
+                            app.last_file_states.push((rel, String::new()));
+                        }
+                        _ => {}
+                    }
+                    // Cap undo history to prevent unbounded growth
+                    if app.last_file_states.len() > 50 {
+                        app.last_file_states.remove(0);
+                    }
                 }
             }
             if name.as_str() == "rename"
@@ -138,6 +149,20 @@ pub async fn handle_event(event: AgentEvent, app: &mut App) {
 
             if !messages.is_empty() {
                 app.agent_messages = messages.clone();
+                // Cap agent_messages to prevent unbounded growth.
+                // Keep first (system) messages and the most recent tail.
+                const MAX_AGENT_MSGS: usize = 200;
+                if app.agent_messages.len() > MAX_AGENT_MSGS {
+                    let keep_prefix = 20.min(app.agent_messages.len() / 4);
+                    let keep_suffix = MAX_AGENT_MSGS.saturating_sub(keep_prefix);
+                    // Drain prefix
+                    let prefix: Vec<_> = app.agent_messages.drain(..keep_prefix).collect();
+                    // Drop excess from middle
+                    let drop_count = app.agent_messages.len().saturating_sub(keep_suffix);
+                    app.agent_messages.drain(..drop_count);
+                    // Restore prefix at front
+                    app.agent_messages.splice(0..0, prefix);
+                }
             }
             if let Some(u) = usage {
                 app.add_token_usage(u.input_tokens, u.output_tokens);

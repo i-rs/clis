@@ -195,10 +195,15 @@ pub async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<Ag
         }
         KeyCode::Char('z') if key.modifiers == KeyModifiers::CONTROL => {
             if let Some((path, content)) = app.last_file_states.pop() {
-                match tokio::fs::write(&path, &content).await {
+                let result = if content.is_empty() {
+                    // File didn't exist before write — delete it
+                    tokio::fs::remove_file(&path).await
+                } else {
+                    tokio::fs::write(&path, &content).await
+                };
+                match result {
                     Ok(_) => {
-                        app.messages
-                            .push(AgentMessage::system(format!("Reverted {}", path)));
+                        app.push_message(AgentMessage::system(format!("Reverted {}", path)));
                     }
                     Err(e) => {
                         app.push_message(AgentMessage::system(format!(

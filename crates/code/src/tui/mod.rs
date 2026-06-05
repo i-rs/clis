@@ -88,7 +88,9 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
     }
 
     while !app.should_quit {
-        terminal.draw(|f| {
+        let is_streaming = app.streaming.is_some();
+        if app.needs_redraw || is_streaming {
+            terminal.draw(|f| {
             if app.show_transcript {
                 transcript::render_transcript(f, &app);
             } else if app.show_theme_picker {
@@ -105,14 +107,14 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             } else {
                 ui::render(f, &app);
             }
-        })?;
-
-        if !app.auto_scroll {
-            let max_scroll = ui::get_max_scroll();
-            app.scroll_offset = app.scroll_offset.min(max_scroll);
+            })?;
+            if !app.auto_scroll {
+                app.scroll_offset = app.scroll_offset.min(ui::get_max_scroll());
+            }
+            app.needs_redraw = false;
         }
 
-        let poll_ms = if app.streaming.is_some() { 15 } else { 50 };
+        let poll_ms = if is_streaming { 16 } else { 200 };
         if event::poll(Duration::from_millis(poll_ms))? {
             match event::read()? {
                 Event::Key(key) => {
@@ -125,7 +127,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                 }
                 Event::Mouse(mouse) => {
                     let terminal_size = terminal.size().unwrap_or_default();
-                    let sidebar_width = 38u16;
+                    let sidebar_width = 40u16;
                     let is_sidebar =
                         mouse.column > terminal_size.width.saturating_sub(sidebar_width);
                     match mouse.kind {
@@ -147,12 +149,13 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                         MouseEventKind::Down(_)
                             if !is_sidebar && mouse.row > 0 =>
                         {
-                            if ui::streaming_click_target(mouse.row).is_some() {
+                            let hint_shown = !app.auto_scroll && app.messages.len() > 1;
+                            if ui::streaming_click_target(mouse.row, app.scroll_offset, hint_shown) {
                                 if let Some(ref mut s) = app.streaming {
                                     s.reasoning_collapsed = !s.reasoning_collapsed;
-                                    app.message_generation += 1;
+                                    app.needs_redraw = true;
                                 }
-                            } else if let Some(idx) = ui::find_message_idx_from_screen(mouse.row) {
+                            } else if let Some(idx) = ui::find_message_idx_from_screen(mouse.row, app.scroll_offset, hint_shown) {
                                 match app.messages[idx] {
                                     AgentMessage::ToolResult { .. } => {
                                         if let AgentMessage::ToolResult {
@@ -162,6 +165,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                                         {
                                             *collapsed = !*collapsed;
                                             app.message_generation += 1;
+                                            app.needs_redraw = true;
                                         }
                                     }
                                     AgentMessage::Assistant { .. } => {
@@ -174,10 +178,13 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                                         {
                                             *reasoning_expanded = !*reasoning_expanded;
                                             app.message_generation += 1;
+                                            app.needs_redraw = true;
                                         }
                                     }
                                     _ => {
                                         app.selected_message = Some(idx);
+                                        app.message_generation += 1;
+                                        app.needs_redraw = true;
                                     }
                                 }
                             }
