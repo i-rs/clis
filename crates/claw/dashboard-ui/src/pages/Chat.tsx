@@ -625,13 +625,34 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
       )}
       {message.quality && (
         <div className="message-quality">
-          <span className="quality-badge">
-            {'⭐'.repeat(Math.max(0, ['poor', 'fair', 'good', 'excellent'].indexOf(message.quality.score) + 1))}
-            {' '}Quality: {message.quality.score}
-          </span>
+          <div className="quality-header">
+            <span className="quality-icon">📊</span>
+            <span className="quality-label">Quality Assessment</span>
+          </div>
+          <div className="quality-score">
+            <div className="score-bar">
+              <div
+                className="score-fill"
+                style={{ width: `${Math.round((parseFloat(message.quality.score) || 0) * 100)}%` }}
+              />
+            </div>
+            <span className="score-value">{Math.round((parseFloat(message.quality.score) || 0) * 100)}%</span>
+          </div>
+          {message.quality.complete && (
+            <div className="quality-complete">
+              <span className="complete-badge">✓ Complete</span>
+            </div>
+          )}
+          {message.quality.references_valid && (
+            <div className="quality-refs">
+              <span className="refs-badge">✓ References Valid</span>
+            </div>
+          )}
           {message.quality.issues.length > 0 && (
             <div className="quality-issues">
-              <small>{message.quality.issues.join('; ')}</small>
+              {message.quality.issues.map((issue, i) => (
+                <div key={i} className="quality-issue">⚠️ {issue}</div>
+              ))}
             </div>
           )}
         </div>

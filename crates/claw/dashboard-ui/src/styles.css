@@ -1758,6 +1758,96 @@ pre, .code-block {
   color: var(--text-muted);
 }
 
+/* ── Message Quality ── */
+.message-quality {
+  margin-top: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.quality-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.quality-icon {
+  font-size: 14px;
+}
+
+.quality-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.quality-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.score-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--success) 100%);
+  border-radius: 3px;
+  transition: width 0.5s ease-out;
+}
+
+.score-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 45px;
+  text-align: right;
+}
+
+.quality-complete,
+.quality-refs {
+  margin-top: 8px;
+}
+
+.complete-badge,
+.refs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--success);
+  background: var(--success-bg);
+  border-radius: 4px;
+}
+
+.quality-issues {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quality-issue {
+  font-size: 12px;
+  color: var(--warning);
+  padding: 4px 8px;
+  background: var(--warning-bg);
+  border-radius: var(--radius-sm);
+}
+
 /* ── Usage Page ── */
 .period-selector {
   display: flex;

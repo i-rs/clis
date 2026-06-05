@@ -1062,6 +1062,8 @@ class ClawService: ObservableObject {
             appMsg = .quality(score: msg.score ?? "", complete: msg.complete ?? false, issues: msg.issues ?? [], referencesValid: msg.referencesValid ?? false)
         case "feedback":
             appMsg = .feedback(positive: msg.positive ?? true, message: msg.message)
+        case "image":
+            appMsg = .image(path: msg.url ?? "", altText: msg.altText ?? "", width: msg.width ?? 0, height: msg.height ?? 0, format: msg.format ?? "", url: msg.url ?? "")
         default:
             appMsg = .assistant(text: msg.content ?? "")
         }

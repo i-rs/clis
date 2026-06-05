@@ -82,9 +82,15 @@ struct ClawMessage: Codable, Identifiable {
     // feedback fields
     let positive: Bool?
     let message: String?
+    // image fields
+    let altText: String?
+    let width: Int?
+    let height: Int?
+    let format: String?
+    let url: String?
 
     enum CodingKeys: String, CodingKey {
-        case role, content, reasoning, name, args, result, tool, valid, issues, score, complete, referencesValid, positive, message
+        case role, content, reasoning, name, args, result, tool, valid, issues, score, complete, referencesValid, positive, message, altText, width, height, format, url
     }
 
     var displayContent: String {
@@ -404,6 +410,7 @@ enum AppMessage {
     case evaluation(tool: String, valid: Bool, issues: [String])
     case quality(score: String, complete: Bool, issues: [String], referencesValid: Bool)
     case feedback(positive: Bool, message: String?)
+    case image(path: String, altText: String, width: Int, height: Int, format: String, url: String)
 
     var text: String {
         switch self {
@@ -416,6 +423,7 @@ enum AppMessage {
         case .evaluation(let tool, let valid, _): return "📋 \(tool): \(valid ? "✓" : "✗")"
         case .quality(let score, _, _, _): return "⭐ 质量评分: \(score)"
         case .feedback(let positive, let message): return "💬 反馈: \(positive ? "👍" : "👎")\(message.map { " - \($0)" } ?? "")"
+        case .image(let altText, _, _, _, _, _): return "🖼 \(altText)"
         }
     }
 

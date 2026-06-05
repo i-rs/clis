@@ -982,15 +982,6 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
                     i += 1;
                 }
             }
-            "tool" => {
-                // 工具结果消息也需要保存
-                records.push(serde_json::json!({
-                    "type": "tool_result",
-                    "tool_call_id": m.get("tool_call_id").and_then(|v| v.as_str()).unwrap_or(""),
-                    "content": m.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                }));
-                i += 1;
-            }
             _ => {
                 i += 1;
             }

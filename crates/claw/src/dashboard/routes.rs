@@ -440,19 +440,6 @@ pub async fn chat_stream(
                         core.agent_store.memory_for_mut(&agent_id).flush();
                         drop(core);
 
-                        let quality_data = quality_msg.as_ref().and_then(|q| {
-                            if let crate::app::Message::Quality { score, complete, issues, references_valid } = q {
-                                Some(serde_json::json!({
-                                    "score": score,
-                                    "complete": complete,
-                                    "issues": issues,
-                                    "references_valid": references_valid,
-                                }))
-                            } else {
-                                None
-                            }
-                        });
-
                         let done_json = serde_json::json!({"usage": usage});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         let sse = Event::default().event("done").data(data);

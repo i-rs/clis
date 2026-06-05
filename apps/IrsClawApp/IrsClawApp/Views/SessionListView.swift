@@ -87,6 +87,7 @@ struct SessionListView: View {
                                     isSelected: session.id == service.currentSession?.id
                                 ) {
                                     service.switchToSession(session.id)
+                                    appState.drawerPath.removeLast()
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {

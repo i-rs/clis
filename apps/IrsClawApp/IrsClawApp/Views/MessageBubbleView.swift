@@ -35,6 +35,8 @@ struct MessageBubbleView: View {
                 qualityBubble(score: score, complete: complete, issues: issues, referencesValid: referencesValid)
             case .feedback(let positive, let message):
                 feedbackBubble(positive: positive, message: message)
+            case .image(let path, let altText, let width, let height, let format, let url):
+                imageBubble(path: path, altText: altText, width: width, height: height, format: format, url: url)
             }
         }
     }
@@ -342,6 +344,79 @@ struct MessageBubbleView: View {
                     Text(msg)
                         .font(.caption)
                         .foregroundStyle(.primary)
+                }
+            }
+
+            Spacer(minLength: 20)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Image Bubble
+
+    @ViewBuilder
+    private func imageBubble(path: String, altText: String, width: Int, height: Int, format: String, url: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: "photo.fill", colors: [.purple, .pink])
+                .scaleEffect(0.9)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "photo.fill")
+                        .font(.caption)
+                    Text("Generated Image")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    if !format.isEmpty {
+                        Text(format.uppercased())
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.secondary)
+
+                if !url.isEmpty {
+                    AsyncImage(url: URL(string: url)) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 200)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxHeight: 300)
+                        case .failure:
+                            VStack(spacing: 8) {
+                                Image(systemName: "photo.badge.exclamationmark")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                                Text("Failed to load image")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 150)
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                if !altText.isEmpty {
+                    Text(altText)
+                        .font(.caption)
+                        .foregroundStyle(.primary)
+                }
+
+                if width > 0 && height > 0 {
+                    Text("\(width) × \(height)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
 
