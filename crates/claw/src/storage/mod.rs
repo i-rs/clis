@@ -1,7 +1,7 @@
 //! Pluggable storage backend abstraction.
 
 pub mod file;
-#[cfg(feature = "sqlite")]
+#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
 pub mod sql;
 #[cfg(feature = "mongo")]
 pub mod mongo;
