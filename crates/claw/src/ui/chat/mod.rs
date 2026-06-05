@@ -47,7 +47,6 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // The registry now owns the click dispatch — the input handlers
     // just need the absolute row/col of the click event.
     scr.register_clicks(inner_area, &mut app.hit_regions);
-    app.chat_y = area.y;
     app.max_scroll = scr.max_scroll() as usize;
     app.scroll_lines = scr.scroll as usize;
 }

@@ -126,6 +126,7 @@ export interface AgentInfo {
   enabled_tools: string[]
   system_prompt: string | null
   is_sub_agent?: boolean
+  provider_ref?: string | null
 }
 
 // ── Sessions ──

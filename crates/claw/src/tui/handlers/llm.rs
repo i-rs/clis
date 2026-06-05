@@ -226,10 +226,15 @@ impl<'a> LlmEventHandler<'a> {
                 self.app.finish_processing(Some(msgs.clone()));
                 self.app.token_usage = usage;
 
-                // Backfill token usage onto the last Assistant message.
-                if let Some(super::AppMessage::Assistant { token_usage, .. }) = self.app.messages.last_mut() {
-                    if let Some(ref u) = self.app.token_usage {
-                        *token_usage = Some(*u);
+                // Backfill token usage onto all Assistant messages so
+                // every block header shows usage (cumulative for the turn).
+                for msg in self.app.messages.iter_mut() {
+                    if let super::AppMessage::Assistant { token_usage, .. } = msg {
+                        if token_usage.is_none() {
+                            if let Some(ref u) = self.app.token_usage {
+                                *token_usage = Some(*u);
+                            }
+                        }
                     }
                 }
                 self.app.rebuild_components();
@@ -240,11 +245,17 @@ impl<'a> LlmEventHandler<'a> {
         self.app.finish_processing(Some(msgs.clone()));
         self.app.token_usage = usage;
 
-        // Backfill token usage onto the last Assistant message so
-        // the block header can render it alongside the timestamp.
-        if let Some(super::AppMessage::Assistant { token_usage, .. }) = self.app.messages.last_mut() {
-            if let Some(ref u) = self.app.token_usage {
-                *token_usage = Some(*u);
+        // Backfill token usage onto all Assistant messages so the
+        // block header can render it alongside the timestamp. In
+        // multi-round ReAct loops each intermediate assistant message
+        // receives the cumulative token usage for the entire turn.
+        for msg in self.app.messages.iter_mut() {
+            if let super::AppMessage::Assistant { token_usage, .. } = msg {
+                if token_usage.is_none() {
+                    if let Some(ref u) = self.app.token_usage {
+                        *token_usage = Some(*u);
+                    }
+                }
             }
         }
 

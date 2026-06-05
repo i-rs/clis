@@ -19,6 +19,7 @@ export default function AgentsPage({ onAgentsChange }: Props) {
   const [formBaseUrl, setFormBaseUrl] = useState('')
   const [formApiKey, setFormApiKey] = useState('')
   const [formSystemPrompt, setFormSystemPrompt] = useState('')
+  const [formProviderRef, setFormProviderRef] = useState('')
   const [formTools, setFormTools] = useState('')
 
   const loadAgents = () => {
@@ -42,6 +43,7 @@ export default function AgentsPage({ onAgentsChange }: Props) {
     setFormBaseUrl('')
     setFormApiKey('')
     setFormSystemPrompt('')
+    setFormProviderRef('')
     setFormTools('')
     setError(null)
   }
@@ -65,6 +67,7 @@ export default function AgentsPage({ onAgentsChange }: Props) {
     if (formModel.trim()) body.model = formModel.trim()
     if (formBaseUrl.trim()) body.base_url = formBaseUrl.trim()
     if (formApiKey.trim()) body.api_key = formApiKey.trim()
+    if (formProviderRef.trim()) body.provider_ref = formProviderRef.trim()
     if (formSystemPrompt.trim()) body.system_prompt = formSystemPrompt.trim()
     if (formTools.trim()) {
       body.enabled_tools = formTools.split(',').map((t) => t.trim()).filter(Boolean)
@@ -170,6 +173,7 @@ export default function AgentsPage({ onAgentsChange }: Props) {
               </div>
 
               <FormField label="Agent ID *" value={formId} onChange={setFormId} placeholder="e.g. my-agent" disabled={submitting} />
+              <FormField label="Provider Ref" value={formProviderRef} onChange={setFormProviderRef} placeholder="e.g. default (leave empty for global default)" disabled={submitting} />
               <FormField label="Provider" value={formProvider} onChange={setFormProvider} placeholder="e.g. openai" disabled={submitting} />
               <FormField label="Model" value={formModel} onChange={setFormModel} placeholder="e.g. gpt-4o" disabled={submitting} />
               <FormField label="Base URL" value={formBaseUrl} onChange={setFormBaseUrl} placeholder="e.g. https://api.openai.com/v1" disabled={submitting} />
@@ -254,7 +258,7 @@ function AgentCard({ agent, onDelete }: { agent: AgentInfo; onDelete?: (id: stri
               )}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {agent.provider} · {agent.model} · {agent.tool_count} tool{agent.tool_count !== 1 ? 's' : ''}
+              {agent.provider_ref || 'default'} · {agent.provider} · {agent.model} · {agent.tool_count} tool{agent.tool_count !== 1 ? 's' : ''}
             </div>
           </div>
         </div>

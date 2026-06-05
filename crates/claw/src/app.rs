@@ -750,7 +750,6 @@ pub struct App {
     /// registered regions, which is fine because the registry only
     /// contains clickable components (almost always << n_messages).
     pub hit_regions: ClickRegionRegistry<usize>,
-    pub chat_y: u16,
     pub http_logs: VecDeque<HttpLog>,
     pub current_reasoning: String,
     pub reminder_text: Option<String>,
@@ -784,7 +783,6 @@ impl App {
             max_scroll: 0,
             stick_to_bottom: true,
             hit_regions: ClickRegionRegistry::new(),
-            chat_y: 0,
             http_logs: VecDeque::new(),
             current_reasoning: String::new(),
             reminder_text: None,

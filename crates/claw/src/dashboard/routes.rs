@@ -620,6 +620,7 @@ pub async fn get_agents(State(state): State<AppState>) -> Json<ApiResponse<Vec<V
             let is_sub = id != "default" && !core.config.agents.contains_key(id);
             let system_prompt = agent.and_then(|a| a.system_prompt.as_deref());
             let capabilities = agent.map(|a| &a.capabilities[..]).unwrap_or(&[]);
+            let provider_ref = agent.and_then(|a| a.provider_ref.as_deref());
             serde_json::json!({
                 "id": id,
                 "provider": provider,
@@ -630,6 +631,7 @@ pub async fn get_agents(State(state): State<AppState>) -> Json<ApiResponse<Vec<V
                 "system_prompt": system_prompt,
                 "is_sub_agent": is_sub,
                 "capabilities": capabilities,
+                "provider_ref": provider_ref,
             })
         })
         .collect();
@@ -643,6 +645,8 @@ pub async fn get_agent_detail(
 ) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let resolved = core.config.agent_config(&id);
+    let raw_agent = core.config.agents.get(&id).or_else(|| core.config.sub_agents.get(&id));
+    let provider_ref = raw_agent.and_then(|a| a.provider_ref.as_deref());
     let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
     ApiResponse::ok(serde_json::json!({
         "id": id,
@@ -654,6 +658,7 @@ pub async fn get_agent_detail(
         "system_prompt": resolved.system_prompt,
         "mcp_servers": resolved.mcp_servers,
         "allowed_dirs": resolved.allowed_dirs,
+        "provider_ref": provider_ref,
     }))
 }
 
@@ -677,6 +682,11 @@ pub async fn update_agent(
 
     // Merge body with existing (only override provided fields)
     let agent_config = crate::config::AgentConfig {
+        provider_ref: body
+            .get("provider_ref")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or(existing.provider_ref),
         provider: body
             .get("provider")
             .and_then(|v| v.as_str())
@@ -787,6 +797,10 @@ pub async fn create_agent(
         mcp_servers: None,
         allowed_dirs: None,
         capabilities: Vec::new(),
+        provider_ref: body
+            .get("provider_ref")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
         execution_mode: None,
     };
 

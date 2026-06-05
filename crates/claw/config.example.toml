@@ -9,19 +9,51 @@ timezone = "+08:00"
 
 # ── LLM Provider ────────────────────────────────────────────────────────────
 #
-# provider:  "openai" | "anthropic" | "ollama"
-#            兼容 OpenAI API 的第三方服务（如 DeepSeek、Groq、OpenRouter）也设为 "openai"
+# 方式一（推荐）：命名 provider
+#   在 [providers] 段定义多个 LLM backend，每个可独立配置 provider 类型 / 模型 / 密钥。
+#   default_provider 指定默认使用的 provider 名称。
+#
+# 方式二（兼容）：顶层字段
+#   保留顶层 provider / api_key / base_url / model 字段也仍可正常工作，
+#   加载时自动迁移到 providers["default"]。
+#
+
+# 默认 provider 名称（默认值: "default"）
+default_provider = "default"
+
+[providers.default]
+# provider 类型: "openai" | "anthropic" | "ollama"
+#               兼容 OpenAI API 的第三方服务（如 DeepSeek、Groq、OpenRouter）也设为 "openai"
 provider = "openai"
 
-# api_key:  API 密钥
-#           也可以通过环境变量 I_RS_CLAW_API_KEY 设置，优先级高于文件
+# API 密钥（也可以通过环境变量 I_RS_CLAW_API_KEY 设置，优先级高于文件）
 api_key = "your-api-key"
 
-# base_url: API 端点地址
+# API 端点地址
 base_url = "https://api.deepseek.com"
 
-# model:    模型名称
+# 模型名称
 model = "deepseek-v4-flash"
+
+# ---------- 其它 provider 示例 ----------
+# [providers.claude]
+# provider = "anthropic"
+# api_key = "sk-ant-xxx"
+# base_url = "https://api.anthropic.com"
+# model = "claude-sonnet-4-20250514"
+
+# [providers.ollama-local]
+# provider = "ollama"
+# api_key = ""
+# base_url = "http://localhost:11434"
+# model = "llama3"
+
+# ---------- 兼容的顶层字段（自动迁移到 providers["default"]）----------
+# 取消注释以下四行即退回到旧格式，providers 段会由加载逻辑自动填充。
+# provider = "openai"
+# api_key = "your-api-key"
+# base_url = "https://api.deepseek.com"
+# model = "deepseek-v4-flash"
 
 # ── 工具管理 ────────────────────────────────────────────────────────────────
 #
@@ -97,6 +129,8 @@ i_rs_tools = [
 # ── MCP 服务器 ──────────────────────────────────────────────────────────────
 #
 # mcp_servers:  外部 MCP 工具服务器列表
+#               编译时通过 `mcp` feature 控制（默认启用）。
+#               如需移除 MCP 依赖，在 Cargo.toml 中去掉 default = ["mcp"]。
 #               enabled: 是否启用（默认 true），设为 false 可临时禁用
 #
 # [[mcp_servers]]
@@ -147,14 +181,7 @@ execution_mode = "React"
 # [storage]
 # backend = "file"                   # "file" (默认) | "sqlite" | "mysql" | "postgres"
 #
-#   # 文件后端（默认，无需额外依赖）
-#   # file_dir = "~/.i-rs/claw"      # 数据目录，默认 ~/.i-rs/claw
-#
-#   # SQLite 后端（需编译: --features sqlite）
-#   # sqlite_path = "~/.i-rs/claw/claw.db"
-#
-#   # MySQL 后端（需编译: --features mysql）
-#   # sql_url = "mysql://user:pass@localhost/claw"
+#   # 文件后端（默认…64 tokens truncated…$ sql_url = "mysql://user:pass@localhost/claw"
 #
 #   # PostgreSQL 后端（需编译: --features postgres）
 #   # sql_url = "postgres://user:pass@localhost/claw"
@@ -234,18 +261,23 @@ execution_mode = "React"
 # ── Agent 配置 ──────────────────────────────────────────────────────────────
 #
 # 默认智能体 "default" 始终存在，不可创建/删除/修改。
-# 它使用顶层的 provider/model/api_key/base_url 配置。
-# 以下 [agents.*] 仅用于添加额外的智能体，每个 agent 可覆盖
-# provider/model/tools/system_prompt，未设字段继承顶层配置。
+# 它使用 default_provider 指向的 provider 配置。
+# 以下 [agents.*] 用于添加额外的智能体，每个 agent 可覆盖 provider /
+# model / tools / system_prompt，未设字段继承 default_provider。
+#
+# provider_ref:  引用 [providers] 段中的命名配置。设置后，agent 的
+#                provider / api_key / base_url 从该 provider 继承，
+#                只有 model 仍可单独覆盖。
 #
 # [agents.analyst]
-# model = "gpt-4o"
+# provider_ref = "default"            # 引用 providers.default
+# model = "gpt-4o"                    # 仍可单独覆盖模型
 # tools = ["kv", "weight", "sleep", "mood", "exercise"]
 # system_prompt = "你是一名数据分析师…"
 # capabilities = ["数据分析", "趋势预测"]
 #
 # [agents.writer]
-# provider = "anthropic"
+# provider_ref = "claude"             # 引用 providers.claude
 # model = "claude-sonnet-4-20250514"
 # tools = ["note", "snippet", "vocab", "bookmark", "quote"]
 # system_prompt_file = "agents/writer_prompt.md"     # 相对 ~/.i-rs/claw/ 的路径
@@ -254,6 +286,7 @@ execution_mode = "React"
 # ── Sub-agent（仅用于 delegate_task，TUI 不可见）────────────────────────────
 #
 # [sub_agents.coder]
+# provider_ref = "default"
 # model = "gpt-4o"
 # enabled_tools = ["kv", "todo", "note", "remind", "project", "snippet"]
 # system_prompt = "你是一名编程助手…"

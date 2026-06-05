@@ -19,6 +19,7 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [providerRef, setProviderRef] = useState('')
 
   const isDefault = selectedAgent === 'default'
 
@@ -34,6 +35,7 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
         setModel(c.model)
         setBaseUrl(c.base_url)
         setSystemPrompt(c.system_prompt || '')
+        setProviderRef(c.provider_ref || '')
       }
       setLoading(false)
     }).catch(() => setLoading(false))
@@ -49,6 +51,7 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
     if (model !== config?.model) body.model = model
     if (baseUrl !== config?.base_url) body.base_url = baseUrl
     if (apiKey) body.api_key = apiKey
+    if (providerRef !== (config?.provider_ref || '')) body.provider_ref = providerRef || null
     if (systemPrompt !== (config?.system_prompt || '')) {
       body.system_prompt = systemPrompt || null
     }
@@ -120,6 +123,7 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
                     <div className="config-section-title">Model Configuration</div>
                   </div>
                   <div className="config-section-body">
+                    <ConfigField label="Provider Ref" value={providerRef} onChange={setProviderRef} placeholder="e.g. default (leave empty for global default)" />
                     <ConfigField label="Provider" value={provider} onChange={setProvider} placeholder="e.g. openai" />
                     <ConfigField label="Model" value={model} onChange={setModel} placeholder="e.g. gpt-4o" />
                     <ConfigField label="Base URL" value={baseUrl} onChange={setBaseUrl} placeholder="e.g. https://api.openai.com/v1" />
@@ -179,6 +183,7 @@ export default function ConfigPage({ selectedAgent, onAgentsChange }: Props) {
                     <tbody>
                       <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)', width: '120px' }}>Provider</td><td>{config.provider}</td></tr>
                       <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Model</td><td>{config.model}</td></tr>
+                      <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Provider Ref</td><td>{config.provider_ref || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>default</span>}</td></tr>
                       <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Base URL</td><td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{config.base_url}</td></tr>
                       <tr><td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Tools</td>
                         <td>
