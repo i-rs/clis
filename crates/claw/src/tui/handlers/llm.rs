@@ -232,6 +232,7 @@ impl<'a> LlmEventHandler<'a> {
                         *token_usage = Some(*u);
                     }
                 }
+                self.app.rebuild_components();
                 return Action::Continue;
             }
         };
@@ -253,6 +254,8 @@ impl<'a> LlmEventHandler<'a> {
                 *token_usage = Some(*u);
             }
         }
+
+        self.app.rebuild_components();
 
         let needs_rename = self
             .app_core

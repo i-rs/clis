@@ -142,7 +142,7 @@ impl MessageComponent for AssistantBlock {
         h
     }
 
-    fn clickable(&self) -> bool { !self.reasoning.is_empty() }
+    fn clickable(&self) -> bool { true }
 
     fn apply(&mut self, op: ComponentOp) {
         match op {

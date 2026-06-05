@@ -33,7 +33,7 @@ impl<'a> MouseEventHandler<'a> {
             match mouse.kind {
                 MouseEventKind::ScrollDown => self.app.scroll_down(),
                 MouseEventKind::ScrollUp => self.app.scroll_up(),
-                _ if is_left_click(&mouse) => self.handle_click(mouse.column, mouse.row),
+                _ if is_left_click(&mouse) => self.handle_click(mouse.column.saturating_sub(1), mouse.row.saturating_sub(1)),
                 _ => {}
             }
             self.app.mark_overlay_dirty();

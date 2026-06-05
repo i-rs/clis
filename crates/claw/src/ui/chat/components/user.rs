@@ -74,6 +74,10 @@ impl MessageComponent for UserBubble {
         1 + 1 + self.body_rows(width) + 1
     }
 
+
+    fn clickable(&self) -> bool { true }
+
+
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {
         let border = block_border(theme, selected);
         let interior_bg = if selected {
