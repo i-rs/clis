@@ -3,6 +3,10 @@
 pub mod file;
 #[cfg(feature = "sqlite")]
 pub mod sql;
+#[cfg(feature = "mongo")]
+pub mod mongo;
+#[cfg(feature = "redis")]
+pub mod redis;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -44,6 +48,7 @@ pub enum StorageBackend {
     Postgres,
     #[serde(rename = "mongodb")]
     Mongo,
+    Redis,
 }
 
 /// Per-backend connection parameters.
@@ -67,6 +72,9 @@ pub struct StorageConfig {
     /// MongoDB database name.
     #[serde(default)]
     pub mongo_database: Option<String>,
+    /// Redis connection URL (e.g. `redis://127.0.0.1:6379/0`).
+    #[serde(default)]
+    pub redis_url: Option<String>,
 }
 
 // ── Repository traits ──

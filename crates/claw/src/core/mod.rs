@@ -299,7 +299,39 @@ impl AppCore {
                 )
             }
             crate::storage::StorageBackend::Mongo => {
-                anyhow::bail!("storage.backend = \"mongodb\" 暂未实现")
+                #[cfg(feature = "mongo")]
+                {
+                    let url = config
+                        .storage
+                        .mongo_url
+                        .as_deref()
+                        .unwrap_or("mongodb://localhost:27017");
+                    let db = config
+                        .storage
+                        .mongo_database
+                        .as_deref()
+                        .unwrap_or("i_rs_claw");
+                    std::sync::Arc::new(block_on(ClawStorage::mongo(url, db))?)
+                }
+                #[cfg(not(feature = "mongo"))]
+                anyhow::bail!(
+                    "storage.backend = \"mongodb\" 但未启用 mongo feature（需编译时添加 --features mongo）"
+                )
+            }
+            crate::storage::StorageBackend::Redis => {
+                #[cfg(feature = "redis")]
+                {
+                    let url = config
+                        .storage
+                        .redis_url
+                        .as_deref()
+                        .unwrap_or("redis://localhost:6379/0");
+                    std::sync::Arc::new(block_on(ClawStorage::redis(url))?)
+                }
+                #[cfg(not(feature = "redis"))]
+                anyhow::bail!(
+                    "storage.backend = \"redis\" 但未启用 redis feature（需编译时添加 --features redis）"
+                )
             }
             crate::storage::StorageBackend::File => {
                 std::sync::Arc::new(ClawStorage::file(claw_dir.clone()))
@@ -999,7 +1031,7 @@ pub fn record_layered_tool_memory(
 }
 
 /// Bridge sync → async for storage initialization.
-#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
+#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres", feature = "mongo", feature = "redis"))]
 fn block_on<F: std::future::Future>(f: F) -> F::Output {
     crate::utils::sync_block_on(f)
 }

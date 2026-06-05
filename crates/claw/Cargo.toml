@@ -47,6 +47,12 @@ sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
 ], optional = true }
 
+# MongoDB driver — gated behind "mongo" feature.
+mongodb = { version = "3", optional = true }
+
+# Redis driver — gated behind "redis" feature.
+redis = { version = "1.2", features = ["tokio-comp"], optional = true }
+
 [features]
 default = ["mcp"]
 mcp = ["rmcp"]
@@ -59,6 +65,8 @@ dashboard = ["axum", "tower-http", "rust-embed", "mime_guess"]
 sqlite = ["sqlx", "sqlx/sqlite"]
 mysql = ["sqlx", "sqlx/mysql"]
 postgres = ["sqlx", "sqlx/postgres"]
+mongo = ["dep:mongodb"]
+redis = ["dep:redis"]
 
 [dev-dependencies]
 tempfile = "3"

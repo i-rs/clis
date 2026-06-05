@@ -149,7 +149,7 @@ pub fn run_config() -> anyhow::Result<()> {
 
     // ── Storage Backend ──
     println!("\n  Storage (存储后端)");
-    println!("  选项: file / sqlite / mysql / postgres");
+    println!("  选项: file / sqlite / mysql / postgres / mongodb / redis");
     println!("  file 为 JSON 文件存储（默认），sqlite 需要编译 --features sqlite");
     let storage_default = match cfg.storage.backend {
         crate::storage::StorageBackend::File => "file",
@@ -157,6 +157,7 @@ pub fn run_config() -> anyhow::Result<()> {
         crate::storage::StorageBackend::Mysql => "mysql",
         crate::storage::StorageBackend::Postgres => "postgres",
         crate::storage::StorageBackend::Mongo => "mongodb",
+        crate::storage::StorageBackend::Redis => "redis",
     };
     print!("Storage 后端 [{}]: ", storage_default);
     io::stdout().flush()?;
@@ -225,6 +226,52 @@ pub fn run_config() -> anyhow::Result<()> {
                     Some(url)
                 };
             }
+            "mongodb" => {
+                cfg.storage.backend = crate::storage::StorageBackend::Mongo;
+                let url_default = cfg
+                    .storage
+                    .mongo_url
+                    .as_deref()
+                    .unwrap_or("mongodb://localhost:27017");
+                print!("  MongoDB URL [{}]: ", url_default);
+                io::stdout().flush()?;
+                input.clear();
+                io::stdin().read_line(&mut input)?;
+                let url = input.trim().to_string();
+                cfg.storage.mongo_url = if url.is_empty() {
+                    Some(url_default.to_string())
+                } else {
+                    Some(url)
+                };
+                print!("  MongoDB 数据库 [i_rs_claw]: ");
+                io::stdout().flush()?;
+                input.clear();
+                io::stdin().read_line(&mut input)?;
+                let db = input.trim().to_string();
+                cfg.storage.mongo_database = if db.is_empty() {
+                    Some("i_rs_claw".to_string())
+                } else {
+                    Some(db)
+                };
+            }
+            "redis" => {
+                cfg.storage.backend = crate::storage::StorageBackend::Redis;
+                let url_default = cfg
+                    .storage
+                    .redis_url
+                    .as_deref()
+                    .unwrap_or("redis://localhost:6379/0");
+                print!("  Redis URL [{}]: ", url_default);
+                io::stdout().flush()?;
+                input.clear();
+                io::stdin().read_line(&mut input)?;
+                let url = input.trim().to_string();
+                cfg.storage.redis_url = if url.is_empty() {
+                    Some(url_default.to_string())
+                } else {
+                    Some(url)
+                };
+            }
             _ => println!("  ⚠ 未知后端 '{}'，保留原值", trimmed),
         }
     }
@@ -250,6 +297,7 @@ pub fn run_config() -> anyhow::Result<()> {
         crate::storage::StorageBackend::Mysql => "mysql",
         crate::storage::StorageBackend::Postgres => "postgres",
         crate::storage::StorageBackend::Mongo => "mongodb",
+        crate::storage::StorageBackend::Redis => "redis",
     };
 
     println!("\n配置摘要：");
