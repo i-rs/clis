@@ -166,7 +166,12 @@ pub enum Message {
         name: String,
         args: String,
         result: String,
+        // Older session records (and `api_msgs_to_jsonl`) don't persist
+        // these — default to 0/0 so reload doesn't silently drop the
+        // entire tool_call message.
+        #[serde(default)]
         step: usize,
+        #[serde(default)]
         total_steps: usize,
     },
     Error {
@@ -1458,6 +1463,52 @@ mod tests {
             matches!(&app.messages[0], Message::ToolCall { name, step: 1, total_steps: 2, .. } if name == "weight")
         );
         assert_eq!(app.tool_call_count, 1);
+    }
+
+    /// Regression: `api_msgs_to_jsonl` saves tool_call records without
+    /// `step`/`total_steps`. Deserialization must tolerate this, otherwise
+    /// tool_call messages silently vanish on session reload (the mini
+    /// program and dashboard-ui both lose them).
+    #[test]
+    fn test_message_from_jsonl_tool_call_without_step() {
+        let v = serde_json::json!({
+            "type": "tool_call",
+            "name": "weight",
+            "args": "{\"command\":\"list\"}",
+            "result": "ok"
+        });
+        let msg = message_from_jsonl(v).expect("tool_call without step/total_steps must deserialize");
+        match msg {
+            Message::ToolCall { name, args, result, step, total_steps } => {
+                assert_eq!(name, "weight");
+                assert_eq!(args, "{\"command\":\"list\"}");
+                assert_eq!(result, "ok");
+                assert_eq!(step, 0, "missing step defaults to 0");
+                assert_eq!(total_steps, 0, "missing total_steps defaults to 0");
+            }
+            _ => panic!("expected ToolCall"),
+        }
+    }
+
+    #[test]
+    fn test_message_from_jsonl_tool_call_with_step() {
+        let v = serde_json::json!({
+            "type": "tool_call",
+            "name": "water",
+            "args": "{}",
+            "result": "ok",
+            "step": 2,
+            "total_steps": 3
+        });
+        let msg = message_from_jsonl(v).expect("tool_call with step/total_steps must deserialize");
+        match msg {
+            Message::ToolCall { name, step, total_steps, .. } => {
+                assert_eq!(name, "water");
+                assert_eq!(step, 2);
+                assert_eq!(total_steps, 3);
+            }
+            _ => panic!("expected ToolCall"),
+        }
     }
 
     #[test]
