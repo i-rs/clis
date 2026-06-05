@@ -192,12 +192,26 @@ execution_mode = "React"
 # ── 存储后端 ────────────────────────────────────────────────────────────────
 #
 # [storage]
-# backend = "file"                   # "file" (默认) | "sqlite" | "mysql" | "postgres"
+# backend = "file"   # 可选: "file"(默认) | "sqlite" | "mysql" | "postgres" | "mongodb" | "redis"
 #
-#   # 文件后端（默认…64 tokens truncated…$ sql_url = "mysql://user:pass@localhost/claw"
+#   # ---- 文件后端（默认，无需额外配置）----
+#   # file_dir = "~/.i-rs/claw"          # 数据目录
 #
-#   # PostgreSQL 后端（需编译: --features postgres）
+#   # ---- SQLite（需编译: --features sqlite）----
+#   # sqlite_path = "~/.i-rs/claw/claw.db"
+#
+#   # ---- MySQL（需编译: --features mysql）----
+#   # sql_url = "mysql://user:pass@localhost/claw"
+#
+#   # ---- PostgreSQL（需编译: --features postgres）----
 #   # sql_url = "postgres://user:pass@localhost/claw"
+#
+#   # ---- MongoDB（需编译: --features mongo）----
+#   # mongo_url = "mongodb://localhost:27017"
+#   # mongo_database = "i_rs_claw"
+#
+#   # ---- Redis（需编译: --features redis）----
+#   # redis_url = "redis://localhost:6379/0"
 
 # ── Gateway（社交平台接入）──────────────────────────────────────────────────
 #
