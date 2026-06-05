@@ -664,16 +664,6 @@ impl AppCore {
             crate::app::evaluate_response_heuristic(last_assistant, &tool_results, &i_rs_tools)
         };
         {
-            let log = self.session_mgr.message_log();
-            let sid = session_id.to_string();
-            let q_clone = quality.clone();
-            tokio::spawn(async move {
-                if let Err(e) = log.append_one(&sid, &q_clone).await {
-                    tracing::error!("quality 持久化失败: {}", e);
-                }
-            });
-        }
-        {
             let suite = crate::core::evals::builtin_eval_suite();
             let eval_tool_results: Vec<(String, String)> = messages
                 .iter()

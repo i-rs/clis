@@ -422,13 +422,6 @@ impl<'a> KeyEventHandler<'a> {
                     .layered_memory_for_mut(&self.app.current_agent);
                 lm.record_user_statement(&text);
             }
-            self.app
-                .messages
-                .push(crate::app::Message::User { text: text.clone() });
-            self.app
-                .message_timestamps
-                .push(chrono::Local::now().naive_local());
-            self.app.mark_dirty();
             let msgs = self.app_core.build_messages_for(
                 &self.app.messages,
                 &text,
