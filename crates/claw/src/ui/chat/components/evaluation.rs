@@ -1,5 +1,5 @@
-use super::style::{body_line, block_border, header_line, render_block_chrome};
 use super::MessageComponent;
+use super::style::{block_border, body_line, header_line, render_block_chrome};
 use crate::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -14,12 +14,7 @@ pub(crate) struct EvaluationInline {
 }
 
 impl EvaluationInline {
-    pub fn new(
-        tool: &str,
-        valid: bool,
-        issues: &[String],
-        timestamp: Option<&str>,
-    ) -> Self {
+    pub fn new(tool: &str, valid: bool, issues: &[String], timestamp: Option<&str>) -> Self {
         Self {
             tool: tool.to_string(),
             valid,
@@ -59,10 +54,19 @@ impl MessageComponent for EvaluationInline {
         if body.contains(y) {
             Paragraph::new(body_line(
                 &self.tool,
-                Style::default().fg(theme.accent()).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.accent())
+                    .add_modifier(Modifier::BOLD),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         }
 
@@ -76,7 +80,14 @@ impl MessageComponent for EvaluationInline {
                 Style::default().fg(theme.text()),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         }
     }

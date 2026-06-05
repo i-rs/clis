@@ -1,8 +1,8 @@
 use crate::app::{self, App, Overlay};
-use crate::ui::chat_api::ComponentOp;
 use crate::core;
+use crate::ui::chat_api::ComponentOp;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui_interact::events::{is_space};
+use ratatui_interact::events::is_space;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
@@ -75,9 +75,7 @@ impl<'a> KeyEventHandler<'a> {
         let has_ctrl = m.contains(KeyModifiers::CONTROL);
         let has_shift = m.contains(KeyModifiers::SHIFT);
         match (key.code, has_ctrl, has_shift) {
-            (KeyCode::Char('c'), true, true) => {
-                self.handle_copy()
-            }
+            (KeyCode::Char('c'), true, true) => self.handle_copy(),
             (KeyCode::Char('c'), true, false) if self.app.is_processing() => {
                 self.app.add_error("用户取消请求");
                 Action::Continue
@@ -357,9 +355,7 @@ impl<'a> KeyEventHandler<'a> {
                 if self.app.input.text.is_empty() {
                     self.app.scroll_up_one();
                 } else if let Some(text) = self.app.input.navigate_up() {
-                    if self.app.input.history_index.is_some()
-                        && self.app.input.draft.is_empty()
-                    {
+                    if self.app.input.history_index.is_some() && self.app.input.draft.is_empty() {
                         self.app.input.draft = self.app.input.text.clone();
                     }
                     self.app.input.text = text;
@@ -420,12 +416,19 @@ impl<'a> KeyEventHandler<'a> {
             self.app.commit_input_to_history(&text);
             self.app.add_user_message(&text);
             {
-                let lm = self.app_core.agent_store.layered_memory_for_mut(&self.app.current_agent);
+                let lm = self
+                    .app_core
+                    .agent_store
+                    .layered_memory_for_mut(&self.app.current_agent);
                 lm.record_user_statement(&text);
             }
-            self.app_core
-                .session_mgr
-                .append_message("user", &text, None);
+            self.app
+                .messages
+                .push(crate::app::Message::User { text: text.clone() });
+            self.app
+                .message_timestamps
+                .push(chrono::Local::now().naive_local());
+            self.app.mark_dirty();
             let msgs = self.app_core.build_messages_for(
                 &self.app.messages,
                 &text,
@@ -463,9 +466,7 @@ impl<'a> KeyEventHandler<'a> {
                 if !self.app.input.text.is_empty() {
                     self.app.delete_before_cursor();
                     self.app.overlay.tab_completions.clear();
-                    if self.app.overlay.slash_visible
-                        && !self.app.input.text.starts_with('/')
-                    {
+                    if self.app.overlay.slash_visible && !self.app.input.text.starts_with('/') {
                         self.app.overlay.slash_visible = false;
                         self.app.overlay.slash_index = 0;
                     }
@@ -539,12 +540,15 @@ impl<'a> KeyEventHandler<'a> {
         };
         if let Some(content) = content {
             if crate::tui::clipboard::copy_to_clipboard(&content) {
-                self.app.overlay.copy_feedback = Some(("✓ 已复制".to_string(), std::time::Instant::now()));
+                self.app.overlay.copy_feedback =
+                    Some(("✓ 已复制".to_string(), std::time::Instant::now()));
             } else {
-                self.app.overlay.copy_feedback = Some(("✗ 复制失败".to_string(), std::time::Instant::now()));
+                self.app.overlay.copy_feedback =
+                    Some(("✗ 复制失败".to_string(), std::time::Instant::now()));
             }
         } else {
-            self.app.overlay.copy_feedback = Some(("无内容可复制".to_string(), std::time::Instant::now()));
+            self.app.overlay.copy_feedback =
+                Some(("无内容可复制".to_string(), std::time::Instant::now()));
         }
         self.app.mark_overlay_dirty();
         Action::Continue
@@ -594,9 +598,10 @@ impl<'a> KeyEventHandler<'a> {
 
     pub(crate) fn handle_new_session(&mut self) -> Action {
         if let Some(old_id) = self.app_core.session_mgr.current_id() {
+            let old_id = old_id.to_string();
             crate::tui::clipboard::save_session_messages(
-                &self.app_core.session_mgr,
-                old_id,
+                &mut self.app_core.session_mgr,
+                &old_id,
                 &self.app.messages,
                 self.app.api_messages.as_deref(),
             );

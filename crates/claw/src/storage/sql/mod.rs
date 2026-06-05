@@ -39,7 +39,7 @@ macro_rules! define_sql_stores {
     (
         $pool:ty,
         $backend:ty,
-        $sessions:ident, $messages:ident, $apicache:ident, $plansteps:ident,
+        $sessions:ident, $messages:ident, $messagelog:ident, $apicache:ident, $plansteps:ident,
         $memory:ident, $stats:ident, $skills:ident, $toolcache:ident,
         $upsert_session:expr,
         $upsert_apicache:expr, $upsert_memory:expr, $upsert_token:expr, $upsert_skill:expr,
@@ -203,6 +203,211 @@ macro_rules! define_sql_stores {
             async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
                 sqlx::query("DELETE FROM messages WHERE session_id = ?").bind(session_id).execute(&self.db.pool).await?;
                 Ok(())
+            }
+        }
+
+        // ── MessageLog (append-only) ──
+
+        #[derive(Clone)]
+        struct $messagelog {
+            db: Arc<$backend>,
+        }
+
+        #[async_trait]
+        impl MessageLog for $messagelog {
+            async fn append_batch(
+                &self,
+                session_id: &str,
+                messages: &[crate::app::Message],
+            ) -> anyhow::Result<()> {
+                if messages.is_empty() {
+                    return Ok(());
+                }
+                let mut tx = self.db.pool.begin().await?;
+                let next_seq: i64 = sqlx::query_scalar(
+                    "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?",
+                )
+                .bind(session_id)
+                .fetch_one(&mut *tx)
+                .await?;
+                let mut seq = next_seq + 1;
+                for msg in messages {
+                    let rec = crate::message::StoredRecord::from_message(msg)?;
+                    let payload = serde_json::to_string(&rec.payload)?;
+                    sqlx::query(
+                        "INSERT INTO message_log (session_id, seq, ts, schema_v, payload) \
+                         VALUES (?, ?, ?, ?, ?)",
+                    )
+                    .bind(session_id)
+                    .bind(seq)
+                    .bind(rec.ts)
+                    .bind(rec.schema_v as i64)
+                    .bind(&payload)
+                    .execute(&mut *tx)
+                    .await?;
+                    seq += 1;
+                }
+                tx.commit().await?;
+                Ok(())
+            }
+
+            async fn load(
+                &self,
+                session_id: &str,
+                limit: usize,
+            ) -> anyhow::Result<Vec<crate::app::Message>> {
+                // Use a safe limit value: clamp to i64 range to avoid
+                // usize::MAX -> -1 integer overflow in the SQL subquery.
+                let safe_limit = (limit.min(i64::MAX as usize)) as i64;
+                let rows: Vec<(String,)> = sqlx::query_as(
+                    "SELECT payload FROM message_log WHERE session_id = ? \
+                     AND seq > (SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?) - ? \
+                     ORDER BY seq ASC",
+                )
+                .bind(session_id)
+                .bind(session_id)
+                .bind(safe_limit)
+                .fetch_all(&self.db.pool)
+                .await?;
+                Ok(rows
+                    .into_iter()
+                    .filter_map(|(p,)| {
+                        let value: serde_json::Value = serde_json::from_str(&p).ok()?;
+                        let rec = crate::message::StoredRecord {
+                            seq: 0,
+                            ts: 0,
+                            schema_v: 1,
+                            payload: value,
+                        };
+                        rec.to_message()
+                    })
+                    .collect())
+            }
+
+            async fn search(
+                &self,
+                query: &str,
+                max_results: usize,
+            ) -> anyhow::Result<Vec<SearchResult>> {
+                let q = query.trim().to_lowercase();
+                if q.is_empty() {
+                    return Ok(Vec::new());
+                }
+                let like = format!("%{}%", q);
+
+                // Identify candidate sessions via payload substring. The
+                // LIKE operates on the raw JSON text, which catches both
+                // `"text":"…"`, `"name":"…"`, etc. PG would prefer
+                // JSONB operators; this default is portable.
+                let candidate_rows: Vec<(String,)> = sqlx::query_as(
+                    "SELECT DISTINCT session_id FROM message_log \
+                     WHERE LOWER(payload) LIKE ?",
+                )
+                .bind(&like)
+                .fetch_all(&self.db.pool)
+                .await?;
+
+                let mut results = Vec::new();
+                for (sid,) in &candidate_rows {
+                    let session_rows: Vec<SessionRow> = sqlx::query_as(
+                        "SELECT id, title, agent_id, state, created_at, updated_at, message_count \
+                         FROM sessions WHERE id = ?",
+                    )
+                    .bind(sid)
+                    .fetch_all(&self.db.pool)
+                    .await?;
+                    if session_rows.is_empty() {
+                        continue;
+                    }
+                    let meta: crate::session::SessionMeta = session_rows[0].clone().into();
+
+                    let rows: Vec<(i64, String)> = sqlx::query_as(
+                        "SELECT seq, payload FROM message_log WHERE session_id = ? ORDER BY seq",
+                    )
+                    .bind(sid)
+                    .fetch_all(&self.db.pool)
+                    .await?;
+                    let records: Vec<(usize, serde_json::Value)> = rows
+                        .into_iter()
+                        .enumerate()
+                        .filter_map(|(idx, (_seq, p))| {
+                            let v: serde_json::Value = serde_json::from_str(&p).ok()?;
+                            Some((idx, v))
+                        })
+                        .collect();
+
+                    for (i, payload) in &records {
+                        let mt = payload["type"].as_str().unwrap_or("");
+                        let text = payload["text"].as_str().unwrap_or("");
+                        let name = payload["name"].as_str().unwrap_or("");
+                        let searchable = match mt {
+                            "user" | "assistant" | "error" => text.to_lowercase(),
+                            "tool_call" => name.to_lowercase(),
+                            _ => continue,
+                        };
+                        if !searchable.contains(&q) {
+                            continue;
+                        }
+                        let excerpt = match mt {
+                            "tool_call" => format!("[工具调用: {}]", name),
+                            _ => {
+                                let t: String = text.chars().take(200).collect();
+                                if text.len() > 200 { format!("{}...", t) } else { t }
+                            }
+                        };
+                        let ctx_before: Vec<String> = records[i.saturating_sub(2)..*i]
+                            .iter()
+                            .filter_map(|(_, p)| {
+                                let t = p["text"].as_str()?;
+                                Some(t.chars().take(100).collect())
+                            })
+                            .collect();
+                        let ctx_after: Vec<String> = records
+                            .get(i + 1..)
+                            .map(|slice| {
+                                slice
+                                    .iter()
+                                    .take(1)
+                                    .filter_map(|(_, p)| {
+                                        let t = p["text"].as_str()?;
+                                        Some(t.chars().take(100).collect())
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        results.push(SearchResult {
+                            session_id: meta.id.clone(),
+                            session_title: meta.title.clone(),
+                            message_type: mt.to_string(),
+                            excerpt,
+                            context_before: ctx_before,
+                            context_after: ctx_after,
+                            updated_at: meta.updated_at,
+                        });
+                        if results.len() >= max_results {
+                            return Ok(results);
+                        }
+                    }
+                }
+                Ok(results)
+            }
+
+            async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
+                sqlx::query("DELETE FROM message_log WHERE session_id = ?")
+                    .bind(session_id)
+                    .execute(&self.db.pool)
+                    .await?;
+                Ok(())
+            }
+
+            async fn count(&self, session_id: &str) -> anyhow::Result<usize> {
+                let n: i64 = sqlx::query_scalar(
+                    "SELECT COUNT(*) FROM message_log WHERE session_id = ?",
+                )
+                .bind(session_id)
+                .fetch_one(&self.db.pool)
+                .await?;
+                Ok(n as usize)
             }
         }
 

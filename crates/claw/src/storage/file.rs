@@ -130,12 +130,11 @@ impl SessionRepo for FileSessionStore {
                 return Ok(Vec::new());
             }
             let content = std::fs::read_to_string(&path)?;
-            serde_json::from_str(&content).inspect_err(|e| {
-                tracing::error!(
-                    "index.json 损坏，无法解析 ({}); 返回空列表以允许重建",
-                    e
-                )
-            }).or_else(|_| Ok(Vec::new()))
+            serde_json::from_str(&content)
+                .inspect_err(|e| {
+                    tracing::error!("index.json 损坏，无法解析 ({}); 返回空列表以允许重建", e)
+                })
+                .or_else(|_| Ok(Vec::new()))
         })
         .await
     }
@@ -278,8 +277,11 @@ impl MessageRepo for FileMessageStore {
                     .lines()
                     .filter_map(|line| {
                         let line = line.ok()?;
-                        if line.trim().is_empty() { None }
-                        else { serde_json::from_str(&line).ok() }
+                        if line.trim().is_empty() {
+                            None
+                        } else {
+                            serde_json::from_str(&line).ok()
+                        }
                     })
                     .collect();
 
@@ -396,9 +398,13 @@ impl ApiCacheRepo for FileApiCacheStore {
                 return Ok(None);
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(Some(serde_json::from_str(&content).inspect_err(|e| {
-                tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
-            }).unwrap_or_default()))
+            Ok(Some(
+                serde_json::from_str(&content)
+                    .inspect_err(|e| {
+                        tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
+                    })
+                    .unwrap_or_default(),
+            ))
         })
         .await
     }
@@ -475,7 +481,10 @@ impl FileMemoryStore {
 
 #[async_trait]
 impl MemoryRepo for FileMemoryStore {
-    async fn load(&self, agent_id: &str) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
+    async fn load(
+        &self,
+        agent_id: &str,
+    ) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
         let path = memory_path(&self.claw_dir, agent_id);
         blocking(move || {
             if !path.exists() {
@@ -568,10 +577,11 @@ impl StatsRepo for FileStatsStore {
                     continue;
                 }
                 if let Some(ts) = extract_timestamp(&line)
-                    && ts < cutoff {
-                        removed += 1;
-                        continue;
-                    }
+                    && ts < cutoff
+                {
+                    removed += 1;
+                    continue;
+                }
                 kept.push(line);
             }
 
@@ -797,6 +807,220 @@ impl ToolCacheRepo for FileToolCacheStore {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  FileMessageLog — append-only JSONL message log
+// ═══════════════════════════════════════════════════════════════════
+
+/// Append-only JSONL message log under `{claw_dir}/sessions/{id}.jsonl`.
+///
+/// Each line is a serialized `StoredRecord`. New appends go to the end of
+/// the file; there is no in-place rewrite — this is the structural fix
+/// for the silent-drop bug.
+#[derive(Clone)]
+pub struct FileMessageLog {
+    claw_dir: PathBuf,
+}
+
+impl FileMessageLog {
+    pub(crate) fn new(claw_dir: PathBuf) -> Self {
+        Self { claw_dir }
+    }
+}
+
+#[async_trait]
+impl MessageLog for FileMessageLog {
+    async fn append_batch(
+        &self,
+        session_id: &str,
+        messages: &[crate::app::Message],
+    ) -> anyhow::Result<()> {
+        if messages.is_empty() {
+            return Ok(());
+        }
+        let path = messages_path(&self.claw_dir, session_id);
+        let lines: Vec<String> = messages
+            .iter()
+            .map(crate::message::StoredRecord::from_message)
+            .map(|r| r.and_then(|rec| serde_json::to_string(&rec).map_err(Into::into)))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let payload = lines.join("\n") + "\n";
+
+        blocking(move || {
+            let _guard = lock_guard(&MESSAGES_LOCK);
+            ensure_dir(&path)?;
+            use std::io::Write;
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)?;
+            file.write_all(payload.as_bytes())?;
+            Ok(())
+        })
+        .await
+    }
+
+    async fn load(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> anyhow::Result<Vec<crate::app::Message>> {
+        let path = messages_path(&self.claw_dir, session_id);
+        blocking(move || {
+            if !path.exists() {
+                return Ok(Vec::new());
+            }
+            let file = std::fs::File::open(&path)?;
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(file);
+            let all: Vec<crate::app::Message> = reader
+                .lines()
+                .filter_map(|line| line.ok())
+                .filter(|line| !line.trim().is_empty())
+                .filter_map(|line| {
+                    serde_json::from_str::<crate::message::StoredRecord>(&line)
+                        .ok()?
+                        .to_message()
+                })
+                .collect();
+            let limit = limit.min(all.len());
+            if limit < all.len() {
+                Ok(all[all.len() - limit..].to_vec())
+            } else {
+                Ok(all)
+            }
+        })
+        .await
+    }
+
+    async fn search(&self, query: &str, max_results: usize) -> anyhow::Result<Vec<SearchResult>> {
+        let q = query.trim().to_lowercase();
+        let claw_dir = self.claw_dir.clone();
+        let sessions_dir = sessions_dir(&self.claw_dir);
+
+        blocking(move || {
+            if q.is_empty() {
+                return Ok(Vec::new());
+            }
+            let index_path = claw_dir.join("index.json");
+            // NOTE: search reads index.json directly — coupled to FileSessionStore format.
+            let sessions: Vec<crate::session::SessionMeta> = if index_path.exists() {
+                std::fs::read_to_string(&index_path)
+                    .ok()
+                    .and_then(|c| serde_json::from_str(&c).ok())
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+
+            let mut results: Vec<SearchResult> = Vec::new();
+            for meta in &sessions {
+                let path = sessions_dir.join(format!("{}.jsonl", meta.id));
+                if !path.exists() {
+                    continue;
+                }
+                let file = match std::fs::File::open(&path) {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+                use std::io::{BufRead, BufReader};
+                let records: Vec<crate::message::StoredRecord> = BufReader::new(file)
+                    .lines()
+                    .filter_map(|l| l.ok())
+                    .filter(|l| !l.trim().is_empty())
+                    .filter_map(|l| serde_json::from_str(&l).ok())
+                    .collect();
+
+                for (i, rec) in records.iter().enumerate() {
+                    let payload = &rec.payload;
+                    let msg_type = payload["type"].as_str().unwrap_or("");
+                    let text = payload["text"].as_str().unwrap_or("");
+                    let name = payload["name"].as_str().unwrap_or("");
+
+                    let searchable = match msg_type {
+                        "user" | "assistant" | "error" => text.to_lowercase(),
+                        "tool_call" => name.to_lowercase(),
+                        _ => continue,
+                    };
+                    if !searchable.contains(&q) {
+                        continue;
+                    }
+                    let excerpt = match msg_type {
+                        "tool_call" => format!("[工具调用: {}]", name),
+                        _ => {
+                            let t: String = text.chars().take(200).collect();
+                            if text.len() > 200 {
+                                format!("{}...", t)
+                            } else {
+                                t
+                            }
+                        }
+                    };
+                    let ctx_before: Vec<String> = records[i.saturating_sub(2)..i]
+                        .iter()
+                        .filter_map(|m| {
+                            let t = m.payload["text"].as_str()?;
+                            Some(t.chars().take(100).collect())
+                        })
+                        .collect();
+                    let ctx_after: Vec<String> = records
+                        .get(i + 1..)
+                        .map(|slice| {
+                            slice
+                                .iter()
+                                .take(1)
+                                .filter_map(|m| {
+                                    let t = m.payload["text"].as_str()?;
+                                    Some(t.chars().take(100).collect())
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    results.push(SearchResult {
+                        session_id: meta.id.clone(),
+                        session_title: meta.title.clone(),
+                        message_type: msg_type.to_string(),
+                        excerpt,
+                        context_before: ctx_before,
+                        context_after: ctx_after,
+                        updated_at: meta.updated_at,
+                    });
+                    if results.len() >= max_results {
+                        return Ok(results);
+                    }
+                }
+            }
+            Ok(results)
+        })
+        .await
+    }
+
+    async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
+        let path = messages_path(&self.claw_dir, session_id);
+        blocking(move || {
+            let _ = std::fs::remove_file(&path);
+            Ok(())
+        })
+        .await
+    }
+
+    async fn count(&self, session_id: &str) -> anyhow::Result<usize> {
+        let path = messages_path(&self.claw_dir, session_id);
+        blocking(move || {
+            if !path.exists() {
+                return Ok(0);
+            }
+            let file = std::fs::File::open(&path)?;
+            use std::io::{BufRead, BufReader};
+            Ok(BufReader::new(file)
+                .lines()
+                .filter_map(|l| l.ok())
+                .filter(|l| !l.trim().is_empty())
+                .count())
+        })
+        .await
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  Convenience: build ClawStorage from a file directory
 // ═══════════════════════════════════════════════════════════════════
 
@@ -806,6 +1030,7 @@ impl ClawStorage {
         Self {
             sessions: Box::new(FileSessionStore::new(claw_dir.clone())),
             messages: Box::new(FileMessageStore::new(claw_dir.clone())),
+            message_log: std::sync::Arc::new(FileMessageLog::new(claw_dir.clone())),
             api_cache: Box::new(FileApiCacheStore::new(claw_dir.clone())),
             plan_steps: Box::new(FilePlanStepsStore::new(claw_dir.clone())),
             memory: Box::new(FileMemoryStore::new(claw_dir.clone())),
@@ -987,6 +1212,203 @@ mod tests {
         assert!(loaded.is_empty());
     }
 
+    // ── MessageLog (append-only) ──
+
+    use crate::app::Message;
+    use crate::storage::MessageLog;
+
+    #[tokio::test]
+    async fn test_message_log_append_and_load() {
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir);
+        log.append_batch(
+            "sid",
+            &[
+                Message::User {
+                    text: "hello".into(),
+                },
+                Message::Assistant {
+                    text: "hi".into(),
+                    reasoning: String::new(),
+                    token_usage: None,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+
+        let loaded = log.load("sid", usize::MAX).await.unwrap();
+        assert_eq!(loaded.len(), 2);
+        match &loaded[0] {
+            Message::User { text } => assert_eq!(text, "hello"),
+            other => panic!("expected User, got {:?}", other),
+        }
+        match &loaded[1] {
+            Message::Assistant { text, .. } => assert_eq!(text, "hi"),
+            other => panic!("expected Assistant, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_message_log_preserves_tool_call_step() {
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir);
+        log.append_batch(
+            "sid",
+            &[Message::ToolCall {
+                name: "weight".into(),
+                args: "{}".into(),
+                result: "ok".into(),
+                step: 2,
+                total_steps: 5,
+            }],
+        )
+        .await
+        .unwrap();
+
+        let loaded = log.load("sid", usize::MAX).await.unwrap();
+        match &loaded[0] {
+            Message::ToolCall {
+                step, total_steps, ..
+            } => {
+                assert_eq!(*step, 2);
+                assert_eq!(*total_steps, 5);
+            }
+            other => panic!("expected ToolCall, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_message_log_append_batch_is_appending_not_overwriting() {
+        // Regression: this is the exact bug class we're fixing. Two
+        // successive append_batch calls must accumulate, not clobber.
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir);
+        log.append_batch(
+            "sid",
+            &[Message::User {
+                text: "first".into(),
+            }],
+        )
+        .await
+        .unwrap();
+        log.append_batch(
+            "sid",
+            &[Message::User {
+                text: "second".into(),
+            }],
+        )
+        .await
+        .unwrap();
+
+        let loaded = log.load("sid", usize::MAX).await.unwrap();
+        assert_eq!(loaded.len(), 2, "both appends must persist");
+    }
+
+    #[tokio::test]
+    async fn test_message_log_load_limit_returns_tail() {
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir);
+        let msgs: Vec<Message> = (0..5)
+            .map(|i| Message::User {
+                text: format!("msg{}", i),
+            })
+            .collect();
+        log.append_batch("sid", &msgs).await.unwrap();
+        let loaded = log.load("sid", 3).await.unwrap();
+        assert_eq!(loaded.len(), 3);
+        match &loaded[0] {
+            Message::User { text } => assert_eq!(text, "msg2"),
+            _ => panic!(),
+        }
+        match &loaded[2] {
+            Message::User { text } => assert_eq!(text, "msg4"),
+            _ => panic!(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_message_log_delete_session() {
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir);
+        log.append_batch("sid", &[Message::User { text: "hi".into() }])
+            .await
+            .unwrap();
+        log.delete_session("sid").await.unwrap();
+        assert_eq!(log.load("sid", usize::MAX).await.unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_message_log_count() {
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir);
+        log.append_batch(
+            "sid",
+            &[
+                Message::User { text: "a".into() },
+                Message::User { text: "b".into() },
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(log.count("sid").await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_message_log_search() {
+        let (_root, claw_dir) = test_claw_dir();
+        let log = FileMessageLog::new(claw_dir.clone());
+
+        // Search requires session metadata, so wire the session first.
+        let sessions = FileSessionStore::new(claw_dir.clone());
+        sessions
+            .save_all(&[crate::session::SessionMeta {
+                id: "sid".into(),
+                title: "Test".into(),
+                agent_id: "default".into(),
+                state: crate::session::SessionState::Active,
+                created_at: 1000,
+                updated_at: 2000,
+                message_count: 0,
+            }])
+            .await
+            .unwrap();
+
+        log.append_batch(
+            "sid",
+            &[
+                Message::User {
+                    text: "hello world".into(),
+                },
+                Message::Assistant {
+                    text: "hi there".into(),
+                    reasoning: String::new(),
+                    token_usage: None,
+                },
+                Message::ToolCall {
+                    name: "weight".into(),
+                    args: "{}".into(),
+                    result: "ok".into(),
+                    step: 0,
+                    total_steps: 1,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+
+        let r = log.search("world", 10).await.unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].session_id, "sid");
+
+        let r = log.search("weight", 10).await.unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].message_type, "tool_call");
+
+        let r = log.search("nonexistent", 10).await.unwrap();
+        assert!(r.is_empty());
+    }
+
     // ── ApiCacheRepo ──
 
     #[tokio::test]
@@ -1045,12 +1467,18 @@ mod tests {
     async fn test_memory_save_and_load() {
         let (_root, claw_dir) = test_claw_dir();
         let store = FileMemoryStore::new(claw_dir);
-        let mut mem = store.load("agent1").await.unwrap()
+        let mut mem = store
+            .load("agent1")
+            .await
+            .unwrap()
             .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
         mem.set_user_name("Alice");
         store.save("agent1", &mem).await.unwrap();
 
-        let loaded = store.load("agent1").await.unwrap()
+        let loaded = store
+            .load("agent1")
+            .await
+            .unwrap()
             .expect("should exist after save");
         assert!(loaded.has_user_profile());
         let formatted = loaded.format_user_memory();
@@ -1199,7 +1627,11 @@ body"#,
         let msgs = storage.messages.load("s1", 10).await.unwrap();
         assert_eq!(msgs.len(), 1);
 
-        let mem = storage.memory.load("default").await.unwrap()
+        let mem = storage
+            .memory
+            .load("default")
+            .await
+            .unwrap()
             .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
         assert!(!mem.has_user_profile());
     }

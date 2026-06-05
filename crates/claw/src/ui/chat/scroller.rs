@@ -1,7 +1,7 @@
 use super::components::{ComponentOp, MessageComponent};
+use crate::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use crate::theme::Theme;
 use ratatui_interact::traits::ClickRegionRegistry;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -45,7 +45,9 @@ struct StubBlock {
 }
 #[cfg(test)]
 impl MessageComponent for StubBlock {
-    fn height(&self, _w: u16) -> u16 { self.h }
+    fn height(&self, _w: u16) -> u16 {
+        self.h
+    }
     fn render(&self, area: Rect, buf: &mut Buffer, _theme: &Theme, _selected: bool) {
         // Draw a top and bottom border so the scroller test can verify
         // which row each block actually occupies.
@@ -54,13 +56,16 @@ impl MessageComponent for StubBlock {
                 c.set_symbol("─");
             }
             if area.height > 1
-                && let Some(c) = buf.cell_mut(ratatui::layout::Position::new(x, area.y + area.height - 1))
+                && let Some(c) =
+                    buf.cell_mut(ratatui::layout::Position::new(x, area.y + area.height - 1))
             {
                 c.set_symbol("─");
             }
         }
     }
-    fn clickable(&self) -> bool { self.click }
+    fn clickable(&self) -> bool {
+        self.click
+    }
 }
 
 #[cfg(test)]
@@ -71,7 +76,11 @@ mod tests {
         heights
             .iter()
             .map(|h| {
-                Rc::new(RefCell::new(Box::new(StubBlock { h: *h, click: false }) as Box<dyn MessageComponent>))
+                Rc::new(RefCell::new(Box::new(StubBlock {
+                    h: *h,
+                    click: false,
+                })
+                    as Box<dyn MessageComponent>))
             })
             .collect()
     }
@@ -92,7 +101,12 @@ mod tests {
         let mut scr = Scroller::new(&comps, 80, 10);
         // Scroll 2 rows into the first block: skip = 2.
         scr.set_scroll(2);
-        let area = Rect { x: 0, y: 0, width: 80, height: 11 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 11,
+        };
         let mut buf = Buffer::empty(area);
         let theme = Theme::from_preset("midnight").unwrap_or_default();
         scr.render(&comps, area, &mut buf, &theme, None);
@@ -102,17 +116,34 @@ mod tests {
         // Second block starts at offset 7 → comp_top 7-2 = 5, should
         // render with FULL height 4 (the pre-fix bug rendered it at
         // 4-2 = 2). Top border at row 5, bottom border at row 8.
-        assert!(has_border(&buf, 0, &area), "first block top border at row 0");
-        assert!(has_border(&buf, 3, &area), "first block bottom border at row 3");
-        assert!(has_border(&buf, 5, &area), "second block top border at row 5");
-        assert!(has_border(&buf, 8, &area), "second block bottom border at row 8 (height 4, not 2)");
+        assert!(
+            has_border(&buf, 0, &area),
+            "first block top border at row 0"
+        );
+        assert!(
+            has_border(&buf, 3, &area),
+            "first block bottom border at row 3"
+        );
+        assert!(
+            has_border(&buf, 5, &area),
+            "second block top border at row 5"
+        );
+        assert!(
+            has_border(&buf, 8, &area),
+            "second block bottom border at row 8 (height 4, not 2)"
+        );
     }
 
     #[test]
     fn render_at_top_renders_all_blocks_with_full_height() {
         let comps = blocks(&[4, 4, 4]);
         let scr = Scroller::new(&comps, 80, 20);
-        let area = Rect { x: 0, y: 0, width: 80, height: 20 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 20,
+        };
         let mut buf = Buffer::empty(area);
         let theme = Theme::from_preset("midnight").unwrap_or_default();
         scr.render(&comps, area, &mut buf, &theme, None);
@@ -130,13 +161,27 @@ mod tests {
         // Three blocks: middle is clickable. Spacing=1, so offsets
         // are [0, 4, 8] — the clickable block occupies rows 4..7.
         let comps: Vec<ComponentCell> = vec![
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>
+            )),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>
+            )),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>
+            )),
         ];
         let scr = Scroller::new(&comps, 80, 20);
         let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
-        scr.register_clicks(Rect { x: 0, y: 0, width: 80, height: 20 }, &mut reg);
+        scr.register_clicks(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 20,
+            },
+            &mut reg,
+        );
         assert_eq!(reg.len(), 1, "only one clickable component");
         // The middle block was registered with `data = 1`. It lives
         // on rows 4..7, so a click at (col=0, row=5) hits it.
@@ -152,12 +197,24 @@ mod tests {
         // screen y=10..30. After translation the screen-absolute
         // rect should be (0, 14, 80, 3).
         let comps: Vec<ComponentCell> = vec![
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>
+            )),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>
+            )),
         ];
         let scr = Scroller::new(&comps, 80, 20);
         let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
-        scr.register_clicks(Rect { x: 0, y: 10, width: 80, height: 20 }, &mut reg);
+        scr.register_clicks(
+            Rect {
+                x: 0,
+                y: 10,
+                width: 80,
+                height: 20,
+            },
+            &mut reg,
+        );
         // Click at screen row 15 should still hit the block (it
         // occupies screen rows 10+4..10+7 = 14..17).
         assert_eq!(reg.handle_click(0, 15), Some(&16));
@@ -170,18 +227,38 @@ mod tests {
         // Clickable block at content-y [4, 7). Viewport is 5 so
         // max_scroll=2, making set_scroll(2) work.
         let comps: Vec<ComponentCell> = vec![
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>
+            )),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>
+            )),
         ];
         let mut scr = Scroller::new(&comps, 80, 5);
         scr.set_scroll(2);
         let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
         // Pane at screen y=10, height 5.
-        scr.register_clicks(Rect { x: 0, y: 10, width: 80, height: 5 }, &mut reg);
+        scr.register_clicks(
+            Rect {
+                x: 0,
+                y: 10,
+                width: 80,
+                height: 5,
+            },
+            &mut reg,
+        );
         // After scroll=2 the block shifts from content-y 4..7 to
         // screen rows 10+(4-2)..10+(6-2) = 12..15.
-        assert_eq!(reg.handle_click(0, 12), Some(&16), "click within shifted block (top edge)");
-        assert_eq!(reg.handle_click(0, 14), Some(&16), "click within shifted block (middle)");
+        assert_eq!(
+            reg.handle_click(0, 12),
+            Some(&16),
+            "click within shifted block (top edge)"
+        );
+        assert_eq!(
+            reg.handle_click(0, 14),
+            Some(&16),
+            "click within shifted block (middle)"
+        );
         // The old code would have registered at screen-y 14..17 but
         // after shift the block is actually at 12..15, so a click at
         // row 16 should now miss.
@@ -196,14 +273,28 @@ mod tests {
         // y_end=7. Viewport=2 gives max_scroll=8. At scroll >= 7
         // the clickable block is completely above the viewport.
         let comps: Vec<ComponentCell> = vec![
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 2, click: false }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 4, click: true }) as Box<dyn MessageComponent>)),
-            Rc::new(RefCell::new(Box::new(StubBlock { h: 2, click: false }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 2, click: false }) as Box<dyn MessageComponent>
+            )),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 4, click: true }) as Box<dyn MessageComponent>
+            )),
+            Rc::new(RefCell::new(
+                Box::new(StubBlock { h: 2, click: false }) as Box<dyn MessageComponent>
+            )),
         ];
         let mut scr = Scroller::new(&comps, 80, 2);
         scr.set_scroll(8);
         let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
-        scr.register_clicks(Rect { x: 0, y: 0, width: 80, height: 2 }, &mut reg);
+        scr.register_clicks(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 2,
+            },
+            &mut reg,
+        );
         assert_eq!(reg.len(), 0, "no visible clickable components");
     }
 }
@@ -261,9 +352,13 @@ impl Scroller {
         }
     }
 
-    pub fn max_scroll(&self) -> u16 { self.total_height.saturating_sub(self.viewport_h) }
+    pub fn max_scroll(&self) -> u16 {
+        self.total_height.saturating_sub(self.viewport_h)
+    }
 
-    pub fn set_scroll(&mut self, s: u16) { self.scroll = s.min(self.max_scroll()); }
+    pub fn set_scroll(&mut self, s: u16) {
+        self.scroll = s.min(self.max_scroll());
+    }
 
     /// Translate the content-relative click regions into
     /// screen-absolute `Rect`s and register them into `registry`.
@@ -298,44 +393,60 @@ impl Scroller {
         }
     }
 
-
-pub fn op_variant(op: &ComponentOp) -> usize {
-    match op {
-        ComponentOp::Toggle => 0,
-        ComponentOp::ToggleArgs => 1,
-        ComponentOp::ToggleResult => 2,
-        _ => 0,
+    pub fn op_variant(op: &ComponentOp) -> usize {
+        match op {
+            ComponentOp::Toggle => 0,
+            ComponentOp::ToggleArgs => 1,
+            ComponentOp::ToggleResult => 2,
+            _ => 0,
+        }
     }
-}
 
     pub fn visible_range(&self) -> (usize, usize, u16) {
-        if self.offsets.is_empty() { return (0, 0, 0); }
+        if self.offsets.is_empty() {
+            return (0, 0, 0);
+        }
         let scroll_end = self.scroll + self.viewport_h;
         let first = match self.offsets.binary_search(&self.scroll) {
-            Ok(i) => i, Err(i) => i.saturating_sub(1),
+            Ok(i) => i,
+            Err(i) => i.saturating_sub(1),
         };
         let first_offset = self.offsets[first];
         let skip = self.scroll.saturating_sub(first_offset);
         let mut last = first;
         while last < self.offsets.len() {
-            let last_end = if last + 1 < self.offsets.len() { self.offsets[last + 1] } else { self.total_height };
-            if last_end >= scroll_end { break; }
+            let last_end = if last + 1 < self.offsets.len() {
+                self.offsets[last + 1]
+            } else {
+                self.total_height
+            };
+            if last_end >= scroll_end {
+                break;
+            }
             last += 1;
         }
-        if last < self.offsets.len() { last += 1; }
+        if last < self.offsets.len() {
+            last += 1;
+        }
         (first, last.min(self.offsets.len()), skip)
     }
 
     pub fn render(
-        &self, components: &[ComponentCell], area: Rect, buf: &mut Buffer,
-        theme: &Theme, selected: Option<usize>,
+        &self,
+        components: &[ComponentCell],
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+        selected: Option<usize>,
     ) {
         let (first, last, skip) = self.visible_range();
         let scroll_top = area.y;
         #[allow(clippy::needless_range_loop)]
         for idx in first..last.min(components.len()) {
             let comp_top = self.offsets[idx].saturating_sub(self.scroll);
-            if comp_top >= self.viewport_h { break; }
+            if comp_top >= self.viewport_h {
+                break;
+            }
             // `skip` is the number of rows of the *first* visible
             // component that are scrolled off the top of the viewport.
             // It only applies to that component. Subtracting it from
@@ -350,9 +461,18 @@ pub fn op_variant(op: &ComponentOp) -> usize {
                 full_h
             };
             let y = scroll_top + comp_top;
-            let comp_area = Rect { x: area.x, y, width: area.width, height: comp_h.min(self.viewport_h.saturating_sub(comp_top)) };
-            if comp_area.height == 0 { continue; }
-            components[idx].borrow().render(comp_area, buf, theme, selected == Some(idx));
+            let comp_area = Rect {
+                x: area.x,
+                y,
+                width: area.width,
+                height: comp_h.min(self.viewport_h.saturating_sub(comp_top)),
+            };
+            if comp_area.height == 0 {
+                continue;
+            }
+            components[idx]
+                .borrow()
+                .render(comp_area, buf, theme, selected == Some(idx));
         }
     }
 }

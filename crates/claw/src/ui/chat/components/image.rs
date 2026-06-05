@@ -1,7 +1,7 @@
-use super::style::{
-    BLOCK_LEFT_RESERVED, body_line, block_border, header_line, render_block_chrome,
-};
 use super::MessageComponent;
+use super::style::{
+    BLOCK_LEFT_RESERVED, block_border, body_line, header_line, render_block_chrome,
+};
 use crate::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -50,29 +50,41 @@ impl MessageComponent for ImageCard {
         if body.contains(y) {
             Paragraph::new(body_line(
                 &self.prompt,
-                Style::default().fg(theme.text()).add_modifier(Modifier::ITALIC),
+                Style::default()
+                    .fg(theme.text())
+                    .add_modifier(Modifier::ITALIC),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         }
 
         // Image area placeholder (we just shade the cells)
-        let shade_w = self
-            .width_cells
-            .min(area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16))
-            as usize;
+        let shade_w =
+            self.width_cells
+                .min(area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16)) as usize;
         let shade = theme.dim_text();
         for _ in 0..self.height_cells {
             if !body.contains(y) {
                 break;
             }
-            Paragraph::new(body_line(
-                &"▒".repeat(shade_w),
-                Style::default().fg(shade),
-            ))
-            .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            Paragraph::new(body_line(&"▒".repeat(shade_w), Style::default().fg(shade)))
+                .style(Style::default().bg(interior_bg))
+                .render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
             y += 1;
         }
     }

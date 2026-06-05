@@ -217,9 +217,9 @@ mod mcp_gated {
             tool_name: &str,
             args: &Value,
         ) -> Result<String, ClawError> {
-            let json_map = args.as_object().ok_or_else(|| {
-                ClawError::Validation("MCP 工具参数必须是 JSON 对象".to_string())
-            })?;
+            let json_map = args
+                .as_object()
+                .ok_or_else(|| ClawError::Validation("MCP 工具参数必须是 JSON 对象".to_string()))?;
 
             let params =
                 CallToolRequestParams::new(tool_name.to_string()).with_arguments(json_map.clone());
@@ -306,9 +306,7 @@ mod mcp_gated {
         /// Failed connections are logged but don't block startup.
         /// All MCP clients share a single tokio runtime.
         pub fn new(servers: &[McpServerConfig]) -> Self {
-            let rt = Arc::new(
-                tokio::runtime::Runtime::new().expect("创建 MCP 共享运行时失败"),
-            );
+            let rt = Arc::new(tokio::runtime::Runtime::new().expect("创建 MCP 共享运行时失败"));
             let mut clients = Vec::new();
             let mut tools = Vec::new();
             let mut tool_map = HashMap::new();
@@ -407,10 +405,7 @@ mod mcp_gated {
 
             for idx in failed_indices {
                 let old_client = &self.clients[idx];
-                tracing::warn!(
-                    "MCP 客户端 '{}' 连接断开, 尝试重连...",
-                    old_client.name
-                );
+                tracing::warn!("MCP 客户端 '{}' 连接断开, 尝试重连...", old_client.name);
                 match old_client.reconnect() {
                     Ok(new_client) => {
                         tracing::info!("MCP 客户端 '{}' 重连成功", new_client.name);
@@ -568,7 +563,10 @@ mod mcp_gated {
             };
             let global_servers: Vec<McpServerConfig> = Vec::new();
             let registry = McpRegistry::for_agent(&agent_config, &global_servers);
-            assert!(registry.clients().is_empty(), "无 MCP 服务器时不应创建客户端");
+            assert!(
+                registry.clients().is_empty(),
+                "无 MCP 服务器时不应创建客户端"
+            );
             assert!(registry.tools().is_empty());
         }
 
@@ -690,11 +688,21 @@ mod mcp_gated {
             _agent_config: &crate::config::ResolvedAgentConfig,
             _global_servers: &[McpServerConfig],
         ) -> Self {
-            Self { clients: Vec::new(), tools: Vec::new(), tool_map: HashMap::new(), server_configs: Vec::new() }
+            Self {
+                clients: Vec::new(),
+                tools: Vec::new(),
+                tool_map: HashMap::new(),
+                server_configs: Vec::new(),
+            }
         }
 
         pub fn new(_servers: &[McpServerConfig]) -> Self {
-            Self { clients: Vec::new(), tools: Vec::new(), tool_map: HashMap::new(), server_configs: Vec::new() }
+            Self {
+                clients: Vec::new(),
+                tools: Vec::new(),
+                tool_map: HashMap::new(),
+                server_configs: Vec::new(),
+            }
         }
 
         #[allow(dead_code)]
@@ -731,7 +739,12 @@ mod mcp_gated {
 
         #[cfg(test)]
         pub fn empty_for_test() -> Self {
-            Self { clients: Vec::new(), tools: Vec::new(), tool_map: HashMap::new(), server_configs: Vec::new() }
+            Self {
+                clients: Vec::new(),
+                tools: Vec::new(),
+                tool_map: HashMap::new(),
+                server_configs: Vec::new(),
+            }
         }
     }
 
@@ -849,9 +862,7 @@ mod mcp_gated {
 
         #[test]
         fn test_stub_connect_returns_error() {
-            let rt = std::sync::Arc::new(
-                tokio::runtime::Runtime::new().unwrap(),
-            );
+            let rt = std::sync::Arc::new(tokio::runtime::Runtime::new().unwrap());
             let config = McpServerConfig {
                 name: "test".to_string(),
                 transport_type: "stdio".to_string(),

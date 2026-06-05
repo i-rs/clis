@@ -71,10 +71,7 @@ impl ToolChain {
     }
 
     #[allow(dead_code)]
-    pub fn resolve_args(
-        template: &Value,
-        context: &ChainContext,
-    ) -> Value {
+    pub fn resolve_args(template: &Value, context: &ChainContext) -> Value {
         match template {
             Value::String(s) => {
                 let mut result = s.clone();
@@ -121,14 +118,20 @@ impl ToolChain {
             }
             ConditionOp::GreaterThan => {
                 if let (Some(Value::Number(a)), Value::Number(b)) = (field_val, &cond.value) {
-                    a.as_f64().zip(b.as_f64()).map(|(a, b)| a > b).unwrap_or(false)
+                    a.as_f64()
+                        .zip(b.as_f64())
+                        .map(|(a, b)| a > b)
+                        .unwrap_or(false)
                 } else {
                     false
                 }
             }
             ConditionOp::LessThan => {
                 if let (Some(Value::Number(a)), Value::Number(b)) = (field_val, &cond.value) {
-                    a.as_f64().zip(b.as_f64()).map(|(a, b)| a < b).unwrap_or(false)
+                    a.as_f64()
+                        .zip(b.as_f64())
+                        .map(|(a, b)| a < b)
+                        .unwrap_or(false)
                 } else {
                     false
                 }
@@ -180,7 +183,9 @@ impl ChainContext {
     }
 
     pub fn get_string(&self, key: &str) -> Option<String> {
-        self.outputs.get(key).and_then(|v| v.as_str().map(|s| s.to_string()))
+        self.outputs
+            .get(key)
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
     }
 }
 
@@ -203,19 +208,24 @@ impl ChainResult {
 
 pub fn builtin_chains() -> Vec<ToolChain> {
     vec![
-        ToolChain::new(
-            "record_and_stats",
-            "记录数据后查看统计",
-        )
-        .then("i_rs", "record_result", serde_json::json!({
-            "command": "add",
-            "tool": "{{tool}}",
-            "args": ["{{value}}"]
-        }))
-        .then("i_rs", "stats_result", serde_json::json!({
-            "command": "stats",
-            "tool": "{{tool}}"
-        })),
+        ToolChain::new("record_and_stats", "记录数据后查看统计")
+            .then(
+                "i_rs",
+                "record_result",
+                serde_json::json!({
+                    "command": "add",
+                    "tool": "{{tool}}",
+                    "args": ["{{value}}"]
+                }),
+            )
+            .then(
+                "i_rs",
+                "stats_result",
+                serde_json::json!({
+                    "command": "stats",
+                    "tool": "{{tool}}"
+                }),
+            ),
     ]
 }
 
@@ -227,7 +237,11 @@ mod tests {
     fn test_chain_builder() {
         let chain = ToolChain::new("test", "test chain")
             .then("tool_a", "output_a", serde_json::json!({"key": "value"}))
-            .then("tool_b", "output_b", serde_json::json!({"input": "{{output_a}}"}));
+            .then(
+                "tool_b",
+                "output_b",
+                serde_json::json!({"input": "{{output_a}}"}),
+            );
         assert_eq!(chain.steps.len(), 2);
     }
 
@@ -235,10 +249,7 @@ mod tests {
     fn test_resolve_args() {
         let mut ctx = ChainContext::new(serde_json::json!(null));
         ctx.set("name", serde_json::json!("体重"));
-        let resolved = ToolChain::resolve_args(
-            &serde_json::json!({"tool": "{{name}}"}),
-            &ctx,
-        );
+        let resolved = ToolChain::resolve_args(&serde_json::json!({"tool": "{{name}}"}), &ctx);
         assert_eq!(resolved["tool"], "体重");
     }
 
@@ -246,10 +257,7 @@ mod tests {
     fn test_resolve_nested_args() {
         let mut ctx = ChainContext::new(serde_json::json!(null));
         ctx.set("value", serde_json::json!(70));
-        let resolved = ToolChain::resolve_args(
-            &serde_json::json!({"args": ["{{value}}"]}),
-            &ctx,
-        );
+        let resolved = ToolChain::resolve_args(&serde_json::json!({"args": ["{{value}}"]}), &ctx);
         assert_eq!(resolved["args"][0], "70");
     }
 
@@ -286,7 +294,10 @@ mod tests {
     fn test_chain_context() {
         let mut ctx = ChainContext::new(serde_json::json!("input"));
         ctx.set("result", serde_json::json!({"count": 5}));
-        assert_eq!(ctx.get_value("result.count").and_then(|v| v.as_i64()), Some(5));
+        assert_eq!(
+            ctx.get_value("result.count").and_then(|v| v.as_i64()),
+            Some(5)
+        );
     }
 
     #[test]

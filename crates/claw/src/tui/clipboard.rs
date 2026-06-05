@@ -1,12 +1,10 @@
 pub(super) fn save_session_messages(
-    session_mgr: &crate::session::SessionManager,
+    session_mgr: &mut crate::session::SessionManager,
     session_id: &str,
     messages: &[crate::app::Message],
     api_messages: Option<&[serde_json::Value]>,
 ) {
-    let records: Vec<serde_json::Value> =
-        messages.iter().map(crate::app::message_to_jsonl).collect();
-    session_mgr.save_all_messages(session_id, &records);
+    session_mgr.append_new_messages(session_id, messages);
     if let Some(msgs) = api_messages {
         session_mgr.save_api_messages(session_id, msgs);
     }
@@ -64,13 +62,15 @@ fn which_exists(cmd: &str) -> bool {
     let cache = match cmd {
         "wl-copy" => &WL_COPY,
         "xclip" => &XCLIP,
-        _ => return std::process::Command::new("which")
-            .arg(cmd)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false),
+        _ => {
+            return std::process::Command::new("which")
+                .arg(cmd)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+        }
     };
     *cache.get_or_init(|| {
         std::process::Command::new("which")

@@ -1,8 +1,8 @@
+use super::MessageComponent;
 use super::style::{
-    BLOCK_LEFT_RESERVED, blend, body_line, body_padding, block_border, header_line,
+    BLOCK_LEFT_RESERVED, blend, block_border, body_line, body_padding, header_line,
     render_block_chrome,
 };
-use super::MessageComponent;
 use crate::theme::Theme;
 use crate::ui::utils;
 use ratatui::buffer::Buffer;
@@ -40,9 +40,7 @@ impl UserBubble {
             return cached_h;
         }
         let usable = width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
-        let h = utils::wrap_text(&self.text, usable.max(1))
-            .len()
-            .max(1) as u16;
+        let h = utils::wrap_text(&self.text, usable.max(1)).len().max(1) as u16;
         self.body_rows_cache.set(Some((width, h)));
         h
     }
@@ -74,9 +72,9 @@ impl MessageComponent for UserBubble {
         1 + 1 + self.body_rows(width) + 1
     }
 
-
-    fn clickable(&self) -> bool { true }
-
+    fn clickable(&self) -> bool {
+        true
+    }
 
     fn render(&self, area: Rect, buf: &mut Buffer, theme: &Theme, selected: bool) {
         let border = block_border(theme, selected);
@@ -102,11 +100,25 @@ impl MessageComponent for UserBubble {
                 // before the bottom border.
                 Paragraph::new(body_line(&format!("{} …", line), text_style))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y: line_y, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y: line_y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
             } else {
                 Paragraph::new(body_line(line, text_style))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y: line_y, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y: line_y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
             }
         }
         if wrapped.is_empty() {

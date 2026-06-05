@@ -1,10 +1,10 @@
-pub mod svg_chart;
-pub mod quick_chart;
 pub mod custom_http;
+pub mod quick_chart;
+pub mod svg_chart;
 
-pub use svg_chart::SvgChartProvider;
-pub use quick_chart::QuickChartProvider;
 pub use custom_http::CustomHttpProvider;
+pub use quick_chart::QuickChartProvider;
+pub use svg_chart::SvgChartProvider;
 
 use crate::config::ImageGenConfig;
 use serde::{Deserialize, Serialize};
@@ -83,7 +83,9 @@ pub fn create_image_gen_provider(
 ) -> Box<dyn ImageGenProvider> {
     match ImageGenProviderKind::from_str(&config.provider) {
         ImageGenProviderKind::SvgChart => Box::new(SvgChartProvider::new(config)),
-        ImageGenProviderKind::QuickChart => Box::new(QuickChartProvider::new(client.clone(), config)),
+        ImageGenProviderKind::QuickChart => {
+            Box::new(QuickChartProvider::new(client.clone(), config))
+        }
         ImageGenProviderKind::CustomHttp => {
             Box::new(CustomHttpProvider::new(client.clone(), config))
         }
@@ -100,7 +102,11 @@ pub fn default_chart_height() -> u32 {
     500
 }
 
-fn generate_filename(prefix: &str, format: &str, images_dir: &std::path::Path) -> std::path::PathBuf {
+fn generate_filename(
+    prefix: &str,
+    format: &str,
+    images_dir: &std::path::Path,
+) -> std::path::PathBuf {
     let ts = chrono::Utc::now().format("%Y%m%d_%H%M%S");
     let rand: u16 = fastrand::u16(0..10000);
     let name = format!("{}_{}_{:04}.{}", prefix, ts, rand, format);

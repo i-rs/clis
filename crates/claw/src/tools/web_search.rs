@@ -278,8 +278,6 @@ fn try_extract_results(data: &Value, output: &mut String, prefix: &str, depth: u
             }
         }
     }
-
-
 }
 
 fn urlencode(s: &str) -> String {

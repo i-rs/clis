@@ -82,12 +82,16 @@ pub fn header_line(
     spans.push(Span::raw(" ".repeat(BLOCK_INDENT)));
     spans.push(Span::styled(
         glyph.to_string(),
-        Style::default().fg(glyph_color).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(glyph_color)
+            .add_modifier(Modifier::BOLD),
     ));
     spans.push(Span::raw(" "));
     spans.push(Span::styled(
         label.to_string(),
-        Style::default().fg(label_color).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(label_color)
+            .add_modifier(Modifier::BOLD),
     ));
     if let Some(m) = meta {
         spans.push(Span::styled(
@@ -206,7 +210,14 @@ pub fn render_block_chrome(
     // Top border.
     Paragraph::new(rounded_top(area.width, border))
         .style(Style::default().bg(interior_bg))
-        .render(Rect { y: area.y, height: 1, ..area }, buf);
+        .render(
+            Rect {
+                y: area.y,
+                height: 1,
+                ..area
+            },
+            buf,
+        );
 
     // Header.
     Paragraph::new(header)
@@ -226,7 +237,14 @@ pub fn render_block_chrome(
         let by = area.y + area.height - 1;
         Paragraph::new(rounded_bottom(area.width, border))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y: by, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y: by,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
     }
 
     BodyArea {

@@ -11,6 +11,7 @@ mod gateway;
 mod llm;
 mod mcp;
 mod memory;
+mod message;
 mod plugin;
 mod providers;
 mod router;

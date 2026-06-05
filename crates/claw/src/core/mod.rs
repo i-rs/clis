@@ -152,11 +152,17 @@ impl AgentRuntimeStore {
         &mut self.get_mut(agent_id).mcp_registry
     }
 
-    pub fn layered_memory_for(&self, agent_id: &str) -> &crate::core::layered_memory::LayeredMemory {
+    pub fn layered_memory_for(
+        &self,
+        agent_id: &str,
+    ) -> &crate::core::layered_memory::LayeredMemory {
         &self.get(agent_id).layered_memory
     }
 
-    pub fn layered_memory_for_mut(&mut self, agent_id: &str) -> &mut crate::core::layered_memory::LayeredMemory {
+    pub fn layered_memory_for_mut(
+        &mut self,
+        agent_id: &str,
+    ) -> &mut crate::core::layered_memory::LayeredMemory {
         &mut self.get_mut(agent_id).layered_memory
     }
 
@@ -206,7 +212,8 @@ pub struct AppCore {
     #[allow(dead_code)]
     pub storage: std::sync::Arc<crate::storage::ClawStorage>,
     pub http_client: reqwest::Client,
-    pub checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    pub checkpoint_store:
+        std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
     tool_index_cache: String,
 }
 
@@ -414,7 +421,10 @@ impl AppCore {
             skills: &self.agent_store.skill_store_for(agent_id).format_skills(),
             user_memory: &{
                 let base = memory.format_user_memory();
-                let layered = self.agent_store.layered_memory_for(agent_id).format_for_prompt();
+                let layered = self
+                    .agent_store
+                    .layered_memory_for(agent_id)
+                    .format_for_prompt();
                 if base.is_empty() {
                     layered
                 } else if layered.is_empty() {
@@ -508,10 +518,18 @@ impl AppCore {
         //   agent.provider_ref → config.providers[name] → config.top-level fields
         let resolved_pc = self.config.resolve_provider_config(agent);
         // Apply agent-level overrides on top of resolved provider config
-        let final_provider = agent.and_then(|a| a.provider).unwrap_or(resolved_pc.provider);
-        let final_api_key = agent.and_then(|a| a.api_key.as_deref()).unwrap_or(&resolved_pc.api_key);
-        let final_base_url = agent.and_then(|a| a.base_url.as_deref()).unwrap_or(&resolved_pc.base_url);
-        let final_model = agent.and_then(|a| a.model.as_deref()).unwrap_or(&resolved_pc.model);
+        let final_provider = agent
+            .and_then(|a| a.provider)
+            .unwrap_or(resolved_pc.provider);
+        let final_api_key = agent
+            .and_then(|a| a.api_key.as_deref())
+            .unwrap_or(&resolved_pc.api_key);
+        let final_base_url = agent
+            .and_then(|a| a.base_url.as_deref())
+            .unwrap_or(&resolved_pc.base_url);
+        let final_model = agent
+            .and_then(|a| a.model.as_deref())
+            .unwrap_or(&resolved_pc.model);
 
         let provider = crate::providers::create_provider_for(
             &self.http_client,
@@ -645,25 +663,16 @@ impl AppCore {
             let i_rs_tools: Vec<&str> = self.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
             crate::app::evaluate_response_heuristic(last_assistant, &tool_results, &i_rs_tools)
         };
-        let (score, complete, references_valid, issues) = match &quality {
-            crate::app::Message::Quality {
-                score,
-                complete,
-                references_valid,
-                issues,
-            } => (*score, *complete, *references_valid, issues.clone()),
-            _ => (None, true, 0u32, Vec::new()),
-        };
-        self.session_mgr.append_message(
-            "quality",
-            &format!("score: {:?}, complete: {}", score, complete),
-            Some(serde_json::json!({
-                "score": score,
-                "complete": complete,
-                "references_valid": references_valid,
-                "issues": issues,
-            })),
-        );
+        {
+            let log = self.session_mgr.message_log();
+            let sid = session_id.to_string();
+            let q_clone = quality.clone();
+            tokio::spawn(async move {
+                if let Err(e) = log.append_one(&sid, &q_clone).await {
+                    tracing::error!("quality 持久化失败: {}", e);
+                }
+            });
+        }
         {
             let suite = crate::core::evals::builtin_eval_suite();
             let eval_tool_results: Vec<(String, String)> = messages
@@ -951,7 +960,9 @@ pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
                             .unwrap_or("");
                         let tool_result_idx = i + 1 + tc_idx;
                         let result = if tool_result_idx < api_msgs.len()
-                            && api_msgs[tool_result_idx].get("role").and_then(|r| r.as_str())
+                            && api_msgs[tool_result_idx]
+                                .get("role")
+                                .and_then(|r| r.as_str())
                                 == Some("tool")
                         {
                             api_msgs[tool_result_idx]
@@ -1213,7 +1224,10 @@ mod tests {
             }),
         ];
         let records = super::api_msgs_to_jsonl(&api_msgs);
-        let types: Vec<&str> = records.iter().map(|r| r["type"].as_str().unwrap_or("")).collect();
+        let types: Vec<&str> = records
+            .iter()
+            .map(|r| r["type"].as_str().unwrap_or(""))
+            .collect();
         assert_eq!(
             types,
             vec!["user", "assistant", "tool_call", "assistant"],
@@ -1271,7 +1285,10 @@ mod tests {
             json!({"role": "tool", "content": "ok"}),
         ];
         let records = super::api_msgs_to_jsonl(&api_msgs);
-        let types: Vec<&str> = records.iter().map(|r| r["type"].as_str().unwrap_or("")).collect();
+        let types: Vec<&str> = records
+            .iter()
+            .map(|r| r["type"].as_str().unwrap_or(""))
+            .collect();
         assert_eq!(types, vec!["user", "tool_call"]);
     }
 }

@@ -130,8 +130,7 @@ impl LongTermMemory {
             .iter()
             .filter_map(|fact| {
                 if fact.content.to_lowercase().contains(&query_lower) {
-                    let score = (fact.access_count as i64) * 10
-                        + (fact.last_accessed / 3600)
+                    let score = (fact.access_count as i64) * 10 + (fact.last_accessed / 3600)
                         - ((chrono::Utc::now().timestamp() - fact.last_accessed) / 86400);
                     Some((score, fact))
                 } else {
@@ -187,7 +186,10 @@ impl LongTermMemory {
                 FactCategory::Decision => "决策",
                 FactCategory::General => "事实",
             };
-            parts.push(format!("[{}] {} (来源: {})", cat_label, fact.content, fact.source));
+            parts.push(format!(
+                "[{}] {} (来源: {})",
+                cat_label, fact.content, fact.source
+            ));
         }
         parts.join("\n")
     }
@@ -241,14 +243,21 @@ impl LayeredMemory {
 
     #[allow(dead_code)]
     pub fn record_user_statement(&mut self, statement: &str) {
-        let category = if statement.contains("喜欢") || statement.contains("偏好") || statement.contains("不喜欢") {
+        let category = if statement.contains("喜欢")
+            || statement.contains("偏好")
+            || statement.contains("不喜欢")
+        {
             FactCategory::UserPreference
-        } else if statement.contains("通常") || statement.contains("总是") || statement.contains("习惯") {
+        } else if statement.contains("通常")
+            || statement.contains("总是")
+            || statement.contains("习惯")
+        {
             FactCategory::UserHabit
         } else {
             FactCategory::General
         };
-        self.long_term.add_fact(statement, "user_statement", category);
+        self.long_term
+            .add_fact(statement, "user_statement", category);
     }
 
     #[allow(dead_code)]
@@ -284,7 +293,13 @@ impl LayeredMemory {
 
     #[allow(dead_code)]
     pub fn build_llm_summary_prompt(&self, conversation_snippet: &str) -> String {
-        let existing_facts: Vec<&str> = self.long_term.facts.iter().take(20).map(|f| f.content.as_str()).collect();
+        let existing_facts: Vec<&str> = self
+            .long_term
+            .facts
+            .iter()
+            .take(20)
+            .map(|f| f.content.as_str())
+            .collect();
         format!(
             "请从以下对话片段中提取关键事实和用户偏好。输出格式：每行一个事实，以 - 开头。\n\
              不要重复已有事实。\n\n\
@@ -294,7 +309,11 @@ impl LayeredMemory {
             if existing_facts.is_empty() {
                 "(暂无)".to_string()
             } else {
-                existing_facts.iter().map(|f| format!("- {}", f)).collect::<Vec<_>>().join("\n")
+                existing_facts
+                    .iter()
+                    .map(|f| format!("- {}", f))
+                    .collect::<Vec<_>>()
+                    .join("\n")
             },
             conversation_snippet
         )
@@ -406,7 +425,9 @@ mod tests {
     fn test_layered_memory_record_user() {
         let mut mem = LayeredMemory::new();
         mem.record_user_statement("我喜欢喝咖啡");
-        let prefs = mem.long_term.search_by_category(FactCategory::UserPreference, 10);
+        let prefs = mem
+            .long_term
+            .search_by_category(FactCategory::UserPreference, 10);
         assert_eq!(prefs.len(), 1);
     }
 
@@ -414,7 +435,8 @@ mod tests {
     fn test_layered_memory_format() {
         let mut mem = LayeredMemory::new();
         mem.working.set_entity("当前任务", "查看体重");
-        mem.long_term.add_fact("用户喜欢咖啡", "user", FactCategory::UserPreference);
+        mem.long_term
+            .add_fact("用户喜欢咖啡", "user", FactCategory::UserPreference);
         let prompt = mem.format_for_prompt();
         assert!(prompt.contains("工作记忆"));
         assert!(prompt.contains("长期记忆"));

@@ -88,7 +88,10 @@ impl ClawTool for RagTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ClawError::Validation("缺少 action 参数".to_string()))?;
 
-        let mut pipeline = self.pipeline.lock().map_err(|e| ClawError::Execution(e.to_string()))?;
+        let mut pipeline = self
+            .pipeline
+            .lock()
+            .map_err(|e| ClawError::Execution(e.to_string()))?;
 
         match action {
             "ingest" => {
@@ -104,10 +107,7 @@ impl ClawTool for RagTool {
                     .get("chunk_size")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(500) as usize;
-                let overlap = args
-                    .get("overlap")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(50) as usize;
+                let overlap = args.get("overlap").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
                 let metadata = args.get("metadata").cloned();
                 if chunk_size != 500 || overlap != 50 {
                     pipeline.chunk_config = crate::core::rag::ChunkConfig {
@@ -141,10 +141,7 @@ impl ClawTool for RagTool {
                     .get("query")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| ClawError::Validation("query 需要 query 参数".to_string()))?;
-                let top_k = args
-                    .get("top_k")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(5) as usize;
+                let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
                 let min_score = args
                     .get("min_score")
                     .and_then(|v| v.as_f64())
@@ -169,18 +166,12 @@ impl ClawTool for RagTool {
                     Ok(format!("已摄入文档来源: {}", sources.join(", ")))
                 }
             }
-            "count" => {
-                Ok(format!("当前文档块数量: {}", pipeline.document_count()))
-            }
+            "count" => Ok(format!("当前文档块数量: {}", pipeline.document_count())),
             "augmented" => {
-                let query = args
-                    .get("query")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| ClawError::Validation("augmented 需要 query 参数".to_string()))?;
-                let top_k = args
-                    .get("top_k")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(5) as usize;
+                let query = args.get("query").and_then(|v| v.as_str()).ok_or_else(|| {
+                    ClawError::Validation("augmented 需要 query 参数".to_string())
+                })?;
+                let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
                 let min_score = args
                     .get("min_score")
                     .and_then(|v| v.as_f64())

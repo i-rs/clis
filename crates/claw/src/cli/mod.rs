@@ -1,9 +1,9 @@
 mod config_wizard;
 mod tools_ui;
 
+pub(crate) use config_wizard::claw_dir;
 pub use config_wizard::run_config;
 pub use tools_ui::run_tools;
-pub(crate) use config_wizard::claw_dir;
 
 use crate::config::Config;
 use crate::session::SessionManager;

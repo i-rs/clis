@@ -174,24 +174,42 @@ mod tests {
 
     #[test]
     fn test_provider_kind_from_str_openai() {
-        assert_eq!("openai".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
-        assert_eq!("OpenAI".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
-        assert_eq!("OPENAI".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
+        assert_eq!(
+            "openai".parse::<ProviderKind>().unwrap(),
+            ProviderKind::OpenAI
+        );
+        assert_eq!(
+            "OpenAI".parse::<ProviderKind>().unwrap(),
+            ProviderKind::OpenAI
+        );
+        assert_eq!(
+            "OPENAI".parse::<ProviderKind>().unwrap(),
+            ProviderKind::OpenAI
+        );
     }
 
     #[test]
     fn test_provider_kind_from_str_anthropic() {
-        assert_eq!("anthropic".parse::<ProviderKind>().unwrap(), ProviderKind::Anthropic);
+        assert_eq!(
+            "anthropic".parse::<ProviderKind>().unwrap(),
+            ProviderKind::Anthropic
+        );
     }
 
     #[test]
     fn test_provider_kind_from_str_ollama() {
-        assert_eq!("ollama".parse::<ProviderKind>().unwrap(), ProviderKind::Ollama);
+        assert_eq!(
+            "ollama".parse::<ProviderKind>().unwrap(),
+            ProviderKind::Ollama
+        );
     }
 
     #[test]
     fn test_provider_kind_from_str_unknown_defaults_to_openai() {
-        assert_eq!("unknown".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
+        assert_eq!(
+            "unknown".parse::<ProviderKind>().unwrap(),
+            ProviderKind::OpenAI
+        );
         assert_eq!("".parse::<ProviderKind>().unwrap(), ProviderKind::OpenAI);
     }
 
@@ -215,7 +233,13 @@ mod tests {
 
     #[test]
     fn test_provider_kind_from_str_zhipu() {
-        assert_eq!("zhipu".parse::<ProviderKind>().unwrap(), ProviderKind::Zhipu);
-        assert_eq!("Zhipu".parse::<ProviderKind>().unwrap(), ProviderKind::Zhipu);
+        assert_eq!(
+            "zhipu".parse::<ProviderKind>().unwrap(),
+            ProviderKind::Zhipu
+        );
+        assert_eq!(
+            "Zhipu".parse::<ProviderKind>().unwrap(),
+            ProviderKind::Zhipu
+        );
     }
 }

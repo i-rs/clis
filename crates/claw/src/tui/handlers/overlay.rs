@@ -4,7 +4,11 @@ use serde_json::Value;
 
 use super::{Action, AppMessage, KeyEventHandler};
 
-pub fn handle_active_overlay_keys(handler: &mut KeyEventHandler, key: KeyEvent, overlay: Overlay) -> Action {
+pub fn handle_active_overlay_keys(
+    handler: &mut KeyEventHandler,
+    key: KeyEvent,
+    overlay: Overlay,
+) -> Action {
     match overlay {
         Overlay::SessionList => handle_session_list_keys(handler, key),
         Overlay::Sidebar => handle_sidebar_keys(handler, key),
@@ -97,8 +101,9 @@ fn handle_session_list_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
             handler.app.overlay.session_search.push(c);
             handler.app.overlay.session_list_index = 0;
         }
-        KeyCode::Backspace if !handler.app.overlay.session_rename_buf.is_empty()
-            && !handler.app.overlay.session_search_mode =>
+        KeyCode::Backspace
+            if !handler.app.overlay.session_rename_buf.is_empty()
+                && !handler.app.overlay.session_search_mode =>
         {
             handler.app.overlay.session_rename_buf.pop();
         }
@@ -115,12 +120,16 @@ fn handle_session_list_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
     Action::Continue
 }
 
-fn handle_session_enter(handler: &mut KeyEventHandler, filtered: &[crate::session::SessionMeta]) -> Action {
+fn handle_session_enter(
+    handler: &mut KeyEventHandler,
+    filtered: &[crate::session::SessionMeta],
+) -> Action {
     if !handler.app.overlay.session_rename_buf.is_empty() {
         if let Some(meta) = filtered.get(handler.app.overlay.session_list_index) {
             let title = std::mem::take(&mut handler.app.overlay.session_rename_buf);
             if !title.trim().is_empty() {
-                handler.app_core
+                handler
+                    .app_core
                     .session_mgr
                     .rename_session(&meta.id, title.trim());
             }
@@ -152,7 +161,7 @@ fn handle_session_enter(handler: &mut KeyEventHandler, filtered: &[crate::sessio
                 .unwrap_or_default()
                 .to_string();
             crate::tui::clipboard::save_session_messages(
-                &handler.app_core.session_mgr,
+                &mut handler.app_core.session_mgr,
                 &old_id,
                 &handler.app.messages,
                 handler.app.api_messages.as_deref(),
@@ -161,6 +170,10 @@ fn handle_session_enter(handler: &mut KeyEventHandler, filtered: &[crate::sessio
             handler.app_core.session_mgr.switch_to(&new_id);
             let loaded = handler.app_core.session_mgr.load_app_messages(&new_id, 200);
             handler.app.messages = loaded;
+            handler
+                .app_core
+                .session_mgr
+                .reset_cursor(&new_id, handler.app.messages.len());
             handler.app.sync_message_timestamps();
             handler.app.api_messages = handler.app_core.session_mgr.load_api_messages(&new_id);
             handler.app.tool_call_count = 0;
@@ -252,9 +265,10 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                 && *agent_id != handler.app.current_agent
             {
                 if let Some(old_id) = handler.app_core.session_mgr.current_id() {
+                    let old_id_s = old_id.to_string();
                     crate::tui::clipboard::save_session_messages(
-                        &handler.app_core.session_mgr,
-                        old_id,
+                        &mut handler.app_core.session_mgr,
+                        &old_id_s,
                         &handler.app.messages,
                         handler.app.api_messages.as_deref(),
                     );
@@ -263,7 +277,8 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                 handler.app.reset_for_new_session();
                 handler.app.status_text = format!("已切换到 agent: {}", agent_id);
                 handler.app_core.session_mgr.create_session_for(agent_id);
-                handler.app_core
+                handler
+                    .app_core
                     .agent_store
                     .memory_for_mut(agent_id)
                     .analyze_sessions(
@@ -287,8 +302,7 @@ fn handle_theme_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
     let max = crate::theme::BUILT_IN_THEMES.len().saturating_sub(1);
     match key.code {
         KeyCode::Up => {
-            handler.app.overlay.theme_index =
-                handler.app.overlay.theme_index.saturating_sub(1);
+            handler.app.overlay.theme_index = handler.app.overlay.theme_index.saturating_sub(1);
             apply_theme_preview(handler);
         }
         KeyCode::Down => {
@@ -312,12 +326,9 @@ fn handle_theme_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
 }
 
 fn apply_theme_preview(handler: &mut KeyEventHandler) {
-    if let Some(preset) =
-        crate::theme::BUILT_IN_THEMES.get(handler.app.overlay.theme_index)
-    {
+    if let Some(preset) = crate::theme::BUILT_IN_THEMES.get(handler.app.overlay.theme_index) {
         handler.app.config.theme =
-            crate::theme::Theme::from_preset(preset.name)
-                .unwrap_or_default();
+            crate::theme::Theme::from_preset(preset.name).unwrap_or_default();
     }
 }
 
@@ -334,7 +345,8 @@ fn save_theme(handler: &KeyEventHandler) {
 
 pub fn handle_export_session(handler: &mut KeyEventHandler) -> Action {
     if handler.app.messages.is_empty() {
-        handler.app.overlay.copy_feedback = Some(("无消息可导出".to_string(), std::time::Instant::now()));
+        handler.app.overlay.copy_feedback =
+            Some(("无消息可导出".to_string(), std::time::Instant::now()));
         return Action::Continue;
     }
 
@@ -443,10 +455,12 @@ pub fn handle_export_session(handler: &mut KeyEventHandler) -> Action {
 
     match std::fs::write(&path, &md) {
         Ok(_) => {
-            handler.app.overlay.copy_feedback = Some((format!("✓ 已导出: {}", filename), std::time::Instant::now()));
+            handler.app.overlay.copy_feedback =
+                Some((format!("✓ 已导出: {}", filename), std::time::Instant::now()));
         }
         Err(e) => {
-            handler.app.overlay.copy_feedback = Some((format!("✗ 导出失败: {}", e), std::time::Instant::now()));
+            handler.app.overlay.copy_feedback =
+                Some((format!("✗ 导出失败: {}", e), std::time::Instant::now()));
         }
     }
     handler.app.mark_overlay_dirty();
@@ -464,8 +478,7 @@ pub fn handle_slash_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Action
             Action::Continue
         }
         KeyCode::Up => {
-            handler.app.overlay.slash_index =
-                handler.app.overlay.slash_index.saturating_sub(1);
+            handler.app.overlay.slash_index = handler.app.overlay.slash_index.saturating_sub(1);
             handler.app.mark_overlay_dirty();
             Action::Continue
         }
@@ -477,9 +490,7 @@ pub fn handle_slash_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Action
             handler.app.mark_overlay_dirty();
             Action::Continue
         }
-        KeyCode::Enter | KeyCode::Tab => {
-            handle_slash_execute(handler)
-        }
+        KeyCode::Enter | KeyCode::Tab => handle_slash_execute(handler),
         KeyCode::Backspace => {
             handler.app.input.delete_before_cursor();
             if !handler.app.input.text.starts_with('/') {
@@ -514,8 +525,7 @@ fn slash_match_count(app: &App) -> usize {
                 return true;
             }
             let q = query.to_lowercase();
-            cmd.name.starts_with(&q)
-                || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+            cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
         })
         .count()
 }
@@ -533,12 +543,15 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
                 return true;
             }
             let q = query.to_lowercase();
-            cmd.name.starts_with(&q)
-                || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+            cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
         })
         .collect();
 
-    let idx = handler.app.overlay.slash_index.min(matches.len().saturating_sub(1));
+    let idx = handler
+        .app
+        .overlay
+        .slash_index
+        .min(matches.len().saturating_sub(1));
     let action = matches.get(idx).map(|cmd| cmd.action);
 
     handler.app.input.text.clear();
@@ -553,8 +566,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
         Some(crate::app::SlashAction::Sessions) => {
             handler.app.overlay.show(Overlay::SessionList);
             handler.app.overlay.session_list_index = 0;
-            handler.app.overlay.session_list =
-                handler.app_core.session_mgr.sessions().to_vec();
+            handler.app.overlay.session_list = handler.app_core.session_mgr.sessions().to_vec();
         }
         Some(crate::app::SlashAction::New) => {
             return handler.handle_new_session();
@@ -633,7 +645,11 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
             handler.app.mark_dirty();
         }
         Some(crate::app::SlashAction::Compact) => {
-            if let Some(_sid) = handler.app_core.session_mgr.current_id().map(|s| s.to_string())
+            if let Some(_sid) = handler
+                .app_core
+                .session_mgr
+                .current_id()
+                .map(|s| s.to_string())
             {
                 let memory = handler
                     .app_core

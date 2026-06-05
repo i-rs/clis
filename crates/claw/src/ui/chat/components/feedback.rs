@@ -1,5 +1,5 @@
-use super::style::{body_line, block_border, header_line, render_block_chrome};
 use super::MessageComponent;
+use super::style::{block_border, body_line, header_line, render_block_chrome};
 use crate::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -55,7 +55,9 @@ impl MessageComponent for FeedbackRow {
         {
             Paragraph::new(body_line(
                 m,
-                Style::default().fg(theme.dim_text()).add_modifier(Modifier::ITALIC),
+                Style::default()
+                    .fg(theme.dim_text())
+                    .add_modifier(Modifier::ITALIC),
             ))
             .style(Style::default().bg(interior_bg))
             .render(

@@ -18,7 +18,11 @@ pub(super) fn input_height(input: &str, terminal_width: u16) -> u16 {
             .lines()
             .map(|line| {
                 let w = UnicodeWidthStr::width(line);
-                if w == 0 { 1 } else { w.div_ceil(max_visual_width) }
+                if w == 0 {
+                    1
+                } else {
+                    w.div_ceil(max_visual_width)
+                }
             })
             .sum::<usize>()
             .max(1)

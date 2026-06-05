@@ -42,7 +42,9 @@ fn prepare_loop(
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
     delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
-    layered_memory: Option<std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>>,
+    layered_memory: Option<
+        std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>,
+    >,
     checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 ) -> ChatLoopInit {
     let enabled = if config.enabled_tools.is_empty() {
@@ -82,10 +84,12 @@ fn prepare_loop(
         .with_timeout(config.cli_timeout_secs)
         .with_truncation(4096, 500)
         .with_guardrails(
-            crate::tools::guardrails::GuardrailManager::new()
-                .with_tool(Box::new(crate::tools::guardrails::DangerousToolGuardrail::new(
-                    vec!["delete".to_string(), "shell".to_string()],
-                ))),
+            crate::tools::guardrails::GuardrailManager::new().with_tool(Box::new(
+                crate::tools::guardrails::DangerousToolGuardrail::new(vec![
+                    "delete".to_string(),
+                    "shell".to_string(),
+                ]),
+            )),
         )
         .with_hitl_policy(
             crate::core::hitl::HitlPolicy::new()
@@ -319,7 +323,9 @@ pub async fn chat_loop(
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
     delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
-    layered_memory: Option<std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>>,
+    layered_memory: Option<
+        std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>,
+    >,
     checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 ) {
     let trace_id = uuid::Uuid::new_v4().to_string();
@@ -365,7 +371,9 @@ pub async fn chat_loop(
                     consecutive_provider_errors = 0;
                 }
                 if init.plan_then_execute && round_count == 1 {
-                    if let Some(sp) = crate::core::planning::StructuredPlan::parse_from_llm_output(&text) {
+                    if let Some(sp) =
+                        crate::core::planning::StructuredPlan::parse_from_llm_output(&text)
+                    {
                         if matches!(sp.status, crate::core::planning::PlanStatus::Completed) {
                             let _ = tx.send(LlmEvent::Status("📋 计划已完成".to_string()));
                         }
@@ -399,11 +407,7 @@ pub async fn chat_loop(
                 consecutive_provider_errors = 0;
                 if calls.is_empty() {
                     tracing::warn!("LLM returned empty tool_calls, treating as done");
-                    let _ = tx.send(LlmEvent::Done(
-                        Arc::new(msgs),
-                        None,
-                        trace_id.clone(),
-                    ));
+                    let _ = tx.send(LlmEvent::Done(Arc::new(msgs), None, trace_id.clone()));
                     break;
                 }
                 if init.plan_then_execute && !plan_steps.is_empty() {
@@ -670,7 +674,7 @@ mod tests {
                 Message::Assistant {
                     text: "response".to_string(),
                     reasoning: String::new(),
-                        token_usage: None,
+                    token_usage: None,
                 },
                 Message::User {
                     text: "new".to_string(),
@@ -749,7 +753,7 @@ mod tests {
                 Message::Assistant {
                     text: "ok".to_string(),
                     reasoning: String::new(),
-                        token_usage: None,
+                    token_usage: None,
                 },
                 Message::User {
                     text: "new".to_string(),

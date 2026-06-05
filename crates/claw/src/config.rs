@@ -244,7 +244,6 @@ impl Default for QualityJudgeConfig {
     }
 }
 
-
 /// A named provider configuration.
 ///
 /// Defines the connection parameters for a single LLM provider.
@@ -306,18 +305,14 @@ impl Config {
 
         ResolvedAgentConfig {
             agent_id: id.to_string(),
-            provider: agent
-                .and_then(|a| a.provider)
-                .unwrap_or(base.provider),
+            provider: agent.and_then(|a| a.provider).unwrap_or(base.provider),
             api_key: agent
                 .and_then(|a| a.api_key.clone())
                 .unwrap_or(base.api_key),
             base_url: agent
                 .and_then(|a| a.base_url.clone())
                 .unwrap_or(base.base_url),
-            model: agent
-                .and_then(|a| a.model.clone())
-                .unwrap_or(base.model),
+            model: agent.and_then(|a| a.model.clone()).unwrap_or(base.model),
             enabled_tools: agent
                 .and_then(|a| a.enabled_tools.clone())
                 .unwrap_or_else(|| self.enabled_tools.clone()),
@@ -356,9 +351,10 @@ impl Config {
     pub fn resolve_provider_config(&self, agent: Option<&AgentConfig>) -> ProviderConfig {
         // 1. Try agent's provider_ref
         if let Some(ref_name) = agent.and_then(|a| a.provider_ref.as_ref())
-            && let Some(pc) = self.providers.get(ref_name) {
-                return pc.clone();
-            }
+            && let Some(pc) = self.providers.get(ref_name)
+        {
+            return pc.clone();
+        }
         // 2. Try default_provider
         if let Some(pc) = self.providers.get(&self.default_provider) {
             return pc.clone();
@@ -705,20 +701,24 @@ impl Config {
         // This lets old configs (which store provider/api_key/base_url/model
         // at the top level) work seamlessly with the new named-provider system.
         if config.providers.is_empty() && !config.api_key.is_empty() {
-            config.providers.insert("default".to_string(), ProviderConfig {
-                provider: config.provider,
-                api_key: config.api_key.clone(),
-                base_url: config.base_url.clone(),
-                model: config.model.clone(),
-            });
+            config.providers.insert(
+                "default".to_string(),
+                ProviderConfig {
+                    provider: config.provider,
+                    api_key: config.api_key.clone(),
+                    base_url: config.base_url.clone(),
+                    model: config.model.clone(),
+                },
+            );
         }
 
         // Validate default_provider exists in providers map, or add a
         // placeholder so resolution doesn't panic at runtime.
         if !config.providers.contains_key(&config.default_provider)
-            && config.providers.contains_key("default") {
-                config.default_provider = "default".to_string();
-            }
+            && config.providers.contains_key("default")
+        {
+            config.default_provider = "default".to_string();
+        }
 
         // Ensure "default" agent always exists (safety net against manual config edits)
         if config.agents.contains_key("default") {
@@ -731,15 +731,23 @@ impl Config {
         // Validate config - check both providers map and legacy fields
         {
             let has_providers = !config.providers.is_empty();
-            let has_valid_default = config.providers.get(&config.default_provider)
+            let has_valid_default = config
+                .providers
+                .get(&config.default_provider)
                 .map(|pc| pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty())
                 .unwrap_or(false);
             let has_legacy = config.provider != ProviderKind::Ollama && !config.api_key.is_empty();
 
             if !has_valid_default && !has_legacy && has_providers {
-                anyhow::bail!("配置文件中的 default provider '{}' 需要设置 api_key (Ollama 除外)", config.default_provider);
+                anyhow::bail!(
+                    "配置文件中的 default provider '{}' 需要设置 api_key (Ollama 除外)",
+                    config.default_provider
+                );
             }
-            if !has_providers && config.provider != ProviderKind::Ollama && config.api_key.is_empty() {
+            if !has_providers
+                && config.provider != ProviderKind::Ollama
+                && config.api_key.is_empty()
+            {
                 anyhow::bail!("配置文件中 api_key 不能为空 (Ollama 除外)");
             }
         }
@@ -766,12 +774,13 @@ impl Config {
 
         // Validate named providers in the providers map
         for (name, pc) in &self.providers {
-            let known_providers = [ProviderKind::OpenAI, ProviderKind::Ollama, ProviderKind::Anthropic];
+            let known_providers = [
+                ProviderKind::OpenAI,
+                ProviderKind::Ollama,
+                ProviderKind::Anthropic,
+            ];
             if !known_providers.contains(&pc.provider) {
-                tracing::info!(
-                    "provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式",
-                    name
-                );
+                tracing::info!("provider '{}' 不在已知列表中，将使用 OpenAI 兼容模式", name);
             }
             if pc.provider != ProviderKind::Ollama && pc.api_key.is_empty() {
                 warnings.push(format!("provider '{}' 需要设置 api_key", name));
@@ -780,7 +789,10 @@ impl Config {
                 warnings.push(format!("provider '{}' 未设置 model", name));
             }
             if !pc.base_url.is_empty() && !pc.base_url.starts_with("http") {
-                warnings.push(format!("provider '{}' 的 base_url 应该以 http:// 或 https:// 开头", name));
+                warnings.push(format!(
+                    "provider '{}' 的 base_url 应该以 http:// 或 https:// 开头",
+                    name
+                ));
             }
         }
 

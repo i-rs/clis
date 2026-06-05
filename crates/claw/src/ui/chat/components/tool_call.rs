@@ -1,6 +1,4 @@
-use super::style::{
-    BLOCK_LEFT_RESERVED, blend, body_line, block_border, render_block_chrome,
-};
+use super::style::{BLOCK_LEFT_RESERVED, blend, block_border, body_line, render_block_chrome};
 use super::{ComponentOp, MessageComponent};
 use crate::theme::Theme;
 use crate::ui::utils;
@@ -208,9 +206,10 @@ impl ToolCallCard {
         if self.name != "i_rs" {
             return None;
         }
-        self.args_value
-            .as_ref()
-            .and_then(|v| v.get("explanation").and_then(|e| e.as_str().map(String::from)))
+        self.args_value.as_ref().and_then(|v| {
+            v.get("explanation")
+                .and_then(|e| e.as_str().map(String::from))
+        })
     }
 
     // ─── Render-line computation (single source of truth) ───────────────
@@ -251,12 +250,11 @@ impl ToolCallCard {
         // inside body lines, so the wrap column is body_w - 2.
         let wrap_col = (body_w as usize).saturating_sub(2).max(1);
         // Plain-text fallback uses BLOCK_LEFT_RESERVED indent.
-        let usable_plain = body_w
-            .saturating_sub(BLOCK_LEFT_RESERVED as u16)
-            .max(1) as usize;
+        let usable_plain = body_w.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
         if let Some(val) = &self.args_value {
             // Teach-output sentinel — wrap the raw args text.
-            if val.as_array()
+            if val
+                .as_array()
                 .and_then(|arr| arr.first())
                 .and_then(|v| v.as_str())
                 .is_some_and(|s| s.trim().starts_with('\u{2318}'))
@@ -264,8 +262,7 @@ impl ToolCallCard {
                 return utils::wrap_text(&self.args, usable_plain);
             }
             // Pretty-printed JSON — wrap at wrap_col.
-            let pretty = serde_json::to_string_pretty(val)
-                .unwrap_or_else(|_| self.args.clone());
+            let pretty = serde_json::to_string_pretty(val).unwrap_or_else(|_| self.args.clone());
             return utils::wrap_text(&pretty, wrap_col);
         }
         // Args is not valid JSON — render as plain text.
@@ -310,11 +307,10 @@ impl ToolCallCard {
     /// if the result is non-JSON / teach-sentinel and should fall
     /// back to plain wrap.
     fn compute_result_render_lines(&self, body_w: u16) -> Option<Vec<Line<'static>>> {
-        let usable = body_w
-            .saturating_sub(BLOCK_LEFT_RESERVED as u16)
-            .max(1) as usize;
+        let usable = body_w.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
         let val = self.result_value.as_ref()?;
-        if val.as_array()
+        if val
+            .as_array()
             .and_then(|arr| arr.first())
             .and_then(|v| v.as_str())
             .is_some_and(|s| s.trim().starts_with('\u{2318}'))
@@ -343,10 +339,7 @@ impl ToolCallCard {
         // Populate the render cache (which updates args_rows_cache
         // as a side effect) and read back.
         let _ = self.args_render_lines(outer_w);
-        self.args_rows_cache
-            .get()
-            .map(|(_, h)| h)
-            .unwrap_or(0)
+        self.args_rows_cache.get().map(|(_, h)| h).unwrap_or(0)
     }
 
     fn result_rows(&self, outer_w: u16) -> u16 {
@@ -359,10 +352,7 @@ impl ToolCallCard {
             return cached_h;
         }
         let _ = self.result_render_lines(outer_w);
-        self.result_rows_cache
-            .get()
-            .map(|(_, h)| h)
-            .unwrap_or(0)
+        self.result_rows_cache.get().map(|(_, h)| h).unwrap_or(0)
     }
 }
 
@@ -424,7 +414,9 @@ impl MessageComponent for ToolCallCard {
         targets
     }
 
-    fn clickable(&self) -> bool { true }
+    fn clickable(&self) -> bool {
+        true
+    }
 
     fn apply(&mut self, op: ComponentOp) {
         match op {
@@ -463,17 +455,23 @@ impl MessageComponent for ToolCallCard {
         header_spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
         header_spans.push(Span::styled(
             status.glyph().to_string(),
-            Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(status_color)
+                .add_modifier(Modifier::BOLD),
         ));
         header_spans.push(Span::raw(" "));
         header_spans.push(Span::styled(
             self.tool_glyph().to_string(),
-            Style::default().fg(accent_color).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(accent_color)
+                .add_modifier(Modifier::BOLD),
         ));
         header_spans.push(Span::raw(" "));
         header_spans.push(Span::styled(
             self.header_text(),
-            Style::default().fg(accent_color).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(accent_color)
+                .add_modifier(Modifier::BOLD),
         ));
         if let Some(preview) = self.result_preview()
             && !self.expanded
@@ -495,7 +493,9 @@ impl MessageComponent for ToolCallCard {
         let chevron = if self.expanded { "▾" } else { "▸" };
         header_spans.push(Span::styled(
             format!("  {}", chevron),
-            Style::default().fg(theme.dim_text()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.dim_text())
+                .add_modifier(Modifier::BOLD),
         ));
         if let Some(ts) = &self.timestamp {
             // Drop timestamp if it would overflow — keep the preview instead.
@@ -519,7 +519,14 @@ impl MessageComponent for ToolCallCard {
                     Style::default().fg(border),
                 )))
                 .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
+                .render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
                 y += 1;
             }
 
@@ -532,7 +539,14 @@ impl MessageComponent for ToolCallCard {
                     Style::default().fg(theme.dim_text()),
                 ))
                 .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
+                .render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
                 y += 1;
             }
 
@@ -549,7 +563,14 @@ impl MessageComponent for ToolCallCard {
                         .add_modifier(Modifier::BOLD),
                 ))
                 .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
+                .render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
                 y += 1;
 
                 if self.args_expanded {
@@ -574,7 +595,14 @@ impl MessageComponent for ToolCallCard {
                     for (i, line) in cache_ref.iter().take(take as usize).enumerate() {
                         Paragraph::new(body_line(&format!("  {}", line), line_style))
                             .style(Style::default().bg(interior_bg))
-                            .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
+                            .render(
+                                Rect {
+                                    y: y + i as u16,
+                                    height: 1,
+                                    ..area
+                                },
+                                buf,
+                            );
                     }
                     y += take;
                 }
@@ -590,7 +618,14 @@ impl MessageComponent for ToolCallCard {
                         .add_modifier(Modifier::BOLD),
                 ))
                 .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
+                .render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
                 y += 1;
 
                 if self.result_expanded {
@@ -625,7 +660,14 @@ impl MessageComponent for ToolCallCard {
                                 Style::default().fg(theme.dim_text()),
                             ))
                             .style(Style::default().bg(interior_bg))
-                            .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
+                            .render(
+                                Rect {
+                                    y: y + i as u16,
+                                    height: 1,
+                                    ..area
+                                },
+                                buf,
+                            );
                         }
                     }
                 }
@@ -797,19 +839,10 @@ mod tests {
     /// the user sees the effect. Otherwise the key would seem dead.
     #[test]
     fn sub_toggle_auto_expands_card() {
-        let mut card = ToolCallCard::new(
-            "i_rs",
-            r#"{"tool":"todo"}"#,
-            "ok",
-            0,
-            1,
-            false,
-            None,
-        );
+        let mut card = ToolCallCard::new("i_rs", r#"{"tool":"todo"}"#, "ok", 0, 1, false, None);
         assert!(!card.expanded);
         card.apply(ComponentOp::ToggleArgs);
         assert!(card.expanded, "ToggleArgs on collapsed card expands it");
         assert!(!card.args_expanded, "and flips args state");
     }
 }
-

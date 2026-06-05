@@ -93,30 +93,28 @@ impl ClawTool for ChartImageTool {
             })
             .collect();
 
-        let title = args
-            .get("title")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let x_label = args
-            .get("x_label")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let y_label = args
-            .get("y_label")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let title = args.get("title").and_then(|v| v.as_str()).unwrap_or("");
+        let x_label = args.get("x_label").and_then(|v| v.as_str()).unwrap_or("");
+        let y_label = args.get("y_label").and_then(|v| v.as_str()).unwrap_or("");
         let width = args.get("width").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
         let height = args.get("height").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
         let images_dir = ensure_images_dir()?;
 
-        let provider = image_gen::create_image_gen_provider(
-            &ctx.config.image_gen,
-            &ctx.http_client,
-        );
+        let provider =
+            image_gen::create_image_gen_provider(&ctx.config.image_gen, &ctx.http_client);
 
         let img = provider
-            .generate_chart(chart_type, &data, title, x_label, y_label, width, height, &images_dir)
+            .generate_chart(
+                chart_type,
+                &data,
+                title,
+                x_label,
+                y_label,
+                width,
+                height,
+                &images_dir,
+            )
             .await
             .map_err(|e| ClawError::Execution(format!("图表生成失败: {}", e)))?;
 

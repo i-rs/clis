@@ -130,7 +130,12 @@ impl ClawTool for OrchestrationTool {
                 let total = plan.steps.len();
                 let ready_names: Vec<String> = ready
                     .iter()
-                    .map(|&i| plan.steps.get(i).map(|s| s.agent_id.clone()).unwrap_or_default())
+                    .map(|&i| {
+                        plan.steps
+                            .get(i)
+                            .map(|s| s.agent_id.clone())
+                            .unwrap_or_default()
+                    })
                     .collect();
                 Ok(format!(
                     "已创建编排计划 '{}' (模式: {}, {} 步骤)\n就绪步骤: {}\n\n请使用对应工具逐步执行就绪的步骤。",

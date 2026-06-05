@@ -1,7 +1,5 @@
-use super::style::{
-    BLOCK_LEFT_RESERVED, blend, body_line, header_line, render_block_chrome,
-};
 use super::MessageComponent;
+use super::style::{BLOCK_LEFT_RESERVED, blend, body_line, header_line, render_block_chrome};
 use crate::theme::Theme;
 use crate::ui::utils;
 use ratatui::buffer::Buffer;
@@ -24,9 +22,7 @@ impl ErrorBanner {
 
     fn body_rows(&self, width: u16) -> u16 {
         let usable = width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
-        utils::wrap_text(&self.text, usable.max(1))
-            .len()
-            .max(1) as u16
+        utils::wrap_text(&self.text, usable.max(1)).len().max(1) as u16
     }
 }
 
@@ -55,7 +51,9 @@ impl MessageComponent for ErrorBanner {
         for (i, line) in wrapped.iter().take(take).enumerate() {
             Paragraph::new(body_line(
                 line,
-                Style::default().fg(theme.error()).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.error())
+                    .add_modifier(Modifier::BOLD),
             ))
             .style(Style::default().bg(interior_bg))
             .render(

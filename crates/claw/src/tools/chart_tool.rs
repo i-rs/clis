@@ -3,7 +3,7 @@ use crate::{opt_str, opt_u64, require_str};
 use serde_json::Value;
 
 use super::chart_render;
-use super::{run_blocking, ClawTool, ToolContext};
+use super::{ClawTool, ToolContext, run_blocking};
 
 /// Chart tool: generates ASCII bar charts and line charts from i-rs CLI data.
 pub struct ChartTool;
@@ -74,9 +74,7 @@ impl ClawTool for ChartTool {
 
     async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, ClawError> {
         let tool = require_str!(args, "tool");
-        if !ctx.config.i_rs_tools.is_empty()
-            && !ctx.config.i_rs_tools.iter().any(|t| t == tool)
-        {
+        if !ctx.config.i_rs_tools.is_empty() && !ctx.config.i_rs_tools.iter().any(|t| t == tool) {
             return Err(ClawError::Validation(format!(
                 "未知的 i-rs 工具: '{}'",
                 tool

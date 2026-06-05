@@ -225,7 +225,10 @@ impl ToolCallExecutor {
                         args,
                         result: format!("护栏拦截: {}", reason),
                         context_result: format!("护栏拦截: {}", reason),
-                        validation: ToolResultValidation { valid: false, issues: vec![reason] },
+                        validation: ToolResultValidation {
+                            valid: false,
+                            issues: vec![reason],
+                        },
                         category: ErrorCategory::Validation,
                     });
                     continue;
@@ -244,7 +247,10 @@ impl ToolCallExecutor {
                         args,
                         result: "操作被安全策略拒绝: 此工具被配置为禁止执行".to_string(),
                         context_result: "操作被安全策略拒绝".to_string(),
-                        validation: ToolResultValidation { valid: false, issues: vec!["HITL 策略拒绝".to_string()] },
+                        validation: ToolResultValidation {
+                            valid: false,
+                            issues: vec!["HITL 策略拒绝".to_string()],
+                        },
                         category: ErrorCategory::Validation,
                     });
                     continue;
@@ -347,7 +353,10 @@ impl ToolCallExecutor {
                         args: Value::Null,
                         result: format!("工具任务崩溃: {}", e),
                         context_result: format!("工具任务崩溃: {}", e),
-                        validation: ToolResultValidation { valid: false, issues: vec![format!("工具任务崩溃: {}", e)] },
+                        validation: ToolResultValidation {
+                            valid: false,
+                            issues: vec![format!("工具任务崩溃: {}", e)],
+                        },
                         category: ErrorCategory::Execution,
                     });
                 }

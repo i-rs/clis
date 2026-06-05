@@ -79,21 +79,21 @@ impl ClawTool for CallCodeAgentTool {
             "调用代码智能体"
         );
 
-        let output = tokio::time::timeout(
-            std::time::Duration::from_secs(timeout_secs),
-            cmd.output(),
-        )
-        .await
-        .map_err(|_| {
-            ClawError::Timeout(format!("代码智能体执行超时 ({}s)", timeout_secs))
-        })?
-        .map_err(|e| ClawError::Execution(format!("启动代码智能体失败: {}", e)))?;
+        let output =
+            tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), cmd.output())
+                .await
+                .map_err(|_| ClawError::Timeout(format!("代码智能体执行超时 ({}s)", timeout_secs)))?
+                .map_err(|e| ClawError::Execution(format!("启动代码智能体失败: {}", e)))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
         if !output.status.success() {
-            let err_msg = if stderr.is_empty() { stdout.clone() } else { stderr };
+            let err_msg = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                stderr
+            };
             return Err(ClawError::Execution(format!(
                 "代码智能体执行失败 (exit: {}): {}",
                 output.status.code().unwrap_or(-1),

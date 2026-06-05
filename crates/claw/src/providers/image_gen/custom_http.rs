@@ -1,4 +1,4 @@
-use super::{generate_filename, GeneratedImage, ImageGenProvider, ImageGenProviderKind};
+use super::{GeneratedImage, ImageGenProvider, ImageGenProviderKind, generate_filename};
 use crate::config::ImageGenConfig;
 use serde_json::json;
 
@@ -101,7 +101,11 @@ impl ImageGenProvider for CustomHttpProvider {
         std::fs::write(&filepath, &bytes)?;
 
         Ok(GeneratedImage {
-            path: filepath.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: filepath
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             format: ext.to_string(),
             width: w,
             height: h,

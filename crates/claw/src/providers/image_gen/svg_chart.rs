@@ -1,4 +1,4 @@
-use super::{generate_filename, GeneratedImage, ImageGenProvider, ImageGenProviderKind};
+use super::{GeneratedImage, ImageGenProvider, ImageGenProviderKind, generate_filename};
 use crate::config::ImageGenConfig;
 
 pub struct SvgChartProvider {
@@ -86,8 +86,8 @@ impl ImageGenProvider for SvgChartProvider {
 }
 
 const COLORS: &[&str] = &[
-    "#22d3ee", "#34d399", "#fbbf24", "#f87171", "#a78bfa",
-    "#60a5fa", "#fb923c", "#e879f9", "#2dd4bf", "#facc15",
+    "#22d3ee", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#60a5fa", "#fb923c", "#e879f9",
+    "#2dd4bf", "#facc15",
 ];
 
 const SVG_BG: &str = "#0f0f17";
@@ -104,7 +104,12 @@ fn render_bar_chart(
     width: u32,
     height: u32,
 ) -> String {
-    let margin = Margin { top: 60, right: 40, bottom: 70, left: 70 };
+    let margin = Margin {
+        top: 60,
+        right: 40,
+        bottom: 70,
+        left: 70,
+    };
     let pw = width.saturating_sub(margin.left + margin.right) as f64;
     let ph = height.saturating_sub(margin.top + margin.bottom) as f64;
 
@@ -124,7 +129,12 @@ fn render_bar_chart(
 
     if !title.is_empty() {
         svg.push_str(&svg_text(
-            (width / 2) as f64, 35.0, SVG_TITLE, 18, "middle", title,
+            (width / 2) as f64,
+            35.0,
+            SVG_TITLE,
+            18,
+            "middle",
+            title,
         ));
     }
 
@@ -132,23 +142,66 @@ fn render_bar_chart(
         let y = chart_top + ph * (i as f64) / 5.0;
         let val = y_max * (5.0 - i as f64) / 5.0;
         svg.push_str(&svg_line(chart_left, y, chart_left + pw, y, SVG_GRID, 1));
-        let label = if val.fract() == 0.0 { format!("{:.0}", val) } else { format!("{:.1}", val) };
-        svg.push_str(&svg_text(chart_left - 8.0, y + 5.0, SVG_TEXT, 12, "end", &label));
+        let label = if val.fract() == 0.0 {
+            format!("{:.0}", val)
+        } else {
+            format!("{:.1}", val)
+        };
+        svg.push_str(&svg_text(
+            chart_left - 8.0,
+            y + 5.0,
+            SVG_TEXT,
+            12,
+            "end",
+            &label,
+        ));
     }
 
-    svg.push_str(&svg_line(chart_left, chart_top, chart_left, chart_bottom, SVG_AXIS, 2));
-    svg.push_str(&svg_line(chart_left, chart_bottom, chart_left + pw, chart_bottom, SVG_AXIS, 2));
+    svg.push_str(&svg_line(
+        chart_left,
+        chart_top,
+        chart_left,
+        chart_bottom,
+        SVG_AXIS,
+        2,
+    ));
+    svg.push_str(&svg_line(
+        chart_left,
+        chart_bottom,
+        chart_left + pw,
+        chart_bottom,
+        SVG_AXIS,
+        2,
+    ));
 
     if !y_label.is_empty() {
-        svg.push_str(&svg_text(16.0, chart_top + ph / 2.0, SVG_TEXT, 13, "middle", y_label));
+        svg.push_str(&svg_text(
+            16.0,
+            chart_top + ph / 2.0,
+            SVG_TEXT,
+            13,
+            "middle",
+            y_label,
+        ));
     }
     if !x_label.is_empty() {
-        svg.push_str(&svg_text(chart_left + pw / 2.0, (height - 10) as f64, SVG_TEXT, 13, "middle", x_label));
+        svg.push_str(&svg_text(
+            chart_left + pw / 2.0,
+            (height - 10) as f64,
+            SVG_TEXT,
+            13,
+            "middle",
+            x_label,
+        ));
     }
 
     for (i, dp) in data.iter().enumerate() {
         let x = chart_left + gap * (i as f64 + 0.5) - bar_width / 2.0;
-        let bar_h = if y_max > 0.0 { (dp.value / y_max) * ph } else { 0.0 };
+        let bar_h = if y_max > 0.0 {
+            (dp.value / y_max) * ph
+        } else {
+            0.0
+        };
         let y = chart_bottom - bar_h;
         let color = COLORS[i % COLORS.len()];
 
@@ -189,7 +242,12 @@ fn render_line_chart(
     width: u32,
     height: u32,
 ) -> String {
-    let margin = Margin { top: 60, right: 40, bottom: 70, left: 70 };
+    let margin = Margin {
+        top: 60,
+        right: 40,
+        bottom: 70,
+        left: 70,
+    };
     let pw = width.saturating_sub(margin.left + margin.right) as f64;
     let ph = height.saturating_sub(margin.top + margin.bottom) as f64;
 
@@ -204,36 +262,95 @@ fn render_line_chart(
     svg.push_str(&svg_rect(0.0, 0.0, width as f64, height as f64, SVG_BG));
 
     if !title.is_empty() {
-        svg.push_str(&svg_text((width / 2) as f64, 35.0, SVG_TITLE, 18, "middle", title));
+        svg.push_str(&svg_text(
+            (width / 2) as f64,
+            35.0,
+            SVG_TITLE,
+            18,
+            "middle",
+            title,
+        ));
     }
 
     for i in 0..=5 {
         let y = chart_top + ph * (i as f64) / 5.0;
         let val = y_max * (5.0 - i as f64) / 5.0;
         svg.push_str(&svg_line(chart_left, y, chart_left + pw, y, SVG_GRID, 1));
-        let label = if val.fract() == 0.0 { format!("{:.0}", val) } else { format!("{:.1}", val) };
-        svg.push_str(&svg_text(chart_left - 8.0, y + 5.0, SVG_TEXT, 12, "end", &label));
+        let label = if val.fract() == 0.0 {
+            format!("{:.0}", val)
+        } else {
+            format!("{:.1}", val)
+        };
+        svg.push_str(&svg_text(
+            chart_left - 8.0,
+            y + 5.0,
+            SVG_TEXT,
+            12,
+            "end",
+            &label,
+        ));
     }
 
-    svg.push_str(&svg_line(chart_left, chart_top, chart_left, chart_bottom, SVG_AXIS, 2));
-    svg.push_str(&svg_line(chart_left, chart_bottom, chart_left + pw, chart_bottom, SVG_AXIS, 2));
+    svg.push_str(&svg_line(
+        chart_left,
+        chart_top,
+        chart_left,
+        chart_bottom,
+        SVG_AXIS,
+        2,
+    ));
+    svg.push_str(&svg_line(
+        chart_left,
+        chart_bottom,
+        chart_left + pw,
+        chart_bottom,
+        SVG_AXIS,
+        2,
+    ));
 
     if !y_label.is_empty() {
-        svg.push_str(&svg_text(16.0, chart_top + ph / 2.0, SVG_TEXT, 13, "middle", y_label));
+        svg.push_str(&svg_text(
+            16.0,
+            chart_top + ph / 2.0,
+            SVG_TEXT,
+            13,
+            "middle",
+            y_label,
+        ));
     }
     if !x_label.is_empty() {
-        svg.push_str(&svg_text(chart_left + pw / 2.0, (height - 10) as f64, SVG_TEXT, 13, "middle", x_label));
+        svg.push_str(&svg_text(
+            chart_left + pw / 2.0,
+            (height - 10) as f64,
+            SVG_TEXT,
+            13,
+            "middle",
+            x_label,
+        ));
     }
 
     let n = data.len().max(1);
-    let gap = if n > 1 { pw / (n as f64 - 1.0) } else { pw / 2.0 };
+    let gap = if n > 1 {
+        pw / (n as f64 - 1.0)
+    } else {
+        pw / 2.0
+    };
 
     let mut points = Vec::new();
     let mut poly_points = String::new();
 
     for (i, dp) in data.iter().enumerate() {
-        let x = if n > 1 { chart_left + gap * i as f64 } else { chart_left + pw / 2.0 };
-        let y = chart_bottom - if y_max > 0.0 { (dp.value / y_max) * ph } else { 0.0 };
+        let x = if n > 1 {
+            chart_left + gap * i as f64
+        } else {
+            chart_left + pw / 2.0
+        };
+        let y = chart_bottom
+            - if y_max > 0.0 {
+                (dp.value / y_max) * ph
+            } else {
+                0.0
+            };
         points.push((x, y, &dp.label, dp.value));
 
         if i == 0 {
@@ -246,7 +363,11 @@ fn render_line_chart(
     if !poly_points.is_empty() {
         let fill_area = format!(
             "{} {:.1},{:.1} {:.1},{:.1}",
-            poly_points, chart_left + pw, chart_bottom, chart_left, chart_bottom
+            poly_points,
+            chart_left + pw,
+            chart_bottom,
+            chart_left,
+            chart_bottom
         );
         svg.push_str(&format!(
             "<polygon points=\"{}\" fill=\"url(#lineGrad)\" opacity=\"0.2\"/>",
@@ -270,7 +391,14 @@ fn render_line_chart(
             "<circle cx=\"{:.1}\" cy=\"{:.1}\" r=\"5\" fill=\"{}\" stroke=\"{}\" stroke-width=\"2\"/>",
             x, y, SVG_BG, color
         ));
-        svg.push_str(&svg_text(*x, chart_bottom + 18.0, SVG_TEXT, 11, "middle", &trunc_label(label, 12)));
+        svg.push_str(&svg_text(
+            *x,
+            chart_bottom + 18.0,
+            SVG_TEXT,
+            11,
+            "middle",
+            &trunc_label(label, 12),
+        ));
         let val_str = if val.fract() == 0.0 {
             format!("{:.0}", val)
         } else {
@@ -332,7 +460,11 @@ fn render_pie_chart(
 
         svg.push_str(&svg_rect(legend_x - 6.0, legend_y - 5.0, 12.0, 12.0, color));
         svg.push_str(&svg_text(
-            legend_x + 12.0, legend_y + 5.0, SVG_TEXT, 12, "start",
+            legend_x + 12.0,
+            legend_y + 5.0,
+            SVG_TEXT,
+            12,
+            "start",
             &format!("{} ({:.1})", trunc_label(&dp.label, 15), dp.value),
         ));
 
@@ -386,10 +518,18 @@ fn render_radar_chart(
         ));
 
         let val = r_max * (4.0 - level as f64) / 4.0;
-        let label = if val.fract() == 0.0 { format!("{:.0}", val) } else { format!("{:.1}", val) };
+        let label = if val.fract() == 0.0 {
+            format!("{:.0}", val)
+        } else {
+            format!("{:.1}", val)
+        };
         svg.push_str(&svg_text(
-            cx + 4.0, cy - radius + radius * (level as f64) / 4.0 + 5.0,
-            SVG_TEXT, 10, "start", &label,
+            cx + 4.0,
+            cy - radius + radius * (level as f64) / 4.0 + 5.0,
+            SVG_TEXT,
+            10,
+            "start",
+            &label,
         ));
     }
 
@@ -408,7 +548,11 @@ fn render_radar_chart(
         .enumerate()
         .map(|(i, dp)| {
             let a = start_angle + angle_step * i as f64;
-            let r = if r_max > 0.0 { (dp.value / r_max) * radius } else { 0.0 };
+            let r = if r_max > 0.0 {
+                (dp.value / r_max) * radius
+            } else {
+                0.0
+            };
             let x = cx + a.cos() * r;
             let y = cy + a.sin() * r;
             format!("{:.1},{:.1}", x, y)
@@ -424,7 +568,11 @@ fn render_radar_chart(
 
     for (i, dp) in data.iter().enumerate() {
         let a = start_angle + angle_step * i as f64;
-        let r = if r_max > 0.0 { (dp.value / r_max) * radius } else { 0.0 };
+        let r = if r_max > 0.0 {
+            (dp.value / r_max) * radius
+        } else {
+            0.0
+        };
         let x = cx + a.cos() * r;
         let y = cy + a.sin() * r;
         svg.push_str(&format!(
@@ -434,8 +582,21 @@ fn render_radar_chart(
 
         let label_x = cx + a.cos() * (radius + 25.0);
         let label_y = cy + a.sin() * (radius + 25.0);
-        let anchor = if a.cos() > 0.1 { "start" } else if a.cos() < -0.1 { "end" } else { "middle" };
-        svg.push_str(&svg_text(label_x, label_y + 5.0, SVG_TEXT, 11, anchor, &dp.label));
+        let anchor = if a.cos() > 0.1 {
+            "start"
+        } else if a.cos() < -0.1 {
+            "end"
+        } else {
+            "middle"
+        };
+        svg.push_str(&svg_text(
+            label_x,
+            label_y + 5.0,
+            SVG_TEXT,
+            11,
+            anchor,
+            &dp.label,
+        ));
 
         let val_str = if dp.value.fract() == 0.0 {
             format!("{:.0}", dp.value)
@@ -462,11 +623,17 @@ fn nice_max(max_val: f64) -> f64 {
     }
     let magnitude = 10.0f64.powf(max_val.log10().floor());
     let normalized = max_val / magnitude;
-    let nice = if normalized <= 1.0 { 1.0 }
-        else if normalized <= 2.0 { 2.0 }
-        else if normalized <= 2.5 { 2.5 }
-        else if normalized <= 5.0 { 5.0 }
-        else { 10.0 };
+    let nice = if normalized <= 1.0 {
+        1.0
+    } else if normalized <= 2.0 {
+        2.0
+    } else if normalized <= 2.5 {
+        2.5
+    } else if normalized <= 5.0 {
+        5.0
+    } else {
+        10.0
+    };
     nice * magnitude
 }
 
@@ -480,7 +647,11 @@ fn svg_header(w: u32, h: u32) -> String {
 fn svg_rect(x: f64, y: f64, w: impl Into<f64>, h: impl Into<f64>, fill: &str) -> String {
     format!(
         "<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"{}\"/>",
-        x, y, w.into(), h.into(), fill
+        x,
+        y,
+        w.into(),
+        h.into(),
+        fill
     )
 }
 
@@ -522,7 +693,13 @@ fn make_slice(cx: f64, cy: f64, r: f64, start: f64, sweep: f64) -> (String, f64)
 
 fn trunc_label(label: &str, max_len: usize) -> String {
     if label.chars().count() > max_len {
-        format!("{}…", label.chars().take(max_len.saturating_sub(1)).collect::<String>())
+        format!(
+            "{}…",
+            label
+                .chars()
+                .take(max_len.saturating_sub(1))
+                .collect::<String>()
+        )
     } else {
         label.to_string()
     }
@@ -532,9 +709,23 @@ fn simple_svg(w: u32, h: u32, title: &str, msg: &str) -> String {
     let mut svg = svg_header(w, h);
     svg.push_str(&svg_rect(0.0, 0.0, w as f64, h as f64, SVG_BG));
     if !title.is_empty() {
-        svg.push_str(&svg_text((w / 2) as f64, (h / 2) as f64 - 10.0, SVG_TITLE, 16, "middle", title));
+        svg.push_str(&svg_text(
+            (w / 2) as f64,
+            (h / 2) as f64 - 10.0,
+            SVG_TITLE,
+            16,
+            "middle",
+            title,
+        ));
     }
-    svg.push_str(&svg_text((w / 2) as f64, (h / 2) as f64 + 14.0, SVG_TEXT, 14, "middle", msg));
+    svg.push_str(&svg_text(
+        (w / 2) as f64,
+        (h / 2) as f64 + 14.0,
+        SVG_TEXT,
+        14,
+        "middle",
+        msg,
+    ));
     svg.push_str("</svg>");
     svg
 }

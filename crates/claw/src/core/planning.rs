@@ -89,7 +89,9 @@ impl StructuredPlan {
     }
 
     pub fn next_step(&mut self) -> Option<&StructuredPlanStep> {
-        self.steps.iter().find(|s| matches!(s.status, PlanStepStatus::Pending))
+        self.steps
+            .iter()
+            .find(|s| matches!(s.status, PlanStepStatus::Pending))
     }
 
     pub fn mark_in_progress(&mut self, step_id: &str) {
@@ -135,12 +137,14 @@ impl StructuredPlan {
     }
 
     fn update_plan_status(&mut self) {
-        let all_completed = self.steps.iter().all(|s| {
-            matches!(s.status, PlanStepStatus::Completed)
-        });
-        let any_failed = self.steps.iter().any(|s| {
-            matches!(s.status, PlanStepStatus::Failed { .. })
-        });
+        let all_completed = self
+            .steps
+            .iter()
+            .all(|s| matches!(s.status, PlanStepStatus::Completed));
+        let any_failed = self
+            .steps
+            .iter()
+            .any(|s| matches!(s.status, PlanStepStatus::Failed { .. }));
         let all_done = self.steps.iter().all(|s| {
             matches!(
                 s.status,
@@ -194,10 +198,7 @@ impl StructuredPlan {
                 result.push_str(&format!("   └ 失败原因: {}\n", reason));
             }
         }
-        result.push_str(&format!(
-            "\n进度: {}/{} 步完成",
-            completed, total
-        ));
+        result.push_str(&format!("\n进度: {}/{} 步完成", completed, total));
         result
     }
 
@@ -242,33 +243,31 @@ impl StructuredPlan {
                 plan = Some(StructuredPlan::new(&goal));
                 continue;
             }
-            if in_plan
-                && let Some(ref mut p) = plan
-            {
+            if in_plan && let Some(ref mut p) = plan {
                 let desc = trimmed
-                        .trim_start_matches(|c: char| c.is_ascii_digit())
-                        .trim_start_matches('.')
-                        .trim_start_matches("- ")
-                        .trim_start_matches("✅ ")
-                        .trim_start_matches("❌ ")
-                        .trim_start_matches("🔄 ")
-                        .trim();
-                    if desc.is_empty() || desc.len() < 3 {
-                        continue;
-                    }
-                    let tool = if desc.contains("→") {
-                        desc.split("→").nth(1).map(|s| s.trim().to_string())
-                    } else {
-                        None
-                    };
-                    let description = if let Some(_t) = &tool {
-                        desc.split("→").next().unwrap_or(desc).trim().to_string()
-                    } else {
-                        desc.to_string()
-                    };
-                    if !description.is_empty() && description.len() > 2 {
-                        p.add_step(&description, tool.as_deref(), None, vec![]);
-                    }
+                    .trim_start_matches(|c: char| c.is_ascii_digit())
+                    .trim_start_matches('.')
+                    .trim_start_matches("- ")
+                    .trim_start_matches("✅ ")
+                    .trim_start_matches("❌ ")
+                    .trim_start_matches("🔄 ")
+                    .trim();
+                if desc.is_empty() || desc.len() < 3 {
+                    continue;
+                }
+                let tool = if desc.contains("→") {
+                    desc.split("→").nth(1).map(|s| s.trim().to_string())
+                } else {
+                    None
+                };
+                let description = if let Some(_t) = &tool {
+                    desc.split("→").next().unwrap_or(desc).trim().to_string()
+                } else {
+                    desc.to_string()
+                };
+                if !description.is_empty() && description.len() > 2 {
+                    p.add_step(&description, tool.as_deref(), None, vec![]);
+                }
             }
         }
         plan
@@ -313,7 +312,10 @@ mod tests {
         plan.mark_failed(&id, "error");
         plan.mark_failed(&id, "error");
         plan.mark_failed(&id, "error");
-        assert!(matches!(plan.steps[0].status, PlanStepStatus::Failed { .. }));
+        assert!(matches!(
+            plan.steps[0].status,
+            PlanStepStatus::Failed { .. }
+        ));
     }
 
     #[test]
@@ -321,7 +323,10 @@ mod tests {
         let mut plan = StructuredPlan::new("测试");
         plan.add_step("步骤1", None, None, vec![]);
         plan.skip_step("step_0", "不需要");
-        assert!(matches!(plan.steps[0].status, PlanStepStatus::Skipped { .. }));
+        assert!(matches!(
+            plan.steps[0].status,
+            PlanStepStatus::Skipped { .. }
+        ));
     }
 
     #[test]

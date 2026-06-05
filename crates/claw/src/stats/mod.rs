@@ -215,7 +215,9 @@ impl StatsManager {
             drop(buffer);
             let storage = self.storage.clone();
             if let Err(e) =
-                crate::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await })
+                crate::utils::sync_block_on(
+                    async move { storage.stats.upsert_batch(&records).await },
+                )
             {
                 tracing::error!("刷写 token 统计失败: {}", e);
             }
@@ -233,7 +235,9 @@ impl StatsManager {
         }
         let records = std::mem::take(&mut *buffer);
         let storage = self.storage.clone();
-        if let Err(e) = crate::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await }) {
+        if let Err(e) =
+            crate::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await })
+        {
             tracing::error!("刷写 token 统计失败: {}", e);
         }
     }
@@ -288,11 +292,10 @@ impl StatsManager {
             .and_utc()
             .timestamp();
         let storage = self.storage.clone();
-        let mut records =
-            crate::utils::sync_block_on(
-                async move { storage.stats.read_range(Some(start_of_today), None).await },
-            )
-            .unwrap_or_default();
+        let mut records = crate::utils::sync_block_on(async move {
+            storage.stats.read_range(Some(start_of_today), None).await
+        })
+        .unwrap_or_default();
 
         // Include buffered unsaved records
         if let Ok(buffer) = self.buffer.lock() {
@@ -318,8 +321,9 @@ impl StatsManager {
     #[allow(dead_code)]
     pub fn query(&self, period: StatsPeriod) -> TokenStats {
         let storage = self.storage.clone();
-        let records = crate::utils::sync_block_on(async move { storage.stats.read_range(None, None).await })
-            .unwrap_or_default();
+        let records =
+            crate::utils::sync_block_on(async move { storage.stats.read_range(None, None).await })
+                .unwrap_or_default();
 
         let mut result = aggregator::aggregate(&records, &self.pricing);
         result.period = period;
@@ -341,7 +345,9 @@ impl StatsManager {
             return;
         }
         let storage = self.storage.clone();
-        if let Err(e) = crate::utils::sync_block_on(async move { storage.stats.prune(keep_days).await }) {
+        if let Err(e) =
+            crate::utils::sync_block_on(async move { storage.stats.prune(keep_days).await })
+        {
             tracing::error!("清理过期统计记录失败: {}", e);
         }
     }

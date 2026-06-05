@@ -44,7 +44,9 @@ pub struct HitlPolicy {
 impl HitlPolicy {
     pub fn new() -> Self {
         let mut dangerous_commands = HashSet::new();
-        for cmd in &["delete", "remove", "clear", "reset", "purge", "drop", "truncate"] {
+        for cmd in &[
+            "delete", "remove", "clear", "reset", "purge", "drop", "truncate",
+        ] {
             dangerous_commands.insert(cmd.to_string());
         }
         Self {
@@ -101,8 +103,12 @@ impl HitlPolicy {
 
         let description = match level {
             ConfirmationLevel::Auto => format!("工具 '{}' 自动批准 (风险: {:?})", tool_name, risk),
-            ConfirmationLevel::Notify => format!("工具 '{}' 需要通知用户 (风险: {:?})", tool_name, risk),
-            ConfirmationLevel::Confirm => format!("工具 '{}' 需要用户确认 (风险: {:?})", tool_name, risk),
+            ConfirmationLevel::Notify => {
+                format!("工具 '{}' 需要通知用户 (风险: {:?})", tool_name, risk)
+            }
+            ConfirmationLevel::Confirm => {
+                format!("工具 '{}' 需要用户确认 (风险: {:?})", tool_name, risk)
+            }
         };
 
         ConfirmationRequest {
@@ -110,7 +116,11 @@ impl HitlPolicy {
             args: args.clone(),
             risk_level: risk,
             description,
-            auto_confirm_timeout_secs: if level == ConfirmationLevel::Notify { Some(5) } else { None },
+            auto_confirm_timeout_secs: if level == ConfirmationLevel::Notify {
+                Some(5)
+            } else {
+                None
+            },
         }
     }
 
@@ -154,12 +164,14 @@ impl HitlPolicy {
 
     fn is_write_operation(&self, tool_name: &str, _args: &Value) -> bool {
         let lower = tool_name.to_lowercase();
-        lower.contains("add") || lower.contains("update") || lower.contains("create") || lower.contains("write")
+        lower.contains("add")
+            || lower.contains("update")
+            || lower.contains("create")
+            || lower.contains("write")
     }
 
     pub fn should_auto_approve(&self, request: &ConfirmationRequest) -> bool {
-        request.risk_level == RiskLevel::Low
-            && !self.confirm_tools.contains(&request.tool_name)
+        request.risk_level == RiskLevel::Low && !self.confirm_tools.contains(&request.tool_name)
     }
 
     pub fn should_deny(&self, request: &ConfirmationRequest) -> bool {

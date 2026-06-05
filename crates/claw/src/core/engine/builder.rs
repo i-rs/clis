@@ -89,8 +89,12 @@ pub(crate) fn build_system_prompt(
         ("{{ROUTING_HINT}}", routing_hint_val),
     ];
 
-    let estimated_len = template.len() + tool_index.len() + hot_tools.len()
-        + skills.len() + user_memory.len() + user_profile.len();
+    let estimated_len = template.len()
+        + tool_index.len()
+        + hot_tools.len()
+        + skills.len()
+        + user_memory.len()
+        + user_profile.len();
     let mut result = String::with_capacity(estimated_len);
 
     let bytes = template.as_bytes();

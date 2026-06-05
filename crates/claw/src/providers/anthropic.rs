@@ -184,7 +184,7 @@ impl AnthropicProvider {
                     prompt_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32,
                     completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
                     estimated_cost_usd: None,
-            total_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32
+                    total_tokens: u["input_tokens"].as_u64().unwrap_or(0) as u32
                         + u["output_tokens"].as_u64().unwrap_or(0) as u32,
                 });
                 Some(AnthropicEvent::MessageStart { usage })
@@ -246,7 +246,7 @@ impl AnthropicProvider {
                     prompt_tokens: 0, // Only shown in message_start
                     completion_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
                     estimated_cost_usd: None,
-            total_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
+                    total_tokens: u["output_tokens"].as_u64().unwrap_or(0) as u32,
                 });
                 Some(AnthropicEvent::MessageDelta { stop_reason, usage })
             }
@@ -425,7 +425,7 @@ impl LlmProvider for AnthropicProvider {
                                         prompt_tokens: prompt,
                                         completion_tokens: u.completion_tokens,
                                         estimated_cost_usd: None,
-            total_tokens: prompt + u.completion_tokens,
+                                        total_tokens: prompt + u.completion_tokens,
                                     });
                                 }
                             }

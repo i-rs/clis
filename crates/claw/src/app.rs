@@ -1,11 +1,9 @@
 use crate::config::Config;
+use crate::llm::TokenUsage;
 use crate::stats::TodaySummary;
-use crate::ui::chat_api::{
-    build_component_for, ClickRegionRegistry, ComponentCell, ComponentOp,
-};
+use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, build_component_for};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use crate::llm::TokenUsage;
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
@@ -112,7 +110,11 @@ fn compute_text_relevance(text: &str) -> f64 {
     let mut total_words = 0usize;
     for w in text.split_whitespace() {
         total_words += 1;
-        if w.len() <= 4 && STOPWORDS.iter().any(|&s| w.eq_ignore_ascii_case(s) || w.contains(s)) {
+        if w.len() <= 4
+            && STOPWORDS
+                .iter()
+                .any(|&s| w.eq_ignore_ascii_case(s) || w.contains(s))
+        {
             stopword_count += 1;
         }
     }
@@ -149,7 +151,7 @@ pub struct HttpLog {
     pub msg_count: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Message {
     User {
@@ -352,7 +354,10 @@ impl InputState {
             return;
         }
         self.push_undo(Instant::now());
-        let line_start = self.text[..self.cursor].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let line_start = self.text[..self.cursor]
+            .rfind('\n')
+            .map(|i| i + 1)
+            .unwrap_or(0);
         self.text.drain(line_start..self.cursor);
         self.cursor = line_start;
     }
@@ -509,23 +514,108 @@ pub struct SlashCommand {
 }
 
 pub static SLASH_COMMANDS: &[SlashCommand] = &[
-    SlashCommand { name: "/help",    desc: "快捷键帮助",       shortcut: "Ctrl+H",       action: SlashAction::Help },
-    SlashCommand { name: "/sessions",desc: "会话列表",         shortcut: "Ctrl+L",       action: SlashAction::Sessions },
-    SlashCommand { name: "/new",     desc: "新建会话",         shortcut: "Ctrl+N",       action: SlashAction::New },
-    SlashCommand { name: "/agent",   desc: "切换 Agent",       shortcut: "Ctrl+P",       action: SlashAction::Agent },
-    SlashCommand { name: "/agents",  desc: "Agent 管理",       shortcut: "Ctrl+A",       action: SlashAction::Agents },
-    SlashCommand { name: "/tools",   desc: "工具列表",         shortcut: "Ctrl+T",       action: SlashAction::Tools },
-    SlashCommand { name: "/sidebar", desc: "HTTP 调试面板",    shortcut: "Ctrl+R",       action: SlashAction::Sidebar },
-    SlashCommand { name: "/stats",   desc: "Token 用量统计",   shortcut: "Ctrl+Shift+U", action: SlashAction::Stats },
-    SlashCommand { name: "/plugins", desc: "插件 & 技能",      shortcut: "Ctrl+Shift+P", action: SlashAction::Plugins },
-    SlashCommand { name: "/config",  desc: "配置信息",         shortcut: "Ctrl+I",       action: SlashAction::Config },
-    SlashCommand { name: "/export",  desc: "导出会话",         shortcut: "Ctrl+E",       action: SlashAction::Export },
-    SlashCommand { name: "/feedback",desc: "发送反馈",         shortcut: "Ctrl+F",       action: SlashAction::Feedback },
-    SlashCommand { name: "/info",    desc: "状态仪表盘",       shortcut: "Ctrl+Shift+I", action: SlashAction::Info },
-    SlashCommand { name: "/select",  desc: "选择模式",         shortcut: "Ctrl+S",       action: SlashAction::Select },
-    SlashCommand { name: "/clear",   desc: "清空当前会话",     shortcut: "",             action: SlashAction::Clear },
-    SlashCommand { name: "/compact", desc: "压缩上下文",       shortcut: "",             action: SlashAction::Compact },
-    SlashCommand { name: "/theme",   desc: "切换主题配色",     shortcut: "",             action: SlashAction::Theme },
+    SlashCommand {
+        name: "/help",
+        desc: "快捷键帮助",
+        shortcut: "Ctrl+H",
+        action: SlashAction::Help,
+    },
+    SlashCommand {
+        name: "/sessions",
+        desc: "会话列表",
+        shortcut: "Ctrl+L",
+        action: SlashAction::Sessions,
+    },
+    SlashCommand {
+        name: "/new",
+        desc: "新建会话",
+        shortcut: "Ctrl+N",
+        action: SlashAction::New,
+    },
+    SlashCommand {
+        name: "/agent",
+        desc: "切换 Agent",
+        shortcut: "Ctrl+P",
+        action: SlashAction::Agent,
+    },
+    SlashCommand {
+        name: "/agents",
+        desc: "Agent 管理",
+        shortcut: "Ctrl+A",
+        action: SlashAction::Agents,
+    },
+    SlashCommand {
+        name: "/tools",
+        desc: "工具列表",
+        shortcut: "Ctrl+T",
+        action: SlashAction::Tools,
+    },
+    SlashCommand {
+        name: "/sidebar",
+        desc: "HTTP 调试面板",
+        shortcut: "Ctrl+R",
+        action: SlashAction::Sidebar,
+    },
+    SlashCommand {
+        name: "/stats",
+        desc: "Token 用量统计",
+        shortcut: "Ctrl+Shift+U",
+        action: SlashAction::Stats,
+    },
+    SlashCommand {
+        name: "/plugins",
+        desc: "插件 & 技能",
+        shortcut: "Ctrl+Shift+P",
+        action: SlashAction::Plugins,
+    },
+    SlashCommand {
+        name: "/config",
+        desc: "配置信息",
+        shortcut: "Ctrl+I",
+        action: SlashAction::Config,
+    },
+    SlashCommand {
+        name: "/export",
+        desc: "导出会话",
+        shortcut: "Ctrl+E",
+        action: SlashAction::Export,
+    },
+    SlashCommand {
+        name: "/feedback",
+        desc: "发送反馈",
+        shortcut: "Ctrl+F",
+        action: SlashAction::Feedback,
+    },
+    SlashCommand {
+        name: "/info",
+        desc: "状态仪表盘",
+        shortcut: "Ctrl+Shift+I",
+        action: SlashAction::Info,
+    },
+    SlashCommand {
+        name: "/select",
+        desc: "选择模式",
+        shortcut: "Ctrl+S",
+        action: SlashAction::Select,
+    },
+    SlashCommand {
+        name: "/clear",
+        desc: "清空当前会话",
+        shortcut: "",
+        action: SlashAction::Clear,
+    },
+    SlashCommand {
+        name: "/compact",
+        desc: "压缩上下文",
+        shortcut: "",
+        action: SlashAction::Compact,
+    },
+    SlashCommand {
+        name: "/theme",
+        desc: "切换主题配色",
+        shortcut: "",
+        action: SlashAction::Theme,
+    },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -593,7 +683,9 @@ impl OverlayState {
             s.title.hash(&mut hasher);
         }
         let hash = hasher.finish();
-        if self.cached_search_hash == hash && let Some(ref cached) = self.cached_filtered_sessions {
+        if self.cached_search_hash == hash
+            && let Some(ref cached) = self.cached_filtered_sessions
+        {
             return cached.clone();
         }
         let filtered = self.filtered_sessions();
@@ -814,10 +906,7 @@ impl App {
         self.components = self
             .messages
             .iter()
-            .map(|m| {
-                Rc::new(RefCell::new(build_component_for(m)))
-                    as ComponentCell
-            })
+            .map(|m| Rc::new(RefCell::new(build_component_for(m))) as ComponentCell)
             .collect();
     }
 
@@ -968,8 +1057,9 @@ impl App {
     /// Keeps a 2-row overlap so the user retains visual context
     /// between pages.
     pub fn scroll_page(&mut self, dir: i32) {
-        let area_lines =
-            (self.render_state.chat_height as usize).saturating_sub(2).max(1);
+        let area_lines = (self.render_state.chat_height as usize)
+            .saturating_sub(2)
+            .max(1);
         if dir > 0 {
             self.scroll_lines = self.scroll_lines.saturating_add(area_lines);
             if self.max_scroll > 0 {
@@ -1003,7 +1093,9 @@ impl App {
     /// heights 约定：heights[0] = 最新消息，heights[len-1] = 最旧消息（与 render_chat 一致）。
     /// scroll_lines 从底部计数：0 = 底部（最新），递增 = 向上（更旧）。
     pub fn scroll_to_selected(&mut self) {
-        let Some(idx) = self.overlay.selected_message else { return };
+        let Some(idx) = self.overlay.selected_message else {
+            return;
+        };
         let heights = &self.render_state.heights;
         if heights.is_empty() || idx >= heights.len() {
             return;
@@ -1015,7 +1107,9 @@ impl App {
         let sel_height = heights[rev_idx];
         let sel_bottom = sel_top + sel_height;
         // 用渲染时回填的 chat 高度算视口行数，避免依赖 max_scroll（展开/折叠后滞后）
-        let area_lines = (self.render_state.chat_height as usize).saturating_sub(1).max(1);
+        let area_lines = (self.render_state.chat_height as usize)
+            .saturating_sub(1)
+            .max(1);
         let viewport_top = self.scroll_lines;
         let viewport_bottom = self.scroll_lines.saturating_add(area_lines);
         // max_scroll 也要用最新的 heights 重新计算（max_scroll 是渲染时存的，旧值会错）
@@ -1058,7 +1152,9 @@ impl App {
         }
         self.render_state.heights = heights;
         // 同步 max_scroll 给主渲染用，避免短暂不一致
-        let area_lines = (self.render_state.chat_height as usize).saturating_sub(1).max(1);
+        let area_lines = (self.render_state.chat_height as usize)
+            .saturating_sub(1)
+            .max(1);
         let total: usize = self.render_state.heights.iter().sum();
         self.max_scroll = total.saturating_sub(area_lines);
     }
@@ -1113,7 +1209,9 @@ impl App {
         // that streamed in *before* the first token. Without this the
         // reasoning would stay in `current_reasoning` and be discarded at
         // the next round boundary (when the last message is a ToolCall).
-        if let Some(Message::Assistant { text: t, reasoning, .. }) = self.messages.last_mut()
+        if let Some(Message::Assistant {
+            text: t, reasoning, ..
+        }) = self.messages.last_mut()
             && t.is_empty()
             && !self.current_reasoning.is_empty()
         {
@@ -1178,7 +1276,9 @@ impl App {
         // Only discard a trailing Assistant placeholder if it is *truly*
         // empty (no text, no reasoning). Otherwise the error banner would
         // eat the user's thinking content as well.
-        if let Some(Message::Assistant { text: t, reasoning, .. }) = self.messages.last()
+        if let Some(Message::Assistant {
+            text: t, reasoning, ..
+        }) = self.messages.last()
             && t.is_empty()
             && reasoning.is_empty()
         {
@@ -1210,7 +1310,9 @@ impl App {
         // Only pop the trailing Assistant placeholder if it has nothing to
         // show. Previously we dropped it whenever `text` was empty, which
         // threw away any reasoning that had been streamed in.
-        if let Some(Message::Assistant { text: t, reasoning, .. }) = self.messages.last()
+        if let Some(Message::Assistant {
+            text: t, reasoning, ..
+        }) = self.messages.last()
             && t.is_empty()
             && reasoning.is_empty()
         {
@@ -1359,7 +1461,10 @@ mod tests {
         app.current_reasoning.push_str("thinking hard");
         app.finish_processing(None);
         assert_eq!(app.messages.len(), 2);
-        if let Message::Assistant { text, reasoning, .. } = &app.messages[1] {
+        if let Message::Assistant {
+            text, reasoning, ..
+        } = &app.messages[1]
+        {
             assert!(text.is_empty());
             assert_eq!(reasoning, "thinking hard");
         } else {
@@ -1380,7 +1485,10 @@ mod tests {
         // Simulate the LLM streaming reasoning for the next round.
         app.current_reasoning.push_str("between-rounds thought");
         app.start_assistant_message();
-        if let Message::Assistant { text, reasoning, .. } = app.messages.last().unwrap() {
+        if let Message::Assistant {
+            text, reasoning, ..
+        } = app.messages.last().unwrap()
+        {
             assert!(text.is_empty());
             assert_eq!(reasoning, "between-rounds thought");
         } else {
@@ -1397,7 +1505,10 @@ mod tests {
         app.start_assistant_message();
         app.current_reasoning.push_str("planning");
         app.append_assistant_text("hi");
-        if let Message::Assistant { text, reasoning, .. } = &app.messages[1] {
+        if let Message::Assistant {
+            text, reasoning, ..
+        } = &app.messages[1]
+        {
             assert_eq!(text, "hi");
             assert_eq!(reasoning, "planning");
         } else {
@@ -1477,9 +1588,16 @@ mod tests {
             "args": "{\"command\":\"list\"}",
             "result": "ok"
         });
-        let msg = message_from_jsonl(v).expect("tool_call without step/total_steps must deserialize");
+        let msg =
+            message_from_jsonl(v).expect("tool_call without step/total_steps must deserialize");
         match msg {
-            Message::ToolCall { name, args, result, step, total_steps } => {
+            Message::ToolCall {
+                name,
+                args,
+                result,
+                step,
+                total_steps,
+            } => {
                 assert_eq!(name, "weight");
                 assert_eq!(args, "{\"command\":\"list\"}");
                 assert_eq!(result, "ok");
@@ -1502,7 +1620,12 @@ mod tests {
         });
         let msg = message_from_jsonl(v).expect("tool_call with step/total_steps must deserialize");
         match msg {
-            Message::ToolCall { name, step, total_steps, .. } => {
+            Message::ToolCall {
+                name,
+                step,
+                total_steps,
+                ..
+            } => {
                 assert_eq!(name, "water");
                 assert_eq!(step, 2);
                 assert_eq!(total_steps, 3);
@@ -1512,7 +1635,7 @@ mod tests {
     }
 
     #[test]
-     fn test_scroll() {
+    fn test_scroll() {
         let mut app = App::new(test_config());
         assert_eq!(app.scroll_lines, 0);
         app.scroll_up();

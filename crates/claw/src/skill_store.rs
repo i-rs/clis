@@ -14,7 +14,8 @@ pub(crate) fn format_skill_entries(entries: &[crate::storage::SkillEntry]) -> St
     if entries.is_empty() {
         return String::new();
     }
-    let mut r = String::from("## 用户技能\n\n以下是用户定义的自定义技能指令，请在对话中遵循这些指导：\n");
+    let mut r =
+        String::from("## 用户技能\n\n以下是用户定义的自定义技能指令，请在对话中遵循这些指导：\n");
     for entry in entries {
         let t = entry.content.trim();
         if t.is_empty() {
@@ -168,9 +169,9 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return crate::utils::sync_block_on(
-                async move { storage.skills.get(&aid, &name).await.ok().flatten() },
-            );
+            return crate::utils::sync_block_on(async move {
+                storage.skills.get(&aid, &name).await.ok().flatten()
+            });
         }
         let path = self.skills_dir.join(format!("{}.md", name));
         if !path.exists() {
@@ -186,9 +187,9 @@ impl SkillStore {
             let aid = self.agent_id.clone();
             let name = name.to_string();
             let content = content.to_string();
-            return crate::utils::sync_block_on(
-                async move { storage.skills.install(&aid, &name, &content).await },
-            );
+            return crate::utils::sync_block_on(async move {
+                storage.skills.install(&aid, &name, &content).await
+            });
         }
         std::fs::create_dir_all(&self.skills_dir)?;
         let path = self.skills_dir.join(format!("{}.md", name));
@@ -201,7 +202,9 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return crate::utils::sync_block_on(async move { storage.skills.remove(&aid, &name).await });
+            return crate::utils::sync_block_on(
+                async move { storage.skills.remove(&aid, &name).await },
+            );
         }
         let path = self.skills_dir.join(format!("{}.md", name));
         if path.exists() {

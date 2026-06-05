@@ -75,9 +75,7 @@ impl CheckpointStore {
 
     #[allow(dead_code)]
     pub fn for_round(&self, round: u32) -> Option<&Checkpoint> {
-        self.checkpoints
-            .iter()
-            .find(|c| c.round == round)
+        self.checkpoints.iter().find(|c| c.round == round)
     }
 
     #[allow(dead_code)]
@@ -118,8 +116,7 @@ mod tests {
     fn test_checkpoint_with_tool_results() {
         let mut results = HashMap::new();
         results.insert("weight".to_string(), "70kg".to_string());
-        let cp = Checkpoint::new("sess1", 1, vec![])
-            .with_tool_results(results);
+        let cp = Checkpoint::new("sess1", 1, vec![]).with_tool_results(results);
         assert_eq!(cp.tool_results.get("weight"), Some(&"70kg".to_string()));
     }
 

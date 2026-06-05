@@ -1,6 +1,6 @@
+use crate::core::streaming::{ProgressStage, ToolProgress};
 use crate::error::ClawError;
 use crate::tools::{ClawTool, ToolContext};
-use crate::core::streaming::{ToolProgress, ProgressStage};
 use serde_json::Value;
 
 pub struct ProgressTool;
@@ -70,10 +70,7 @@ impl ClawTool for ProgressTool {
                     "failed" => ProgressStage::Failed,
                     _ => ProgressStage::Running,
                 };
-                let message = args
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let message = args.get("message").and_then(|v| v.as_str()).unwrap_or("");
                 let percentage = args
                     .get("percentage")
                     .and_then(|v| v.as_u64())
@@ -86,9 +83,9 @@ impl ClawTool for ProgressTool {
                 };
                 Ok(crate::core::streaming::format_progress(&progress))
             }
-            "format" => {
-                Ok("进度报告格式: ⏳ started / 🔄 running (N%) / ✅ completed / ❌ failed".to_string())
-            }
+            "format" => Ok(
+                "进度报告格式: ⏳ started / 🔄 running (N%) / ✅ completed / ❌ failed".to_string(),
+            ),
             _ => Err(ClawError::Validation(format!(
                 "未知操作: {}。支持: report, format",
                 action

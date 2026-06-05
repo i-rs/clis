@@ -277,11 +277,23 @@ impl GatewayServer {
                     break;
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _, _) => {
-                    let mut core = core.write().await;
+                    let core = core.write().await;
                     core.session_mgr.save_api_messages(&session_uuid, &api_msgs);
-                    core.session_mgr.append_message("user", &text_owned, None);
-                    core.session_mgr
-                        .append_message("assistant", &response, None);
+                    // Persist via append-only MessageLog.
+                    let log = core.session_mgr.message_log();
+                    let msgs = vec![
+                        crate::app::Message::User {
+                            text: text_owned.clone(),
+                        },
+                        crate::app::Message::Assistant {
+                            text: response.clone(),
+                            reasoning: String::new(),
+                            token_usage: None,
+                        },
+                    ];
+                    if let Err(e) = log.append_batch(&session_uuid, &msgs).await {
+                        tracing::error!("gateway MessageLog::append_batch 失败: {}", e);
+                    }
                     break;
                 }
                 _ => {}

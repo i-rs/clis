@@ -22,6 +22,7 @@ impl MySqlBackend {
         ClawStorage {
             sessions: Box::new(MySqlSessionStore { db: arc.clone() }),
             messages: Box::new(MySqlMessageStore { db: arc.clone() }),
+            message_log: std::sync::Arc::new(MySqlMessageLogStore { db: arc.clone() }),
             api_cache: Box::new(MySqlApiCacheStore { db: arc.clone() }),
             plan_steps: Box::new(MySqlPlanStepsStore { db: arc.clone() }),
             memory: Box::new(MySqlMemoryStore { db: arc.clone() }),
@@ -159,6 +160,20 @@ impl MySqlBackend {
         .execute(&self.pool)
         .await?;
 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS message_log (
+                id          BIGINT       AUTO_INCREMENT PRIMARY KEY,
+                session_id  VARCHAR(64)  NOT NULL,
+                seq         BIGINT       NOT NULL,
+                ts          BIGINT       NOT NULL,
+                schema_v    INT          NOT NULL DEFAULT 1,
+                payload     TEXT         NOT NULL,
+                INDEX idx_message_log_session_seq (session_id, seq)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        )
+        .execute(&self.pool)
+        .await?;
+
         Ok(())
     }
 }
@@ -169,6 +184,7 @@ define_sql_stores!(
     MySqlBackend,
     MySqlSessionStore,
     MySqlMessageStore,
+    MySqlMessageLogStore,
     MySqlApiCacheStore,
     MySqlPlanStepsStore,
     MySqlMemoryStore,

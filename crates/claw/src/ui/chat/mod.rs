@@ -2,8 +2,8 @@ pub mod components;
 pub mod markdown;
 pub mod scroller;
 
-use ratatui::{Frame, layout::Rect};
 use ratatui::style::Style;
+use ratatui::{Frame, layout::Rect};
 
 use crate::app::App;
 
@@ -23,18 +23,29 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     scr.set_scroll(app.scroll_lines as u16);
 
     let theme = &app.config.theme;
-    let selected = if app.overlay.selection_mode { app.overlay.selected_message } else { None };
+    let selected = if app.overlay.selection_mode {
+        app.overlay.selected_message
+    } else {
+        None
+    };
 
     // Render components one row below area.y so the '─' border
     // at area.y does not overwrite the top border of the first
     // component.
-    let inner_area = Rect { y: area.y + 1, ..area };
+    let inner_area = Rect {
+        y: area.y + 1,
+        ..area
+    };
     let buf = f.buffer_mut();
     scr.render(&app.components, inner_area, buf, theme, selected);
 
     // Top border
     let at_bottom = scr.scroll >= scr.max_scroll();
-    let border_color = if at_bottom { theme.dim_text() } else { theme.primary() };
+    let border_color = if at_bottom {
+        theme.dim_text()
+    } else {
+        theme.primary()
+    };
     let border_style = Style::default().fg(border_color);
     for x in area.left()..area.right() {
         if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, area.y)) {

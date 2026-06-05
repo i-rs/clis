@@ -44,22 +44,13 @@ impl EvalSuite {
         self
     }
 
-    pub fn evaluate(
-        &self,
-        results: &[(String, String)],
-    ) -> Vec<EvalResult> {
+    pub fn evaluate(&self, results: &[(String, String)]) -> Vec<EvalResult> {
         self.cases
             .iter()
             .map(|case| {
                 let (tools_used, response) = extract_tools_and_response(results);
-                let tool_accuracy = compute_tool_accuracy(
-                    &case.expected_tools,
-                    &tools_used,
-                );
-                let keyword_match = compute_keyword_match(
-                    &case.expected_keywords,
-                    &response,
-                );
+                let tool_accuracy = compute_tool_accuracy(&case.expected_tools, &tools_used);
+                let keyword_match = compute_keyword_match(&case.expected_keywords, &response);
                 let forbidden_violations: Vec<String> = case
                     .forbidden_keywords
                     .iter()
@@ -79,7 +70,11 @@ impl EvalSuite {
                 }
                 let score = tool_accuracy * 0.4
                     + keyword_match * 0.3
-                    + if forbidden_violations.is_empty() { 0.3 } else { 0.0 };
+                    + if forbidden_violations.is_empty() {
+                        0.3
+                    } else {
+                        0.0
+                    };
                 let passed = score >= 0.6 && forbidden_violations.is_empty();
                 EvalResult {
                     case_id: case.id.clone(),
@@ -128,7 +123,11 @@ impl EvalSuite {
             total_cases: total,
             passed,
             failed: total - passed,
-            pass_rate: if total > 0 { passed as f64 / total as f64 } else { 0.0 },
+            pass_rate: if total > 0 {
+                passed as f64 / total as f64
+            } else {
+                0.0
+            },
             avg_score,
             category_scores,
         }
@@ -149,7 +148,13 @@ pub struct EvalSummary {
 impl std::fmt::Display for EvalSummary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "📊 评估报告: {}", self.suite_name)?;
-        writeln!(f, "   通过: {}/{} ({:.0}%)", self.passed, self.total_cases, self.pass_rate * 100.0)?;
+        writeln!(
+            f,
+            "   通过: {}/{} ({:.0}%)",
+            self.passed,
+            self.total_cases,
+            self.pass_rate * 100.0
+        )?;
         writeln!(f, "   平均分: {:.2}", self.avg_score)?;
         for (cat, score) in &self.category_scores {
             writeln!(f, "   {}: {:.2}", cat, score)?;
@@ -265,7 +270,10 @@ mod tests {
         let suite = builtin_eval_suite();
         let results = vec![
             ("tool_call".to_string(), r#"{"name": "i_rs"}"#.to_string()),
-            ("response".to_string(), "已记录体重 70kg，weight 工具调用成功".to_string()),
+            (
+                "response".to_string(),
+                "已记录体重 70kg，weight 工具调用成功".to_string(),
+            ),
         ];
         let eval_results = suite.evaluate(&results);
         assert_eq!(eval_results.len(), suite.cases.len());
@@ -273,15 +281,27 @@ mod tests {
 
     #[test]
     fn test_tool_accuracy() {
-        assert_eq!(compute_tool_accuracy(&["i_rs".to_string()], &["i_rs".to_string()]), 1.0);
-        assert_eq!(compute_tool_accuracy(&["web_search".to_string()], &["i_rs".to_string()]), 0.0);
+        assert_eq!(
+            compute_tool_accuracy(&["i_rs".to_string()], &["i_rs".to_string()]),
+            1.0
+        );
+        assert_eq!(
+            compute_tool_accuracy(&["web_search".to_string()], &["i_rs".to_string()]),
+            0.0
+        );
         assert_eq!(compute_tool_accuracy(&[], &["i_rs".to_string()]), 1.0);
     }
 
     #[test]
     fn test_keyword_match() {
-        assert_eq!(compute_keyword_match(&["体重".to_string()], "已记录体重 70kg"), 1.0);
-        assert_eq!(compute_keyword_match(&["不存在的关键词".to_string()], "一些文本"), 0.0);
+        assert_eq!(
+            compute_keyword_match(&["体重".to_string()], "已记录体重 70kg"),
+            1.0
+        );
+        assert_eq!(
+            compute_keyword_match(&["不存在的关键词".to_string()], "一些文本"),
+            0.0
+        );
         assert_eq!(compute_keyword_match(&[], "任何文本"), 1.0);
     }
 
@@ -290,7 +310,10 @@ mod tests {
         let suite = builtin_eval_suite();
         let results = vec![
             ("tool_call".to_string(), r#"{"name": "i_rs"}"#.to_string()),
-            ("response".to_string(), "已记录体重 70kg，心情愉快".to_string()),
+            (
+                "response".to_string(),
+                "已记录体重 70kg，心情愉快".to_string(),
+            ),
         ];
         let eval_results = suite.evaluate(&results);
         let summary = suite.summary(&eval_results);
@@ -308,16 +331,15 @@ mod tests {
 
     #[test]
     fn test_eval_case_passed() {
-        let suite = EvalSuite::new("test")
-            .add_case(EvalCase {
-                id: "t1".to_string(),
-                name: "test".to_string(),
-                user_input: "hello".to_string(),
-                expected_tools: vec![],
-                expected_keywords: vec!["hello".to_string()],
-                forbidden_keywords: vec!["error".to_string()],
-                category: "test".to_string(),
-            });
+        let suite = EvalSuite::new("test").add_case(EvalCase {
+            id: "t1".to_string(),
+            name: "test".to_string(),
+            user_input: "hello".to_string(),
+            expected_tools: vec![],
+            expected_keywords: vec!["hello".to_string()],
+            forbidden_keywords: vec!["error".to_string()],
+            category: "test".to_string(),
+        });
         let results = vec![("response".to_string(), "hello there".to_string())];
         let eval_results = suite.evaluate(&results);
         assert!(eval_results[0].passed);

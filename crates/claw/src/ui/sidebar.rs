@@ -365,11 +365,13 @@ pub(super) fn render_request_body(
 
     // Pretty-print the body JSON if possible (cached)
     if cached_json.is_none() {
-        *cached_json = Some(if let Ok(val) = serde_json::from_str::<serde_json::Value>(body_json) {
-            serde_json::to_string_pretty(&val).unwrap_or_else(|_| body_json.to_string())
-        } else {
-            body_json.to_string()
-        });
+        *cached_json = Some(
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(body_json) {
+                serde_json::to_string_pretty(&val).unwrap_or_else(|_| body_json.to_string())
+            } else {
+                body_json.to_string()
+            },
+        );
     }
     let formatted = cached_json.as_deref().unwrap_or(body_json);
 

@@ -54,10 +54,8 @@ impl ClawTool for GenerateImageTool {
 
         let images_dir = super::chart_image::ensure_images_dir()?;
 
-        let provider = image_gen::create_image_gen_provider(
-            &ctx.config.image_gen,
-            &ctx.http_client,
-        );
+        let provider =
+            image_gen::create_image_gen_provider(&ctx.config.image_gen, &ctx.http_client);
 
         let img = provider
             .generate_image(prompt, width, height, &images_dir)

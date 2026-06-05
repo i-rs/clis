@@ -162,12 +162,7 @@ pub(super) fn render_markdown(text: &str, max_width: usize, theme: &Theme) -> Ve
                     acc.add(&t, style);
                 }
             }
-            Event::Code(t) => acc.add(
-                &t,
-                Style::default()
-                    .fg(inline_code_fg)
-                    .bg(inline_code_bg),
-            ),
+            Event::Code(t) => acc.add(&t, Style::default().fg(inline_code_fg).bg(inline_code_bg)),
             Event::SoftBreak | Event::HardBreak => acc.flush(&mut lines, max_width),
             Event::Rule => {
                 acc.flush(&mut lines, max_width);

@@ -27,9 +27,12 @@ macro_rules! require_str {
     ($args:expr, $key:literal) => {
         match $args.get($key).and_then(|v| v.as_str()) {
             Some(s) if !s.is_empty() => s,
-            _ => return Err($crate::error::ClawError::Validation(
-                format!("缺少必要参数: {}", $key),
-            )),
+            _ => {
+                return Err($crate::error::ClawError::Validation(format!(
+                    "缺少必要参数: {}",
+                    $key
+                )))
+            }
         }
     };
 }
@@ -188,7 +191,11 @@ impl ClawTool for TypedToolAdapter {
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value {
         self.inner.parameter_schema(enabled_cli_tools)
     }
-    async fn execute(&self, args: &Value, ctx: &ToolContext) -> Result<String, crate::error::ClawError> {
+    async fn execute(
+        &self,
+        args: &Value,
+        ctx: &ToolContext,
+    ) -> Result<String, crate::error::ClawError> {
         let result = self.inner.execute_typed(args, ctx).await?;
         Ok(serde_json::to_string(&result).unwrap_or_else(|e| format!("序列化错误: {}", e)))
     }

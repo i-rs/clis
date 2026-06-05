@@ -1,6 +1,6 @@
+use crate::core::tool_chain::{ChainCondition, ChainStep, ConditionOp, ToolChain};
 use crate::error::ClawError;
 use crate::tools::{ClawTool, ToolContext};
-use crate::core::tool_chain::{ToolChain, ChainStep, ChainCondition, ConditionOp};
 use serde_json::Value;
 
 pub struct ChainTool;
@@ -68,8 +68,7 @@ impl ClawTool for ChainTool {
                         })
                     })
                     .collect();
-                Ok(serde_json::to_string_pretty(&list)
-                    .unwrap_or_else(|_| "[]".to_string()))
+                Ok(serde_json::to_string_pretty(&list).unwrap_or_else(|_| "[]".to_string()))
             }
             "build" => {
                 let steps_val = args

@@ -43,7 +43,9 @@ pub struct CallbackChain {
 
 impl CallbackChain {
     pub fn new() -> Self {
-        Self { callbacks: Vec::new() }
+        Self {
+            callbacks: Vec::new(),
+        }
     }
 
     #[allow(dead_code)]
@@ -211,7 +213,10 @@ impl AgentCallbacks for AuditLogCallback {
         self.push(
             "tool_end",
             Some(&record.name),
-            format!("工具完成: {} ({:?}, {}ms)", record.name, record.category, record.elapsed_ms),
+            format!(
+                "工具完成: {} ({:?}, {}ms)",
+                record.name, record.category, record.elapsed_ms
+            ),
         );
     }
     fn on_error(&self, error: &str, category: ErrorCategory) {
@@ -221,6 +226,10 @@ impl AgentCallbacks for AuditLogCallback {
         self.push("session_start", None, format!("会话开始: {}", session_id));
     }
     fn on_session_end(&self, session_id: &str, total_rounds: u32) {
-        self.push("session_end", None, format!("会话结束: {} ({}轮)", session_id, total_rounds));
+        self.push(
+            "session_end",
+            None,
+            format!("会话结束: {} ({}轮)", session_id, total_rounds),
+        );
     }
 }

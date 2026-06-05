@@ -1,5 +1,5 @@
-use super::style::{body_line, block_border, header_line, render_block_chrome};
 use super::MessageComponent;
+use super::style::{block_border, body_line, header_line, render_block_chrome};
 use crate::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -59,7 +59,11 @@ impl MessageComponent for QualityCard {
             }
             parts.push_str(&format!(
                 "完整性: {}",
-                if self.complete { "✓ 完整" } else { "✗ 不完整" }
+                if self.complete {
+                    "✓ 完整"
+                } else {
+                    "✗ 不完整"
+                }
             ));
             Paragraph::new(body_line(
                 &parts,
@@ -68,7 +72,14 @@ impl MessageComponent for QualityCard {
                     .add_modifier(Modifier::BOLD),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         }
 
@@ -82,7 +93,14 @@ impl MessageComponent for QualityCard {
                 Style::default().fg(theme.accent()),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         }
     }

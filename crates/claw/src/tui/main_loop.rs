@@ -92,9 +92,7 @@ pub fn main_loop(
                     if !text.is_empty() {
                         let dropped = app.input.insert_text_at_cursor(&text);
                         app.overlay.tab_completions.clear();
-                        if app.overlay.slash_visible
-                            && !app.input.text.starts_with('/')
-                        {
+                        if app.overlay.slash_visible && !app.input.text.starts_with('/') {
                             app.overlay.slash_visible = false;
                             app.overlay.slash_index = 0;
                         }

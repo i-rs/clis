@@ -22,6 +22,7 @@ impl PgBackend {
         ClawStorage {
             sessions: Box::new(PgSessionStore { db: arc.clone() }),
             messages: Box::new(PgMessageStore { db: arc.clone() }),
+            message_log: std::sync::Arc::new(PgMessageLogStore { db: arc.clone() }),
             api_cache: Box::new(PgApiCacheStore { db: arc.clone() }),
             plan_steps: Box::new(PgPlanStepsStore { db: arc.clone() }),
             memory: Box::new(PgMemoryStore { db: arc.clone() }),
@@ -144,6 +145,25 @@ impl PgBackend {
         .execute(&self.pool)
         .await?;
 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS message_log (
+                id          BIGSERIAL    PRIMARY KEY,
+                session_id  TEXT         NOT NULL,
+                seq         BIGINT       NOT NULL,
+                ts          BIGINT       NOT NULL,
+                schema_v    INT          NOT NULL DEFAULT 1,
+                payload     JSONB        NOT NULL
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_message_log_session_seq
+             ON message_log (session_id, seq)",
+        )
+        .execute(&self.pool)
+        .await?;
+
         Ok(())
     }
 }
@@ -154,6 +174,7 @@ define_sql_stores!(
     PgBackend,
     PgSessionStore,
     PgMessageStore,
+    PgMessageLogStore,
     PgApiCacheStore,
     PgPlanStepsStore,
     PgMemoryStore,

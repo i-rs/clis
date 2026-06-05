@@ -103,8 +103,7 @@ pub(super) fn slash_picker_height(app: &App) -> u16 {
                 return true;
             }
             let q = query.to_lowercase();
-            cmd.name.starts_with(&q)
-                || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+            cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
         })
         .count();
     if count == 0 {
@@ -131,8 +130,7 @@ pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
                 return true;
             }
             let q = query.to_lowercase();
-            cmd.name.starts_with(&q)
-                || (query.len() > 1 && cmd.desc.contains(&query[1..]))
+            cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
         })
         .collect();
 

@@ -1,5 +1,5 @@
 use super::style::{
-    BLOCK_LEFT_RESERVED, blend, body_line, block_border, header_line, render_block_chrome,
+    BLOCK_LEFT_RESERVED, blend, block_border, body_line, header_line, render_block_chrome,
 };
 use super::{ComponentOp, MessageComponent};
 use crate::llm::TokenUsage;
@@ -19,7 +19,11 @@ use std::cell::{Cell, RefCell};
 enum BodyRenderCache {
     /// Markdown-rendered lines, keyed by `(width, theme_id)`. Theme
     /// is folded in because markdown styles are theme-dependent.
-    Md { width: u16, theme_id: u64, lines: Vec<Line<'static>> },
+    Md {
+        width: u16,
+        theme_id: u64,
+        lines: Vec<Line<'static>>,
+    },
     /// Plain wrapped lines (no theme).
     Plain { width: u16, lines: Vec<String> },
 }
@@ -98,9 +102,7 @@ impl AssistantBlock {
         }
         let usable = width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
         if !self.is_markdowny_cached() {
-            return utils::wrap_text(&self.text, usable.max(1))
-                .len()
-                .max(1) as u16;
+            return utils::wrap_text(&self.text, usable.max(1)).len().max(1) as u16;
         }
         // Count markdown lines without touching the disk-backed theme
         // preset — line count depends only on text + width, not on
@@ -114,7 +116,10 @@ impl AssistantBlock {
         if self.reasoning.is_empty() || !self.reasoning_expanded {
             return 0;
         }
-        self.reasoning.lines().filter(|l| !l.trim().is_empty()).count() as u16
+        self.reasoning
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .count() as u16
     }
 }
 
@@ -142,7 +147,9 @@ impl MessageComponent for AssistantBlock {
         h
     }
 
-    fn clickable(&self) -> bool { true }
+    fn clickable(&self) -> bool {
+        true
+    }
 
     fn apply(&mut self, op: ComponentOp) {
         match op {
@@ -179,7 +186,11 @@ impl MessageComponent for AssistantBlock {
         let meta = match (self.timestamp.as_deref(), self.token_usage) {
             (Some(ts), Some(usage)) => {
                 let mut parts = vec![ts.to_string()];
-                parts.push(format!("↑{}↓{}", fmt_tok(usage.prompt_tokens), fmt_tok(usage.completion_tokens)));
+                parts.push(format!(
+                    "↑{}↓{}",
+                    fmt_tok(usage.prompt_tokens),
+                    fmt_tok(usage.completion_tokens)
+                ));
                 if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
                     parts.push(format!("${:.4}", cost));
                 }
@@ -187,7 +198,11 @@ impl MessageComponent for AssistantBlock {
             }
             (Some(ts), None) => Some(ts.to_string()),
             (None, Some(usage)) => {
-                let mut parts = vec![format!("↑{}↓{}", fmt_tok(usage.prompt_tokens), fmt_tok(usage.completion_tokens))];
+                let mut parts = vec![format!(
+                    "↑{}↓{}",
+                    fmt_tok(usage.prompt_tokens),
+                    fmt_tok(usage.completion_tokens)
+                )];
                 if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
                     parts.push(format!("${:.4}", cost));
                 }
@@ -208,10 +223,19 @@ impl MessageComponent for AssistantBlock {
         if self.text.is_empty() {
             Paragraph::new(body_line(
                 "...",
-                Style::default().fg(theme.dim_text()).add_modifier(Modifier::ITALIC),
+                Style::default()
+                    .fg(theme.dim_text())
+                    .add_modifier(Modifier::ITALIC),
             ))
             .style(Style::default().bg(interior_bg))
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         } else if self.is_markdowny_cached() {
             // Cache the markdown rendering keyed by `(width, theme_id)`.
@@ -220,9 +244,11 @@ impl MessageComponent for AssistantBlock {
             // messages are unchanged from the previous frame.
             let theme_id = theme.id();
             let cache_miss = match self.body_render_cache.borrow().as_ref() {
-                Some(BodyRenderCache::Md { width, theme_id: tid, .. }) => {
-                    *width != area.width || *tid != theme_id
-                }
+                Some(BodyRenderCache::Md {
+                    width,
+                    theme_id: tid,
+                    ..
+                }) => *width != area.width || *tid != theme_id,
                 _ => true,
             };
             if cache_miss {
@@ -248,7 +274,14 @@ impl MessageComponent for AssistantBlock {
                 }
                 Paragraph::new(Line::from(spans))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y: y + i as u16,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
             }
             y += take;
         } else {
@@ -273,14 +306,25 @@ impl MessageComponent for AssistantBlock {
             for (i, line) in wrapped.iter().take(rows).enumerate() {
                 Paragraph::new(body_line(line, Style::default().fg(theme.text())))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y: y + i as u16, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y: y + i as u16,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
             }
             y += rows as u16;
         }
 
         // Reasoning toggle + body
         if !self.reasoning.is_empty() {
-            let chevron = if self.reasoning_expanded { "▾" } else { "▸" };
+            let chevron = if self.reasoning_expanded {
+                "▾"
+            } else {
+                "▸"
+            };
             let chars = self.reasoning.chars().count();
             let chars_label = if chars >= 1000 {
                 format!("{}k chars", chars / 1000)
@@ -327,16 +371,19 @@ impl MessageComponent for AssistantBlock {
             if body.contains(y) {
                 Paragraph::new(Line::from(spans))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                 y += 1;
             }
 
             if self.reasoning_expanded {
-                for rl in self
-                    .reasoning
-                    .lines()
-                    .filter(|l| !l.trim().is_empty())
-                {
+                for rl in self.reasoning.lines().filter(|l| !l.trim().is_empty()) {
                     if !body.contains(y) {
                         break;
                     }
@@ -348,7 +395,14 @@ impl MessageComponent for AssistantBlock {
                             .add_modifier(Modifier::ITALIC),
                     ))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                     y += 1;
                 }
             }

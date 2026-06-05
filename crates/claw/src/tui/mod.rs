@@ -104,6 +104,9 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         .to_string();
     let loaded = app_core.session_mgr.load_app_messages(&session_id, 200);
     app.messages = loaded;
+    app_core
+        .session_mgr
+        .reset_cursor(&session_id, app.messages.len());
     app.sync_message_timestamps();
 
     // Check for due reminders at startup
@@ -126,7 +129,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 )
                 .to_string(),
                 reasoning: String::new(),
-                        token_usage: None,
+                token_usage: None,
             });
             app.message_timestamps
                 .push(chrono::Local::now().naive_local());
@@ -134,7 +137,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
             app.messages.push(app::Message::Assistant {
                 text: "你好，有什么可以帮你的？".to_string(),
                 reasoning: String::new(),
-                        token_usage: None,
+                token_usage: None,
             });
             app.message_timestamps
                 .push(chrono::Local::now().naive_local());
@@ -153,7 +156,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // 退出前持久化当前会话的消息和 API 缓存，否则下次 --session 加载会丢失数据
     if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
         crate::tui::clipboard::save_session_messages(
-            &app_core.session_mgr,
+            &mut app_core.session_mgr,
             &sid,
             &app.messages,
             app.api_messages.as_deref(),

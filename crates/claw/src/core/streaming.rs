@@ -98,10 +98,7 @@ pub fn format_progress(progress: &ToolProgress) -> String {
             "{} {} [{}%] {}",
             stage_icon, progress.tool_name, pct, progress.message
         ),
-        None => format!(
-            "{} {} {}",
-            stage_icon, progress.tool_name, progress.message
-        ),
+        None => format!("{} {} {}", stage_icon, progress.tool_name, progress.message),
     }
 }
 

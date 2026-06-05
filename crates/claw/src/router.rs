@@ -43,7 +43,10 @@ pub fn classify_complexity(task: &str) -> TaskComplexity {
 }
 
 #[allow(dead_code)]
-pub fn semantic_classify(task: &str, tool_index: &std::collections::HashMap<String, String>) -> TaskComplexity {
+pub fn semantic_classify(
+    task: &str,
+    tool_index: &std::collections::HashMap<String, String>,
+) -> TaskComplexity {
     let task_lower = task.to_lowercase();
     let matched_tools: Vec<&str> = tool_index
         .keys()
@@ -55,7 +58,9 @@ pub fn semantic_classify(task: &str, tool_index: &std::collections::HashMap<Stri
                     .get(*tool)
                     .map(|desc| {
                         let desc_lower = desc.to_lowercase();
-                        desc_lower.split_whitespace().any(|w| task_lower.contains(w))
+                        desc_lower
+                            .split_whitespace()
+                            .any(|w| task_lower.contains(w))
                     })
                     .unwrap_or(false)
         })
@@ -66,9 +71,10 @@ pub fn semantic_classify(task: &str, tool_index: &std::collections::HashMap<Stri
     }
     if matched_tools.len() == 1 {
         let tool_name = matched_tools[0];
-        if tool_index.get(tool_name).is_some_and(|d| {
-            d.contains("统计") || d.contains("分析") || d.contains("图表")
-        }) {
+        if tool_index
+            .get(tool_name)
+            .is_some_and(|d| d.contains("统计") || d.contains("分析") || d.contains("图表"))
+        {
             return TaskComplexity::Heavy;
         }
     }

@@ -8,10 +8,16 @@ pub struct GuardrailResult {
 
 impl GuardrailResult {
     pub fn allow() -> Self {
-        Self { allowed: true, reason: None }
+        Self {
+            allowed: true,
+            reason: None,
+        }
     }
     pub fn deny(reason: &str) -> Self {
-        Self { allowed: false, reason: Some(reason.to_string()) }
+        Self {
+            allowed: false,
+            reason: Some(reason.to_string()),
+        }
     }
 }
 
@@ -144,7 +150,8 @@ impl ToolCallGuardrail for DangerousToolGuardrail {
     async fn check(&self, tool_name: &str, _args: &Value) -> GuardrailResult {
         if self.dangerous_tools.contains(&tool_name.to_string()) {
             return GuardrailResult::deny(&format!(
-                "工具 '{}' 被标记为危险操作，需要用户确认", tool_name
+                "工具 '{}' 被标记为危险操作，需要用户确认",
+                tool_name
             ));
         }
         GuardrailResult::allow()

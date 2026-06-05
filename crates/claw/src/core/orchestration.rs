@@ -85,10 +85,7 @@ impl OrchestrationPlan {
         self.steps
             .iter()
             .enumerate()
-            .filter(|(_, step)| {
-                step.status == StepStatus::Pending
-                    && step.depends_on.is_empty()
-            })
+            .filter(|(_, step)| step.status == StepStatus::Pending && step.depends_on.is_empty())
             .map(|(i, _)| i)
             .collect()
     }
@@ -152,8 +149,16 @@ impl OrchestrationPlan {
 
     pub fn progress_summary(&self) -> String {
         let total = self.steps.len();
-        let completed = self.steps.iter().filter(|s| s.status == StepStatus::Completed).count();
-        let failed = self.steps.iter().filter(|s| s.status == StepStatus::Failed).count();
+        let completed = self
+            .steps
+            .iter()
+            .filter(|s| s.status == StepStatus::Completed)
+            .count();
+        let failed = self
+            .steps
+            .iter()
+            .filter(|s| s.status == StepStatus::Failed)
+            .count();
         format!(
             "编排进度: {}/{} 完成, {} 失败 (模式: {:?})",
             completed, total, failed, self.mode
@@ -244,9 +249,7 @@ mod tests {
 
     #[test]
     fn test_orchestration_result() {
-        let plan = OrchestrationPlan::sequential(vec![
-            ("a".to_string(), "task".to_string()),
-        ]);
+        let plan = OrchestrationPlan::sequential(vec![("a".to_string(), "task".to_string())]);
         let mut step_results = HashMap::new();
         step_results.insert(0, Ok("done".to_string()));
         let result = OrchestrationResult {

@@ -228,9 +228,7 @@ impl ClawTool for DelegateTool {
                         usage_recorded = true;
                     }
                     LlmEvent::Done(_, usage, _trace_id) => {
-                        if !usage_recorded
-                            && let Some(u) = usage
-                        {
+                        if !usage_recorded && let Some(u) = usage {
                             total_input_tokens += u.prompt_tokens;
                             total_output_tokens += u.completion_tokens;
                         }

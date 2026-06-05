@@ -101,7 +101,10 @@ impl Dashboard {
                 axum::routing::post(routes::post_session_feedback),
             )
             .route("/api/tools", axum::routing::get(routes::list_tools))
-            .route("/api/images/{filename}", axum::routing::get(routes::serve_image))
+            .route(
+                "/api/images/{filename}",
+                axum::routing::get(routes::serve_image),
+            )
             .route("/api/plugins", axum::routing::get(routes::list_plugins))
             .route("/api/skills", axum::routing::get(routes::list_skills))
             .route(
@@ -122,17 +125,13 @@ impl Dashboard {
             )
             .route(
                 "/api/memory/layered",
-                axum::routing::get(routes::get_layered_memory)
-                    .post(routes::clear_layered_memory),
+                axum::routing::get(routes::get_layered_memory).post(routes::clear_layered_memory),
             )
             .route(
                 "/api/memory/search",
                 axum::routing::get(routes::search_layered_memory),
             )
-            .route(
-                "/api/evals",
-                axum::routing::get(routes::run_evals),
-            )
+            .route("/api/evals", axum::routing::get(routes::run_evals))
             .route("/api/stats", axum::routing::get(routes::get_stats))
             .route(
                 "/api/agents",
@@ -144,10 +143,7 @@ impl Dashboard {
                     .put(routes::update_agent)
                     .delete(routes::delete_agent),
             )
-            .route(
-                "/api/providers",
-                axum::routing::get(routes::list_providers),
-            )
+            .route("/api/providers", axum::routing::get(routes::list_providers))
             .layer(auth_middleware);
 
         let static_routes = Router::new()

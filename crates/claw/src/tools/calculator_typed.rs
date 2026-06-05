@@ -62,11 +62,7 @@ impl TypedClawTool for CalculatorTyped {
         }))
     }
 
-    async fn execute_typed(
-        &self,
-        args: &Value,
-        _ctx: &ToolContext,
-    ) -> Result<Value, ClawError> {
+    async fn execute_typed(&self, args: &Value, _ctx: &ToolContext) -> Result<Value, ClawError> {
         let expr = args
             .get("expression")
             .and_then(|v| v.as_str())
@@ -101,9 +97,9 @@ impl TypedClawTool for CalculatorTyped {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::shared_client;
     use crate::test_helpers::test_config;
     use crate::tools::ToolContext;
-    use crate::providers::shared_client;
     use serde_json::json;
 
     fn test_ctx() -> ToolContext {

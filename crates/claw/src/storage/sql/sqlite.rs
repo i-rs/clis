@@ -30,8 +30,8 @@ impl SqliteBackend {
 
     #[cfg(test)]
     pub async fn new_in_memory() -> anyhow::Result<Self> {
-        let options = sqlx::sqlite::SqliteConnectOptions::from_str("sqlite::memory:")?
-            .foreign_keys(true);
+        let options =
+            sqlx::sqlite::SqliteConnectOptions::from_str("sqlite::memory:")?.foreign_keys(true);
         let pool = sqlx::SqlitePool::connect_with(options).await?;
         let backend = Self { pool };
         backend.migrate().await?;
@@ -43,6 +43,7 @@ impl SqliteBackend {
         ClawStorage {
             sessions: Box::new(SqliteSessionStore { db: arc.clone() }),
             messages: Box::new(SqliteMessageStore { db: arc.clone() }),
+            message_log: std::sync::Arc::new(SqliteMessageLogStore { db: arc.clone() }),
             api_cache: Box::new(SqliteApiCacheStore { db: arc.clone() }),
             plan_steps: Box::new(SqlitePlanStepsStore { db: arc.clone() }),
             memory: Box::new(SqliteMemoryStore { db: arc.clone() }),
@@ -71,6 +72,26 @@ impl SqliteBackend {
             .await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS skills (agent_id TEXT NOT NULL, name TEXT NOT NULL, content TEXT NOT NULL, parameters TEXT, PRIMARY KEY (agent_id, name))").execute(&self.pool).await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS tool_cache (agent_id TEXT NOT NULL, tool_name TEXT NOT NULL, doc TEXT NOT NULL, PRIMARY KEY (agent_id, tool_name))").execute(&self.pool).await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS message_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id  TEXT    NOT NULL,
+                seq         INTEGER NOT NULL,
+                ts          INTEGER NOT NULL,
+                schema_v    INTEGER NOT NULL DEFAULT 1,
+                payload     TEXT    NOT NULL
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_message_log_session_seq
+             ON message_log (session_id, seq)",
+        )
+        .execute(&self.pool)
+        .await?;
+
         Ok(())
     }
 }
@@ -81,6 +102,7 @@ define_sql_stores!(
     SqliteBackend,
     SqliteSessionStore,
     SqliteMessageStore,
+    SqliteMessageLogStore,
     SqliteApiCacheStore,
     SqlitePlanStepsStore,
     SqliteMemoryStore,
@@ -148,6 +170,13 @@ mod tests {
         let mut m = crate::memory::CrossSessionMemory::default_memory();
         m.set_user_name("A");
         s.memory.save("a", &m).await.unwrap();
-        assert!(s.memory.load("a").await.unwrap().unwrap().has_user_profile());
+        assert!(
+            s.memory
+                .load("a")
+                .await
+                .unwrap()
+                .unwrap()
+                .has_user_profile()
+        );
     }
 }

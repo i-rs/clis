@@ -53,7 +53,10 @@ impl CrossSessionMemory {
         let aid = agent_id.to_string();
         let s = storage.clone();
         let mut mem = crate::utils::sync_block_on(async {
-            s.memory.load(&aid).await.unwrap_or_else(|_| None)
+            s.memory
+                .load(&aid)
+                .await
+                .unwrap_or_else(|_| None)
                 .unwrap_or_else(|| CrossSessionMemory {
                     tool_frequency: HashMap::new(),
                     hot_tools: Vec::new(),
@@ -313,15 +316,12 @@ impl CrossSessionMemory {
         }
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            let mem_value = serde_json::to_value(&*self)
-                .unwrap_or(serde_json::Value::Null);
-            if let Err(e) =
-                crate::utils::sync_block_on(async move {
-                    let mem: Self = serde_json::from_value(mem_value)
-                        .unwrap_or_else(|_| Self::default_memory());
-                    storage.memory.save(&aid, &mem).await
-                })
-            {
+            let mem_value = serde_json::to_value(&*self).unwrap_or(serde_json::Value::Null);
+            if let Err(e) = crate::utils::sync_block_on(async move {
+                let mem: Self =
+                    serde_json::from_value(mem_value).unwrap_or_else(|_| Self::default_memory());
+                storage.memory.save(&aid, &mem).await
+            }) {
                 tracing::error!("持久化写入失败: {}", e);
             }
         } else if !self.path.as_os_str().is_empty()
@@ -434,7 +434,11 @@ mod tests {
         let storage = Arc::new(ClawStorage::file(dir.clone()));
 
         // Load via repo directly (async, no nested block_on)
-        let mut mem = storage.memory.load("agent-a").await.unwrap_or_else(|_| None)
+        let mut mem = storage
+            .memory
+            .load("agent-a")
+            .await
+            .unwrap_or_else(|_| None)
             .unwrap_or_else(CrossSessionMemory::default_memory);
         assert!(!mem.has_user_profile());
 
@@ -443,7 +447,11 @@ mod tests {
         storage.memory.save("agent-a", &mem).await.unwrap();
 
         // Load again to verify persistence
-        let loaded = storage.memory.load("agent-a").await.unwrap()
+        let loaded = storage
+            .memory
+            .load("agent-a")
+            .await
+            .unwrap()
             .expect("memory should exist after save");
         assert!(loaded.has_user_profile());
         assert_eq!(loaded.test_user_name(), Some("TestUser"));

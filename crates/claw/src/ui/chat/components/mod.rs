@@ -39,7 +39,9 @@ pub trait MessageComponent {
     /// Whether the whole block should be a click target (e.g. a tool
     /// call or an assistant message with reasoning). Components opt
     /// in by returning `true` here.
-    fn clickable(&self) -> bool { false }
+    fn clickable(&self) -> bool {
+        false
+    }
     /// Apply a mutation coming from outside (streaming tokens, click
     /// events, etc.). Default impl is a no-op.
     fn apply(&mut self, _op: ComponentOp) {}
@@ -58,26 +60,73 @@ pub fn build_component_for(msg: &Message) -> Box<dyn MessageComponent> {
     match msg {
         Message::User { text } if !text.is_empty() => Box::new(user::UserBubble::new(text, None)),
         Message::User { .. } => Box::new(EmptyComponent),
-        Message::Assistant { text, reasoning, token_usage, .. } if !text.is_empty() || !reasoning.is_empty() =>
-            Box::new(assistant::AssistantBlock::new(text, reasoning, false, None, *token_usage)),
+        Message::Assistant {
+            text,
+            reasoning,
+            token_usage,
+            ..
+        } if !text.is_empty() || !reasoning.is_empty() => Box::new(assistant::AssistantBlock::new(
+            text,
+            reasoning,
+            false,
+            None,
+            *token_usage,
+        )),
         Message::Assistant { .. } => Box::new(EmptyComponent),
-        Message::ToolCall { name, args, result, step, total_steps } =>
-            Box::new(tool_call::ToolCallCard::new(name, args, result, *step, *total_steps, false, None)),
+        Message::ToolCall {
+            name,
+            args,
+            result,
+            step,
+            total_steps,
+        } => Box::new(tool_call::ToolCallCard::new(
+            name,
+            args,
+            result,
+            *step,
+            *total_steps,
+            false,
+            None,
+        )),
         Message::Error { text } => Box::new(error::ErrorBanner::new(text, None)),
-        Message::Evaluation { tool, valid, issues } if !*valid =>
-            Box::new(evaluation::EvaluationInline::new(tool, *valid, issues, None)),
+        Message::Evaluation {
+            tool,
+            valid,
+            issues,
+        } if !*valid => Box::new(evaluation::EvaluationInline::new(
+            tool, *valid, issues, None,
+        )),
         Message::Evaluation { .. } => Box::new(EmptyComponent),
-        Message::Quality { score, complete, issues, .. } =>
-            Box::new(quality::QualityCard::new(*score, *complete, issues, None)),
-        Message::Feedback { positive, message } =>
-            Box::new(feedback::FeedbackRow::new(*positive, message.as_deref(), None)),
-        Message::Image { path: _path, alt_text, width, height, format: _format } =>
-            Box::new(image::ImageCard::new(alt_text, *width as u16, *height as u16, None)),
+        Message::Quality {
+            score,
+            complete,
+            issues,
+            ..
+        } => Box::new(quality::QualityCard::new(*score, *complete, issues, None)),
+        Message::Feedback { positive, message } => Box::new(feedback::FeedbackRow::new(
+            *positive,
+            message.as_deref(),
+            None,
+        )),
+        Message::Image {
+            path: _path,
+            alt_text,
+            width,
+            height,
+            format: _format,
+        } => Box::new(image::ImageCard::new(
+            alt_text,
+            *width as u16,
+            *height as u16,
+            None,
+        )),
     }
 }
 
 struct EmptyComponent;
 impl MessageComponent for EmptyComponent {
-    fn height(&self, _w: u16) -> u16 { 0 }
+    fn height(&self, _w: u16) -> u16 {
+        0
+    }
     fn render(&self, _area: Rect, _buf: &mut Buffer, _theme: &Theme, _selected: bool) {}
 }

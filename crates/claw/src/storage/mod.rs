@@ -81,10 +81,7 @@ pub trait SessionRepo: Send + Sync {
     async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()>;
 
     /// Get a single session by ID. Default impl scans load_all.
-    async fn get(
-        &self,
-        id: &str,
-    ) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+    async fn get(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
         Ok(self.load_all().await?.into_iter().find(|s| s.id == id))
     }
     /// Delete a session by ID. Default impl: remove from load_all + save_all.
@@ -118,6 +115,58 @@ pub trait MessageRepo: Send + Sync {
     async fn count(&self, session_id: &str) -> anyhow::Result<usize> {
         Ok(self.load(session_id, usize::MAX).await?.len())
     }
+}
+
+/// Append-only message log — replaces `MessageRepo` for new callers.
+///
+/// **Why a separate trait?** `MessageRepo::save_all` (DELETE + INSERT) is the
+/// root cause of the tool_call / evaluation / quality silent-drop bug:
+/// streaming-time `append_message` writes get clobbered by the lossy
+/// `api_msgs_to_jsonl` output produced at `LlmEvent::Done`. `MessageLog`
+/// has no `save_all`; the only mutation is `append_batch`, which strictly
+/// adds rows. This structurally eliminates the bug class.
+///
+/// Callers always work in terms of the domain `Message` enum; the
+/// storage layer wraps each one in a `StoredRecord` envelope (`seq`,
+/// `ts`, `schema_v`) internally.
+#[async_trait]
+pub trait MessageLog: Send + Sync {
+    /// Append a batch of messages to the end of the session's log.
+    /// Implementations must be atomic (all-or-nothing) and must assign
+    /// monotonic `seq` values within the session.
+    async fn append_batch(
+        &self,
+        session_id: &str,
+        messages: &[crate::app::Message],
+    ) -> anyhow::Result<()>;
+
+    /// Convenience: append a single message.
+    async fn append_one(
+        &self,
+        session_id: &str,
+        message: &crate::app::Message,
+    ) -> anyhow::Result<()> {
+        self.append_batch(session_id, std::slice::from_ref(message))
+            .await
+    }
+
+    /// Load the last `limit` messages from a session (oldest-first within
+    /// the returned window). Pass `usize::MAX` for "all".
+    async fn load(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> anyhow::Result<Vec<crate::app::Message>>;
+
+    /// Case-insensitive substring search across all sessions.
+    async fn search(&self, query: &str, max_results: usize) -> anyhow::Result<Vec<SearchResult>>;
+
+    /// Delete all messages for a session.
+    async fn delete_session(&self, session_id: &str) -> anyhow::Result<()>;
+
+    /// Count messages for a session.
+    #[allow(dead_code)]
+    async fn count(&self, session_id: &str) -> anyhow::Result<usize>;
 }
 
 /// API-format message cache (one JSON blob per session).
@@ -203,6 +252,7 @@ pub trait ToolCacheRepo: Send + Sync {
 pub struct ClawStorage {
     pub sessions: Box<dyn SessionRepo>,
     pub messages: Box<dyn MessageRepo>,
+    pub message_log: std::sync::Arc<dyn MessageLog>,
     pub api_cache: Box<dyn ApiCacheRepo>,
     pub plan_steps: Box<dyn PlanStepsRepo>,
     pub memory: Box<dyn MemoryRepo>,
@@ -218,5 +268,3 @@ impl std::fmt::Debug for ClawStorage {
         f.debug_struct("ClawStorage").finish_non_exhaustive()
     }
 }
-
-

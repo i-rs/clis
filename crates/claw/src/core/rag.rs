@@ -47,7 +47,11 @@ impl Default for ChunkConfig {
 
 pub fn chunk_text(text: &str, config: &ChunkConfig) -> Vec<String> {
     if text.len() <= config.chunk_size {
-        return if text.is_empty() { vec![] } else { vec![text.to_string()] };
+        return if text.is_empty() {
+            vec![]
+        } else {
+            vec![text.to_string()]
+        };
     }
     let mut chunks = Vec::new();
     let chars: Vec<char> = text.chars().collect();
@@ -149,7 +153,11 @@ impl RagPipeline {
                 }
             })
             .collect();
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         scored.truncate(rag_query.top_k);
         let context = scored
             .iter()
@@ -182,10 +190,7 @@ impl RagPipeline {
     pub fn build_augmented_prompt(&self, query: &RagQuery, system_prefix: &str) -> String {
         let result = self.query(query);
         if result.answer_context.is_empty() {
-            return format!(
-                "{}\n\n用户问题：{}",
-                system_prefix, query.query
-            );
+            return format!("{}\n\n用户问题：{}", system_prefix, query.query);
         }
         format!(
             "{}\n\n## 参考文档\n\n{}\n\n## 用户问题\n\n{}",
@@ -229,7 +234,13 @@ mod tests {
     #[test]
     fn test_chunk_text_large() {
         let text: String = (0..1000).map(|i| format!("word{} ", i)).collect();
-        let chunks = chunk_text(&text, &ChunkConfig { chunk_size: 100, overlap: 20 });
+        let chunks = chunk_text(
+            &text,
+            &ChunkConfig {
+                chunk_size: 100,
+                overlap: 20,
+            },
+        );
         assert!(chunks.len() > 1);
         for chunk in &chunks {
             assert!(chunk.len() <= 120);

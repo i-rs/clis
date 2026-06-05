@@ -250,7 +250,10 @@ pub(super) fn render_tool_list_panel(
     for (name, desc) in tools {
         let max_desc_chars = max_width.saturating_sub(18);
         let display_desc = if desc.chars().count() > max_desc_chars {
-            let truncated: String = desc.chars().take(max_desc_chars.saturating_sub(3)).collect();
+            let truncated: String = desc
+                .chars()
+                .take(max_desc_chars.saturating_sub(3))
+                .collect();
             format!("{}...", truncated)
         } else {
             desc.to_string()
@@ -780,17 +783,9 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
         let a_color = preset_theme.accent();
         let bg_color = preset_theme.background();
 
-        let sel_bg = if selected {
-            theme.selection_bg()
-        } else {
-            bg
-        };
+        let sel_bg = if selected { theme.selection_bg() } else { bg };
 
-        let name_fg = if selected {
-            Color::White
-        } else {
-            dim
-        };
+        let name_fg = if selected { Color::White } else { dim };
         let label_fg = if selected { p_color } else { dim };
 
         let prefix = if selected { " > " } else { "   " };
@@ -799,7 +794,10 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
             Span::styled(prefix.to_string(), Style::default().fg(name_fg).bg(sel_bg)),
             Span::styled(
                 format!("{:<10}", preset.name),
-                Style::default().fg(name_fg).bg(sel_bg).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(name_fg)
+                    .bg(sel_bg)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(" ".to_string(), Style::default().bg(sel_bg)),
             Span::styled(
@@ -817,10 +815,7 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
         ]));
     }
 
-    lines.push(Line::from(Span::styled(
-        "",
-        Style::default().bg(bg),
-    )));
+    lines.push(Line::from(Span::styled("", Style::default().bg(bg))));
     lines.push(Line::from(Span::styled(
         " ↑↓ 预览  Enter 确认  Esc 取消",
         Style::default().fg(dim).bg(bg),

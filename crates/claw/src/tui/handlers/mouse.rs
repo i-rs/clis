@@ -8,7 +8,9 @@ pub struct MouseEventHandler<'a> {
 }
 
 impl<'a> MouseEventHandler<'a> {
-    pub fn new(app: &'a mut App) -> Self { Self { app } }
+    pub fn new(app: &'a mut App) -> Self {
+        Self { app }
+    }
 
     pub fn handle(&mut self, mouse: MouseEvent) {
         if self.app.overlay.sidebar_body_idx.is_some() {
@@ -28,13 +30,13 @@ impl<'a> MouseEventHandler<'a> {
                 }
                 _ => {}
             }
-        } else if !self.app.is_processing()
-            && self.app.overlay.current.is_none()
-        {
+        } else if !self.app.is_processing() && self.app.overlay.current.is_none() {
             match mouse.kind {
                 MouseEventKind::ScrollDown => self.app.scroll_down(),
                 MouseEventKind::ScrollUp => self.app.scroll_up(),
-                _ if is_left_click(&mouse) => self.handle_click(mouse.column.saturating_sub(1), mouse.row.saturating_sub(1)),
+                _ if is_left_click(&mouse) => {
+                    self.handle_click(mouse.column.saturating_sub(1), mouse.row.saturating_sub(1))
+                }
                 _ => {}
             }
             self.app.mark_overlay_dirty();

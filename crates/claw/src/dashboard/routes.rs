@@ -1,5 +1,6 @@
 use crate::dashboard::AppState;
 use crate::llm::LlmEvent;
+use crate::message::MessageAccumulator;
 use crate::providers::ProviderKind;
 use crate::stats::StatsPeriod;
 use axum::{
@@ -51,7 +52,9 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
         crate::app::Message::User { text } => {
             serde_json::json!({"role": "user", "content": text})
         }
-        crate::app::Message::Assistant { text, reasoning, .. } => {
+        crate::app::Message::Assistant {
+            text, reasoning, ..
+        } => {
             let mut msg = serde_json::json!({"role": "assistant", "content": text});
             if !reasoning.is_empty() {
                 msg["reasoning"] = Value::String(reasoning.clone());
@@ -63,7 +66,13 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
         } => {
             serde_json::json!({"role": "tool_call", "name": name, "args": args, "result": result})
         }
-        crate::app::Message::Image { path, alt_text, width, height, format } => {
+        crate::app::Message::Image {
+            path,
+            alt_text,
+            width,
+            height,
+            format,
+        } => {
             serde_json::json!({
                 "role": "image",
                 "path": path,
@@ -74,7 +83,11 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
                 "url": format!("/api/images/{}", path)
             })
         }
-        crate::app::Message::Evaluation { tool, valid, issues } => {
+        crate::app::Message::Evaluation {
+            tool,
+            valid,
+            issues,
+        } => {
             serde_json::json!({
                 "role": "evaluation",
                 "content": format!("{}: {}", tool, if *valid { "✓" } else { "✗" }),
@@ -83,7 +96,12 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
                 "issues": issues,
             })
         }
-        crate::app::Message::Quality { score, complete, references_valid, issues } => {
+        crate::app::Message::Quality {
+            score,
+            complete,
+            references_valid,
+            issues,
+        } => {
             serde_json::json!({
                 "role": "quality",
                 "content": format!("质量评分: {}", score.unwrap_or(0.0)),
@@ -208,20 +226,22 @@ pub async fn update_config(
     ApiResponse::ok(result)
 }
 
-
 /// List all configured providers from the config.
-pub async fn list_providers(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Value>> {
+pub async fn list_providers(State(state): State<AppState>) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
-    let providers: Vec<Value> = core.config.providers.iter().map(|(name, pc)| {
-        serde_json::json!({
-            "name": name,
-            "provider": pc.provider,
-            "model": pc.model,
-            "base_url": pc.base_url,
+    let providers: Vec<Value> = core
+        .config
+        .providers
+        .iter()
+        .map(|(name, pc)| {
+            serde_json::json!({
+                "name": name,
+                "provider": pc.provider,
+                "model": pc.model,
+                "base_url": pc.base_url,
+            })
         })
-    }).collect();
+        .collect();
     ApiResponse::ok(serde_json::json!({ "providers": providers }))
 }
 
@@ -261,7 +281,13 @@ pub async fn send_message(
     };
 
     // Save user message
-    core.session_mgr.append_message("user", &text, None);
+    {
+        let log = core.session_mgr.message_log();
+        let msg = crate::app::Message::User { text: text.clone() };
+        if let Err(e) = log.append_one(&sid, &msg).await {
+            tracing::error!("user message persist failed: {}", e);
+        }
+    }
 
     {
         let layered = core.agent_store.layered_memory_for_mut(&agent_id);
@@ -282,37 +308,39 @@ pub async fn send_message(
     let bg_state = state.clone();
     let bg_sid = sid.clone();
     tokio::spawn(async move {
+        let mut acc = MessageAccumulator::new();
         while let Some(event) = llm_rx.recv().await {
             match &event {
                 LlmEvent::Done(msgs, _usage, _trace_id) => {
-                    let mut core = bg_state.core.write().await;
-                    if let Some(last) = msgs.last()
-                        && last.get("role").and_then(|r| r.as_str()) == Some("assistant")
+                    acc.apply(&LlmEvent::Done(msgs.clone(), None, String::new()));
+                    let finalized = acc.into_messages();
                     {
-                        let text = last.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                        let reasoning = last
-                            .get("reasoning_content")
-                            .and_then(|r| r.as_str())
-                            .unwrap_or("");
-                        let extra = if !reasoning.is_empty() {
-                            Some(serde_json::json!({"reasoning": reasoning}))
-                        } else {
-                            None
-                        };
-                        if !text.is_empty() || extra.is_some() {
-                            core.session_mgr.append_message("assistant", text, extra);
+                        let core = bg_state.core.read().await;
+                        let log = core.session_mgr.message_log();
+                        if let Err(e) = log.append_batch(&bg_sid, &finalized).await {
+                            tracing::error!("MessageLog::append_batch 失败: {}", e);
                         }
                     }
-                    crate::core::save_chat_result(&mut core.session_mgr, &bg_sid, msgs);
+                    let mut core = bg_state.core.write().await;
+                    core.session_mgr.save_api_messages(&bg_sid, msgs);
                     let _ = core.evaluate_completed_session(&bg_sid);
                     break;
                 }
                 LlmEvent::Error(e) => {
+                    acc.apply(&event);
+                    let finalized = acc.into_messages();
+                    {
+                        let core = bg_state.core.read().await;
+                        let log = core.session_mgr.message_log();
+                        let _ = log.append_batch(&bg_sid, &finalized).await;
+                    }
                     let mut core = bg_state.core.write().await;
                     core.session_mgr.mark_error(&bg_sid, e);
                     break;
                 }
-                _ => {}
+                _ => {
+                    acc.apply(&event);
+                }
             }
         }
     });
@@ -350,8 +378,13 @@ pub async fn chat_stream(
     let stream_sid = session_id.clone();
 
     let stream = futures_util::stream::unfold(
-        (Some(rx), stream_state, stream_sid),
-        |(rx_opt, state, sid)| async move {
+        (
+            Some(rx),
+            stream_state,
+            stream_sid,
+            MessageAccumulator::new(),
+        ),
+        |(rx_opt, state, sid, mut acc)| async move {
             let mut rx = rx_opt?;
             loop {
                 let event = rx.recv().await?;
@@ -394,7 +427,14 @@ pub async fn chat_stream(
                         }))
                         .unwrap_or_default();
                         let sse = Event::default().event("tool_executed").data(data);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        acc.apply(&LlmEvent::ToolExecuted {
+                            name: name.clone(),
+                            args: args.clone(),
+                            result: result.clone(),
+                            step,
+                            total_steps,
+                        });
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
                     LlmEvent::Done(msgs, usage, _trace_id) => {
                         let mut core = state.core.write().await;
@@ -403,38 +443,33 @@ pub async fn chat_stream(
                             .session_meta(&sid)
                             .map(|m| m.agent_id.clone())
                             .unwrap_or_else(|| "default".to_string());
-                        if let Some(last) = msgs.last()
-                            && last.get("role").and_then(|r| r.as_str()) == Some("assistant")
+
+                        // Apply Done to accumulator and persist via append-only log.
+                        acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
+                        let finalized = acc.into_messages();
                         {
-                            let text = last.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                            let reasoning = last
-                                .get("reasoning_content")
-                                .and_then(|r| r.as_str())
-                                .unwrap_or("");
-                            let extra = if !reasoning.is_empty() {
-                                Some(serde_json::json!({"reasoning": reasoning}))
-                            } else {
-                                None
-                            };
-                            if !text.is_empty() || extra.is_some() {
-                                core.session_mgr.append_message("assistant", text, extra);
+                            let log = core.session_mgr.message_log();
+                            if let Err(e) = log.append_batch(&sid, &finalized).await {
+                                tracing::error!("MessageLog::append_batch 失败: {}", e);
                             }
                         }
-                        crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
+
+                        // Save api_cache (still needed for LLM context resume).
+                        core.session_mgr.save_api_messages(&sid, &msgs);
                         let quality_msg = core.evaluate_completed_session(&sid);
 
-                        // 保存 quality 消息到 session 历史
-                        if let Some(crate::app::Message::Quality { score, complete, issues, references_valid }) = &quality_msg {
-                            core.session_mgr.append_message(
-                                "quality",
-                                &format!("质量评分: {}", score.unwrap_or(0.0)),
-                                Some(serde_json::json!({
-                                    "score": score,
-                                    "complete": complete,
-                                    "issues": issues,
-                                    "references_valid": references_valid,
-                                })),
-                            );
+                        // Persist quality message through MessageLog.
+                        if let Some(crate::app::Message::Quality { .. }) = &quality_msg {
+                            let log = core.session_mgr.message_log();
+                            let sid2 = sid.clone();
+                            let q_clone = quality_msg.clone();
+                            tokio::spawn(async move {
+                                if let Some(q) = q_clone {
+                                    if let Err(e) = log.append_one(&sid2, &q).await {
+                                        tracing::error!("quality 持久化失败: {}", e);
+                                    }
+                                }
+                            });
                         }
 
                         core.agent_store.memory_for_mut(&agent_id).flush();
@@ -443,56 +478,82 @@ pub async fn chat_stream(
                         let done_json = serde_json::json!({"usage": usage});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         let sse = Event::default().event("done").data(data);
-                        return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
+                        return Some((
+                            Ok::<_, Infallible>(sse),
+                            (None, state, sid, MessageAccumulator::new()),
+                        ));
                     }
                     LlmEvent::Error(e) => {
-                        let mut core = state.core.write().await;
-                        core.session_mgr.mark_error(&sid, &e);
-                        drop(core);
-
+                        acc.apply(&LlmEvent::Error(e.clone()));
+                        let finalized = acc.into_messages();
+                        {
+                            let mut core = state.core.write().await;
+                            core.session_mgr.mark_error(&sid, &e);
+                            let log = core.session_mgr.message_log();
+                            if let Err(err) = log.append_batch(&sid, &finalized).await {
+                                tracing::error!(
+                                    "MessageLog::append_batch (error path) 失败: {}",
+                                    err
+                                );
+                            }
+                        }
                         let sse = Event::default().event("error").data(e);
-                        return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
+                        return Some((
+                            Ok::<_, Infallible>(sse),
+                            (None, state, sid, MessageAccumulator::new()),
+                        ));
                     }
                     LlmEvent::Token(t) => {
+                        acc.apply(&LlmEvent::Token(t.clone()));
                         let sse = Event::default().event("token").data(t);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
                     LlmEvent::Reasoning(t) => {
+                        acc.apply(&LlmEvent::Reasoning(t.clone()));
                         let sse = Event::default().event("reasoning").data(t);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
                     LlmEvent::Status(s) => {
                         let sse = Event::default().event("status").data(s);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
                     LlmEvent::NewRound => {
+                        acc.apply(&LlmEvent::NewRound);
                         let sse = Event::default().event("new_round").data("");
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
-                    LlmEvent::ImageGenerated { path, alt_text, format, width, height } => {
+                    LlmEvent::ImageGenerated {
+                        path,
+                        alt_text,
+                        format,
+                        width,
+                        height,
+                    } => {
+                        acc.apply(&LlmEvent::ImageGenerated {
+                            path: path.clone(),
+                            alt_text: alt_text.clone(),
+                            format: format.clone(),
+                            width,
+                            height,
+                        });
                         let data = serde_json::to_string(&serde_json::json!({
                             "path": path, "alt_text": alt_text,
                             "format": format, "width": width, "height": height,
                         }))
                         .unwrap_or_default();
                         let sse = Event::default().event("image_generated").data(data);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
-                    LlmEvent::Evaluation { tool, valid, issues } => {
-                        // 保存 evaluation 消息到 session 历史
-                        {
-                            let mut core = state.core.write().await;
-                            core.session_mgr.append_message(
-                                "evaluation",
-                                &format!("{}: {}", tool, if valid { "✓" } else { "✗" }),
-                                Some(serde_json::json!({
-                                    "tool": tool,
-                                    "valid": valid,
-                                    "issues": issues,
-                                })),
-                            );
-                        }
-
+                    LlmEvent::Evaluation {
+                        tool,
+                        valid,
+                        issues,
+                    } => {
+                        acc.apply(&LlmEvent::Evaluation {
+                            tool: tool.clone(),
+                            valid,
+                            issues: issues.clone(),
+                        });
                         let data = serde_json::to_string(&serde_json::json!({
                             "tool": tool,
                             "valid": valid,
@@ -500,7 +561,7 @@ pub async fn chat_stream(
                         }))
                         .unwrap_or_default();
                         let sse = Event::default().event("evaluation").data(data);
-                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
+                        return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
                     _ => continue,
                 }
@@ -660,15 +721,17 @@ pub async fn post_session_feedback(
         .memory_for_mut(&agent_id)
         .record_session_feedback(&id, positive);
 
-    // Append feedback to session
-    core.session_mgr.append_message(
-        "feedback",
-        &format!("positive: {}", positive),
-        Some(serde_json::json!({
-            "positive": positive,
-            "message": feedback_msg,
-        })),
-    );
+    // Append feedback to session via MessageLog
+    {
+        let log = core.session_mgr.message_log();
+        let msg = crate::app::Message::Feedback {
+            positive,
+            message: feedback_msg.map(|s| s.to_string()),
+        };
+        if let Err(e) = log.append_one(&id, &msg).await {
+            tracing::error!("feedback persist failed: {}", e);
+        }
+    }
 
     core.agent_store.memory_for_mut(&agent_id).flush();
     drop(core);
@@ -729,7 +792,11 @@ pub async fn get_agent_detail(
 ) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let resolved = core.config.agent_config(&id);
-    let raw_agent = core.config.agents.get(&id).or_else(|| core.config.sub_agents.get(&id));
+    let raw_agent = core
+        .config
+        .agents
+        .get(&id)
+        .or_else(|| core.config.sub_agents.get(&id));
     let provider_ref = raw_agent.and_then(|a| a.provider_ref.as_deref());
     let tools: Vec<&String> = resolved.enabled_tools.iter().collect();
     ApiResponse::ok(serde_json::json!({
@@ -1012,9 +1079,7 @@ pub async fn list_skills(
 }
 
 /// Serve generated images from ~/.i-rs/claw/images/.
-pub async fn serve_image(
-    Path(filename): Path<String>,
-) -> axum::response::Response {
+pub async fn serve_image(Path(filename): Path<String>) -> axum::response::Response {
     use axum::body::Body;
     use axum::http::{StatusCode, header};
 
@@ -1054,9 +1119,7 @@ pub async fn serve_image(
 
 // ── Guardrails ──
 
-pub async fn check_guardrails(
-    Json(body): Json<Value>,
-) -> Json<ApiResponse<Value>> {
+pub async fn check_guardrails(Json(body): Json<Value>) -> Json<ApiResponse<Value>> {
     let input = body.get("input").and_then(|v| v.as_str());
     let output = body.get("output").and_then(|v| v.as_str());
     let tool_name = body.get("tool_name").and_then(|v| v.as_str());
@@ -1097,7 +1160,9 @@ pub async fn check_guardrails(
         return ApiResponse::err("需要 input, output 或 tool_name+tool_args 参数");
     }
 
-    let all_allowed = results.iter().all(|r| r["allowed"].as_bool().unwrap_or(false));
+    let all_allowed = results
+        .iter()
+        .all(|r| r["allowed"].as_bool().unwrap_or(false));
     ApiResponse::ok(serde_json::json!({
         "allowed": all_allowed,
         "checks": results,
@@ -1112,18 +1177,23 @@ pub async fn list_checkpoints(
 ) -> Json<ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     let checkpoints: Vec<Value> = if let Ok(store) = core.checkpoint_store.lock() {
-        store.list().iter().filter(|(id, _, _)| {
-            query
-                .session_id
-                .as_ref()
-                .is_none_or(|sid| id.starts_with(&format!("cp_{}_", sid)))
-        }).map(|(id, round, ts)| {
-            serde_json::json!({
-                "id": id,
-                "round": round,
-                "timestamp": ts,
+        store
+            .list()
+            .iter()
+            .filter(|(id, _, _)| {
+                query
+                    .session_id
+                    .as_ref()
+                    .is_none_or(|sid| id.starts_with(&format!("cp_{}_", sid)))
             })
-        }).collect()
+            .map(|(id, round, ts)| {
+                serde_json::json!({
+                    "id": id,
+                    "round": round,
+                    "timestamp": ts,
+                })
+            })
+            .collect()
     } else {
         Vec::new()
     };
@@ -1178,10 +1248,7 @@ pub async fn restore_checkpoint(
         .get("session_id")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let round = body
-        .get("round")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32;
+    let round = body.get("round").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     if session_id.is_empty() {
         return ApiResponse::err("需要 session_id 参数");
     }
@@ -1319,9 +1386,7 @@ pub struct MemorySearchQuery {
 
 // ── Evals ──
 
-pub async fn run_evals(
-    State(state): State<AppState>,
-) -> Json<ApiResponse<Value>> {
+pub async fn run_evals(State(state): State<AppState>) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let suite = crate::core::evals::builtin_eval_suite();
     let messages = if let Some(sid) = core.session_mgr.current_id() {
@@ -1332,7 +1397,9 @@ pub async fn run_evals(
     let tool_results: Vec<(String, String)> = messages
         .iter()
         .filter_map(|m| match m {
-            crate::app::Message::ToolCall { name, result, .. } => Some((name.clone(), result.clone())),
+            crate::app::Message::ToolCall { name, result, .. } => {
+                Some((name.clone(), result.clone()))
+            }
             _ => None,
         })
         .collect();

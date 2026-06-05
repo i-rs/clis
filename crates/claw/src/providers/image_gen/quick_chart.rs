@@ -1,4 +1,6 @@
-use super::{generate_filename, ChartDataPoint, GeneratedImage, ImageGenProvider, ImageGenProviderKind};
+use super::{
+    ChartDataPoint, GeneratedImage, ImageGenProvider, ImageGenProviderKind, generate_filename,
+};
 use crate::config::ImageGenConfig;
 use serde_json::json;
 
@@ -35,7 +37,11 @@ impl ImageGenProvider for QuickChartProvider {
         height: u32,
         images_dir: &std::path::Path,
     ) -> anyhow::Result<GeneratedImage> {
-        let ct = if chart_type.is_empty() { "bar" } else { chart_type };
+        let ct = if chart_type.is_empty() {
+            "bar"
+        } else {
+            chart_type
+        };
         let labels: Vec<String> = data.iter().map(|d| d.label.clone()).collect();
         let values: Vec<f64> = data.iter().map(|d| d.value).collect();
 
@@ -116,7 +122,11 @@ impl ImageGenProvider for QuickChartProvider {
         };
 
         Ok(GeneratedImage {
-            path: filepath.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: filepath
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
             format: "png".to_string(),
             width: w,
             height: h,

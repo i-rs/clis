@@ -65,7 +65,13 @@ impl<'a> LlmEventHandler<'a> {
                 self.app.plan_steps = steps;
                 self.app.mark_overlay_dirty();
             }
-            LlmEvent::ImageGenerated { path, alt_text, format: _, width, height } => {
+            LlmEvent::ImageGenerated {
+                path,
+                alt_text,
+                format: _,
+                width,
+                height,
+            } => {
                 self.app.messages.push(app::Message::Image {
                     path,
                     alt_text,
@@ -73,7 +79,9 @@ impl<'a> LlmEventHandler<'a> {
                     height,
                     format: "png".to_string(),
                 });
-                self.app.message_timestamps.push(chrono::Local::now().naive_local());
+                self.app
+                    .message_timestamps
+                    .push(chrono::Local::now().naive_local());
                 self.app.mark_dirty();
             }
         }
@@ -105,7 +113,9 @@ impl<'a> LlmEventHandler<'a> {
                     self.app.detect_plan(&plan_text);
                     if let Some(sid) = self.app_core.session_mgr.current_id() {
                         let sid = sid.to_string();
-                        self.app_core.session_mgr.save_plan_steps(&sid, &self.app.plan_steps);
+                        self.app_core
+                            .session_mgr
+                            .save_plan_steps(&sid, &self.app.plan_steps);
                     }
                 }
             }
@@ -179,7 +189,9 @@ impl<'a> LlmEventHandler<'a> {
             valid,
             issues: issues.to_vec(),
         });
-        self.app.message_timestamps.push(chrono::Local::now().naive_local());
+        self.app
+            .message_timestamps
+            .push(chrono::Local::now().naive_local());
         self.app.mark_dirty();
         if !valid {
             tracing::info!(tool, issues = ?issues, "工具结果验证告警");
@@ -229,9 +241,16 @@ impl<'a> LlmEventHandler<'a> {
                 if let Some(ref mut u) = self.app.token_usage
                     && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
                 {
-                    let model = self.app_core.config.agent_config(&self.app.current_agent).model.clone();
+                    let model = self
+                        .app_core
+                        .config
+                        .agent_config(&self.app.current_agent)
+                        .model
+                        .clone();
                     u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
-                        &model, u.prompt_tokens, u.completion_tokens,
+                        &model,
+                        u.prompt_tokens,
+                        u.completion_tokens,
                     ));
                 }
 
@@ -240,9 +259,10 @@ impl<'a> LlmEventHandler<'a> {
                 for msg in self.app.messages.iter_mut() {
                     if let super::AppMessage::Assistant { token_usage, .. } = msg
                         && token_usage.is_none()
-                            && let Some(ref u) = self.app.token_usage {
-                                *token_usage = Some(*u);
-                            }
+                        && let Some(ref u) = self.app.token_usage
+                    {
+                        *token_usage = Some(*u);
+                    }
                 }
                 self.app.rebuild_components();
                 return Action::Continue;
@@ -255,9 +275,16 @@ impl<'a> LlmEventHandler<'a> {
         if let Some(ref mut u) = self.app.token_usage
             && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
         {
-            let model = self.app_core.config.agent_config(&self.app.current_agent).model.clone();
+            let model = self
+                .app_core
+                .config
+                .agent_config(&self.app.current_agent)
+                .model
+                .clone();
             u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
-                &model, u.prompt_tokens, u.completion_tokens,
+                &model,
+                u.prompt_tokens,
+                u.completion_tokens,
             ));
         }
 
@@ -268,18 +295,18 @@ impl<'a> LlmEventHandler<'a> {
         for msg in self.app.messages.iter_mut() {
             if let super::AppMessage::Assistant { token_usage, .. } = msg
                 && token_usage.is_none()
-                    && let Some(ref u) = self.app.token_usage {
-                        *token_usage = Some(*u);
-                    }
+                && let Some(ref u) = self.app.token_usage
+            {
+                *token_usage = Some(*u);
+            }
         }
-
 
         self.app.rebuild_components();
 
         // Persist messages AFTER token_usage has been backfilled so
         // re-loaded sessions show usage in the block header.
         crate::tui::clipboard::save_session_messages(
-            &self.app_core.session_mgr,
+            &mut self.app_core.session_mgr,
             &session_id,
             &self.app.messages,
             Some(&msgs),
@@ -312,7 +339,9 @@ impl<'a> LlmEventHandler<'a> {
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
             self.app.messages.push(quality);
-            self.app.message_timestamps.push(chrono::Local::now().naive_local());
+            self.app
+                .message_timestamps
+                .push(chrono::Local::now().naive_local());
             self.app.mark_dirty();
         }
 
