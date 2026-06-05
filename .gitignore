@@ -46,3 +46,4 @@ crates/claw/examples/plugins/*/target/
 .opencode/
 .claude/
 .codex/
+.omx/

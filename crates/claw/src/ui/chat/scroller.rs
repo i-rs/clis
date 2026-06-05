@@ -163,6 +163,48 @@ mod tests {
         // Click above the block: no hit.
         assert_eq!(reg.handle_click(0, 13), None);
     }
+    #[test]
+    fn register_clicks_with_scroll_offset_adjusts_y() {
+        // Two blocks: heights [3, 3], spacing=1 → total=7, offsets [0, 4].
+        // Clickable block at content-y [4, 7). Viewport is 5 so
+        // max_scroll=2, making set_scroll(2) work.
+        let comps: Vec<ComponentCell> = vec![
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: false }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 3, click: true }) as Box<dyn MessageComponent>)),
+        ];
+        let mut scr = Scroller::new(&comps, 80, 5);
+        scr.set_scroll(2);
+        let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+        // Pane at screen y=10, height 5.
+        scr.register_clicks(Rect { x: 0, y: 10, width: 80, height: 5 }, &mut reg);
+        // After scroll=2 the block shifts from content-y 4..7 to
+        // screen rows 10+(4-2)..10+(6-2) = 12..15.
+        assert_eq!(reg.handle_click(0, 12), Some(&1), "click within shifted block (top edge)");
+        assert_eq!(reg.handle_click(0, 14), Some(&1), "click within shifted block (middle)");
+        // The old code would have registered at screen-y 14..17 but
+        // after shift the block is actually at 12..15, so a click at
+        // row 16 should now miss.
+        assert_eq!(reg.handle_click(0, 16), None, "click below shifted block");
+        assert_eq!(reg.handle_click(0, 11), None, "click above shifted block");
+    }
+
+    #[test]
+    fn register_clicks_skips_fully_scrolled_off_components() {
+        // Three blocks: heights [2, 4, 2], spacing=1 → total=10,
+        // offsets [0, 3, 8]. Clickable middle block at y_start=3,
+        // y_end=7. Viewport=2 gives max_scroll=8. At scroll >= 7
+        // the clickable block is completely above the viewport.
+        let comps: Vec<ComponentCell> = vec![
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 2, click: false }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 4, click: true }) as Box<dyn MessageComponent>)),
+            Rc::new(RefCell::new(Box::new(StubBlock { h: 2, click: false }) as Box<dyn MessageComponent>)),
+        ];
+        let mut scr = Scroller::new(&comps, 80, 2);
+        scr.set_scroll(8);
+        let mut reg: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+        scr.register_clicks(Rect { x: 0, y: 0, width: 80, height: 2 }, &mut reg);
+        assert_eq!(reg.len(), 0, "no visible clickable components");
+    }
 }
 
 impl Scroller {
@@ -219,14 +261,24 @@ impl Scroller {
     /// can keep owning it across frames.
     pub fn register_clicks(&self, pane: Rect, registry: &mut ClickRegionRegistry<usize>) {
         registry.clear();
+        let scroll_end = self.scroll.saturating_add(self.viewport_h);
         for h in &self.hits {
-            let area = Rect {
-                x: pane.x,
-                y: pane.y + h.y_start,
-                width: pane.width,
-                height: h.y_end.saturating_sub(h.y_start),
-            };
-            registry.register(area, h.component_idx);
+            // Clip hit region to the visible viewport and translate
+            // to screen-absolute coordinates.  Without the scroll
+            // adjustment the registered regions drift off-target as
+            // the user scrolls, making click targets unresponsive.
+            let visible_start = h.y_start.max(self.scroll);
+            let visible_end = h.y_end.min(scroll_end);
+
+            if visible_end > visible_start {
+                let area = Rect {
+                    x: pane.x,
+                    y: pane.y + visible_start.saturating_sub(self.scroll),
+                    width: pane.width,
+                    height: visible_end.saturating_sub(visible_start),
+                };
+                registry.register(area, h.component_idx);
+            }
         }
     }
 
