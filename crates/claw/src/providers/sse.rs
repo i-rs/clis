@@ -206,7 +206,8 @@ pub(crate) async fn openai_stream_chat_impl(
                                     .as_u64()
                                     .unwrap_or(0)
                                     as u32,
-                                total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0)
+                                estimated_cost_usd: None,
+            total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0)
                                     as u32,
                             });
                         }

@@ -68,7 +68,7 @@ impl ClawTool for DelegateTool {
 
         let agent_config = ctx.config.agent_config(&agent_id);
 
-        let system_prompt = build_sub_agent_prompt(&agent_config, &ctx);
+        let system_prompt = build_sub_agent_prompt(&agent_config, ctx);
 
         let mut messages = vec![serde_json::json!({"role": "system", "content": system_prompt})];
 
@@ -319,9 +319,9 @@ fn build_sub_agent_prompt(
         let now = crate::utils::now_in_tz(rt.tz_offset);
         prompt.push_str(&format!(
             "当前时间: {} ({}), {} (UTC{})\n\n",
-            now.format("%Y-%m-%d").to_string(),
-            now.format("%A").to_string(),
-            now.format("%H:%M").to_string(),
+            now.format("%Y-%m-%d"),
+            now.format("%A"),
+            now.format("%H:%M"),
             crate::utils::tz_label(rt.tz_offset),
         ));
     }

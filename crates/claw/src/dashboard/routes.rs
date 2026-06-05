@@ -181,6 +181,23 @@ pub async fn update_config(
     ApiResponse::ok(result)
 }
 
+
+/// List all configured providers from the config.
+pub async fn list_providers(
+    State(state): State<AppState>,
+) -> Json<ApiResponse<Value>> {
+    let core = state.core.read().await;
+    let providers: Vec<Value> = core.config.providers.iter().map(|(name, pc)| {
+        serde_json::json!({
+            "name": name,
+            "provider": pc.provider,
+            "model": pc.model,
+            "base_url": pc.base_url,
+        })
+    }).collect();
+    ApiResponse::ok(serde_json::json!({ "providers": providers }))
+}
+
 /// Send a message and start LLM processing.
 /// Returns the session ID so the client can subscribe to SSE events.
 pub async fn send_message(
@@ -259,7 +276,7 @@ pub async fn send_message(
                             core.session_mgr.append_message("assistant", text, extra);
                         }
                     }
-                    crate::core::save_chat_result(&mut core.session_mgr, &bg_sid, &msgs);
+                    crate::core::save_chat_result(&mut core.session_mgr, &bg_sid, msgs);
                     break;
                 }
                 LlmEvent::Error(e) => {
@@ -1032,7 +1049,7 @@ pub async fn list_checkpoints(
             query
                 .session_id
                 .as_ref()
-                .map_or(true, |sid| id.starts_with(&format!("cp_{}_", sid)))
+                .is_none_or(|sid| id.starts_with(&format!("cp_{}_", sid)))
         }).map(|(id, round, ts)| {
             serde_json::json!({
                 "id": id,
@@ -1241,7 +1258,7 @@ pub async fn run_evals(
     let core = state.core.read().await;
     let suite = crate::core::evals::builtin_eval_suite();
     let messages = if let Some(sid) = core.session_mgr.current_id() {
-        core.session_mgr.load_app_messages(&sid, 100)
+        core.session_mgr.load_app_messages(sid, 100)
     } else {
         Vec::new()
     };

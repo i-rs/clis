@@ -103,10 +103,11 @@ pub fn header_line(
 /// Indents the text by `BLOCK_LEFT_RESERVED` columns so it aligns with the
 /// header label, and paints the gutter bar.
 pub fn body_line(text: &str, style: Style) -> Line<'static> {
-    let mut spans: Vec<Span<'static>> = Vec::with_capacity(3);
-    spans.push(Span::raw(" ".repeat(BLOCK_INDENT)));
-    spans.push(Span::raw("▎ "));
-    spans.push(Span::styled(text.to_string(), style));
+    let spans: Vec<Span<'static>> = vec![
+        Span::raw(" ".repeat(BLOCK_INDENT)),
+        Span::raw("▎ "),
+        Span::styled(text.to_string(), style),
+    ];
     Line::from(spans)
 }
 

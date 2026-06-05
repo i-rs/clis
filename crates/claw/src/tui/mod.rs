@@ -108,8 +108,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     // Check for due reminders at startup
     app.reminder_text = reminders::check_reminders();
-    if app.reminder_text.is_some() {
-        let count = app.reminder_text.as_ref().unwrap().lines().count();
+    if let Some(ref reminder_text) = app.reminder_text {
+        let count = reminder_text.lines().count();
         reminders::notify_reminders(count);
     }
 

@@ -149,6 +149,23 @@ pub fn create_provider_for(
     }
 }
 
+/// Create a provider by name from the config's [providers] section.
+#[allow(dead_code)]
+pub fn create_provider_for_name(
+    client: &reqwest::Client,
+    name: &str,
+    config: &crate::config::Config,
+) -> Option<Box<dyn LlmProvider>> {
+    let pc = config.providers.get(name)?;
+    Some(create_provider_for(
+        client,
+        pc.provider,
+        &pc.api_key,
+        &pc.base_url,
+        &pc.model,
+    ))
+}
+
 // ── Tests ──
 
 #[cfg(test)]

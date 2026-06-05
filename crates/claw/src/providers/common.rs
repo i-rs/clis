@@ -6,6 +6,7 @@ pub(crate) fn truncate_body(body: &str, max_chars: usize) -> String {
     body.chars().take(max_chars).collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn emit_usage_record(
     tx: &UnboundedSender<LlmEvent>,
     model: &str,
@@ -36,6 +37,7 @@ pub(crate) fn emit_usage_record(
     }));
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn emit_http_log(
     tx: &UnboundedSender<LlmEvent>,
     status: u16,

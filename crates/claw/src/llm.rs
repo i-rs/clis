@@ -20,6 +20,9 @@ pub struct TokenUsage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     pub total_tokens: u32,
+    /// Estimated cost in USD, computed post-hoc from model pricing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub estimated_cost_usd: Option<f64>,
 }
 
 #[derive(Debug, Clone)]

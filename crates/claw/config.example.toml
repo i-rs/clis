@@ -48,6 +48,19 @@ model = "deepseek-v4-flash"
 # base_url = "http://localhost:11434"
 # model = "llama3"
 
+
+# [providers.openrouter]
+# provider = "openai"            # OpenRouter 兼容 OpenAI API 格式
+# api_key = "sk-or-v1-xxx"
+# base_url = "https://openrouter.ai/api/v1"
+# model = "openai/gpt-4o-mini"  # OpenRouter 的模型路由名
+
+# [providers.deepseek]
+# provider = "openai"            # DeepSeek 兼容 OpenAI API 格式
+# api_key = "sk-xxx"
+# base_url = "https://api.deepseek.com"
+# model = "deepseek-chat"
+
 # ---------- 兼容的顶层字段（自动迁移到 providers["default"]）----------
 # 取消注释以下四行即退回到旧格式，providers 段会由加载逻辑自动填充。
 # provider = "openai"
@@ -268,6 +281,15 @@ execution_mode = "React"
 # provider_ref:  引用 [providers] 段中的命名配置。设置后，agent 的
 #                provider / api_key / base_url 从该 provider 继承，
 #                只有 model 仍可单独覆盖。
+#
+
+# provider_ref 的行为说明：
+#   1. 设置 provider_ref 后，agent 的 provider / api_key / base_url
+#      全部从引用的 [providers.{name}] 段继承。
+#   2. model 字段特殊处理：即使设置了 provider_ref，仍可单独覆盖 model
+#      以使用不同模型，例如 provider_ref = "claude" + model = "claude-opus-4"。
+#   3. 如需完全自定义，不设 provider_ref，直接设置 provider / api_key /
+#      base_url / model，此时优先级为 agent 字段 > providers.default > 兼容顶层字段。
 #
 # [agents.analyst]
 # provider_ref = "default"            # 引用 providers.default

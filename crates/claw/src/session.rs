@@ -380,7 +380,7 @@ impl SessionManager {
             let meta = &mut self.sessions[idx];
             meta.message_count += 1;
             meta.updated_at = now_secs();
-            meta.message_count % 5 == 0
+            meta.message_count.is_multiple_of(5)
         } else {
             false
         };

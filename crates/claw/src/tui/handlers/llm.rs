@@ -225,17 +225,24 @@ impl<'a> LlmEventHandler<'a> {
                 tracing::warn!("未找到当前会话，跳过持久化");
                 self.app.finish_processing(Some(msgs.clone()));
                 self.app.token_usage = usage;
+                // Estimate cost from model pricing
+                if let Some(ref mut u) = self.app.token_usage
+                    && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
+                {
+                    let model = self.app_core.config.agent_config(&self.app.current_agent).model.clone();
+                    u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
+                        &model, u.prompt_tokens, u.completion_tokens,
+                    ));
+                }
 
                 // Backfill token usage onto all Assistant messages so
                 // every block header shows usage (cumulative for the turn).
                 for msg in self.app.messages.iter_mut() {
-                    if let super::AppMessage::Assistant { token_usage, .. } = msg {
-                        if token_usage.is_none() {
-                            if let Some(ref u) = self.app.token_usage {
+                    if let super::AppMessage::Assistant { token_usage, .. } = msg
+                        && token_usage.is_none()
+                            && let Some(ref u) = self.app.token_usage {
                                 *token_usage = Some(*u);
                             }
-                        }
-                    }
                 }
                 self.app.rebuild_components();
                 return Action::Continue;
@@ -244,20 +251,28 @@ impl<'a> LlmEventHandler<'a> {
 
         self.app.finish_processing(Some(msgs.clone()));
         self.app.token_usage = usage;
+        // Estimate cost from model pricing (before the immutable backfill loop)
+        if let Some(ref mut u) = self.app.token_usage
+            && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
+        {
+            let model = self.app_core.config.agent_config(&self.app.current_agent).model.clone();
+            u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
+                &model, u.prompt_tokens, u.completion_tokens,
+            ));
+        }
 
         // Backfill token usage onto all Assistant messages so the
         // block header can render it alongside the timestamp. In
         // multi-round ReAct loops each intermediate assistant message
         // receives the cumulative token usage for the entire turn.
         for msg in self.app.messages.iter_mut() {
-            if let super::AppMessage::Assistant { token_usage, .. } = msg {
-                if token_usage.is_none() {
-                    if let Some(ref u) = self.app.token_usage {
+            if let super::AppMessage::Assistant { token_usage, .. } = msg
+                && token_usage.is_none()
+                    && let Some(ref u) = self.app.token_usage {
                         *token_usage = Some(*u);
                     }
-                }
-            }
         }
+
 
         self.app.rebuild_components();
 

@@ -504,20 +504,21 @@ impl AppCore {
             .get(agent_id)
             .or_else(|| self.config.sub_agents.get(agent_id));
 
+        // Resolve provider config through the proper chain:
+        //   agent.provider_ref → config.providers[name] → config.top-level fields
+        let resolved_pc = self.config.resolve_provider_config(agent);
+        // Apply agent-level overrides on top of resolved provider config
+        let final_provider = agent.and_then(|a| a.provider).unwrap_or(resolved_pc.provider);
+        let final_api_key = agent.and_then(|a| a.api_key.as_deref()).unwrap_or(&resolved_pc.api_key);
+        let final_base_url = agent.and_then(|a| a.base_url.as_deref()).unwrap_or(&resolved_pc.base_url);
+        let final_model = agent.and_then(|a| a.model.as_deref()).unwrap_or(&resolved_pc.model);
+
         let provider = crate::providers::create_provider_for(
             &self.http_client,
-            agent
-                .and_then(|a| a.provider)
-                .unwrap_or(self.config.provider),
-            agent
-                .and_then(|a| a.api_key.as_deref())
-                .unwrap_or(&self.config.api_key),
-            agent
-                .and_then(|a| a.base_url.as_deref())
-                .unwrap_or(&self.config.base_url),
-            agent
-                .and_then(|a| a.model.as_deref())
-                .unwrap_or(&self.config.model),
+            final_provider,
+            final_api_key,
+            final_base_url,
+            final_model,
         );
 
         let mut agent_config = self.config.clone();

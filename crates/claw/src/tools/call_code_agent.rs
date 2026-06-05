@@ -60,7 +60,7 @@ impl ClawTool for CallCodeAgentTool {
             .filter(|s| !s.is_empty());
 
         let binary = resolve_binary(backend)?;
-        let mut cmd = Command::new(&binary);
+        let mut cmd = Command::new(binary);
         cmd.arg("chat");
         cmd.arg(task);
         cmd.stdout(Stdio::piped());
@@ -154,7 +154,7 @@ fn strip_ansi_escapes(s: &str) -> String {
         if c == '\x1b' {
             // Skip CSI sequences: ESC[ <params> <letter>
             if chars.next() == Some('[') {
-                while let Some(cc) = chars.next() {
+                for cc in chars.by_ref() {
                     if cc.is_ascii_alphabetic() || cc == '~' {
                         break;
                     }

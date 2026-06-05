@@ -355,11 +355,10 @@ impl Config {
     /// named-provider setup.
     pub fn resolve_provider_config(&self, agent: Option<&AgentConfig>) -> ProviderConfig {
         // 1. Try agent's provider_ref
-        if let Some(ref_name) = agent.and_then(|a| a.provider_ref.as_ref()) {
-            if let Some(pc) = self.providers.get(ref_name) {
+        if let Some(ref_name) = agent.and_then(|a| a.provider_ref.as_ref())
+            && let Some(pc) = self.providers.get(ref_name) {
                 return pc.clone();
             }
-        }
         // 2. Try default_provider
         if let Some(pc) = self.providers.get(&self.default_provider) {
             return pc.clone();
@@ -716,11 +715,10 @@ impl Config {
 
         // Validate default_provider exists in providers map, or add a
         // placeholder so resolution doesn't panic at runtime.
-        if !config.providers.contains_key(&config.default_provider) {
-            if config.providers.contains_key("default") {
+        if !config.providers.contains_key(&config.default_provider)
+            && config.providers.contains_key("default") {
                 config.default_provider = "default".to_string();
             }
-        }
 
         // Ensure "default" agent always exists (safety net against manual config edits)
         if config.agents.contains_key("default") {

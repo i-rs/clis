@@ -25,7 +25,7 @@ impl FeedbackRow {
 impl MessageComponent for FeedbackRow {
     /// 1 (top) + 1 (header) + (1 if has message) + 1 (bottom)
     fn height(&self, _w: u16) -> u16 {
-        let has_msg = self.message.as_ref().map_or(false, |m| !m.is_empty());
+        let has_msg = self.message.as_ref().is_some_and(|m| !m.is_empty());
         1 + 1 + (has_msg as u16) + 1
     }
 

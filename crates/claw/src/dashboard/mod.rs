@@ -144,6 +144,10 @@ impl Dashboard {
                     .put(routes::update_agent)
                     .delete(routes::delete_agent),
             )
+            .route(
+                "/api/providers",
+                axum::routing::get(routes::list_providers),
+            )
             .layer(auth_middleware);
 
         let static_routes = Router::new()

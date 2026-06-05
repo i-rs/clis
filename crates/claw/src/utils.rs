@@ -283,8 +283,7 @@ pub fn compact_tool_result(tool_name: &str, result: &str, max_chars: usize) -> S
                     sample_count += 1;
                     sample_str.push_str(&format!("{}: ", sample_count));
 
-                    let mut field_count = 0;
-                    for (k, v) in obj {
+                    for (field_count, (k, v)) in obj.into_iter().enumerate() {
                         if field_count >= 4 {
                             sample_str.push_str("...");
                             break;
@@ -296,7 +295,6 @@ pub fn compact_tool_result(tool_name: &str, result: &str, max_chars: usize) -> S
                         } else if let Some(b) = v.as_bool() {
                             sample_str.push_str(&format!("{}={} ", k, b));
                         }
-                        field_count += 1;
                     }
                     sample_str.push_str("; ");
                 }

@@ -567,12 +567,11 @@ impl StatsRepo for FileStatsStore {
                 if line.trim().is_empty() {
                     continue;
                 }
-                if let Some(ts) = extract_timestamp(&line) {
-                    if ts < cutoff {
+                if let Some(ts) = extract_timestamp(&line)
+                    && ts < cutoff {
                         removed += 1;
                         continue;
                     }
-                }
                 kept.push(line);
             }
 

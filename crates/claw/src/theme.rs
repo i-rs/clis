@@ -444,7 +444,7 @@ impl Theme {
         }
     }
 
-    fn resolve<'a>(opt: &Option<String>, fallback: &'a str) -> Color {
+    fn resolve(opt: &Option<String>, fallback: &str) -> Color {
         opt.as_ref()
             .and_then(|s| Self::parse_hex(s))
             .unwrap_or_else(|| Self::parse_hex(fallback).unwrap_or(Color::White))

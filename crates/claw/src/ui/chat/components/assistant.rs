@@ -169,23 +169,29 @@ impl MessageComponent for AssistantBlock {
         };
         let avatar = theme.primary();
         let label = theme.text();
+        fn fmt_tok(n: u32) -> String {
+            if n >= 1000 {
+                format!("{}K", n / 1000)
+            } else {
+                format!("{}", n)
+            }
+        }
         let meta = match (self.timestamp.as_deref(), self.token_usage) {
             (Some(ts), Some(usage)) => {
-                let tu = if usage.total_tokens >= 1000 {
-                    format!("{}K", usage.total_tokens / 1000)
-                } else {
-                    format!("{}tok", usage.total_tokens)
-                };
-                Some(format!("{} · {}", ts, tu))
+                let mut parts = vec![ts.to_string()];
+                parts.push(format!("↑{}↓{}", fmt_tok(usage.prompt_tokens), fmt_tok(usage.completion_tokens)));
+                if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
+                    parts.push(format!("${:.4}", cost));
+                }
+                Some(parts.join(" · "))
             }
             (Some(ts), None) => Some(ts.to_string()),
             (None, Some(usage)) => {
-                let tu = if usage.total_tokens >= 1000 {
-                    format!("{}Ktok", usage.total_tokens / 1000)
-                } else {
-                    format!("{}tok", usage.total_tokens)
-                };
-                Some(tu)
+                let mut parts = vec![format!("↑{}↓{}", fmt_tok(usage.prompt_tokens), fmt_tok(usage.completion_tokens))];
+                if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
+                    parts.push(format!("${:.4}", cost));
+                }
+                Some(parts.join(" · "))
             }
             (None, None) => None,
         };
@@ -310,7 +316,7 @@ impl MessageComponent for AssistantBlock {
                         .fg(theme.dim_text())
                         .add_modifier(Modifier::BOLD),
                 ));
-            } else if used + 2 + 1 <= usable {
+            } else if used + 2 < usable {
                 spans.push(Span::styled(
                     format!("  {}", chevron),
                     Style::default()

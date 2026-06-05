@@ -32,6 +32,7 @@ struct ChatLoopInit {
     checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn prepare_loop(
     provider: &dyn LlmProvider,
     config: &Config,

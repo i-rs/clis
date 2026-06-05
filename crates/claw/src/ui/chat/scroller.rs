@@ -322,7 +322,7 @@ pub fn op_variant(op: &ComponentOp) -> usize {
             if last_end >= scroll_end { break; }
             last += 1;
         }
-        if last + 1 <= self.offsets.len() { last += 1; }
+        if last < self.offsets.len() { last += 1; }
         (first, last.min(self.offsets.len()), skip)
     }
 
@@ -332,7 +332,8 @@ pub fn op_variant(op: &ComponentOp) -> usize {
     ) {
         let (first, last, skip) = self.visible_range();
         let scroll_top = area.y;
-        for idx in first..last {
+        #[allow(clippy::needless_range_loop)]
+        for idx in first..last.min(components.len()) {
             let comp_top = self.offsets[idx].saturating_sub(self.scroll);
             if comp_top >= self.viewport_h { break; }
             // `skip` is the number of rows of the *first* visible

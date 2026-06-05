@@ -149,6 +149,7 @@ pub fn parse_openai_sse_chunk(data: &Value) -> ParseResult {
             prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
             completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,
             total_tokens: usage_data["total_tokens"].as_u64().unwrap_or(0) as u32,
+            estimated_cost_usd: None,
         });
     }
 
