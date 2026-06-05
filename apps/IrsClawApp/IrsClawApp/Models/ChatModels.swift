@@ -71,9 +71,17 @@ struct ClawMessage: Codable, Identifiable {
     let name: String?
     let args: String?
     let result: String?
+    // evaluation fields
+    let tool: String?
+    let valid: Bool?
+    let issues: [String]?
+    // quality fields
+    let score: String?
+    let complete: Bool?
+    let referencesValid: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case role, content, reasoning, name, args, result
+        case role, content, reasoning, name, args, result, tool, valid, issues, score, complete, referencesValid
     }
 
     var displayContent: String {

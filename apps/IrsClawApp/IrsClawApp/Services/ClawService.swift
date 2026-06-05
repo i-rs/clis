@@ -1056,6 +1056,10 @@ class ClawService: ObservableObject {
             appMsg = .assistant(text: msg.content ?? "")
         case "tool_call":
             appMsg = .toolCall(name: msg.name ?? "", args: msg.args ?? "", result: msg.result ?? "")
+        case "evaluation":
+            appMsg = .evaluation(tool: msg.tool ?? "", valid: msg.valid ?? false, issues: msg.issues ?? [])
+        case "quality":
+            appMsg = .quality(score: msg.score ?? "", complete: msg.complete ?? false, issues: msg.issues ?? [], referencesValid: msg.referencesValid ?? false)
         default:
             appMsg = .assistant(text: msg.content ?? "")
         }
