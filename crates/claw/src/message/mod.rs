@@ -9,6 +9,7 @@
 
 pub mod accumulator;
 
+#[cfg(feature = "dashboard")]
 pub use accumulator::MessageAccumulator;
 
 use crate::app::Message;

@@ -21,7 +21,6 @@ impl MySqlBackend {
         let arc = Arc::new(self);
         ClawStorage {
             sessions: Box::new(MySqlSessionStore { db: arc.clone() }),
-            messages: Box::new(MySqlMessageStore { db: arc.clone() }),
             message_log: std::sync::Arc::new(MySqlMessageLogStore { db: arc.clone() }),
             api_cache: Box::new(MySqlApiCacheStore { db: arc.clone() }),
             plan_steps: Box::new(MySqlPlanStepsStore { db: arc.clone() }),
@@ -46,27 +45,6 @@ impl MySqlBackend {
         )
         .execute(&self.pool)
         .await?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS messages (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                session_id VARCHAR(36) NOT NULL,
-                type VARCHAR(32) NOT NULL,
-                text TEXT NOT NULL,
-                name VARCHAR(128),
-                args TEXT,
-                result TEXT,
-                reasoning TEXT,
-                extra TEXT,
-                created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP()),
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB",
-        )
-        .execute(&self.pool)
-        .await?;
-        sqlx::query("CREATE INDEX idx_messages_session ON messages(session_id)")
-            .execute(&self.pool)
-            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS api_cache (
@@ -178,12 +156,11 @@ impl MySqlBackend {
     }
 }
 
-// Generate all 8 trait implementations
+// Generate all trait implementations
 define_sql_stores!(
     sqlx::MySqlPool,
     MySqlBackend,
     MySqlSessionStore,
-    MySqlMessageStore,
     MySqlMessageLogStore,
     MySqlApiCacheStore,
     MySqlPlanStepsStore,

@@ -200,7 +200,7 @@ impl SessionManager {
             let storage = self.storage.clone();
             let sid = id.to_string();
             crate::utils::sync_block_on(async move {
-                let _ = storage.messages.delete_session(&sid).await;
+                let _ = storage.message_log.delete_session(&sid).await;
                 let _ = storage.api_cache.delete(&sid).await;
                 let _ = storage.plan_steps.delete(&sid).await;
             });
@@ -294,7 +294,7 @@ impl SessionManager {
     }
 
     pub fn export_markdown(&self, id: &str) -> Option<String> {
-        let records = self.load_messages(id, 1000);
+        let messages = self.load_app_messages(id, 1000);
         let meta = self.find_index(id).map(|i| &self.sessions[i])?;
         let mut md = format!(
             "# 会话：{}\n\n> 创建时间：{}\n\n",
@@ -303,39 +303,26 @@ impl SessionManager {
                 .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
                 .unwrap_or_default()
         );
-        for record in &records {
-            let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
-            let text = record.get("text").and_then(|t| t.as_str()).unwrap_or("");
-            match msg_type {
-                "user" => md.push_str(&format!("**用户:** {}\n\n", text)),
-                "assistant" => md.push_str(&format!("**Claw:** {}\n\n", text)),
-                "tool_call" => md.push_str(&format!(
-                    "*[工具调用: {}]*\n\n",
-                    record.get("name").and_then(|n| n.as_str()).unwrap_or("")
-                )),
-                "error" => md.push_str(&format!("**错误:** {}\n\n", text)),
-                "evaluation" => {
-                    let tool_name = record.get("tool").and_then(|v| v.as_str()).unwrap_or("");
-                    let valid = record
-                        .get("valid")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(true);
-                    let issues: Vec<String> = record
-                        .get("issues")
-                        .and_then(|i| i.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|x| x.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    if !valid {
-                        md.push_str(&format!(
-                            "**评测 ({}):** {}\n\n",
-                            tool_name,
-                            issues.join("; ")
-                        ));
-                    }
+        for msg in &messages {
+            match msg {
+                crate::app::Message::User { text } => {
+                    md.push_str(&format!("**用户:** {}\n\n", text));
+                }
+                crate::app::Message::Assistant { text, .. } => {
+                    md.push_str(&format!("**Claw:** {}\n\n", text));
+                }
+                crate::app::Message::ToolCall { name, .. } => {
+                    md.push_str(&format!("*[工具调用: {}]*\n\n", name));
+                }
+                crate::app::Message::Error { text } => {
+                    md.push_str(&format!("**错误:** {}\n\n", text));
+                }
+                crate::app::Message::Evaluation {
+                    tool,
+                    valid,
+                    issues,
+                } if !valid => {
+                    md.push_str(&format!("**评测 ({}):** {}\n\n", tool, issues.join("; ")));
                 }
                 _ => {}
             }
@@ -344,11 +331,11 @@ impl SessionManager {
     }
 
     pub fn export_json(&self, id: &str) -> Option<String> {
-        let records = self.load_messages(id, 1000);
+        let messages = self.load_app_messages(id, 1000);
         let meta = self.find_index(id).map(|i| &self.sessions[i])?;
         let export = serde_json::json!({
             "session": { "id": meta.id, "title": meta.title, "created_at": meta.created_at, "updated_at": meta.updated_at },
-            "messages": records,
+            "messages": messages,
         });
         serde_json::to_string_pretty(&export).ok()
     }
@@ -361,50 +348,6 @@ impl SessionManager {
         } else {
             false
         }
-    }
-
-    pub fn append_message(&mut self, role: &str, content: &str, extra: Option<serde_json::Value>) {
-        let session_id = match self.ensure_current_session() {
-            Some(id) => id,
-            None => return,
-        };
-        let mut entry = serde_json::json!({"type": role, "text": content});
-        if let Some(extra) = extra
-            && let Some(obj) = entry.as_object_mut()
-            && let Some(extra_obj) = extra.as_object()
-        {
-            for (k, v) in extra_obj {
-                obj.insert(k.clone(), v.clone());
-            }
-        }
-
-        let storage = self.storage.clone();
-        let sid = session_id.clone();
-        if let Err(e) =
-            crate::utils::sync_block_on(async move { storage.messages.append(&sid, &entry).await })
-        {
-            tracing::error!("写入会话消息失败: {}", e);
-            return;
-        }
-
-        let should_save = if let Some(idx) = self.find_index(&session_id) {
-            let meta = &mut self.sessions[idx];
-            meta.message_count += 1;
-            meta.updated_at = now_secs();
-            meta.message_count.is_multiple_of(5)
-        } else {
-            false
-        };
-        if should_save {
-            self.save_index();
-        }
-    }
-
-    pub fn load_messages(&self, id: &str, max_messages: usize) -> Vec<serde_json::Value> {
-        let storage = self.storage.clone();
-        let sid = id.to_string();
-        crate::utils::sync_block_on(async move { storage.messages.load(&sid, max_messages).await })
-            .unwrap_or_default()
     }
 
     pub fn load_app_messages(&self, id: &str, max_messages: usize) -> Vec<crate::app::Message> {
@@ -447,19 +390,6 @@ impl SessionManager {
         self.saved_cursors.insert(session_id.to_string(), count);
     }
 
-    pub fn save_all_messages(&self, id: &str, records: &[serde_json::Value]) {
-        let storage = self.storage.clone();
-        let sid = id.to_string();
-        let records = records.to_vec();
-        if let Err(e) =
-            crate::utils::sync_block_on(
-                async move { storage.messages.save_all(&sid, &records).await },
-            )
-        {
-            tracing::error!("持久化写入失败: {}", e);
-        }
-    }
-
     pub fn save_api_messages(&self, id: &str, messages: &[serde_json::Value]) {
         let storage = self.storage.clone();
         let sid = id.to_string();
@@ -480,6 +410,7 @@ impl SessionManager {
             .unwrap_or(None)
     }
 
+    #[allow(dead_code)]
     fn ensure_current_session(&mut self) -> Option<String> {
         if self.current_id.is_some() {
             self.current_id.clone()
@@ -535,14 +466,26 @@ mod tests {
         let mut mgr = SessionManager::new(dir.clone());
         let id = mgr.create_session();
         let msgs = vec![
-            serde_json::json!({"type": "user", "text": "hello"}),
-            serde_json::json!({"type": "assistant", "text": "hi there"}),
+            crate::app::Message::User {
+                text: "hello".into(),
+            },
+            crate::app::Message::Assistant {
+                text: "hi there".into(),
+                reasoning: String::new(),
+                token_usage: None,
+            },
         ];
-        mgr.save_all_messages(&id, &msgs);
-        let loaded = mgr.load_messages(&id, 10);
+        mgr.append_new_messages(&id, &msgs);
+        let loaded = mgr.load_app_messages(&id, 10);
         assert_eq!(loaded.len(), 2);
-        assert_eq!(loaded[0]["text"], "hello");
-        assert_eq!(loaded[1]["text"], "hi there");
+        match &loaded[0] {
+            crate::app::Message::User { text } => assert_eq!(text, "hello"),
+            other => panic!("expected User, got {:?}", other),
+        }
+        match &loaded[1] {
+            crate::app::Message::Assistant { text, .. } => assert_eq!(text, "hi there"),
+            other => panic!("expected Assistant, got {:?}", other),
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -592,10 +535,16 @@ mod tests {
         let id = mgr.create_session();
         mgr.rename_session(&id, "Test Chat");
         let msgs = vec![
-            serde_json::json!({"type": "user", "text": "hello"}),
-            serde_json::json!({"type": "assistant", "text": "hi there"}),
+            crate::app::Message::User {
+                text: "hello".into(),
+            },
+            crate::app::Message::Assistant {
+                text: "hi there".into(),
+                reasoning: String::new(),
+                token_usage: None,
+            },
         ];
-        mgr.save_all_messages(&id, &msgs);
+        mgr.append_new_messages(&id, &msgs);
         let md = mgr.export_markdown(&id);
         assert!(md.is_some());
         let md = md.unwrap();
@@ -610,8 +559,10 @@ mod tests {
         let dir = test_dir();
         let mut mgr = SessionManager::new(dir.clone());
         let id = mgr.create_session();
-        let msgs = vec![serde_json::json!({"type": "user", "text": "hello"})];
-        mgr.save_all_messages(&id, &msgs);
+        let msgs = vec![crate::app::Message::User {
+            text: "hello".into(),
+        }];
+        mgr.append_new_messages(&id, &msgs);
         let json = mgr.export_json(&id);
         assert!(json.is_some());
         let parsed: serde_json::Value = serde_json::from_str(&json.unwrap()).unwrap();
@@ -696,18 +647,27 @@ mod tests {
 
         let mut mgr = SessionManager::with_storage(storage.clone());
         let id_a = mgr.create_session();
-        mgr.append_message("user", "hello", None);
-        mgr.append_message("assistant", "hi there", None);
+        let msgs = vec![
+            crate::app::Message::User {
+                text: "hello".into(),
+            },
+            crate::app::Message::Assistant {
+                text: "hi there".into(),
+                reasoning: String::new(),
+                token_usage: None,
+            },
+        ];
+        mgr.append_new_messages(&id_a, &msgs);
 
-        let msgs = mgr.load_messages(&id_a, 100);
-        assert_eq!(msgs.len(), 2, "before create_session");
+        let loaded = mgr.load_app_messages(&id_a, 100);
+        assert_eq!(loaded.len(), 2, "before create_session");
 
         let _id_b = mgr.create_session();
 
         let mgr2 = SessionManager::with_storage(storage);
-        let msgs2 = mgr2.load_messages(&id_a, 100);
+        let loaded2 = mgr2.load_app_messages(&id_a, 100);
         assert_eq!(
-            msgs2.len(),
+            loaded2.len(),
             2,
             "messages of A should survive create_session for B"
         );
@@ -726,14 +686,24 @@ mod tests {
 
         let mut mgr = SessionManager::with_storage(storage.clone());
         let id_a = mgr.create_session();
-        mgr.append_message("user", "msg in A", None);
+        mgr.append_new_messages(
+            &id_a,
+            &[crate::app::Message::User {
+                text: "msg in A".into(),
+            }],
+        );
         let id_b = mgr.create_session();
-        mgr.append_message("user", "msg in B", None);
+        mgr.append_new_messages(
+            &id_b,
+            &[crate::app::Message::User {
+                text: "msg in B".into(),
+            }],
+        );
 
         // Save & reload — verify both sessions retain their messages
         let mgr2 = SessionManager::with_storage(storage.clone());
-        let msgs_a = mgr2.load_messages(&id_a, 100);
-        let msgs_b = mgr2.load_messages(&id_b, 100);
+        let msgs_a = mgr2.load_app_messages(&id_a, 100);
+        let msgs_b = mgr2.load_app_messages(&id_b, 100);
         assert_eq!(msgs_a.len(), 1, "session A messages preserved");
         assert_eq!(msgs_b.len(), 1, "session B messages preserved");
 

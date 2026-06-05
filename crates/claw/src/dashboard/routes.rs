@@ -1,5 +1,6 @@
 use crate::dashboard::AppState;
 use crate::llm::LlmEvent;
+#[cfg(feature = "dashboard")]
 use crate::message::MessageAccumulator;
 use crate::providers::ProviderKind;
 use crate::stats::StatsPeriod;
@@ -300,9 +301,21 @@ pub async fn send_message(
     let (llm_tx, mut llm_rx) = mpsc::unbounded_channel::<LlmEvent>();
     {
         let core = state.core.read().await;
-        let records = core.session_mgr.load_messages(&sid, 50);
-        let msgs = core.build_messages_from_jsonl(&records, &agent_id);
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &records);
+        let messages = core.session_mgr.load_app_messages(&sid, 50);
+        let msgs = core.build_messages_from_log(&messages, &agent_id);
+        let recent: Vec<Value> = messages
+            .iter()
+            .filter_map(|m| match m {
+                crate::app::Message::User { text } => {
+                    Some(serde_json::json!({"role":"user","content":text}))
+                }
+                crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
+                    Some(serde_json::json!({"role":"assistant","content":text}))
+                }
+                _ => None,
+            })
+            .collect();
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
     }
 
     let bg_state = state.clone();
@@ -368,10 +381,22 @@ pub async fn chat_stream(
             .map(|m| m.agent_id.clone())
             .unwrap_or_else(|| "default".to_string());
 
-        let records = core.session_mgr.load_messages(&session_id, 50);
-        let msgs = core.build_messages_from_jsonl(&records, &agent_id);
+        let records = core.session_mgr.load_app_messages(&session_id, 50);
+        let msgs = core.build_messages_from_log(&records, &agent_id);
+        let recent: Vec<Value> = records
+            .iter()
+            .filter_map(|m| match m {
+                crate::app::Message::User { text } => {
+                    Some(serde_json::json!({"role":"user","content":text}))
+                }
+                crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
+                    Some(serde_json::json!({"role":"assistant","content":text}))
+                }
+                _ => None,
+            })
+            .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &records);
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
     }
 
     let stream_state = state.clone();

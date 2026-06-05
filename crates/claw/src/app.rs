@@ -11,11 +11,13 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::time::Instant;
 
+#[allow(dead_code)]
 pub fn message_to_jsonl(msg: &Message) -> Value {
     serde_json::to_value(msg)
         .unwrap_or_else(|_| serde_json::json!({"type": "error", "text": "serialization failed"}))
 }
 
+#[cfg(test)]
 pub fn message_from_jsonl(v: Value) -> Option<Message> {
     serde_json::from_value(v).ok()
 }
@@ -168,9 +170,8 @@ pub enum Message {
         name: String,
         args: String,
         result: String,
-        // Older session records (and `api_msgs_to_jsonl`) don't persist
-        // these — default to 0/0 so reload doesn't silently drop the
-        // entire tool_call message.
+        // Older session records don't persist these — default to 0/0 so
+        // reload doesn't silently drop the entire tool_call message.
         #[serde(default)]
         step: usize,
         #[serde(default)]
@@ -1576,7 +1577,7 @@ mod tests {
         assert_eq!(app.tool_call_count, 1);
     }
 
-    /// Regression: `api_msgs_to_jsonl` saves tool_call records without
+    /// Regression: older session records save tool_call records without
     /// `step`/`total_steps`. Deserialization must tolerate this, otherwise
     /// tool_call messages silently vanish on session reload (the mini
     /// program and dashboard-ui both lose them).

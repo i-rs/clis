@@ -21,7 +21,6 @@ impl PgBackend {
         let arc = Arc::new(self);
         ClawStorage {
             sessions: Box::new(PgSessionStore { db: arc.clone() }),
-            messages: Box::new(PgMessageStore { db: arc.clone() }),
             message_log: std::sync::Arc::new(PgMessageLogStore { db: arc.clone() }),
             api_cache: Box::new(PgApiCacheStore { db: arc.clone() }),
             plan_steps: Box::new(PgPlanStepsStore { db: arc.clone() }),
@@ -46,26 +45,6 @@ impl PgBackend {
         )
         .execute(&self.pool)
         .await?;
-
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS messages (
-                id BIGSERIAL PRIMARY KEY,
-                session_id VARCHAR(36) NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                type VARCHAR(32) NOT NULL,
-                text TEXT NOT NULL DEFAULT '',
-                name VARCHAR(128),
-                args TEXT,
-                result TEXT,
-                reasoning TEXT,
-                extra TEXT,
-                created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW())::BIGINT)
-            )",
-        )
-        .execute(&self.pool)
-        .await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)")
-            .execute(&self.pool)
-            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS api_cache (
@@ -168,12 +147,11 @@ impl PgBackend {
     }
 }
 
-// Generate all 8 trait implementations
+// Generate all trait implementations
 define_sql_stores!(
     sqlx::PgPool,
     PgBackend,
     PgSessionStore,
-    PgMessageStore,
     PgMessageLogStore,
     PgApiCacheStore,
     PgPlanStepsStore,

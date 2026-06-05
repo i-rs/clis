@@ -760,10 +760,14 @@ impl AppCore {
         .ok()
     }
 
-    /// Build API messages from raw JSONL session records (no app::Message conversion).
-    /// Used by Dashboard which doesn't maintain an App message list.
+    /// Build API messages from `Message` enum records loaded via `MessageLog`.
+    /// Used by Dashboard which doesn't maintain an in-memory App message list.
     #[cfg(feature = "dashboard")]
-    pub fn build_messages_from_jsonl(&self, records: &[Value], agent_id: &str) -> Vec<Value> {
+    pub fn build_messages_from_log(
+        &self,
+        messages: &[crate::app::Message],
+        agent_id: &str,
+    ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
         let memory = self.agent_store.memory_for(agent_id);
@@ -798,43 +802,36 @@ impl AppCore {
 
         let mut tool_call_counter: u32 = 0;
 
-        for record in records {
-            let msg_type = record.get("type").and_then(|t| t.as_str()).unwrap_or("");
-            match msg_type {
-                "user" | "assistant" => {
-                    if let Some(text) = record.get("text").and_then(|t| t.as_str()) {
-                        msgs.push(serde_json::json!({
-                            "role": msg_type,
-                            "content": text
-                        }));
-                    }
+        for msg in messages {
+            match msg {
+                crate::app::Message::User { text } => {
+                    msgs.push(serde_json::json!({ "role": "user", "content": text }));
                 }
-                "tool_call" => {
-                    if let (Some(name), Some(args), Some(result)) = (
-                        record.get("name").and_then(|n| n.as_str()),
-                        record.get("args").and_then(|a| a.as_str()),
-                        record.get("result").and_then(|r| r.as_str()),
-                    ) {
-                        tool_call_counter += 1;
-                        let call_id = format!("call_{}_{}", name, tool_call_counter);
-                        msgs.push(serde_json::json!({
-                            "role": "assistant",
-                            "content": null,
-                            "tool_calls": [{
-                                "id": call_id,
-                                "type": "function",
-                                "function": {
-                                    "name": name,
-                                    "arguments": args
-                                }
-                            }]
-                        }));
-                        msgs.push(serde_json::json!({
-                            "role": "tool",
-                            "tool_call_id": call_id,
-                            "content": result
-                        }));
-                    }
+                crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
+                    msgs.push(serde_json::json!({ "role": "assistant", "content": text }));
+                }
+                crate::app::Message::ToolCall {
+                    name, args, result, ..
+                } => {
+                    tool_call_counter += 1;
+                    let call_id = format!("call_{}_{}", name, tool_call_counter);
+                    msgs.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "arguments": args
+                            }
+                        }]
+                    }));
+                    msgs.push(serde_json::json!({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": result
+                    }));
                 }
                 _ => {}
             }
@@ -880,129 +877,6 @@ impl AppCore {
     #[allow(dead_code)]
     pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
         crate::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))
-    }
-}
-
-/// Convert API-format messages back to JSONL records for session persistence.
-/// Used by both TUI and Dashboard to avoid duplicating conversion logic.
-#[cfg(feature = "dashboard")]
-pub fn api_msgs_to_jsonl(api_msgs: &[Value]) -> Vec<Value> {
-    let mut records: Vec<Value> = Vec::with_capacity(api_msgs.len());
-    let mut i = 0;
-    while i < api_msgs.len() {
-        let m = &api_msgs[i];
-        let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
-        match role {
-            "user" => {
-                records.push(serde_json::json!({
-                    "type": "user",
-                    "text": m.get("content").and_then(|c| c.as_str()).unwrap_or(""),
-                }));
-                i += 1;
-            }
-            "assistant" => {
-                let text_raw = m.get("content");
-                // OpenAI style: `content` is a string. Some providers
-                // (Anthropic, multi-modal) send an array of parts — only
-                // the text parts count for our storage.
-                let text = match text_raw {
-                    Some(Value::String(s)) => s.clone(),
-                    Some(Value::Null) | None => String::new(),
-                    Some(Value::Array(parts)) => parts
-                        .iter()
-                        .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
-                        .collect::<Vec<_>>()
-                        .join(""),
-                    _ => String::new(),
-                };
-                let text = if text == "null" { String::new() } else { text };
-                let reasoning = m
-                    .get("reasoning_content")
-                    .and_then(|r| r.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                if let Some(tc_array) = m.get("tool_calls").and_then(|t| t.as_array()) {
-                    // Persist the assistant's prose (e.g. "好的，先看看
-                    // water 工具") *before* the tool calls, otherwise
-                    // session reload would silently lose the text the LLM
-                    // emitted between user input and tool execution.
-                    if !text.is_empty() || !reasoning.is_empty() {
-                        let mut rec = serde_json::json!({
-                            "type": "assistant",
-                            "text": text,
-                        });
-                        if !reasoning.is_empty() {
-                            rec["reasoning"] = serde_json::Value::String(reasoning);
-                        }
-                        records.push(rec);
-                    }
-                    let tool_call_count = tc_array.len();
-                    for (tc_idx, tc) in tc_array.iter().enumerate() {
-                        let name = tc
-                            .get("function")
-                            .and_then(|f| f.get("name"))
-                            .and_then(|n| n.as_str())
-                            .unwrap_or("");
-                        let args = tc
-                            .get("function")
-                            .and_then(|f| f.get("arguments"))
-                            .and_then(|a| a.as_str())
-                            .unwrap_or("");
-                        let tool_result_idx = i + 1 + tc_idx;
-                        let result = if tool_result_idx < api_msgs.len()
-                            && api_msgs[tool_result_idx]
-                                .get("role")
-                                .and_then(|r| r.as_str())
-                                == Some("tool")
-                        {
-                            api_msgs[tool_result_idx]
-                                .get("content")
-                                .and_then(|c| c.as_str())
-                                .unwrap_or("")
-                                .to_string()
-                        } else {
-                            String::new()
-                        };
-                        records.push(serde_json::json!({
-                            "type": "tool_call",
-                            "name": name,
-                            "args": args,
-                            "result": result,
-                        }));
-                    }
-                    i += 1 + tool_call_count;
-                } else {
-                    let mut record = serde_json::json!({
-                        "type": "assistant",
-                        "text": text,
-                    });
-                    if !reasoning.is_empty() {
-                        record["reasoning"] = serde_json::Value::String(reasoning);
-                    }
-                    records.push(record);
-                    i += 1;
-                }
-            }
-            _ => {
-                i += 1;
-            }
-        }
-    }
-    records
-}
-
-/// Save API messages and their JSONL representation to the session.
-/// Unified persistence logic for both TUI and Dashboard.
-#[cfg(feature = "dashboard")]
-pub fn save_chat_result(
-    session_mgr: &mut SessionManager,
-    session_id: &str,
-    api_messages: &[Value],
-) {
-    session_mgr.save_api_messages(session_id, api_messages);
-    let records = api_msgs_to_jsonl(api_messages);
-    if !records.is_empty() {
-        session_mgr.save_all_messages(session_id, &records);
     }
 }
 
@@ -1187,98 +1061,5 @@ mod tests {
         })
         .join()
         .expect("spawn_chat_for 不应 panic");
-    }
-
-    #[cfg(feature = "dashboard")]
-    #[test]
-    fn test_api_msgs_to_jsonl_preserves_text_with_tool_calls() {
-        // When the LLM emits both prose ("好的，先看看 water 工具") and
-        // tool calls, the prose must be persisted *before* the tool_call
-        // record. Otherwise session reload loses the text entirely.
-        let api_msgs = vec![
-            json!({"role": "user", "content": "记 300ml 水"}),
-            json!({
-                "role": "assistant",
-                "content": "好的，我先看看 water 工具的具体用法",
-                "tool_calls": [{
-                    "id": "c1",
-                    "type": "function",
-                    "function": {"name": "i_rs", "arguments": "{\"tool\":\"water\"}"}
-                }]
-            }),
-            json!({"role": "tool", "content": "tool teach output"}),
-            json!({
-                "role": "assistant",
-                "content": "已经记下啦",
-                "reasoning_content": "记录成功"
-            }),
-        ];
-        let records = super::api_msgs_to_jsonl(&api_msgs);
-        let types: Vec<&str> = records
-            .iter()
-            .map(|r| r["type"].as_str().unwrap_or(""))
-            .collect();
-        assert_eq!(
-            types,
-            vec!["user", "assistant", "tool_call", "assistant"],
-            "should produce user / assistant(prose) / tool_call / assistant(final)"
-        );
-        assert_eq!(records[1]["text"], "好的，我先看看 water 工具的具体用法");
-        assert_eq!(records[3]["text"], "已经记下啦");
-        assert_eq!(records[3]["reasoning"], "记录成功");
-    }
-
-    #[cfg(feature = "dashboard")]
-    #[test]
-    fn test_api_msgs_to_jsonl_preserves_reasoning_with_tool_calls() {
-        // Reasoning emitted alongside tool calls (no visible prose) must
-        // still be persisted so the user can review the model's thinking.
-        let api_msgs = vec![
-            json!({"role": "user", "content": "go"}),
-            json!({
-                "role": "assistant",
-                "content": null,
-                "reasoning_content": "thinking about which tool to use",
-                "tool_calls": [{
-                    "id": "c1",
-                    "type": "function",
-                    "function": {"name": "i_rs", "arguments": "{}"}
-                }]
-            }),
-            json!({"role": "tool", "content": "ok"}),
-        ];
-        let records = super::api_msgs_to_jsonl(&api_msgs);
-        assert_eq!(records.len(), 3);
-        assert_eq!(records[1]["type"], "assistant");
-        assert_eq!(records[1]["reasoning"], "thinking about which tool to use");
-        assert_eq!(records[1]["text"], "");
-        assert_eq!(records[2]["type"], "tool_call");
-    }
-
-    #[cfg(feature = "dashboard")]
-    #[test]
-    fn test_api_msgs_to_jsonl_skips_truly_empty_assistant_with_tool_calls() {
-        // An assistant message that has *nothing* (no text, no reasoning)
-        // alongside tool_calls should not produce a redundant empty
-        // assistant record — the tool_call record alone is enough.
-        let api_msgs = vec![
-            json!({"role": "user", "content": "go"}),
-            json!({
-                "role": "assistant",
-                "content": null,
-                "tool_calls": [{
-                    "id": "c1",
-                    "type": "function",
-                    "function": {"name": "i_rs", "arguments": "{}"}
-                }]
-            }),
-            json!({"role": "tool", "content": "ok"}),
-        ];
-        let records = super::api_msgs_to_jsonl(&api_msgs);
-        let types: Vec<&str> = records
-            .iter()
-            .map(|r| r["type"].as_str().unwrap_or(""))
-            .collect();
-        assert_eq!(types, vec!["user", "tool_call"]);
     }
 }

@@ -145,8 +145,8 @@ impl MessageAccumulator {
     }
 
     /// Build a `Vec<Message>` from a historical `LlmEvent::Done` payload
-    /// (API-format message list). This replaces `api_msgs_to_jsonl` for new
-    /// callers — used by Dashboard `send_message` (non-streaming path).
+    /// (API-format message list). Used by Dashboard `send_message`
+    /// (non-streaming path) to convert API responses for persistence.
     pub fn from_api_messages(api_msgs: &[serde_json::Value]) -> Vec<Message> {
         let mut acc = Self::new();
         for m in api_msgs {

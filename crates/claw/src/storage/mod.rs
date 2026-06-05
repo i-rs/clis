@@ -96,35 +96,7 @@ pub trait SessionRepo: Send + Sync {
     }
 }
 
-/// Per-session message persistence (JSONL records).
-#[async_trait]
-pub trait MessageRepo: Send + Sync {
-    /// Append a single JSON value as a JSONL line.
-    async fn append(&self, session_id: &str, entry: &serde_json::Value) -> anyhow::Result<()>;
-    /// Load the last `limit` messages from a session.
-    async fn load(&self, session_id: &str, limit: usize) -> anyhow::Result<Vec<serde_json::Value>>;
-    /// Overwrite all messages for a session.
-    async fn save_all(&self, session_id: &str, records: &[serde_json::Value])
-    -> anyhow::Result<()>;
-    /// Case-insensitive substring search across all sessions.
-    async fn search(&self, query: &str, max_results: usize) -> anyhow::Result<Vec<SearchResult>>;
-    /// Delete all messages for a session.
-    async fn delete_session(&self, session_id: &str) -> anyhow::Result<()>;
-    /// Count messages for a session. Default impl: load + len.
-    #[allow(dead_code)]
-    async fn count(&self, session_id: &str) -> anyhow::Result<usize> {
-        Ok(self.load(session_id, usize::MAX).await?.len())
-    }
-}
-
-/// Append-only message log — replaces `MessageRepo` for new callers.
-///
-/// **Why a separate trait?** `MessageRepo::save_all` (DELETE + INSERT) is the
-/// root cause of the tool_call / evaluation / quality silent-drop bug:
-/// streaming-time `append_message` writes get clobbered by the lossy
-/// `api_msgs_to_jsonl` output produced at `LlmEvent::Done`. `MessageLog`
-/// has no `save_all`; the only mutation is `append_batch`, which strictly
-/// adds rows. This structurally eliminates the bug class.
+/// Append-only message log for per-session persistence.
 ///
 /// Callers always work in terms of the domain `Message` enum; the
 /// storage layer wraps each one in a `StoredRecord` envelope (`seq`,
@@ -141,6 +113,7 @@ pub trait MessageLog: Send + Sync {
     ) -> anyhow::Result<()>;
 
     /// Convenience: append a single message.
+    #[allow(dead_code)]
     async fn append_one(
         &self,
         session_id: &str,
@@ -251,7 +224,6 @@ pub trait ToolCacheRepo: Send + Sync {
 /// or `ClawStorage::sqlite(path)` etc. in future phases.
 pub struct ClawStorage {
     pub sessions: Box<dyn SessionRepo>,
-    pub messages: Box<dyn MessageRepo>,
     pub message_log: std::sync::Arc<dyn MessageLog>,
     pub api_cache: Box<dyn ApiCacheRepo>,
     pub plan_steps: Box<dyn PlanStepsRepo>,

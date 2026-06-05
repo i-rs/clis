@@ -42,7 +42,6 @@ impl SqliteBackend {
         let arc = Arc::new(self);
         ClawStorage {
             sessions: Box::new(SqliteSessionStore { db: arc.clone() }),
-            messages: Box::new(SqliteMessageStore { db: arc.clone() }),
             message_log: std::sync::Arc::new(SqliteMessageLogStore { db: arc.clone() }),
             api_cache: Box::new(SqliteApiCacheStore { db: arc.clone() }),
             plan_steps: Box::new(SqlitePlanStepsStore { db: arc.clone() }),
@@ -55,10 +54,6 @@ impl SqliteBackend {
 
     async fn migrate(&self) -> anyhow::Result<()> {
         sqlx::query("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'default', state TEXT NOT NULL DEFAULT 'Active', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, message_count INTEGER NOT NULL DEFAULT 0)").execute(&self.pool).await?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, type TEXT NOT NULL, text TEXT NOT NULL DEFAULT '', name TEXT, args TEXT, result TEXT, reasoning TEXT, extra TEXT, created_at INTEGER NOT NULL DEFAULT (unixepoch()))").execute(&self.pool).await?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)")
-            .execute(&self.pool)
-            .await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS api_cache (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, messages TEXT NOT NULL)").execute(&self.pool).await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS plan_steps (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, step_order INTEGER NOT NULL, description TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (session_id, step_order))").execute(&self.pool).await?;
         sqlx::query(
@@ -96,12 +91,11 @@ impl SqliteBackend {
     }
 }
 
-// Generate all 8 trait implementations
+// Generate all trait implementations
 define_sql_stores!(
     sqlx::SqlitePool,
     SqliteBackend,
     SqliteSessionStore,
-    SqliteMessageStore,
     SqliteMessageLogStore,
     SqliteApiCacheStore,
     SqlitePlanStepsStore,
@@ -140,28 +134,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(s.sessions.load_all().await.unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn test_message_append_load() {
-        let s = test_storage().await;
-        s.sessions
-            .save_all(&[crate::session::SessionMeta {
-                id: "s1".into(),
-                title: "T".into(),
-                agent_id: "d".into(),
-                state: crate::session::SessionState::Active,
-                created_at: 1,
-                updated_at: 2,
-                message_count: 0,
-            }])
-            .await
-            .unwrap();
-        s.messages
-            .append("s1", &serde_json::json!({"type":"user","text":"hi"}))
-            .await
-            .unwrap();
-        assert_eq!(s.messages.load("s1", 10).await.unwrap().len(), 1);
     }
 
     #[tokio::test]

@@ -5,7 +5,7 @@
 //! - `sql/mysql.rs`   (feature = "mysql")
 //! - `sql/postgres.rs` (feature = "postgres")
 //!
-//! A shared macro `define_sql_stores!` generates all 8 repository trait
+//! A shared macro `define_sql_stores!` generates all repository trait
 //! implementations for a given database pool type.
 //!
 //! **PostgreSQL note:** sqlx requires `&'static str` for all SQL queries.
@@ -15,11 +15,11 @@
 //!
 //! ## Search semantics
 //!
-//! `MessageRepo::search` performs case-insensitive substring matching across
-//! sessions. It searches `type` = "user"|"assistant"|"error" by `text` and
-//! `type` = "tool_call" by `name`. Each result includes a 200-char excerpt and
-//! up to 2 context messages before and 1 after the match. Results are grouped
-//! by session and terminated at `max_results`.
+//! `MessageLog::search` performs case-insensitive substring matching across
+//! sessions. It searches `payload` JSON for user/assistant/error `text` and
+//! tool_call `name`. Each result includes a 200-char excerpt and up to 2
+//! context messages before and 1 after the match. Results are grouped by
+//! session and terminated at `max_results`.
 
 #[cfg(feature = "mysql")]
 pub mod mysql;
@@ -33,13 +33,13 @@ use std::collections::{HashMap, HashSet};
 
 use super::*;
 
-/// Generates the 8 store wrapper structs + their trait implementations
+/// Generates the store wrapper structs + their trait implementations
 /// for a given database pool type.
 macro_rules! define_sql_stores {
     (
         $pool:ty,
         $backend:ty,
-        $sessions:ident, $messages:ident, $messagelog:ident, $apicache:ident, $plansteps:ident,
+        $sessions:ident, $messagelog:ident, $apicache:ident, $plansteps:ident,
         $memory:ident, $stats:ident, $skills:ident, $toolcache:ident,
         $upsert_session:expr,
         $upsert_apicache:expr, $upsert_memory:expr, $upsert_token:expr, $upsert_skill:expr,
@@ -89,119 +89,6 @@ macro_rules! define_sql_stores {
                         .execute(&mut *tx).await?;
                 }
                 tx.commit().await?;
-                Ok(())
-            }
-        }
-
-        // ── MessageRepo ──
-
-        #[derive(Clone)]
-        struct $messages {
-            db: Arc<$backend>,
-        }
-
-        #[async_trait]
-        impl MessageRepo for $messages {
-            async fn append(&self, session_id: &str, entry: &serde_json::Value) -> anyhow::Result<()> {
-                let msg_type = entry["type"].as_str().unwrap_or("");
-                let text = entry["text"].as_str().unwrap_or("");
-                let name = entry["name"].as_str();
-                let args = entry["args"].as_str();
-                let result = entry["result"].as_str();
-                let reasoning = entry["reasoning"].as_str();
-                let extra = serde_json::to_string(entry)?;
-                sqlx::query(
-                    "INSERT INTO messages (session_id, type, text, name, args, result, reasoning, extra) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                )
-                .bind(session_id).bind(msg_type).bind(text)
-                .bind(name).bind(args).bind(result).bind(reasoning).bind(&extra)
-                .execute(&self.db.pool).await?;
-                Ok(())
-            }
-
-            async fn load(&self, session_id: &str, limit: usize) -> anyhow::Result<Vec<serde_json::Value>> {
-                // Subquery to fetch the last N messages directly in ASC order,
-                // avoiding materialize-then-reverse of the full result set.
-                let rows: Vec<MessageRow> = sqlx::query_as(
-                    "SELECT type, text, name, args, result, reasoning, extra FROM messages WHERE session_id = ? AND id > (SELECT COALESCE(MAX(id), 0) FROM messages WHERE session_id = ?) - ? ORDER BY id ASC",
-                )
-                .bind(session_id).bind(session_id).bind(limit as i64)
-                .fetch_all(&self.db.pool).await?;
-                Ok(rows.into_iter().filter_map(|r| serde_json::from_str(&r.extra).ok()).collect())
-            }
-
-            async fn save_all(&self, session_id: &str, records: &[serde_json::Value]) -> anyhow::Result<()> {
-                let mut tx = self.db.pool.begin().await?;
-                sqlx::query("DELETE FROM messages WHERE session_id = ?").bind(session_id).execute(&mut *tx).await?;
-
-                for chunk in records.chunks(100) {
-                    let mut q = sqlx::QueryBuilder::new(
-                        "INSERT INTO messages (session_id, type, text, name, args, result, reasoning, extra) ",
-                    );
-                    q.push_values(chunk, |mut sep, entry| {
-                        let msg_type = entry["type"].as_str().unwrap_or("");
-                        let text = entry["text"].as_str().unwrap_or("");
-                        let name = entry["name"].as_str();
-                        let args = entry["args"].as_str();
-                        let result = entry["result"].as_str();
-                        let reasoning = entry["reasoning"].as_str();
-                        let extra = serde_json::to_string(entry).unwrap_or_default();
-                        sep.push_bind(session_id).push_bind(msg_type).push_bind(text)
-                           .push_bind(name).push_bind(args).push_bind(result)
-                           .push_bind(reasoning).push_bind(extra);
-                    });
-                    q.build().execute(&mut *tx).await?;
-                }
-                tx.commit().await?;
-                Ok(())
-            }
-
-            async fn search(&self, query: &str, max_results: usize) -> anyhow::Result<Vec<SearchResult>> {
-                let q = query.trim().to_lowercase();
-                if q.is_empty() { return Ok(Vec::new()); }
-
-                let like_pattern = format!("%{}%", q);
-                let candidate_rows: Vec<(String,)> = sqlx::query_as(
-                    "SELECT DISTINCT m.session_id FROM messages m WHERE m.type IN ('user','assistant','error') AND lower(m.text) LIKE ? UNION SELECT DISTINCT m.session_id FROM messages m WHERE m.type = 'tool_call' AND lower(m.name) LIKE ?",
-                )
-                .bind(&like_pattern).bind(&like_pattern)
-                .fetch_all(&self.db.pool).await?;
-
-                let mut results = Vec::new();
-                for (sid,) in &candidate_rows {
-                    let session_rows: Vec<SessionRow> = sqlx::query_as(
-                        "SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ?",
-                    ).bind(sid).fetch_all(&self.db.pool).await?;
-                    if session_rows.is_empty() { continue; }
-                    let meta: crate::session::SessionMeta = session_rows[0].clone().into();
-
-                    let rows: Vec<MessageRow> = sqlx::query_as(
-                        "SELECT type, text, name, args, result, reasoning, extra FROM messages WHERE session_id = ? ORDER BY id",
-                    ).bind(sid).fetch_all(&self.db.pool).await?;
-
-                    for (i, row) in rows.iter().enumerate() {
-                        let mt = &row.r#type;
-                        let searchable = match mt.as_str() {
-                            "user"|"assistant"|"error" => row.text.to_lowercase(),
-                            "tool_call" => row.name_str().to_lowercase(),
-                            _ => continue,
-                        };
-                        if !searchable.contains(&q) { continue; }
-                        let excerpt = match mt.as_str() {
-                            "tool_call" => format!("[工具调用: {}]", row.name_str()),
-                            _ => { let t: String = row.text.chars().take(200).collect(); if row.text.len()>200 {format!("{}...",t)} else {t} }
-                        };
-                        let ctx_before: Vec<String> = rows[i.saturating_sub(2)..i].iter().map(|m| m.text.chars().take(100).collect()).collect();
-                        let ctx_after: Vec<String> = rows[i+1..].iter().take(1).map(|m| m.text.chars().take(100).collect()).collect();
-                        results.push(SearchResult { session_id: meta.id.clone(), session_title: meta.title.clone(), message_type: mt.clone(), excerpt, context_before: ctx_before, context_after: ctx_after, updated_at: meta.updated_at });
-                        if results.len() >= max_results { return Ok(results); }
-                    }
-                }
-                Ok(results)
-            }
-
-            async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
-                sqlx::query("DELETE FROM messages WHERE session_id = ?").bind(session_id).execute(&self.db.pool).await?;
                 Ok(())
             }
         }
@@ -596,24 +483,6 @@ impl From<SessionRow> for crate::session::SessionMeta {
             updated_at: r.updated_at,
             message_count: r.message_count as usize,
         }
-    }
-}
-
-#[derive(sqlx::FromRow)]
-#[allow(dead_code)]
-struct MessageRow {
-    r#type: String,
-    text: String,
-    name: Option<String>,
-    args: Option<String>,
-    result: Option<String>,
-    reasoning: Option<String>,
-    extra: String,
-}
-
-impl MessageRow {
-    fn name_str(&self) -> &str {
-        self.name.as_deref().unwrap_or("")
     }
 }
 

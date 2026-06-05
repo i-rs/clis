@@ -4,9 +4,9 @@ use std::sync::Arc;
 use crate::storage::ClawStorage;
 use crate::storage::SearchResult;
 
-/// Full-text search across all conversation session JSONL files.
+/// Full-text search across all conversation session messages.
 ///
-/// Delegates to the active storage backend via `MessageRepo::search()`.
+/// Delegates to the active storage backend via `MessageLog::search`.
 pub struct ConvStore {
     storage: Arc<ClawStorage>,
 }
@@ -32,7 +32,7 @@ impl ConvStore {
         let query = query.to_string();
         crate::utils::sync_block_on(async move {
             storage
-                .messages
+                .message_log
                 .search(&query, max_results)
                 .await
                 .unwrap_or_default()

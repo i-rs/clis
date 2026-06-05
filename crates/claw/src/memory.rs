@@ -168,12 +168,10 @@ impl CrossSessionMemory {
         session_mgr: &crate::session::SessionManager,
     ) {
         for meta in sessions {
-            let records = session_mgr.load_messages(&meta.id, 1000);
-            for record in &records {
-                if record.get("type").and_then(|t| t.as_str()) == Some("tool_call")
-                    && let Some(name) = record.get("name").and_then(|n| n.as_str())
-                {
-                    *self.tool_frequency.entry(name.to_string()).or_insert(0) += 1;
+            let messages = session_mgr.load_app_messages(&meta.id, 1000);
+            for msg in &messages {
+                if let crate::app::Message::ToolCall { name, .. } = msg {
+                    *self.tool_frequency.entry(name.clone()).or_insert(0) += 1;
                 }
             }
         }
