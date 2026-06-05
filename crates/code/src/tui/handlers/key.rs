@@ -347,6 +347,18 @@ pub async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<Ag
         KeyCode::Down => app.scroll_down(),
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
+        KeyCode::Enter if matches!(app.mode, AppMode::Idle)
+            && app.input.content.is_empty()
+            && app.selected_message.is_some() =>
+        {
+            let idx = app.selected_message.unwrap();
+            if idx < app.components.len() {
+                use crate::tui::ui::components::ComponentOp;
+                app.components[idx].borrow_mut().apply(ComponentOp::Toggle);
+                app.layout_gen += 1;
+                app.needs_redraw = true;
+            }
+        }
         KeyCode::Enter if key.modifiers == KeyModifiers::ALT => {
             app.input.insert_char('\n');
             app.needs_redraw = true;

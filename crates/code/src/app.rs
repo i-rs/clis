@@ -1,6 +1,9 @@
 use crate::config::Config;
 use crate::tui::input::InputState;
+use crate::tui::ui::components::{ComponentCell, build_component_for, build_streaming_component};
+use std::cell::RefCell;
 use std::collections::HashSet;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "role")]
@@ -98,6 +101,15 @@ pub struct App {
     pub input: InputState,
     pub messages: Vec<AgentMessage>,
     pub agent_messages: Vec<crate::provider::LlmMessage>,
+    /// Per-message render components (one-to-one with `messages`).
+    pub components: Vec<ComponentCell>,
+    /// Current streaming component, rebuilt each frame during streaming.
+    pub streaming_component: Option<ComponentCell>,
+    /// Generation bumped when message list changes (add/remove/finish_streaming).
+    /// Used by ui layer to know when to rebuild component list.
+    pub msg_gen: usize,
+    /// Bumped on layout-affecting operations (toggle collapse/expand).
+    pub layout_gen: usize,
     pub scroll_offset: usize,
     pub auto_scroll: bool,
     pub sidebar_scroll: usize,
@@ -129,7 +141,6 @@ pub struct App {
     pub slash_selected: usize,
     pub show_theme_picker: bool,
     pub theme_picker_selected: usize,
-    pub message_generation: usize,
 }
 
 impl App {
@@ -144,6 +155,10 @@ impl App {
             input: InputState::new(),
             messages: Vec::new(),
             agent_messages: Vec::new(),
+            components: Vec::new(),
+            streaming_component: None,
+            msg_gen: 0,
+            layout_gen: 0,
             scroll_offset: 0,
             auto_scroll: true,
             sidebar_scroll: 0,
@@ -175,7 +190,6 @@ impl App {
             slash_selected: 0,
             show_theme_picker: false,
             theme_picker_selected: 0,
-            message_generation: 0,
         }
     }
 
@@ -183,16 +197,37 @@ impl App {
         if self.messages.len() > Self::MAX_MESSAGES {
             let excess = self.messages.len() - Self::MAX_MESSAGES;
             self.messages.drain(0..excess);
+            // Also trim components
+            if excess <= self.components.len() {
+                self.components.drain(0..excess);
+            }
             if let Some(ref mut idx) = self.selected_message {
                 *idx = idx.saturating_sub(excess);
             }
         }
     }
 
+    /// Rebuild the component list from the current messages.
+    /// Call this when `msg_gen` changes.
+    pub fn rebuild_components(&mut self) {
+        self.components = self.messages
+            .iter()
+            .map(|msg| {
+                let comp: Box<dyn super::tui::ui::components::MessageComponent> = build_component_for(msg);
+                Rc::new(RefCell::new(comp)) as ComponentCell
+            })
+            .collect();
+        if let Some(ref s) = self.streaming {
+            let streaming_comp: Box<dyn super::tui::ui::components::MessageComponent> = build_streaming_component(s);
+            self.streaming_component = Some(Rc::new(RefCell::new(streaming_comp)));
+        }
+    }
+
     pub fn push_message(&mut self, msg: AgentMessage) {
         self.messages.push(msg);
-        self.message_generation += 1;
+        self.msg_gen += 1;
         self.needs_redraw = true;
+        self.rebuild_components();
         self.trim_messages();
     }
 
@@ -203,8 +238,10 @@ impl App {
             count += 1;
         }
         if count > 0 {
-            self.message_generation += count;
+            self.msg_gen += count;
+            self.layout_gen += 1;
             self.needs_redraw = true;
+            self.rebuild_components();
             self.trim_messages();
         }
     }
@@ -230,15 +267,18 @@ impl App {
         }
     }
 
-
     pub fn finish_streaming(&mut self) -> (String, String) {
         let s = self.streaming.take();
-        self.message_generation += 1;
+        self.streaming_component = None;
+        self.msg_gen += 1;
         match s {
             Some(s) => (s.content, s.reasoning),
             None => (String::new(), String::new()),
         }
     }
+
+    /// Toggle expand/collapse for a message via its component.
+    /// Does NOT rebuild the component list (much cheaper).
 
     pub fn scroll_up(&mut self) {
         self.scroll_offset = self.scroll_offset.saturating_sub(1);

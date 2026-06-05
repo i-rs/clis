@@ -150,42 +150,24 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                             if !is_sidebar && mouse.row > 0 =>
                         {
                             let hint_shown = !app.auto_scroll && app.messages.len() > 1;
-                            if ui::streaming_click_target(mouse.row, app.scroll_offset, hint_shown) {
+                            let chat_area_y = 1u16; // title bar height
+                            if ui::streaming_click_target(mouse.row, app.scroll_offset, hint_shown, chat_area_y) {
                                 if let Some(ref mut s) = app.streaming {
                                     s.reasoning_collapsed = !s.reasoning_collapsed;
                                     app.needs_redraw = true;
                                 }
-                            } else if let Some(idx) = ui::find_message_idx_from_screen(mouse.row, app.scroll_offset, hint_shown) {
-                                match app.messages[idx] {
-                                    AgentMessage::ToolResult { .. } => {
-                                        if let AgentMessage::ToolResult {
-                                            ref mut collapsed,
-                                            ..
-                                        } = app.messages[idx]
-                                        {
-                                            *collapsed = !*collapsed;
-                                            app.message_generation += 1;
-                                            app.needs_redraw = true;
-                                        }
-                                    }
-                                    AgentMessage::Assistant { .. } => {
-                                        if let AgentMessage::Assistant {
-                                            ref mut reasoning_expanded,
-                                            ref reasoning,
-                                            ..
-                                        } = app.messages[idx]
-                                            && !reasoning.is_empty()
-                                        {
-                                            *reasoning_expanded = !*reasoning_expanded;
-                                            app.message_generation += 1;
-                                            app.needs_redraw = true;
-                                        }
-                                    }
-                                    _ => {
-                                        app.selected_message = Some(idx);
-                                        app.message_generation += 1;
-                                        app.needs_redraw = true;
-                                    }
+                            } else if let Some(op) = ui::click_op_at_screen(
+                                mouse.row, app.scroll_offset, hint_shown, chat_area_y, &app.components
+                            ) {
+                                // Forward to component via click op (checks extra_click_targets)
+                                let idx = ui::find_message_idx_from_screen(
+                                    mouse.row, app.scroll_offset, hint_shown, chat_area_y
+                                );
+                                if let Some(idx) = idx {
+                                    app.components[idx].borrow_mut().apply(op);
+                                    app.layout_gen += 1;
+                                    app.needs_redraw = true;
+                                    app.selected_message = Some(idx);
                                 }
                             }
                         }
@@ -254,6 +236,10 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
 pub async fn run(_app: crate::app::App) -> anyhow::Result<()> {
     anyhow::bail!("TUI feature not enabled. Build with --features tui")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Helper functions used by handlers (via super::super::*)
+// ═══════════════════════════════════════════════════════════════════════════
 
 fn make_relative(base: &str, path: &str) -> String {
     use std::path::Path;
