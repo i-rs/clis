@@ -669,6 +669,7 @@ mod tests {
                 Message::Assistant {
                     text: "response".to_string(),
                     reasoning: String::new(),
+                        token_usage: None,
                 },
                 Message::User {
                     text: "new".to_string(),
@@ -747,6 +748,7 @@ mod tests {
                 Message::Assistant {
                     text: "ok".to_string(),
                     reasoning: String::new(),
+                        token_usage: None,
                 },
                 Message::User {
                     text: "new".to_string(),
@@ -794,6 +796,7 @@ mod tests {
                     Message::Assistant {
                         text: format!("a{}", i),
                         reasoning: String::new(),
+                        token_usage: None,
                     },
                 ]
             })

@@ -5,6 +5,7 @@ use crate::ui::chat_api::{
 };
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use crate::llm::TokenUsage;
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
@@ -158,6 +159,8 @@ pub enum Message {
         text: String,
         #[serde(default)]
         reasoning: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        token_usage: Option<TokenUsage>,
     },
     ToolCall {
         name: String,
@@ -1077,6 +1080,7 @@ impl App {
             let msg = Message::Assistant {
                 text: String::new(),
                 reasoning: carried_reasoning,
+                token_usage: None,
             };
             self.push_component_for(&msg);
             self.messages.push(msg);
@@ -1171,7 +1175,7 @@ impl App {
         // Only discard a trailing Assistant placeholder if it is *truly*
         // empty (no text, no reasoning). Otherwise the error banner would
         // eat the user's thinking content as well.
-        if let Some(Message::Assistant { text: t, reasoning }) = self.messages.last()
+        if let Some(Message::Assistant { text: t, reasoning, .. }) = self.messages.last()
             && t.is_empty()
             && reasoning.is_empty()
         {
@@ -1203,7 +1207,7 @@ impl App {
         // Only pop the trailing Assistant placeholder if it has nothing to
         // show. Previously we dropped it whenever `text` was empty, which
         // threw away any reasoning that had been streamed in.
-        if let Some(Message::Assistant { text: t, reasoning }) = self.messages.last()
+        if let Some(Message::Assistant { text: t, reasoning, .. }) = self.messages.last()
             && t.is_empty()
             && reasoning.is_empty()
         {
@@ -1352,7 +1356,7 @@ mod tests {
         app.current_reasoning.push_str("thinking hard");
         app.finish_processing(None);
         assert_eq!(app.messages.len(), 2);
-        if let Message::Assistant { text, reasoning } = &app.messages[1] {
+        if let Message::Assistant { text, reasoning, .. } = &app.messages[1] {
             assert!(text.is_empty());
             assert_eq!(reasoning, "thinking hard");
         } else {
@@ -1373,7 +1377,7 @@ mod tests {
         // Simulate the LLM streaming reasoning for the next round.
         app.current_reasoning.push_str("between-rounds thought");
         app.start_assistant_message();
-        if let Message::Assistant { text, reasoning } = app.messages.last().unwrap() {
+        if let Message::Assistant { text, reasoning, .. } = app.messages.last().unwrap() {
             assert!(text.is_empty());
             assert_eq!(reasoning, "between-rounds thought");
         } else {
@@ -1390,7 +1394,7 @@ mod tests {
         app.start_assistant_message();
         app.current_reasoning.push_str("planning");
         app.append_assistant_text("hi");
-        if let Message::Assistant { text, reasoning } = &app.messages[1] {
+        if let Message::Assistant { text, reasoning, .. } = &app.messages[1] {
             assert_eq!(text, "hi");
             assert_eq!(reasoning, "planning");
         } else {

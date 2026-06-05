@@ -49,8 +49,8 @@ pub fn build_component_for(msg: &Message) -> Box<dyn MessageComponent> {
     match msg {
         Message::User { text } if !text.is_empty() => Box::new(user::UserBubble::new(text, None)),
         Message::User { .. } => Box::new(EmptyComponent),
-        Message::Assistant { text, reasoning } if !text.is_empty() || !reasoning.is_empty() =>
-            Box::new(assistant::AssistantBlock::new(text, reasoning, false, None)),
+        Message::Assistant { text, reasoning, token_usage, .. } if !text.is_empty() || !reasoning.is_empty() =>
+            Box::new(assistant::AssistantBlock::new(text, reasoning, false, None, *token_usage)),
         Message::Assistant { .. } => Box::new(EmptyComponent),
         Message::ToolCall { name, args, result, step, total_steps } =>
             Box::new(tool_call::ToolCallCard::new(name, args, result, *step, *total_steps, false, None)),

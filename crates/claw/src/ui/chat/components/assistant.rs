@@ -2,6 +2,7 @@ use super::style::{
     BLOCK_LEFT_RESERVED, blend, body_line, block_border, header_line, render_block_chrome,
 };
 use super::{ComponentOp, MessageComponent};
+use crate::llm::TokenUsage;
 use crate::theme::Theme;
 use crate::ui::chat::markdown::render_markdown;
 use crate::ui::utils;
@@ -28,6 +29,7 @@ pub(crate) struct AssistantBlock {
     reasoning: String,
     pub reasoning_expanded: bool,
     timestamp: Option<String>,
+    token_usage: Option<TokenUsage>,
     /// Cached `(width, body_row_count)` for `body_rows()`. The count
     /// depends only on the text and the wrapping width, so we
     /// invalidate it whenever `text` mutates. Interior mutability
@@ -50,12 +52,14 @@ impl AssistantBlock {
         reasoning: &str,
         reasoning_expanded: bool,
         timestamp: Option<&str>,
+        token_usage: Option<TokenUsage>,
     ) -> Self {
         Self {
             text: text.to_string(),
             reasoning: reasoning.to_string(),
             reasoning_expanded,
             timestamp: timestamp.map(|s| s.to_string()),
+            token_usage,
             body_rows_cache: Cell::new(None),
             body_render_cache: RefCell::new(None),
             is_markdowny_cache: Cell::new(None),
@@ -165,7 +169,27 @@ impl MessageComponent for AssistantBlock {
         };
         let avatar = theme.primary();
         let label = theme.text();
-        let header = header_line("Claw", "◆", avatar, label, self.timestamp.as_deref());
+        let meta = match (self.timestamp.as_deref(), self.token_usage) {
+            (Some(ts), Some(usage)) => {
+                let tu = if usage.total_tokens >= 1000 {
+                    format!("{}K", usage.total_tokens / 1000)
+                } else {
+                    format!("{}tok", usage.total_tokens)
+                };
+                Some(format!("{} · {}", ts, tu))
+            }
+            (Some(ts), None) => Some(ts.to_string()),
+            (None, Some(usage)) => {
+                let tu = if usage.total_tokens >= 1000 {
+                    format!("{}Ktok", usage.total_tokens / 1000)
+                } else {
+                    format!("{}tok", usage.total_tokens)
+                };
+                Some(tu)
+            }
+            (None, None) => None,
+        };
+        let header = header_line("Claw", "◆", avatar, label, meta.as_deref());
         let body = render_block_chrome(area, buf, border, interior_bg, header);
 
         let mut y = body.top;

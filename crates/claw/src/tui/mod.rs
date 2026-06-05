@@ -126,6 +126,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 )
                 .to_string(),
                 reasoning: String::new(),
+                        token_usage: None,
             });
             app.message_timestamps
                 .push(chrono::Local::now().naive_local());
@@ -133,6 +134,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
             app.messages.push(app::Message::Assistant {
                 text: "你好，有什么可以帮你的？".to_string(),
                 reasoning: String::new(),
+                        token_usage: None,
             });
             app.message_timestamps
                 .push(chrono::Local::now().naive_local());

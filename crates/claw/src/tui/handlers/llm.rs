@@ -225,6 +225,13 @@ impl<'a> LlmEventHandler<'a> {
                 tracing::warn!("未找到当前会话，跳过持久化");
                 self.app.finish_processing(Some(msgs));
                 self.app.token_usage = usage;
+
+                // Backfill token usage onto the last Assistant message.
+                if let Some(super::AppMessage::Assistant { token_usage, .. }) = self.app.messages.last_mut() {
+                    if let Some(ref u) = self.app.token_usage {
+                        *token_usage = Some(*u);
+                    }
+                }
                 return Action::Continue;
             }
         };
@@ -238,6 +245,14 @@ impl<'a> LlmEventHandler<'a> {
 
         self.app.finish_processing(Some(msgs));
         self.app.token_usage = usage;
+
+        // Backfill token usage onto the last Assistant message so
+        // the block header can render it alongside the timestamp.
+        if let Some(super::AppMessage::Assistant { token_usage, .. }) = self.app.messages.last_mut() {
+            if let Some(ref u) = self.app.token_usage {
+                *token_usage = Some(*u);
+            }
+        }
 
         let needs_rename = self
             .app_core

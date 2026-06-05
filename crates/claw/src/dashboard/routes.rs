@@ -51,7 +51,7 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
         crate::app::Message::User { text } => {
             serde_json::json!({"role": "user", "content": text})
         }
-        crate::app::Message::Assistant { text, reasoning } => {
+        crate::app::Message::Assistant { text, reasoning, .. } => {
             let mut msg = serde_json::json!({"role": "assistant", "content": text});
             if !reasoning.is_empty() {
                 msg["reasoning"] = Value::String(reasoning.clone());
