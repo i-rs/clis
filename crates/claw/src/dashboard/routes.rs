@@ -395,6 +395,21 @@ pub async fn chat_stream(
                         }
                         crate::core::save_chat_result(&mut core.session_mgr, &sid, &msgs);
                         let quality_msg = core.evaluate_completed_session(&sid);
+
+                        // 保存 quality 消息到 session 历史
+                        if let Some(crate::app::Message::Quality { score, complete, issues, references_valid }) = &quality_msg {
+                            core.session_mgr.append_message(
+                                "quality",
+                                &format!("质量评分: {}", score.unwrap_or(0.0)),
+                                Some(serde_json::json!({
+                                    "score": score,
+                                    "complete": complete,
+                                    "issues": issues,
+                                    "references_valid": references_valid,
+                                })),
+                            );
+                        }
+
                         core.agent_store.memory_for_mut(&agent_id).flush();
                         drop(core);
 
@@ -453,6 +468,20 @@ pub async fn chat_stream(
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid)));
                     }
                     LlmEvent::Evaluation { tool, valid, issues } => {
+                        // 保存 evaluation 消息到 session 历史
+                        {
+                            let mut core = state.core.write().await;
+                            core.session_mgr.append_message(
+                                "evaluation",
+                                &format!("{}: {}", tool, if valid { "✓" } else { "✗" }),
+                                Some(serde_json::json!({
+                                    "tool": tool,
+                                    "valid": valid,
+                                    "issues": issues,
+                                })),
+                            );
+                        }
+
                         let data = serde_json::to_string(&serde_json::json!({
                             "tool": tool,
                             "valid": valid,
