@@ -33,6 +33,8 @@ struct MessageBubbleView: View {
                 evaluationBubble(tool: tool, valid: valid, issues: issues)
             case .quality(let score, let complete, let issues, let referencesValid):
                 qualityBubble(score: score, complete: complete, issues: issues, referencesValid: referencesValid)
+            case .feedback(let positive, let message):
+                feedbackBubble(positive: positive, message: message)
             }
         }
     }
@@ -308,6 +310,38 @@ struct MessageBubbleView: View {
                     .padding(10)
                     .background(Color.platformSecondaryBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+
+            Spacer(minLength: 20)
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func feedbackBubble(positive: Bool, message: String?) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: positive ? "hand.thumbsup.fill" : "hand.thumbsdown.fill", colors: positive ? [.green, .teal] : [.red, .orange])
+                .scaleEffect(0.9)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: positive ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
+                        .font(.caption)
+                    Text("Feedback")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text(positive ? "Positive" : "Negative")
+                        .font(.caption)
+                        .foregroundStyle(positive ? .green : .red)
+                }
+                .foregroundStyle(.secondary)
+
+                if let msg = message, !msg.isEmpty {
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundStyle(.primary)
                 }
             }
 

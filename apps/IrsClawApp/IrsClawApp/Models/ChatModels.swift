@@ -79,9 +79,12 @@ struct ClawMessage: Codable, Identifiable {
     let score: String?
     let complete: Bool?
     let referencesValid: Bool?
+    // feedback fields
+    let positive: Bool?
+    let message: String?
 
     enum CodingKeys: String, CodingKey {
-        case role, content, reasoning, name, args, result, tool, valid, issues, score, complete, referencesValid
+        case role, content, reasoning, name, args, result, tool, valid, issues, score, complete, referencesValid, positive, message
     }
 
     var displayContent: String {
@@ -400,6 +403,7 @@ enum AppMessage {
     case reasoning(text: String)
     case evaluation(tool: String, valid: Bool, issues: [String])
     case quality(score: String, complete: Bool, issues: [String], referencesValid: Bool)
+    case feedback(positive: Bool, message: String?)
 
     var text: String {
         switch self {
@@ -411,6 +415,7 @@ enum AppMessage {
         case .reasoning(let t): return t
         case .evaluation(let tool, let valid, _): return "📋 \(tool): \(valid ? "✓" : "✗")"
         case .quality(let score, _, _, _): return "⭐ 质量评分: \(score)"
+        case .feedback(let positive, let message): return "💬 反馈: \(positive ? "👍" : "👎")\(message.map { " - \($0)" } ?? "")"
         }
     }
 
