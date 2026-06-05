@@ -74,6 +74,33 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
                 "url": format!("/api/images/{}", path)
             })
         }
+        crate::app::Message::Evaluation { tool, valid, issues } => {
+            serde_json::json!({
+                "role": "evaluation",
+                "content": format!("{}: {}", tool, if *valid { "✓" } else { "✗" }),
+                "tool": tool,
+                "valid": valid,
+                "issues": issues,
+            })
+        }
+        crate::app::Message::Quality { score, complete, references_valid, issues } => {
+            serde_json::json!({
+                "role": "quality",
+                "content": format!("质量评分: {}", score.unwrap_or(0.0)),
+                "score": score.map(|s| s.to_string()),
+                "complete": complete,
+                "references_valid": references_valid,
+                "issues": issues,
+            })
+        }
+        crate::app::Message::Feedback { positive, message } => {
+            serde_json::json!({
+                "role": "feedback",
+                "content": format!("positive: {}", positive),
+                "positive": positive,
+                "message": message,
+            })
+        }
         _ => serde_json::json!({"role": "unknown"}),
     }
 }
