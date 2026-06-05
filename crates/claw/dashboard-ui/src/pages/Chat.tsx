@@ -71,7 +71,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
               setSessionTitle(sessionResp.data.title || 'Untitled')
               const sessAgent = sessionResp.data.agent_id || null
               if (sessAgent) setSessionAgent(sessAgent)
-              const raw = sessionResp.data.messages || []
+              const raw: any[] = sessionResp.data.messages || []
               const msgs: ChatMessage[] = []
               let pendingToolCalls: ToolCallMsg[] = []
               for (const m of raw) {
@@ -128,7 +128,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         setSessionTitle(resp.data.title || 'Untitled')
         const sessAgent = resp.data.agent_id || null
         if (sessAgent) setSessionAgent(sessAgent)
-        const raw = resp.data.messages || []
+        const raw: any[] = resp.data.messages || []
         const msgs: ChatMessage[] = []
         let pendingToolCalls: ToolCallMsg[] = []
         for (const m of raw) {
@@ -151,6 +151,36 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
               step: 0,
               total_steps: 1,
             })
+          } else if (m.role === 'evaluation') {
+            msgs.push({
+              role: 'evaluation',
+              content: m.content || '',
+              evaluation: {
+                tool: m.tool || '',
+                valid: m.valid ?? true,
+                issues: m.issues || [],
+              },
+            })
+          } else if (m.role === 'quality') {
+            msgs.push({
+              role: 'quality',
+              content: m.content || '',
+              quality: {
+                score: m.score || '0',
+                complete: m.complete ?? true,
+                issues: m.issues || [],
+                references_valid: m.references_valid ?? false,
+              },
+            })
+          } else if (m.role === 'feedback') {
+            msgs.push({
+              role: 'feedback' as const,
+              content: m.content || '',
+              feedback: {
+                positive: m.positive ?? true,
+                message: m.message || '',
+              },
+            })
           }
         }
         setMessages(msgs)
@@ -168,7 +198,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             setSessionTitle(sessionResp.data.title || 'Untitled')
             const sessAgent = sessionResp.data.agent_id || null
             if (sessAgent) setSessionAgent(sessAgent)
-            const raw = sessionResp.data.messages || []
+            const raw: any[] = sessionResp.data.messages || []
             const msgs: ChatMessage[] = []
             let pendingToolCalls: ToolCallMsg[] = []
             for (const m of raw) {
@@ -603,6 +633,17 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
             <div className="quality-issues">
               <small>{message.quality.issues.join('; ')}</small>
             </div>
+          )}
+        </div>
+      )}
+      {message.role === 'feedback' && message.feedback && (
+        <div className="message-feedback">
+          <span className={`feedback-badge ${message.feedback.positive ? 'positive' : 'negative'}`}>
+            {message.feedback.positive ? '👍' : '👎'}
+            {' '}{message.feedback.positive ? 'Positive' : 'Negative'}
+          </span>
+          {message.feedback.message && (
+            <small>{message.feedback.message}</small>
           )}
         </div>
       )}

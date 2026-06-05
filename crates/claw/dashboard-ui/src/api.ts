@@ -326,7 +326,7 @@ export interface ToolCallMsg {
 }
 
 export type ChatMessage = {
-  role: 'user' | 'assistant' | 'error' | 'image' | 'evaluation' | 'quality'
+  role: 'user' | 'assistant' | 'error' | 'image' | 'evaluation' | 'quality' | 'feedback'
   content: string
   reasoning?: string
   toolCalls?: ToolCallMsg[]
@@ -341,6 +341,12 @@ export type ChatMessage = {
   }
   evaluation?: EvaluationEvent
   quality?: QualityScore
+  feedback?: FeedbackEvent
+}
+
+export interface FeedbackEvent {
+  positive: boolean
+  message?: string
 }
 
 // ── SSE stream parsing ──
