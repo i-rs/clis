@@ -558,13 +558,13 @@ Page({
     this._touchStartX = 0
   },
 
-  onGoSessions: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/sessions/index' }) },
-  onGoTools: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/tools/index' }) },
-  onGoSkills: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/skills/index' }) },
-  onGoPlugins: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/plugins/index' }) },
-  onGoAgents: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/agents/index' }) },
-  onGoUsage: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/usage/index' }) },
-  onGoSettings: function () { this.onCloseMenu(); wx.navigateTo({ url: '/pages/settings/index' }) },
+  onGoSessions: function () { wx.navigateTo({ url: '/pages/sessions/index' }) },
+  onGoTools: function () { wx.navigateTo({ url: '/pages/tools/index' }) },
+  onGoSkills: function () { wx.navigateTo({ url: '/pages/skills/index' }) },
+  onGoPlugins: function () { wx.navigateTo({ url: '/pages/plugins/index' }) },
+  onGoAgents: function () { wx.navigateTo({ url: '/pages/agents/index' }) },
+  onGoUsage: function () { wx.navigateTo({ url: '/pages/usage/index' }) },
+  onGoSettings: function () { wx.navigateTo({ url: '/pages/settings/index' }) },
 
   onToggleReasoning: function (e) {
     const id = e.currentTarget.dataset.id

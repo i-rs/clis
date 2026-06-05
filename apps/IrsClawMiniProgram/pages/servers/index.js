@@ -1,17 +1,10 @@
-const api = require('../../utils/api.js')
 const store = require('../../utils/store.js')
 const app = getApp()
 
 Page({
   data: {
     isConnected: false,
-    theme: 'dark',
     displayUrl: '',
-    serverUrl: '',
-    authToken: '',
-    currentAgent: 'default',
-    currentServerName: '',
-    aiConfig: null,
     servers: [],
     currentServerId: '',
     showEditSheet: false,
@@ -29,19 +22,12 @@ Page({
       that.setData({
         isConnected: s.isConnected,
         displayUrl: s.displayUrl,
-        serverUrl: s.serverUrl,
-        authToken: s.authToken,
-        currentAgent: s.currentAgent,
-        currentServerName: s.currentServerName,
         servers: s.servers,
-        currentServerId: s.currentServerId,
-        theme: s.theme
+        currentServerId: s.currentServerId
       })
     })
     // 初始化状态
     store.loadFromStorage()
-    this.checkHealth()
-    this.loadConfig()
   },
 
   onUnload: function () {
@@ -50,51 +36,7 @@ Page({
     }
   },
 
-  onServerChanged: function () {
-    // 跨页事件通知，刷新服务器状态
-    store.loadFromStorage()
-  },
-
-  onThemeChanged: function (theme) {
-    this.setData({ theme: theme })
-  },
-
   goBack: function () { wx.navigateBack() },
-
-  goToBackend: function () {
-    wx.navigateTo({ url: '/pages/servers/index' })
-  },
-
-  goToProvider: function () {
-    // TODO: 跳转到 AI Provider 设置
-  },
-
-  goToAgents: function () {
-    wx.navigateTo({ url: '/pages/agents/index' })
-  },
-
-  checkHealth: function () {
-    const that = this
-    const serverUrl = app.globalData.serverUrl
-    if (!serverUrl) {
-      store.updateConnectionStatus(false)
-      return
-    }
-    api.healthCheck().then(function (res) {
-      store.updateConnectionStatus(!!(res && res.success))
-    }).catch(function () {
-      store.updateConnectionStatus(false)
-    })
-  },
-
-  loadConfig: function () {
-    const that = this
-    api.getConfig().then(function (res) {
-      if (res && res.config) {
-        that.setData({ aiConfig: res.config })
-      }
-    }).catch(function () {})
-  },
 
   showAddSheet: function () {
     this.setData({
@@ -119,6 +61,29 @@ Page({
 
   onShowTokenChange: function (e) {
     this.setData({ showToken: e.detail.value.includes('show') })
+  },
+
+  selectServer: function (e) {
+    store.activateServer(e.currentTarget.dataset.id)
+  },
+
+  editServer: function (e) {
+    const id = e.currentTarget.dataset.id
+    const servers = this.data.servers
+    for (let i = 0; i < servers.length; i++) {
+      if (servers[i].id === id) {
+        const srv = servers[i]
+        this.setData({
+          showEditSheet: true,
+          editingServer: srv,
+          editName: srv.name,
+          editUrl: srv.url,
+          editToken: srv.token || '',
+          showToken: false
+        })
+        return
+      }
+    }
   },
 
   saveEdit: function () {
@@ -177,24 +142,5 @@ Page({
         wx.showToast({ title: '已删除', icon: 'success' })
       }
     })
-  },
-
-  editServer: function (e) {
-    const id = e.currentTarget.dataset.id
-    const servers = this.data.servers
-    for (let i = 0; i < servers.length; i++) {
-      if (servers[i].id === id) {
-        const srv = servers[i]
-        this.setData({
-          showEditSheet: true,
-          editingServer: srv,
-          editName: srv.name,
-          editUrl: srv.url,
-          editToken: srv.token || '',
-          showToken: false
-        })
-        return
-      }
-    }
   }
 })

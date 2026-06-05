@@ -5,107 +5,151 @@
     <view class="nav-right"></view>
   </view>
 
-  <!-- Connection Status -->
-  <view class="section">
-    <text class="section-label">连接状态</text>
-    <view class="card">
-      <view class="status">
-        <view class="status-dot {{isConnected ? 'ok' : ''}}"></view>
-        <text class="status-text">{{isConnected ? '已连接' : '未连接'}}</text>
-        <text class="status-extra">{{displayUrl}}</text>
-      </view>
-    </view>
-  </view>
-
   <!-- Appearance -->
   <view class="section">
-    <text class="section-label">外观</text>
-    <view class="card">
-      <view class="field-row">
-        <text class="field-label">深色模式</text>
-        <view class="toggle {{theme === 'dark' ? 'on' : ''}}" bindtap="toggleTheme"></view>
-      </view>
-    </view>
-  </view>
-
-  <!-- Servers -->
-  <view class="section">
-    <text class="section-label">服务器</text>
-
-    <view class="card" wx:if="{{servers.length > 0}}">
-      <view wx:for="{{servers}}" wx:key="id" class="srv-row {{item.id === currentServerId ? 'srv-active' : ''}}">
-        <view class="srv-info" bindtap="selectServer" data-id="{{item.id}}">
-          <view class="srv-icon {{item.id === currentServerId ? 'srv-icon-active' : ''}}">
-            <text class="srv-icon-text">🌐</text>
+    <text class="section-label">APPEARANCE</text>
+    <view class="card card-themed">
+      <view class="theme-row">
+        <view class="theme-option {{theme === 'light' ? 'theme-active' : ''}}" data-theme="light" bindtap="setTheme">
+          <view class="theme-icon-wrap">
+            <text class="theme-icon">☀</text>
           </view>
-          <view class="srv-body">
-            <view class="srv-name-row">
-              <text class="srv-name">{{item.name}}</text>
-              <text class="srv-check" wx:if="{{item.id === currentServerId}}">✓</text>
-            </view>
-            <text class="srv-url">{{item.url}}</text>
-            <text class="srv-token">{{item.tokenDisplay}}</text>
+          <text class="theme-name">Light</text>
+        </view>
+        <view class="theme-option {{theme === 'system' ? 'theme-active' : ''}}" data-theme="system" bindtap="setTheme">
+          <view class="theme-icon-wrap">
+            <text class="theme-icon">💻</text>
           </view>
-          <view class="srv-del" bindtap="deleteServer" data-id="{{item.id}}" data-name="{{item.name}}">
-            <text class="srv-del-text">×</text>
+          <text class="theme-name">Auto</text>
+        </view>
+        <view class="theme-option {{theme === 'dark' ? 'theme-active' : ''}}" data-theme="dark" bindtap="setTheme">
+          <view class="theme-icon-wrap">
+            <text class="theme-icon">🌙</text>
           </view>
+          <text class="theme-name">Dark</text>
         </view>
       </view>
     </view>
+  </view>
 
-    <view class="card" wx:else>
-      <view class="srv-empty">
-        <text class="srv-empty-text">暂无保存的服务器</text>
-      </view>
-    </view>
-
-    <!-- Add Server -->
-    <view class="add-btn-wrap">
-      <view class="btn btn-ghost" bindtap="toggleAddForm">{{showAddForm ? '取消' : '+ 添加服务器'}}</view>
-    </view>
-    <view class="card add-form" wx:if="{{showAddForm}}">
-      <view class="field-row">
-        <text class="field-label">名称</text>
-        <input class="config-input" value="{{newName}}" bindinput="onNewName" placeholder="服务器名称" />
-      </view>
-      <view class="field-row">
-        <text class="field-label">地址</text>
-        <input class="config-input" value="{{newUrl}}" bindinput="onNewUrl" placeholder="http://localhost:3000" />
-      </view>
-      <view class="field-row">
-        <text class="field-label">令牌</text>
-        <input class="config-input" value="{{newToken}}" bindinput="onNewToken" placeholder="可选" />
-      </view>
-      <view class="add-form-btn">
-        <view class="btn btn-fill" bindtap="addServer">保存并连接</view>
-      </view>
-    </view>
-
-    <!-- Manual Connect -->
-    <view class="add-btn-wrap">
-      <view class="btn btn-ghost" bindtap="toggleManual">{{showManual ? '取消' : '手动连接 >>'}}</view>
-    </view>
-    <view class="card add-form" wx:if="{{showManual}}">
-      <view class="field-row">
-        <text class="field-label">地址</text>
-        <input class="config-input" value="{{manualUrl}}" bindinput="onManualUrl" placeholder="http://localhost:3000" />
-      </view>
-      <view class="field-row">
-        <text class="field-label">令牌</text>
-        <input class="config-input" value="{{manualToken}}" bindinput="onManualToken" placeholder="可选" />
-      </view>
-      <view class="add-form-btn">
-        <view class="btn btn-fill" bindtap="manualConnect">连接</view>
+  <!-- Connection Status -->
+  <view class="section">
+    <text class="section-label">STATUS</text>
+    <view class="card card-conn">
+      <view class="conn-row">
+        <view class="conn-dot {{isConnected ? 'conn-dot-ok' : 'conn-dot-err'}}"></view>
+        <view class="conn-info">
+          <text class="conn-title">{{isConnected ? '已连接' : '未连接'}}</text>
+          <text class="conn-url">{{displayUrl || '未设置'}}</text>
+        </view>
       </view>
     </view>
   </view>
 
-  <!-- AI Config -->
-  <view class="section" wx:if="{{aiConfig}}">
-    <text class="section-label">AI 配置</text>
+  <!-- Backend -->
+  <view class="section">
+    <text class="section-label">BACKEND</text>
     <view class="card">
-      <view class="info-row"><text>Provider</text><text class="info-val">{{aiConfig.provider || '-'}}</text></view>
-      <view class="info-row"><text>Model</text><text class="info-val">{{aiConfig.model || '-'}}</text></view>
+      <view class="link-row" bindtap="goToBackend">
+        <view class="link-left">
+          <view class="link-icon-bg link-icon-bg-backend">
+            <text class="link-icon">🖥</text>
+          </view>
+          <view class="link-info">
+            <text class="link-title">服务器</text>
+            <text class="link-sub">{{currentServerName || '未设置'}}</text>
+          </view>
+        </view>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- AI Provider -->
+  <view class="section">
+    <text class="section-label">AI PROVIDER</text>
+    <view class="card">
+      <view class="link-row" bindtap="goToProvider">
+        <view class="link-left">
+          <view class="link-icon-bg link-icon-bg-ai">
+            <text class="link-icon">🧠</text>
+          </view>
+          <view class="link-info">
+            <text class="link-title">{{aiConfig.provider || 'Provider'}}</text>
+            <text class="link-sub">{{aiConfig.model || '未设置'}}</text>
+          </view>
+        </view>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Agents -->
+  <view class="section">
+    <text class="section-label">AGENTS</text>
+    <view class="card">
+      <view class="link-row" bindtap="goToAgents">
+        <view class="link-left">
+          <view class="link-icon-bg link-icon-bg-agents">
+            <text class="link-icon">👥</text>
+          </view>
+          <view class="link-info">
+            <text class="link-title">管理 Agents</text>
+          </view>
+        </view>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- About -->
+  <view class="section">
+    <text class="section-label">ABOUT</text>
+    <view class="card">
+      <view class="link-row">
+        <view class="link-left">
+          <view class="link-icon-bg link-icon-bg-about">
+            <text class="link-icon">ⓘ</text>
+          </view>
+          <view class="link-info">
+            <text class="link-title">Version</text>
+          </view>
+        </view>
+        <text class="link-arrow-text">1.0.0</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Edit Sheet -->
+  <view class="sheet-mask {{showEditSheet ? 'sheet-mask-show' : ''}}" bindtap="hideEditSheet">
+    <view class="sheet {{showEditSheet ? 'sheet-show' : ''}}" catchtap="preventMaskTap">
+      <view class="sheet-header">
+        <text class="sheet-title">{{editingServer ? '编辑服务器' : '添加服务器'}}</text>
+        <view class="sheet-close" bindtap="hideEditSheet"><text>×</text></view>
+      </view>
+      <view class="sheet-body">
+        <view class="form-item">
+          <text class="form-label">名称</text>
+          <input class="form-input" value="{{editName}}" bindinput="onEditName" placeholder="服务器名称" />
+        </view>
+        <view class="form-item">
+          <text class="form-label">地址</text>
+          <input class="form-input" value="{{editUrl}}" bindinput="onEditUrl" placeholder="http://localhost:3000" />
+        </view>
+        <view class="form-item">
+          <text class="form-label">令牌</text>
+          <input class="form-input" value="{{editToken}}" bindinput="onEditToken" placeholder="可选" password="{{!showToken}}" />
+        </view>
+        <view class="form-item form-item-check">
+          <checkbox-group bindchange="onShowTokenChange">
+            <label><checkbox value="show" checked="{{showToken}}" />显示令牌</label>
+          </checkbox-group>
+        </view>
+      </view>
+      <view class="sheet-footer">
+        <view class="sheet-btn sheet-btn-cancel" bindtap="hideEditSheet"><text>取消</text></view>
+        <view class="sheet-btn sheet-btn-confirm" bindtap="saveEdit"><text>保存</text></view>
+      </view>
     </view>
   </view>
 </view>

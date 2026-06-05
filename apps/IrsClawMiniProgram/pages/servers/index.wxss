@@ -3,7 +3,7 @@ page {
   min-height: 100vh;
 }
 
-.settings-page {
+.servers-page {
   padding: 0 16rpx calc(40rpx + env(safe-area-inset-bottom)) 16rpx;
 }
 
@@ -22,62 +22,6 @@ page {
   padding: 0 0 0 16rpx;
 }
 
-.card {
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  padding: 0;
-}
-
-/* Theme Picker */
-.card-themed {
-  padding: 12rpx 16rpx;
-}
-.theme-row {
-  display: flex;
-  gap: 16rpx;
-}
-.theme-option {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10rpx;
-  padding: 20rpx 12rpx;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  transition: background 0.18s, transform 0.1s;
-}
-.theme-option:active {
-  transform: scale(0.97);
-}
-.theme-active {
-  background: var(--accent);
-}
-.theme-icon-wrap {
-  width: 52rpx;
-  height: 52rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.theme-icon {
-  font-size: 40rpx;
-  line-height: 1;
-  color: var(--text);
-}
-.theme-active .theme-icon {
-  color: #fff;
-}
-.theme-name {
-  font-size: 22rpx;
-  font-weight: 500;
-  color: var(--text-2);
-}
-.theme-active .theme-name {
-  color: #fff;
-  font-weight: 600;
-}
-
 /* Connection Status */
 .card-conn {
   padding: 0 16rpx;
@@ -85,7 +29,7 @@ page {
 .conn-row {
   display: flex;
   align-items: center;
-  padding: 24rpx 0;
+  padding: 24rpx 16rpx;
   gap: 20rpx;
 }
 .conn-dot {
@@ -122,34 +66,73 @@ page {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-/* Link Row */
-.link-row {
+/* Card */
+.card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 0;
+}
+
+/* Server Card */
+.srv-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 24rpx 16rpx;
+  border-bottom: 1rpx solid var(--border);
 }
-.link-left {
+.srv-item:last-child {
+  border-bottom: none;
+}
+.srv-tap {
   display: flex;
   align-items: center;
   gap: 20rpx;
   flex: 1;
   min-width: 0;
+  padding: 8rpx 0;
 }
-.link-icon {
-  font-size: 36rpx;
+.srv-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  transition: background 0.18s;
 }
-.link-info {
+.srv-icon-active {
+  background: var(--accent-bg);
+}
+.srv-icon-text {
+  font-size: 32rpx;
+  line-height: 1;
+}
+.srv-body {
   flex: 1;
   min-width: 0;
 }
-.link-title {
-  font-size: 30rpx;
-  color: var(--text);
-  display: block;
+.srv-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
-.link-sub {
+.srv-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.srv-check {
+  font-size: 24rpx;
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.srv-url {
   font-size: 24rpx;
   color: var(--text-2);
   display: block;
@@ -157,18 +140,74 @@ page {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
-.link-arrow {
-  font-size: 40rpx;
-  color: var(--text-3);
-  font-weight: 300;
+.srv-active .srv-tap {
+  background: linear-gradient(90deg, var(--accent-bg) 0%, transparent 100%);
+  margin: -8rpx -12rpx;
+  padding: 8rpx 12rpx;
+  border-radius: var(--r-md);
+}
+
+/* Server Actions */
+.srv-actions {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
   flex-shrink: 0;
-  margin-left: 16rpx;
+  margin-left: 8rpx;
 }
-.link-arrow-text {
+.srv-action-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  transition: background 0.18s;
+}
+.srv-action-btn:active {
+  background: var(--surface-2);
+}
+.srv-action-icon {
+  font-size: 28rpx;
+  line-height: 1;
+}
+
+/* Add Button */
+.add-btn-wrap {
+  margin-top: 16rpx;
+}
+.add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 24rpx 0;
+  transition: background 0.18s;
+}
+.add-btn:active {
+  background: var(--surface-2);
+}
+.add-btn-icon {
+  font-size: 36rpx;
+  font-weight: 300;
+  color: var(--accent);
+}
+.add-btn-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* Empty Card */
+.card-empty {
+  padding: 48rpx 24rpx;
+  text-align: center;
+}
+.empty-text {
   font-size: 28rpx;
   color: var(--text-3);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* Edit Sheet */
@@ -260,6 +299,7 @@ page {
   opacity: 0.85;
 }
 
+/* Form Items */
 .form-item {
   margin-bottom: 28rpx;
 }
@@ -296,4 +336,3 @@ page {
   font-size: 26rpx;
   color: var(--text-2);
 }
-

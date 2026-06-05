@@ -1,0 +1,94 @@
+<view class="servers-page">
+  <view class="navbar">
+    <view class="nav-btn" bindtap="goBack"><text>←</text></view>
+    <view class="nav-center"><text class="nav-title">服务器</text></view>
+    <view class="nav-right"></view>
+  </view>
+
+  <!-- Connection Status -->
+  <view class="section">
+    <text class="section-label">STATUS</text>
+    <view class="card card-conn">
+      <view class="conn-row">
+        <view class="conn-dot {{isConnected ? 'conn-dot-ok' : 'conn-dot-err'}}"></view>
+        <view class="conn-info">
+          <text class="conn-title">{{isConnected ? '已连接' : '未连接'}}</text>
+          <text class="conn-url">{{displayUrl || '未设置'}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Server List -->
+  <view class="section">
+    <text class="section-label">Configs</text>
+    <view class="card" wx:if="{{servers.length > 0}}">
+      <view wx:for="{{servers}}" wx:key="id" class="srv-item {{item.id === currentServerId ? 'srv-active' : ''}}">
+        <view class="srv-tap" bindtap="selectServer" data-id="{{item.id}}">
+          <view class="srv-icon {{item.id === currentServerId ? 'srv-icon-active' : ''}}">
+            <text class="srv-icon-text">🖥</text>
+          </view>
+          <view class="srv-body">
+            <view class="srv-name-row">
+              <text class="srv-name">{{item.name}}</text>
+              <text class="srv-check" wx:if="{{item.id === currentServerId}}">✓</text>
+            </view>
+            <text class="srv-url">{{item.url}}</text>
+          </view>
+        </view>
+        <view class="srv-actions">
+          <view class="srv-action-btn" bindtap="editServer" data-id="{{item.id}}">
+            <text class="srv-action-icon">✏️</text>
+          </view>
+          <view class="srv-action-btn srv-action-del" bindtap="deleteServer" data-id="{{item.id}}" data-name="{{item.name}}">
+            <text class="srv-action-icon">🗑</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card card-empty" wx:else>
+      <text class="empty-text">暂无保存的服务器</text>
+    </view>
+
+    <view class="card add-btn-wrap">
+      <view class="add-btn" bindtap="showAddSheet">
+        <text class="add-btn-icon">+</text>
+        <text class="add-btn-text">添加服务器</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Edit Sheet -->
+  <view class="sheet-mask {{showEditSheet ? 'sheet-mask-show' : ''}}" bindtap="hideEditSheet">
+    <view class="sheet {{showEditSheet ? 'sheet-show' : ''}}" catchtap="preventMaskTap">
+      <view class="sheet-header">
+        <text class="sheet-title">{{editingServer ? '编辑服务器' : '添加服务器'}}</text>
+        <view class="sheet-close" bindtap="hideEditSheet"><text>×</text></view>
+      </view>
+      <view class="sheet-body">
+        <view class="form-item">
+          <text class="form-label">名称</text>
+          <input class="form-input" value="{{editName}}" bindinput="onEditName" placeholder="服务器名称" />
+        </view>
+        <view class="form-item">
+          <text class="form-label">地址</text>
+          <input class="form-input" value="{{editUrl}}" bindinput="onEditUrl" placeholder="http://localhost:3000" />
+        </view>
+        <view class="form-item">
+          <text class="form-label">令牌</text>
+          <input class="form-input" value="{{editToken}}" bindinput="onEditToken" placeholder="可选" password="{{!showToken}}" />
+        </view>
+        <view class="form-item form-item-check">
+          <checkbox-group bindchange="onShowTokenChange">
+            <label><checkbox value="show" checked="{{showToken}}" />显示令牌</label>
+          </checkbox-group>
+        </view>
+      </view>
+      <view class="sheet-footer">
+        <view class="sheet-btn sheet-btn-cancel" bindtap="hideEditSheet"><text>取消</text></view>
+        <view class="sheet-btn sheet-btn-confirm" bindtap="saveEdit"><text>保存</text></view>
+      </view>
+    </view>
+  </view>
+</view>
