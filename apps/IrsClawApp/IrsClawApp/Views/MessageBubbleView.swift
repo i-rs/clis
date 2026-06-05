@@ -29,6 +29,10 @@ struct MessageBubbleView: View {
                 statusBubble(text)
             case .reasoning(let text):
                 reasoningBubble(text)
+            case .evaluation(let tool, let valid, let issues):
+                evaluationBubble(tool: tool, valid: valid, issues: issues)
+            case .quality(let score, let complete, let issues, let referencesValid):
+                qualityBubble(score: score, complete: complete, issues: issues, referencesValid: referencesValid)
             }
         }
     }
@@ -202,6 +206,110 @@ struct MessageBubbleView: View {
                 .scaleEffect(0.9)
 
             reasoningBlock(text)
+
+            Spacer(minLength: 20)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Evaluation Bubble
+
+    @ViewBuilder
+    private func evaluationBubble(tool: String, valid: Bool, issues: [String]) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: valid ? "checkmark.seal.fill" : "xmark.seal.fill", colors: valid ? [.green, .teal] : [.red, .orange])
+                .scaleEffect(0.9)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "function")
+                        .font(.caption)
+                    Text("Tool Evaluation: \(tool)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text(valid ? "Valid" : "Invalid")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(valid ? .green : .red)
+                }
+                .foregroundStyle(.secondary)
+
+                if !issues.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(issues, id: \.self) { issue in
+                            HStack(alignment: .top, spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                                Text(issue)
+                                    .font(.caption)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                    }
+                    .padding(10)
+                    .background(Color.platformSecondaryBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+
+            Spacer(minLength: 20)
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Quality Bubble
+
+    @ViewBuilder
+    private func qualityBubble(score: String, complete: Bool, issues: [String], referencesValid: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(icon: complete ? "star.fill" : "star", colors: [.yellow, .orange])
+                .scaleEffect(0.9)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.badge.star")
+                        .font(.caption)
+                    Text("Quality Assessment")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text(score)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.orange)
+                }
+                .foregroundStyle(.secondary)
+
+                HStack(spacing: 12) {
+                    Label(complete ? "Complete" : "Incomplete", systemImage: complete ? "checkmark.circle.fill" : "circle")
+                        .font(.caption2)
+                        .foregroundStyle(complete ? .green : .secondary)
+
+                    Label(referencesValid ? "Refs Valid" : "Refs Invalid", systemImage: referencesValid ? "link.circle.fill" : "link.badge.plus")
+                        .font(.caption2)
+                        .foregroundStyle(referencesValid ? .blue : .red)
+                }
+
+                if !issues.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(issues, id: \.self) { issue in
+                            HStack(alignment: .top, spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                                Text(issue)
+                                    .font(.caption)
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                    }
+                    .padding(10)
+                    .background(Color.platformSecondaryBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
 
             Spacer(minLength: 20)
         }

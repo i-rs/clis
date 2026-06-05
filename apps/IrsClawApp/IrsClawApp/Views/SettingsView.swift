@@ -1069,10 +1069,10 @@ struct AddAgentSheet: View {
                             id: id,
                             provider: provider.isEmpty ? nil : provider,
                             model: model.isEmpty ? nil : model,
-                            providerRef: providerRef.isEmpty ? nil : providerRef,
                             apiKey: apiKey.isEmpty ? nil : apiKey,
                             baseURL: baseURL.isEmpty ? nil : baseURL,
-                            systemPrompt: systemPrompt.isEmpty ? nil : systemPrompt
+                            systemPrompt: systemPrompt.isEmpty ? nil : systemPrompt,
+                            providerRef: providerRef.isEmpty ? nil : providerRef
                         )
                         await service.fetchAgents()
                         dismiss()
