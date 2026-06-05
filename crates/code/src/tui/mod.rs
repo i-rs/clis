@@ -109,12 +109,16 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
             }
             })?;
             if !app.auto_scroll {
-                app.scroll_offset = app.scroll_offset.min(ui::get_max_scroll());
+                let max_scroll = ui::get_max_scroll();
+                if app.scroll_offset >= max_scroll {
+                    app.auto_scroll = true;
+                }
+                app.scroll_offset = app.scroll_offset.min(max_scroll);
             }
             app.needs_redraw = false;
         }
 
-        let poll_ms = if is_streaming { 16 } else { 200 };
+        let poll_ms = if is_streaming { 16 } else { 50 };
         if event::poll(Duration::from_millis(poll_ms))? {
             match event::read()? {
                 Event::Key(key) => {
@@ -137,6 +141,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                             } else {
                                 app.scroll_offset = app.scroll_offset.saturating_sub(1);
                                 app.auto_scroll = false;
+                                app.needs_redraw = true;
                             }
                         }
                         MouseEventKind::ScrollDown => {
@@ -144,6 +149,7 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                                 app.sidebar_scroll = app.sidebar_scroll.saturating_add(1);
                             } else {
                                 app.scroll_offset = app.scroll_offset.saturating_add(1);
+                                app.needs_redraw = true;
                             }
                         }
                         MouseEventKind::Down(_)
