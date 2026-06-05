@@ -124,14 +124,16 @@ struct MessageBubbleView: View {
 
     @ViewBuilder
     private func tokenUsageBadge(_ usage: TokenUsage) -> some View {
-        let prompt = usage.promptTokens ?? 0
-        let completion = usage.completionTokens ?? 0
-        let total = prompt + completion
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Image(systemName: "speedometer")
                 .font(.system(size: 8))
-            Text("\(total) tokens")
+            Text(usage.formattedTokens)
                 .font(.system(size: 9))
+            if let cost = usage.formattedCost {
+                Text(cost)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
         }
         .foregroundStyle(.tertiary)
         .padding(.horizontal, 6)

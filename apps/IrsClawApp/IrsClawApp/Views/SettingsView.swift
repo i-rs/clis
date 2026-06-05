@@ -813,6 +813,7 @@ struct AgentDetailSheet: View {
     @State private var editedApiKey = ""
     @State private var editedBaseURL = ""
     @State private var editedSystemPrompt = ""
+    @State private var editedProviderRef = ""
     @State private var isSaving = false
 
     var body: some View {
@@ -862,6 +863,9 @@ struct AgentDetailSheet: View {
                 LabeledContent("Model", value: detail.model)
                 if !detail.baseUrl.isEmpty {
                     LabeledContent("Base URL", value: detail.baseUrl)
+                }
+                if let ref = detail.providerRef, !ref.isEmpty {
+                    LabeledContent("Provider Ref", value: ref)
                 }
             }
 
@@ -913,6 +917,7 @@ struct AgentDetailSheet: View {
             Section("Model") {
                 TextField("Provider", text: $editedProvider)
                 TextField("Model", text: $editedModel)
+                TextField("Provider Ref (optional)", text: $editedProviderRef)
             }
 
             Section("Authentication") {
@@ -953,6 +958,7 @@ struct AgentDetailSheet: View {
                 editedModel = d.model
                 editedBaseURL = d.baseUrl
                 editedSystemPrompt = d.systemPrompt ?? ""
+                editedProviderRef = d.providerRef ?? ""
                 isLoading = false
             }
         } else {
@@ -966,6 +972,7 @@ struct AgentDetailSheet: View {
         editedModel = d.model
         editedBaseURL = d.baseUrl
         editedSystemPrompt = d.systemPrompt ?? ""
+        editedProviderRef = d.providerRef ?? ""
         isEditing = true
     }
 
@@ -977,7 +984,8 @@ struct AgentDetailSheet: View {
             model: editedModel.isEmpty ? nil : editedModel,
             apiKey: editedApiKey.isEmpty ? nil : editedApiKey,
             baseURL: editedBaseURL.isEmpty ? nil : editedBaseURL,
-            systemPrompt: editedSystemPrompt.isEmpty ? nil : editedSystemPrompt
+            systemPrompt: editedSystemPrompt.isEmpty ? nil : editedSystemPrompt,
+            providerRef: editedProviderRef.isEmpty ? nil : editedProviderRef
         )
         isSaving = false
         if success {
@@ -998,6 +1006,7 @@ struct AddAgentSheet: View {
     @State private var apiKey = ""
     @State private var baseURL = ""
     @State private var systemPrompt = ""
+    @State private var providerRef = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1029,6 +1038,7 @@ struct AddAgentSheet: View {
                 Section("Model") {
                     TextField("Provider (e.g. openai)", text: $provider)
                     TextField("Model (e.g. gpt-4o-mini)", text: $model)
+                    TextField("Provider Ref (optional)", text: $providerRef)
                 }
 
                 Section("Authentication") {
@@ -1059,6 +1069,7 @@ struct AddAgentSheet: View {
                             id: id,
                             provider: provider.isEmpty ? nil : provider,
                             model: model.isEmpty ? nil : model,
+                            providerRef: providerRef.isEmpty ? nil : providerRef,
                             apiKey: apiKey.isEmpty ? nil : apiKey,
                             baseURL: baseURL.isEmpty ? nil : baseURL,
                             systemPrompt: systemPrompt.isEmpty ? nil : systemPrompt

@@ -16,7 +16,8 @@ Page({
       model: '',
       api_key: '',
       base_url: '',
-      system_prompt: ''
+      system_prompt: '',
+      provider_ref: ''
     }
   },
 
@@ -81,7 +82,8 @@ Page({
             model: res.data.model || '',
             api_key: res.data.api_key || '',
             base_url: res.data.base_url || '',
-            system_prompt: res.data.system_prompt || ''
+            system_prompt: res.data.system_prompt || '',
+            provider_ref: res.data.provider_ref || ''
           }
         })
       } else {
@@ -95,7 +97,7 @@ Page({
       showingForm: true,
       formMode: 'create',
       editingAgent: null,
-      formData: { id: '', provider: '', model: '', api_key: '', base_url: '', system_prompt: '' }
+      formData: { id: '', provider: '', model: '', api_key: '', base_url: '', system_prompt: '', provider_ref: '' }
     })
   },
 
@@ -126,6 +128,7 @@ Page({
     if (formData.provider) body.provider = formData.provider
     if (formData.model) body.model = formData.model
     if (formData.api_key) body.api_key = formData.api_key
+    if (formData.provider_ref) body.provider_ref = formData.provider_ref
     if (formData.base_url) body.base_url = formData.base_url
     if (formData.system_prompt) body.system_prompt = formData.system_prompt
 
