@@ -453,10 +453,7 @@ pub async fn chat_stream(
                             }
                         });
 
-                        let mut done_json = serde_json::json!({"usage": usage});
-                        if let Some(ref qd) = quality_data {
-                            done_json["quality"] = qd.clone();
-                        }
+                        let done_json = serde_json::json!({"usage": usage});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         let sse = Event::default().event("done").data(data);
                         return Some((Ok::<_, Infallible>(sse), (None, state, sid)));
