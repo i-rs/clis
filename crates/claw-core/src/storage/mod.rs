@@ -1,5 +1,6 @@
 //! Pluggable storage backend abstraction.
 
+pub mod config_store;
 pub mod file;
 #[cfg(feature = "mongo")]
 pub mod mongo;
