@@ -294,67 +294,8 @@ pub async fn send_message(
         layered.record_user_statement(&text);
     }
 
-    // Drop the write lock before spawning LLM
+    // Drop the write lock — chat_stream will spawn the actual LLM call.
     drop(core);
-
-    let (llm_tx, mut llm_rx) = mpsc::unbounded_channel::<LlmEvent>();
-    {
-        let core = state.core.read().await;
-        let messages = core.session_mgr.load_app_messages(&sid, 50);
-        let msgs = core.build_messages_from_log(&messages, &agent_id);
-        let recent: Vec<Value> = messages
-            .iter()
-            .filter_map(|m| match m {
-                crate::app::Message::User { text } => {
-                    Some(serde_json::json!({"role":"user","content":text}))
-                }
-                crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
-                    Some(serde_json::json!({"role":"assistant","content":text}))
-                }
-                _ => None,
-            })
-            .collect();
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
-    }
-
-    let bg_state = state.clone();
-    let bg_sid = sid.clone();
-    tokio::spawn(async move {
-        let mut acc = MessageAccumulator::new();
-        while let Some(event) = llm_rx.recv().await {
-            match &event {
-                LlmEvent::Done(msgs, _usage, _trace_id) => {
-                    acc.apply(&LlmEvent::Done(msgs.clone(), None, String::new()));
-                    let finalized = acc.into_messages();
-                    let mut core = bg_state.core.write().await;
-                    if let Err(e) = core.session_mgr.persist_messages(&bg_sid, &finalized) {
-                        tracing::error!("persist_messages (Done) 失败: {}", e);
-                    }
-                    core.session_mgr.save_api_messages(&bg_sid, msgs);
-                    let quality = core.evaluate_completed_session(&bg_sid);
-                    if let Some(q) = quality {
-                        if let Err(e) = core.session_mgr.persist_messages(&bg_sid, &[q]) {
-                            tracing::error!("quality 持久化失败: {}", e);
-                        }
-                    }
-                    break;
-                }
-                LlmEvent::Error(e) => {
-                    acc.apply(&event);
-                    let finalized = acc.into_messages();
-                    let mut core = bg_state.core.write().await;
-                    core.session_mgr.mark_error(&bg_sid, e);
-                    if let Err(e) = core.session_mgr.persist_messages(&bg_sid, &finalized) {
-                        tracing::error!("persist_messages (Error) 失败: {}", e);
-                    }
-                    break;
-                }
-                _ => {
-                    acc.apply(&event);
-                }
-            }
-        }
-    });
 
     ApiResponse::ok(serde_json::json!({
         "session_id": sid,
