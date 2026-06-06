@@ -141,7 +141,7 @@ impl SessionRepo for MongoSessionStore {
 
         // Upsert all incoming sessions
         for s in sessions {
-            let mut doc = session_meta_to_doc(s);
+            let mut doc = session_meta_to_doc(s)?;
             doc.insert("_id", s.id.clone());
             self.db
                 .db
@@ -195,15 +195,15 @@ impl SessionRepo for MongoSessionStore {
     }
 }
 
-fn session_meta_to_doc(s: &crate::session::SessionMeta) -> Document {
-    doc! {
+fn session_meta_to_doc(s: &crate::session::SessionMeta) -> anyhow::Result<Document> {
+    Ok(doc! {
         "title": s.title.clone(),
         "agent_id": s.agent_id.clone(),
-        "state": serde_json::to_string(&s.state).unwrap_or_default(),
+        "state": serde_json::to_string(&s.state)?,
         "created_at": s.created_at,
         "updated_at": s.updated_at,
         "message_count": s.message_count as i64,
-    }
+    })
 }
 
 fn doc_to_session_meta(d: &Document) -> anyhow::Result<crate::session::SessionMeta> {

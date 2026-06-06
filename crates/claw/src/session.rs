@@ -115,11 +115,14 @@ impl SessionManager {
 
     /// Create a SessionManager with a custom storage backend (for DI/testing).
     pub fn with_storage(storage: Arc<ClawStorage>) -> anyhow::Result<Self> {
-        let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().await })
-            .inspect_err(|e| {
-                tracing::error!("加载会话列表失败: {} — 以空列表启动，不会覆盖损坏文件", e);
-            })
-            .unwrap_or_default();
+        let sessions =
+            crate::utils::sync_block_on(async { storage.sessions.load_all().await })
+                .inspect_err(|e| {
+                    tracing::error!(
+                        "加载会话列表失败: {} — 数据可能损坏，请检查 .bak 备份后重新启动",
+                        e
+                    );
+                })?;
         let current_id = sessions.first().map(|s| s.id.clone());
         let index = sessions
             .iter()
@@ -360,8 +363,40 @@ impl SessionManager {
     }
 
     /// Get a clonable handle to the append-only MessageLog.
+    #[allow(dead_code)]
     pub fn message_log(&self) -> std::sync::Arc<dyn crate::storage::MessageLog> {
         self.storage.message_log.clone()
+    }
+
+    /// Persist messages to the message log for a session. Unlike
+    /// `append_new_messages`, this does not maintain a cursor — it is
+    /// intended for external callers (gateway, dashboard) that write
+    /// complete message pairs directly.
+    ///
+    /// Updates `message_count` and `updated_at` on the in-memory session
+    /// metadata, then saves via `save_session`.
+    pub fn persist_messages(
+        &mut self,
+        session_id: &str,
+        messages: &[crate::app::Message],
+    ) -> anyhow::Result<()> {
+        if messages.is_empty() {
+            return Ok(());
+        }
+        let log = self.storage.message_log.clone();
+        let sid = session_id.to_string();
+        let append_count = messages.len();
+        let msgs = messages.to_vec();
+        crate::utils::sync_block_on(async move { log.append_batch(&sid, &msgs).await })?;
+
+        if let Some(idx) = self.index.get(session_id)
+            && let Some(meta) = self.sessions.get_mut(*idx)
+        {
+            meta.message_count += append_count;
+            meta.updated_at = chrono::Utc::now().timestamp();
+        }
+        self.save_session(session_id);
+        Ok(())
     }
 
     /// Append any messages in `messages` beyond the saved cursor to the
@@ -447,6 +482,7 @@ impl SessionManager {
     /// Upsert a single session to storage (avoids rewriting the entire index).
     fn save_session(&self, id: &str) {
         let Some(idx) = self.find_index(id) else {
+            tracing::warn!("save_session: session '{}' 不在 index 中，保存已跳过", id);
             return;
         };
         let storage = self.storage.clone();

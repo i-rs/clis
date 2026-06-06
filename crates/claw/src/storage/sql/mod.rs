@@ -85,7 +85,7 @@ macro_rules! define_sql_stores {
                 for s in sessions {
                     sqlx::query($upsert_session)
                         .bind(&s.id).bind(&s.title).bind(&s.agent_id)
-                        .bind(serde_json::to_string(&s.state).unwrap_or_default())
+                        .bind(serde_json::to_string(&s.state)?)
                         .bind(s.created_at).bind(s.updated_at)
                         .bind(s.message_count as i64)
                         .execute(&mut *tx).await?;
@@ -107,7 +107,7 @@ macro_rules! define_sql_stores {
             async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
                 sqlx::query($upsert_session)
                     .bind(&session.id).bind(&session.title).bind(&session.agent_id)
-                    .bind(serde_json::to_string(&session.state).unwrap_or_default())
+                    .bind(serde_json::to_string(&session.state)?)
                     .bind(session.created_at).bind(session.updated_at)
                     .bind(session.message_count as i64)
                     .execute(&self.db.pool).await?;
@@ -151,6 +151,7 @@ macro_rules! define_sql_stores {
                 .fetch_one(&mut *tx)
                 .await?;
                 let mut seq = next_seq + 1;
+                let count = messages.len();
                 for msg in messages {
                     let rec = crate::message::StoredRecord::from_message(msg)?;
                     let payload = serde_json::to_string(&rec.payload)?;
@@ -166,6 +167,23 @@ macro_rules! define_sql_stores {
                     .await?;
                     seq += 1;
                 }
+                // Update session metadata in the same transaction so
+                // message_count cannot drift on crash.
+                let now = chrono::Utc::now().timestamp();
+                sqlx::query(concat!(
+                    "UPDATE sessions SET message_count = message_count + ", $ph1, " WHERE id = ", $ph2
+                ))
+                .bind(count as i64)
+                .bind(session_id)
+                .execute(&mut *tx)
+                .await?;
+                let _ = sqlx::query(concat!(
+                    "UPDATE sessions SET updated_at = ", $ph1, " WHERE id = ", $ph2
+                ))
+                .bind(now)
+                .bind(session_id)
+                .execute(&mut *tx)
+                .await;
                 tx.commit().await?;
                 Ok(())
             }

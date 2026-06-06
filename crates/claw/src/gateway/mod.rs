@@ -277,10 +277,8 @@ impl GatewayServer {
                     break;
                 }
                 crate::llm::LlmEvent::Done(api_msgs, _, _) => {
-                    let core = core.write().await;
+                    let mut core = core.write().await;
                     core.session_mgr.save_api_messages(&session_uuid, &api_msgs);
-                    // Persist via append-only MessageLog.
-                    let log = core.session_mgr.message_log();
                     let msgs = vec![
                         crate::app::Message::User {
                             text: text_owned.clone(),
@@ -291,8 +289,8 @@ impl GatewayServer {
                             token_usage: None,
                         },
                     ];
-                    if let Err(e) = log.append_batch(&session_uuid, &msgs).await {
-                        tracing::error!("gateway MessageLog::append_batch 失败: {}", e);
+                    if let Err(e) = core.session_mgr.persist_messages(&session_uuid, &msgs) {
+                        tracing::error!("gateway persist_messages 失败: {}", e);
                     }
                     break;
                 }

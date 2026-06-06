@@ -131,13 +131,14 @@ impl PgBackend {
                 seq         BIGINT       NOT NULL,
                 ts          BIGINT       NOT NULL,
                 schema_v    INT          NOT NULL DEFAULT 1,
-                payload     JSONB        NOT NULL
+                payload     TEXT         NOT NULL,
+                UNIQUE (session_id, seq)
             )",
         )
         .execute(&self.pool)
         .await?;
         sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_message_log_session_seq
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_message_log_session_seq
              ON message_log (session_id, seq)",
         )
         .execute(&self.pool)

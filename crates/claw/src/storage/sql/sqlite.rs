@@ -75,13 +75,18 @@ impl SqliteBackend {
                 seq         INTEGER NOT NULL,
                 ts          INTEGER NOT NULL,
                 schema_v    INTEGER NOT NULL DEFAULT 1,
-                payload     TEXT    NOT NULL
+                payload     TEXT    NOT NULL,
+                UNIQUE(session_id, seq)
             )",
         )
         .execute(&self.pool)
         .await?;
+        // Legacy index replaced by UNIQUE constraint above; kept for
+        // idempotency on existing databases where the constraint may
+        // not exist yet. The UNIQUE constraint in CREATE TABLE covers
+        // new databases.
         sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_message_log_session_seq
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_message_log_session_seq
              ON message_log (session_id, seq)",
         )
         .execute(&self.pool)

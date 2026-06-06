@@ -23,6 +23,7 @@ use super::*;
 /// Domain-specific locks to prevent unrelated writes from blocking each other.
 static MESSAGES_LOCK: Mutex<()> = Mutex::new(());
 static STATS_LOCK: Mutex<()> = Mutex::new(());
+static SESSION_LOCK: Mutex<()> = Mutex::new(());
 
 fn ensure_dir(p: &Path) -> anyhow::Result<()> {
     if let Some(parent) = p.parent() {
@@ -158,19 +159,31 @@ impl SessionRepo for FileSessionStore {
     }
 
     async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
-        let mut all = self.load_all().await?;
-        if let Some(pos) = all.iter().position(|s| s.id == session.id) {
-            all[pos] = session.clone();
-        } else {
-            all.push(session.clone());
-        }
-        self.save_all(&all).await
+        let session = session.clone();
+        let claw_dir = self.claw_dir.clone();
+        blocking(move || {
+            let _lock = lock_guard(&SESSION_LOCK);
+            let mut all = session_io::load_sessions_sync(&claw_dir)?;
+            if let Some(pos) = all.iter().position(|s| s.id == session.id) {
+                all[pos] = session;
+            } else {
+                all.push(session);
+            }
+            session_io::save_sessions_sync(&claw_dir, &all)
+        })
+        .await
     }
 
     async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
-        let mut all = self.load_all().await?;
-        all.retain(|s| s.id != id);
-        self.save_all(&all).await
+        let id = id.to_string();
+        let claw_dir = self.claw_dir.clone();
+        blocking(move || {
+            let _lock = lock_guard(&SESSION_LOCK);
+            let mut all = session_io::load_sessions_sync(&claw_dir)?;
+            all.retain(|s| s.id != id);
+            session_io::save_sessions_sync(&claw_dir, &all)
+        })
+        .await
     }
 
     async fn count(&self) -> anyhow::Result<usize> {
@@ -210,13 +223,11 @@ impl ApiCacheRepo for FileApiCacheStore {
                 return Ok(None);
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(Some(
-                serde_json::from_str(&content)
-                    .inspect_err(|e| {
-                        tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
-                    })
-                    .unwrap_or_default(),
-            ))
+            let data = serde_json::from_str(&content)
+                .inspect_err(|e| {
+                    tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
+                })?;
+            Ok(Some(data))
         })
         .await
     }
@@ -263,7 +274,7 @@ impl PlanStepsRepo for FilePlanStepsStore {
                 return Ok(Vec::new());
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(serde_json::from_str(&content).unwrap_or_default())
+            Ok(serde_json::from_str(&content)?)
         })
         .await
     }
@@ -603,7 +614,7 @@ impl ToolCacheRepo for FileToolCacheStore {
                 return Ok(HashMap::new());
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(serde_json::from_str(&content).unwrap_or_default())
+            Ok(serde_json::from_str(&content)?)
         })
         .await
     }
@@ -681,15 +692,12 @@ impl MessageLog for FileMessageLog {
             if !path.exists() {
                 return Ok(Vec::new());
             }
-            let file = std::fs::File::open(&path)?;
-            use std::io::{BufRead, BufReader};
-            let reader = BufReader::new(file);
-            let all: Vec<crate::app::Message> = reader
+            let content = std::fs::read_to_string(&path)?;
+            let all: Vec<crate::app::Message> = content
                 .lines()
-                .map_while(Result::ok)
                 .filter(|line| !line.trim().is_empty())
                 .filter_map(|line| {
-                    serde_json::from_str::<crate::message::StoredRecord>(&line)
+                    serde_json::from_str::<crate::message::StoredRecord>(line)
                         .ok()?
                         .to_message()
                 })
@@ -716,10 +724,19 @@ impl MessageLog for FileMessageLog {
             let index_path = claw_dir.join("index.json");
             // NOTE: search reads index.json directly — coupled to FileSessionStore format.
             let sessions: Vec<crate::session::SessionMeta> = if index_path.exists() {
-                std::fs::read_to_string(&index_path)
-                    .ok()
-                    .and_then(|c| serde_json::from_str(&c).ok())
-                    .unwrap_or_default()
+                match std::fs::read_to_string(&index_path) {
+                    Ok(content) => match serde_json::from_str(&content) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::error!("search: index.json 解析失败: {}", e);
+                            Vec::new()
+                        }
+                    },
+                    Err(e) => {
+                        tracing::error!("search: 无法读取 index.json: {}", e);
+                        Vec::new()
+                    }
+                }
             } else {
                 Vec::new()
             };
@@ -734,13 +751,16 @@ impl MessageLog for FileMessageLog {
                     Ok(f) => f,
                     Err(_) => continue,
                 };
-                use std::io::{BufRead, BufReader};
-                let records: Vec<serde_json::Value> = BufReader::new(file)
+                use std::io::Read;
+                let mut content = String::new();
+                if std::io::BufReader::new(file).read_to_string(&mut content).is_err() {
+                    continue;
+                }
+                let records: Vec<serde_json::Value> = content
                     .lines()
-                    .map_while(Result::ok)
                     .filter(|l| !l.trim().is_empty())
                     .filter_map(|l| {
-                        let rec: crate::message::StoredRecord = serde_json::from_str(&l).ok()?;
+                        let rec: crate::message::StoredRecord = serde_json::from_str(l).ok()?;
                         Some(rec.payload)
                     })
                     .collect();
@@ -769,11 +789,9 @@ impl MessageLog for FileMessageLog {
             if !path.exists() {
                 return Ok(0);
             }
-            let file = std::fs::File::open(&path)?;
-            use std::io::{BufRead, BufReader};
-            Ok(BufReader::new(file)
+            let content = std::fs::read_to_string(&path)?;
+            Ok(content
                 .lines()
-                .map_while(Result::ok)
                 .filter(|l| !l.trim().is_empty())
                 .count())
         })
@@ -1268,5 +1286,37 @@ body"#,
             .unwrap()
             .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
         assert!(!mem.has_user_profile());
+    }
+}
+
+/// Sync I/O primitives for the file SessionRepo backend.
+mod session_io {
+    use std::path::Path;
+
+    use super::*;
+
+    pub fn load_sessions_sync(claw_dir: &Path) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
+        let path = index_path(claw_dir);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let content = std::fs::read_to_string(&path)?;
+        serde_json::from_str(&content)
+            .inspect_err(|e| tracing::error!("index.json 损坏: {} — 不会静默清空", e))
+            .map_err(|e| anyhow::anyhow!("index.json 损坏: {}", e))
+    }
+
+    pub fn save_sessions_sync(
+        claw_dir: &Path,
+        sessions: &[crate::session::SessionMeta],
+    ) -> anyhow::Result<()> {
+        let path = index_path(claw_dir);
+        let content = serde_json::to_string_pretty(sessions)?;
+        ensure_dir(&path)?;
+        if path.exists() {
+            let bak = path.with_extension("json.bak");
+            std::fs::copy(&path, &bak).ok();
+        }
+        atomic_write(&path, &content).map_err(anyhow::Error::from)
     }
 }

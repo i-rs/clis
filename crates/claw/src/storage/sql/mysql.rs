@@ -147,7 +147,7 @@ impl MySqlBackend {
                 ts          BIGINT       NOT NULL,
                 schema_v    INT          NOT NULL DEFAULT 1,
                 payload     TEXT         NOT NULL,
-                INDEX idx_message_log_session_seq (session_id, seq)
+                UNIQUE KEY idx_message_log_session_seq (session_id, seq)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         )
         .execute(&self.pool)
