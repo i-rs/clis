@@ -1,6 +1,6 @@
-use crate::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
-use crate::providers::sse::send_with_retry;
-use crate::providers::{LlmProvider, ProviderKind};
+use i_rs_claw_core::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
+use i_rs_claw_core::providers::sse::send_with_retry;
+use i_rs_claw_core::providers::{LlmProvider, ProviderKind};
 use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Instant;

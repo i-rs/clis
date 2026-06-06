@@ -2,34 +2,12 @@ mod app;
 mod cli;
 mod completion;
 mod config;
-mod convstore;
-mod core;
 #[cfg(feature = "dashboard")]
 mod dashboard;
-mod error;
 mod gateway;
-mod llm;
-mod mcp;
-mod memory;
-mod message;
-mod plugin;
-mod providers;
-mod router;
-mod semantic;
-mod session;
-mod skill_store;
-mod stats;
-mod storage;
 mod theme;
-mod tool_cache;
-mod tools;
 mod tui;
 mod ui;
-mod utils;
-
-#[cfg(test)]
-#[path = "test_helpers.rs"]
-pub(crate) mod test_helpers;
 
 use clap::{Parser, Subcommand};
 

@@ -154,7 +154,7 @@ pub struct TodaySummary {
 /// Records are buffered in memory and flushed to the storage backend periodically.
 pub struct StatsManager {
     /// Storage backend for stats persistence.
-    storage: std::sync::Arc<crate::storage::ClawStorage>,
+    storage: std::sync::Arc<i_rs_claw_core::storage::ClawStorage>,
     /// Pricing table for cost estimation.
     #[allow(dead_code)]
     pricing: ModelPricingTable,
@@ -174,13 +174,13 @@ impl StatsManager {
         tz_offset: chrono::FixedOffset,
     ) -> Self {
         let storage =
-            std::sync::Arc::new(crate::storage::ClawStorage::file(claw_dir.to_path_buf()));
+            std::sync::Arc::new(i_rs_claw_core::storage::ClawStorage::file(claw_dir.to_path_buf()));
         Self::with_storage(storage, config, tz_offset)
     }
 
     /// Create a StatsManager with a custom storage backend (for DI/testing).
     pub fn with_storage(
-        storage: std::sync::Arc<crate::storage::ClawStorage>,
+        storage: std::sync::Arc<i_rs_claw_core::storage::ClawStorage>,
         config: &StatsConfig,
         tz_offset: chrono::FixedOffset,
     ) -> Self {
@@ -215,7 +215,7 @@ impl StatsManager {
             drop(buffer);
             let storage = self.storage.clone();
             if let Err(e) =
-                crate::utils::sync_block_on(
+                i_rs_claw_core::utils::sync_block_on(
                     async move { storage.stats.upsert_batch(&records).await },
                 )
             {
@@ -236,7 +236,7 @@ impl StatsManager {
         let records = std::mem::take(&mut *buffer);
         let storage = self.storage.clone();
         if let Err(e) =
-            crate::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await })
+            i_rs_claw_core::utils::sync_block_on(async move { storage.stats.upsert_batch(&records).await })
         {
             tracing::error!("刷写 token 统计失败: {}", e);
         }
@@ -285,14 +285,14 @@ impl StatsManager {
 
     /// Get today's summary from the storage backend + in-memory buffer.
     pub fn today_summary(&self) -> TodaySummary {
-        let start_of_today = crate::utils::now_in_tz(self.tz_offset)
+        let start_of_today = i_rs_claw_core::utils::now_in_tz(self.tz_offset)
             .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap_or_default()
             .and_utc()
             .timestamp();
         let storage = self.storage.clone();
-        let mut records = crate::utils::sync_block_on(async move {
+        let mut records = i_rs_claw_core::utils::sync_block_on(async move {
             storage.stats.read_range(Some(start_of_today), None).await
         })
         .unwrap_or_default();
@@ -306,7 +306,7 @@ impl StatsManager {
     }
 
     pub fn daily_history(&self, days: u32) -> Vec<DailyStats> {
-        let from = crate::utils::now_in_tz(self.tz_offset)
+        let from = i_rs_claw_core::utils::now_in_tz(self.tz_offset)
             .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap_or_default()
@@ -322,7 +322,7 @@ impl StatsManager {
     pub fn query(&self, period: StatsPeriod) -> TokenStats {
         let storage = self.storage.clone();
         let records =
-            crate::utils::sync_block_on(async move { storage.stats.read_range(None, None).await })
+            i_rs_claw_core::utils::sync_block_on(async move { storage.stats.read_range(None, None).await })
                 .unwrap_or_default();
 
         let mut result = aggregator::aggregate(&records, &self.pricing);
@@ -346,7 +346,7 @@ impl StatsManager {
         }
         let storage = self.storage.clone();
         if let Err(e) =
-            crate::utils::sync_block_on(async move { storage.stats.prune(keep_days).await })
+            i_rs_claw_core::utils::sync_block_on(async move { storage.stats.prune(keep_days).await })
         {
             tracing::error!("清理过期统计记录失败: {}", e);
         }

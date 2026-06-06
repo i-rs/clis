@@ -1,6 +1,6 @@
-use crate::llm::{LlmEvent, StreamResult};
-use crate::providers::sse::openai_stream_chat_impl;
-use crate::providers::{LlmProvider, ProviderKind};
+use i_rs_claw_core::llm::{LlmEvent, StreamResult};
+use i_rs_claw_core::providers::sse::openai_stream_chat_impl;
+use i_rs_claw_core::providers::{LlmProvider, ProviderKind};
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 

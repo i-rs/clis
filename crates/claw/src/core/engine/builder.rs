@@ -1,8 +1,8 @@
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-use crate::core::context::ContextManager;
-use crate::error::category_from_result;
+use i_rs_claw_core::core::context::ContextManager;
+use i_rs_claw_core::error::category_from_result;
 
 // ── System Prompt Layer ──
 
@@ -56,11 +56,11 @@ pub(crate) fn build_system_prompt(
     routing_hint: &str,
 ) -> String {
     let template = include_str!("../../../prompts/system.md");
-    let now = crate::utils::now_in_tz(tz_offset);
+    let now = i_rs_claw_core::utils::now_in_tz(tz_offset);
     let today = now.format("%Y-%m-%d").to_string();
     let weekday = now.format("%A").to_string();
     let time_str = now.format("%H:%M").to_string();
-    let tz_label = crate::utils::tz_label(tz_offset);
+    let tz_label = i_rs_claw_core::utils::tz_label(tz_offset);
 
     let plan_mode = if plan_then_execute {
         PLAN_THEN_EXECUTE_PROMPT
@@ -317,9 +317,9 @@ fn score_message_significance(msg: &Value) -> (MessageSignificance, u8) {
 
     match role {
         "user" => {
-            if crate::utils::is_correction_message(content_val) {
+            if i_rs_claw_core::utils::is_correction_message(content_val) {
                 (MessageSignificance::Correction, 9)
-            } else if crate::utils::is_decision_message(content_val) {
+            } else if i_rs_claw_core::utils::is_decision_message(content_val) {
                 (MessageSignificance::Decision, 7)
             } else if content_val.len() < 6 {
                 (MessageSignificance::LowValue, 1)
@@ -328,7 +328,7 @@ fn score_message_significance(msg: &Value) -> (MessageSignificance, u8) {
             }
         }
         "assistant" => {
-            if crate::utils::is_decision_message(content_val) {
+            if i_rs_claw_core::utils::is_decision_message(content_val) {
                 (MessageSignificance::Decision, 7)
             } else if content_val.len() < 10 {
                 (MessageSignificance::LowValue, 1)

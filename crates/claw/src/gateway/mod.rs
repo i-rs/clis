@@ -99,7 +99,7 @@ impl GatewayServer {
     /// (with tool execution) and sends the response back via the originating
     /// platform's adapter. Blocks until all adapters have stopped.
     /// Handles SIGINT (Ctrl+C) for graceful shutdown.
-    pub async fn run(self, core: Arc<RwLock<crate::core::AppCore>>) {
+    pub async fn run(self, core: Arc<RwLock<i_rs_claw_core::core::AppCore>>) {
         let (event_tx, mut event_rx) = mpsc::unbounded_channel::<GatewayEvent>();
 
         // Start all adapters
@@ -140,7 +140,7 @@ impl GatewayServer {
     }
 
     /// Handle a single gateway event (message or error).
-    async fn handle_event(&self, core: Arc<RwLock<crate::core::AppCore>>, event: GatewayEvent) {
+    async fn handle_event(&self, core: Arc<RwLock<i_rs_claw_core::core::AppCore>>, event: GatewayEvent) {
         match event {
             GatewayEvent::Message {
                 platform,
@@ -198,7 +198,7 @@ impl GatewayServer {
     /// streaming with tool call execution.
     #[tracing::instrument(skip(core))]
     async fn process_message(
-        core: &Arc<RwLock<crate::core::AppCore>>,
+        core: &Arc<RwLock<i_rs_claw_core::core::AppCore>>,
         platform: &str,
         chat_id: &str,
         text: &str,
@@ -239,17 +239,17 @@ impl GatewayServer {
 
         // Spawn the multi-round chat loop (no lock held during streaming)
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let client = crate::providers::shared_client();
-        let provider = crate::providers::create_provider_for(
+        let client = i_rs_claw_core::providers::shared_client();
+        let provider = i_rs_claw_core::providers::create_provider_for(
             &client,
             config.provider,
             &config.api_key,
             &config.base_url,
             &config.model,
         );
-        let http_client = crate::providers::shared_client();
+        let http_client = i_rs_claw_core::providers::shared_client();
         tokio::spawn(async move {
-            crate::core::engine::chat_loop(
+            i_rs_claw_core::core::engine::chat_loop(
                 provider,
                 config,
                 msgs,
@@ -261,7 +261,7 @@ impl GatewayServer {
                 None,
                 None,
                 std::sync::Arc::new(std::sync::Mutex::new(
-                    crate::core::checkpoint::CheckpointStore::new(20),
+                    i_rs_claw_core::core::checkpoint::CheckpointStore::new(20),
                 )),
             )
             .await;
@@ -271,12 +271,12 @@ impl GatewayServer {
         let mut response = String::new();
         while let Some(event) = rx.recv().await {
             match event {
-                crate::llm::LlmEvent::Token(t) => response.push_str(&t),
-                crate::llm::LlmEvent::Error(e) => {
+                i_rs_claw_core::llm::LlmEvent::Token(t) => response.push_str(&t),
+                i_rs_claw_core::llm::LlmEvent::Error(e) => {
                     response = format!("Error: {}", e);
                     break;
                 }
-                crate::llm::LlmEvent::Done(api_msgs, _, _) => {
+                i_rs_claw_core::llm::LlmEvent::Done(api_msgs, _, _) => {
                     let mut core = core.write().await;
                     core.session_mgr.save_api_messages(&session_uuid, &api_msgs);
                     let msgs = vec![

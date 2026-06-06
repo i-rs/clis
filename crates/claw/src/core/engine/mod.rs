@@ -5,12 +5,12 @@ pub(crate) use builder::{MessageBuildParams, build_messages, smart_compress};
 pub(crate) use execution::execute_tool_call;
 
 use crate::config::Config;
-use crate::core::context::ContextManager;
-use crate::llm::{LlmEvent, StreamResult};
-use crate::mcp::McpRegistry;
-use crate::providers::LlmProvider;
-use crate::skill_store::SkillDefinition;
-use crate::utils;
+use i_rs_claw_core::core::context::ContextManager;
+use i_rs_claw_core::llm::{LlmEvent, StreamResult};
+use i_rs_claw_core::mcp::McpRegistry;
+use i_rs_claw_core::providers::LlmProvider;
+use i_rs_claw_core::skill_store::SkillDefinition;
+use i_rs_claw_core::utils;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -23,13 +23,13 @@ use tokio::sync::mpsc;
 /// create the shared executor, and prepare retry counters.
 struct ChatLoopInit {
     tool_schemas: Vec<Value>,
-    executor: crate::core::executor::ToolCallExecutor,
+    executor: i_rs_claw_core::core::executor::ToolCallExecutor,
     ctx_mgr: ContextManager,
     max_retries: u32,
     max_rounds: u32,
     tool_frequency: HashMap<String, usize>,
     plan_then_execute: bool,
-    checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    checkpoint_store: std::sync::Arc<std::sync::Mutex<i_rs_claw_core::core::checkpoint::CheckpointStore>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -41,11 +41,11 @@ fn prepare_loop(
     skills: &[SkillDefinition],
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
-    delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
+    delegate_runtime: Option<std::sync::Arc<i_rs_claw_core::tools::DelegateRuntime>>,
     layered_memory: Option<
-        std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>,
+        std::sync::Arc<std::sync::Mutex<i_rs_claw_core::core::layered_memory::LayeredMemory>>,
     >,
-    checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    checkpoint_store: std::sync::Arc<std::sync::Mutex<i_rs_claw_core::core::checkpoint::CheckpointStore>>,
 ) -> ChatLoopInit {
     let enabled = if config.enabled_tools.is_empty() {
         None
@@ -53,7 +53,7 @@ fn prepare_loop(
         Some(&config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let mut reg = crate::tools::ToolRegistry::new()
+    let mut reg = i_rs_claw_core::tools::ToolRegistry::new()
         .with_skills(skills)
         .with_mcp(mcp);
     if config.exclude_delegate_tool {
@@ -75,24 +75,24 @@ fn prepare_loop(
         system_msg["content"] = Value::String(format!("{}\n{}", content, advisory));
     }
 
-    let tool_ctx = crate::tools::ToolContext {
+    let tool_ctx = i_rs_claw_core::tools::ToolContext {
         config: config.clone(),
         http_client: http_client.clone(),
         delegate_runtime,
     };
-    let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
+    let executor = i_rs_claw_core::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
         .with_timeout(config.cli_timeout_secs)
         .with_truncation(4096, 500)
         .with_guardrails(
-            crate::tools::guardrails::GuardrailManager::new().with_tool(Box::new(
-                crate::tools::guardrails::DangerousToolGuardrail::new(vec![
+            i_rs_claw_core::tools::guardrails::GuardrailManager::new().with_tool(Box::new(
+                i_rs_claw_core::tools::guardrails::DangerousToolGuardrail::new(vec![
                     "delete".to_string(),
                     "shell".to_string(),
                 ]),
             )),
         )
         .with_hitl_policy(
-            crate::core::hitl::HitlPolicy::new()
+            i_rs_claw_core::core::hitl::HitlPolicy::new()
                 .auto_approve("i_rs")
                 .auto_approve("search")
                 .auto_approve("rag")
@@ -104,12 +104,12 @@ fn prepare_loop(
                 .auto_approve("orchestrate")
                 .require_confirm("file_ops")
                 .deny("delete")
-                .with_risk_threshold(crate::core::hitl::RiskLevel::High),
+                .with_risk_threshold(i_rs_claw_core::core::hitl::RiskLevel::High),
         )
         .with_callbacks(std::sync::Arc::new(
-            crate::core::callbacks::CallbackChain::new()
-                .with(Box::new(crate::core::callbacks::LoggingCallback::new()))
-                .with(Box::new(crate::core::callbacks::AuditLogCallback::new())),
+            i_rs_claw_core::core::callbacks::CallbackChain::new()
+                .with(Box::new(i_rs_claw_core::core::callbacks::LoggingCallback::new()))
+                .with(Box::new(i_rs_claw_core::core::callbacks::AuditLogCallback::new())),
         ));
     let executor = if let Some(ref lm) = layered_memory {
         executor.with_layered_memory(std::sync::Arc::clone(lm))
@@ -142,13 +142,13 @@ async fn stream_to_llm(
 
 /// Stage 2: Execute — dispatch tool calls through the executor, trace results.
 async fn dispatch_tools(
-    executor: &mut crate::core::executor::ToolCallExecutor,
-    calls: Vec<(crate::llm::ToolCallAcc, Value)>,
+    executor: &mut i_rs_claw_core::core::executor::ToolCallExecutor,
+    calls: Vec<(i_rs_claw_core::llm::ToolCallAcc, Value)>,
     content: &str,
     tx: &mpsc::UnboundedSender<LlmEvent>,
     msgs: &mut Vec<Value>,
     reasoning_content: &str,
-) -> Vec<crate::core::executor::ToolCallResult> {
+) -> Vec<i_rs_claw_core::core::executor::ToolCallResult> {
     // Build assistant tool_call message. Persist the prose the LLM emitted
     // alongside the tool calls (e.g. "好的，先看看 water 工具") instead of
     // always writing `content: null` — otherwise this text would be lost
@@ -179,7 +179,7 @@ async fn dispatch_tools(
 /// Stage 3: Inject — push tool results into messages, decide whether to retry.
 /// Returns the backoff duration if a sleep is needed before continuing.
 fn inject_results(
-    results: &[crate::core::executor::ToolCallResult],
+    results: &[i_rs_claw_core::core::executor::ToolCallResult],
     msgs: &mut Vec<Value>,
     retry_counts: &mut HashMap<String, (u32, u32)>,
     max_retries: u32,
@@ -254,7 +254,7 @@ fn inject_results(
 
 /// Trace all tool call results with structured logging.
 fn trace_tool_results(
-    results: &[crate::core::executor::ToolCallResult],
+    results: &[i_rs_claw_core::core::executor::ToolCallResult],
     trace_id: &str,
     start_time: std::time::Instant,
 ) {
@@ -322,11 +322,11 @@ pub async fn chat_loop(
     skills: Vec<SkillDefinition>,
     tool_frequency: HashMap<String, usize>,
     http_client: reqwest::Client,
-    delegate_runtime: Option<std::sync::Arc<crate::tools::DelegateRuntime>>,
+    delegate_runtime: Option<std::sync::Arc<i_rs_claw_core::tools::DelegateRuntime>>,
     layered_memory: Option<
-        std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>,
+        std::sync::Arc<std::sync::Mutex<i_rs_claw_core::core::layered_memory::LayeredMemory>>,
     >,
-    checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    checkpoint_store: std::sync::Arc<std::sync::Mutex<i_rs_claw_core::core::checkpoint::CheckpointStore>>,
 ) {
     let trace_id = uuid::Uuid::new_v4().to_string();
     let mut msgs = messages;
@@ -346,7 +346,7 @@ pub async fn chat_loop(
     let mut round_count = 0u32;
     let mut consecutive_provider_errors: u32 = 0;
     let mut plan_steps: Vec<crate::app::PlanStep> = Vec::new();
-    let mut structured_plan: Option<crate::core::planning::StructuredPlan> = None;
+    let mut structured_plan: Option<i_rs_claw_core::core::planning::StructuredPlan> = None;
     const MAX_PROVIDER_RETRIES: u32 = 2;
     const HARD_MAX_ROUNDS: u32 = 50;
 
@@ -372,9 +372,9 @@ pub async fn chat_loop(
                 }
                 if init.plan_then_execute && round_count == 1 {
                     if let Some(sp) =
-                        crate::core::planning::StructuredPlan::parse_from_llm_output(&text)
+                        i_rs_claw_core::core::planning::StructuredPlan::parse_from_llm_output(&text)
                     {
-                        if matches!(sp.status, crate::core::planning::PlanStatus::Completed) {
+                        if matches!(sp.status, i_rs_claw_core::core::planning::PlanStatus::Completed) {
                             let _ = tx.send(LlmEvent::Status("📋 计划已完成".to_string()));
                         }
                         structured_plan = Some(sp);
@@ -444,7 +444,7 @@ pub async fn chat_loop(
                         .map(|r| (r.call.name.clone(), r.result.clone()))
                         .collect();
                     store.save(
-                        crate::core::checkpoint::Checkpoint::new(
+                        i_rs_claw_core::core::checkpoint::Checkpoint::new(
                             &trace_id,
                             round_count,
                             msgs.clone(),
@@ -499,7 +499,7 @@ fn parse_plan_steps(text: &str) -> Vec<crate::app::PlanStep> {
 mod tests {
     use super::builder::build_system_prompt;
     use super::*;
-    use crate::providers::ProviderKind;
+    use i_rs_claw_core::providers::ProviderKind;
     use serde_json::json;
 
     fn tz_test() -> chrono::FixedOffset {
@@ -853,7 +853,7 @@ mod tests {
         ) -> anyhow::Result<StreamResult> {
             Ok(StreamResult::ToolCalls(
                 vec![(
-                    crate::llm::ToolCallAcc {
+                    i_rs_claw_core::llm::ToolCallAcc {
                         id: "call_1".to_string(),
                         name: "nonexistent_tool".to_string(),
                         arguments: "{}".to_string(),
@@ -873,7 +873,7 @@ mod tests {
                 LlmEvent::Token("hello".to_string()),
             ]));
         let config = crate::test_helpers::test_config();
-        let mcp = crate::mcp::McpRegistry::empty_for_test();
+        let mcp = i_rs_claw_core::mcp::McpRegistry::empty_for_test();
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
@@ -889,7 +889,7 @@ mod tests {
             None,
             None,
             std::sync::Arc::new(std::sync::Mutex::new(
-                crate::core::checkpoint::CheckpointStore::new(20),
+                i_rs_claw_core::core::checkpoint::CheckpointStore::new(20),
             )),
         )
         .await;
@@ -913,7 +913,7 @@ mod tests {
                 .with_result(Err(anyhow::anyhow!("模拟错误"))),
         );
         let config = crate::test_helpers::test_config();
-        let mcp = crate::mcp::McpRegistry::empty_for_test();
+        let mcp = i_rs_claw_core::mcp::McpRegistry::empty_for_test();
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "hi"})];
 
@@ -929,7 +929,7 @@ mod tests {
             None,
             None,
             std::sync::Arc::new(std::sync::Mutex::new(
-                crate::core::checkpoint::CheckpointStore::new(20),
+                i_rs_claw_core::core::checkpoint::CheckpointStore::new(20),
             )),
         )
         .await;
@@ -950,7 +950,7 @@ mod tests {
     async fn test_chat_loop_max_rounds_exceeded() {
         let mut config = crate::test_helpers::test_config();
         config.max_react_rounds = 2;
-        let mcp = crate::mcp::McpRegistry::empty_for_test();
+        let mcp = i_rs_claw_core::mcp::McpRegistry::empty_for_test();
         let (tx, mut rx) = mpsc::unbounded_channel();
         let messages = vec![json!({"role": "user", "content": "do work"})];
 
@@ -966,7 +966,7 @@ mod tests {
             None,
             None,
             std::sync::Arc::new(std::sync::Mutex::new(
-                crate::core::checkpoint::CheckpointStore::new(20),
+                i_rs_claw_core::core::checkpoint::CheckpointStore::new(20),
             )),
         )
         .await;
@@ -1003,7 +1003,7 @@ mod tests {
     #[test]
     fn test_build_system_prompt_date_injection() {
         let prompt = build_system_prompt("", "", "", "", "", false, tz_test(), "", "");
-        let today = crate::utils::now_in_tz(tz_test())
+        let today = i_rs_claw_core::utils::now_in_tz(tz_test())
             .format("%Y-%m-%d")
             .to_string();
         assert!(prompt.contains(&today), "应注入当前日期");

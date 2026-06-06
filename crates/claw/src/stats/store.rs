@@ -217,7 +217,7 @@ pub(crate) fn prune_old_records(path: &Path, keep_days: u32) -> std::io::Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stats::TokenRecord;
+    use i_rs_claw_core::stats::TokenRecord;
 
     #[test]
     fn test_extract_timestamp() {

@@ -1,4 +1,4 @@
-use crate::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
+use i_rs_claw_core::llm::{LlmEvent, StreamResult, TokenUsage, ToolCallAcc};
 use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Instant;

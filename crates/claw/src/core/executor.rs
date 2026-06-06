@@ -4,12 +4,12 @@
 //! that can be shared by both the TUI chat loop and the Dashboard SSE chat loop.
 //! Hardcoded truncation values are replaced with configurable parameters.
 
-use crate::core::callbacks::AgentCallbacks;
-use crate::core::layered_memory::LayeredMemory;
-use crate::error::{ErrorCategory, category_from_result};
-use crate::llm::{LlmEvent, ToolCallAcc};
-use crate::tools::guardrails::GuardrailManager;
-use crate::utils;
+use i_rs_claw_core::core::callbacks::AgentCallbacks;
+use i_rs_claw_core::core::layered_memory::LayeredMemory;
+use i_rs_claw_core::error::{ErrorCategory, category_from_result};
+use i_rs_claw_core::llm::{LlmEvent, ToolCallAcc};
+use i_rs_claw_core::tools::guardrails::GuardrailManager;
+use i_rs_claw_core::utils;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -106,8 +106,8 @@ fn validate_tool_result(name: &str, result: &str) -> (ToolResultValidation, Erro
 }
 
 pub struct ToolCallExecutor {
-    tool_registry: Arc<crate::tools::ToolRegistry>,
-    tool_ctx: crate::tools::ToolContext,
+    tool_registry: Arc<i_rs_claw_core::tools::ToolRegistry>,
+    tool_ctx: i_rs_claw_core::tools::ToolContext,
     cli_timeout_secs: u64,
     truncate_display: usize,
     truncate_context: usize,
@@ -117,13 +117,13 @@ pub struct ToolCallExecutor {
     guardrails: Option<GuardrailManager>,
     callbacks: Option<Arc<dyn AgentCallbacks>>,
     layered_memory: Option<Arc<Mutex<LayeredMemory>>>,
-    hitl_policy: Option<crate::core::hitl::HitlPolicy>,
+    hitl_policy: Option<i_rs_claw_core::core::hitl::HitlPolicy>,
 }
 
 impl ToolCallExecutor {
     pub fn new(
-        tool_registry: Arc<crate::tools::ToolRegistry>,
-        tool_ctx: crate::tools::ToolContext,
+        tool_registry: Arc<i_rs_claw_core::tools::ToolRegistry>,
+        tool_ctx: i_rs_claw_core::tools::ToolContext,
     ) -> Self {
         Self {
             tool_registry,
@@ -167,7 +167,7 @@ impl ToolCallExecutor {
         self
     }
 
-    pub fn with_hitl_policy(mut self, policy: crate::core::hitl::HitlPolicy) -> Self {
+    pub fn with_hitl_policy(mut self, policy: i_rs_claw_core::core::hitl::HitlPolicy) -> Self {
         self.hitl_policy = Some(policy);
         self
     }
@@ -286,7 +286,7 @@ impl ToolCallExecutor {
                     cached
                 } else {
                     match tokio::time::timeout(timeout_dur, async {
-                        crate::core::engine::execute_tool_call(
+                        i_rs_claw_core::core::engine::execute_tool_call(
                             &tc_name,
                             &args,
                             &registry_for_spawn,

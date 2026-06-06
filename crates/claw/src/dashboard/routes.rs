@@ -1,9 +1,9 @@
 use crate::dashboard::AppState;
-use crate::llm::LlmEvent;
+use i_rs_claw_core::llm::LlmEvent;
 #[cfg(feature = "dashboard")]
-use crate::message::MessageAccumulator;
-use crate::providers::ProviderKind;
-use crate::stats::StatsPeriod;
+use i_rs_claw_core::message::MessageAccumulator;
+use i_rs_claw_core::providers::ProviderKind;
+use i_rs_claw_core::stats::StatsPeriod;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -16,7 +16,7 @@ use std::convert::Infallible;
 use std::sync::OnceLock;
 use tokio::sync::mpsc;
 
-static TOOL_REGISTRY: OnceLock<crate::tools::ToolRegistry> = OnceLock::new();
+static TOOL_REGISTRY: OnceLock<i_rs_claw_core::tools::ToolRegistry> = OnceLock::new();
 
 // ── Response helpers ──
 
@@ -367,7 +367,7 @@ pub async fn chat_stream(
                             .session_meta(&sid)
                             .map(|m| m.agent_id.clone())
                             .unwrap_or_else(|| "default".to_string());
-                        crate::core::record_tool_memory(
+                        i_rs_claw_core::core::record_tool_memory(
                             &mut core.agent_store,
                             &i_rs_index,
                             &agent_id,
@@ -376,7 +376,7 @@ pub async fn chat_stream(
                             &result,
                         );
                         if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
-                            crate::core::record_layered_tool_memory(
+                            i_rs_claw_core::core::record_layered_tool_memory(
                                 &mut core.agent_store,
                                 &agent_id,
                                 &name,
@@ -986,14 +986,14 @@ pub async fn list_tools(State(state): State<AppState>) -> Json<ApiResponse<Vec<V
         Some(&core.config.enabled_tools)
     };
     let i_rs_tool_names: Vec<&str> = core.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
-    let reg = TOOL_REGISTRY.get_or_init(crate::tools::ToolRegistry::new);
+    let reg = TOOL_REGISTRY.get_or_init(i_rs_claw_core::tools::ToolRegistry::new);
     let schemas = reg.enabled_schemas(&i_rs_tool_names, enabled);
     ApiResponse::ok(schemas)
 }
 
 /// List installed plugins.
 pub async fn list_plugins(State(_state): State<AppState>) -> Json<ApiResponse<Vec<Value>>> {
-    let mgr = crate::plugin::PluginManager::new();
+    let mgr = i_rs_claw_core::plugin::PluginManager::new();
     let plugins: Vec<Value> = mgr
         .manifests
         .iter()
@@ -1013,15 +1013,15 @@ pub async fn list_plugins(State(_state): State<AppState>) -> Json<ApiResponse<Ve
 /// List user-defined skills with parsed metadata.
 pub async fn list_skills(
     State(state): State<AppState>,
-) -> Json<ApiResponse<Vec<crate::skill_store::SkillDefinition>>> {
+) -> Json<ApiResponse<Vec<i_rs_claw_core::skill_store::SkillDefinition>>> {
     let core = state.core.read().await;
     let store = core.agent_store.skill_store_for("default");
     let entries = store.list_skills();
-    let skills: Vec<crate::skill_store::SkillDefinition> = entries
+    let skills: Vec<i_rs_claw_core::skill_store::SkillDefinition> = entries
         .iter()
         .map(|e| {
-            let (fm, body) = crate::skill_store::parse_frontmatter(&e.content);
-            crate::skill_store::SkillDefinition {
+            let (fm, body) = i_rs_claw_core::skill_store::parse_frontmatter(&e.content);
+            i_rs_claw_core::skill_store::SkillDefinition {
                 name: e.name.clone(),
                 description: fm
                     .as_ref()
@@ -1054,7 +1054,7 @@ pub async fn serve_image(Path(filename): Path<String>) -> axum::response::Respon
             .expect("serve_image response builder");
     }
 
-    let claw_dir = match crate::utils::claw_dir() {
+    let claw_dir = match i_rs_claw_core::utils::claw_dir() {
         Some(d) => d,
         None => {
             return axum::response::Response::builder()
@@ -1091,7 +1091,7 @@ pub async fn check_guardrails(Json(body): Json<Value>) -> Json<ApiResponse<Value
 
     let mut results = Vec::new();
 
-    let mgr = crate::tools::guardrails::GuardrailManager::new();
+    let mgr = i_rs_claw_core::tools::guardrails::GuardrailManager::new();
 
     if let Some(text) = input {
         let r = mgr.check_input(text).await;
@@ -1312,11 +1312,11 @@ pub async fn search_layered_memory(
             .collect()
     } else if let Some(ref cat) = query.category {
         let category = match cat.as_str() {
-            "preference" => crate::core::layered_memory::FactCategory::UserPreference,
-            "habit" => crate::core::layered_memory::FactCategory::UserHabit,
-            "tool" => crate::core::layered_memory::FactCategory::ToolResult,
-            "decision" => crate::core::layered_memory::FactCategory::Decision,
-            _ => crate::core::layered_memory::FactCategory::General,
+            "preference" => i_rs_claw_core::core::layered_memory::FactCategory::UserPreference,
+            "habit" => i_rs_claw_core::core::layered_memory::FactCategory::UserHabit,
+            "tool" => i_rs_claw_core::core::layered_memory::FactCategory::ToolResult,
+            "decision" => i_rs_claw_core::core::layered_memory::FactCategory::Decision,
+            _ => i_rs_claw_core::core::layered_memory::FactCategory::General,
         };
         layered
             .long_term
@@ -1352,7 +1352,7 @@ pub struct MemorySearchQuery {
 
 pub async fn run_evals(State(state): State<AppState>) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
-    let suite = crate::core::evals::builtin_eval_suite();
+    let suite = i_rs_claw_core::core::evals::builtin_eval_suite();
     let messages = if let Some(sid) = core.session_mgr.current_id() {
         core.session_mgr.load_app_messages(sid, 100)
     } else {

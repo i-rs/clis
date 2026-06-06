@@ -15,7 +15,7 @@ pub fn run_config() -> anyhow::Result<()> {
     };
 
     // ── Provider Selection ──
-    let provider_names: Vec<&str> = crate::providers::ProviderKind::all()
+    let provider_names: Vec<&str> = i_rs_claw_core::providers::ProviderKind::all()
         .iter()
         .map(|p| p.as_str())
         .collect();
@@ -133,7 +133,7 @@ pub fn run_config() -> anyhow::Result<()> {
     }
 
     // ── Timezone ──
-    let current_tz = crate::utils::tz_label(cfg.tz_offset);
+    let current_tz = i_rs_claw_core::utils::tz_label(cfg.tz_offset);
     println!("\n  Timezone (时区)");
     println!("  当前: {}", current_tz);
     println!("  格式: +08:00 / -05:00 / UTC / UTC+8 / 8 (留空=系统本地)");
@@ -144,7 +144,7 @@ pub fn run_config() -> anyhow::Result<()> {
     let trimmed = input.trim().to_string();
     if !trimmed.is_empty() {
         cfg.timezone = Some(trimmed);
-        cfg.tz_offset = crate::utils::parse_timezone(cfg.timezone.as_deref());
+        cfg.tz_offset = i_rs_claw_core::utils::parse_timezone(cfg.timezone.as_deref());
     }
 
     // ── Storage Backend ──
@@ -152,12 +152,12 @@ pub fn run_config() -> anyhow::Result<()> {
     println!("  选项: file / sqlite / mysql / postgres / mongodb / redis");
     println!("  file 为 JSON 文件存储（默认），sqlite 需要编译 --features sqlite");
     let storage_default = match cfg.storage.backend {
-        crate::storage::StorageBackend::File => "file",
-        crate::storage::StorageBackend::Sqlite => "sqlite",
-        crate::storage::StorageBackend::Mysql => "mysql",
-        crate::storage::StorageBackend::Postgres => "postgres",
-        crate::storage::StorageBackend::Mongo => "mongodb",
-        crate::storage::StorageBackend::Redis => "redis",
+        i_rs_claw_core::storage::StorageBackend::File => "file",
+        i_rs_claw_core::storage::StorageBackend::Sqlite => "sqlite",
+        i_rs_claw_core::storage::StorageBackend::Mysql => "mysql",
+        i_rs_claw_core::storage::StorageBackend::Postgres => "postgres",
+        i_rs_claw_core::storage::StorageBackend::Mongo => "mongodb",
+        i_rs_claw_core::storage::StorageBackend::Redis => "redis",
     };
     print!("Storage 后端 [{}]: ", storage_default);
     io::stdout().flush()?;
@@ -166,9 +166,9 @@ pub fn run_config() -> anyhow::Result<()> {
     let trimmed = input.trim().to_lowercase();
     if !trimmed.is_empty() {
         match trimmed.as_str() {
-            "file" => cfg.storage.backend = crate::storage::StorageBackend::File,
+            "file" => cfg.storage.backend = i_rs_claw_core::storage::StorageBackend::File,
             "sqlite" => {
-                cfg.storage.backend = crate::storage::StorageBackend::Sqlite;
+                cfg.storage.backend = i_rs_claw_core::storage::StorageBackend::Sqlite;
                 let sqlite_default = cfg
                     .storage
                     .sqlite_path
@@ -191,7 +191,7 @@ pub fn run_config() -> anyhow::Result<()> {
                 }
             }
             "mysql" => {
-                cfg.storage.backend = crate::storage::StorageBackend::Mysql;
+                cfg.storage.backend = i_rs_claw_core::storage::StorageBackend::Mysql;
                 let url_default = cfg
                     .storage
                     .sql_url
@@ -209,7 +209,7 @@ pub fn run_config() -> anyhow::Result<()> {
                 };
             }
             "postgres" => {
-                cfg.storage.backend = crate::storage::StorageBackend::Postgres;
+                cfg.storage.backend = i_rs_claw_core::storage::StorageBackend::Postgres;
                 let url_default = cfg
                     .storage
                     .sql_url
@@ -227,7 +227,7 @@ pub fn run_config() -> anyhow::Result<()> {
                 };
             }
             "mongodb" => {
-                cfg.storage.backend = crate::storage::StorageBackend::Mongo;
+                cfg.storage.backend = i_rs_claw_core::storage::StorageBackend::Mongo;
                 let url_default = cfg
                     .storage
                     .mongo_url
@@ -255,7 +255,7 @@ pub fn run_config() -> anyhow::Result<()> {
                 };
             }
             "redis" => {
-                cfg.storage.backend = crate::storage::StorageBackend::Redis;
+                cfg.storage.backend = i_rs_claw_core::storage::StorageBackend::Redis;
                 let url_default = cfg
                     .storage
                     .redis_url
@@ -277,7 +277,7 @@ pub fn run_config() -> anyhow::Result<()> {
     }
 
     // ── Save ──
-    let needs_api_key = cfg.provider != crate::providers::ProviderKind::Ollama;
+    let needs_api_key = cfg.provider != i_rs_claw_core::providers::ProviderKind::Ollama;
     if needs_api_key && cfg.api_key.is_empty() {
         anyhow::bail!("{} 需要 API Key，配置未保存", cfg.provider);
     }
@@ -292,12 +292,12 @@ pub fn run_config() -> anyhow::Result<()> {
 
     let tz_display = cfg.timezone.as_deref().unwrap_or("系统本地");
     let storage_label = match cfg.storage.backend {
-        crate::storage::StorageBackend::File => "file",
-        crate::storage::StorageBackend::Sqlite => "sqlite",
-        crate::storage::StorageBackend::Mysql => "mysql",
-        crate::storage::StorageBackend::Postgres => "postgres",
-        crate::storage::StorageBackend::Mongo => "mongodb",
-        crate::storage::StorageBackend::Redis => "redis",
+        i_rs_claw_core::storage::StorageBackend::File => "file",
+        i_rs_claw_core::storage::StorageBackend::Sqlite => "sqlite",
+        i_rs_claw_core::storage::StorageBackend::Mysql => "mysql",
+        i_rs_claw_core::storage::StorageBackend::Postgres => "postgres",
+        i_rs_claw_core::storage::StorageBackend::Mongo => "mongodb",
+        i_rs_claw_core::storage::StorageBackend::Redis => "redis",
     };
 
     println!("\n配置摘要：");
@@ -334,12 +334,12 @@ pub fn run_config() -> anyhow::Result<()> {
 }
 
 pub(crate) fn claw_dir() -> std::path::PathBuf {
-    crate::utils::claw_dir().expect("无法获取用户主目录")
+    i_rs_claw_core::utils::claw_dir().expect("无法获取用户主目录")
 }
 
 /// Parse MCP server config from user input.
 /// Format: name|command|arg1 arg2|KEY=VAL
-fn parse_mcp_server(input: &str) -> Option<crate::mcp::McpServerConfig> {
+fn parse_mcp_server(input: &str) -> Option<i_rs_claw_core::mcp::McpServerConfig> {
     let parts: Vec<&str> = input.splitn(4, '|').collect();
     if parts.len() < 2 {
         return None;
@@ -355,7 +355,7 @@ fn parse_mcp_server(input: &str) -> Option<crate::mcp::McpServerConfig> {
     let env = parts
         .get(3)
         .map(|s| s.split_whitespace().map(|e| e.to_string()).collect());
-    Some(crate::mcp::McpServerConfig {
+    Some(i_rs_claw_core::mcp::McpServerConfig {
         name,
         transport_type: "stdio".to_string(),
         command: Some(command),

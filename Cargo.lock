@@ -2638,6 +2638,7 @@ dependencies = [
  "fastrand",
  "futures-util",
  "http",
+ "i-rs-claw-core",
  "mime_guess",
  "mongodb",
  "owo-colors 4.3.0",
@@ -2658,6 +2659,37 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "unicode-width 0.2.0",
+ "uuid",
+]
+
+[[package]]
+name = "i-rs-claw-core"
+version = "0.0.2"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "chrono",
+ "crossterm",
+ "dirs",
+ "fastrand",
+ "futures-util",
+ "http",
+ "mongodb",
+ "owo-colors 4.3.0",
+ "pulldown-cmark",
+ "ratatui",
+ "redis",
+ "reqwest",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "toml 1.1.2+spec-1.1.0",
+ "tracing",
  "unicode-width 0.2.0",
  "uuid",
 ]

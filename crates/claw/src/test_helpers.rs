@@ -8,8 +8,8 @@
 //! NOTE: This file is compiled only under #[cfg(test)] (see main.rs).
 
 use crate::config::Config;
-use crate::llm::{LlmEvent, StreamResult, TokenUsage};
-use crate::providers::ProviderKind;
+use i_rs_claw_core::llm::{LlmEvent, StreamResult, TokenUsage};
+use i_rs_claw_core::providers::ProviderKind;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -71,7 +71,7 @@ impl MockProvider {
 }
 
 #[async_trait::async_trait]
-impl crate::providers::LlmProvider for MockProvider {
+impl i_rs_claw_core::providers::LlmProvider for MockProvider {
     fn kind(&self) -> ProviderKind {
         self.kind
     }
@@ -123,14 +123,14 @@ impl crate::providers::LlmProvider for MockProvider {
 /// don't touch the real user's data. The temp dir is cleaned up
 /// on drop.
 #[allow(dead_code)]
-pub fn test_core() -> (Config, crate::core::AppCore) {
+pub fn test_core() -> (Config, i_rs_claw_core::core::AppCore) {
     let dir = tempfile::tempdir().expect("创建临时目录失败");
     let claw_dir = dir.path().join(".i-rs").join("claw");
     std::fs::create_dir_all(&claw_dir).expect("创建 claw 数据目录失败");
 
     let config = test_config();
     let core =
-        crate::core::AppCore::with_claw_dir(config.clone(), claw_dir).expect("AppCore 初始化失败");
+        i_rs_claw_core::core::AppCore::with_claw_dir(config.clone(), claw_dir).expect("AppCore 初始化失败");
 
     (config, core)
 }
@@ -182,7 +182,7 @@ pub fn parse_openai_sse_chunk(data: &Value) -> ParseResult {
                 if tc_idx >= result.tool_calls.len() {
                     result
                         .tool_calls
-                        .resize(tc_idx + 1, crate::llm::ToolCallAcc::default());
+                        .resize(tc_idx + 1, i_rs_claw_core::llm::ToolCallAcc::default());
                 }
                 if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
                     result.tool_calls[tc_idx].id = id.to_string();
@@ -209,7 +209,7 @@ pub struct ParseResult {
     pub reasoning: String,
     pub content: String,
     pub usage: Option<TokenUsage>,
-    pub tool_calls: Vec<crate::llm::ToolCallAcc>,
+    pub tool_calls: Vec<i_rs_claw_core::llm::ToolCallAcc>,
 }
 
 /// Parse an OpenAI SSE stream text and return all emitted LlmEvents.

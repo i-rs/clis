@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::utils::atomic_write;
+use i_rs_claw_core::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -237,12 +237,12 @@ impl PluginManager {
 
     /// Convert all enabled plugins to McpServerConfig entries.
     /// Plugin-derived configs use a "plugin:" prefix in their name.
-    pub fn to_mcp_configs(&self) -> Vec<crate::mcp::McpServerConfig> {
+    pub fn to_mcp_configs(&self) -> Vec<i_rs_claw_core::mcp::McpServerConfig> {
         self.enabled_manifests()
             .iter()
             .map(|manifest| {
                 let t = &manifest.transport;
-                crate::mcp::McpServerConfig {
+                i_rs_claw_core::mcp::McpServerConfig {
                     name: format!("plugin:{}", manifest.plugin.name),
                     transport_type: t.transport_type.clone(),
                     command: t.command.clone(),

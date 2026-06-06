@@ -1,6 +1,6 @@
 use crate::app::{self, App};
-use crate::core;
-use crate::llm::{LlmEvent, TokenUsage};
+use i_rs_claw_core::core;
+use i_rs_claw_core::llm::{LlmEvent, TokenUsage};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -157,7 +157,7 @@ impl<'a> LlmEventHandler<'a> {
         }
 
         let agent_id = &self.app.current_agent;
-        crate::core::record_tool_memory(
+        i_rs_claw_core::core::record_tool_memory(
             &mut self.app_core.agent_store,
             &self.app_core.config.i_rs_tool_index,
             agent_id,
@@ -166,7 +166,7 @@ impl<'a> LlmEventHandler<'a> {
             result,
         );
         if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
-            crate::core::record_layered_tool_memory(
+            i_rs_claw_core::core::record_layered_tool_memory(
                 &mut self.app_core.agent_store,
                 agent_id,
                 name,
@@ -198,7 +198,7 @@ impl<'a> LlmEventHandler<'a> {
         }
     }
 
-    fn handle_http_log(&mut self, data: &crate::llm::HttpLogData) {
+    fn handle_http_log(&mut self, data: &i_rs_claw_core::llm::HttpLogData) {
         let msg_count = serde_json::from_str::<serde_json::Value>(&data.request_body)
             .ok()
             .and_then(|v| v["messages"].as_array().map(|a| a.len()))

@@ -1,6 +1,6 @@
 use crate::app;
 use crate::config::Config;
-use crate::llm::LlmEvent;
+use i_rs_claw_core::llm::LlmEvent;
 use owo_colors::OwoColorize;
 use ratatui::backend::CrosstermBackend;
 use std::io;
@@ -17,7 +17,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     // Discover plugins and merge into MCP config BEFORE creating AppCore
     // so that MCP registries are initialized with plugin configs
     if config.plugins_auto_discover {
-        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
         let mut plugin_configs = plugin_mgr.to_mcp_configs();
         // Filter out plugins that are disabled in config
         if !config.disabled_plugins.is_empty() {
@@ -65,7 +65,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     let mut app = app::App::new(config);
 
     // Initialize AppCore (session manager, memory, tool cache, skill store, stats)
-    let mut app_core = crate::core::AppCore::new(app.config.clone())?;
+    let mut app_core = i_rs_claw_core::core::AppCore::new(app.config.clone())?;
 
     // Clean up expired stats records on startup
     if app.config.stats.enabled && app.config.stats.keep_days > 0 {

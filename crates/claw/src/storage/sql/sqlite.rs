@@ -129,11 +129,11 @@ mod tests {
     async fn test_session_save_load() {
         let s = test_storage().await;
         s.sessions
-            .save_all(&[crate::session::SessionMeta {
+            .save_all(&[i_rs_claw_core::session::SessionMeta {
                 id: "s1".into(),
                 title: "Hi".into(),
                 agent_id: "d".into(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 1,
                 updated_at: 2,
                 message_count: 0,
@@ -146,7 +146,7 @@ mod tests {
     #[tokio::test]
     async fn test_memory_save_load() {
         let s = test_storage().await;
-        let mut m = crate::memory::CrossSessionMemory::default_memory();
+        let mut m = i_rs_claw_core::memory::CrossSessionMemory::default_memory();
         m.set_user_name("A");
         s.memory.save("a", &m).await.unwrap();
         assert!(

@@ -1,4 +1,4 @@
-use crate::storage::ClawStorage;
+use i_rs_claw_core::storage::ClawStorage;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -115,7 +115,7 @@ impl SessionManager {
     /// Create a SessionManager with a custom storage backend (for DI/testing).
     pub fn with_storage(storage: Arc<ClawStorage>) -> anyhow::Result<Self> {
         let sessions =
-            crate::utils::sync_block_on(async { storage.sessions.load_all().await })
+            i_rs_claw_core::utils::sync_block_on(async { storage.sessions.load_all().await })
                 .inspect_err(|e| {
                     tracing::error!(
                         "加载会话列表失败: {} — 数据可能损坏，请检查 .bak 备份后重新启动",
@@ -203,7 +203,7 @@ impl SessionManager {
             self.rebuild_index();
             let storage = self.storage.clone();
             let sid = id.to_string();
-            crate::utils::sync_block_on(async move {
+            i_rs_claw_core::utils::sync_block_on(async move {
                 let _ = storage.sessions.delete_one(&sid).await;
                 let _ = storage.message_log.delete_session(&sid).await;
                 let _ = storage.api_cache.delete(&sid).await;
@@ -271,7 +271,7 @@ impl SessionManager {
         let sid = id.to_string();
         let steps = steps.to_vec();
         if let Err(e) =
-            crate::utils::sync_block_on(async move { storage.plan_steps.save(&sid, &steps).await })
+            i_rs_claw_core::utils::sync_block_on(async move { storage.plan_steps.save(&sid, &steps).await })
         {
             tracing::error!("持久化写入失败: {}", e);
         }
@@ -281,7 +281,7 @@ impl SessionManager {
     pub fn load_plan_steps(&self, id: &str) -> Vec<crate::app::PlanStep> {
         let storage = self.storage.clone();
         let sid = id.to_string();
-        crate::utils::sync_block_on(async move { storage.plan_steps.load(&sid).await })
+        i_rs_claw_core::utils::sync_block_on(async move { storage.plan_steps.load(&sid).await })
             .unwrap_or_default()
     }
 
@@ -357,13 +357,13 @@ impl SessionManager {
     pub fn load_app_messages(&self, id: &str, max_messages: usize) -> Vec<crate::app::Message> {
         let log = self.storage.message_log.clone();
         let sid = id.to_string();
-        crate::utils::sync_block_on(async move { log.load(&sid, max_messages).await })
+        i_rs_claw_core::utils::sync_block_on(async move { log.load(&sid, max_messages).await })
             .unwrap_or_default()
     }
 
     /// Get a clonable handle to the append-only MessageLog.
     #[allow(dead_code)]
-    pub fn message_log(&self) -> std::sync::Arc<dyn crate::storage::MessageLog> {
+    pub fn message_log(&self) -> std::sync::Arc<dyn i_rs_claw_core::storage::MessageLog> {
         self.storage.message_log.clone()
     }
 
@@ -386,7 +386,7 @@ impl SessionManager {
         let sid = session_id.to_string();
         let append_count = messages.len();
         let msgs = messages.to_vec();
-        crate::utils::sync_block_on(async move { log.append_batch(&sid, &msgs).await })?;
+        i_rs_claw_core::utils::sync_block_on(async move { log.append_batch(&sid, &msgs).await })?;
 
         if let Some(idx) = self.index.get(session_id)
             && let Some(meta) = self.sessions.get_mut(*idx)
@@ -410,7 +410,7 @@ impl SessionManager {
         let sid = session_id.to_string();
         let append_count = new_msgs.len();
         let result =
-            crate::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs).await });
+            i_rs_claw_core::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs).await });
         match result {
             Ok(()) => {
                 self.saved_cursors
@@ -441,7 +441,7 @@ impl SessionManager {
         let sid = id.to_string();
         let messages = messages.to_vec();
         if let Err(e) =
-            crate::utils::sync_block_on(
+            i_rs_claw_core::utils::sync_block_on(
                 async move { storage.api_cache.save(&sid, &messages).await },
             )
         {
@@ -452,7 +452,7 @@ impl SessionManager {
     pub fn load_api_messages(&self, id: &str) -> Option<Vec<serde_json::Value>> {
         let storage = self.storage.clone();
         let sid = id.to_string();
-        crate::utils::sync_block_on(async move { storage.api_cache.load(&sid).await })
+        i_rs_claw_core::utils::sync_block_on(async move { storage.api_cache.load(&sid).await })
             .unwrap_or(None)
     }
 
@@ -472,7 +472,7 @@ impl SessionManager {
         let storage = self.storage.clone();
         let sessions = self.sessions.clone();
         if let Err(e) =
-            crate::utils::sync_block_on(async move { storage.sessions.save_all(&sessions).await })
+            i_rs_claw_core::utils::sync_block_on(async move { storage.sessions.save_all(&sessions).await })
         {
             tracing::error!("持久化写入失败: {}", e);
         }
@@ -487,7 +487,7 @@ impl SessionManager {
         let storage = self.storage.clone();
         let meta = self.sessions[idx].clone();
         if let Err(e) =
-            crate::utils::sync_block_on(async move { storage.sessions.upsert(&meta).await })
+            i_rs_claw_core::utils::sync_block_on(async move { storage.sessions.upsert(&meta).await })
         {
             tracing::error!("持久化写入失败: {}", e);
         }
@@ -703,7 +703,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("i-rs-claw-test-{}.db", uuid::Uuid::new_v4()));
         let _ = std::fs::remove_file(&path);
         let storage = std::sync::Arc::new(
-            crate::utils::sync_block_on(crate::storage::ClawStorage::sqlite(path.clone())).unwrap(),
+            i_rs_claw_core::utils::sync_block_on(i_rs_claw_core::storage::ClawStorage::sqlite(path.clone())).unwrap(),
         );
 
         let mut mgr = SessionManager::with_storage(storage.clone()).unwrap();
@@ -742,7 +742,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("i-rs-claw-test-{}.db", uuid::Uuid::new_v4()));
         let _ = std::fs::remove_file(&path);
         let storage = std::sync::Arc::new(
-            crate::utils::sync_block_on(crate::storage::ClawStorage::sqlite(path.clone())).unwrap(),
+            i_rs_claw_core::utils::sync_block_on(i_rs_claw_core::storage::ClawStorage::sqlite(path.clone())).unwrap(),
         );
 
         let mut mgr = SessionManager::with_storage(storage.clone()).unwrap();

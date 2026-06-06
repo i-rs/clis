@@ -5,8 +5,8 @@ use serde_json::Value;
 pub(crate) async fn execute_tool_call(
     name: &str,
     args: &Value,
-    registry: &crate::tools::ToolRegistry,
-    ctx: &crate::tools::ToolContext,
+    registry: &i_rs_claw_core::tools::ToolRegistry,
+    ctx: &i_rs_claw_core::tools::ToolContext,
 ) -> String {
     if let Some(tool) = registry.tools.iter().find(|t| t.name() == name) {
         return tool

@@ -146,7 +146,7 @@ impl ContextManager {
             (self.teach_window, self.recent_window)
         };
 
-        crate::core::engine::smart_compress(
+        i_rs_claw_core::core::engine::smart_compress(
             msgs,
             tool_frequency,
             teach_window,
@@ -191,7 +191,7 @@ impl ContextManager {
                     facts.push(format!("[工具结果] {}", content));
                 }
                 "user" => {
-                    if crate::utils::is_correction_message(content) {
+                    if i_rs_claw_core::utils::is_correction_message(content) {
                         facts.push(format!("[用户纠正] {}", content));
                     }
                 }

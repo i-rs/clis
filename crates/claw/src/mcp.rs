@@ -9,7 +9,7 @@
 //! McpToolDefinition are always compiled so config parsing and schema conversion
 //! work without the feature.
 
-use crate::error::ClawError;
+use i_rs_claw_core::error::ClawError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -496,7 +496,7 @@ mod mcp_gated {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::tools::mcp_tools::mcp_schema_to_openai;
+        use i_rs_claw_core::tools::mcp_tools::mcp_schema_to_openai;
         use serde_json::json;
 
         #[test]
@@ -550,7 +550,7 @@ mod mcp_gated {
             use std::collections::HashSet;
             let agent_config = crate::config::ResolvedAgentConfig {
                 agent_id: "test".to_string(),
-                provider: crate::providers::ProviderKind::OpenAI,
+                provider: i_rs_claw_core::providers::ProviderKind::OpenAI,
                 api_key: "test-key".to_string(),
                 base_url: "http://localhost:9999/v1".to_string(),
                 model: "test-model".to_string(),
@@ -576,7 +576,7 @@ mod mcp_gated {
             use std::collections::HashSet;
             let agent_config = crate::config::ResolvedAgentConfig {
                 agent_id: "test".to_string(),
-                provider: crate::providers::ProviderKind::OpenAI,
+                provider: i_rs_claw_core::providers::ProviderKind::OpenAI,
                 api_key: "test-key".to_string(),
                 base_url: "http://localhost:9999/v1".to_string(),
                 model: "test-model".to_string(),
@@ -751,7 +751,7 @@ mod mcp_gated {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::tools::mcp_tools::mcp_schema_to_openai;
+        use i_rs_claw_core::tools::mcp_tools::mcp_schema_to_openai;
         use serde_json::json;
 
         #[test]
@@ -805,7 +805,7 @@ mod mcp_gated {
             use std::collections::HashSet;
             let agent_config = crate::config::ResolvedAgentConfig {
                 agent_id: "test".to_string(),
-                provider: crate::providers::ProviderKind::OpenAI,
+                provider: i_rs_claw_core::providers::ProviderKind::OpenAI,
                 api_key: "test-key".to_string(),
                 base_url: "http://localhost:9999/v1".to_string(),
                 model: "test-model".to_string(),
@@ -827,7 +827,7 @@ mod mcp_gated {
             use std::collections::HashSet;
             let agent_config = crate::config::ResolvedAgentConfig {
                 agent_id: "test".to_string(),
-                provider: crate::providers::ProviderKind::OpenAI,
+                provider: i_rs_claw_core::providers::ProviderKind::OpenAI,
                 api_key: "test-key".to_string(),
                 base_url: "http://localhost:9999/v1".to_string(),
                 model: "test-model".to_string(),

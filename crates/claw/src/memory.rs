@@ -1,5 +1,5 @@
-use crate::storage::ClawStorage;
-use crate::utils::atomic_write;
+use i_rs_claw_core::storage::ClawStorage;
+use i_rs_claw_core::utils::atomic_write;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -52,7 +52,7 @@ impl CrossSessionMemory {
     pub fn for_agent_with_storage(storage: &Arc<ClawStorage>, agent_id: &str) -> Self {
         let aid = agent_id.to_string();
         let s = storage.clone();
-        let mut mem = crate::utils::sync_block_on(async {
+        let mut mem = i_rs_claw_core::utils::sync_block_on(async {
             s.memory
                 .load(&aid)
                 .await
@@ -164,8 +164,8 @@ impl CrossSessionMemory {
     /// Analyze tool usage from session JSONL files.
     pub fn analyze_sessions(
         &mut self,
-        sessions: &[crate::session::SessionMeta],
-        session_mgr: &crate::session::SessionManager,
+        sessions: &[i_rs_claw_core::session::SessionMeta],
+        session_mgr: &i_rs_claw_core::session::SessionManager,
     ) {
         for meta in sessions {
             let messages = session_mgr.load_app_messages(&meta.id, 1000);
@@ -244,7 +244,7 @@ impl CrossSessionMemory {
 
     /// Format Layer 3: hot tools with full teach docs.
     #[allow(dead_code)]
-    pub fn format_hot_tools(&self, cache: &crate::tool_cache::ToolDocCache) -> String {
+    pub fn format_hot_tools(&self, cache: &i_rs_claw_core::tool_cache::ToolDocCache) -> String {
         if self.hot_tools.is_empty() {
             return String::new();
         }
@@ -315,7 +315,7 @@ impl CrossSessionMemory {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let mem_value = serde_json::to_value(&*self).unwrap_or(serde_json::Value::Null);
-            if let Err(e) = crate::utils::sync_block_on(async move {
+            if let Err(e) = i_rs_claw_core::utils::sync_block_on(async move {
                 let mem: Self =
                     serde_json::from_value(mem_value).unwrap_or_else(|_| Self::default_memory());
                 storage.memory.save(&aid, &mem).await

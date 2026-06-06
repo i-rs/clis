@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::storage::ClawStorage;
-use crate::storage::SearchResult;
+use i_rs_claw_core::storage::ClawStorage;
+use i_rs_claw_core::storage::SearchResult;
 
 /// Full-text search across all conversation session messages.
 ///
@@ -30,7 +30,7 @@ impl ConvStore {
     pub fn search(&self, query: &str, max_results: usize) -> Vec<SearchResult> {
         let storage = self.storage.clone();
         let query = query.to_string();
-        crate::utils::sync_block_on(async move {
+        i_rs_claw_core::utils::sync_block_on(async move {
             storage
                 .message_log
                 .search(&query, max_results)

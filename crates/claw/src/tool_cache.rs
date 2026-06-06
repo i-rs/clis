@@ -1,5 +1,5 @@
-use crate::storage::ClawStorage;
-use crate::utils::atomic_write;
+use i_rs_claw_core::storage::ClawStorage;
+use i_rs_claw_core::utils::atomic_write;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -25,7 +25,7 @@ impl ToolDocCache {
     pub fn for_agent_with_storage(storage: &Arc<ClawStorage>, agent_id: &str) -> Self {
         let aid = agent_id.to_string();
         let s = storage.clone();
-        let hot_docs = crate::utils::sync_block_on(async {
+        let hot_docs = i_rs_claw_core::utils::sync_block_on(async {
             s.tool_cache.load(&aid).await.unwrap_or_default()
         });
         Self {
@@ -142,7 +142,7 @@ impl ToolDocCache {
             let aid = self.agent_id.clone();
             let docs = self.hot_docs.clone();
             if let Err(e) =
-                crate::utils::sync_block_on(
+                i_rs_claw_core::utils::sync_block_on(
                     async move { storage.tool_cache.save(&aid, &docs).await },
                 )
             {

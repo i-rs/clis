@@ -10,7 +10,7 @@ pub struct SkillEntry {
 
 /// Format a list of skill entries into a system prompt section.
 /// Used by SkillStore::format_skills() for the backend-agnostic path.
-pub(crate) fn format_skill_entries(entries: &[crate::storage::SkillEntry]) -> String {
+pub(crate) fn format_skill_entries(entries: &[i_rs_claw_core::storage::SkillEntry]) -> String {
     if entries.is_empty() {
         return String::new();
     }
@@ -130,14 +130,14 @@ pub fn build_skill_definition(name: &str, raw_content: &str) -> SkillDefinition 
 pub struct SkillStore {
     skills_dir: PathBuf,
     /// Optional storage backend (takes priority over file I/O when set).
-    storage: Option<std::sync::Arc<crate::storage::ClawStorage>>,
+    storage: Option<std::sync::Arc<i_rs_claw_core::storage::ClawStorage>>,
     agent_id: String,
 }
 
 impl SkillStore {
     /// Create skill store backed by storage backend.
     pub fn for_agent_with_storage(
-        storage: &std::sync::Arc<crate::storage::ClawStorage>,
+        storage: &std::sync::Arc<i_rs_claw_core::storage::ClawStorage>,
         agent_id: &str,
     ) -> Self {
         // Keep a fallback skills_dir for backward compat
@@ -169,7 +169,7 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return crate::utils::sync_block_on(async move {
+            return i_rs_claw_core::utils::sync_block_on(async move {
                 storage.skills.get(&aid, &name).await.ok().flatten()
             });
         }
@@ -187,7 +187,7 @@ impl SkillStore {
             let aid = self.agent_id.clone();
             let name = name.to_string();
             let content = content.to_string();
-            return crate::utils::sync_block_on(async move {
+            return i_rs_claw_core::utils::sync_block_on(async move {
                 storage.skills.install(&aid, &name, &content).await
             });
         }
@@ -202,7 +202,7 @@ impl SkillStore {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
             let name = name.to_string();
-            return crate::utils::sync_block_on(
+            return i_rs_claw_core::utils::sync_block_on(
                 async move { storage.skills.remove(&aid, &name).await },
             );
         }
@@ -217,7 +217,7 @@ impl SkillStore {
     pub fn executable_skills(&self) -> Vec<SkillDefinition> {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return crate::utils::sync_block_on(async move {
+            return i_rs_claw_core::utils::sync_block_on(async move {
                 storage
                     .skills
                     .list_executable(&aid)
@@ -274,7 +274,7 @@ type = "object"
     pub fn format_skills(&self) -> String {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return crate::utils::sync_block_on(async move {
+            return i_rs_claw_core::utils::sync_block_on(async move {
                 let entries = storage.skills.list(&aid).await.unwrap_or_default();
                 format_skill_entries(&entries)
             });
@@ -330,7 +330,7 @@ type = "object"
     pub fn skill_names(&self) -> Vec<String> {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return crate::utils::sync_block_on(async move {
+            return i_rs_claw_core::utils::sync_block_on(async move {
                 storage
                     .skills
                     .list(&aid)
@@ -366,7 +366,7 @@ type = "object"
     pub fn list_skills(&self) -> Vec<SkillEntry> {
         if let Some(ref storage) = self.storage {
             let aid = self.agent_id.clone();
-            return crate::utils::sync_block_on(async move {
+            return i_rs_claw_core::utils::sync_block_on(async move {
                 storage
                     .skills
                     .list(&aid)

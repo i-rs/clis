@@ -176,7 +176,7 @@ pub fn today_summary(
     records: &[TokenRecord],
     tz_offset: chrono::FixedOffset,
 ) -> super::TodaySummary {
-    let today_start = crate::utils::now_in_tz(tz_offset)
+    let today_start = i_rs_claw_core::utils::now_in_tz(tz_offset)
         .date_naive()
         .and_hms_opt(0, 0, 0)
         .map(|dt| dt.and_utc().timestamp())

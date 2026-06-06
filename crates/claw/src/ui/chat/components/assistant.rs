@@ -2,7 +2,7 @@ use super::style::{
     BLOCK_LEFT_RESERVED, blend, block_border, body_line, header_line, render_block_chrome,
 };
 use super::{ComponentOp, MessageComponent};
-use crate::llm::TokenUsage;
+use i_rs_claw_core::llm::TokenUsage;
 use crate::theme::Theme;
 use crate::ui::chat::markdown::render_markdown;
 use crate::ui::utils;

@@ -1,4 +1,4 @@
-use crate::stats::TokenRecord;
+use i_rs_claw_core::stats::TokenRecord;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;

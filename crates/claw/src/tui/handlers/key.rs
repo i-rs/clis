@@ -1,5 +1,5 @@
 use crate::app::{self, App, Overlay};
-use crate::core;
+use i_rs_claw_core::core;
 use crate::ui::chat_api::ComponentOp;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui_interact::events::is_space;
@@ -12,7 +12,7 @@ pub struct KeyEventHandler<'a> {
     pub app: &'a mut App,
     pub app_core: &'a mut core::AppCore,
     pub rt: &'a tokio::runtime::Runtime,
-    pub llm_tx: &'a mpsc::UnboundedSender<crate::llm::LlmEvent>,
+    pub llm_tx: &'a mpsc::UnboundedSender<i_rs_claw_core::llm::LlmEvent>,
 }
 
 impl<'a> KeyEventHandler<'a> {
@@ -20,7 +20,7 @@ impl<'a> KeyEventHandler<'a> {
         app: &'a mut App,
         app_core: &'a mut core::AppCore,
         rt: &'a tokio::runtime::Runtime,
-        llm_tx: &'a mpsc::UnboundedSender<crate::llm::LlmEvent>,
+        llm_tx: &'a mpsc::UnboundedSender<i_rs_claw_core::llm::LlmEvent>,
     ) -> Self {
         Self {
             app,
@@ -295,7 +295,7 @@ impl<'a> KeyEventHandler<'a> {
                         .agent_store
                         .skill_store_for(&self.app.current_agent);
                     self.app.skill_list = store.list_skills();
-                    let plugin_mgr = crate::plugin::PluginManager::new();
+                    let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
                     self.app.plugin_list = plugin_mgr
                         .manifests
                         .iter()

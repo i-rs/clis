@@ -30,8 +30,8 @@ use mongodb::bson::Document;
 use mongodb::bson::doc;
 use mongodb::options::{IndexOptions, ReturnDocument};
 
-use crate::message::StoredRecord;
-use crate::storage::{
+use i_rs_claw_core::message::StoredRecord;
+use i_rs_claw_core::storage::{
     ApiCacheRepo, MemoryRepo, MessageLog, PlanStepsRepo, SearchResult, SessionRepo, SkillEntry,
     SkillRepo, StatsRepo, ToolCacheRepo,
 };
@@ -84,9 +84,9 @@ impl MongoBackend {
         Ok(())
     }
 
-    pub fn into_storage(self) -> crate::storage::ClawStorage {
+    pub fn into_storage(self) -> i_rs_claw_core::storage::ClawStorage {
         let arc = Arc::new(self);
-        crate::storage::ClawStorage {
+        i_rs_claw_core::storage::ClawStorage {
             sessions: Box::new(MongoSessionStore { db: arc.clone() }),
             message_log: Arc::new(MongoMessageLog { db: arc.clone() }),
             api_cache: Box::new(MongoApiCacheStore { db: arc.clone() }),
@@ -108,7 +108,7 @@ struct MongoSessionStore {
 
 #[async_trait]
 impl SessionRepo for MongoSessionStore {
-    async fn load_all(&self) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
+    async fn load_all(&self) -> anyhow::Result<Vec<i_rs_claw_core::session::SessionMeta>> {
         let cursor = self
             .db
             .db
@@ -120,7 +120,7 @@ impl SessionRepo for MongoSessionStore {
         docs.into_iter().map(|d| doc_to_session_meta(&d)).collect()
     }
 
-    async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
+    async fn save_all(&self, sessions: &[i_rs_claw_core::session::SessionMeta]) -> anyhow::Result<()> {
         if sessions.is_empty() {
             tracing::warn!("save_all(empty): 清空所有 session + message_log + seq_counters");
             self.db
@@ -164,7 +164,7 @@ impl SessionRepo for MongoSessionStore {
         Ok(())
     }
 
-    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<i_rs_claw_core::session::SessionMeta>> {
         let doc = self
             .db
             .db
@@ -174,7 +174,7 @@ impl SessionRepo for MongoSessionStore {
         doc.as_ref().map(doc_to_session_meta).transpose()
     }
 
-    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+    async fn upsert(&self, session: &i_rs_claw_core::session::SessionMeta) -> anyhow::Result<()> {
         let mut doc = session_meta_to_doc(session)?;
         doc.insert("_id", session.id.clone());
         self.db
@@ -206,7 +206,7 @@ impl SessionRepo for MongoSessionStore {
     }
 }
 
-fn session_meta_to_doc(s: &crate::session::SessionMeta) -> anyhow::Result<Document> {
+fn session_meta_to_doc(s: &i_rs_claw_core::session::SessionMeta) -> anyhow::Result<Document> {
     Ok(doc! {
         "title": s.title.clone(),
         "agent_id": s.agent_id.clone(),
@@ -217,11 +217,11 @@ fn session_meta_to_doc(s: &crate::session::SessionMeta) -> anyhow::Result<Docume
     })
 }
 
-fn doc_to_session_meta(d: &Document) -> anyhow::Result<crate::session::SessionMeta> {
+fn doc_to_session_meta(d: &Document) -> anyhow::Result<i_rs_claw_core::session::SessionMeta> {
     let id = d.get_str("_id")?.to_string();
     let state_str = d.get_str("state").unwrap_or("\"Active\"");
-    let state: crate::session::SessionState = serde_json::from_str(state_str).unwrap_or_default();
-    Ok(crate::session::SessionMeta {
+    let state: i_rs_claw_core::session::SessionState = serde_json::from_str(state_str).unwrap_or_default();
+    Ok(i_rs_claw_core::session::SessionMeta {
         id,
         title: d.get_str("title").unwrap_or("").to_string(),
         agent_id: d.get_str("agent_id").unwrap_or("default").to_string(),
@@ -576,7 +576,7 @@ impl MemoryRepo for MongoMemoryStore {
     async fn load(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
+    ) -> anyhow::Result<Option<i_rs_claw_core::memory::CrossSessionMemory>> {
         let doc = self
             .db
             .db
@@ -586,7 +586,7 @@ impl MemoryRepo for MongoMemoryStore {
         match doc {
             Some(d) => {
                 let json = d.get_str("data").unwrap_or("{}");
-                let mem: crate::memory::CrossSessionMemory = serde_json::from_str(json)?;
+                let mem: i_rs_claw_core::memory::CrossSessionMemory = serde_json::from_str(json)?;
                 Ok(Some(mem))
             }
             None => Ok(None),
@@ -596,7 +596,7 @@ impl MemoryRepo for MongoMemoryStore {
     async fn save(
         &self,
         agent_id: &str,
-        memory: &crate::memory::CrossSessionMemory,
+        memory: &i_rs_claw_core::memory::CrossSessionMemory,
     ) -> anyhow::Result<()> {
         let json = serde_json::to_string(memory)?;
         self.db
@@ -618,7 +618,7 @@ struct MongoStatsStore {
 
 #[async_trait]
 impl StatsRepo for MongoStatsStore {
-    async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
+    async fn upsert_batch(&self, records: &[i_rs_claw_core::stats::TokenRecord]) -> anyhow::Result<()> {
         for r in records {
             let mut doc = mongodb::bson::to_document(r)?;
             doc.insert("_id", r.id.clone());
@@ -636,7 +636,7 @@ impl StatsRepo for MongoStatsStore {
         &self,
         from: Option<i64>,
         to: Option<i64>,
-    ) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
+    ) -> anyhow::Result<Vec<i_rs_claw_core::stats::TokenRecord>> {
         let mut filter = doc! {};
         if let Some(f) = from {
             filter.insert("timestamp", doc! { "$gte": f });
@@ -660,7 +660,7 @@ impl StatsRepo for MongoStatsStore {
             .map(|mut d| {
                 // Remove _id to avoid conflict with the struct's id field
                 d.remove("_id");
-                Ok(mongodb::bson::from_document::<crate::stats::TokenRecord>(
+                Ok(mongodb::bson::from_document::<i_rs_claw_core::stats::TokenRecord>(
                     d,
                 )?)
             })
@@ -714,7 +714,7 @@ impl SkillRepo for MongoSkillStore {
         &self,
         agent_id: &str,
         name: &str,
-    ) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>> {
+    ) -> anyhow::Result<Option<i_rs_claw_core::skill_store::SkillDefinition>> {
         let doc = self
             .db
             .db
@@ -726,7 +726,7 @@ impl SkillRepo for MongoSkillStore {
                 let content = d.get_str("content").unwrap_or("").to_string();
                 let parameters = d.get_str("parameters").ok().map(String::from);
                 let params_json = parameters.and_then(|s| serde_json::from_str(&s).ok());
-                Ok(Some(crate::skill_store::SkillDefinition {
+                Ok(Some(i_rs_claw_core::skill_store::SkillDefinition {
                     name: name.to_string(),
                     description: name.to_string(),
                     parameters: params_json,
@@ -738,7 +738,7 @@ impl SkillRepo for MongoSkillStore {
     }
 
     async fn install(&self, agent_id: &str, name: &str, content: &str) -> anyhow::Result<()> {
-        let (frontmatter, _body) = crate::skill_store::parse_frontmatter(content);
+        let (frontmatter, _body) = i_rs_claw_core::skill_store::parse_frontmatter(content);
         let parameters = frontmatter
             .as_ref()
             .and_then(|f| f.get("parameters"))
@@ -774,7 +774,7 @@ impl SkillRepo for MongoSkillStore {
     async fn list_executable(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>> {
+    ) -> anyhow::Result<Vec<i_rs_claw_core::skill_store::SkillDefinition>> {
         let cursor = self
             .db
             .db
@@ -789,7 +789,7 @@ impl SkillRepo for MongoSkillStore {
                 let content = d.get_str("content").unwrap_or("").to_string();
                 let parameters_str = d.get_str("parameters").unwrap_or("");
                 let parameters = serde_json::from_str(parameters_str).ok();
-                Ok(crate::skill_store::SkillDefinition {
+                Ok(i_rs_claw_core::skill_store::SkillDefinition {
                     name: name.clone(),
                     description: name,
                     parameters,
@@ -859,7 +859,7 @@ impl ToolCacheRepo for MongoToolCacheStore {
 
 // ── ClawStorage constructor ──
 
-impl crate::storage::ClawStorage {
+impl i_rs_claw_core::storage::ClawStorage {
     #[cfg(feature = "mongo")]
     pub async fn mongo(url: &str, db: &str) -> anyhow::Result<Self> {
         Ok(MongoBackend::new(url, db).await?.into_storage())
@@ -880,7 +880,7 @@ mod tests {
         std::env::var("CLAW_TEST_MONGO_URL").ok()
     }
 
-    async fn test_storage() -> Option<crate::storage::ClawStorage> {
+    async fn test_storage() -> Option<i_rs_claw_core::storage::ClawStorage> {
         let url = mongo_url()?;
         let db_name = format!("claw-test-{}", uuid::Uuid::new_v4());
         MongoBackend::new(&url, &db_name)
@@ -895,11 +895,11 @@ mod tests {
         let Some(s) = test_storage().await else {
             return;
         };
-        let meta = crate::session::SessionMeta {
+        let meta = i_rs_claw_core::session::SessionMeta {
             id: "s1".into(),
             title: "Test".into(),
             agent_id: "default".into(),
-            state: crate::session::SessionState::Active,
+            state: i_rs_claw_core::session::SessionState::Active,
             created_at: 1,
             updated_at: 2,
             message_count: 0,
@@ -938,11 +938,11 @@ mod tests {
             return;
         };
         s.sessions
-            .save_all(&[crate::session::SessionMeta {
+            .save_all(&[i_rs_claw_core::session::SessionMeta {
                 id: "s1".into(),
                 title: "Search Test".into(),
                 agent_id: "default".into(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 1,
                 updated_at: 2,
                 message_count: 0,

@@ -46,7 +46,7 @@ pub struct SkillEntry {
 pub(crate) fn scan_records_for_query(
     records: &[serde_json::Value],
     query: &str,
-    meta: &crate::session::SessionMeta,
+    meta: &i_rs_claw_core::session::SessionMeta,
     max_results: usize,
     results: &mut Vec<SearchResult>,
 ) -> bool {
@@ -162,14 +162,14 @@ pub struct StorageConfig {
 #[allow(dead_code)]
 pub trait SessionRepo: Send + Sync {
     /// Load all session metadata.
-    async fn load_all(&self) -> anyhow::Result<Vec<crate::session::SessionMeta>>;
+    async fn load_all(&self) -> anyhow::Result<Vec<i_rs_claw_core::session::SessionMeta>>;
     /// Atomically replace all session metadata.
-    async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()>;
+    async fn save_all(&self, sessions: &[i_rs_claw_core::session::SessionMeta]) -> anyhow::Result<()>;
 
     /// Get a single session by ID.
-    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>>;
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<i_rs_claw_core::session::SessionMeta>>;
     /// Upsert a single session metadata.
-    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()>;
+    async fn upsert(&self, session: &i_rs_claw_core::session::SessionMeta) -> anyhow::Result<()>;
     /// Delete a single session by ID.
     async fn delete_one(&self, id: &str) -> anyhow::Result<()>;
     /// Count sessions.
@@ -246,12 +246,12 @@ pub trait MemoryRepo: Send + Sync {
     async fn load(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>>;
+    ) -> anyhow::Result<Option<i_rs_claw_core::memory::CrossSessionMemory>>;
     /// Persist the full CrossSessionMemory for an agent.
     async fn save(
         &self,
         agent_id: &str,
-        memory: &crate::memory::CrossSessionMemory,
+        memory: &i_rs_claw_core::memory::CrossSessionMemory,
     ) -> anyhow::Result<()>;
 }
 
@@ -259,12 +259,12 @@ pub trait MemoryRepo: Send + Sync {
 #[async_trait]
 pub trait StatsRepo: Send + Sync {
     /// Idempotently upsert token records (dedup by id).
-    async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()>;
+    async fn upsert_batch(&self, records: &[i_rs_claw_core::stats::TokenRecord]) -> anyhow::Result<()>;
     async fn read_range(
         &self,
         from: Option<i64>,
         to: Option<i64>,
-    ) -> anyhow::Result<Vec<crate::stats::TokenRecord>>;
+    ) -> anyhow::Result<Vec<i_rs_claw_core::stats::TokenRecord>>;
     /// Remove records older than `keep_days`. Returns count removed.
     async fn prune(&self, keep_days: u32) -> anyhow::Result<usize>;
 }
@@ -279,7 +279,7 @@ pub trait SkillRepo: Send + Sync {
         &self,
         agent_id: &str,
         name: &str,
-    ) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>>;
+    ) -> anyhow::Result<Option<i_rs_claw_core::skill_store::SkillDefinition>>;
     /// Install (create or update) a skill.
     async fn install(&self, agent_id: &str, name: &str, content: &str) -> anyhow::Result<()>;
     /// Remove a skill.
@@ -288,7 +288,7 @@ pub trait SkillRepo: Send + Sync {
     async fn list_executable(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>>;
+    ) -> anyhow::Result<Vec<i_rs_claw_core::skill_store::SkillDefinition>>;
 }
 
 /// Tool documentation cache (per agent).

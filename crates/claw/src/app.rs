@@ -1,6 +1,8 @@
+pub use i_rs_claw_core::app::*;
+
 use crate::config::Config;
-use crate::llm::TokenUsage;
-use crate::stats::TodaySummary;
+use i_rs_claw_core::llm::TokenUsage;
+use i_rs_claw_core::stats::TodaySummary;
 use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, build_component_for};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
@@ -11,198 +13,6 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::time::Instant;
 
-#[allow(dead_code)]
-pub fn message_to_jsonl(msg: &Message) -> Value {
-    serde_json::to_value(msg)
-        .unwrap_or_else(|_| serde_json::json!({"type": "error", "text": "serialization failed"}))
-}
-
-#[cfg(test)]
-pub fn message_from_jsonl(v: Value) -> Option<Message> {
-    serde_json::from_value(v).ok()
-}
-
-pub fn evaluate_response_heuristic(
-    response_text: &str,
-    tool_results: &[(&str, bool)],
-    known_tools: &[&str],
-) -> Message {
-    let mut issues = Vec::new();
-    let mut references_valid = 0u32;
-
-    let executed_tools: HashSet<&str> = tool_results.iter().map(|(n, _)| *n).collect();
-    for (name, success) in tool_results {
-        if response_text.contains(*name) {
-            references_valid += 1;
-        }
-        if !(*success || response_text.contains("错误") || response_text.contains("失败")) {
-            issues.push(format!("工具 '{}' 执行失败，但回复未提及", name));
-        }
-    }
-
-    for pattern in known_tools {
-        if response_text.contains(*pattern)
-            && !executed_tools.contains(pattern)
-            && response_text.contains("i-rs")
-        {
-            issues.push(format!("回复提及未执行的工具: {}", pattern));
-        }
-    }
-
-    let complete = !response_text.trim().is_empty();
-    if !complete {
-        issues.push("回复为空".to_string());
-    }
-
-    let relevance = compute_text_relevance(response_text);
-    if relevance < 0.3 && !response_text.is_empty() {
-        issues.push(format!(
-            "回复信息密度较低 (相关度: {:.0}%)",
-            relevance * 100.0
-        ));
-    }
-
-    let has_errors = !issues.is_empty();
-    let score = if has_errors {
-        Some(1.0 - (issues.len() as f64 * 0.2).min(0.8))
-    } else if complete {
-        Some(1.0)
-    } else {
-        Some(0.0)
-    };
-
-    Message::Quality {
-        score,
-        complete,
-        references_valid,
-        issues,
-    }
-}
-
-fn compute_text_relevance(text: &str) -> f64 {
-    if text.is_empty() {
-        return 0.0;
-    }
-
-    let mut meaningful = 0usize;
-    let mut total_chars = 0usize;
-    for c in text.chars() {
-        total_chars += 1;
-        if c.is_alphanumeric() || c > '\x7f' {
-            meaningful += 1;
-        }
-    }
-    if total_chars == 0 {
-        return 0.0;
-    }
-
-    static STOPWORDS: &[&str] = &[
-        "的", "了", "在", "是", "我", "有", "和", "就", "不", "都", "the", "a", "an", "is", "are",
-        "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "may", "might", "can", "shall", "to", "of", "in", "for", "on", "with",
-        "at", "by", "from", "as", "into", "through", "during", "before", "after", "above", "below",
-        "between", "and", "but", "or", "nor", "not", "so", "yet", "both", "either", "each",
-        "every", "all", "any", "few", "more", "most", "other", "some", "such", "only", "own",
-        "same", "than", "too", "very", "just", "because", "about", "up", "out", "if", "then",
-        "now", "it", "its", "he", "she", "they", "them", "this", "that", "these", "those", "what",
-        "which", "who", "whom", "how",
-    ];
-
-    let mut stopword_count = 0usize;
-    let mut total_words = 0usize;
-    for w in text.split_whitespace() {
-        total_words += 1;
-        if w.len() <= 4
-            && STOPWORDS
-                .iter()
-                .any(|&s| w.eq_ignore_ascii_case(s) || w.contains(s))
-        {
-            stopword_count += 1;
-        }
-    }
-
-    let meaningful_ratio = meaningful as f64 / total_chars as f64;
-    let stopword_ratio = stopword_count as f64 / total_words.max(1) as f64;
-
-    (meaningful_ratio * 0.6 + (1.0 - stopword_ratio) * 0.4).min(1.0)
-}
-
-#[derive(Clone)]
-pub struct PluginEntry {
-    pub name: String,
-    pub description: String,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlanStep {
-    pub description: String,
-    pub done: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct HttpLog {
-    pub timestamp: String,
-    pub status: u16,
-    pub duration_ms: u64,
-    pub model: String,
-    pub prompt_tokens: u32,
-    pub completion_tokens: u32,
-    pub error: Option<String>,
-    pub request_body: String,
-    pub msg_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum Message {
-    User {
-        text: String,
-    },
-    Assistant {
-        text: String,
-        #[serde(default)]
-        reasoning: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        token_usage: Option<TokenUsage>,
-    },
-    ToolCall {
-        name: String,
-        args: String,
-        result: String,
-        // Older session records don't persist these — default to 0/0 so
-        // reload doesn't silently drop the entire tool_call message.
-        #[serde(default)]
-        step: usize,
-        #[serde(default)]
-        total_steps: usize,
-    },
-    Error {
-        text: String,
-    },
-    Evaluation {
-        tool: String,
-        valid: bool,
-        issues: Vec<String>,
-    },
-    Quality {
-        score: Option<f64>,
-        complete: bool,
-        references_valid: u32,
-        issues: Vec<String>,
-    },
-    Feedback {
-        positive: bool,
-        message: Option<String>,
-    },
-    Image {
-        path: String,
-        alt_text: String,
-        width: u32,
-        height: u32,
-        format: String,
-    },
-}
 
 #[derive(Clone)]
 pub struct InputState {
@@ -640,7 +450,7 @@ pub struct OverlayState {
     pub selection_mode: bool,
     pub selected_message: Option<usize>,
     pub session_list_index: usize,
-    pub session_list: Vec<crate::session::SessionMeta>,
+    pub session_list: Vec<i_rs_claw_core::session::SessionMeta>,
     pub session_search: String,
     pub session_search_mode: bool,
     pub session_rename_buf: String,
@@ -657,12 +467,12 @@ pub struct OverlayState {
     pub slash_visible: bool,
     pub slash_index: usize,
     pub theme_index: usize,
-    pub cached_filtered_sessions: Option<Vec<crate::session::SessionMeta>>,
+    pub cached_filtered_sessions: Option<Vec<i_rs_claw_core::session::SessionMeta>>,
     pub cached_search_hash: u64,
 }
 
 impl OverlayState {
-    pub fn filtered_sessions(&self) -> Vec<crate::session::SessionMeta> {
+    pub fn filtered_sessions(&self) -> Vec<i_rs_claw_core::session::SessionMeta> {
         let q = self.session_search.to_lowercase();
         if q.is_empty() {
             self.session_list.clone()
@@ -675,7 +485,7 @@ impl OverlayState {
         }
     }
 
-    pub fn filtered_sessions_cached(&mut self) -> Vec<crate::session::SessionMeta> {
+    pub fn filtered_sessions_cached(&mut self) -> Vec<i_rs_claw_core::session::SessionMeta> {
         use std::hash::Hasher;
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.session_search.hash(&mut hasher);
@@ -832,7 +642,7 @@ pub struct App {
     pub tool_call_count: usize,
     pub status_text: String,
     pub api_messages: Option<Vec<Value>>,
-    pub token_usage: Option<crate::llm::TokenUsage>,
+    pub token_usage: Option<i_rs_claw_core::llm::TokenUsage>,
     /// Scroll offset in "rows from the top of the content" convention:
     /// `0` = top (oldest message), `max_scroll` = bottom (newest message).
     /// Only consulted by the renderer when `stick_to_bottom` is false;
@@ -860,8 +670,8 @@ pub struct App {
     pub plan_steps: Vec<PlanStep>,
     pub current_agent: String,
     pub today_stats: TodaySummary,
-    pub stats_history: Vec<crate::stats::DailyStats>,
-    pub skill_list: Vec<crate::skill_store::SkillEntry>,
+    pub stats_history: Vec<i_rs_claw_core::stats::DailyStats>,
+    pub skill_list: Vec<i_rs_claw_core::skill_store::SkillEntry>,
     pub plugin_list: Vec<PluginEntry>,
     pub spinner_start: Instant,
     pub render_state: RenderState,
@@ -2106,29 +1916,29 @@ mod tests {
     fn test_overlay_filtered_sessions_search() {
         let mut overlay = OverlayState::new(vec!["default".to_string()]);
         overlay.session_list = vec![
-            crate::session::SessionMeta {
+            i_rs_claw_core::session::SessionMeta {
                 id: "1".to_string(),
                 title: "Weight tracking".to_string(),
                 agent_id: "default".to_string(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 0,
                 updated_at: 0,
                 message_count: 0,
             },
-            crate::session::SessionMeta {
+            i_rs_claw_core::session::SessionMeta {
                 id: "2".to_string(),
                 title: "Mood log".to_string(),
                 agent_id: "default".to_string(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 0,
                 updated_at: 0,
                 message_count: 0,
             },
-            crate::session::SessionMeta {
+            i_rs_claw_core::session::SessionMeta {
                 id: "3".to_string(),
                 title: "Weight history".to_string(),
                 agent_id: "default".to_string(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 0,
                 updated_at: 0,
                 message_count: 0,
@@ -2156,11 +1966,11 @@ mod tests {
     #[test]
     fn test_overlay_filtered_sessions_case_insensitive() {
         let mut overlay = OverlayState::new(vec!["default".to_string()]);
-        overlay.session_list = vec![crate::session::SessionMeta {
+        overlay.session_list = vec![i_rs_claw_core::session::SessionMeta {
             id: "1".to_string(),
             title: "Weight Tracking".to_string(),
             agent_id: "default".to_string(),
-            state: crate::session::SessionState::Active,
+            state: i_rs_claw_core::session::SessionState::Active,
             created_at: 0,
             updated_at: 0,
             message_count: 0,

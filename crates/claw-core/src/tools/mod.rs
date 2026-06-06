@@ -51,7 +51,7 @@ macro_rules! opt_u64 {
     };
 }
 
-pub(crate) async fn run_blocking<F, R>(label: &str, f: F) -> Result<R, crate::error::ClawError>
+pub async fn run_blocking<F, R>(label: &str, f: F) -> Result<R, crate::error::ClawError>
 where
     F: FnOnce() -> Result<R, crate::error::ClawError> + Send + 'static,
     R: Send + 'static,

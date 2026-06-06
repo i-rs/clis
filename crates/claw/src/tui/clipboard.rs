@@ -1,5 +1,5 @@
 pub(super) fn save_session_messages(
-    session_mgr: &mut crate::session::SessionManager,
+    session_mgr: &mut i_rs_claw_core::session::SessionManager,
     session_id: &str,
     messages: &[crate::app::Message],
     api_messages: Option<&[serde_json::Value]>,

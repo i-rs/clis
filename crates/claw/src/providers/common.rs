@@ -1,5 +1,5 @@
-use crate::llm::LlmEvent;
-use crate::stats::TokenRecord;
+use i_rs_claw_core::llm::LlmEvent;
+use i_rs_claw_core::stats::TokenRecord;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub(crate) fn truncate_body(body: &str, max_chars: usize) -> String {
@@ -68,7 +68,7 @@ pub(crate) fn emit_http_log(
     error: Option<String>,
     request_body: &str,
 ) {
-    let _ = tx.send(LlmEvent::HttpLog(crate::llm::HttpLogData {
+    let _ = tx.send(LlmEvent::HttpLog(i_rs_claw_core::llm::HttpLogData {
         status,
         duration_ms,
         model: model.to_string(),

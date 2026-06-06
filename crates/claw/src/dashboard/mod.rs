@@ -14,12 +14,12 @@ pub use crate::config::DashboardConfig;
 /// Shared application state for all HTTP handlers.
 #[derive(Clone)]
 pub struct AppState {
-    pub core: Arc<RwLock<crate::core::AppCore>>,
+    pub core: Arc<RwLock<i_rs_claw_core::core::AppCore>>,
     pub auth_token: String,
 }
 
 impl AppState {
-    pub fn new(core: crate::core::AppCore, auth_token: String) -> Self {
+    pub fn new(core: i_rs_claw_core::core::AppCore, auth_token: String) -> Self {
         Self {
             core: Arc::new(RwLock::new(core)),
             auth_token,
@@ -38,7 +38,7 @@ impl Dashboard {
     }
 
     /// Run the dashboard server. Blocks until shutdown.
-    pub async fn run(self, core: crate::core::AppCore) {
+    pub async fn run(self, core: i_rs_claw_core::core::AppCore) {
         use axum::Router;
 
         let auth_token = if let Some(token) = self.config.auth_token.clone() {

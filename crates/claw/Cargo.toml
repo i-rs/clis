@@ -8,7 +8,7 @@ repository.workspace = true
 description = "TUI intelligent personal data assistant powered by i-rs CLI tools"
 
 [dependencies]
-i-rs-claw-core = { path = "../claw-core", default-features = false, features = ["mcp"] }
+i-rs-claw-core = { path = "../claw-core", features = ["mcp", "tui", "dashboard"] }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

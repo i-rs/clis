@@ -6,15 +6,15 @@ pub use config_wizard::run_config;
 pub use tools_ui::run_tools;
 
 use crate::config::Config;
-use crate::session::SessionManager;
+use i_rs_claw_core::session::SessionManager;
 #[cfg(feature = "dashboard")]
 use owo_colors::OwoColorize;
 use std::io::{self, Write};
 use std::sync::Arc;
 
-fn skill_store() -> crate::skill_store::SkillStore {
-    let claw_dir = crate::utils::claw_dir().expect("无法获取用户主目录");
-    crate::skill_store::SkillStore::for_agent(&claw_dir, "default")
+fn skill_store() -> i_rs_claw_core::skill_store::SkillStore {
+    let claw_dir = i_rs_claw_core::utils::claw_dir().expect("无法获取用户主目录");
+    i_rs_claw_core::skill_store::SkillStore::for_agent(&claw_dir, "default")
 }
 
 // =============================================
@@ -46,7 +46,7 @@ pub fn run_session_list() -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
-    let session_mgr = crate::session::SessionManager::new(claw_dir())?;
+    let session_mgr = i_rs_claw_core::session::SessionManager::new(claw_dir())?;
 
     let output = match format {
         "md" => session_mgr.export_markdown(session_id),
@@ -69,8 +69,8 @@ pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
 
 pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
-    let client = crate::providers::shared_client();
-    let provider = crate::providers::create_provider(&client, &config);
+    let client = i_rs_claw_core::providers::shared_client();
+    let provider = i_rs_claw_core::providers::create_provider(&client, &config);
 
     let msgs = vec![
         serde_json::json!({
@@ -94,11 +94,11 @@ pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
 
         while let Some(event) = rx.recv().await {
             match event {
-                crate::llm::LlmEvent::Token(t) => {
+                i_rs_claw_core::llm::LlmEvent::Token(t) => {
                     print!("{}", t);
                     let _ = io::stdout().flush();
                 }
-                crate::llm::LlmEvent::Error(e) => {
+                i_rs_claw_core::llm::LlmEvent::Error(e) => {
                     eprintln!("\n错误: {}", e);
                     break;
                 }
@@ -120,7 +120,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(tokio::sync::RwLock::new(crate::core::AppCore::new(
+    let core = std::sync::Arc::new(tokio::sync::RwLock::new(i_rs_claw_core::core::AppCore::new(
         config.clone(),
     )?));
 
@@ -186,11 +186,11 @@ pub fn run_dashboard() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = crate::core::AppCore::new(config.clone())?;
+    let core = i_rs_claw_core::core::AppCore::new(config.clone())?;
 
     // Discover plugins and merge into MCP config
     if core.config.plugins_auto_discover {
-        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
         let plugin_configs = plugin_mgr.to_mcp_configs();
         if !plugin_configs.is_empty() {
             tracing::info!("{} plugins discovered", plugin_configs.len(),);
@@ -219,7 +219,7 @@ pub fn run_dashboard() -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_plugin_list() -> anyhow::Result<()> {
-    let mgr = crate::plugin::PluginManager::new();
+    let mgr = i_rs_claw_core::plugin::PluginManager::new();
 
     if mgr.plugin_count() == 0 {
         println!("No plugins found in {:?}", mgr.plugins_dir());
@@ -246,7 +246,7 @@ pub fn run_plugin_list() -> anyhow::Result<()> {
 }
 
 pub fn run_plugin_info(name: &str) -> anyhow::Result<()> {
-    let mgr = crate::plugin::PluginManager::new();
+    let mgr = i_rs_claw_core::plugin::PluginManager::new();
 
     match mgr.find(name) {
         Some(m) => {
@@ -281,7 +281,7 @@ pub fn run_plugin_info(name: &str) -> anyhow::Result<()> {
 }
 
 pub fn run_plugin_enable(name: &str) -> anyhow::Result<()> {
-    let mut mgr = crate::plugin::PluginManager::new();
+    let mut mgr = i_rs_claw_core::plugin::PluginManager::new();
 
     if mgr.find(name).is_none() {
         println!("Plugin '{}' not found", name);
@@ -294,7 +294,7 @@ pub fn run_plugin_enable(name: &str) -> anyhow::Result<()> {
 }
 
 pub fn run_plugin_disable(name: &str) -> anyhow::Result<()> {
-    let mut mgr = crate::plugin::PluginManager::new();
+    let mut mgr = i_rs_claw_core::plugin::PluginManager::new();
 
     if mgr.find(name).is_none() {
         println!("Plugin '{}' not found", name);
@@ -316,7 +316,7 @@ pub fn run_mcp_list() -> anyhow::Result<()> {
     // Also check for plugin-discovered MCP servers
     let mut all_mcp = cfg.mcp_servers.clone();
     if cfg.plugins_auto_discover {
-        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
         for pc in plugin_mgr.to_mcp_configs() {
             if !all_mcp.iter().any(|s| s.name == pc.name) {
                 all_mcp.push(pc);
@@ -356,10 +356,10 @@ pub fn run_mcp_list() -> anyhow::Result<()> {
 pub fn run_mcp_check(name: &str) -> anyhow::Result<()> {
     // Collect potential configs from config file and plugins
     let cfg = Config::load()?;
-    let mut candidates: Vec<crate::mcp::McpServerConfig> = cfg.mcp_servers.clone();
+    let mut candidates: Vec<i_rs_claw_core::mcp::McpServerConfig> = cfg.mcp_servers.clone();
 
     if cfg.plugins_auto_discover {
-        let plugin_mgr = crate::plugin::PluginManager::new();
+        let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
         for pc in plugin_mgr.to_mcp_configs() {
             if !candidates.iter().any(|s| s.name == pc.name) {
                 candidates.push(pc);
@@ -388,7 +388,7 @@ pub fn run_mcp_check(name: &str) -> anyhow::Result<()> {
 
             // Try to connect
             let rt = Arc::new(tokio::runtime::Runtime::new()?);
-            match crate::mcp::McpClient::connect(server, &rt) {
+            match i_rs_claw_core::mcp::McpClient::connect(server, &rt) {
                 Ok(client) => {
                     match client.initialize() {
                         Ok(()) => println!("  ✓ 初始化成功"),
@@ -470,7 +470,7 @@ pub fn run_skill_list() -> anyhow::Result<()> {
     println!("已安装的技能 ({} 个):\n", skills.len());
     for s in &skills {
         // Parse frontmatter to show description
-        let desc = crate::skill_store::parse_frontmatter(&s.content)
+        let desc = i_rs_claw_core::skill_store::parse_frontmatter(&s.content)
             .0
             .and_then(|t| {
                 t.get("description")
@@ -489,7 +489,7 @@ pub fn run_skill_list() -> anyhow::Result<()> {
 
 pub fn run_skill_install(name: &str) -> anyhow::Result<()> {
     let store = skill_store();
-    let template = crate::skill_store::SkillStore::skill_template(name);
+    let template = i_rs_claw_core::skill_store::SkillStore::skill_template(name);
     store.install(name, &template)?;
     println!("✓ 已创建技能 '{}'", name);
     println!(
@@ -543,7 +543,7 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
 pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     let claw_data_dir = claw_dir();
     let cfg = crate::config::Config::load()?;
-    let stats_mgr = crate::stats::StatsManager::new(&claw_data_dir, &cfg.stats, cfg.tz_offset);
+    let stats_mgr = i_rs_claw_core::stats::StatsManager::new(&claw_data_dir, &cfg.stats, cfg.tz_offset);
 
     // Clean up expired records before querying
     if cfg.stats.enabled && cfg.stats.keep_days > 0 {
@@ -551,10 +551,10 @@ pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     }
 
     let stats_period = match period {
-        "7d" | "7days" => crate::stats::StatsPeriod::Last7Days,
-        "30d" | "30days" => crate::stats::StatsPeriod::Last30Days,
-        "all" => crate::stats::StatsPeriod::All,
-        _ => crate::stats::StatsPeriod::Today,
+        "7d" | "7days" => i_rs_claw_core::stats::StatsPeriod::Last7Days,
+        "30d" | "30days" => i_rs_claw_core::stats::StatsPeriod::Last30Days,
+        "all" => i_rs_claw_core::stats::StatsPeriod::All,
+        _ => i_rs_claw_core::stats::StatsPeriod::Today,
     };
 
     let result = stats_mgr.query(stats_period);
@@ -565,11 +565,11 @@ pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     }
 
     let period_label = match result.period {
-        crate::stats::StatsPeriod::Today => "今日",
-        crate::stats::StatsPeriod::Last7Days => "近 7 天",
-        crate::stats::StatsPeriod::Last30Days => "近 30 天",
-        crate::stats::StatsPeriod::All => "全部",
-        crate::stats::StatsPeriod::Custom { .. } => "自定义",
+        i_rs_claw_core::stats::StatsPeriod::Today => "今日",
+        i_rs_claw_core::stats::StatsPeriod::Last7Days => "近 7 天",
+        i_rs_claw_core::stats::StatsPeriod::Last30Days => "近 30 天",
+        i_rs_claw_core::stats::StatsPeriod::All => "全部",
+        i_rs_claw_core::stats::StatsPeriod::Custom { .. } => "自定义",
     };
 
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

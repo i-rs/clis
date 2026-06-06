@@ -231,7 +231,7 @@ pub(super) fn render_tool_list_panel(
 ) {
     static TOOLS: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
     let tools = TOOLS.get_or_init(|| {
-        crate::tools::ToolRegistry::new()
+        i_rs_claw_core::tools::ToolRegistry::new()
             .tool_info()
             .into_iter()
             .map(|(n, d)| (n.to_string(), d.to_string()))

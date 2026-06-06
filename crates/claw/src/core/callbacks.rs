@@ -1,5 +1,5 @@
-use crate::error::ErrorCategory;
-use crate::llm::TokenUsage;
+use i_rs_claw_core::error::ErrorCategory;
+use i_rs_claw_core::llm::TokenUsage;
 use serde_json::Value;
 
 #[derive(Debug, Clone)]

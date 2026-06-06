@@ -33,7 +33,7 @@ fn ensure_dir(p: &Path) -> anyhow::Result<()> {
 }
 
 fn atomic_write(path: &Path, content: &str) -> std::io::Result<()> {
-    crate::utils::atomic_write(path, content)
+    i_rs_claw_core::utils::atomic_write(path, content)
 }
 
 async fn blocking<F, T>(f: F) -> anyhow::Result<T>
@@ -124,7 +124,7 @@ impl FileSessionStore {
 
 #[async_trait]
 impl SessionRepo for FileSessionStore {
-    async fn load_all(&self) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
+    async fn load_all(&self) -> anyhow::Result<Vec<i_rs_claw_core::session::SessionMeta>> {
         let path = index_path(&self.claw_dir);
         blocking(move || {
             if !path.exists() {
@@ -138,7 +138,7 @@ impl SessionRepo for FileSessionStore {
         .await
     }
 
-    async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
+    async fn save_all(&self, sessions: &[i_rs_claw_core::session::SessionMeta]) -> anyhow::Result<()> {
         let path = index_path(&self.claw_dir);
         let content = serde_json::to_string_pretty(sessions)?;
         blocking(move || {
@@ -148,12 +148,12 @@ impl SessionRepo for FileSessionStore {
         .await
     }
 
-    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<i_rs_claw_core::session::SessionMeta>> {
         let all = self.load_all().await?;
         Ok(all.into_iter().find(|s| s.id == id))
     }
 
-    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+    async fn upsert(&self, session: &i_rs_claw_core::session::SessionMeta) -> anyhow::Result<()> {
         let session = session.clone();
         let claw_dir = self.claw_dir.clone();
         blocking(move || {
@@ -302,13 +302,13 @@ impl MemoryRepo for FileMemoryStore {
     async fn load(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
+    ) -> anyhow::Result<Option<i_rs_claw_core::memory::CrossSessionMemory>> {
         let path = memory_path(&self.claw_dir, agent_id);
         blocking(move || {
             if !path.exists() {
                 return Ok(None);
             }
-            Ok(Some(crate::memory::CrossSessionMemory::load_from(&path)))
+            Ok(Some(i_rs_claw_core::memory::CrossSessionMemory::load_from(&path)))
         })
         .await
     }
@@ -316,7 +316,7 @@ impl MemoryRepo for FileMemoryStore {
     async fn save(
         &self,
         agent_id: &str,
-        memory: &crate::memory::CrossSessionMemory,
+        memory: &i_rs_claw_core::memory::CrossSessionMemory,
     ) -> anyhow::Result<()> {
         let path = memory_path(&self.claw_dir, agent_id);
         let content = serde_json::to_string_pretty(memory)?;
@@ -343,7 +343,7 @@ impl FileStatsStore {
 
 #[async_trait]
 impl StatsRepo for FileStatsStore {
-    async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
+    async fn upsert_batch(&self, records: &[i_rs_claw_core::stats::TokenRecord]) -> anyhow::Result<()> {
         let path = stats_path(&self.claw_dir);
         let json_lines: Vec<String> = records
             .iter()
@@ -370,7 +370,7 @@ impl StatsRepo for FileStatsStore {
         &self,
         from: Option<i64>,
         to: Option<i64>,
-    ) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
+    ) -> anyhow::Result<Vec<i_rs_claw_core::stats::TokenRecord>> {
         let path = stats_path(&self.claw_dir);
         blocking(move || read_range_sync(&path, from, to)).await
     }
@@ -428,7 +428,7 @@ fn read_range_sync(
     path: &Path,
     from: Option<i64>,
     to: Option<i64>,
-) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
+) -> anyhow::Result<Vec<i_rs_claw_core::stats::TokenRecord>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
@@ -453,7 +453,7 @@ fn read_range_sync(
                 continue;
             }
         }
-        match serde_json::from_str::<crate::stats::TokenRecord>(&line) {
+        match serde_json::from_str::<i_rs_claw_core::stats::TokenRecord>(&line) {
             Ok(record) => records.push(record),
             Err(e) => {
                 tracing::warn!("跳过损坏的 token 记录行: {}", e);
@@ -511,7 +511,7 @@ impl SkillRepo for FileSkillStore {
         &self,
         agent_id: &str,
         name: &str,
-    ) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>> {
+    ) -> anyhow::Result<Option<i_rs_claw_core::skill_store::SkillDefinition>> {
         let dir = skills_dir(&self.claw_dir, agent_id);
         let name = name.to_string();
         blocking(move || {
@@ -520,7 +520,7 @@ impl SkillRepo for FileSkillStore {
                 return Ok(None);
             }
             let raw = std::fs::read_to_string(path)?;
-            Ok(Some(crate::skill_store::build_skill_definition(
+            Ok(Some(i_rs_claw_core::skill_store::build_skill_definition(
                 &name, &raw,
             )))
         })
@@ -555,14 +555,14 @@ impl SkillRepo for FileSkillStore {
     async fn list_executable(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>> {
+    ) -> anyhow::Result<Vec<i_rs_claw_core::skill_store::SkillDefinition>> {
         let dir = skills_dir(&self.claw_dir, agent_id);
         blocking(move || {
             let dir_entries = match std::fs::read_dir(&dir) {
                 Ok(d) => d,
                 Err(_) => return Ok(Vec::new()),
             };
-            let mut skills: Vec<crate::skill_store::SkillDefinition> = dir_entries
+            let mut skills: Vec<i_rs_claw_core::skill_store::SkillDefinition> = dir_entries
                 .filter_map(|e| e.ok())
                 .filter(|e| {
                     e.path().extension().map(|ext| ext == "md").unwrap_or(false)
@@ -572,7 +572,7 @@ impl SkillRepo for FileSkillStore {
                     let path = e.path();
                     let name = path.file_stem().and_then(|s| s.to_str())?;
                     let raw = std::fs::read_to_string(&path).ok()?;
-                    let def = crate::skill_store::build_skill_definition(name, &raw);
+                    let def = i_rs_claw_core::skill_store::build_skill_definition(name, &raw);
                     if def.parameters.is_some() {
                         Some(def)
                     } else {
@@ -658,7 +658,7 @@ impl MessageLog for FileMessageLog {
         let path = messages_path(&self.claw_dir, session_id);
         let lines: Vec<String> = messages
             .iter()
-            .map(crate::message::StoredRecord::from_message)
+            .map(i_rs_claw_core::message::StoredRecord::from_message)
             .map(|r| r.and_then(|rec| serde_json::to_string(&rec).map_err(Into::into)))
             .collect::<anyhow::Result<Vec<_>>>()?;
         let payload = lines.join("\n") + "\n";
@@ -692,7 +692,7 @@ impl MessageLog for FileMessageLog {
                 .lines()
                 .filter(|line| !line.trim().is_empty())
                 .filter_map(|line| {
-                    serde_json::from_str::<crate::message::StoredRecord>(line)
+                    serde_json::from_str::<i_rs_claw_core::message::StoredRecord>(line)
                         .ok()?
                         .to_message()
                 })
@@ -718,7 +718,7 @@ impl MessageLog for FileMessageLog {
             }
             let index_path = claw_dir.join("index.json");
             // NOTE: search reads index.json directly — coupled to FileSessionStore format.
-            let sessions: Vec<crate::session::SessionMeta> = if index_path.exists() {
+            let sessions: Vec<i_rs_claw_core::session::SessionMeta> = if index_path.exists() {
                 match std::fs::read_to_string(&index_path) {
                     Ok(content) => match serde_json::from_str(&content) {
                         Ok(s) => s,
@@ -755,7 +755,7 @@ impl MessageLog for FileMessageLog {
                     .lines()
                     .filter(|l| !l.trim().is_empty())
                     .filter_map(|l| {
-                        let rec: crate::message::StoredRecord = serde_json::from_str(l).ok()?;
+                        let rec: i_rs_claw_core::message::StoredRecord = serde_json::from_str(l).ok()?;
                         Some(rec.payload)
                     })
                     .collect();
@@ -851,11 +851,11 @@ mod tests {
     async fn test_session_save_and_load() {
         let (_root, claw_dir) = test_claw_dir();
         let store = FileSessionStore::new(claw_dir);
-        let sessions = vec![crate::session::SessionMeta {
+        let sessions = vec![i_rs_claw_core::session::SessionMeta {
             id: "test-1".to_string(),
             title: "Hello".to_string(),
             agent_id: "default".to_string(),
-            state: crate::session::SessionState::Active,
+            state: i_rs_claw_core::session::SessionState::Active,
             created_at: 1000,
             updated_at: 2000,
             message_count: 0,
@@ -870,7 +870,7 @@ mod tests {
     // ── MessageLog (append-only) ──
 
     use crate::app::Message;
-    use crate::storage::MessageLog;
+    use i_rs_claw_core::storage::MessageLog;
 
     #[tokio::test]
     async fn test_message_log_append_and_load() {
@@ -1017,11 +1017,11 @@ mod tests {
         // Search requires session metadata, so wire the session first.
         let sessions = FileSessionStore::new(claw_dir.clone());
         sessions
-            .save_all(&[crate::session::SessionMeta {
+            .save_all(&[i_rs_claw_core::session::SessionMeta {
                 id: "sid".into(),
                 title: "Test".into(),
                 agent_id: "default".into(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 1000,
                 updated_at: 2000,
                 message_count: 0,
@@ -1126,7 +1126,7 @@ mod tests {
             .load("agent1")
             .await
             .unwrap()
-            .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
+            .unwrap_or_else(i_rs_claw_core::memory::CrossSessionMemory::default_memory);
         mem.set_user_name("Alice");
         store.save("agent1", &mem).await.unwrap();
 
@@ -1146,7 +1146,7 @@ mod tests {
     async fn test_stats_append_and_read() {
         let (_root, claw_dir) = test_claw_dir();
         let store = FileStatsStore::new(claw_dir);
-        let record = crate::stats::TokenRecord {
+        let record = i_rs_claw_core::stats::TokenRecord {
             id: "test-1".to_string(),
             timestamp: 1716220800,
             agent_id: "default".to_string(),
@@ -1262,11 +1262,11 @@ body"#,
 
         storage
             .sessions
-            .save_all(&[crate::session::SessionMeta {
+            .save_all(&[i_rs_claw_core::session::SessionMeta {
                 id: "s1".to_string(),
                 title: "Test".to_string(),
                 agent_id: "default".to_string(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 1000,
                 updated_at: 2000,
                 message_count: 0,
@@ -1279,7 +1279,7 @@ body"#,
             .load("default")
             .await
             .unwrap()
-            .unwrap_or_else(crate::memory::CrossSessionMemory::default_memory);
+            .unwrap_or_else(i_rs_claw_core::memory::CrossSessionMemory::default_memory);
         assert!(!mem.has_user_profile());
     }
 }
@@ -1290,7 +1290,7 @@ mod session_io {
 
     use super::*;
 
-    pub fn load_sessions_sync(claw_dir: &Path) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
+    pub fn load_sessions_sync(claw_dir: &Path) -> anyhow::Result<Vec<i_rs_claw_core::session::SessionMeta>> {
         let path = index_path(claw_dir);
         if !path.exists() {
             return Ok(Vec::new());
@@ -1303,7 +1303,7 @@ mod session_io {
 
     pub fn save_sessions_sync(
         claw_dir: &Path,
-        sessions: &[crate::session::SessionMeta],
+        sessions: &[i_rs_claw_core::session::SessionMeta],
     ) -> anyhow::Result<()> {
         let path = index_path(claw_dir);
         let content = serde_json::to_string_pretty(sessions)?;

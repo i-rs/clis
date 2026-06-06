@@ -7,8 +7,8 @@
 //!   let searcher = SemanticSearch::new(&claw_dir);
 //!   let results = searcher.search("running weight last week", 5)?;
 
-use crate::convstore::ConvStore;
-use crate::storage::SearchResult;
+use i_rs_claw_core::convstore::ConvStore;
+use i_rs_claw_core::storage::SearchResult;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -201,7 +201,7 @@ impl EmbeddingIndex {
             let _ = std::fs::create_dir_all(parent);
         }
         if let Ok(content) = serde_json::to_string(&self.entries) {
-            let _ = crate::utils::atomic_write(&self.path, &content);
+            let _ = i_rs_claw_core::utils::atomic_write(&self.path, &content);
         }
     }
 }

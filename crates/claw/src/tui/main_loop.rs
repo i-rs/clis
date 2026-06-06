@@ -1,6 +1,6 @@
 use crate::app;
-use crate::core;
-use crate::llm::LlmEvent;
+use i_rs_claw_core::core;
+use i_rs_claw_core::llm::LlmEvent;
 use crate::tui::handlers::{Action, KeyEventHandler, LlmEventHandler, MouseEventHandler};
 use crossterm::event::{self, Event};
 use ratatui::backend::CrosstermBackend;

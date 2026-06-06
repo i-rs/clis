@@ -14,13 +14,13 @@ pub mod tool_chain;
 
 use crate::app::Message;
 use crate::config::Config;
-use crate::llm::LlmEvent;
-use crate::mcp::McpRegistry;
-use crate::memory::CrossSessionMemory;
-use crate::session::SessionManager;
-use crate::skill_store::{SkillDefinition, SkillStore};
-use crate::storage::ClawStorage;
-use crate::tool_cache::ToolDocCache;
+use i_rs_claw_core::llm::LlmEvent;
+use i_rs_claw_core::mcp::McpRegistry;
+use i_rs_claw_core::memory::CrossSessionMemory;
+use i_rs_claw_core::session::SessionManager;
+use i_rs_claw_core::skill_store::{SkillDefinition, SkillStore};
+use i_rs_claw_core::storage::ClawStorage;
+use i_rs_claw_core::tool_cache::ToolDocCache;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -32,7 +32,7 @@ pub struct AgentRuntime {
     pub tool_cache: ToolDocCache,
     pub skill_store: SkillStore,
     pub mcp_registry: McpRegistry,
-    pub layered_memory: crate::core::layered_memory::LayeredMemory,
+    pub layered_memory: i_rs_claw_core::core::layered_memory::LayeredMemory,
 }
 
 impl AgentRuntime {
@@ -48,10 +48,10 @@ impl AgentRuntime {
             tool_cache: ToolDocCache::for_agent_with_storage(storage, agent_id),
             skill_store: SkillStore::for_agent_with_storage(storage, agent_id),
             #[cfg(test)]
-            mcp_registry: crate::mcp::McpRegistry::empty_for_test(),
+            mcp_registry: i_rs_claw_core::mcp::McpRegistry::empty_for_test(),
             #[cfg(not(test))]
             mcp_registry: McpRegistry::for_agent(&resolved, &config.mcp_servers),
-            layered_memory: crate::core::layered_memory::LayeredMemory::new(),
+            layered_memory: i_rs_claw_core::core::layered_memory::LayeredMemory::new(),
         }
     }
 
@@ -155,14 +155,14 @@ impl AgentRuntimeStore {
     pub fn layered_memory_for(
         &self,
         agent_id: &str,
-    ) -> &crate::core::layered_memory::LayeredMemory {
+    ) -> &i_rs_claw_core::core::layered_memory::LayeredMemory {
         &self.get(agent_id).layered_memory
     }
 
     pub fn layered_memory_for_mut(
         &mut self,
         agent_id: &str,
-    ) -> &mut crate::core::layered_memory::LayeredMemory {
+    ) -> &mut i_rs_claw_core::core::layered_memory::LayeredMemory {
         &mut self.get_mut(agent_id).layered_memory
     }
 
@@ -208,12 +208,12 @@ pub struct AppCore {
     pub config: Config,
     pub session_mgr: SessionManager,
     pub agent_store: AgentRuntimeStore,
-    pub stats_manager: std::sync::Arc<crate::stats::StatsManager>,
+    pub stats_manager: std::sync::Arc<i_rs_claw_core::stats::StatsManager>,
     #[allow(dead_code)]
-    pub storage: std::sync::Arc<crate::storage::ClawStorage>,
+    pub storage: std::sync::Arc<i_rs_claw_core::storage::ClawStorage>,
     pub http_client: reqwest::Client,
     pub checkpoint_store:
-        std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+        std::sync::Arc<std::sync::Mutex<i_rs_claw_core::core::checkpoint::CheckpointStore>>,
     tool_index_cache: String,
 }
 
@@ -222,7 +222,7 @@ impl AppCore {
     /// Initializes session manager, per-agent runtime data, and i-rs tool discovery.
     pub fn new(config: Config) -> anyhow::Result<Self> {
         let claw_dir =
-            crate::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+            i_rs_claw_core::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
         Self::with_claw_dir(config, claw_dir)
     }
 
@@ -253,7 +253,7 @@ impl AppCore {
         }
 
         let storage = match config.storage.backend {
-            crate::storage::StorageBackend::Sqlite => {
+            i_rs_claw_core::storage::StorageBackend::Sqlite => {
                 #[cfg(feature = "sqlite")]
                 {
                     let path = config
@@ -268,7 +268,7 @@ impl AppCore {
                     "storage.backend = \"sqlite\" 但未启用 sqlite feature（需编译时添加 --features sqlite）"
                 )
             }
-            crate::storage::StorageBackend::Mysql => {
+            i_rs_claw_core::storage::StorageBackend::Mysql => {
                 #[cfg(feature = "mysql")]
                 {
                     let path = config
@@ -283,7 +283,7 @@ impl AppCore {
                     "storage.backend = \"mysql\" 但未启用 mysql feature（需编译时添加 --features mysql）"
                 )
             }
-            crate::storage::StorageBackend::Postgres => {
+            i_rs_claw_core::storage::StorageBackend::Postgres => {
                 #[cfg(feature = "postgres")]
                 {
                     let path = config
@@ -298,7 +298,7 @@ impl AppCore {
                     "storage.backend = \"postgres\" 但未启用 postgres feature（需编译时添加 --features postgres）"
                 )
             }
-            crate::storage::StorageBackend::Mongo => {
+            i_rs_claw_core::storage::StorageBackend::Mongo => {
                 #[cfg(feature = "mongo")]
                 {
                     let url = config
@@ -318,7 +318,7 @@ impl AppCore {
                     "storage.backend = \"mongodb\" 但未启用 mongo feature（需编译时添加 --features mongo）"
                 )
             }
-            crate::storage::StorageBackend::Redis => {
+            i_rs_claw_core::storage::StorageBackend::Redis => {
                 #[cfg(feature = "redis")]
                 {
                     let url = config
@@ -333,14 +333,14 @@ impl AppCore {
                     "storage.backend = \"redis\" 但未启用 redis feature（需编译时添加 --features redis）"
                 )
             }
-            crate::storage::StorageBackend::File => {
+            i_rs_claw_core::storage::StorageBackend::File => {
                 std::sync::Arc::new(ClawStorage::file(claw_dir.clone()))
             }
         };
 
         let session_mgr = SessionManager::with_storage(storage.clone())?;
         let agent_store = AgentRuntimeStore::new_with_storage(&config, &storage);
-        let stats_manager = std::sync::Arc::new(crate::stats::StatsManager::with_storage(
+        let stats_manager = std::sync::Arc::new(i_rs_claw_core::stats::StatsManager::with_storage(
             storage.clone(),
             &config.stats,
             config.tz_offset,
@@ -354,9 +354,9 @@ impl AppCore {
             agent_store,
             stats_manager,
             storage,
-            http_client: crate::providers::shared_client(),
+            http_client: i_rs_claw_core::providers::shared_client(),
             checkpoint_store: std::sync::Arc::new(std::sync::Mutex::new(
-                crate::core::checkpoint::CheckpointStore::new(20),
+                i_rs_claw_core::core::checkpoint::CheckpointStore::new(20),
             )),
             tool_index_cache,
         })
@@ -438,7 +438,7 @@ impl AppCore {
                 .keys()
                 .map(|id| self.config.agent_config(id))
                 .collect();
-            crate::router::TaskRouter::new(agents, sub_agents).routing_hint()
+            i_rs_claw_core::router::TaskRouter::new(agents, sub_agents).routing_hint()
         };
 
         engine::build_messages(engine::MessageBuildParams {
@@ -534,7 +534,7 @@ impl AppCore {
         &self,
         agent_id: &str,
     ) -> (
-        Box<dyn crate::providers::LlmProvider>,
+        Box<dyn i_rs_claw_core::providers::LlmProvider>,
         Config,
         McpRegistry,
         Vec<SkillDefinition>,
@@ -564,7 +564,7 @@ impl AppCore {
             .and_then(|a| a.model.as_deref())
             .unwrap_or(&resolved_pc.model);
 
-        let provider = crate::providers::create_provider_for(
+        let provider = i_rs_claw_core::providers::create_provider_for(
             &self.http_client,
             final_provider,
             final_api_key,
@@ -605,7 +605,7 @@ impl AppCore {
         agent_id: &str,
         parent_tx: mpsc::UnboundedSender<LlmEvent>,
         recent_messages: Vec<serde_json::Value>,
-    ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
+    ) -> std::sync::Arc<i_rs_claw_core::tools::DelegateRuntime> {
         let memory = self.agent_store.memory_for(agent_id);
         let nickname = memory.assistant_nickname().map(|s| s.to_string());
         let user_identity = if let Some(ref nick) = nickname {
@@ -613,7 +613,7 @@ impl AppCore {
         } else {
             String::new()
         };
-        std::sync::Arc::new(crate::tools::DelegateRuntime {
+        std::sync::Arc::new(i_rs_claw_core::tools::DelegateRuntime {
             irs_tool_index: self.config.i_rs_tool_index.clone(),
             mcp_registry: self.agent_store.mcp_registry_for(agent_id).clone(),
             skills: self
@@ -678,7 +678,7 @@ impl AppCore {
             .iter()
             .filter_map(|m| match m {
                 crate::app::Message::ToolCall { name, result, .. } => {
-                    let cat = crate::error::category_from_result(result);
+                    let cat = i_rs_claw_core::error::category_from_result(result);
                     Some((name.as_str(), !cat.is_retryable_or_fatal()))
                 }
                 _ => None,
@@ -697,7 +697,7 @@ impl AppCore {
             crate::app::evaluate_response_heuristic(last_assistant, &tool_results, &i_rs_tools)
         };
         {
-            let suite = crate::core::evals::builtin_eval_suite();
+            let suite = i_rs_claw_core::core::evals::builtin_eval_suite();
             let eval_tool_results: Vec<(String, String)> = messages
                 .iter()
                 .filter_map(|m| match m {
@@ -729,7 +729,7 @@ impl AppCore {
         &self,
         session_id: &str,
         heuristic_quality: &crate::app::Message,
-    ) -> Option<crate::tools::quality_judge::QualityJudgeResult> {
+    ) -> Option<i_rs_claw_core::tools::quality_judge::QualityJudgeResult> {
         if !self.config.quality_judge.enabled {
             return None;
         }
@@ -778,12 +778,12 @@ impl AppCore {
             .as_deref()
             .unwrap_or(&resolved.model);
 
-        crate::tools::quality_judge::judge_quality(
+        i_rs_claw_core::tools::quality_judge::judge_quality(
             &self.http_client,
             &resolved.base_url,
             &resolved.api_key,
             judge_model,
-            &crate::tools::quality_judge::QualityJudgeRequest {
+            &i_rs_claw_core::tools::quality_judge::QualityJudgeRequest {
                 user_query,
                 tool_results,
                 final_response: last_assistant,
@@ -909,7 +909,7 @@ impl AppCore {
     /// Get the base directory for claw data.
     #[allow(dead_code)]
     pub fn claw_dir(&self) -> anyhow::Result<std::path::PathBuf> {
-        crate::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))
+        i_rs_claw_core::utils::claw_dir().ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))
     }
 }
 
@@ -1040,7 +1040,7 @@ pub fn record_layered_tool_memory(
     feature = "redis"
 ))]
 fn block_on<F: std::future::Future>(f: F) -> F::Output {
-    crate::utils::sync_block_on(f)
+    i_rs_claw_core::utils::sync_block_on(f)
 }
 
 #[cfg(test)]

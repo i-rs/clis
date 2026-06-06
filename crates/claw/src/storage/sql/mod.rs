@@ -55,7 +55,7 @@ macro_rules! define_sql_stores {
 
         #[async_trait]
         impl SessionRepo for $sessions {
-            async fn load_all(&self) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
+            async fn load_all(&self) -> anyhow::Result<Vec<i_rs_claw_core::session::SessionMeta>> {
                 let rows = sqlx::query_as::<_, SessionRow>(
                     "SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions ORDER BY updated_at DESC",
                 )
@@ -64,7 +64,7 @@ macro_rules! define_sql_stores {
                 Ok(rows.into_iter().map(|r| r.into()).collect())
             }
 
-            async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
+            async fn save_all(&self, sessions: &[i_rs_claw_core::session::SessionMeta]) -> anyhow::Result<()> {
                 let mut tx = self.db.pool.begin().await?;
 
                 let incoming_ids: HashSet<&str> =
@@ -94,7 +94,7 @@ macro_rules! define_sql_stores {
                 Ok(())
             }
 
-            async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+            async fn get_one(&self, id: &str) -> anyhow::Result<Option<i_rs_claw_core::session::SessionMeta>> {
                 let row: Option<SessionRow> = sqlx::query_as(
                     concat!("SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ", $ph1),
                 )
@@ -104,7 +104,7 @@ macro_rules! define_sql_stores {
                 Ok(row.map(|r| r.into()))
             }
 
-            async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+            async fn upsert(&self, session: &i_rs_claw_core::session::SessionMeta) -> anyhow::Result<()> {
                 sqlx::query($upsert_session)
                     .bind(&session.id).bind(&session.title).bind(&session.agent_id)
                     .bind(serde_json::to_string(&session.state)?)
@@ -153,7 +153,7 @@ macro_rules! define_sql_stores {
                 let mut seq = next_seq + 1;
                 let count = messages.len();
                 for msg in messages {
-                    let rec = crate::message::StoredRecord::from_message(msg)?;
+                    let rec = i_rs_claw_core::message::StoredRecord::from_message(msg)?;
                     let payload = serde_json::to_string(&rec.payload)?;
                     sqlx::query(
                         concat!("INSERT INTO message_log (session_id, seq, ts, schema_v, payload) VALUES (", $ph1, ", ", $ph2, ", ", $ph3, ", ", $ph4, ", ", $ph5, ")"),
@@ -216,7 +216,7 @@ macro_rules! define_sql_stores {
                     .into_iter()
                     .filter_map(|(p,)| {
                         let value: serde_json::Value = serde_json::from_str(&p).ok()?;
-                        let rec = crate::message::StoredRecord {
+                        let rec = i_rs_claw_core::message::StoredRecord {
                             seq: 0,
                             ts: 0,
                             schema_v: 1,
@@ -259,7 +259,7 @@ macro_rules! define_sql_stores {
                     if session_rows.is_empty() {
                         continue;
                     }
-                    let meta: crate::session::SessionMeta = session_rows[0].clone().into();
+                    let meta: i_rs_claw_core::session::SessionMeta = session_rows[0].clone().into();
 
                     let rows: Vec<(String,)> = sqlx::query_as(
                         concat!("SELECT payload FROM message_log WHERE session_id = ", $ph1, " ORDER BY seq"),
@@ -355,11 +355,11 @@ macro_rules! define_sql_stores {
 
         #[async_trait]
         impl MemoryRepo for $memory {
-            async fn load(&self, aid: &str) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
+            async fn load(&self, aid: &str) -> anyhow::Result<Option<i_rs_claw_core::memory::CrossSessionMemory>> {
                 let row: Option<(String,)> = sqlx::query_as(concat!("SELECT data FROM memory WHERE agent_id = ", $ph1)).bind(aid).fetch_optional(&self.db.pool).await?;
                 Ok(row.map(|(j,)| serde_json::from_str(&j)).transpose()?)
             }
-            async fn save(&self, aid: &str, mem: &crate::memory::CrossSessionMemory) -> anyhow::Result<()> {
+            async fn save(&self, aid: &str, mem: &i_rs_claw_core::memory::CrossSessionMemory) -> anyhow::Result<()> {
                 let json = serde_json::to_string(mem)?;
                 sqlx::query($upsert_memory).bind(aid).bind(&json).execute(&self.db.pool).await?;
                 Ok(())
@@ -373,7 +373,7 @@ macro_rules! define_sql_stores {
 
         #[async_trait]
         impl StatsRepo for $stats {
-            async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
+            async fn upsert_batch(&self, records: &[i_rs_claw_core::stats::TokenRecord]) -> anyhow::Result<()> {
                 for r in records {
                     sqlx::query($upsert_token)
                         .bind(&r.id).bind(r.timestamp).bind(&r.agent_id).bind(&r.model).bind(&r.provider)
@@ -385,7 +385,7 @@ macro_rules! define_sql_stores {
                 }
                 Ok(())
             }
-            async fn read_range(&self, from: Option<i64>, to: Option<i64>) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
+            async fn read_range(&self, from: Option<i64>, to: Option<i64>) -> anyhow::Result<Vec<i_rs_claw_core::stats::TokenRecord>> {
                 macro_rules! cols { () => { "SELECT id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id FROM token_records" }; }
                 let rows: Vec<TokenRecordRow> = match (from, to) {
                     (Some(f), Some(t)) => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ", $ph1, " AND timestamp <= ", $ph2, " ORDER BY timestamp")).bind(f).bind(t).fetch_all(&self.db.pool).await?,
@@ -413,12 +413,12 @@ macro_rules! define_sql_stores {
                 Ok(sqlx::query_as::<_, (String,String)>(concat!("SELECT name, content FROM skills WHERE agent_id = ", $ph1, " ORDER BY name"))
                     .bind(aid).fetch_all(&self.db.pool).await?.into_iter().map(|(n,c)| SkillEntry{name:n,content:c}).collect())
             }
-            async fn get(&self, aid: &str, name: &str) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>> {
+            async fn get(&self, aid: &str, name: &str) -> anyhow::Result<Option<i_rs_claw_core::skill_store::SkillDefinition>> {
                 let row: Option<(String,Option<String>)> = sqlx::query_as(concat!("SELECT content, parameters FROM skills WHERE agent_id = ", $ph1, " AND name = ", $ph2)).bind(aid).bind(name).fetch_optional(&self.db.pool).await?;
-                Ok(row.map(|(c,p)| crate::skill_store::SkillDefinition { name: name.into(), description: name.into(), parameters: p.and_then(|x| serde_json::from_str(&x).ok()), content: c }))
+                Ok(row.map(|(c,p)| i_rs_claw_core::skill_store::SkillDefinition { name: name.into(), description: name.into(), parameters: p.and_then(|x| serde_json::from_str(&x).ok()), content: c }))
             }
             async fn install(&self, aid: &str, name: &str, content: &str) -> anyhow::Result<()> {
-                let (fm, _) = crate::skill_store::parse_frontmatter(content);
+                let (fm, _) = i_rs_claw_core::skill_store::parse_frontmatter(content);
                 let params = fm.as_ref().and_then(|t| t.get("parameters")).and_then(|v| serde_json::to_string(v).ok());
                 sqlx::query($upsert_skill)
                     .bind(aid).bind(name).bind(content).bind(&params).execute(&self.db.pool).await?;
@@ -428,10 +428,10 @@ macro_rules! define_sql_stores {
                 sqlx::query(concat!("DELETE FROM skills WHERE agent_id = ", $ph1, " AND name = ", $ph2)).bind(aid).bind(name).execute(&self.db.pool).await?;
                 Ok(())
             }
-            async fn list_executable(&self, aid: &str) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>> {
+            async fn list_executable(&self, aid: &str) -> anyhow::Result<Vec<i_rs_claw_core::skill_store::SkillDefinition>> {
                 Ok(sqlx::query_as::<_,(String,String,Option<String>)>(concat!("SELECT name, content, parameters FROM skills WHERE agent_id = ", $ph1, " AND parameters IS NOT NULL ORDER BY name"))
                     .bind(aid).fetch_all(&self.db.pool).await?.into_iter()
-                    .filter_map(|(n,c,p)| Some(crate::skill_store::SkillDefinition{name:n,description:String::new(),parameters:p.and_then(|x| serde_json::from_str(&x).ok()),content:c})).collect())
+                    .filter_map(|(n,c,p)| Some(i_rs_claw_core::skill_store::SkillDefinition{name:n,description:String::new(),parameters:p.and_then(|x| serde_json::from_str(&x).ok()),content:c})).collect())
             }
         }
 
@@ -472,7 +472,7 @@ struct SessionRow {
     message_count: i64,
 }
 
-impl From<SessionRow> for crate::session::SessionMeta {
+impl From<SessionRow> for i_rs_claw_core::session::SessionMeta {
     fn from(r: SessionRow) -> Self {
         Self {
             id: r.id,
@@ -505,7 +505,7 @@ struct TokenRecordRow {
     trace_id: String,
 }
 
-impl From<TokenRecordRow> for crate::stats::TokenRecord {
+impl From<TokenRecordRow> for i_rs_claw_core::stats::TokenRecord {
     #[allow(clippy::cast_possible_truncation)]
     fn from(r: TokenRecordRow) -> Self {
         Self {

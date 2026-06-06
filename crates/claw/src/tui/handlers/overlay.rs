@@ -122,7 +122,7 @@ fn handle_session_list_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
 
 fn handle_session_enter(
     handler: &mut KeyEventHandler,
-    filtered: &[crate::session::SessionMeta],
+    filtered: &[i_rs_claw_core::session::SessionMeta],
 ) -> Action {
     if !handler.app.overlay.session_rename_buf.is_empty() {
         if let Some(meta) = filtered.get(handler.app.overlay.session_list_index) {
@@ -607,7 +607,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
                 .agent_store
                 .skill_store_for(&handler.app.current_agent);
             handler.app.skill_list = store.list_skills();
-            let plugin_mgr = crate::plugin::PluginManager::new();
+            let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
             handler.app.plugin_list = plugin_mgr
                 .manifests
                 .iter()

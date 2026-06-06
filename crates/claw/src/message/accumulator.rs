@@ -15,7 +15,7 @@
 //!   transient UI / stats events).
 
 use crate::app::Message;
-use crate::llm::{LlmEvent, TokenUsage};
+use i_rs_claw_core::llm::{LlmEvent, TokenUsage};
 
 #[derive(Default)]
 pub struct MessageAccumulator {

@@ -29,8 +29,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use redis::aio::MultiplexedConnection;
 
-use crate::message::StoredRecord;
-use crate::storage::{
+use i_rs_claw_core::message::StoredRecord;
+use i_rs_claw_core::storage::{
     ApiCacheRepo, MemoryRepo, MessageLog, PlanStepsRepo, SearchResult, SessionRepo, SkillEntry,
     SkillRepo, StatsRepo, ToolCacheRepo,
 };
@@ -49,9 +49,9 @@ impl RedisBackend {
         Ok(Self { conn })
     }
 
-    pub fn into_storage(self) -> crate::storage::ClawStorage {
+    pub fn into_storage(self) -> i_rs_claw_core::storage::ClawStorage {
         let arc = Arc::new(self);
-        crate::storage::ClawStorage {
+        i_rs_claw_core::storage::ClawStorage {
             sessions: Box::new(RedisSessionStore {
                 backend: arc.clone(),
             }),
@@ -93,7 +93,7 @@ const SESSIONS_ZSET: &str = "claw:sessions";
 
 #[async_trait]
 impl SessionRepo for RedisSessionStore {
-    async fn load_all(&self) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
+    async fn load_all(&self) -> anyhow::Result<Vec<i_rs_claw_core::session::SessionMeta>> {
         let mut conn = self.backend.conn.clone();
         let ids: Vec<String> = redis::cmd("ZREVRANGE")
             .arg(SESSIONS_ZSET)
@@ -109,7 +109,7 @@ impl SessionRepo for RedisSessionStore {
                 .query_async(&mut conn)
                 .await?;
             if let Some(j) = json {
-                if let Ok(meta) = serde_json::from_str::<crate::session::SessionMeta>(&j) {
+                if let Ok(meta) = serde_json::from_str::<i_rs_claw_core::session::SessionMeta>(&j) {
                     sessions.push(meta);
                 }
             }
@@ -117,7 +117,7 @@ impl SessionRepo for RedisSessionStore {
         Ok(sessions)
     }
 
-    async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
+    async fn save_all(&self, sessions: &[i_rs_claw_core::session::SessionMeta]) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let existing: Vec<String> = redis::cmd("ZRANGE")
             .arg(SESSIONS_ZSET)
@@ -157,7 +157,7 @@ impl SessionRepo for RedisSessionStore {
         Ok(())
     }
 
-    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<i_rs_claw_core::session::SessionMeta>> {
         let mut conn = self.backend.conn.clone();
         let json: Option<String> = redis::cmd("HGET")
             .arg(session_key(id))
@@ -170,7 +170,7 @@ impl SessionRepo for RedisSessionStore {
         }
     }
 
-    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+    async fn upsert(&self, session: &i_rs_claw_core::session::SessionMeta) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let json = serde_json::to_string(session)?;
         redis::pipe()
@@ -325,7 +325,7 @@ impl MessageLog for RedisMessageLog {
                 .query_async(&mut conn)
                 .await?;
             let Some(meta_json) = meta_json else { continue };
-            let meta: crate::session::SessionMeta = match serde_json::from_str(&meta_json) {
+            let meta: i_rs_claw_core::session::SessionMeta = match serde_json::from_str(&meta_json) {
                 Ok(m) => m,
                 Err(_) => continue,
             };
@@ -480,7 +480,7 @@ impl MemoryRepo for RedisMemoryStore {
     async fn load(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
+    ) -> anyhow::Result<Option<i_rs_claw_core::memory::CrossSessionMemory>> {
         let mut conn = self.backend.conn.clone();
         let json: Option<String> = redis::cmd("GET")
             .arg(memory_key(agent_id))
@@ -495,7 +495,7 @@ impl MemoryRepo for RedisMemoryStore {
     async fn save(
         &self,
         agent_id: &str,
-        memory: &crate::memory::CrossSessionMemory,
+        memory: &i_rs_claw_core::memory::CrossSessionMemory,
     ) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let json = serde_json::to_string(memory)?;
@@ -520,7 +520,7 @@ const STATS_TS_ZSET: &str = "claw:stats:ts";
 
 #[async_trait]
 impl StatsRepo for RedisStatsStore {
-    async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
+    async fn upsert_batch(&self, records: &[i_rs_claw_core::stats::TokenRecord]) -> anyhow::Result<()> {
         if records.is_empty() {
             return Ok(());
         }
@@ -548,7 +548,7 @@ impl StatsRepo for RedisStatsStore {
         &self,
         from: Option<i64>,
         to: Option<i64>,
-    ) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
+    ) -> anyhow::Result<Vec<i_rs_claw_core::stats::TokenRecord>> {
         let mut conn = self.backend.conn.clone();
         let (min, max) = match (from, to) {
             (Some(f), Some(t)) => (f, t),
@@ -574,7 +574,7 @@ impl StatsRepo for RedisStatsStore {
                 .query_async(&mut conn)
                 .await?;
             if let Some(s) = val {
-                if let Ok(r) = serde_json::from_str::<crate::stats::TokenRecord>(&s) {
+                if let Ok(r) = serde_json::from_str::<i_rs_claw_core::stats::TokenRecord>(&s) {
                     records.push(r);
                 }
             }
@@ -649,7 +649,7 @@ impl SkillRepo for RedisSkillStore {
         &self,
         agent_id: &str,
         name: &str,
-    ) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>> {
+    ) -> anyhow::Result<Option<i_rs_claw_core::skill_store::SkillDefinition>> {
         let mut conn = self.backend.conn.clone();
         let key = skill_hash_key(agent_id, name);
         let content: Option<String> = redis::cmd("HGET")
@@ -665,7 +665,7 @@ impl SkillRepo for RedisSkillStore {
                     .query_async(&mut conn)
                     .await?;
                 let params_json = parameters.and_then(|s| serde_json::from_str(&s).ok());
-                Ok(Some(crate::skill_store::SkillDefinition {
+                Ok(Some(i_rs_claw_core::skill_store::SkillDefinition {
                     name: name.to_string(),
                     description: name.to_string(),
                     parameters: params_json,
@@ -677,7 +677,7 @@ impl SkillRepo for RedisSkillStore {
     }
 
     async fn install(&self, agent_id: &str, name: &str, content: &str) -> anyhow::Result<()> {
-        let (frontmatter, _) = crate::skill_store::parse_frontmatter(content);
+        let (frontmatter, _) = i_rs_claw_core::skill_store::parse_frontmatter(content);
         let parameters = frontmatter
             .as_ref()
             .and_then(|f| f.get("parameters"))
@@ -721,7 +721,7 @@ impl SkillRepo for RedisSkillStore {
     async fn list_executable(
         &self,
         agent_id: &str,
-    ) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>> {
+    ) -> anyhow::Result<Vec<i_rs_claw_core::skill_store::SkillDefinition>> {
         let mut conn = self.backend.conn.clone();
         let names: Vec<String> = redis::cmd("SMEMBERS")
             .arg(skills_set_key(agent_id))
@@ -743,7 +743,7 @@ impl SkillRepo for RedisSkillStore {
                     .await?;
                 let content = content.unwrap_or_default();
                 let params_json = serde_json::from_str(&p).ok();
-                defs.push(crate::skill_store::SkillDefinition {
+                defs.push(i_rs_claw_core::skill_store::SkillDefinition {
                     name: name.clone(),
                     description: name.clone(),
                     parameters: params_json,
@@ -794,7 +794,7 @@ impl ToolCacheRepo for RedisToolCacheStore {
 
 // ── ClawStorage constructor ──
 
-impl crate::storage::ClawStorage {
+impl i_rs_claw_core::storage::ClawStorage {
     #[cfg(feature = "redis")]
     pub async fn redis(url: &str) -> anyhow::Result<Self> {
         Ok(RedisBackend::new(url).await?.into_storage())
@@ -811,7 +811,7 @@ mod tests {
         std::env::var("CLAW_TEST_REDIS_URL").ok()
     }
 
-    async fn test_storage() -> Option<crate::storage::ClawStorage> {
+    async fn test_storage() -> Option<i_rs_claw_core::storage::ClawStorage> {
         let url = redis_url()?;
         RedisBackend::new(&url).await.ok().map(|b| b.into_storage())
     }
@@ -822,11 +822,11 @@ mod tests {
         let Some(s) = test_storage().await else {
             return;
         };
-        let meta = crate::session::SessionMeta {
+        let meta = i_rs_claw_core::session::SessionMeta {
             id: "s1".into(),
             title: "Test".into(),
             agent_id: "default".into(),
-            state: crate::session::SessionState::Active,
+            state: i_rs_claw_core::session::SessionState::Active,
             created_at: 1,
             updated_at: 2,
             message_count: 0,
@@ -865,11 +865,11 @@ mod tests {
             return;
         };
         s.sessions
-            .save_all(&[crate::session::SessionMeta {
+            .save_all(&[i_rs_claw_core::session::SessionMeta {
                 id: "s1".into(),
                 title: "Search Test".into(),
                 agent_id: "default".into(),
-                state: crate::session::SessionState::Active,
+                state: i_rs_claw_core::session::SessionState::Active,
                 created_at: 1,
                 updated_at: 2,
                 message_count: 0,
