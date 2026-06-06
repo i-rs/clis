@@ -180,8 +180,12 @@ fn handle_session_enter(
             handler.app.status_text.clear();
             handler.app.token_usage = None;
             handler.app.plan_steps = handler.app_core.session_mgr.load_plan_steps(&new_id);
+            // Snap to the bottom of the freshly loaded session: render
+            // reads `stick_to_bottom` and overrides `scroll_lines` with
+            // the current `max_scroll`.
             handler.app.scroll_lines = 0;
             handler.app.max_scroll = 0;
+            handler.app.stick_to_bottom = true;
             // Component state is rebuilt from the freshly loaded
             // messages a moment later, so we don't need to clear the
             // hash sets here any more.
@@ -642,6 +646,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
             handler.app.status_text.clear();
             handler.app.scroll_lines = 0;
             handler.app.max_scroll = 0;
+            handler.app.stick_to_bottom = true;
             handler.app.mark_dirty();
         }
         Some(crate::app::SlashAction::Compact) => {

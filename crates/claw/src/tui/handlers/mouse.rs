@@ -30,7 +30,11 @@ impl<'a> MouseEventHandler<'a> {
                 }
                 _ => {}
             }
-        } else if !self.app.is_processing() && self.app.overlay.current.is_none() {
+        } else if self.app.overlay.current.is_none() {
+            // Scrolling is allowed even while the LLM is streaming:
+            // scroll_up* methods disengage `stick_to_bottom`, so the
+            // viewport stays where the user parked it instead of being
+            // yanked back to the live tail.
             match mouse.kind {
                 MouseEventKind::ScrollDown => self.app.scroll_down(),
                 MouseEventKind::ScrollUp => self.app.scroll_up(),

@@ -833,12 +833,18 @@ pub struct App {
     pub status_text: String,
     pub api_messages: Option<Vec<Value>>,
     pub token_usage: Option<crate::llm::TokenUsage>,
+    /// Scroll offset in "rows from the top of the content" convention:
+    /// `0` = top (oldest message), `max_scroll` = bottom (newest message).
+    /// Only consulted by the renderer when `stick_to_bottom` is false;
+    /// when sticky, render overrides this with `max_scroll` so the
+    /// viewport tracks the live tail without the App having to know
+    /// the exact content height.
     pub scroll_lines: usize,
     pub max_scroll: usize,
     /// True when the viewport is "stuck" to the bottom — i.e. the user is
     /// reading the latest message and new content should auto-scroll
     /// into view. Set to `false` whenever the user scrolls up; restored
-    /// to `true` when they scroll back to the bottom.
+    /// to `true` when they scroll back to the bottom or send a message.
     pub stick_to_bottom: bool,
     /// Clickable regions for the last render. Populated by
     /// `render_chat`; consumed by mouse and key handlers. Each entry
@@ -968,7 +974,9 @@ impl App {
         self.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.state = AppState::Processing;
-        self.scroll_lines = 0;
+        // Snap to the live tail: render reads `stick_to_bottom` and
+        // overrides `scroll_lines` with `max_scroll` for us.
+        self.stick_to_bottom = true;
         self.plan_steps.clear();
         self.mark_dirty();
     }
@@ -1002,7 +1010,10 @@ impl App {
 
     pub fn commit_input_to_history(&mut self, text: &str) {
         self.input.commit_to_history(text);
-        self.scroll_lines = 0;
+        // Snap to the live tail when the user sends a message.
+        // Render reads `stick_to_bottom` and overrides `scroll_lines`
+        // with `max_scroll`, so we don't need an exact value here.
+        self.stick_to_bottom = true;
     }
 
     #[allow(dead_code)]
@@ -1016,83 +1027,92 @@ impl App {
     }
 
     /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
+    /// "Up" = toward the top of the content (older messages), so scroll_lines DECREASES.
     pub fn scroll_up(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_add(3);
-        if self.max_scroll > 0 {
-            self.scroll_lines = self.scroll_lines.min(self.max_scroll);
-        }
-        // Moving away from the bottom disables auto-scroll-to-bottom.
-        if self.scroll_lines > 0 {
+        // Capture the effective position before disengaging stickiness,
+        // otherwise the user's first scroll-up from "follow bottom" mode
+        // would jump to row 0 instead of stepping back from the bottom.
+        if self.stick_to_bottom {
+            self.scroll_lines = self.max_scroll;
             self.stick_to_bottom = false;
         }
+        self.scroll_lines = self.scroll_lines.saturating_sub(3);
     }
 
     /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
+    /// "Down" = toward the bottom of the content (newer messages), so scroll_lines INCREASES.
     pub fn scroll_down(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_sub(3);
-        if self.scroll_lines == 0 {
+        if self.stick_to_bottom {
+            return;
+        }
+        self.scroll_lines = self.scroll_lines.saturating_add(3);
+        if self.scroll_lines >= self.max_scroll {
+            self.scroll_lines = self.max_scroll;
             self.stick_to_bottom = true;
         }
     }
 
     /// Scroll one line at a time — used by arrow keys for precise navigation.
     pub fn scroll_up_one(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_add(1);
-        if self.max_scroll > 0 {
-            self.scroll_lines = self.scroll_lines.min(self.max_scroll);
-        }
-        if self.scroll_lines > 0 {
+        if self.stick_to_bottom {
+            self.scroll_lines = self.max_scroll;
             self.stick_to_bottom = false;
         }
+        self.scroll_lines = self.scroll_lines.saturating_sub(1);
     }
 
     /// Scroll one line at a time — used by arrow keys for precise navigation.
     pub fn scroll_down_one(&mut self) {
-        self.scroll_lines = self.scroll_lines.saturating_sub(1);
-        if self.scroll_lines == 0 {
+        if self.stick_to_bottom {
+            return;
+        }
+        self.scroll_lines = self.scroll_lines.saturating_add(1);
+        if self.scroll_lines >= self.max_scroll {
+            self.scroll_lines = self.max_scroll;
             self.stick_to_bottom = true;
         }
     }
 
     /// Page-scroll helper used by PageUp / PageDown.
     /// Keeps a 2-row overlap so the user retains visual context
-    /// between pages.
+    /// between pages. `dir > 0` = PageUp (toward top), `dir < 0` = PageDown.
     pub fn scroll_page(&mut self, dir: i32) {
         let area_lines = (self.render_state.chat_height as usize)
             .saturating_sub(2)
             .max(1);
         if dir > 0 {
-            self.scroll_lines = self.scroll_lines.saturating_add(area_lines);
-            if self.max_scroll > 0 {
-                self.scroll_lines = self.scroll_lines.min(self.max_scroll);
-            }
-            if self.scroll_lines > 0 {
+            if self.stick_to_bottom {
+                self.scroll_lines = self.max_scroll;
                 self.stick_to_bottom = false;
             }
-        } else if dir < 0 {
             self.scroll_lines = self.scroll_lines.saturating_sub(area_lines);
-            if self.scroll_lines == 0 {
+        } else if dir < 0 {
+            if self.stick_to_bottom {
+                return;
+            }
+            self.scroll_lines = self.scroll_lines.saturating_add(area_lines);
+            if self.scroll_lines >= self.max_scroll {
+                self.scroll_lines = self.max_scroll;
                 self.stick_to_bottom = true;
             }
         }
     }
 
     /// Called whenever a new message is appended to the buffer.
-    /// When the viewport is already "stuck" to the bottom (or new
-    /// enough that the new message is still visible), keep it stuck
-    /// — otherwise the user gets pulled away from the live tail.
+    /// `stick_to_bottom` is the source of truth: when true, the next
+    /// render overrides `scroll_lines` with `max_scroll` so the
+    /// viewport tracks the live tail. We don't need to mutate
+    /// `scroll_lines` here — keeping it stable lets us fall back to
+    /// the same position if the user later re-engages stickiness.
     pub fn scroll_to_bottom_if_stuck(&mut self) {
-        if self.stick_to_bottom {
-            self.scroll_lines = 0;
-        }
+        // Render reads `stick_to_bottom` directly; nothing to do.
     }
 
     /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
-    /// 依据 render_state.heights 估算每个消息行高；
-    /// 若缓存为空（如首屏未渲染）则放弃调整。
+    /// 依据 render_state.heights 估算每个消息行高；若缓存为空（如首屏未渲染）则放弃调整。
     ///
-    /// heights 约定：heights[0] = 最新消息，heights[len-1] = 最旧消息（与 render_chat 一致）。
-    /// scroll_lines 从底部计数：0 = 底部（最新），递增 = 向上（更旧）。
+    /// heights 约定：heights[0] = 最旧消息，heights[len-1] = 最新消息（与 render_chat 一致）。
+    /// scroll_lines 从顶部计数：0 = 顶部（最旧），max_scroll = 底部（最新）。
     pub fn scroll_to_selected(&mut self) {
         let Some(idx) = self.overlay.selected_message else {
             return;
@@ -1101,26 +1121,31 @@ impl App {
         if heights.is_empty() || idx >= heights.len() {
             return;
         }
-        // 将前向索引 (messages[idx]) 转为逆序索引 (heights 中的位置)
-        let rev_idx = heights.len() - 1 - idx;
-        // sel_top = 选中消息顶端距底部的行数（即所有比它更新的消息总高度）
-        let sel_top: usize = heights.iter().take(rev_idx).sum();
-        let sel_height = heights[rev_idx];
+        // sel_top = 选中消息顶端距顶部的行数（即所有比它更旧的消息总高度）
+        let sel_top: usize = heights.iter().take(idx).sum();
+        let sel_height = heights[idx];
         let sel_bottom = sel_top + sel_height;
         // 用渲染时回填的 chat 高度算视口行数，避免依赖 max_scroll（展开/折叠后滞后）
         let area_lines = (self.render_state.chat_height as usize)
             .saturating_sub(1)
             .max(1);
-        let viewport_top = self.scroll_lines;
-        let viewport_bottom = self.scroll_lines.saturating_add(area_lines);
         // max_scroll 也要用最新的 heights 重新计算（max_scroll 是渲染时存的，旧值会错）
         let total: usize = heights.iter().sum();
         let new_max_scroll = total.saturating_sub(area_lines);
+        // stick_to_bottom 时实际视口在底部，所以从 max_scroll 起算
+        let effective_scroll = if self.stick_to_bottom {
+            new_max_scroll
+        } else {
+            self.scroll_lines
+        };
+        let viewport_top = effective_scroll;
+        let viewport_bottom = effective_scroll.saturating_add(area_lines);
 
         if sel_top < viewport_top || sel_bottom > viewport_bottom {
             // 选中的不在视口内 → 居中对齐：让选中条落在视口中央，
             // 既保证选中条可见，又让用户能感知上下文。
             self.scroll_lines = sel_top.saturating_sub(area_lines / 2);
+            self.stick_to_bottom = false;
         }
         // 夹到合法范围
         self.scroll_lines = self.scroll_lines.min(new_max_scroll);
@@ -1132,22 +1157,12 @@ impl App {
     /// 展开/折叠后不必等下一次渲染就能算出正确的视口位置。
     /// 渲染时会基于 chat.rs 的真实 layout 重新精修 heights。
     ///
-    /// heights 约定：逆序存储（heights[0] = 最新消息），与 render_chat 一致。
+    /// heights 约定：时间顺序存储（heights[0] = 最旧消息），与 render_chat 一致。
     pub fn rebuild_heights_approx(&mut self) {
         let text_width = self.render_state.cached_width.max(20);
-        let n = self.messages.len();
-        let mut heights: Vec<usize> = Vec::with_capacity(n);
-        // 逆序遍历以匹配 render_chat 的 heights 约定
-        for (rev_idx, comp) in self.components.iter().rev().enumerate() {
-            // 用一个稍宽的估算宽度做单行 wrap 行数估算，避免组件
-            // 在事件处理阶段对真实 width 的依赖。
-            let _ = text_width;
-            // 当 rev_idx >= n 时说明 components 还在追赶 messages；
-            // 视为 1 行占位即可，scroll_to_selected 会保守处理。
-            if rev_idx >= n {
-                heights.push(1);
-                continue;
-            }
+        let mut heights: Vec<usize> = Vec::with_capacity(self.components.len());
+        // 时间顺序遍历以匹配 render_chat 的 heights 约定
+        for comp in self.components.iter() {
             let h = comp.borrow().height(text_width as u16);
             heights.push((h as usize).max(1));
         }
@@ -1379,6 +1394,11 @@ impl App {
         self.overlay.session_search_mode = false;
         self.overlay.selected_message = None;
         self.overlay.selection_mode = false;
+        // Reset viewport to "follow live tail" so the next message the
+        // user sends is visible without manual scrolling.
+        self.scroll_lines = 0;
+        self.max_scroll = 0;
+        self.stick_to_bottom = true;
         self.mark_dirty();
     }
 
@@ -1421,7 +1441,7 @@ mod tests {
         assert_eq!(app.messages.len(), 1);
         assert!(matches!(app.messages[0], Message::User { ref text } if text == "hello"));
         assert!(app.is_processing());
-        assert_eq!(app.scroll_lines, 0);
+        assert!(app.stick_to_bottom, "sending snaps viewport to live tail");
     }
 
     #[test]
@@ -1637,80 +1657,121 @@ mod tests {
 
     #[test]
     fn test_scroll() {
+        // Convention: scroll_lines counts rows FROM TOP (0 = oldest/top,
+        // max_scroll = newest/bottom). scroll_up subtracts, scroll_down adds.
         let mut app = App::new(test_config());
+        app.max_scroll = 30;
         assert_eq!(app.scroll_lines, 0);
+        assert!(app.stick_to_bottom);
+
+        // scroll_up from sticky: capture max (30), subtract 3 → 27
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 3);
+        assert_eq!(app.scroll_lines, 27);
+        assert!(!app.stick_to_bottom);
+
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 6);
+        assert_eq!(app.scroll_lines, 24);
+
+        // scroll_down: 24 + 3 = 27 (still < max)
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 3);
+        assert_eq!(app.scroll_lines, 27);
+        assert!(!app.stick_to_bottom);
+
+        // scroll_down hits max → re-engage sticky
         app.scroll_down();
+        assert_eq!(app.scroll_lines, 30);
+        assert!(app.stick_to_bottom);
+
+        // scroll_down at sticky bottom is a no-op
+        app.scroll_down();
+        assert_eq!(app.scroll_lines, 30);
+
+        // scroll_up captures and steps back
+        app.scroll_up();
+        assert_eq!(app.scroll_lines, 27);
+
+        // Scroll all the way to the top with trackpad-sized steps
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        app.scroll_up();
+        // 27 - 9*3 = 0 (saturating)
         assert_eq!(app.scroll_lines, 0);
-        app.scroll_down();
+        assert!(!app.stick_to_bottom);
+
+        // Beyond top: saturates at 0
+        app.scroll_up();
         assert_eq!(app.scroll_lines, 0);
-        app.max_scroll = 5;
-        app.scroll_up();
-        assert_eq!(app.scroll_lines, 3);
-        app.scroll_up();
-        assert_eq!(app.scroll_lines, 5); // clamped to max_scroll
     }
 
     #[test]
     fn test_scroll_to_selected_newest_visible_at_bottom() {
         // 10 条消息各占 3 行，总 30 行，area_lines = 10，max_scroll = 20
-        // heights 逆序：heights[0]=最新(m9), heights[9]=最旧(m0)
+        // heights 时间顺序：heights[0]=最旧(m0), heights[9]=最新(m9)
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
         app.max_scroll = 20;
-        // scroll_lines=0（底部），选中 idx=9（最新）→ sel_top=0 → 在视口内 → 不变
+        // stick_to_bottom=true（底部），选中 idx=9（最新）→ sel_top=27, viewport=[20,30) → 可见 → 不变
         app.overlay.selected_message = Some(9);
         app.scroll_to_selected();
         assert_eq!(app.scroll_lines, 0);
+        assert!(
+            app.stick_to_bottom,
+            "sticky preserved when selected already visible"
+        );
     }
 
     #[test]
     fn test_scroll_to_selected_oldest_not_visible_at_bottom() {
-        // scroll_lines=0（底部），选中 idx=0（最旧）→ 需要向上滚动
+        // stick_to_bottom=true（底部），选中 idx=0（最旧）→ 需要向上滚到顶部
+        let mut app = App::new(test_config());
+        app.render_state.heights = vec![3; 10];
+        app.render_state.chat_height = 11;
+        app.max_scroll = 20;
+        app.overlay.selected_message = Some(0);
+        app.scroll_to_selected();
+        // sel_top=0, 居中: 0-5=0 (saturating)
+        assert_eq!(app.scroll_lines, 0);
+        assert!(!app.stick_to_bottom, "moved away from bottom");
+    }
+
+    #[test]
+    fn test_scroll_to_selected_oldest_visible_at_top() {
+        // scroll_lines=0（顶部），选中 idx=0（最旧）→ 在视口内 → 不变
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
         app.max_scroll = 20;
         app.scroll_lines = 0;
+        app.stick_to_bottom = false;
         app.overlay.selected_message = Some(0);
         app.scroll_to_selected();
-        // rev_idx=9, sel_top=27, 居中: 27-5=22, clamp 到 20
-        assert_eq!(app.scroll_lines, 20);
-    }
-
-    #[test]
-    fn test_scroll_to_selected_oldest_visible_at_top() {
-        // scroll_lines=20（顶部），选中 idx=0（最旧）→ 在视口内 → 不变
-        let mut app = App::new(test_config());
-        app.render_state.heights = vec![3; 10];
-        app.render_state.chat_height = 11;
-        app.max_scroll = 20;
-        app.scroll_lines = 20;
-        app.overlay.selected_message = Some(0);
-        app.scroll_to_selected();
-        // rev_idx=9, sel_top=27, sel_bottom=30, viewport=[20,30) → 可见 → 不变
-        assert_eq!(app.scroll_lines, 20);
+        // sel_top=0, sel_bottom=3, viewport=[0,10) → 可见 → 不变
+        assert_eq!(app.scroll_lines, 0);
+        assert!(!app.stick_to_bottom);
     }
 
     #[test]
     fn test_scroll_to_selected_newest_not_visible_at_top() {
-        // scroll_lines=20（顶部），选中 idx=9（最新）→ 需要向下滚动
+        // scroll_lines=0（顶部），选中 idx=9（最新）→ 需要向下滚动到底
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
         app.max_scroll = 20;
-        app.scroll_lines = 20;
+        app.scroll_lines = 0;
+        app.stick_to_bottom = false;
         app.overlay.selected_message = Some(9);
         app.scroll_to_selected();
-        // rev_idx=0, sel_top=0, 居中: 0-5=0 (saturating)
-        assert_eq!(app.scroll_lines, 0);
+        // sel_top=27, 居中: 27-5=22, clamp 到 max=20
+        assert_eq!(app.scroll_lines, 20);
         assert_eq!(app.max_scroll, 20);
+        assert!(!app.stick_to_bottom);
     }
 
     #[test]
@@ -1721,9 +1782,10 @@ mod tests {
         app.render_state.chat_height = 11;
         app.max_scroll = 20;
         app.scroll_lines = 10;
+        app.stick_to_bottom = false;
         app.overlay.selected_message = Some(5);
         app.scroll_to_selected();
-        // rev_idx=4, sel_top=12, sel_bottom=15, viewport=[10,20) → 12>=10 && 15<=20 → 可见
+        // sel_top=sum(heights[0..5])=15, sel_bottom=18, viewport=[10,20) → 可见
         assert_eq!(app.scroll_lines, 10);
     }
 
@@ -1771,38 +1833,41 @@ mod tests {
     #[test]
     fn test_stick_to_bottom_tracks_scroll_position() {
         // Sticky-bottom state should toggle correctly as the user moves
-        // up and down the chat history, and a new message should snap
-        // the viewport back to the bottom when the user was already
-        // following the live tail.
+        // up and down the chat history. New messages preserve the
+        // viewport when the user is reading older content (stick=false),
+        // and the renderer pins to the bottom when stick=true.
         let mut app = App::new(test_config());
+        app.max_scroll = 30;
         assert!(app.stick_to_bottom, "starts at the bottom");
 
+        // scroll_up from sticky: capture 30, step back → 27
         app.scroll_up();
         assert!(!app.stick_to_bottom);
 
         app.scroll_up();
         assert!(!app.stick_to_bottom);
 
+        // scroll_down_one: 24 + 1 = 25
         app.scroll_down_one();
         assert!(!app.stick_to_bottom, "still above the bottom");
 
         // Walk back to the bottom with 1-line steps; stick_to_bottom
-        // re-engages the moment scroll_lines hits 0.
-        while app.scroll_lines > 0 {
+        // re-engages when scroll_lines reaches max_scroll.
+        while app.scroll_lines < app.max_scroll {
             app.scroll_down_one();
         }
         assert!(app.stick_to_bottom, "re-engaged at the bottom");
 
-        // Scrolling away disengages; returning re-engages.
+        // Scrolling away disengages; manually re-engage.
         app.scroll_up();
         assert!(!app.stick_to_bottom);
-        app.scroll_lines = 0;
         app.stick_to_bottom = true;
 
-        // New tool call should snap to bottom because we are stuck.
+        // New tool call preserves stickiness (scroll_to_bottom_if_stuck is
+        // a no-op; the renderer reads stick_to_bottom directly).
         let prev_count = app.tool_call_count;
         app.add_tool_call("weight", "{}", "ok", 0, 1);
-        assert_eq!(app.scroll_lines, 0);
+        assert!(app.stick_to_bottom, "stuck at bottom stays stuck");
         assert_eq!(app.tool_call_count, prev_count + 1);
 
         // When not stuck, new content must not yank the user.
@@ -1819,19 +1884,22 @@ mod tests {
         app.render_state.chat_height = 20;
         app.max_scroll = 200;
 
+        // PageUp (dir>0): from sticky, capture 200 then subtract 18 → 182
         app.scroll_page(1);
         // 20 - 2 = 18
-        assert_eq!(app.scroll_lines, 18);
+        assert_eq!(app.scroll_lines, 182);
         assert!(!app.stick_to_bottom);
 
         app.scroll_page(1);
-        assert_eq!(app.scroll_lines, 36);
+        assert_eq!(app.scroll_lines, 164);
 
+        // PageDown (dir<0): 164 + 18 = 182
         app.scroll_page(-1);
-        assert_eq!(app.scroll_lines, 18);
+        assert_eq!(app.scroll_lines, 182);
 
+        // PageDown hits bottom → re-engage sticky
         app.scroll_page(-1);
-        assert_eq!(app.scroll_lines, 0);
+        assert_eq!(app.scroll_lines, 200);
         assert!(app.stick_to_bottom);
     }
 

@@ -20,7 +20,18 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     }
 
     let mut scr = scroller::Scroller::new(&app.components, width, viewport_h);
-    scr.set_scroll(app.scroll_lines as u16);
+    // App's `scroll_lines` uses the Scroller's own convention
+    // (0 = top / oldest, max_scroll = bottom / newest). When
+    // `stick_to_bottom` is engaged, override to the current max so the
+    // viewport tracks the live tail without App having to know the
+    // exact content height (which changes every time tokens stream in).
+    let max = scr.max_scroll();
+    let scroll = if app.stick_to_bottom {
+        max
+    } else {
+        (app.scroll_lines as u16).min(max)
+    };
+    scr.set_scroll(scroll);
 
     let theme = &app.config.theme;
     let selected = if app.overlay.selection_mode {
@@ -39,7 +50,9 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     let buf = f.buffer_mut();
     scr.render(&app.components, inner_area, buf, theme, selected);
 
-    // Top border
+    // Top border. In the new convention `scr.scroll == max_scroll`
+    // means the viewport is at the bottom (newest), so the dim border
+    // correctly signals "no more content below".
     let at_bottom = scr.scroll >= scr.max_scroll();
     let border_color = if at_bottom {
         theme.dim_text()
@@ -59,5 +72,10 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // just need the absolute row/col of the click event.
     scr.register_clicks(inner_area, &mut app.hit_regions);
     app.max_scroll = scr.max_scroll() as usize;
-    app.scroll_lines = scr.scroll as usize;
+    // Only persist `scroll_lines` when not sticky — sticky mode means
+    // "the renderer decides", so saving `scr.scroll` back would freeze
+    // the viewport once content stopped growing.
+    if !app.stick_to_bottom {
+        app.scroll_lines = scr.scroll as usize;
+    }
 }

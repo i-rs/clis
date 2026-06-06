@@ -349,7 +349,10 @@ impl<'a> KeyEventHandler<'a> {
     }
 
     fn handle_normal_input(&mut self, key: KeyEvent) -> Action {
-        let can_scroll = !self.app.overlay.selection_mode && !self.app.is_processing();
+        // Scrolling is always available — the streaming code respects
+        // `stick_to_bottom`, so a user who scrolls up while the LLM is
+        // generating won't be yanked back to the live tail.
+        let can_scroll = !self.app.overlay.selection_mode;
         match key.code {
             KeyCode::Up if can_scroll => {
                 if self.app.input.text.is_empty() {
@@ -388,12 +391,13 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.mark_overlay_dirty();
             }
             KeyCode::Home if can_scroll && self.app.input.text.is_empty() => {
-                self.app.scroll_lines = self.app.max_scroll;
+                // Home = top of content (oldest message)
+                self.app.scroll_lines = 0;
                 self.app.stick_to_bottom = false;
                 self.app.mark_overlay_dirty();
             }
             KeyCode::End if can_scroll && self.app.input.text.is_empty() => {
-                self.app.scroll_lines = 0;
+                // End = bottom of content (newest message); render snaps via stick_to_bottom.
                 self.app.stick_to_bottom = true;
                 self.app.mark_overlay_dirty();
             }
