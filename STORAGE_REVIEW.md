@@ -35,7 +35,7 @@
 |----|--------|----------|-----------------------------------------------|------------|-----------------------------------------|
 | 1  | 🔴 关键 | 正确性   | PostgreSQL `?` 占位符完全失效                  | ✅ 已修复   | `sql/mod.rs`, `sql/postgres.rs`        |
 | 2  | 🔴 关键 | 正确性   | SQL `MAX(seq)+1` 并发竞争 (MySQL/PG)          | ✅ 已修复   | `sql/mod.rs`, dialect files            |
-| 4R | 🔴 关键 | 数据丢失 | index.json 损坏保护 — 消费者仍吞错 (回归)      | **修复不完整** | `session.rs:118-120`                   |
+| 4R | 🔴 关键 | 数据丢失 | index.json 损坏保护 — 消费者仍吞错 (回归)      | ✅ 已修复   | `session.rs` (Phase 1.5)               |
 | 9  | 🟠 高   | 性能     | 搜索将全部消息加载到内存                       | 未修复     | 全后端 `search()`                        |
 | 10 | 🟠 高   | 性能     | `SessionManager` 全量 sync-over-async          | 未修复     | `session.rs:118,202,379,410,419,438`   |
 | 11 | 🟡 中   | 设计     | `SCHEMA_VERSION=1` 无迁移路径                  | 未修复     | `message/mod.rs:7`                      |
@@ -51,11 +51,11 @@
 
 | #  | 严重性 | 类别     | 问题                                          | 位置                                    |
 |----|--------|----------|-----------------------------------------------|-----------------------------------------|
-| N1 | 🟠 高   | 代码质量 | Redis `get_one` 用 `.ok()` 吞 JSON 解析错误     | `redis.rs:132`                          |
-| N2 | 🟠 高   | 死代码   | Redis 残留旧 `get`/`delete` 方法 (非 trait 成员) | `redis.rs:162-180`                     |
-| N3 | 🟡 中   | 性能     | `SessionManager` 未使用新 `upsert`/`delete_one` 方法 | `session.rs:438` (`save_index` 仍用 `save_all`) |
-| N4 | 🟢 低   | 代码质量 | `append_new_messages` 不必要的 `new_msgs.clone()` | `session.rs:375-377`                   |
-| N5 | 🟢 低   | 格式     | SQL `get_one` 查询字符串含大量多余空格          | `sql/mod.rs:97`                         |
+| N1 | 🟠 高   | 代码质量 | Redis `get_one` 用 `.ok()` 吞 JSON 解析错误     | ✅ 已修复   | `redis.rs` (Phase 1.5)                 |
+| N2 | 🟠 高   | 死代码   | Redis 残留旧 `get`/`delete` 方法 (非 trait 成员) | ✅ 已修复   | `redis.rs` (Phase 1.5)                 |
+| N3 | 🟡 中   | 性能     | `SessionManager` 未使用新 `upsert`/`delete_one` 方法 | ✅ 已修复   | `session.rs` (Phase 2)                 |
+| N4 | 🟢 低   | 代码质量 | `append_new_messages` 不必要的 `new_msgs.clone()` | ✅ 已修复   | `session.rs` (Phase 1.5)               |
+| N5 | 🟢 低   | 格式     | SQL `get_one` 查询字符串含大量多余空格          | ✅ 已修复   | `sql/mod.rs` (Phase 1.5)               |
 
 ### 2.3 已修复的问题
 

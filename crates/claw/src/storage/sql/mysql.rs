@@ -110,10 +110,11 @@ impl MySqlBackend {
         )
         .fetch_optional(&self.pool)
         .await?;
-        sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)")
+        // CREATE INDEX IF NOT EXISTS is not supported by MySQL; try creation
+        // and silently ignore "duplicate" errors from idempotent re-runs.
+        let _ = sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)")
             .execute(&self.pool)
-            .await
-            .or_else(|_| Ok::<_, anyhow::Error>(()))?;
+            .await;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS skills (
