@@ -14,7 +14,7 @@ impl super::ClawTool for IrsTool {
     }
 
     fn description(&self) -> &str {
-        "执行 i-rs CLI 命令来管理用户个人数据。使用标准流程：先用 command=skill args=[\"teach\"] 学习工具的命令参数格式，再按文档调用。日期用 YYYY-MM-DD 格式，需要解析统计数字时 args 末尾加 \"--json\"。"
+        "执行 i-rs CLI 管理用户数据。不熟悉的工具先用 command=skill args=[\"teach\"] 学习命令和参数格式。日期用 YYYY-MM-DD，需解析数值时 args 末尾加 \"--json\"。"
     }
 
     fn parameter_schema(&self, enabled_cli_tools: &[&str]) -> Value {
@@ -24,16 +24,16 @@ impl super::ClawTool for IrsTool {
                 "tool": {
                     "type": "string",
                     "enum": enabled_cli_tools,
-                    "description": "i-rs 工具名称。首次使用不熟悉的工具时，先调用 command=skill args=[\"teach\"] 获取完整命令文档再操作。"
+                    "description": "工具名称"
                 },
                 "command": {
                     "type": "string",
-                    "description": "子命令。必须先用 skill teach 确认工具支持哪些命令（add/list/get/delete/update/stats 等），不要猜测。skill 子命令用法：command=\"skill\", args=[\"teach\"]"
+                    "description": "子命令 (add/list/get/delete/update/stats/skill 等)"
                 },
                 "args": {
                     "type": "array",
                     "items": { "type": "string" },
-                    "description": "参数数组。严格按 skill teach 返回的文档中的参数顺序传入，每个参数独立为数组的一个元素，不要合并值。日期统一用 YYYY-MM-DD 格式。需要解析数值结果时末尾追加 \"--json\"。"
+                    "description": "参数数组，日期用 YYYY-MM-DD 格式"
                 },
                 "explanation": {
                     "type": "string",

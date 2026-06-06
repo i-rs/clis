@@ -59,27 +59,24 @@ impl ToolDocCache {
         }
     }
 
-    /// Build Layer 3 section: full skill teach docs for specified tools.
+    /// Build Layer 3 section: concise list of frequently used tools.
+    /// Full teach docs are available on-demand via i_rs skill teach.
     pub fn format_hot_tools(&self, tools: &[String]) -> String {
         if tools.is_empty() {
             return String::new();
         }
 
-        let mut result =
-            String::from("## 常用工具文档\n\n以下是你最近常用的工具的完整教学文档：\n");
+        let names: Vec<&str> = tools
+            .iter()
+            .filter(|t| self.hot_docs.contains_key(*t))
+            .map(|t| t.as_str())
+            .collect();
 
-        for tool in tools {
-            if let Some(doc) = self.hot_docs.get(tool) {
-                result.push_str(&format!("\n### {}\n{}", tool, doc));
-            }
-        }
-
-        if result == "## 常用工具文档\n\n以下是你最近常用的工具的完整教学文档：\n"
-        {
+        if names.is_empty() {
             return String::new();
         }
 
-        result
+        format!("## 常用工具\n\n{}\n", names.join(", "))
     }
 
     /// Format Layer 4: user preferences and cross-session info.

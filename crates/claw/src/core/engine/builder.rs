@@ -525,5 +525,5 @@ pub fn smart_compress(
 
 #[allow(dead_code)]
 pub fn compress_api_messages(msgs: &mut Vec<Value>, tool_frequency: &HashMap<String, usize>) {
-    smart_compress(msgs, tool_frequency, 5, 20, 6);
+    smart_compress(msgs, tool_frequency, 5, 12, 6);
 }
