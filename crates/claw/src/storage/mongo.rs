@@ -228,7 +228,7 @@ fn doc_to_session_meta(d: &Document) -> anyhow::Result<crate::session::SessionMe
         state,
         created_at: d.get_i64("created_at").unwrap_or(0),
         updated_at: d.get_i64("updated_at").unwrap_or(0),
-        message_count: d.get_i64("message_count").unwrap_or(0) as usize,
+        message_count: d.get_i64("message_count").unwrap_or(0).max(0) as usize,
     })
 }
 

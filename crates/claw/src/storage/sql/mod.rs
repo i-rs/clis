@@ -502,10 +502,11 @@ struct TokenRecordRow {
     success: i64,
     latency_ms: i64,
     estimated_cost_usd: f64,
-    trace_id: Option<String>,
+    trace_id: String,
 }
 
 impl From<TokenRecordRow> for crate::stats::TokenRecord {
+    #[allow(clippy::cast_possible_truncation)]
     fn from(r: TokenRecordRow) -> Self {
         Self {
             id: r.id,
@@ -522,7 +523,7 @@ impl From<TokenRecordRow> for crate::stats::TokenRecord {
             success: r.success != 0,
             latency_ms: r.latency_ms as u64,
             estimated_cost_usd: r.estimated_cost_usd,
-            trace_id: r.trace_id.unwrap_or_default(),
+            trace_id: r.trace_id,
         }
     }
 }

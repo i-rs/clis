@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Lifecycle state of a conversation session.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -496,10 +495,7 @@ impl SessionManager {
 }
 
 fn now_secs() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64
+    chrono::Utc::now().timestamp()
 }
 
 #[cfg(test)]
