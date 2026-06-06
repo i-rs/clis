@@ -26,10 +26,12 @@ i-rs-clis/
 │   │       ├── update.rs       # merge_entry() 通用 JSON 合并更新
 │   │       ├── store.rs        # SharedStore<T> (RwLock 封装)
 │   │       └── routes/         # 70 个路由模块 (CRUD + PATCH)
-│   ├── claw/                   # TUI 智能助理 (i-rs-claw)
-│   │   ├── src/               # 67 个源文件
+│   ├── claw/                   # 智能助理 (i-rs-claw)
+│   │   ├── src/               # 47 个源文件 (TUI + serve + API)
 │   │   ├── prompts/            # LLM 系统提示词
-│   │   └── dashboard-ui/       # Dashboard 前端资源
+│   │   └── dashboard-ui/       # Dashboard 前端 (React SPA, 独立工程)
+│   ├── claw-core/              # AI 引擎库 (i-rs-claw-core)
+│   │   └── src/               # 纯 lib: ReAct chat_loop, LLM providers, tools, storage, session
 │   ├── mcp/                    # MCP 协议服务器 (i-rs-mcp)
 │   │   └── src/
 │   │       ├── main.rs         # 入口: 宏 + 会话循环
@@ -232,9 +234,9 @@ pub use i_rs_core::utils::validation::{
 
 | 客户端 | 平台 | UI 框架 | 位置 | 核心场景 | 数据源 |
 |--------|------|---------|------|---------|--------|
-| `dashboard-ui` | 浏览器 | React (嵌入 claw) | `crates/claw/dashboard-ui/` | 数据可视化 + 管理 | i-rs-api |
-| `IrsClawApp` | macOS/iPad/iOS | SwiftUI | `apps/IrsClawApp/` | 原生 AI 助理 | i-rs-api |
-| `IrsClawMiniProgram` | 微信 | WXML + WXSS | `apps/IrsClawMiniProgram/` | 移动端快速查询 + 录入 | i-rs-api |
+| `dashboard-ui` | 浏览器 | React (独立 SPA) | `crates/claw/dashboard-ui/` | Chat + Data + Agents + Usage + Settings | claw serve HTTP API |
+| `IrsClawApp` | macOS/iPad/iOS | SwiftUI | `apps/IrsClawApp/` | 原生 AI 助理 | claw serve HTTP API |
+| `IrsClawMiniProgram` | 微信 | WXML + WXSS | `apps/IrsClawMiniProgram/` | 移动端快速查询 + 录入 | claw serve HTTP API |
 
 ### 4.2 适配原则
 
@@ -284,7 +286,7 @@ apps/IrsClawMiniProgram/
 
 ### 4.5 dashboard-ui
 
-`crates/claw/dashboard-ui/` — Web Dashboard，嵌入 i-rs-claw TUI，通过 React 实现数据可视化和系统管理。
+`crates/claw/dashboard-ui/` — Web Dashboard，通过 `claw serve` 的 HTTP API 提供 Chat + Data + Agents + Usage + Settings。独立 React SPA 工程，Vite 构建，通过 rust-embed 嵌入 serve 二进制。
 
 ---
 
@@ -844,14 +846,16 @@ uuid = { version = "1.0", features = ["v4"] }
 | `crossterm` | 0.29 | 终端事件/渲染后端 |
 | `futures-util` | 0.3 | 异步流处理 |
 | `toml` | workspace | 配置文件解析 |
-| `rig-core` | 0.37 | LLM Provider SDK (可选) |
 | `unicode-width` | 0.2 | Unicode 宽度计算 (TUI 布局) |
 | `pulldown-cmark` | 0.2 | Markdown 渲染 (TUI) |
 | `async-trait` | workspace | 异步 trait 支持 |
 | `base64` | workspace | Base64 编解码 |
-| `axum` | workspace | Dashboard 服务器 (feature = "dashboard") |
+| `axum` | workspace | Dashboard API 服务器 (feature = "dashboard") |
 | `tower-http` | workspace | HTTP 中间件 (feature = "dashboard") |
 | `rust-embed` | 8 | 嵌入 Dashboard 前端资源 (feature = "dashboard") |
+| `mime_guess` | 2 | MIME 类型推断 (feature = "dashboard") |
+
+> `rmcp`/`sqlx`/`mongodb`/`redis` 不在此 crate — 仅在 `i-rs-claw-core` 中，由 feature 转发。
 
 ### i-rs-api 额外依赖
 
@@ -899,7 +903,8 @@ inherits = "release"
 |-------|--------|------|
 | i-rs-core | 21 单元测试 | validation + date 模块 |
 | i-rs-api | 32 集成测试 | CRUD、PATCH、404、BadRequest、数据导出/清空 |
-| i-rs-claw | 206 单元测试 | 会话管理、状态机、语义搜索、配置、chat_loop、工具等 (需 `--test-threads=1`) |
+| i-rs-claw | ~80 单元测试 | 会话管理、状态机、chat_loop、工具等 (需 `--test-threads=1`) |
+| i-rs-claw-core | ~320 单元测试 | config, checkpoint, engine, session, storage, tools |
 
 ## 17. 文章与推广规范
 
@@ -968,8 +973,9 @@ inherits = "release"
 | `.github/workflows/` | CI/CD 配置 |
 | `docs/articles/` | 推广文章专区 |
 | `crates/claw/prompts/system.md` | i-rs-claw LLM 系统提示词 |
-| `crates/claw/src/core/engine.rs` | ReAct 聊天循环核心逻辑 |
-| `crates/claw/src/tui.rs` | TUI 主循环 |
+| `crates/claw-core/src/core/engine/mod.rs` | ReAct 聊天循环核心逻辑 |
+| `crates/claw/src/serve/mod.rs` | Serve 模式 HTTP 服务器 |
+| `crates/claw/src/tui/mod.rs` | TUI 主循环 |
 | `crates/cli-api/src/main.rs` | REST API 服务器入口 (含 `make_app_tools!`) |
 | `crates/cli-api/src/update.rs` | 通用 JSON 合并/部分更新工具 |
 | `crates/mcp/src/main.rs` | MCP 服务器入口 (含 `make_mcp_tools!`) |

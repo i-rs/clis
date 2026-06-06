@@ -7,15 +7,16 @@ Rust monorepo 包含 **75+ crate** + **3 个客户端**，覆盖三类产品形�
 | 类别 | 组件 | 说明 |
 |------|------|------|
 | **CLI 工具** | 70 个 `i-rs-{name}` | 个人数据管理命令行工具 |
-| **智能助理** | `i-rs-claw` | TUI AI 助理，带 Dashboard 可观测性扩展 |
+| **智能助理** | `i-rs-claw` | AI 助理 — Web Dashboard (serve) + TUI 终端 (tui) 双模式 |
+| **AI 引擎** | `i-rs-claw-core` | 纯 lib：ReAct chat_loop、LLM providers、工具注册表、存储层 |
 | **服务器** | `i-rs-api` | REST API 服务器 (Axum) |
 | **协议服务** | `i-rs-mcp` | MCP 协议服务器 (JSON-RPC over stdio) |
 | **共享库** | `i-rs-core` | 所有 crate 的基础库 |
-| **客户端** | `dashboard-ui` | i-rs-claw 内嵌 Web Dashboard |
+| **客户端** | `dashboard-ui` | React SPA (Chat + Data + Agents + Usage + Settings) |
 | **客户端** | `IrsClawApp` | 原生客户端 (macOS / iPad / iOS, SwiftUI) |
 | **客户端** | `IrsClawMiniProgram` | 微信小程序客户端 |
 
-**Current state:** `cargo check` — 0 errors, 0 warnings. `cargo test -p i-rs-claw` — 206 tests, 0 failed. `cargo test -p i-rs-core` — 21 tests. `cargo test -p i-rs-api` — 32 integration tests.
+**Current state:** `cargo check --workspace` — 0 errors. `pnpm build` (dashboard-ui) — 成功. 核心测试通过，15 个 dashboard 测试因 tokio runtime 嵌套待修复。
 
 ## Project Structure
 
@@ -24,10 +25,11 @@ i-rs-clis/
 ├── crates/
 │   ├── clis/               # [CLI 工具] 70 个 i-rs-{name}
 │   │   └── i-rs/           # Meta CLI (统一入口)
-│   ├── claw/               # [智能助理] i-rs-claw TUI AI assistant
-│   │   ├── src/            # 67 个源文件
+│   ├── claw/               # [智能助理] 二进制 crate (serve + tui)
+│   │   ├── src/            # 47 个源文件 (TUI + serve + dashboard API)
 │   │   ├── prompts/        # LLM 系统提示词
-│   │   └── dashboard-ui/   # Dashboard 前端 (嵌入资源)
+│   │   └── dashboard-ui/   # Dashboard 前端 (React SPA, 独立工程)
+│   ├── claw-core/          # [AI 引擎] 纯 lib (无 main.rs)
 │   ├── cli-api/            # [REST API] i-rs-api Axum 服务器
 │   ├── mcp/                # [MCP 协议] i-rs-mcp 服务器
 │   └── core/               # [共享库] i-rs-core
@@ -171,124 +173,158 @@ crates/clis/i-rs-{name}/
 
 ---
 
-## 2. i-rs-claw (TUI 智能助理)
+## 2. i-rs-claw (智能助理 — 双模式)
 
-`crates/claw/` — 一个 **TUI AI 助理**，深度集成 i-rs CLI 工具集，支持多模型、多 Agent、MCP 工具扩展。
+`crates/claw/` — 一个 **AI 助理**，提供两种交互模式：Web Dashboard (默认) 和 TUI 终端。深度集成 i-rs CLI 工具集，支持多模型、多 Agent、MCP 工具扩展。核心逻辑在 `i-rs-claw-core` 库中。
+
+### 两种模式
+
+| 模式 | 命令 | 说明 |
+|------|------|------|
+| **serve** | `claw serve` (默认) | HTTP API + Web Dashboard SPA |
+| **tui** | `claw tui` | 终端 UI (ratatui)，调试/专业模式 |
+
+两者共享同一个 `claw-core` 库和同一个存储后端。
 
 ### 依赖特征
 
 - **Cargo.toml 核心依赖**: `ratatui`, `crossterm`, `tokio`, `serde_json`, `reqwest`, `clap`, `dirs`, `toml`, `uuid`, `owo-colors`, `async-trait`, `base64`
-- **可选 Dashboard**: `axum`, `tower-http`, `rust-embed` (feature = `dashboard`)
+- **可选 Dashboard**: `axum`, `tower-http`, `rust-embed`, `mime_guess` (feature = `dashboard`)
+- **存储 feature**: `sqlite`/`mysql`/`postgres`/`mongo`/`redis` 全部转发到 `i-rs-claw-core`
 - **Gateway**: 内置 Telegram/WeChat adapter，通过 config.toml 配置运行时开关
 - **不需要** `i-rs-core` 依赖（直接调 CLI 二进制进程）
+- **不重复依赖**: `rmcp`/`sqlx`/`mongodb`/`redis` 仅存在于 claw-core
 
-### 源码结构
+### Cargo.toml Features
+
+| Feature | 描述 | 转发的 dep |
+|---------|------|-----------|
+| `dashboard` | HTTP API + Web Dashboard SPA | axum, tower-http, rust-embed, mime_guess |
+| *(none)* | TUI-only 模式 (ratatui) | — |
+| `sqlite`/`mysql`/`postgres` | 转发到 i-rs-claw-core | — |
+| `mongo`/`redis` | 转发到 i-rs-claw-core | — |
+
+```bash
+# Full build (serve + TUI)
+cargo build -p i-rs-claw --features dashboard --release
+
+# TUI only (no HTTP server)
+cargo build -p i-rs-claw --release
+```
+
+### 源码结构 (47 个 .rs 文件)
 
 ```
 crates/claw/src/
-├── main.rs            # 入口: CLI 子命令分发 (tui/config/chat/version)
-├── cli.rs             # clap CLI 定义 + 子命令处理
-├── app.rs             # App 状态结构体 (UI 消息列表、输入、会话列表等)
-├── config.rs          # ~/.i-rs/claw/config.toml 解析 + Agent 配置
-├── tui.rs             # TUI 主循环 (事件处理 + LLM 事件分发)
-├── ui/                # ratatui 渲染 (模块化拆分)
+├── main.rs            # CLI 入口: Serve (默认) / Tui / Ask / Config / ...
+├── lib.rs             # pub use i_rs_claw_core::*
+├── app.rs             # TUI 专用状态 (InputState, App, OverlayState, Message)
+├── config.rs          # re-export: pub use i_rs_claw_core::config::*
+├── theme.rs           # re-export: pub use i_rs_claw_core::theme::*
+├── test_helpers.rs    # 测试工具 (仅 #[cfg(test)])
+├── cli/               # 命令行处理器
+│   ├── mod.rs         # 所有子命令实现
+│   ├── config_wizard.rs
+│   └── tools_ui.rs
+├── tui/               # TUI 终端模式
+│   ├── mod.rs         # 主循环入口 + AppCore 初始化
+│   ├── main_loop.rs   # 事件循环
+│   ├── clipboard.rs
+│   ├── reminders.rs
+│   └── handlers/      # 键盘/鼠标/LLM 事件处理
+├── ui/                # ratatui 渲染组件
 │   ├── mod.rs
-│   ├── chat.rs
-│   └── utils.rs
-├── llm.rs             # LlmEvent 枚举、流式事件类型
-├── providers/         # LLM 提供者 (OpenAI/Anthropic/Ollama/Zhipu)
-│   ├── mod.rs
-│   ├── sse.rs
-│   ├── openai.rs
-│   ├── anthropic.rs
-│   ├── ollama.rs
-│   └── zhipu.rs
-├── mcp.rs             # MCP 协议客户端 (注册表 + 工具发现)
-├── tools/             # 内置工具注册表
-│   ├── mod.rs         # ToolRegistry + ToolContext
-│   ├── i_rs.rs        # i-rs CLI 工具包装
-│   ├── mcp_tools.rs   # MCP 工具Schema转换
-│   ├── web_search.rs  # 网页搜索工具
-│   ├── file_ops.rs    # 文件操作工具
-│   ├── delegate.rs    # 子 Agent 委托工具
-│   ├── chart_tool.rs  # 图表工具
-│   ├── skill_tool.rs  # 技能工具
-│   ├── user_memory.rs # 用户记忆工具
-│   ├── search_tools.rs# 搜索工具
-│   ├── semantic_search.rs
-│   ├── chat_search.rs # 会话搜索
-│   └── vision_tool.rs # 视觉工具
-├── core/
-│   ├── mod.rs         # AppCore (统一的运行时状态)
-│   ├── engine/        # chat_loop + 消息构建 + smart_compress
-│   │   ├── mod.rs
-│   │   ├── builder.rs
-│   │   └── execution.rs
-│   ├── context.rs     # ContextManager (自适应 token 压缩)
-│   ├── executor.rs    # ToolExecutor (超时/重试/并行)
-│   └── orchestrator.rs # Plan-then-Execute (实验性/配置可选)
-├── router.rs          # TaskRouter (多模型路由)
-├── session.rs         # SessionManager + 会话状态机
-├── semantic.rs        # EmbeddingSearch (TF-IDF + 向量语义搜索)
-├── memory.rs          # CrossSessionMemory (跨会话用户记忆)
-├── skill_store.rs     # 技能文档存储
-├── tool_cache.rs      # 工具文档缓存 (skill teach)
-├── completion.rs      # 输入补全
-├── theme.rs           # 主题定制 (theme.json)
-├── plugin.rs          # 插件自动发现
-├── convstore.rs       # 会话搜索存储
-├── stats/             # Token 用量统计
-│   ├── mod.rs
-│   └── store.rs
-├── utils.rs           # 工具函数 (ansi 处理, JSON 前缀查找, smart_truncate)
-├── gateway/           # 社交平台集成 (Telegram/WeChat)
+│   ├── chat/          # 聊天消息渲染
+│   │   ├── mod.rs, scroller.rs, markdown.rs
+│   │   └── components/ # assistant/user/tool_call/error/image/...
+│   ├── sidebar.rs, input.rs, status.rs, title.rs, panels.rs
+│   └── completions.rs, utils.rs
+├── serve/             # [serve 模式] HTTP 服务器
+│   └── mod.rs         # AppState, auth_guard, UserId, run()
+├── dashboard/         # HTTP API 路由 + 静态服务
+│   ├── mod.rs         # 模块声明
+│   ├── routes.rs      # 所有 /api/* 处理器
+│   └── assets.rs      # SPA 静态文件服务 (rust-embed)
+├── gateway/           # 社交平台适配器
 │   ├── mod.rs
 │   ├── telegram.rs
 │   └── wechat.rs
-└── dashboard/         # Web Dashboard
-    ├── mod.rs
-    ├── routes.rs
-    └── assets.rs
+└── completion.rs      # 终端输入补全
+```
+
+### i-rs-claw-core (AI 引擎库)
+
+`crates/claw-core/` — 纯 lib crate (无 main.rs)，包含所有共享核心逻辑：
+
+```
+crates/claw-core/src/
+├── lib.rs            # 公共模块导出
+├── app.rs            # Message 枚举 (User, Assistant, ToolCall, ...)
+├── config.rs         # Config, AgentConfig, ProviderConfig
+├── core/             # AppCore + 引擎
+│   ├── mod.rs        # AppCore (存储 + session + agent store)
+│   └── engine/       # chat_loop (ReAct), builder, execution
+├── providers/        # LLM 提供者 (OpenAI, Anthropic, Ollama, Zhipu)
+├── tools/            # 工具注册表 (24 个工具: i_rs, web_search, file_ops, ...)
+├── storage/          # 存储后端 (File, SQLite, MySQL, Postgres, Mongo, Redis)
+├── session.rs        # SessionManager
+├── memory.rs         # 跨会话用户记忆
+├── stats/            # Token 用量统计
+├── mcp.rs            # MCP 协议客户端
+├── semantic.rs       # 语义搜索
+├── skill_store.rs    # 技能文档存储
+├── plugin.rs         # 插件自动发现
+├── llm.rs            # LlmEvent 枚举, TokenUsage
+├── utils.rs          # sync_block_on, atomic_write, claw_dir
+└── theme.rs          # 主题定制 (依赖 ratatui for Color)
 ```
 
 ### 核心架构
 
 ```
-用户输入 → AppCore.build_messages_for()
-              ↓
-          engine::build_messages()  → 构建 API 消息列表 (系统提示词 + 历史 + 工具索引)
-              ↓
-          engine::chat_loop()       → ReAct 循环 (stream→tool_call→result→loop→done)
-              ↓
-          LlmEvent 流               → Token / ToolExecuted / Error / Done
-              ↓
-          TUI 渲染 (ui.rs)           → 实时显示
+claw serve  ──→  HTTP API (axum) + Web Dashboard (React SPA)
+claw tui    ──→  Terminal UI (ratatui)
+                  ↓
+             claw-core (共享 lib)
+              ├── chat_loop (ReAct)
+              ├── LLM providers
+              ├── ToolRegistry
+              ├── Storage backends
+              └── Session + Memory
 ```
 
 **关键数据流**:
 - `Config` → `AgentConfig` (每个 Agent 可独立配置 provider/model/tools)
-- `AppCore` 是全局单例，持有 `SessionManager`, `AgentRuntimeStore` (每 Agent 的 memory/tool_cache/skill_store/mcp)
-- `chat_loop` 是纯 ReAct: stream → 收到 tool_calls → 并行执行 → 结果塞回消息 → 再次请求 LLM → 直到 LLM 返回文本
+- `AppCore` 是全局单例，持有 `SessionManager`, `AgentRuntimeStore`
+- `chat_loop` 是纯 ReAct: stream → tool_calls → 执行 → 结果 → LLM → 直到文本响应
+- TUI 直连 claw-core (零网络开销)，Web/小程序/App 通过 HTTP API
 
 ### Config 文件 (~/.i-rs/claw/config.toml)
 
 ```toml
+default_provider = "default"
+
+[providers.default]
 provider = "openai"
 api_key = "sk-xxx"
-base_url = "https://api.openai.com/v1"
-model = "gpt-4o-mini"
-# execution_mode = "PlanThenExecute"  # 实验性，默认 ReAct
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"
 
-[agents.chatgpt]
+# Dashboard 配置
+[dashboard]
+host = "0.0.0.0"
+port = 3000
+# auth_token = "my-secret"    # 未设置则自动生成 UUID
+
+# 多用户模式 (可选)
+# [[dashboard.users]]
+# id = "alice"
+# token = "alice-token-xxx"
+
+[agents.analyst]
+provider_ref = "default"
 model = "gpt-4o"
-
-[agents.claude]
-provider = "anthropic"
-api_key = "sk-ant-xxx"
-
-[sub_agents.analyst]
-model = "o3-mini"
-capabilities = ["数据分析", "代码生成"]
+capabilities = ["数据分析"]
 
 [[mcp_servers]]
 name = "playwright"
@@ -296,15 +332,20 @@ transport_type = "stdio"
 command = "npx @anthropic-ai/claude-code-mcp"
 ```
 
+完整示例见 [config.example.toml](crates/claw/config.example.toml)。
+
 ### 开发规范
 
 1. **不要用 `i-rs-core`** — claw 直接调 CLI 二进制进程 (`std::process::Command`)
 2. **所有异步操作走 tokio** — `tokio::spawn` + `mpsc` 通道
-3. **LLM 流式事件** — 通过 `LlmEvent` 枚举传递给 TUI
-4. **工具添加** — 在 `tools/` 下新建文件，注册到 `ToolRegistry`
-5. **测试** — `cargo test -p i-rs-claw` (206 tests, 需要 `--test-threads=1` 避免 env var 竞争)
-6. **文档** — 无需 `docs/crates/` 或 `skills/`，无 README 要求
+3. **LLM 流式事件** — 通过 `LlmEvent` 枚举传递 (token/tool_executed/new_round/done/error)
+4. **工具添加** — 在 `claw-core/src/tools/` 下新建文件，注册到 `ToolRegistry`
+5. **测试** — `cargo test -p i-rs-claw --features dashboard -- --test-threads=1`
+6. **文档** — 无需 `docs/crates/` 或 `skills/`，有 README.md 在 crates/claw/
 7. **Dashboard 开发** — 需要 `dashboard` feature：`cargo check --features dashboard`
+8. **Serve 模式** — `claw serve` 是默认命令；`mod serve` 和 `mod dashboard` 都 gated behind `#[cfg(feature = "dashboard")]`
+9. **前端开发** — `cd crates/claw/dashboard-ui && pnpm dev` (Vite 代理 /api 到 localhost:3000)
+10. **死代码检查** — claw/ 下只保留有 `mod` 声明的文件，所有核心代码在 claw-core
 
 ---
 
@@ -427,10 +468,11 @@ apps/IrsClawMiniProgram/
 
 | 客户端 | 平台 | UI 框架 | 核心场景 | 数据源 |
 |--------|------|---------|---------|--------|
-| `i-rs-claw` | 终端 (macOS/Linux) | ratatui (TUI) | AI 对话 + 工具调用 | CLI 二进制 + MCP |
-| `dashboard-ui` | 浏览器 (Web) | React (嵌入 claw) | 数据可视化 + 管理 | i-rs-api |
-| `IrsClawApp` | macOS/iPad/iOS | SwiftUI | 原生 AI 助理 | i-rs-api |
-| `IrsClawMiniProgram` | 微信 (iOS/Android) | WXML + WXSS | 移动端快速查询 + 录入 | i-rs-api |
+| `i-rs-claw` | 终端 (macOS/Linux) | ratatui (TUI) | AI 对话 + 工具调用 (tui 模式) | CLI 二进制 + MCP |
+| `i-rs-claw serve` | 服务器 (HTTP) | axum + React SPA | API 网关 + Web Dashboard | claw-core |
+| `dashboard-ui` | 浏览器 (Web) | React (独立 SPA) | 数据可视化 + Chat + 系统管理 | claw serve HTTP API |
+| `IrsClawApp` | macOS/iPad/iOS | SwiftUI | 原生 AI 助理 | claw serve HTTP API |
+| `IrsClawMiniProgram` | 微信 (iOS/Android) | WXML + WXSS | 移动端快速查询 + 录入 | claw serve HTTP API |
 
 ### 适配原则
 
@@ -522,8 +564,9 @@ CI (cargo-dist) 自动构建并发布到 GitHub Releases / npm / Homebrew。
 - `docs/.vitepress/config.ts` — VitePress 侧边栏配置
 - `.github/workflows/check.yml` — CI
 - `.github/workflows/release.yml` — 发布自动化
-- `crates/claw/src/` — claw 源码（67 个源文件，最大 crate）
+- `crates/claw/src/` — claw 源码（47 个源文件，最大 crate）
 - `crates/claw/prompts/system.md` — LLM 系统提示词
+- `crates/claw-core/src/` — AI 引擎库源码
 - `crates/cli-api/src/update.rs` — 通用 JSON 合并/部分更新工具
 - `crates/mcp/src/main.rs` — MCP 服务器入口
 - `crates/core/src/` — 共享库源码
