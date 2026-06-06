@@ -644,17 +644,20 @@ impl AppCore {
             return self.tool_index_cache.clone();
         }
 
-        let names: Vec<&str> = self
-            .config
-            .i_rs_tools
-            .iter()
-            .filter(|n| enabled.contains(*n) && self.config.i_rs_tool_index.contains_key(*n))
-            .map(|n| n.as_str())
-            .collect();
-        if names.is_empty() {
-            return String::new();
+        let mut result = String::from("## i-rs 工具索引\n\n");
+        for name in &self.config.i_rs_tools {
+            if !enabled.contains(name) {
+                continue;
+            }
+            if let Some(desc) = self.config.i_rs_tool_index.get(name) {
+                if !desc.is_empty() {
+                    result.push_str(&format!("- {}: {}\n", name, desc));
+                } else {
+                    result.push_str(&format!("- {}\n", name));
+                }
+            }
         }
-        format!("## i-rs 工具索引\n\n{}\n", names.join(", "))
+        result
     }
 
     /// Compress API messages after a conversation turn completes.
@@ -914,16 +917,17 @@ fn build_full_tool_index(config: &Config) -> String {
     if config.i_rs_tool_index.is_empty() {
         return String::new();
     }
-    let names: Vec<&str> = config
-        .i_rs_tools
-        .iter()
-        .filter(|n| config.i_rs_tool_index.contains_key(*n))
-        .map(|n| n.as_str())
-        .collect();
-    if names.is_empty() {
-        return String::new();
+    let mut result = String::from("## i-rs 工具索引\n\n");
+    for name in &config.i_rs_tools {
+        if let Some(desc) = config.i_rs_tool_index.get(name) {
+            if !desc.is_empty() {
+                result.push_str(&format!("- {}: {}\n", name, desc));
+            } else {
+                result.push_str(&format!("- {}\n", name));
+            }
+        }
     }
-    format!("## i-rs 工具索引\n\n{}\n", names.join(", "))
+    result
 }
 
 /// Central side-effect handler for tool execution results.
