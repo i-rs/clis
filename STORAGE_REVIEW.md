@@ -1,8 +1,10 @@
-# claw Storage 抽象层审查报告 (v3)
+# claw Storage 抽象层审查报告 (v4)
 
 **审查范围:** `crates/claw/src/storage/` 全 5 后端 (file / sql / mongo / redis)、`message/`、`session.rs` + gateway 消费者。
 
-**审查日期:** 2026-06-06 (v3, 基于 commits `547b8576` ~ `859858f4`)
+**审查日期:** 2026-06-06 (v4, 基于 commit `3db2b06d`)
+
+**v4 变更:** Phase 4 完成。修复全部 11 个问题：4 CRITICAL (3.1-3.4) + 5 HIGH (3.5-3.9) + 2 MEDIUM (3.15, 3.16)。剩余 11 个问题 (3.10-3.14 + L1-L16) 转为 Phase 5+ 处理。
 
 **v3 变更:** 基于 Phase 1.5 + Phase 2 + Phase 3 (#16) 修复后的全量重审。所有 5 后端 compile 通过 + 全部 tests pass。发现 25 个新问题/遗留问题。
 
@@ -12,11 +14,9 @@
 
 **整体评价:** 抽象层架构坚实 — 8 个 trait 设计合理，5 个后端全部通过 trait 一致性检查，383 个测试通过，clippy 0 警告。
 
-**剩余风险:** 存在 3 个 CRITICAL 数据丢失/一致性 bug 和 6 个 HIGH 级问题。最严重的涉及:
-- 序列号并发竞争（所有 SQL 后端）
-- 静默数据损坏（File 后端 deserialize 失败）
-- PostgreSQL 运行时崩溃（JSONB 类型不匹配）
-- SessionManager 写穿导致数据丢失
+**Phase 4 成果:** 已修复全部 11 个核心问题（4 CRITICAL + 5 HIGH + 2 MEDIUM）。所有已知数据丢失、静默损坏、并发竞争、TOCTOU 竞态均已解决。
+
+**剩余风险:** 存在 5 个中低优先级问题（3.10-3.14）及 16 个 LOW 问题。主要涉及性能优化（search N+1、批量操作）和边缘情况（Mongo 事务、孤儿数据清理），无 CRITICAL/HIGH 风险。
 
 ---
 
@@ -40,7 +40,7 @@
 
 ## 3. 新发现 / 遗留问题 (按严重性排序)
 
-### 3.1 🔴 CRITICAL: SessionManager `unwrap_or_default()` 在 `load_all` 失败时写穿数据
+### 3.1 ✅ FIXED (Phase 4) — 🔴 CRITICAL: SessionManager `unwrap_or_default()` 在 `load_all` 失败时写穿数据
 
 **位置:** `session.rs:122`
 
@@ -58,7 +58,7 @@ let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().a
 
 ---
 
-### 3.2 🔴 CRITICAL: SQL `message_log` 无 `UNIQUE(session_id, seq)` 约束 — 首次写入并发竞争
+### 3.2 ✅ FIXED (Phase 4) — 🔴 CRITICAL: SQL `message_log` 无 `UNIQUE(session_id, seq)` 约束 — 首次写入并发竞争
 
 **位置:** `sql/sqlite.rs:83-88`, `sql/mysql.rs:150`, `sql/postgres.rs:139-144`
 
@@ -72,7 +72,7 @@ let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().a
 
 ---
 
-### 3.3 🔴 CRITICAL: PostgreSQL `payload JSONB` 被读取为 `String` — 运行时崩溃
+### 3.3 ✅ FIXED (Phase 4) — 🔴 CRITICAL: PostgreSQL `payload JSONB` 被读取为 `String` — 运行时崩溃
 
 **位置:** `sql/mod.rs:185-196` (load), `sql/mod.rs:247-250` (search), `sql/postgres.rs:134` (schema)
 
@@ -88,7 +88,7 @@ sqlx binary 协议对 JSONB 列返回 `serde_json::Value`，不是 `String`。**
 
 ---
 
-### 3.4 🔴 CRITICAL: `save_session` 在 session 不在 index 时静默 no-op
+### 3.4 ✅ FIXED (Phase 4) — 🔴 CRITICAL: `save_session` 在 session 不在 index 时静默 no-op
 
 **位置:** `session.rs:448-450`
 
@@ -105,7 +105,7 @@ fn save_session(&self, id: &str) {
 
 ---
 
-### 3.5 🟠 HIGH: File 后端 `unwrap_or_default()` 在 deserialize 失败时静默返回空数据
+### 3.5 ✅ FIXED (Phase 4) — 🟠 HIGH: File 后端 `unwrap_or_default()` 在 deserialize 失败时静默返回空数据
 
 **位置:** `file.rs:218` (`ApiCacheRepo::load`), `file.rs:266` (`PlanStepsRepo::load`), `file.rs:606` (`ToolCacheRepo::load`)
 
@@ -119,7 +119,7 @@ Ok(serde_json::from_str(&content).unwrap_or_default())
 
 ---
 
-### 3.6 🟠 HIGH: File 后端 TOCTOU 竞态在 `SessionRepo::upsert` / `delete_one`
+### 3.6 ✅ FIXED (Phase 4) — 🟠 HIGH: File 后端 TOCTOU 竞态在 `SessionRepo::upsert` / `delete_one`
 
 **位置:** `file.rs:160-178`
 
@@ -129,7 +129,7 @@ Ok(serde_json::from_str(&content).unwrap_or_default())
 
 ---
 
-### 3.7 🟠 HIGH: File 后端 I/O 错误被 `map_while(Result::ok)` 静默截断
+### 3.7 ✅ FIXED (Phase 4) — 🟠 HIGH: File 后端 I/O 错误被 `map_while(Result::ok)` 静默截断
 
 **位置:** `file.rs:689` (`load`), `file.rs:740` (`search`), `file.rs:776` (`count`)
 
@@ -143,7 +143,7 @@ BufReader::new(file).lines().map_while(Result::ok)
 
 ---
 
-### 3.8 🟠 HIGH: File 后端 search 与 load_all 对 `index.json` 损坏的处理不一致
+### 3.8 ✅ FIXED (Phase 4) — 🟠 HIGH: File 后端 search 与 load_all 对 `index.json` 损坏的处理不一致
 
 **位置:** `file.rs:718-724`
 
@@ -160,7 +160,7 @@ std::fs::read_to_string(&index_path)
 
 ---
 
-### 3.9 🟠 HIGH: Gateway 绕过 `append_new_messages` 直接调 `message_log().append_batch()`
+### 3.9 ✅ FIXED (Phase 4) — 🟠 HIGH: Gateway 绕过 `append_new_messages` 直接调 `message_log().append_batch()`
 
 **位置:** `gateway/mod.rs:283-296`, `session.rs:363`
 
@@ -236,7 +236,7 @@ std::fs::copy(&path, &bak).ok();  // ← 总是忽略错误
 
 ---
 
-### 3.15 🟡 MEDIUM: `serde_json::to_string(&s.state).unwrap_or_default()` 静默损坏状态
+### 3.15 ✅ FIXED (Phase 4) — 🟡 MEDIUM: `serde_json::to_string(&s.state).unwrap_or_default()` 静默损坏状态
 
 **位置:** `sql/mod.rs:88,110`, `mongo.rs:202`
 
@@ -246,7 +246,7 @@ std::fs::copy(&path, &bak).ok();  // ← 总是忽略错误
 
 ---
 
-### 3.16 🟡 MEDIUM: `append_batch` 不更新 session 的 `message_count` 列
+### 3.16 ✅ FIXED (Phase 4) — 🟡 MEDIUM: `append_batch` 不更新 session 的 `message_count` 列
 
 **位置:** `sql/mod.rs:140-171` vs `session.rs:384-392`
 
@@ -285,22 +285,23 @@ std::fs::copy(&path, &bak).ok();  // ← 总是忽略错误
 |------|------|--------|-------|------------|-------|-------|
 | 编译 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 测试 | ✅ | ✅ (383 pass) | — | — | — | — |
-| 基础 CRUD | ✅ | ✅ | ✅ | ⚠️ (F3) | ✅ | ✅ |
-| session 写保护 | ❌ (3.6) | ⚠️ (3.2) | ⚠️ (3.2) | ⚠️ (3.2) | ⚠️ (3.13) | ✅ (Lua 原子) |
-| 损坏容忍 | ❌ (3.5) | ✅ | ✅ | ❌ (3.3) | ⚠️ (3.15) | ✅ |
-| 搜索 | ⚠️ (3.8) | ⚠️ (3.10) | ⚠️ (3.10) | ❌ (3.3) | ⚠️ (3.4) | ❌ (L13) |
+| 基础 CRUD | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| session 写保护 | ✅ | ✅ | ✅ | ✅ | ⚠️ (3.13) | ✅ (Lua 原子) |
+| 损坏容忍 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 搜索 | ✅ | ⚠️ (3.10) | ⚠️ (3.10) | ⚠️ (3.10) | ⚠️ (3.4) | ❌ (L13) |
 | Schema 迁移 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
 ## 5. 推荐修复路线
 
-| 阶段 | 问题 | 预估工作量 |
-|------|------|-----------|
-| Phase 4 | 3.1 (SessionManager write-through) + 3.4 (save_session no-op) | 中 |
-| Phase 4 | 3.2 (UNIQUE seq 约束) + 3.3 (PG TEXT payload) | 中 |
-| Phase 4 | 3.5 (File unwrap_or_default) + 3.7 (I/O 截断) + 3.8 (search 不一致) | 中 |
-| Phase 5 | 3.6 (Session TOCTOU lock) + 3.9 (Gateway 绕过) | 中 |
-| Phase 5 | 3.10 (search N+1) + 3.12 (批量操作) | 大 |
-| Phase 6 | 3.11 (.bak 清理) + 3.13 (Mongo 事务) + 3.14 (孤儿数据) | 小-中 |
-| Backlog | L1-L16 (低优先级) | 小 |
+| 阶段 | 状态 | 问题 | 预估工作量 |
+|------|------|------|-----------|
+| Phase 4 | ✅ 已完成 | 3.1 (SessionManager write-through) + 3.4 (save_session no-op) | 中 |
+| Phase 4 | ✅ 已完成 | 3.2 (UNIQUE seq 约束) + 3.3 (PG TEXT payload) | 中 |
+| Phase 4 | ✅ 已完成 | 3.5 (File unwrap_or_default) + 3.7 (I/O 截断) + 3.8 (search 不一致) | 中 |
+| Phase 4 | ✅ 已完成 | 3.6 (Session TOCTOU lock) + 3.9 (Gateway 绕过) | 中 |
+| Phase 4 | ✅ 已完成 | 3.15 (state 序列化) + 3.16 (append_batch message_count) | 小 |
+| Phase 5 | 🔲 待处理 | 3.10 (search N+1) + 3.12 (批量操作) | 大 |
+| Phase 6 | 🔲 待处理 | 3.11 (.bak 清理) + 3.13 (Mongo 事务) + 3.14 (孤儿数据) | 小-中 |
+| Backlog | 🔲 待处理 | L1-L16 (低优先级) | 小 |
