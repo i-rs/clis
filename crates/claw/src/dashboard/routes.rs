@@ -90,6 +90,7 @@ fn build_sse_stream(
                             .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
                         acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
                         let finalized = acc.into_messages();
+                        acc = MessageAccumulator::new();
                         if let Err(e) = core.session_mgr.persist_messages(&sid, &finalized) {
                             tracing::error!("persist_messages (Done) 失败: {}", e);
                         }
@@ -116,6 +117,7 @@ fn build_sse_stream(
                     LlmEvent::Error(e) => {
                         acc.apply(&LlmEvent::Error(e.clone()));
                         let finalized = acc.into_messages();
+                        acc = MessageAccumulator::new();
                         {
                             let mut core = state.core.write().await;
                             core.session_mgr.mark_error(&sid, &e);
@@ -158,7 +160,8 @@ fn build_sse_stream(
                     _ => continue,
                 }
                 seq += 1;
-                return Some((Ok::<_, Infallible>(sse_event), (if keep_rx { Some(rx) } else { None }, state, sid, MessageAccumulator::new(), seq)));
+                let (next_rx, next_acc) = if keep_rx { (Some(rx), acc) } else { (None, MessageAccumulator::new()) };
+                return Some((Ok::<_, Infallible>(sse_event), (next_rx, state, sid, next_acc, seq)));
             }
         },
     );
