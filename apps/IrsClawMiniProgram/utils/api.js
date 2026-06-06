@@ -188,6 +188,7 @@ function sendMessageAndStream(message, agentId, handlers) {
   var currentEvent = ''
   var currentData = ''
   var doneFired = false
+  var extractedSessionId = null
 
   function processLine(line) {
     if (line.indexOf('event: ') === 0) {
@@ -199,7 +200,16 @@ function sendMessageAndStream(message, agentId, handlers) {
       // blank line = event boundary
       if (currentEvent && currentData) {
         handleSseEvent(currentEvent, currentData, handlers)
-        if (currentEvent === 'done') doneFired = true
+        if (currentEvent === 'done') {
+          doneFired = true
+          // Extract session_id from done event data
+          try {
+            var doneData = JSON.parse(currentData)
+            if (doneData.session_id) {
+              extractedSessionId = doneData.session_id
+            }
+          } catch (e) {}
+        }
       }
       currentEvent = ''
       currentData = ''
@@ -220,14 +230,13 @@ function sendMessageAndStream(message, agentId, handlers) {
     url: url + '/chat',
     method: 'POST',
     data: body,
+    dataType: 'text',
     header: Object.assign({ 'Content-Type': 'application/json' }, authHeader()),
-    enableChunked: true,
-    timeout: STREAM_TIMEOUT,
+    timeout: 60000,
     success: function (res) {
       if (task.aborted) return
-      // With enableChunked:true the body comes via onChunkReceived, but
-      // some platforms may still deliver a final payload here. Drain it
-      // to be safe, then ensure onDone is fired exactly once.
+      // The SSE response may arrive either via onChunkReceived (if enableChunked
+      // is supported) or as a complete body in res.data here. Drain both paths.
       if (res && res.statusCode === 401) {
         if (handlers.onError) handlers.onError({ error: '认证失败', code: 'UNAUTHORIZED' })
         return
@@ -235,6 +244,12 @@ function sendMessageAndStream(message, agentId, handlers) {
       if (res && res.statusCode >= 400) {
         if (handlers.onError) handlers.onError({ error: '请求失败 (HTTP ' + res.statusCode + ')', code: 'REQUEST_ERROR' })
         return
+      }
+      // Fallback: if data came through res.data directly (e.g., when enableChunked
+      // doesn't work with POST), feed it through the same parser.
+      // res.data may be a parsed JSON object (not SSE text) — only feed strings.
+      if (res && res.data && typeof res.data === 'string') {
+        feedChunk(res.data)
       }
       // Flush any trailing partial event that didn't end with a blank line
       if (buffer) {
@@ -246,13 +261,21 @@ function sendMessageAndStream(message, agentId, handlers) {
         }
         if (currentEvent && currentData) {
           handleSseEvent(currentEvent, currentData, handlers)
-          if (currentEvent === 'done') doneFired = true
+          if (currentEvent === 'done') {
+            doneFired = true
+            try {
+              var doneDataTail = JSON.parse(currentData)
+              if (doneDataTail.session_id) {
+                extractedSessionId = doneDataTail.session_id
+              }
+            } catch (e) {}
+          }
           currentEvent = ''
           currentData = ''
         }
       }
       if (!doneFired && handlers.onDone) {
-        handlers.onDone(null, null, sessionId)
+        handlers.onDone(null, null, extractedSessionId)
       }
     },
     fail: function (err) {
@@ -262,12 +285,26 @@ function sendMessageAndStream(message, agentId, handlers) {
   })
 
   // Handle chunked response data
-  realTask.onChunkReceived(function (res) {
-    if (task.aborted) return
-    if (res && res.data) {
-      feedChunk(res.data)
-    }
-  })
+  try {
+    realTask.onChunkReceived(function (res) {
+      if (task.aborted) return
+      if (!res || !res.data) return
+      // onChunkReceived returns ArrayBuffer; decode UTF-8 to string
+      try {
+        var bytes = new Uint8Array(res.data)
+        var text = ''
+        for (var i = 0; i < bytes.length; i++) {
+          text += String.fromCharCode(bytes[i])
+        }
+        try {
+          text = decodeURIComponent(escape(text))
+        } catch (e) {}
+        if (text.length > 0) {
+          feedChunk(text)
+        }
+      } catch (e) {}
+    })
+  } catch (e) {}
 
   task._realTask = realTask
   return task
