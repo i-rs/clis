@@ -40,6 +40,7 @@ use crate::storage::{
 
 #[derive(Clone)]
 pub struct MongoBackend {
+    client: mongodb::Client,
     db: mongodb::Database,
 }
 
@@ -47,7 +48,7 @@ impl MongoBackend {
     pub async fn new(url: &str, db_name: &str) -> anyhow::Result<Self> {
         let client = mongodb::Client::with_uri_str(url).await?;
         let db = client.database(db_name);
-        let backend = Self { db };
+        let backend = Self { client, db };
         backend.ensure_indexes().await?;
         Ok(backend)
     }
@@ -121,10 +122,20 @@ impl SessionRepo for MongoSessionStore {
 
     async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
         if sessions.is_empty() {
-            // Delete all
+            tracing::warn!("save_all(empty): 清空所有 session + message_log + seq_counters");
             self.db
                 .db
                 .collection::<Document>("sessions")
+                .delete_many(doc! {})
+                .await?;
+            self.db
+                .db
+                .collection::<Document>("message_log")
+                .delete_many(doc! {})
+                .await?;
+            self.db
+                .db
+                .collection::<Document>("seq_counters")
                 .delete_many(doc! {})
                 .await?;
             return Ok(());
@@ -164,7 +175,7 @@ impl SessionRepo for MongoSessionStore {
     }
 
     async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
-        let mut doc = session_meta_to_doc(session);
+        let mut doc = session_meta_to_doc(session)?;
         doc.insert("_id", session.id.clone());
         self.db
             .db
@@ -239,41 +250,63 @@ impl MessageLog for MongoMessageLog {
             return Ok(());
         }
 
-        // Atomically reserve seq range via findOneAndUpdate on counter doc
-        let counter_coll = self.db.db.collection::<Document>("seq_counters");
-        let result = counter_coll
-            .find_one_and_update(
-                doc! { "_id": session_id },
-                doc! { "$inc": { "next_seq": messages.len() as i64 } },
-            )
-            .upsert(true)
-            .return_document(ReturnDocument::Before)
+        // Use a transaction so seq counter reservation + message inserts
+        // are all-or-nothing, satisfying the trait contract.
+        let mut session = self.db.client.start_session().await?;
+        session
+            .start_transaction()
             .await?;
 
-        let prev_seq = result.and_then(|d| d.get_i64("next_seq").ok()).unwrap_or(0);
-        let start_seq = prev_seq + 1;
+        let result: anyhow::Result<()> = async {
+            let counter_coll = self.db.db.collection::<Document>("seq_counters");
+            let result = counter_coll
+                .find_one_and_update(
+                    doc! { "_id": session_id },
+                    doc! { "$inc": { "next_seq": messages.len() as i64 } },
+                )
+                .upsert(true)
+                .return_document(ReturnDocument::Before)
+                .session(&mut session)
+                .await?;
 
-        let docs: Vec<Document> = messages
-            .iter()
-            .enumerate()
-            .map(|(i, msg)| {
-                let rec = StoredRecord::from_message(msg)?;
-                Ok(doc! {
-                    "session_id": session_id,
-                    "seq": start_seq + i as i64,
-                    "ts": rec.ts,
-                    "schema_v": rec.schema_v as i32,
-                    "payload": serde_json::to_string(&rec.payload)?,
+            let prev_seq = result.and_then(|d| d.get_i64("next_seq").ok()).unwrap_or(0);
+            let start_seq = prev_seq + 1;
+
+            let docs: Vec<Document> = messages
+                .iter()
+                .enumerate()
+                .map(|(i, msg)| {
+                    let rec = StoredRecord::from_message(msg)?;
+                    Ok(doc! {
+                        "session_id": session_id,
+                        "seq": start_seq + i as i64,
+                        "ts": rec.ts,
+                        "schema_v": rec.schema_v as i32,
+                        "payload": serde_json::to_string(&rec.payload)?,
+                    })
                 })
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<anyhow::Result<Vec<_>>>()?;
 
-        self.db
-            .db
-            .collection::<Document>("message_log")
-            .insert_many(&docs)
-            .await?;
-        Ok(())
+            self.db
+                .db
+                .collection::<Document>("message_log")
+                .insert_many(&docs)
+                .session(&mut session)
+                .await?;
+
+            Ok(())
+        }.await;
+
+        match result {
+            Ok(()) => {
+                session.commit_transaction().await?;
+                Ok(())
+            }
+            Err(e) => {
+                let _ = session.abort_transaction().await;
+                Err(e)
+            }
+        }
     }
 
     async fn load(

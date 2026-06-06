@@ -111,10 +111,16 @@ impl MySqlBackend {
         .fetch_optional(&self.pool)
         .await?;
         // CREATE INDEX IF NOT EXISTS is not supported by MySQL; try creation
-        // and silently ignore "duplicate" errors from idempotent re-runs.
-        let _ = sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)")
+        // and ignore only "duplicate key" errors from idempotent re-runs.
+        if let Err(e) = sqlx::query("CREATE INDEX idx_token_ts ON token_records(timestamp)")
             .execute(&self.pool)
-            .await;
+            .await
+        {
+            let msg = e.to_string();
+            if !msg.contains("Duplicate") && !msg.contains("already exists") {
+                return Err(anyhow::anyhow!("创建 token_records 索引失败: {}", e));
+            }
+        }
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS skills (

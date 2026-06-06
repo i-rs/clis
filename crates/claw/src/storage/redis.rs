@@ -135,6 +135,9 @@ impl SessionRepo for RedisSessionStore {
             if !incoming_ids.contains(id.as_str()) {
                 pipe.cmd("ZREM").arg(SESSIONS_ZSET).arg(id).ignore();
                 pipe.cmd("DEL").arg(session_key(id)).ignore();
+                // Clean up orphaned message log
+                pipe.cmd("DEL").arg(msg_zset_key(id)).ignore();
+                pipe.cmd("DEL").arg(msg_seq_key(id)).ignore();
             }
         }
         for s in sessions {

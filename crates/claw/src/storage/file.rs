@@ -143,11 +143,6 @@ impl SessionRepo for FileSessionStore {
         let content = serde_json::to_string_pretty(sessions)?;
         blocking(move || {
             ensure_dir(&path)?;
-            // 备份旧文件 (如果存在)
-            if path.exists() {
-                let bak = path.with_extension("json.bak");
-                std::fs::copy(&path, &bak).ok();
-            }
             atomic_write(&path, &content).map_err(anyhow::Error::from)
         })
         .await
@@ -1313,10 +1308,6 @@ mod session_io {
         let path = index_path(claw_dir);
         let content = serde_json::to_string_pretty(sessions)?;
         ensure_dir(&path)?;
-        if path.exists() {
-            let bak = path.with_extension("json.bak");
-            std::fs::copy(&path, &bak).ok();
-        }
         atomic_write(&path, &content).map_err(anyhow::Error::from)
     }
 }
