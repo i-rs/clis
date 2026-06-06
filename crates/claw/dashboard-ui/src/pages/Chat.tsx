@@ -1,6 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react'
-import { sendMessage, streamChat, getCurrentSession, createSession, listSessions, switchSession, postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage, type ImageGeneratedEvent, type EvaluationEvent, type QualityScore } from '../api'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, List, Brain, Terminal, ChevronDown, ChevronRight, Bot, MessageSquare, Sparkles, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { postFeedback, type ChatMessage, type ToolCallMsg, type TokenUsage, type ImageGeneratedEvent, type EvaluationEvent, type QualityScore } from '../api'
+import { useSessionLoader } from '../hooks/useSessionLoader'
+import { useChatStream } from '../hooks/useChatStream'
+import ChatInput from '../components/ChatInput'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 
 interface Props {
@@ -10,236 +13,95 @@ interface Props {
 }
 
 export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [sessionTitle, setSessionTitle] = useState('')
-  const [hasSession, setHasSession] = useState(false)
-  const [sessionAgent, setSessionAgent] = useState<string | null>(null)
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  const { messages, setMessages, sessionId, sessionTitle, sessionAgent, newChat } = useSessionLoader(selectedAgent)
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<number>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const abortRef = useRef<AbortController | null>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const streamingRef = useRef<{
-    content: string
-    reasoning: string
-    toolCalls: ToolCallMsg[]
-  }>({ content: '', reasoning: '', toolCalls: [] })
-  const [renderTick, setRenderTick] = useState(0)
+  const handleCommit = useCallback((msg: Pick<ChatMessage, 'role' | 'content' | 'reasoning' | 'toolCalls'>) => {
+    setMessages((prev) => [...prev, msg as ChatMessage])
+  }, [setMessages])
 
-  // Instant scroll during streaming (tracks every token/tool event)
-  useEffect(() => {
-    if (loading) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+  const handleImageGenerated = useCallback((evt: ImageGeneratedEvent) => {
+    setMessages((prev) => [...prev, {
+      role: 'image',
+      content: '',
+      image: {
+        path: evt.path,
+        alt_text: evt.alt_text,
+        width: evt.width,
+        height: evt.height,
+        format: evt.format,
+        url: `/api/images/${evt.path}`,
+      },
+    }])
+  }, [setMessages])
+
+  const handleError = useCallback((error: string) => {
+    setMessages((prev) => [...prev, { role: 'error', content: error }])
+  }, [setMessages])
+
+  const handleDone = useCallback((_usage: TokenUsage | null, quality?: QualityScore | null) => {
+    if (_usage || quality) {
+      setMessages((prev) => {
+        const lastIdx = prev.length - 1
+        if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+          const updated = [...prev]
+          if (_usage) updated[lastIdx] = { ...updated[lastIdx], tokenUsage: _usage }
+          if (quality) updated[lastIdx] = { ...updated[lastIdx], quality }
+          return updated
+        }
+        return prev
+      })
     }
-  }, [renderTick, loading])
+  }, [setMessages])
 
-  // Smooth scroll when a new message arrives
-  useEffect(() => {
-    if (messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages])
+  const handleEvaluation = useCallback((evt: EvaluationEvent) => {
+    setMessages((prev) => [...prev, {
+      role: 'evaluation',
+      content: '',
+      evaluation: evt,
+    }])
+  }, [setMessages])
 
-  // Refresh session list after streaming completes (AFTER render, not during onDone)
-  const prevLoading = useRef(loading)
+  const handleQualityScore = useCallback((evt: QualityScore) => {
+    setMessages((prev) => {
+      const lastIdx = prev.length - 1
+      if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+        const updated = [...prev]
+        updated[lastIdx] = { ...updated[lastIdx], quality: evt }
+        return updated
+      }
+      return prev
+    })
+  }, [setMessages])
+
+  const { streaming, state: streamState, sendMessage, abort } = useChatStream({
+    onCommit: handleCommit,
+    onImageGenerated: handleImageGenerated,
+    onError: handleError,
+    onDone: handleDone,
+    onEvaluation: handleEvaluation,
+    onQualityScore: handleQualityScore,
+  })
+
   useEffect(() => {
-    if (prevLoading.current && !loading) {
+    if (!streaming) {
       onSessionChange?.()
     }
-    prevLoading.current = loading
-  }, [loading, onSessionChange])
+  }, [streaming, onSessionChange])
 
-  useEffect(() => {
-    const load = async () => {
-      const resp = await getCurrentSession()
-      if (resp.success && resp.data && resp.data.id) {
-        const sessionAgentId = resp.data.agent_id || 'default'
-        if (sessionAgentId !== selectedAgent) {
-          const sessionsResp = await listSessions()
-          const agentSessions = (sessionsResp.data || [])
-            .filter((s: { agent_id: string }) => (s.agent_id || 'default') === selectedAgent)
-            .sort((a: { created_at: number }, b: { created_at: number }) => b.created_at - a.created_at)
-          if (agentSessions.length > 0) {
-            const recent = agentSessions[0]
-            await switchSession(recent.id)
-            const sessionResp = await getCurrentSession()
-            if (sessionResp.success && sessionResp.data) {
-              setHasSession(true)
-              setSessionTitle(sessionResp.data.title || 'Untitled')
-              const sessAgent = sessionResp.data.agent_id || null
-              if (sessAgent) setSessionAgent(sessAgent)
-              const raw: any[] = sessionResp.data.messages || []
-              const msgs: ChatMessage[] = []
-              let pendingToolCalls: ToolCallMsg[] = []
-              for (const m of raw) {
-                if (m.role === 'user') {
-                  pendingToolCalls = []
-                  msgs.push({ role: 'user', content: m.content || '' })
-                } else if (m.role === 'assistant') {
-                  msgs.push({
-                    role: 'assistant',
-                    content: m.content || '',
-                    reasoning: m.reasoning || undefined,
-                    toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
-                  })
-                  pendingToolCalls = []
-                } else if (m.role === 'tool_call') {
-                  pendingToolCalls.push({
-                    name: m.name || '',
-                    args: m.args || '',
-                    result: m.result || '',
-                    step: 0,
-                    total_steps: 1,
-                  })
-                } else if (m.role === 'image') {
-                  msgs.push({
-                    role: 'image',
-                    content: '',
-                    image: {
-                      path: m.path || '',
-                      alt_text: m.alt_text || '',
-                      width: m.width || 0,
-                      height: m.height || 0,
-                      format: m.format || '',
-                      url: m.url || `/api/images/${m.path || ''}`,
-                    },
-                  })
-                }
-              }
-              setMessages(msgs)
-            }
-          } else {
-            const createResp = await createSession(
-              selectedAgent !== 'default' ? selectedAgent : undefined
-            )
-            if (createResp.success && createResp.data) {
-              setHasSession(true)
-              setSessionTitle('New Chat')
-              setSessionAgent(createResp.data.agent_id || null)
-              setMessages([])
-            }
-          }
-          return
-        }
-        setHasSession(true)
-        setSessionTitle(resp.data.title || 'Untitled')
-        const sessAgent = resp.data.agent_id || null
-        if (sessAgent) setSessionAgent(sessAgent)
-        const raw: any[] = resp.data.messages || []
-        const msgs: ChatMessage[] = []
-        let pendingToolCalls: ToolCallMsg[] = []
-        for (const m of raw) {
-          if (m.role === 'user') {
-            pendingToolCalls = []
-            msgs.push({ role: 'user', content: m.content || '' })
-          } else if (m.role === 'assistant') {
-            msgs.push({
-              role: 'assistant',
-              content: m.content || '',
-              reasoning: m.reasoning || undefined,
-              toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
-            })
-            pendingToolCalls = []
-          } else if (m.role === 'tool_call') {
-            pendingToolCalls.push({
-              name: m.name || '',
-              args: m.args || '',
-              result: m.result || '',
-              step: 0,
-              total_steps: 1,
-            })
-          } else if (m.role === 'evaluation') {
-            msgs.push({
-              role: 'evaluation',
-              content: m.content || '',
-              evaluation: {
-                tool: m.tool || '',
-                valid: m.valid ?? true,
-                issues: m.issues || [],
-              },
-            })
-          } else if (m.role === 'quality') {
-            msgs.push({
-              role: 'quality',
-              content: m.content || '',
-              quality: {
-                score: m.score || '0',
-                complete: m.complete ?? true,
-                issues: m.issues || [],
-                references_valid: m.references_valid ?? false,
-              },
-            })
-          } else if (m.role === 'feedback') {
-            msgs.push({
-              role: 'feedback' as const,
-              content: m.content || '',
-              feedback: {
-                positive: m.positive ?? true,
-                message: m.message || '',
-              },
-            })
-          }
-        }
-        setMessages(msgs)
-      } else {
-        const sessionsResp = await listSessions()
-        const agentSessions = (sessionsResp.data || [])
-          .filter((s: { agent_id: string }) => (s.agent_id || 'default') === selectedAgent)
-          .sort((a: { created_at: number }, b: { created_at: number }) => b.created_at - a.created_at)
-        if (agentSessions.length > 0) {
-          const recent = agentSessions[0]
-          await switchSession(recent.id)
-          const sessionResp = await getCurrentSession()
-          if (sessionResp.success && sessionResp.data) {
-            setHasSession(true)
-            setSessionTitle(sessionResp.data.title || 'Untitled')
-            const sessAgent = sessionResp.data.agent_id || null
-            if (sessAgent) setSessionAgent(sessAgent)
-            const raw: any[] = sessionResp.data.messages || []
-            const msgs: ChatMessage[] = []
-            let pendingToolCalls: ToolCallMsg[] = []
-            for (const m of raw) {
-              if (m.role === 'user') {
-                pendingToolCalls = []
-                msgs.push({ role: 'user', content: m.content || '' })
-              } else if (m.role === 'assistant') {
-                msgs.push({
-                  role: 'assistant',
-                  content: m.content || '',
-                  reasoning: m.reasoning || undefined,
-                  toolCalls: pendingToolCalls.length > 0 ? [...pendingToolCalls] : undefined,
-                })
-                pendingToolCalls = []
-              } else if (m.role === 'tool_call') {
-                pendingToolCalls.push({
-                  name: m.name || '',
-                  args: m.args || '',
-                  result: m.result || '',
-                  step: 0,
-                  total_steps: 1,
-                })
-              }
-            }
-            setMessages(msgs)
-          }
-        } else {
-          const createResp = await createSession(
-            selectedAgent !== 'default' ? selectedAgent : undefined
-          )
-          if (createResp.success && createResp.data) {
-            setHasSession(true)
-            setSessionTitle('New Chat')
-            setSessionAgent(createResp.data.agent_id || null)
-            setMessages([])
-          }
-        }
-      }
-    }
-    load()
-  }, [selectedAgent])
+  const handleSend = useCallback((text: string) => {
+    abort()
+    setMessages((prev) => [...prev, { role: 'user', content: text }])
+    sendMessage(text, selectedAgent !== 'default' ? selectedAgent : undefined)
+  }, [abort, sendMessage, selectedAgent, setMessages])
+
+  const handleNewChat = async () => {
+    if (streaming) return
+    abort()
+    await newChat()
+    setFeedbackSubmitted(new Set())
+  }
 
   const handleFeedback = async (messageIndex: number, positive: boolean) => {
     if (!sessionId || feedbackSubmitted.has(messageIndex)) return
@@ -251,174 +113,19 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
     }
   }
 
-  const handleNewChat = async () => {
-    if (loading) return
-    abortRef.current?.abort()
-    setMessages([])
-    setInput('')
-    setLoading(false)
-    streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
-    setSessionTitle('New Chat')
-    setSessionAgent(null)
-    setSessionId(null)
-    setFeedbackSubmitted(new Set())
-    try {
-      const resp = await createSession(selectedAgent !== 'default' ? selectedAgent : undefined)
-      if (resp.success && resp.data) {
-        setHasSession(true)
-        setSessionAgent(resp.data.agent_id || selectedAgent)
-        onSessionChange?.()
-      }
-    } catch { /* ignore */ }
-  }
-
-  const commitStreaming = useCallback(() => {
-    const s = streamingRef.current
-    if (s.content || s.reasoning || s.toolCalls.length > 0) {
-      setMessages((prev) => [...prev, {
-        role: 'assistant' as const,
-        content: s.content,
-        reasoning: s.reasoning || undefined,
-        toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-      }])
-    }
-    streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
-  }, [])
-
-  const handleSend = async () => {
-    const text = input.trim()
-    if (!text || loading) return
-
-    setInput('')
-    setMessages((prev) => [...prev, { role: 'user', content: text }])
-    setLoading(true)
-    streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
-    setRenderTick((n) => n + 1)
-
-    try {
-      const resp = await sendMessage(text, selectedAgent !== 'default' ? selectedAgent : undefined)
-      if (!resp.success || !resp.data) {
-        setMessages((prev) => [...prev, { role: 'error', content: resp.error || 'Failed to send message' }])
-        setLoading(false)
-        return
-      }
-
-      const sid = resp.data.session_id
-      setSessionId(sid)
-
-      const controller = streamChat(sid, {
-        onReasoning: (reasoningText: string) => {
-          streamingRef.current.reasoning += reasoningText
-          setRenderTick((n) => n + 1)
-        },
-        onToken: (token: string) => {
-          streamingRef.current.content += token
-          setRenderTick((n) => n + 1)
-        },
-        onNewRound: () => {
-          const s = streamingRef.current
-          if (s.content || s.reasoning || s.toolCalls.length > 0) {
-            setMessages((prev) => [...prev, {
-              role: 'assistant',
-              content: s.content,
-              reasoning: s.reasoning || undefined,
-              toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-            }])
-          }
-          streamingRef.current = { content: '', reasoning: '', toolCalls: [] }
-          setRenderTick((n) => n + 1)
-        },
-        onToolExecuted: (evt) => {
-          streamingRef.current.toolCalls.push({
-            name: evt.name,
-            args: evt.args,
-            result: evt.result,
-            step: evt.step,
-            total_steps: evt.total_steps,
-          })
-          setRenderTick((n) => n + 1)
-        },
-        onImageGenerated: (evt: ImageGeneratedEvent) => {
-          commitStreaming()
-          setMessages((prev) => [...prev, {
-            role: 'image',
-            content: '',
-            image: {
-              path: evt.path,
-              alt_text: evt.alt_text,
-              width: evt.width,
-              height: evt.height,
-              format: evt.format,
-              url: `/api/images/${evt.path}`,
-            },
-          }])
-          setRenderTick((n) => n + 1)
-        },
-        onError: (error: string) => {
-          commitStreaming()
-          setMessages((prev) => [...prev, { role: 'error', content: error }])
-          setLoading(false)
-        },
-        onDone: (usage: TokenUsage | null, quality?: QualityScore | null) => {
-          console.log('[DEBUG] onDone received:', JSON.stringify(usage), 'quality:', quality)
-          commitStreaming()
-          if (usage || quality) {
-            setMessages((prev) => {
-              const lastIdx = prev.length - 1
-              if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
-                const updated = [...prev]
-                if (usage) updated[lastIdx] = { ...updated[lastIdx], tokenUsage: usage }
-                if (quality) updated[lastIdx] = { ...updated[lastIdx], quality }
-                return updated
-              }
-              return prev
-            })
-          }
-          setLoading(false)
-        },
-        onEvaluation: (evt: EvaluationEvent) => {
-          setMessages((prev) => [...prev, {
-            role: 'evaluation',
-            content: '',
-            evaluation: evt,
-          }])
-          setRenderTick((n) => n + 1)
-        },
-        onQualityScore: (evt: QualityScore) => {
-          setMessages((prev) => {
-            const lastIdx = prev.length - 1
-            if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
-              const updated = [...prev]
-              updated[lastIdx] = { ...updated[lastIdx], quality: evt }
-              return updated
-            }
-            return prev
-          })
-          setRenderTick((n) => n + 1)
-        },
-      })
-      abortRef.current = controller
-    } catch (err) {
-      setMessages((prev) => [...prev, { role: 'error', content: String(err) }])
-      setLoading(false)
-    }
-  }
+  const hasStreaming = streaming && (streamState.content || streamState.reasoning || streamState.toolCalls.length > 0)
 
   useEffect(() => {
-    return () => {
-      abortRef.current?.abort()
+    if (streaming) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
     }
-  }, [])
+  }, [streamState.content, streamState.reasoning, streamState.toolCalls.length, streaming])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  useEffect(() => {
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }
-
-  const display = streamingRef.current
-  const hasStreaming = loading && (display.content || display.reasoning || display.toolCalls.length > 0)
+  }, [messages])
 
   return (
     <div className="chat-container">
@@ -434,20 +141,18 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
               {sessionAgent || selectedAgent}
             </span>
           )}
-          {hasSession && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => onNavigate?.('sessions')}
-              title="Switch session"
-            >
-              <List size={14} />
-            </button>
-          )}
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => onNavigate?.('sessions')}
+            title="Switch session"
+          >
+            <List size={14} />
+          </button>
         </div>
         <button
           className="btn btn-primary btn-sm"
           onClick={handleNewChat}
-          disabled={loading}
+          disabled={streaming}
         >
           <Plus size={14} />
           New Chat
@@ -455,7 +160,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
       </div>
 
       <div className="chat-messages">
-        {messages.length === 0 && !loading && !hasStreaming && (
+        {messages.length === 0 && !streaming && !hasStreaming && (
           <div className="chat-empty-state">
             <div className="chat-empty-icon">
               <MessageSquare size={32} />
@@ -463,13 +168,13 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             <h3>Start a Conversation</h3>
             <p>Ask Claw anything or let it help manage your personal data</p>
             <div className="chat-suggestions">
-              <button className="suggestion-btn" onClick={() => { setInput('How is my health today?'); inputRef.current?.focus(); }}>
+              <button className="suggestion-btn" onClick={() => handleSend('How is my health today?')}>
                 <Sparkles size={14} /> How is my health today?
               </button>
-              <button className="suggestion-btn" onClick={() => { setInput('Log my weight as 75kg'); inputRef.current?.focus(); }}>
+              <button className="suggestion-btn" onClick={() => handleSend('Log my weight as 75kg')}>
                 <Sparkles size={14} /> Log my weight as 75kg
               </button>
-              <button className="suggestion-btn" onClick={() => { setInput('How did my running go this month?'); inputRef.current?.focus(); }}>
+              <button className="suggestion-btn" onClick={() => handleSend('How did my running go this month?')}>
                 <Sparkles size={14} /> How did my running go this month?
               </button>
             </div>
@@ -485,8 +190,8 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
             sessionId={sessionId}
           />
         ))}
-        {hasStreaming && <StreamingBubble display={display} />}
-        {loading && !hasStreaming && (
+        {hasStreaming && <StreamingBubble display={streamState} />}
+        {streaming && !hasStreaming && (
           <div className="message status">
             <div className="typing-dots">
               <span></span>
@@ -499,28 +204,7 @@ export default function ChatPage({ selectedAgent, onNavigate, onSessionChange }:
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="chat-input-area">
-        <div className="chat-input-container">
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
-            rows={1}
-            disabled={loading}
-          />
-          <button
-            className="send-btn"
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-          >
-            <Send size={15} />
-            Send
-          </button>
-        </div>
-      </div>
+      <ChatInput onSend={handleSend} disabled={streaming} />
     </div>
   )
 }
@@ -602,18 +286,10 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
       )}
       {message.role === 'assistant' && sessionId && !hasFeedback && onFeedback && (
         <div className="message-feedback">
-          <button
-            className="feedback-btn"
-            onClick={() => onFeedback(index, true)}
-            title="Good response"
-          >
+          <button className="feedback-btn" onClick={() => onFeedback(index, true)} title="Good response">
             <ThumbsUp size={14} />
           </button>
-          <button
-            className="feedback-btn"
-            onClick={() => onFeedback(index, false)}
-            title="Bad response"
-          >
+          <button className="feedback-btn" onClick={() => onFeedback(index, false)} title="Bad response">
             <ThumbsDown size={14} />
           </button>
         </div>
@@ -631,28 +307,19 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
           </div>
           <div className="quality-score">
             <div className="score-bar">
-              <div
-                className="score-fill"
-                style={{ width: `${Math.round((parseFloat(message.quality.score) || 0) * 100)}%` }}
-              />
+              <div className="score-fill" style={{ width: `${Math.round((parseFloat(message.quality.score) || 0) * 100)}%` }} />
             </div>
             <span className="score-value">{Math.round((parseFloat(message.quality.score) || 0) * 100)}%</span>
           </div>
           {message.quality.complete && (
-            <div className="quality-complete">
-              <span className="complete-badge">✓ Complete</span>
-            </div>
+            <div className="quality-complete"><span className="complete-badge">✓ Complete</span></div>
           )}
           {message.quality.references_valid && (
-            <div className="quality-refs">
-              <span className="refs-badge">✓ References Valid</span>
-            </div>
+            <div className="quality-refs"><span className="refs-badge">✓ References Valid</span></div>
           )}
           {message.quality.issues.length > 0 && (
             <div className="quality-issues">
-              {message.quality.issues.map((issue, i) => (
-                <div key={i} className="quality-issue">⚠️ {issue}</div>
-              ))}
+              {message.quality.issues.map((issue, i) => <div key={i} className="quality-issue">⚠️ {issue}</div>)}
             </div>
           )}
         </div>
@@ -663,9 +330,7 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
             {message.feedback.positive ? '👍' : '👎'}
             {' '}{message.feedback.positive ? 'Positive' : 'Negative'}
           </span>
-          {message.feedback.message && (
-            <small>{message.feedback.message}</small>
-          )}
+          {message.feedback.message && <small>{message.feedback.message}</small>}
         </div>
       )}
       {message.role === 'evaluation' && message.evaluation && (
@@ -676,9 +341,7 @@ function MessageBubble({ message, index, onFeedback, hasFeedback, sessionId }: {
           <code className="eval-tool">{message.evaluation.tool}</code>
           {message.evaluation.issues.length > 0 && (
             <div className="eval-issues">
-              {message.evaluation.issues.map((issue, i) => (
-                <div key={i} className="eval-issue"><small>{issue}</small></div>
-              ))}
+              {message.evaluation.issues.map((issue, i) => <div key={i} className="eval-issue"><small>{issue}</small></div>)}
             </div>
           )}
         </div>

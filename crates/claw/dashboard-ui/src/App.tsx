@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { Route, Switch, useLocation } from 'wouter'
 import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Lock, Sun, Moon, ChevronDown, BarChart3 } from 'lucide-react'
 import { listAgents, type AgentInfo, hasToken, setToken } from './api'
 import ChatPage from './pages/Chat'
@@ -58,8 +59,7 @@ function TokenPrompt({ onSubmit }: { onSubmit: (token: string) => void }) {
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(hasToken())
-  const [currentPage, setCurrentPage] = useState<Page>('chat')
-  const [pageKey, setPageKey] = useState(0)
+  const [location, setLocation] = useLocation()
   const [selectedAgent, setSelectedAgent] = useState('default')
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [agentRefreshKey, setAgentRefreshKey] = useState(0)
@@ -109,13 +109,8 @@ export default function App() {
   }
 
   const navigateTo = useCallback((page: Page) => {
-    setPageKey(k => k + 1)
-    setCurrentPage(page)
-  }, [])
-
-  const refreshSessions = useCallback(() => {
-    // Session list is refreshed on mount and agent switch; no remount needed
-  }, [])
+    setLocation(page === 'chat' ? '/' : `/${page}`)
+  }, [setLocation])
 
   const refreshAgents = useCallback(() => {
     setAgentRefreshKey((k) => k + 1)
@@ -124,30 +119,10 @@ export default function App() {
   const handleSwitchAgent = (id: string) => {
     setSelectedAgent(id)
     setShowAgentDropdown(false)
-    refreshSessions()
-    setCurrentPage('chat')
+    setLocation('/')
   }
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'chat':
-        return <ChatPage key={pageKey} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
-      case 'sessions':
-        return <SessionsPage key={pageKey} selectedAgent={selectedAgent} onNavigate={navigateTo} onSessionChange={refreshSessions} />
-      case 'config':
-        return <ConfigPage key={pageKey} selectedAgent={selectedAgent} onAgentsChange={refreshAgents} />
-      case 'tools':
-        return <ToolsPage key={pageKey} />
-      case 'plugins':
-        return <PluginsPage key={pageKey} />
-      case 'agents':
-        return <AgentsPage key={pageKey} onAgentsChange={refreshAgents} />
-      case 'usage':
-        return <UsagePage key={pageKey} />
-      case 'skills':
-        return <SkillsPage key={pageKey} />
-    }
-  }
+  const currentPage = location === '/' ? 'chat' : (location.slice(1) as Page) || 'chat'
 
   return (
     <div className="app-layout">
@@ -157,7 +132,6 @@ export default function App() {
           <div className="subtitle">AI Personal Assistant</div>
         </div>
 
-        {/* Agent Switcher */}
         <div className="agent-switcher" ref={dropdownRef}>
           <div className="agent-switcher-container" onClick={() => setShowAgentDropdown(!showAgentDropdown)}>
             <div className="agent-switcher-icon">
@@ -210,7 +184,32 @@ export default function App() {
         </div>
       </aside>
       <main className="main-content">
-        {renderPage()}
+        <Switch>
+          <Route path="/">
+            {() => <ChatPage selectedAgent={selectedAgent} onNavigate={navigateTo} />}
+          </Route>
+          <Route path="/sessions">
+            {() => <SessionsPage selectedAgent={selectedAgent} onNavigate={navigateTo} />}
+          </Route>
+          <Route path="/agents">
+            {() => <AgentsPage onAgentsChange={refreshAgents} />}
+          </Route>
+          <Route path="/usage">
+            {() => <UsagePage />}
+          </Route>
+          <Route path="/config">
+            {() => <ConfigPage selectedAgent={selectedAgent} onAgentsChange={refreshAgents} />}
+          </Route>
+          <Route path="/tools">
+            {() => <ToolsPage />}
+          </Route>
+          <Route path="/plugins">
+            {() => <PluginsPage />}
+          </Route>
+          <Route path="/skills">
+            {() => <SkillsPage />}
+          </Route>
+        </Switch>
       </main>
     </div>
   )
