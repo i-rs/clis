@@ -298,11 +298,13 @@ enum SseEvent {
 struct TokenUsage: Codable {
     let promptTokens: Int?
     let completionTokens: Int?
+    let serverTotalTokens: Int?
     let estimatedCostUsd: Double?
 
     enum CodingKeys: String, CodingKey {
         case promptTokens = "prompt_tokens"
         case completionTokens = "completion_tokens"
+        case serverTotalTokens = "total_tokens"
         case estimatedCostUsd = "estimated_cost_usd"
     }
 
@@ -364,6 +366,7 @@ extension TokenUsage {
         TokenUsage(
             promptTokens: (lhs.promptTokens ?? 0) + (rhs.promptTokens ?? 0),
             completionTokens: (lhs.completionTokens ?? 0) + (rhs.completionTokens ?? 0),
+            serverTotalTokens: (lhs.serverTotalTokens ?? 0) + (rhs.serverTotalTokens ?? 0),
             estimatedCostUsd: (lhs.estimatedCostUsd ?? 0) + (rhs.estimatedCostUsd ?? 0)
         )
     }
@@ -403,7 +406,7 @@ struct MessageItem: Identifiable {
 enum AppMessage {
     case user(text: String)
     case assistant(text: String)
-    case toolCall(name: String, args: String, result: String)
+    case toolCall(name: String, args: String, result: String, step: Int, totalSteps: Int)
     case error(text: String)
     case status(text: String)
     case reasoning(text: String)
@@ -416,7 +419,7 @@ enum AppMessage {
         switch self {
         case .user(let t): return t
         case .assistant(let t): return t
-        case .toolCall(let n, _, _): return "🛠 \(n)"
+        case .toolCall(let n, _, _, _, _): return "🛠 \(n)"
         case .error(let t): return t
         case .status(let t): return t
         case .reasoning(let t): return t

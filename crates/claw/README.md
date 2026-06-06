@@ -223,3 +223,22 @@ claw binary (one binary, two modes)
 - **LLM**: OpenAI-compatible chat completion API
 - **Backend**: i-rs CLI tools via subprocess (`Command::new("i-rs")`)
 - **Storage**: File (default) / SQLite / MySQL / PostgreSQL / MongoDB / Redis
+
+## Clients
+
+### iOS App (IrsClawApp)
+
+**Build:**
+
+```bash
+cd apps/IrsClawApp
+xcodebuild -project IrsClawApp.xcodeproj -scheme IrsClawApp -destination 'platform=iOS Simulator,name=iPhone 17' -allowProvisioningUpdates build
+```
+
+**API Endpoint:** `/api/chat` (POST, returns SSE stream directly — unified endpoint)
+
+### MiniProgram (IrsClawMiniProgram)
+
+Uses `sendMessageAndStream()` from `utils/api.js` for unified SSE streaming.
+
+**API Endpoint:** `/api/chat` (POST, returns SSE stream directly — unified endpoint)

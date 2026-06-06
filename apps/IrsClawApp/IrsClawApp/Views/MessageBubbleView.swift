@@ -21,8 +21,8 @@ struct MessageBubbleView: View {
                 userBubble(text)
             case .assistant(let text):
                 assistantBubble(text)
-            case .toolCall(let name, let args, let result):
-                toolCallBubble(name: name, args: args, result: result)
+            case .toolCall(let name, let args, let result, let step, let totalSteps):
+                toolCallBubble(name: name, args: args, result: result, step: step, totalSteps: totalSteps)
             case .error(let text):
                 errorBubble(text)
             case .status(let text):
@@ -153,7 +153,7 @@ struct MessageBubbleView: View {
     // MARK: - Tool Call Bubble
 
     @ViewBuilder
-    private func toolCallBubble(name: String, args: String, result: String) -> some View {
+    private func toolCallBubble(name: String, args: String, result: String, step: Int, totalSteps: Int) -> some View {
         HStack(alignment: .top, spacing: 10) {
             AvatarView(icon: "wrench.and.screwdriver", colors: [.orange, .yellow])
                 .scaleEffect(0.9)
@@ -438,7 +438,7 @@ struct MessageBubbleView: View {
     }
 
     @ViewBuilder
-    private func toolCallCard(name: String, args: String, result: String) -> some View {
+    private func toolCallCard(name: String, args: String, result: String, step: Int = 0, totalSteps: Int = 0) -> some View {
         let status = toolStatus(result)
 
         VStack(alignment: .leading, spacing: 0) {

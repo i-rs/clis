@@ -323,22 +323,116 @@ Page({
 
     const that = this
     const agentId = app.globalData.currentAgent || 'default'
-    api.sendMessage(text, agentId).then(function (res) {
-      if (res.success && res.data) {
-        const sid = res.data.session_id || that.data.sessionId
-        if (!that.data.sessionId && sid) {
-          that.setData({ sessionId: sid })
-          app.globalData.sessionId = sid
+
+    // SSE chunks arrive progressively via onChunkReceived, so we
+    // accumulate locally and throttle setData to keep the UI responsive
+    // without flooding the renderer.
+    var accContent = ''
+    var accReasoning = ''
+    var pendingFlush = false
+
+    function scheduleFlush() {
+      if (pendingFlush) return
+      pendingFlush = true
+      setTimeout(function () {
+        pendingFlush = false
+        that.setData({
+          streamingContent: accContent,
+          streamingReasoning: accReasoning,
+          renderTick: Date.now()
+        })
+        that.scrollToBottom()
+      }, 60)
+    }
+
+    // Use unified /api/chat endpoint which returns SSE directly
+    var streamTask = api.sendMessageAndStream(text, agentId, {
+      onToken: function (token) {
+        accContent += token
+        scheduleFlush()
+      },
+      onReasoning: function (text) {
+        accReasoning += text
+        scheduleFlush()
+      },
+      onStatus: function () {},
+      onToolExecuted: function (toolInfo) {
+        const resultStr = toolInfo.result || ''
+        const argsStr = toolInfo.arguments || toolInfo.args || ''
+        let errorStr = toolInfo.error || ''
+        if (toolInfo.success === false && !errorStr) {
+          errorStr = resultStr || '执行失败'
         }
-        that.startStreaming(sid)
-      } else {
-        that.setData({ loading: false })
-        wx.showToast({ title: (res && res.error) || '发送失败', icon: 'none' })
+        if (errorStr && errorStr.toLowerCase().indexOf('"success":true') !== -1) {
+          errorStr = ''
+        }
+        let displayResult = resultStr
+        if (!errorStr && resultStr) {
+          const lower = resultStr.toLowerCase()
+          if (/error|failed|failure|panic|执行错误/.test(lower)) {
+            errorStr = resultStr
+            displayResult = ''
+          }
+        }
+        const status = errorStr ? 'error' : 'done'
+        const showResult = status === 'error' ? '' : helper.formatJson(displayResult)
+        const showError = errorStr
+        const previewSrc = status === 'error' ? showError : displayResult
+        const preview = previewSrc ? helper.smartTruncate(helper.toSingleLine(previewSrc), 40) : ''
+        const toolMsg = {
+          id: helper.genId('msg'),
+          role: 'tool_call',
+          name: toolInfo.name || '未知工具',
+          args: helper.formatJson(argsStr),
+          result: showResult,
+          error: showError,
+          status: status,
+          preview: preview,
+          expanded: false,
+          step: toolInfo.step || 0,
+          totalSteps: toolInfo.total_steps || 0
+        }
+        const messages = that.data.messages.concat([toolMsg])
+        that.setData({ messages: messages, renderTick: Date.now() })
+        that.scrollToBottom()
+      },
+      onError: function (err) {
+        that.setData({ loading: false, renderTick: 0, streamingContent: '', streamingReasoning: '' })
+        wx.showToast({ title: (err && err.error) || '流式错误', icon: 'none' })
+      },
+      onDone: function (usage, quality, sessionId) {
+        // Save session_id from done event if we don't have one yet
+        if (sessionId && !that.data.sessionId) {
+          that.setData({ sessionId: sessionId })
+          app.globalData.sessionId = sessionId
+        }
+        that.commitStreamMessage(usage, accContent, accReasoning)
+        if (quality && !that.data._qualityAdded) {
+          that.appendQualityMessage(quality)
+        }
+        that.setData({ loading: false, renderTick: 0, _qualityAdded: false, streamingContent: '', streamingReasoning: '' })
+        that.scrollToBottom()
+      },
+      onEvaluation: function (evalInfo) {
+        if (!evalInfo) return
+        const evalMsg = {
+          id: helper.genId('eva'),
+          role: 'evaluation',
+          tool: evalInfo.tool || '',
+          valid: !!evalInfo.valid,
+          issues: evalInfo.issues || []
+        }
+        const messages = that.data.messages.concat([evalMsg])
+        that.setData({ messages: messages, renderTick: Date.now() })
+        that.scrollToBottom()
       }
-    }).catch(function () {
-      that.setData({ loading: false })
-      wx.showToast({ title: '网络错误', icon: 'none' })
     })
+
+    // Store stream task for potential abort
+    if (that.streamTask) {
+      try { that.streamTask.abort() } catch (e) {}
+    }
+    that.streamTask = streamTask
   },
 
   startStreaming: function (sessionId) {
@@ -432,7 +526,9 @@ Page({
           error: showError,
           status: status,
           preview: preview,
-          expanded: false
+          expanded: false,
+          step: toolInfo.step || 0,
+          totalSteps: toolInfo.total_steps || 0
         }
         const messages = that.data.messages.concat([toolMsg])
         that.setData({ messages: messages, renderTick: Date.now() })

@@ -53,7 +53,7 @@ class ClawService: ObservableObject {
 
     /// Total token usage aggregated across all sessions.
     var totalTokenUsage: TokenUsage {
-        sessionTokenUsage.values.reduce(TokenUsage(promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0)) { acc, usage in
+        sessionTokenUsage.values.reduce(TokenUsage(promptTokens: 0, completionTokens: 0, serverTotalTokens: 0, estimatedCostUsd: 0)) { acc, usage in
             acc + usage
         }
     }
@@ -497,6 +497,7 @@ class ClawService: ObservableObject {
     // MARK: - Chat (Send Message + SSE Stream)
 
     /// Send a message and start streaming the response via SSE.
+    /// The /api/chat endpoint returns an SSE stream directly (unified endpoint).
     func sendMessage(_ text: String) {
         guard !text.isEmpty, !isProcessing else { return }
 
@@ -507,43 +508,107 @@ class ClawService: ObservableObject {
         isProcessing = true
         errorMessage = nil
 
-        Task {
-            // POST message
+        Task { [weak self] in
+            // POST message - /api/chat returns SSE stream directly
             let body: [String: String] = ["message": text, "agent_id": currentAgentId]
             guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-                self.isProcessing = false
-                return
-            }
-
-            guard let data = await post("/api/chat", body: bodyData) else {
-                self.isProcessing = false
-                return
-            }
-
-            guard let response: ApiResponse<ChatResponse> = decode(data) else {
-                self.isProcessing = false
-                return
-            }
-
-            guard response.success, let chatResponse = response.data else {
-                self.isProcessing = false
-                if let err = response.error {
-                    self.errorMessage = err
-                    self.messages.append(MessageItem(message: .error(text: err)))
+                await MainActor.run { [weak self] in
+                    self?.isProcessing = false
                 }
                 return
             }
 
-            let sessionId = chatResponse.sessionId
+            let url = URL(string: "\(baseURL)/api/chat")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = bodyData
+            request.timeoutInterval = 300
+            addAuthHeader(&request)
 
-            // Update current session
-            self.currentSessionId = sessionId
+            do {
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    await MainActor.run { [weak self] in
+                        self?.messages.append(MessageItem(message: .error(text: "Invalid response")))
+                        self?.isProcessing = false
+                    }
+                    return
+                }
 
-            // Start SSE stream
-            await streamChat(sessionId: sessionId)
+                if httpResponse.statusCode == 401 {
+                    await MainActor.run { [weak self] in
+                        self?.errorMessage = "认证失败，请在设置中检查 Auth Token"
+                        self?.messages.append(MessageItem(message: .error(text: self?.errorMessage ?? "")))
+                        self?.isProcessing = false
+                    }
+                    return
+                }
 
-            // Refresh sessions
-            await fetchSessions()
+                guard httpResponse.statusCode == 200 else {
+                    await MainActor.run { [weak self] in
+                        self?.messages.append(MessageItem(message: .error(text: "Server error: \(httpResponse.statusCode)")))
+                        self?.isProcessing = false
+                    }
+                    return
+                }
+
+                // Parse SSE stream from POST response
+                var lineBuffer = Data()
+                var currentEvent = ""
+                var currentData = ""
+                var tokenBuffer = ""
+
+                for try await byte in bytes {
+                    if Task.isCancelled { break }
+
+                    if byte == UInt8(ascii: "\n") {
+                        guard let line = String(data: lineBuffer, encoding: .utf8) else {
+                            lineBuffer = Data()
+                            continue
+                        }
+                        lineBuffer = Data()
+
+                        if line.hasPrefix("event:") {
+                            currentEvent = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                        } else if line.hasPrefix("data:") {
+                            let raw = line.dropFirst(5)
+                            let chunk = raw.hasPrefix(" ") ? String(raw.dropFirst()) : String(raw)
+                            if !currentEvent.isEmpty || !chunk.isEmpty {
+                                currentData += chunk
+                            }
+                        } else if line.isEmpty {
+                            // End of event — dispatch
+                            if !currentEvent.isEmpty {
+                                self?.dispatchSseEvent(event: currentEvent, data: currentData, tokenBuffer: &tokenBuffer)
+                            }
+                            currentEvent = ""
+                            currentData = ""
+                        }
+                    } else {
+                        lineBuffer.append(byte)
+                    }
+                }
+
+                // Flush any remaining tokens
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if !tokenBuffer.isEmpty {
+                        self.appendAssistantText(tokenBuffer)
+                        self.messageVersion += 1
+                    }
+                    self.isProcessing = false
+                    Task { await self.fetchSessions() }
+                }
+            } catch {
+                if !(error is CancellationError) {
+                    await MainActor.run { [weak self] in
+                        self?.errorMessage = "Stream error: \(error.localizedDescription)"
+                        self?.messages.append(MessageItem(message: .error(text: error.localizedDescription)))
+                        self?.isProcessing = false
+                    }
+                }
+            }
         }
     }
 
@@ -692,7 +757,9 @@ class ClawService: ObservableObject {
                 let name = json["name"] as? String ?? ""
                 let args = json["args"] as? String ?? ""
                 let result = json["result"] as? String ?? ""
-                messages.append(MessageItem(message: .toolCall(name: name, args: args, result: result)))
+                let step = json["step"] as? Int ?? 0
+                let totalSteps = json["total_steps"] as? Int ?? 0
+                messages.append(MessageItem(message: .toolCall(name: name, args: args, result: result, step: step, totalSteps: totalSteps)))
                 messageVersion += 1
             }
 
@@ -701,31 +768,36 @@ class ClawService: ObservableObject {
 
         case "done":
             isProcessing = false
-            // Parse token usage from done event: {"usage": {"prompt_tokens": X, "completion_tokens": Y}}
-            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any],
-               let usageDict = json["usage"] as? [String: Any],
-               let usageData = try? JSONSerialization.data(withJSONObject: usageDict),
-               let usage = try? decoder.decode(TokenUsage.self, from: usageData) {
-                // Attach usage to the last assistant message
-                if let last = messages.last, case .assistant = last.message {
-                    messages[messages.count - 1] = MessageItem(id: last.id, message: last.message, tokenUsage: usage)
+            // Parse done event: {"usage": {...}, "quality": {...}, "session_id": "xxx"}
+            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any] {
+                // Extract session_id and update current session
+                if let sessionId = json["session_id"] as? String {
+                    self.currentSessionId = sessionId
                 }
-                // Accumulate per-session for global tracking
-                if let sid = currentSession?.id {
-                    let existing = sessionTokenUsage[sid] ?? TokenUsage(promptTokens: 0, completionTokens: 0, estimatedCostUsd: 0)
-                    sessionTokenUsage[sid] = existing + usage
-                    saveSessionTokenUsage()
+                // Parse token usage
+                if let usageDict = json["usage"] as? [String: Any],
+                   let usageData = try? JSONSerialization.data(withJSONObject: usageDict),
+                   let usage = try? decoder.decode(TokenUsage.self, from: usageData) {
+                    // Attach usage to the last assistant message
+                    if let last = messages.last, case .assistant = last.message {
+                        messages[messages.count - 1] = MessageItem(id: last.id, message: last.message, tokenUsage: usage)
+                    }
+                    // Accumulate per-session for global tracking
+                    if let sid = currentSession?.id {
+                        let existing = sessionTokenUsage[sid] ?? TokenUsage(promptTokens: 0, completionTokens: 0, serverTotalTokens: 0, estimatedCostUsd: 0)
+                        sessionTokenUsage[sid] = existing + usage
+                        saveSessionTokenUsage()
+                    }
                 }
-            }
-            // Parse quality score from done event: {"quality": {"score": "good", "complete": true, ...}}
-            if let json = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [String: Any],
-               let qualityDict = json["quality"] as? [String: Any] {
-                let score = String(describing: qualityDict["score"] ?? "")
-                let complete = qualityDict["complete"] as? Bool ?? false
-                let issues = qualityDict["issues"] as? [String] ?? []
-                let referencesValid = qualityDict["references_valid"] as? Bool ?? false
-                messages.append(MessageItem(message: .quality(score: score, complete: complete, issues: issues, referencesValid: referencesValid)))
-                messageVersion += 1
+                // Parse quality score
+                if let qualityDict = json["quality"] as? [String: Any] {
+                    let score = String(describing: qualityDict["score"] ?? "")
+                    let complete = qualityDict["complete"] as? Bool ?? false
+                    let issues = qualityDict["issues"] as? [String] ?? []
+                    let referencesValid = qualityDict["references_valid"] as? Bool ?? false
+                    messages.append(MessageItem(message: .quality(score: score, complete: complete, issues: issues, referencesValid: referencesValid)))
+                    messageVersion += 1
+                }
             }
 
         case "evaluation":
@@ -1055,7 +1127,7 @@ class ClawService: ObservableObject {
         case "assistant":
             appMsg = .assistant(text: msg.content ?? "")
         case "tool_call":
-            appMsg = .toolCall(name: msg.name ?? "", args: msg.args ?? "", result: msg.result ?? "")
+            appMsg = .toolCall(name: msg.name ?? "", args: msg.args ?? "", result: msg.result ?? "", step: 0, totalSteps: 0)
         case "evaluation":
             appMsg = .evaluation(tool: msg.tool ?? "", valid: msg.valid ?? false, issues: msg.issues ?? [])
         case "quality":

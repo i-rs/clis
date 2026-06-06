@@ -162,6 +162,117 @@ function sendMessage(message, agentId) {
   return request('POST', '/chat', body)
 }
 
+/**
+ * Send message and receive SSE stream directly from /api/chat (unified endpoint).
+ * Returns a task object with abort() method.
+ */
+function sendMessageAndStream(message, agentId, handlers) {
+  handlers = handlers || {}
+  const url = baseUrl()
+  const task = { aborted: false, _realTask: null, abort: function () { this.aborted = true; if (this._realTask && this._realTask.abort) { try { this._realTask.abort() } catch (e) {} } } }
+
+  if (!url) {
+    if (handlers.onError) handlers.onError({ error: '未配置服务器', code: 'NO_SERVER' })
+    return task
+  }
+
+  const body = { message: message }
+  if (agentId && agentId !== 'default') {
+    body.agent_id = agentId
+  }
+
+  // SSE buffer accumulator: chunks may split a single SSE event across
+  // multiple onChunkReceived callbacks, so we maintain a running buffer
+  // and only parse complete (terminated by blank line) events.
+  var buffer = ''
+  var currentEvent = ''
+  var currentData = ''
+  var doneFired = false
+
+  function processLine(line) {
+    if (line.indexOf('event: ') === 0) {
+      currentEvent = line.substring(7).trim()
+    } else if (line.indexOf('data: ') === 0) {
+      if (currentData) currentData += '\n'
+      currentData += line.substring(6)
+    } else if (line === '') {
+      // blank line = event boundary
+      if (currentEvent && currentData) {
+        handleSseEvent(currentEvent, currentData, handlers)
+        if (currentEvent === 'done') doneFired = true
+      }
+      currentEvent = ''
+      currentData = ''
+    }
+  }
+
+  function feedChunk(text) {
+    buffer += text
+    var lines = buffer.split('\n')
+    // last element may be incomplete (no trailing newline), keep it in buffer
+    buffer = lines.pop() || ''
+    for (var i = 0; i < lines.length; i++) {
+      processLine(lines[i].replace(/\r$/, ''))
+    }
+  }
+
+  var realTask = wx.request({
+    url: url + '/chat',
+    method: 'POST',
+    data: body,
+    header: Object.assign({ 'Content-Type': 'application/json' }, authHeader()),
+    enableChunked: true,
+    timeout: STREAM_TIMEOUT,
+    success: function (res) {
+      if (task.aborted) return
+      // With enableChunked:true the body comes via onChunkReceived, but
+      // some platforms may still deliver a final payload here. Drain it
+      // to be safe, then ensure onDone is fired exactly once.
+      if (res && res.statusCode === 401) {
+        if (handlers.onError) handlers.onError({ error: '认证失败', code: 'UNAUTHORIZED' })
+        return
+      }
+      if (res && res.statusCode >= 400) {
+        if (handlers.onError) handlers.onError({ error: '请求失败 (HTTP ' + res.statusCode + ')', code: 'REQUEST_ERROR' })
+        return
+      }
+      // Flush any trailing partial event that didn't end with a blank line
+      if (buffer) {
+        var trailing = buffer
+        buffer = ''
+        var tailLines = trailing.split('\n')
+        for (var j = 0; j < tailLines.length; j++) {
+          processLine(tailLines[j].replace(/\r$/, ''))
+        }
+        if (currentEvent && currentData) {
+          handleSseEvent(currentEvent, currentData, handlers)
+          if (currentEvent === 'done') doneFired = true
+          currentEvent = ''
+          currentData = ''
+        }
+      }
+      if (!doneFired && handlers.onDone) {
+        handlers.onDone(null, null, sessionId)
+      }
+    },
+    fail: function (err) {
+      if (task.aborted) return
+      if (handlers.onError) handlers.onError({ error: describeError(err), code: 'NETWORK_ERROR' })
+    }
+  })
+
+  // Handle chunked response data
+  realTask.onChunkReceived(function (res) {
+    if (task.aborted) return
+    if (res && res.data) {
+      feedChunk(res.data)
+    }
+  })
+
+  task._realTask = realTask
+  return task
+}
+
 function streamChat(sessionId, handlers) {
   handlers = handlers || {}
   const url = baseUrl()
@@ -337,9 +448,10 @@ function handleSseEvent(event, data, handlers) {
             var doneData = JSON.parse(data)
             var usage = doneData.usage || null
             var quality = doneData.quality || null
-            handlers.onDone(usage, quality)
+            var sessionId = doneData.session_id || null
+            handlers.onDone(usage, quality, sessionId)
           } catch (e) {
-            handlers.onDone(null, null)
+            handlers.onDone(null, null, null)
           }
         }
         break
@@ -402,6 +514,7 @@ module.exports = {
   deleteSession: deleteSession,
   postFeedback: postFeedback,
   sendMessage: sendMessage,
+  sendMessageAndStream: sendMessageAndStream,
   streamChat: streamChat,
   listTools: listTools,
   listPlugins: listPlugins,
