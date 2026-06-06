@@ -69,11 +69,15 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
         )
         .route(
             "/api/chat",
-            axum::routing::post(crate::dashboard::routes::send_message),
+            axum::routing::post(crate::dashboard::routes::chat),
         )
         .route(
             "/api/chat/stream/{session_id}",
             axum::routing::get(crate::dashboard::routes::chat_stream),
+        )
+        .route(
+            "/api/chat/stream/{session_id}/resume",
+            axum::routing::get(crate::dashboard::routes::chat_stream_resume),
         )
         .route(
             "/api/sessions/current",
