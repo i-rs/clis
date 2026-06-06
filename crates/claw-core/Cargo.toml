@@ -1,0 +1,48 @@
+[package]
+name = "i-rs-claw-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AI agent engine library for i-rs-claw"
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+owo-colors.workspace = true
+pulldown-cmark.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+toml.workspace = true
+uuid.workspace = true
+fastrand = "2"
+tracing = "0.1"
+unicode-width = "0.2"
+futures-util = "0.3"
+
+# MCP protocol client — optional (feature-gated)
+rmcp = { version = "1.7.0", optional = true, default-features = false, features = [
+    "client",
+    "server",
+    "transport-child-process",
+    "transport-streamable-http-client-reqwest",
+] }
+
+# Storage backends — all optional
+sqlx = { version = "0.9.0", features = ["runtime-tokio"], optional = true }
+mongodb = { version = "3", optional = true }
+redis = { version = "1.2", features = ["tokio-comp"], optional = true }
+
+[features]
+default = ["mcp"]
+mcp = ["rmcp"]
+sqlite = ["sqlx", "sqlx/sqlite"]
+mysql = ["sqlx", "sqlx/mysql"]
+postgres = ["sqlx", "sqlx/postgres"]
+mongo = ["dep:mongodb"]
+redis = ["dep:redis"]

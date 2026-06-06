@@ -75,6 +75,7 @@ members = [
   "crates/mcp",
   "crates/cli-api",
   "crates/claw",
+  "crates/claw-core",
   "crates/code",
 ]
 resolver = "2"
