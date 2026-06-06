@@ -52,13 +52,27 @@ impl RedisBackend {
     pub fn into_storage(self) -> crate::storage::ClawStorage {
         let arc = Arc::new(self);
         crate::storage::ClawStorage {
-            sessions: Box::new(RedisSessionStore { backend: arc.clone() }),
-            message_log: Arc::new(RedisMessageLog { backend: arc.clone() }),
-            api_cache: Box::new(RedisApiCacheStore { backend: arc.clone() }),
-            plan_steps: Box::new(RedisPlanStepsStore { backend: arc.clone() }),
-            memory: Box::new(RedisMemoryStore { backend: arc.clone() }),
-            stats: Box::new(RedisStatsStore { backend: arc.clone() }),
-            skills: Box::new(RedisSkillStore { backend: arc.clone() }),
+            sessions: Box::new(RedisSessionStore {
+                backend: arc.clone(),
+            }),
+            message_log: Arc::new(RedisMessageLog {
+                backend: arc.clone(),
+            }),
+            api_cache: Box::new(RedisApiCacheStore {
+                backend: arc.clone(),
+            }),
+            plan_steps: Box::new(RedisPlanStepsStore {
+                backend: arc.clone(),
+            }),
+            memory: Box::new(RedisMemoryStore {
+                backend: arc.clone(),
+            }),
+            stats: Box::new(RedisStatsStore {
+                backend: arc.clone(),
+            }),
+            skills: Box::new(RedisSkillStore {
+                backend: arc.clone(),
+            }),
             tool_cache: Box::new(RedisToolCacheStore { backend: arc }),
         }
     }
@@ -89,8 +103,11 @@ impl SessionRepo for RedisSessionStore {
             .await?;
         let mut sessions = Vec::with_capacity(ids.len());
         for id in &ids {
-            let json: Option<String> =
-                redis::cmd("HGET").arg(session_key(id)).arg("__json").query_async(&mut conn).await?;
+            let json: Option<String> = redis::cmd("HGET")
+                .arg(session_key(id))
+                .arg("__json")
+                .query_async(&mut conn)
+                .await?;
             if let Some(j) = json {
                 if let Ok(meta) = serde_json::from_str::<crate::session::SessionMeta>(&j) {
                     sessions.push(meta);
@@ -102,8 +119,12 @@ impl SessionRepo for RedisSessionStore {
 
     async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
-        let existing: Vec<String> =
-            redis::cmd("ZRANGE").arg(SESSIONS_ZSET).arg(0).arg(-1).query_async(&mut conn).await?;
+        let existing: Vec<String> = redis::cmd("ZRANGE")
+            .arg(SESSIONS_ZSET)
+            .arg(0)
+            .arg(-1)
+            .query_async(&mut conn)
+            .await?;
 
         let incoming_ids: std::collections::HashSet<&str> =
             sessions.iter().map(|s| s.id.as_str()).collect();
@@ -118,8 +139,16 @@ impl SessionRepo for RedisSessionStore {
         }
         for s in sessions {
             let json = serde_json::to_string(s)?;
-            pipe.cmd("HSET").arg(session_key(&s.id)).arg("__json").arg(json).ignore();
-            pipe.cmd("ZADD").arg(SESSIONS_ZSET).arg(s.updated_at).arg(&s.id).ignore();
+            pipe.cmd("HSET")
+                .arg(session_key(&s.id))
+                .arg("__json")
+                .arg(json)
+                .ignore();
+            pipe.cmd("ZADD")
+                .arg(SESSIONS_ZSET)
+                .arg(s.updated_at)
+                .arg(&s.id)
+                .ignore();
         }
         pipe.query_async::<()>(&mut conn).await?;
         Ok(())
@@ -127,9 +156,15 @@ impl SessionRepo for RedisSessionStore {
 
     async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
         let mut conn = self.backend.conn.clone();
-        let json: Option<String> =
-            redis::cmd("HGET").arg(session_key(id)).arg("__json").query_async(&mut conn).await?;
-        Ok(json.and_then(|j| serde_json::from_str(&j).ok()))
+        let json: Option<String> = redis::cmd("HGET")
+            .arg(session_key(id))
+            .arg("__json")
+            .query_async(&mut conn)
+            .await?;
+        match json {
+            Some(j) => Ok(Some(serde_json::from_str(&j)?)),
+            None => Ok(None),
+        }
     }
 
     async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
@@ -137,9 +172,18 @@ impl SessionRepo for RedisSessionStore {
         let json = serde_json::to_string(session)?;
         redis::pipe()
             .atomic()
-            .cmd("HSET").arg(session_key(&session.id)).arg("__json").arg(&json).ignore()
-            .cmd("ZADD").arg(SESSIONS_ZSET).arg(session.updated_at).arg(&session.id).ignore()
-            .query_async::<()>(&mut conn).await?;
+            .cmd("HSET")
+            .arg(session_key(&session.id))
+            .arg("__json")
+            .arg(&json)
+            .ignore()
+            .cmd("ZADD")
+            .arg(SESSIONS_ZSET)
+            .arg(session.updated_at)
+            .arg(&session.id)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
         Ok(())
     }
 
@@ -147,36 +191,25 @@ impl SessionRepo for RedisSessionStore {
         let mut conn = self.backend.conn.clone();
         redis::pipe()
             .atomic()
-            .cmd("DEL").arg(session_key(id)).ignore()
-            .cmd("ZREM").arg(SESSIONS_ZSET).arg(id).ignore()
-            .query_async::<()>(&mut conn).await?;
+            .cmd("DEL")
+            .arg(session_key(id))
+            .ignore()
+            .cmd("ZREM")
+            .arg(SESSIONS_ZSET)
+            .arg(id)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
         Ok(())
     }
 
     async fn count(&self) -> anyhow::Result<usize> {
         let mut conn = self.backend.conn.clone();
-        let count: i64 = redis::cmd("ZCARD").arg(SESSIONS_ZSET).query_async(&mut conn).await?;
+        let count: i64 = redis::cmd("ZCARD")
+            .arg(SESSIONS_ZSET)
+            .query_async(&mut conn)
+            .await?;
         Ok(count as usize)
-    }
-
-    async fn get(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
-        let mut conn = self.backend.conn.clone();
-        let json: Option<String> =
-            redis::cmd("HGET").arg(session_key(id)).arg("__json").query_async(&mut conn).await?;
-        match json {
-            Some(j) => Ok(Some(serde_json::from_str(&j)?)),
-            None => Ok(None),
-        }
-    }
-
-    async fn delete(&self, id: &str) -> anyhow::Result<()> {
-        let mut conn = self.backend.conn.clone();
-        let mut pipe = redis::pipe();
-        pipe.atomic();
-        pipe.cmd("ZREM").arg(SESSIONS_ZSET).arg(id).ignore();
-        pipe.cmd("DEL").arg(session_key(id)).ignore();
-        pipe.query_async::<()>(&mut conn).await?;
-        Ok(())
     }
 }
 
@@ -242,9 +275,17 @@ impl MessageLog for RedisMessageLog {
     ) -> anyhow::Result<Vec<crate::app::Message>> {
         let mut conn = self.backend.conn.clone();
         let key = msg_zset_key(session_id);
-        let limit = if limit == usize::MAX { -1 } else { limit as isize - 1 };
-        let raw: Vec<String> =
-            redis::cmd("ZREVRANGE").arg(&key).arg(0).arg(limit).query_async(&mut conn).await?;
+        let limit = if limit == usize::MAX {
+            -1
+        } else {
+            limit as isize - 1
+        };
+        let raw: Vec<String> = redis::cmd("ZREVRANGE")
+            .arg(&key)
+            .arg(0)
+            .arg(limit)
+            .query_async(&mut conn)
+            .await?;
         let mut records: Vec<StoredRecord> = raw
             .into_iter()
             .filter_map(|s| serde_json::from_str(&s).ok())
@@ -266,8 +307,12 @@ impl MessageLog for RedisMessageLog {
         }
 
         let mut conn = self.backend.conn.clone();
-        let session_ids: Vec<String> =
-            redis::cmd("ZRANGE").arg(SESSIONS_ZSET).arg(0).arg(-1).query_async(&mut conn).await?;
+        let session_ids: Vec<String> = redis::cmd("ZRANGE")
+            .arg(SESSIONS_ZSET)
+            .arg(0)
+            .arg(-1)
+            .query_async(&mut conn)
+            .await?;
         let mut results = Vec::new();
 
         for sid in &session_ids {
@@ -283,8 +328,12 @@ impl MessageLog for RedisMessageLog {
             };
 
             let key = msg_zset_key(sid);
-            let raw: Vec<String> =
-                redis::cmd("ZRANGE").arg(&key).arg(0).arg(-1).query_async(&mut conn).await?;
+            let raw: Vec<String> = redis::cmd("ZRANGE")
+                .arg(&key)
+                .arg(0)
+                .arg(-1)
+                .query_async(&mut conn)
+                .await?;
             let records: Vec<serde_json::Value> = raw
                 .into_iter()
                 .filter_map(|s| {
@@ -309,7 +358,11 @@ impl MessageLog for RedisMessageLog {
                     "tool_call" => format!("[工具调用: {}]", name),
                     _ => {
                         let t: String = text.chars().take(200).collect();
-                        if text.len() > 200 { format!("{}...", t) } else { t }
+                        if text.len() > 200 {
+                            format!("{}...", t)
+                        } else {
+                            t
+                        }
                     }
                 };
                 let ctx_before: Vec<String> = records[i.saturating_sub(2)..i]
@@ -322,10 +375,14 @@ impl MessageLog for RedisMessageLog {
                 let ctx_after: Vec<String> = records
                     .get(i + 1..)
                     .map(|slice| {
-                        slice.iter().take(1).filter_map(|p| {
-                            let t = p["text"].as_str()?;
-                            Some(t.chars().take(100).collect())
-                        }).collect()
+                        slice
+                            .iter()
+                            .take(1)
+                            .filter_map(|p| {
+                                let t = p["text"].as_str()?;
+                                Some(t.chars().take(100).collect())
+                            })
+                            .collect()
                     })
                     .unwrap_or_default();
                 results.push(SearchResult {
@@ -357,7 +414,10 @@ impl MessageLog for RedisMessageLog {
 
     async fn count(&self, session_id: &str) -> anyhow::Result<usize> {
         let mut conn = self.backend.conn.clone();
-        let n: usize = redis::cmd("ZCARD").arg(msg_zset_key(session_id)).query_async(&mut conn).await?;
+        let n: usize = redis::cmd("ZCARD")
+            .arg(msg_zset_key(session_id))
+            .query_async(&mut conn)
+            .await?;
         Ok(n)
     }
 }
@@ -378,13 +438,20 @@ impl ApiCacheRepo for RedisApiCacheStore {
     async fn save(&self, session_id: &str, messages: &[serde_json::Value]) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let json = serde_json::to_string(messages)?;
-        let _: () = redis::cmd("SET").arg(apicache_key(session_id)).arg(json).query_async(&mut conn).await?;
+        let _: () = redis::cmd("SET")
+            .arg(apicache_key(session_id))
+            .arg(json)
+            .query_async(&mut conn)
+            .await?;
         Ok(())
     }
 
     async fn load(&self, session_id: &str) -> anyhow::Result<Option<Vec<serde_json::Value>>> {
         let mut conn = self.backend.conn.clone();
-        let json: Option<String> = redis::cmd("GET").arg(apicache_key(session_id)).query_async(&mut conn).await?;
+        let json: Option<String> = redis::cmd("GET")
+            .arg(apicache_key(session_id))
+            .query_async(&mut conn)
+            .await?;
         match json {
             Some(j) => Ok(Some(serde_json::from_str(&j)?)),
             None => Ok(None),
@@ -393,7 +460,10 @@ impl ApiCacheRepo for RedisApiCacheStore {
 
     async fn delete(&self, session_id: &str) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
-        let _: () = redis::cmd("DEL").arg(apicache_key(session_id)).query_async(&mut conn).await?;
+        let _: () = redis::cmd("DEL")
+            .arg(apicache_key(session_id))
+            .query_async(&mut conn)
+            .await?;
         Ok(())
     }
 }
@@ -414,13 +484,20 @@ impl PlanStepsRepo for RedisPlanStepsStore {
     async fn save(&self, session_id: &str, steps: &[crate::app::PlanStep]) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let json = serde_json::to_string(steps)?;
-        let _: () = redis::cmd("SET").arg(plan_key(session_id)).arg(json).query_async(&mut conn).await?;
+        let _: () = redis::cmd("SET")
+            .arg(plan_key(session_id))
+            .arg(json)
+            .query_async(&mut conn)
+            .await?;
         Ok(())
     }
 
     async fn load(&self, session_id: &str) -> anyhow::Result<Vec<crate::app::PlanStep>> {
         let mut conn = self.backend.conn.clone();
-        let json: Option<String> = redis::cmd("GET").arg(plan_key(session_id)).query_async(&mut conn).await?;
+        let json: Option<String> = redis::cmd("GET")
+            .arg(plan_key(session_id))
+            .query_async(&mut conn)
+            .await?;
         match json {
             Some(j) => Ok(serde_json::from_str(&j)?),
             None => Ok(Vec::new()),
@@ -429,7 +506,10 @@ impl PlanStepsRepo for RedisPlanStepsStore {
 
     async fn delete(&self, session_id: &str) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
-        let _: () = redis::cmd("DEL").arg(plan_key(session_id)).query_async(&mut conn).await?;
+        let _: () = redis::cmd("DEL")
+            .arg(plan_key(session_id))
+            .query_async(&mut conn)
+            .await?;
         Ok(())
     }
 }
@@ -452,7 +532,10 @@ impl MemoryRepo for RedisMemoryStore {
         agent_id: &str,
     ) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
         let mut conn = self.backend.conn.clone();
-        let json: Option<String> = redis::cmd("GET").arg(memory_key(agent_id)).query_async(&mut conn).await?;
+        let json: Option<String> = redis::cmd("GET")
+            .arg(memory_key(agent_id))
+            .query_async(&mut conn)
+            .await?;
         match json {
             Some(j) => Ok(Some(serde_json::from_str(&j)?)),
             None => Ok(None),
@@ -466,7 +549,11 @@ impl MemoryRepo for RedisMemoryStore {
     ) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let json = serde_json::to_string(memory)?;
-        let _: () = redis::cmd("SET").arg(memory_key(agent_id)).arg(json).query_async(&mut conn).await?;
+        let _: () = redis::cmd("SET")
+            .arg(memory_key(agent_id))
+            .arg(json)
+            .query_async(&mut conn)
+            .await?;
         Ok(())
     }
 }
@@ -492,8 +579,16 @@ impl StatsRepo for RedisStatsStore {
         pipe.atomic();
         for r in records {
             let json = serde_json::to_string(r)?;
-            pipe.cmd("HSET").arg(STATS_HASH).arg(&r.id).arg(json).ignore();
-            pipe.cmd("ZADD").arg(STATS_TS_ZSET).arg(r.timestamp).arg(&r.id).ignore();
+            pipe.cmd("HSET")
+                .arg(STATS_HASH)
+                .arg(&r.id)
+                .arg(json)
+                .ignore();
+            pipe.cmd("ZADD")
+                .arg(STATS_TS_ZSET)
+                .arg(r.timestamp)
+                .arg(&r.id)
+                .ignore();
         }
         pipe.query_async::<()>(&mut conn).await?;
         Ok(())
@@ -580,8 +675,10 @@ fn skill_hash_key(agent: &str, name: &str) -> String {
 impl SkillRepo for RedisSkillStore {
     async fn list(&self, agent_id: &str) -> anyhow::Result<Vec<SkillEntry>> {
         let mut conn = self.backend.conn.clone();
-        let names: Vec<String> =
-            redis::cmd("SMEMBERS").arg(skills_set_key(agent_id)).query_async(&mut conn).await?;
+        let names: Vec<String> = redis::cmd("SMEMBERS")
+            .arg(skills_set_key(agent_id))
+            .query_async(&mut conn)
+            .await?;
         let mut entries = Vec::with_capacity(names.len());
         for name in &names {
             let content: Option<String> = redis::cmd("HGET")
@@ -589,7 +686,10 @@ impl SkillRepo for RedisSkillStore {
                 .arg("content")
                 .query_async(&mut conn)
                 .await?;
-            entries.push(SkillEntry { name: name.clone(), content: content.unwrap_or_default() });
+            entries.push(SkillEntry {
+                name: name.clone(),
+                content: content.unwrap_or_default(),
+            });
         }
         entries.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(entries)
@@ -602,11 +702,18 @@ impl SkillRepo for RedisSkillStore {
     ) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>> {
         let mut conn = self.backend.conn.clone();
         let key = skill_hash_key(agent_id, name);
-        let content: Option<String> = redis::cmd("HGET").arg(&key).arg("content").query_async(&mut conn).await?;
+        let content: Option<String> = redis::cmd("HGET")
+            .arg(&key)
+            .arg("content")
+            .query_async(&mut conn)
+            .await?;
         match content {
             Some(content) => {
-                let parameters: Option<String> =
-                    redis::cmd("HGET").arg(&key).arg("parameters").query_async(&mut conn).await?;
+                let parameters: Option<String> = redis::cmd("HGET")
+                    .arg(&key)
+                    .arg("parameters")
+                    .query_async(&mut conn)
+                    .await?;
                 let params_json = parameters.and_then(|s| serde_json::from_str(&s).ok());
                 Ok(Some(crate::skill_store::SkillDefinition {
                     name: name.to_string(),
@@ -630,13 +737,20 @@ impl SkillRepo for RedisSkillStore {
         let key = skill_hash_key(agent_id, name);
         let mut pipe = redis::pipe();
         pipe.atomic();
-        pipe.cmd("HSET").arg(&key).arg("content").arg(content).ignore();
+        pipe.cmd("HSET")
+            .arg(&key)
+            .arg("content")
+            .arg(content)
+            .ignore();
         if let Some(ref p) = parameters {
             pipe.cmd("HSET").arg(&key).arg("parameters").arg(p).ignore();
         } else {
             pipe.cmd("HDEL").arg(&key).arg("parameters").ignore();
         }
-        pipe.cmd("SADD").arg(skills_set_key(agent_id)).arg(name).ignore();
+        pipe.cmd("SADD")
+            .arg(skills_set_key(agent_id))
+            .arg(name)
+            .ignore();
         pipe.query_async::<()>(&mut conn).await?;
         Ok(())
     }
@@ -646,7 +760,10 @@ impl SkillRepo for RedisSkillStore {
         let mut pipe = redis::pipe();
         pipe.atomic();
         pipe.cmd("DEL").arg(skill_hash_key(agent_id, name)).ignore();
-        pipe.cmd("SREM").arg(skills_set_key(agent_id)).arg(name).ignore();
+        pipe.cmd("SREM")
+            .arg(skills_set_key(agent_id))
+            .arg(name)
+            .ignore();
         pipe.query_async::<()>(&mut conn).await?;
         Ok(())
     }
@@ -656,13 +773,18 @@ impl SkillRepo for RedisSkillStore {
         agent_id: &str,
     ) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>> {
         let mut conn = self.backend.conn.clone();
-        let names: Vec<String> =
-            redis::cmd("SMEMBERS").arg(skills_set_key(agent_id)).query_async(&mut conn).await?;
+        let names: Vec<String> = redis::cmd("SMEMBERS")
+            .arg(skills_set_key(agent_id))
+            .query_async(&mut conn)
+            .await?;
         let mut defs = Vec::new();
         for name in &names {
             let key = skill_hash_key(agent_id, name);
-            let parameters: Option<String> =
-                redis::cmd("HGET").arg(&key).arg("parameters").query_async(&mut conn).await?;
+            let parameters: Option<String> = redis::cmd("HGET")
+                .arg(&key)
+                .arg("parameters")
+                .query_async(&mut conn)
+                .await?;
             if let Some(p) = parameters {
                 let content: Option<String> = redis::cmd("HGET")
                     .arg(&key)
@@ -706,11 +828,7 @@ impl ToolCacheRepo for RedisToolCacheStore {
         Ok(map)
     }
 
-    async fn save(
-        &self,
-        agent_id: &str,
-        docs: &HashMap<String, String>,
-    ) -> anyhow::Result<()> {
+    async fn save(&self, agent_id: &str, docs: &HashMap<String, String>) -> anyhow::Result<()> {
         let mut conn = self.backend.conn.clone();
         let key = toolcache_key(agent_id);
         let mut pipe = redis::pipe();
@@ -751,7 +869,9 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_redis_session_save_load() {
-        let Some(s) = test_storage().await else { return };
+        let Some(s) = test_storage().await else {
+            return;
+        };
         let meta = crate::session::SessionMeta {
             id: "s1".into(),
             title: "Test".into(),
@@ -770,9 +890,13 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_redis_message_log_append_load() {
-        let Some(s) = test_storage().await else { return };
+        let Some(s) = test_storage().await else {
+            return;
+        };
         let msgs = vec![
-            crate::app::Message::User { text: "hello".into() },
+            crate::app::Message::User {
+                text: "hello".into(),
+            },
             crate::app::Message::Assistant {
                 text: "hi there".into(),
                 reasoning: String::new(),
@@ -787,7 +911,9 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_redis_message_log_search() {
-        let Some(s) = test_storage().await else { return };
+        let Some(s) = test_storage().await else {
+            return;
+        };
         s.sessions
             .save_all(&[crate::session::SessionMeta {
                 id: "s1".into(),
@@ -801,7 +927,12 @@ mod tests {
             .await
             .unwrap();
         s.message_log
-            .append_batch("s1", &[crate::app::Message::User { text: "Hello world".into() }])
+            .append_batch(
+                "s1",
+                &[crate::app::Message::User {
+                    text: "Hello world".into(),
+                }],
+            )
             .await
             .unwrap();
         let results = s.message_log.search("world", 10).await.unwrap();

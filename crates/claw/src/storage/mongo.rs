@@ -25,10 +25,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures_util::TryStreamExt;
-use mongodb::bson::doc;
-use mongodb::bson::Document;
-use mongodb::options::{IndexOptions, ReturnDocument};
 use mongodb::IndexModel;
+use mongodb::bson::Document;
+use mongodb::bson::doc;
+use mongodb::options::{IndexOptions, ReturnDocument};
 
 use crate::message::StoredRecord;
 use crate::storage::{
@@ -67,11 +67,7 @@ impl MongoBackend {
         // token_records: range scans by timestamp
         self.db
             .collection::<Document>("token_records")
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "timestamp": 1 })
-                    .build(),
-            )
+            .create_index(IndexModel::builder().keys(doc! { "timestamp": 1 }).build())
             .await?;
 
         // sessions: list ordered by updated_at
@@ -150,10 +146,7 @@ impl SessionRepo for MongoSessionStore {
             self.db
                 .db
                 .collection::<Document>("sessions")
-                .update_one(
-                    doc! { "_id": &s.id },
-                    doc! { "$set": doc },
-                )
+                .update_one(doc! { "_id": &s.id }, doc! { "$set": doc })
                 .upsert(true)
                 .await?;
         }
@@ -161,7 +154,10 @@ impl SessionRepo for MongoSessionStore {
     }
 
     async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
-        let doc = self.db.db.collection::<Document>("sessions")
+        let doc = self
+            .db
+            .db
+            .collection::<Document>("sessions")
             .find_one(doc! { "_id": id })
             .await?;
         doc.as_ref().map(doc_to_session_meta).transpose()
@@ -170,25 +166,29 @@ impl SessionRepo for MongoSessionStore {
     async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
         let mut doc = session_meta_to_doc(session);
         doc.insert("_id", session.id.clone());
-        self.db.db.collection::<Document>("sessions")
-            .update_one(
-                doc! { "_id": &session.id },
-                doc! { "$set": doc },
-            )
+        self.db
+            .db
+            .collection::<Document>("sessions")
+            .update_one(doc! { "_id": &session.id }, doc! { "$set": doc })
             .upsert(true)
             .await?;
         Ok(())
     }
 
     async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
-        self.db.db.collection::<Document>("sessions")
+        self.db
+            .db
+            .collection::<Document>("sessions")
             .delete_one(doc! { "_id": id })
             .await?;
         Ok(())
     }
 
     async fn count(&self) -> anyhow::Result<usize> {
-        let count = self.db.db.collection::<Document>("sessions")
+        let count = self
+            .db
+            .db
+            .collection::<Document>("sessions")
             .estimated_document_count()
             .await?;
         Ok(count as usize)
@@ -209,8 +209,7 @@ fn session_meta_to_doc(s: &crate::session::SessionMeta) -> Document {
 fn doc_to_session_meta(d: &Document) -> anyhow::Result<crate::session::SessionMeta> {
     let id = d.get_str("_id")?.to_string();
     let state_str = d.get_str("state").unwrap_or("\"Active\"");
-    let state: crate::session::SessionState =
-        serde_json::from_str(state_str).unwrap_or_default();
+    let state: crate::session::SessionState = serde_json::from_str(state_str).unwrap_or_default();
     Ok(crate::session::SessionMeta {
         id,
         title: d.get_str("title").unwrap_or("").to_string(),
@@ -251,9 +250,7 @@ impl MessageLog for MongoMessageLog {
             .return_document(ReturnDocument::Before)
             .await?;
 
-        let prev_seq = result
-            .and_then(|d| d.get_i64("next_seq").ok())
-            .unwrap_or(0);
+        let prev_seq = result.and_then(|d| d.get_i64("next_seq").ok()).unwrap_or(0);
         let start_seq = prev_seq + 1;
 
         let docs: Vec<Document> = messages
@@ -308,7 +305,8 @@ impl MessageLog for MongoMessageLog {
                     schema_v: d.get_i32("schema_v").unwrap_or(1) as u16,
                     payload,
                 };
-                rec.to_message().ok_or_else(|| anyhow::anyhow!("decode error"))
+                rec.to_message()
+                    .ok_or_else(|| anyhow::anyhow!("decode error"))
             })
             .collect()
     }
@@ -320,10 +318,19 @@ impl MessageLog for MongoMessageLog {
         }
 
         // Case-insensitive substring match via $regex
-        let escaped = q.replace('\\', "\\\\").replace('.', "\\.").replace('*', "\\*")
-            .replace('+', "\\+").replace('?', "\\?").replace('^', "\\^")
-            .replace('$', "\\$").replace('|', "\\|").replace('(', "\\(")
-            .replace(')', "\\)").replace('[', "\\[").replace('{', "\\{");
+        let escaped = q
+            .replace('\\', "\\\\")
+            .replace('.', "\\.")
+            .replace('*', "\\*")
+            .replace('+', "\\+")
+            .replace('?', "\\?")
+            .replace('^', "\\^")
+            .replace('$', "\\$")
+            .replace('|', "\\|")
+            .replace('(', "\\(")
+            .replace(')', "\\)")
+            .replace('[', "\\[")
+            .replace('{', "\\{");
         let candidate_docs: Vec<Document> = self
             .db
             .db
@@ -553,7 +560,9 @@ impl PlanStepsRepo for MongoPlanStepsStore {
                     .map_err(|_| anyhow::anyhow!("invalid steps field"))?;
                 arr.iter()
                     .map(|v| {
-                        let d = v.as_document().ok_or_else(|| anyhow::anyhow!("not a doc"))?;
+                        let d = v
+                            .as_document()
+                            .ok_or_else(|| anyhow::anyhow!("not a doc"))?;
                         Ok(crate::app::PlanStep {
                             description: d.get_str("description").unwrap_or("").to_string(),
                             done: d.get_bool("done").unwrap_or(false),
@@ -613,10 +622,7 @@ impl MemoryRepo for MongoMemoryStore {
         self.db
             .db
             .collection::<Document>("memory")
-            .update_one(
-                doc! { "_id": agent_id },
-                doc! { "$set": { "data": json } },
-            )
+            .update_one(doc! { "_id": agent_id }, doc! { "$set": { "data": json } })
             .upsert(true)
             .await?;
         Ok(())
@@ -639,10 +645,7 @@ impl StatsRepo for MongoStatsStore {
             self.db
                 .db
                 .collection::<Document>("token_records")
-                .update_one(
-                    doc! { "_id": &r.id },
-                    doc! { "$set": doc },
-                )
+                .update_one(doc! { "_id": &r.id }, doc! { "$set": doc })
                 .upsert(true)
                 .await?;
         }
@@ -677,7 +680,9 @@ impl StatsRepo for MongoStatsStore {
             .map(|mut d| {
                 // Remove _id to avoid conflict with the struct's id field
                 d.remove("_id");
-                Ok(mongodb::bson::from_document::<crate::stats::TokenRecord>(d)?)
+                Ok(mongodb::bson::from_document::<crate::stats::TokenRecord>(
+                    d,
+                )?)
             })
             .collect()
     }
@@ -824,7 +829,10 @@ struct MongoToolCacheStore {
 
 #[async_trait]
 impl ToolCacheRepo for MongoToolCacheStore {
-    async fn load(&self, agent_id: &str) -> anyhow::Result<std::collections::HashMap<String, String>> {
+    async fn load(
+        &self,
+        agent_id: &str,
+    ) -> anyhow::Result<std::collections::HashMap<String, String>> {
         let doc = self
             .db
             .db

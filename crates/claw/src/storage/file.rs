@@ -131,9 +131,7 @@ impl SessionRepo for FileSessionStore {
             }
             let content = std::fs::read_to_string(&path)?;
             serde_json::from_str(&content)
-                .inspect_err(|e| {
-                    tracing::error!("index.json 损坏: {} — 不会静默清空", e)
-                })
+                .inspect_err(|e| tracing::error!("index.json 损坏: {} — 不会静默清空", e))
                 .map_err(|e| anyhow::anyhow!("index.json 损坏: {}", e))
         })
         .await
@@ -688,7 +686,7 @@ impl MessageLog for FileMessageLog {
             let reader = BufReader::new(file);
             let all: Vec<crate::app::Message> = reader
                 .lines()
-                .filter_map(|line| line.ok())
+                .map_while(Result::ok)
                 .filter(|line| !line.trim().is_empty())
                 .filter_map(|line| {
                     serde_json::from_str::<crate::message::StoredRecord>(&line)
@@ -739,7 +737,7 @@ impl MessageLog for FileMessageLog {
                 use std::io::{BufRead, BufReader};
                 let records: Vec<crate::message::StoredRecord> = BufReader::new(file)
                     .lines()
-                    .filter_map(|l| l.ok())
+                    .map_while(Result::ok)
                     .filter(|l| !l.trim().is_empty())
                     .filter_map(|l| serde_json::from_str(&l).ok())
                     .collect();
@@ -827,7 +825,7 @@ impl MessageLog for FileMessageLog {
             use std::io::{BufRead, BufReader};
             Ok(BufReader::new(file)
                 .lines()
-                .filter_map(|l| l.ok())
+                .map_while(Result::ok)
                 .filter(|l| !l.trim().is_empty())
                 .count())
         })

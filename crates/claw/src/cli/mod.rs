@@ -22,7 +22,7 @@ fn skill_store() -> crate::skill_store::SkillStore {
 // =============================================
 
 pub fn run_session_list() -> anyhow::Result<()> {
-    let session_mgr = SessionManager::new(claw_dir());
+    let session_mgr = SessionManager::new(claw_dir())?;
 
     let sessions = session_mgr.sessions();
     if sessions.is_empty() {
@@ -46,7 +46,7 @@ pub fn run_session_list() -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
-    let session_mgr = crate::session::SessionManager::new(claw_dir());
+    let session_mgr = crate::session::SessionManager::new(claw_dir())?;
 
     let output = match format {
         "md" => session_mgr.export_markdown(session_id),

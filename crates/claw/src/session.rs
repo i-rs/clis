@@ -108,29 +108,31 @@ pub struct SessionManager {
 
 impl SessionManager {
     /// Create a new SessionManager backed by the file storage (backward-compatible).
-    pub fn new(claw_dir: PathBuf) -> Self {
+    pub fn new(claw_dir: PathBuf) -> anyhow::Result<Self> {
         let storage = Arc::new(ClawStorage::file(claw_dir));
         Self::with_storage(storage)
     }
 
     /// Create a SessionManager with a custom storage backend (for DI/testing).
-    pub fn with_storage(storage: Arc<ClawStorage>) -> Self {
-        let sessions = crate::utils::sync_block_on(async {
-            storage.sessions.load_all().await.unwrap_or_default()
-        });
+    pub fn with_storage(storage: Arc<ClawStorage>) -> anyhow::Result<Self> {
+        let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().await })
+            .inspect_err(|e| {
+                tracing::error!("加载会话列表失败: {} — 以空列表启动，不会覆盖损坏文件", e);
+            })
+            .unwrap_or_default();
         let current_id = sessions.first().map(|s| s.id.clone());
         let index = sessions
             .iter()
             .enumerate()
             .map(|(i, s)| (s.id.clone(), i))
             .collect();
-        Self {
+        Ok(Self {
             storage,
             sessions,
             index,
             current_id,
             saved_cursors: HashMap::new(),
-        }
+        })
     }
 
     pub fn sessions(&self) -> &[SessionMeta] {
@@ -369,25 +371,23 @@ impl SessionManager {
         if cursor >= messages.len() {
             return;
         }
-        let new_msgs = &messages[cursor..];
+        let new_msgs = messages[cursor..].to_vec();
         let log = self.storage.message_log.clone();
         let sid = session_id.to_string();
-        let new_msgs = new_msgs.to_vec();
         let append_count = new_msgs.len();
-        let new_msgs_clone = new_msgs.clone();
         let result =
-            crate::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs_clone).await });
+            crate::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs).await });
         match result {
             Ok(()) => {
                 self.saved_cursors
                     .insert(session_id.to_string(), messages.len());
                 // 更新 SessionMeta.message_count
                 if append_count > 0 {
-                    if let Some(idx) = self.index.get(session_id) {
-                        if let Some(meta) = self.sessions.get_mut(*idx) {
-                            meta.message_count += append_count;
-                            meta.updated_at = chrono::Utc::now().timestamp();
-                        }
+                    if let Some(idx) = self.index.get(session_id)
+                        && let Some(meta) = self.sessions.get_mut(*idx)
+                    {
+                        meta.message_count += append_count;
+                        meta.updated_at = chrono::Utc::now().timestamp();
                     }
                     self.save_index();
                 }
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn test_create_session() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         assert!(mgr.current_id().is_some());
         assert_eq!(mgr.sessions().len(), 1);
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn test_save_load_messages() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         let msgs = vec![
             crate::app::Message::User {
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn test_save_load_api_messages() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         let msgs = vec![serde_json::json!({"role": "user", "content": "hello"})];
         mgr.save_api_messages(&id, &msgs);
@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn test_rename_session() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         mgr.rename_session(&id, "My Chat");
         assert_eq!(mgr.current_session().unwrap().title, "My Chat");
@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn test_search_sessions() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id1 = mgr.create_session();
         mgr.rename_session(&id1, "Weather Talk");
         let id2 = mgr.create_session();
@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn test_export_markdown() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         mgr.rename_session(&id, "Test Chat");
         let msgs = vec![
@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn test_export_json() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         let msgs = vec![crate::app::Message::User {
             text: "hello".into(),
@@ -586,7 +586,7 @@ mod tests {
     #[test]
     fn test_plan_steps_persistence() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         let steps = vec![
             crate::app::PlanStep {
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn test_state_transitions() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         let id = mgr.create_session();
         assert_eq!(mgr.session_meta(&id).unwrap().state, SessionState::Active);
         assert!(mgr.mark_waiting_for_tool(&id));
@@ -635,7 +635,7 @@ mod tests {
     #[test]
     fn test_state_filters() {
         let dir = test_dir();
-        let mut mgr = SessionManager::new(dir.clone());
+        let mut mgr = SessionManager::new(dir.clone()).unwrap();
         mgr.create_session_for("agent_a");
         let id2 = mgr.create_session_for("agent_b");
         mgr.mark_completed(&id2);
@@ -657,7 +657,7 @@ mod tests {
             crate::utils::sync_block_on(crate::storage::ClawStorage::sqlite(path.clone())).unwrap(),
         );
 
-        let mut mgr = SessionManager::with_storage(storage.clone());
+        let mut mgr = SessionManager::with_storage(storage.clone()).unwrap();
         let id_a = mgr.create_session();
         let msgs = vec![
             crate::app::Message::User {
@@ -676,7 +676,7 @@ mod tests {
 
         let _id_b = mgr.create_session();
 
-        let mgr2 = SessionManager::with_storage(storage);
+        let mgr2 = SessionManager::with_storage(storage).unwrap();
         let loaded2 = mgr2.load_app_messages(&id_a, 100);
         assert_eq!(
             loaded2.len(),
@@ -696,7 +696,7 @@ mod tests {
             crate::utils::sync_block_on(crate::storage::ClawStorage::sqlite(path.clone())).unwrap(),
         );
 
-        let mut mgr = SessionManager::with_storage(storage.clone());
+        let mut mgr = SessionManager::with_storage(storage.clone()).unwrap();
         let id_a = mgr.create_session();
         mgr.append_new_messages(
             &id_a,
@@ -713,7 +713,7 @@ mod tests {
         );
 
         // Save & reload — verify both sessions retain their messages
-        let mgr2 = SessionManager::with_storage(storage.clone());
+        let mgr2 = SessionManager::with_storage(storage.clone()).unwrap();
         let msgs_a = mgr2.load_app_messages(&id_a, 100);
         let msgs_b = mgr2.load_app_messages(&id_b, 100);
         assert_eq!(msgs_a.len(), 1, "session A messages preserved");

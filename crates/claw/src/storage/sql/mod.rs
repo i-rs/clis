@@ -94,7 +94,7 @@ macro_rules! define_sql_stores {
 
             async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
                 let row: Option<SessionRow> = sqlx::query_as(
-                    "SELECT id, title, agent_id, state, created_at, updated_at, message_count                      FROM sessions WHERE id = ?",
+                    "SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ?",
                 )
                 .bind(id)
                 .fetch_optional(&self.db.pool)

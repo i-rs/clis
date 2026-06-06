@@ -1,12 +1,12 @@
 //! Pluggable storage backend abstraction.
 
 pub mod file;
-#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
-pub mod sql;
 #[cfg(feature = "mongo")]
 pub mod mongo;
 #[cfg(feature = "redis")]
 pub mod redis;
+#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
+pub mod sql;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

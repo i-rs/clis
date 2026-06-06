@@ -338,7 +338,7 @@ impl AppCore {
             }
         };
 
-        let session_mgr = SessionManager::with_storage(storage.clone());
+        let session_mgr = SessionManager::with_storage(storage.clone())?;
         let agent_store = AgentRuntimeStore::new_with_storage(&config, &storage);
         let stats_manager = std::sync::Arc::new(crate::stats::StatsManager::with_storage(
             storage.clone(),
@@ -1031,7 +1031,13 @@ pub fn record_layered_tool_memory(
 }
 
 /// Bridge sync → async for storage initialization.
-#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres", feature = "mongo", feature = "redis"))]
+#[cfg(any(
+    feature = "sqlite",
+    feature = "mysql",
+    feature = "postgres",
+    feature = "mongo",
+    feature = "redis"
+))]
 fn block_on<F: std::future::Future>(f: F) -> F::Output {
     crate::utils::sync_block_on(f)
 }
