@@ -48,13 +48,20 @@ pub struct StatsPricingConfig {
 
 // ── Data Models ──
 
+fn default_user_id() -> String {
+    "default".to_string()
+}
+
 /// Single LLM request token usage record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TokenRecord {
+ pub struct TokenRecord {
     /// Unique ID (UUID v4)
     pub id: String,
     /// Request timestamp (Unix epoch seconds)
     pub timestamp: i64,
+    /// User ID
+    #[serde(default = "default_user_id")]
+    pub user_id: String,
     /// Agent ID
     pub agent_id: String,
     /// Model name (e.g. "gpt-4o-mini", "claude-sonnet-4-20250514")
@@ -247,6 +254,7 @@ impl StatsManager {
     #[allow(clippy::too_many_arguments)]
     pub fn create_record(
         &self,
+        user_id: &str,
         agent_id: &str,
         model: &str,
         provider: &str,
@@ -267,6 +275,7 @@ impl StatsManager {
         TokenRecord {
             id: uuid::Uuid::new_v4().to_string(),
             timestamp: chrono::Utc::now().timestamp(),
+            user_id: user_id.to_string(),
             agent_id: agent_id.to_string(),
             model: model.to_string(),
             provider: provider.to_string(),

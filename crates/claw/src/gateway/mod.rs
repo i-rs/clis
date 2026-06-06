@@ -221,7 +221,7 @@ impl GatewayServer {
                 core.session_mgr.switch_to(&found);
                 found
             } else {
-                let new_id = core.session_mgr.create_session_for(&agent_id_owned);
+                let new_id = core.session_mgr.create_session_for(&agent_id_owned, "default");
                 core.session_mgr.rename_session(&new_id, &session_title);
                 new_id
             };

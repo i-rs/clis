@@ -257,6 +257,7 @@ impl ClawTool for DelegateTool {
         // Persist usage (#6)
         if let Some(rt) = &ctx.delegate_runtime {
             rt.stats_manager.record(rt.stats_manager.create_record(
+                "default",
                 &format!("delegate:{}", agent_id),
                 &final_model,
                 agent_config.provider.as_str(),

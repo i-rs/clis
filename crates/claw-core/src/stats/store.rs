@@ -239,6 +239,7 @@ mod tests {
         let record = TokenRecord {
             id: "test-1".to_string(),
             timestamp: 1716220800,
+            user_id: "default".to_string(),
             agent_id: "default".to_string(),
             model: "gpt-4o-mini".to_string(),
             provider: "openai".to_string(),

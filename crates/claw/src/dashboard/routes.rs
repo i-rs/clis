@@ -273,7 +273,7 @@ pub async fn send_message(
         .unwrap_or_default();
 
     if session_id.is_empty() {
-        core.session_mgr.create_session_for(&agent_id);
+        core.session_mgr.create_session_for(&agent_id, "default");
     }
 
     let sid = match core.session_mgr.current_id() {
@@ -577,7 +577,7 @@ pub async fn create_session(
         .unwrap_or("default");
 
     let mut core = state.core.write().await;
-    let id = core.session_mgr.create_session_for(agent_id);
+    let id = core.session_mgr.create_session_for(agent_id, "default");
     ApiResponse::ok(serde_json::json!({
         "id": id,
         "title": "",

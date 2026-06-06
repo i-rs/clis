@@ -280,7 +280,7 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                 handler.app.current_agent = agent_id.clone();
                 handler.app.reset_for_new_session();
                 handler.app.status_text = format!("已切换到 agent: {}", agent_id);
-                handler.app_core.session_mgr.create_session_for(agent_id);
+                handler.app_core.session_mgr.create_session_for(agent_id, "default");
                 handler
                     .app_core
                     .agent_store

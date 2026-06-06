@@ -57,7 +57,7 @@ macro_rules! define_sql_stores {
         impl SessionRepo for $sessions {
             async fn load_all(&self) -> anyhow::Result<Vec<crate::session::SessionMeta>> {
                 let rows = sqlx::query_as::<_, SessionRow>(
-                    "SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions ORDER BY updated_at DESC",
+                    "SELECT id, title, agent_id, user_id, state, created_at, updated_at, message_count FROM sessions ORDER BY updated_at DESC",
                 )
                 .fetch_all(&self.db.pool)
                 .await?;
@@ -84,7 +84,7 @@ macro_rules! define_sql_stores {
 
                 for s in sessions {
                     sqlx::query($upsert_session)
-                        .bind(&s.id).bind(&s.title).bind(&s.agent_id)
+                        .bind(&s.id).bind(&s.title).bind(&s.agent_id).bind(&s.user_id)
                         .bind(serde_json::to_string(&s.state)?)
                         .bind(s.created_at).bind(s.updated_at)
                         .bind(s.message_count as i64)
@@ -96,7 +96,7 @@ macro_rules! define_sql_stores {
 
             async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
                 let row: Option<SessionRow> = sqlx::query_as(
-                    concat!("SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ", $ph1),
+                    concat!("SELECT id, title, agent_id, user_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ", $ph1),
                 )
                 .bind(id)
                 .fetch_optional(&self.db.pool)
@@ -106,7 +106,7 @@ macro_rules! define_sql_stores {
 
             async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
                 sqlx::query($upsert_session)
-                    .bind(&session.id).bind(&session.title).bind(&session.agent_id)
+                    .bind(&session.id).bind(&session.title).bind(&session.agent_id).bind(&session.user_id)
                     .bind(serde_json::to_string(&session.state)?)
                     .bind(session.created_at).bind(session.updated_at)
                     .bind(session.message_count as i64)
@@ -250,7 +250,7 @@ macro_rules! define_sql_stores {
                 let mut results = Vec::new();
                 for (sid,) in &candidate_rows {
                     let session_rows: Vec<SessionRow> = sqlx::query_as(
-                        concat!("SELECT id, title, agent_id, state, created_at, updated_at, message_count \
+                        concat!("SELECT id, title, agent_id, user_id, state, created_at, updated_at, message_count \
                          FROM sessions WHERE id = ", $ph1),
                     )
                     .bind(sid)
@@ -376,7 +376,7 @@ macro_rules! define_sql_stores {
             async fn upsert_batch(&self, records: &[crate::stats::TokenRecord]) -> anyhow::Result<()> {
                 for r in records {
                     sqlx::query($upsert_token)
-                        .bind(&r.id).bind(r.timestamp).bind(&r.agent_id).bind(&r.model).bind(&r.provider)
+                        .bind(&r.id).bind(r.timestamp).bind(&r.user_id).bind(&r.agent_id).bind(&r.model).bind(&r.provider)
                         .bind(r.prompt_tokens as i64).bind(r.completion_tokens as i64).bind(r.total_tokens as i64)
                         .bind(r.has_tool_calls as i64).bind(r.tool_call_count as i64).bind(r.react_rounds as i64)
                         .bind(r.success as i64).bind(r.latency_ms as i64).bind(r.estimated_cost_usd)
@@ -386,7 +386,7 @@ macro_rules! define_sql_stores {
                 Ok(())
             }
             async fn read_range(&self, from: Option<i64>, to: Option<i64>) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
-                macro_rules! cols { () => { "SELECT id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id FROM token_records" }; }
+                macro_rules! cols { () => { "SELECT id, timestamp, user_id, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id FROM token_records" }; }
                 let rows: Vec<TokenRecordRow> = match (from, to) {
                     (Some(f), Some(t)) => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ", $ph1, " AND timestamp <= ", $ph2, " ORDER BY timestamp")).bind(f).bind(t).fetch_all(&self.db.pool).await?,
                     (Some(f), None)     => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ", $ph1, " ORDER BY timestamp")).bind(f).fetch_all(&self.db.pool).await?,
@@ -466,6 +466,7 @@ struct SessionRow {
     id: String,
     title: String,
     agent_id: String,
+    user_id: String,
     state: String,
     created_at: i64,
     updated_at: i64,
@@ -478,6 +479,7 @@ impl From<SessionRow> for crate::session::SessionMeta {
             id: r.id,
             title: r.title,
             agent_id: r.agent_id,
+            user_id: r.user_id,
             state: serde_json::from_str(&r.state).unwrap_or_default(),
             created_at: r.created_at,
             updated_at: r.updated_at,
@@ -490,6 +492,7 @@ impl From<SessionRow> for crate::session::SessionMeta {
 struct TokenRecordRow {
     id: String,
     timestamp: i64,
+    user_id: String,
     agent_id: String,
     model: String,
     provider: String,
@@ -511,6 +514,7 @@ impl From<TokenRecordRow> for crate::stats::TokenRecord {
         Self {
             id: r.id,
             timestamp: r.timestamp,
+            user_id: r.user_id,
             agent_id: r.agent_id,
             model: r.model,
             provider: r.provider,

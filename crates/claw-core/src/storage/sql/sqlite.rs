@@ -53,7 +53,7 @@ impl SqliteBackend {
     }
 
     async fn migrate(&self) -> anyhow::Result<()> {
-        sqlx::query("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'default', state TEXT NOT NULL DEFAULT 'Active', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, message_count INTEGER NOT NULL DEFAULT 0)").execute(&self.pool).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'default', user_id TEXT NOT NULL DEFAULT 'default', state TEXT NOT NULL DEFAULT 'Active', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, message_count INTEGER NOT NULL DEFAULT 0)").execute(&self.pool).await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS api_cache (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, messages TEXT NOT NULL)").execute(&self.pool).await?;
         sqlx::query("CREATE TABLE IF NOT EXISTS plan_steps (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, step_order INTEGER NOT NULL, description TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (session_id, step_order))").execute(&self.pool).await?;
         sqlx::query(
@@ -61,7 +61,7 @@ impl SqliteBackend {
         )
         .execute(&self.pool)
         .await?;
-        sqlx::query("CREATE TABLE IF NOT EXISTS token_records (id TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, agent_id TEXT NOT NULL, model TEXT NOT NULL, provider TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, has_tool_calls INTEGER NOT NULL, tool_call_count INTEGER NOT NULL, react_rounds INTEGER NOT NULL, success INTEGER NOT NULL, latency_ms INTEGER NOT NULL, estimated_cost_usd REAL NOT NULL, trace_id TEXT NOT NULL DEFAULT '')").execute(&self.pool).await?;
+        sqlx::query("CREATE TABLE IF NOT EXISTS token_records (id TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, user_id TEXT NOT NULL DEFAULT 'default', agent_id TEXT NOT NULL, model TEXT NOT NULL, provider TEXT NOT NULL, prompt_tokens INTEGER NOT NULL, completion_tokens INTEGER NOT NULL, total_tokens INTEGER NOT NULL, has_tool_calls INTEGER NOT NULL, tool_call_count INTEGER NOT NULL, react_rounds INTEGER NOT NULL, success INTEGER NOT NULL, latency_ms INTEGER NOT NULL, estimated_cost_usd REAL NOT NULL, trace_id TEXT NOT NULL DEFAULT '')").execute(&self.pool).await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_token_ts ON token_records(timestamp)")
             .execute(&self.pool)
             .await?;
@@ -108,10 +108,10 @@ define_sql_stores!(
     SqliteStatsStore,
     SqliteSkillStore,
     SqliteToolCacheStore,
-    "INSERT INTO sessions (id, title, agent_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, agent_id=excluded.agent_id, state=excluded.state, created_at=excluded.created_at, updated_at=excluded.updated_at, message_count=excluded.message_count",
+    "INSERT INTO sessions (id, title, agent_id, user_id, state, created_at, updated_at, message_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, agent_id=excluded.agent_id, user_id=excluded.user_id, state=excluded.state, created_at=excluded.created_at, updated_at=excluded.updated_at, message_count=excluded.message_count",
     "INSERT OR REPLACE INTO api_cache (session_id, messages) VALUES (?, ?)",
     "INSERT OR REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
-    "INSERT OR REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    "INSERT OR REPLACE INTO token_records (id, timestamp, user_id, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     "INSERT OR REPLACE INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?)",
     "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?",
     "?", "?", "?", "?", "?",

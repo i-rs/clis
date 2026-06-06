@@ -400,6 +400,13 @@ pub struct GatewayConfig {
 
 // ── Dashboard Configuration ──
 
+/// A multi-tenant user entry for token-based auth.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardUser {
+    pub id: String,
+    pub token: String,
+}
+
 /// Dashboard web server configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardConfig {
@@ -416,6 +423,10 @@ pub struct DashboardConfig {
     /// If not set, a random token is generated on startup and printed to console.
     #[serde(default)]
     pub auth_token: Option<String>,
+    /// Multi-user token map (token → user_id).
+    /// When empty, all requests use "default" user.
+    #[serde(default)]
+    pub users: Vec<DashboardUser>,
 }
 
 impl Default for DashboardConfig {
@@ -425,6 +436,7 @@ impl Default for DashboardConfig {
             host: default_dashboard_host(),
             port: default_dashboard_port(),
             auth_token: None,
+            users: Vec::new(),
         }
     }
 }

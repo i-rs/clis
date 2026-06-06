@@ -79,11 +79,13 @@ impl SessionState {
 
 /// Metadata for a saved conversation session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SessionMeta {
+ pub struct SessionMeta {
     pub id: String,
     pub title: String,
     #[serde(default = "default_agent_id")]
     pub agent_id: String,
+    #[serde(default = "default_user_id")]
+    pub user_id: String,
     #[serde(default)]
     pub state: SessionState,
     pub created_at: i64,
@@ -92,6 +94,10 @@ pub struct SessionMeta {
 }
 
 fn default_agent_id() -> String {
+    "default".to_string()
+}
+
+fn default_user_id() -> String {
     "default".to_string()
 }
 
@@ -174,10 +180,10 @@ impl SessionManager {
     }
 
     pub fn create_session(&mut self) -> String {
-        self.create_session_for("default")
+        self.create_session_for("default", "default")
     }
 
-    pub fn create_session_for(&mut self, agent_id: &str) -> String {
+    pub fn create_session_for(&mut self, agent_id: &str, user_id: &str) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let now = now_secs();
         let idx = self.sessions.len();
@@ -185,6 +191,7 @@ impl SessionManager {
             id: id.clone(),
             title: "新对话".to_string(),
             agent_id: agent_id.to_string(),
+            user_id: user_id.to_string(),
             state: SessionState::Active,
             created_at: now,
             updated_at: now,
@@ -685,8 +692,8 @@ mod tests {
     fn test_state_filters() {
         let dir = test_dir();
         let mut mgr = SessionManager::new(dir.clone()).unwrap();
-        mgr.create_session_for("agent_a");
-        let id2 = mgr.create_session_for("agent_b");
+        mgr.create_session_for("agent_a", "default");
+        let id2 = mgr.create_session_for("agent_b", "default");
         mgr.mark_completed(&id2);
         let completed = mgr.sessions_by_state(&SessionState::Completed);
         assert_eq!(completed.len(), 1);

@@ -41,6 +41,7 @@ pub(crate) fn emit_usage_record(
     let _ = tx.send(LlmEvent::UsageRecord(TokenRecord {
         id: uuid::Uuid::new_v4().to_string(),
         timestamp: chrono::Utc::now().timestamp(),
+        user_id: "default".to_string(),
         agent_id: "default".to_string(),
         model: model.to_string(),
         provider: provider.to_string(),
