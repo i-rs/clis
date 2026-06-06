@@ -33,13 +33,46 @@ interface Props {
   onQualityScore?: (evt: QualityScore) => void
 }
 
+const INITIAL_STATE: StreamingState = { content: '', reasoning: '', toolCalls: [] }
+
+function commitAndClear(
+  st: StreamingState,
+  onCommit?: (msg: Pick<ChatMessage, 'role' | 'content' | 'reasoning' | 'toolCalls'>) => void,
+): StreamingState {
+  if (st.content || st.reasoning || st.toolCalls.length > 0) {
+    onCommit?.({
+      role: 'assistant',
+      content: st.content,
+      reasoning: st.reasoning || undefined,
+      toolCalls: st.toolCalls.length > 0 ? [...st.toolCalls] : undefined,
+    })
+  }
+  return { ...INITIAL_STATE }
+}
+
+function parseSseLine(
+  line: string,
+  currentEvent: string,
+  currentId: string,
+): { event: string; id: string; data: string } | null {
+  const trimmed = line.trim()
+  if (trimmed.startsWith('event: ')) {
+    return { event: trimmed.slice(7).trim(), id: currentId, data: '' }
+  }
+  if (trimmed.startsWith('id: ')) {
+    return { event: currentEvent, id: trimmed.slice(4).trim(), data: '' }
+  }
+  if (trimmed.startsWith('data: ')) {
+    return { event: currentEvent, id: currentId, data: trimmed.slice(6) }
+  }
+  return null
+}
+
 export function useChatStream(props: Props = {}): ChatStreamState {
   const [streaming, setStreaming] = useState(false)
-  const [, setTick] = useState(0)
+  const [state, setState] = useState<StreamingState>(INITIAL_STATE)
   const abortRef = useRef<AbortController | null>(null)
-  const stateRef = useRef<StreamingState>({ content: '', reasoning: '', toolCalls: [] })
   const lastCursorRef = useRef(0)
-  const lastSessionRef = useRef<string | null>(null)
 
   const abort = useCallback(() => {
     abortRef.current?.abort()
@@ -52,213 +85,20 @@ export function useChatStream(props: Props = {}): ChatStreamState {
     }
   }, [])
 
-  const handleSend = useCallback(async (text: string, agentId?: string) => {
-    abortRef.current?.abort()
-    stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-    setTick((n) => n + 1)
-    setStreaming(true)
-
-    const     controller = new AbortController()
-    abortRef.current = controller
-    lastCursorRef.current = 0
-
-    const body: Record<string, string> = { message: text }
-    if (agentId) body.agent_id = agentId
-
-    try {
-      const resp = await fetch(`${BASE}/chat`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      })
-
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => 'Unknown error')
-        props.onError?.(`HTTP ${resp.status}: ${errText}`)
-        setStreaming(false)
-        return
-      }
-
-      const reader = resp.body?.getReader()
-      if (!reader) {
-        props.onError?.('No response body')
-        setStreaming(false)
-        return
-      }
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let currentEvent = ''
-      let currentId = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (trimmed.startsWith('event: ')) {
-            currentEvent = trimmed.slice(7).trim()
-          } else if (trimmed.startsWith('id: ')) {
-            currentId = trimmed.slice(4).trim()
-          } else if (trimmed.startsWith('data: ')) {
-            const data = trimmed.slice(6)
-            const evtId = parseInt(currentId, 10) || 0
-            if (evtId > 0) lastCursorRef.current = evtId
-            switch (currentEvent) {
-              case 'token':
-                stateRef.current.content += data
-                setTick((n) => n + 1)
-                break
-              case 'reasoning':
-                stateRef.current.reasoning += data
-                setTick((n) => n + 1)
-                break
-              case 'status':
-                break
-              case 'error':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  props.onError?.(data)
-                  setStreaming(false)
-                }
-                return
-              case 'new_round':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  setTick((n) => n + 1)
-                }
-                break
-              case 'tool_executed':
-                try {
-                  const parsed = JSON.parse(data) as ToolCallEvent
-                  stateRef.current.toolCalls.push({
-                    name: parsed.name,
-                    args: parsed.args,
-                    result: parsed.result,
-                    step: parsed.step,
-                    total_steps: parsed.total_steps,
-                  })
-                  setTick((n) => n + 1)
-                } catch { /* ignore parse errors */ }
-                break
-              case 'image_generated':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  try {
-                    const parsed = JSON.parse(data) as ImageGeneratedEvent
-                    props.onImageGenerated?.(parsed)
-                  } catch { /* ignore parse errors */ }
-                  setTick((n) => n + 1)
-                }
-                break
-              case 'done':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  try {
-                    const parsed = JSON.parse(data)
-                    props.onDone?.(parsed.usage, parsed.quality)
-                  } catch { /* ignore parse errors */ }
-                  setStreaming(false)
-                }
-                return
-              case 'evaluation':
-                try {
-                  const parsed = JSON.parse(data) as EvaluationEvent
-                  props.onEvaluation?.(parsed)
-                } catch { /* ignore parse errors */ }
-                break
-              case 'quality_score':
-                try {
-                  const parsed = JSON.parse(data) as QualityScore
-                  props.onQualityScore?.(parsed)
-                } catch { /* ignore parse errors */ }
-                break
-            }
-          }
-        }
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        const s = stateRef.current
-        if (s.content || s.reasoning || s.toolCalls.length > 0) {
-          props.onCommit?.({
-            role: 'assistant',
-            content: s.content,
-            reasoning: s.reasoning || undefined,
-            toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-          })
-        }
-        stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-        props.onError?.(String(err))
-      }
-      setStreaming(false)
-    }
-  }, [props.onCommit, props.onDone, props.onError, props.onEvaluation, props.onImageGenerated, props.onQualityScore])
-
-  const resumeStream = useCallback((sessionId: string) => {
-    if (!sessionId) return
-    abortRef.current?.abort()
-
-    lastSessionRef.current = sessionId
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    const cursor = lastCursorRef.current
-    setStreaming(true)
-
-    fetch(`${BASE}/chat/stream/${encodeURIComponent(sessionId)}/resume?cursor=${cursor}`, {
+  const processSse = useCallback((url: string, controller: AbortController, onComplete: () => void) => {
+    fetch(url, {
       headers: authHeaders(),
       signal: controller.signal,
     }).then(async (response) => {
       const reader = response.body?.getReader()
-      if (!reader) return
+      if (!reader) { onComplete(); return }
 
       const decoder = new TextDecoder()
       let buffer = ''
       let currentEvent = ''
       let currentId = ''
+
+      setState(INITIAL_STATE)
 
       while (true) {
         const { done, value } = await reader.read()
@@ -269,137 +109,125 @@ export function useChatStream(props: Props = {}): ChatStreamState {
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          const trimmed = line.trim()
-          if (trimmed.startsWith('event: ')) {
-            currentEvent = trimmed.slice(7).trim()
-          } else if (trimmed.startsWith('id: ')) {
-            currentId = trimmed.slice(4).trim()
-          } else if (trimmed.startsWith('data: ')) {
-            const data = trimmed.slice(6)
-            const evtId = parseInt(currentId, 10) || 0
+          const parsed = parseSseLine(line, currentEvent, currentId)
+          if (!parsed) continue
+          if (parsed.event) { currentEvent = parsed.event; currentId = parsed.id; continue }
+          if (parsed.id) { currentId = parsed.id; continue }
+          if (!parsed.data) continue
 
-            // Skip events already processed by this client
-            if (evtId <= cursor) continue
-            lastCursorRef.current = evtId
+          const data = parsed.data
+          const evtId = parseInt(currentId, 10) || 0
+          if (evtId > 0) lastCursorRef.current = evtId
 
-            switch (currentEvent) {
-              case 'token':
-                stateRef.current.content += data
-                setTick((n) => n + 1)
-                break
-              case 'reasoning':
-                stateRef.current.reasoning += data
-                setTick((n) => n + 1)
-                break
-              case 'new_round':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  setTick((n) => n + 1)
-                }
-                break
-              case 'tool_executed':
+          switch (currentEvent) {
+            case 'token':
+              setState((prev) => ({ ...prev, content: prev.content + data }))
+              break
+            case 'reasoning':
+              setState((prev) => ({ ...prev, reasoning: prev.reasoning + data }))
+              break
+            case 'new_round':
+              setState((prev) => commitAndClear(prev, props.onCommit))
+              break
+            case 'tool_executed':
+              try {
+                const parsedEvt = JSON.parse(data) as ToolCallEvent
+                setState((prev) => ({
+                  ...prev,
+                  toolCalls: [...prev.toolCalls, {
+                    name: parsedEvt.name, args: parsedEvt.args,
+                    result: parsedEvt.result, step: parsedEvt.step,
+                    total_steps: parsedEvt.total_steps,
+                  }],
+                }))
+              } catch { /* ignore */ }
+              break
+            case 'image_generated':
+              setState((prev) => {
+                const st = commitAndClear(prev, props.onCommit)
                 try {
-                  const parsed = JSON.parse(data) as ToolCallEvent
-                  stateRef.current.toolCalls.push({
-                    name: parsed.name,
-                    args: parsed.args,
-                    result: parsed.result,
-                    step: parsed.step,
-                    total_steps: parsed.total_steps,
-                  })
-                  setTick((n) => n + 1)
+                  props.onImageGenerated?.(JSON.parse(data) as ImageGeneratedEvent)
                 } catch { /* ignore */ }
-                break
-              case 'image_generated':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  try {
-                    const parsed = JSON.parse(data) as ImageGeneratedEvent
-                    props.onImageGenerated?.(parsed)
-                  } catch { /* ignore */ }
-                  setTick((n) => n + 1)
-                }
-                break
-              case 'done':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  try {
-                    const parsed = JSON.parse(data)
-                    props.onDone?.(parsed.usage, parsed.quality)
-                  } catch { /* ignore */ }
-                  setStreaming(false)
-                }
-                return
-              case 'error':
-                {
-                  const s = stateRef.current
-                  if (s.content || s.reasoning || s.toolCalls.length > 0) {
-                    props.onCommit?.({
-                      role: 'assistant',
-                      content: s.content,
-                      reasoning: s.reasoning || undefined,
-                      toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : undefined,
-                    })
-                  }
-                  stateRef.current = { content: '', reasoning: '', toolCalls: [] }
-                  props.onError?.(data)
-                  setStreaming(false)
-                }
-                return
-              case 'evaluation':
-                try {
-                  const parsed = JSON.parse(data) as EvaluationEvent
-                  props.onEvaluation?.(parsed)
-                } catch { /* ignore */ }
-                break
-              case 'quality_score':
-                try {
-                  const parsed = JSON.parse(data) as QualityScore
-                  props.onQualityScore?.(parsed)
-                } catch { /* ignore */ }
-                break
-            }
+                return st
+              })
+              break
+            case 'done':
+              try {
+                const parsedDone = JSON.parse(data)
+                setState((prev) => {
+                  const st = commitAndClear(prev, props.onCommit)
+                  props.onDone?.(parsedDone.usage, parsedDone.quality)
+                  return st
+                })
+              } catch { /* ignore */ }
+              setStreaming(false)
+              return
+            case 'error':
+              setState((prev) => {
+                const st = commitAndClear(prev, props.onCommit)
+                props.onError?.(data)
+                return st
+              })
+              setStreaming(false)
+              return
+            case 'evaluation':
+              try {
+                props.onEvaluation?.(JSON.parse(data) as EvaluationEvent)
+              } catch { /* ignore */ }
+              break
+            case 'quality_score':
+              try {
+                props.onQualityScore?.(JSON.parse(data) as QualityScore)
+              } catch { /* ignore */ }
+              break
           }
         }
       }
+      onComplete()
     }).catch((err: any) => {
       if (err.name !== 'AbortError') {
-        props.onError?.(`Reconnect failed: ${err}`)
+        setState((prev) => {
+          const st = commitAndClear(prev, props.onCommit)
+          props.onError?.(String(err))
+          return st
+        })
       }
       setStreaming(false)
     })
   }, [props.onCommit, props.onDone, props.onError, props.onEvaluation, props.onImageGenerated, props.onQualityScore])
 
+  const handleSend = useCallback(async (text: string, agentId?: string) => {
+    abortRef.current?.abort()
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    lastCursorRef.current = 0
+    setStreaming(true)
+    setState(INITIAL_STATE)
+
+    const body: Record<string, string> = { message: text }
+    if (agentId) body.agent_id = agentId
+
+    processSse(`${BASE}/chat`, controller, () => {})
+  }, [processSse])
+
+  const resumeStream = useCallback((sessionId: string) => {
+    if (!sessionId) return
+    abortRef.current?.abort()
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    setStreaming(true)
+
+    const cursor = lastCursorRef.current
+    processSse(`${BASE}/chat/stream/${encodeURIComponent(sessionId)}/resume?cursor=${cursor}`, controller, () => {
+      setStreaming(false)
+    })
+  }, [processSse])
+
   return {
     streaming,
-    state: stateRef.current,
+    state,
     sendMessage: handleSend,
     resumeStream,
     abort,
