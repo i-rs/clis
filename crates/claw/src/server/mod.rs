@@ -1,9 +1,12 @@
-//! Serve mode — HTTP API server + Web Dashboard.
+//! Server mode — HTTP API server + Web Dashboard.
 //!
 //! `claw serve` is the default command. It starts an HTTP server that serves:
 //! - REST API endpoints for chat, sessions, agents, stats, etc.
 //! - SSE streaming for real-time chat responses
 //! - Web Dashboard SPA (unless `--api-only` is set)
+
+pub mod assets;
+pub mod routes;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -59,111 +62,111 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
     let auth_middleware = axum::middleware::from_fn_with_state(state.clone(), auth_guard);
 
     let public_routes =
-        axum::Router::new().route("/api/health", axum::routing::get(crate::dashboard::routes::health));
+        axum::Router::new().route("/api/health", axum::routing::get(crate::server::routes::health));
 
     let api_routes = axum::Router::new()
         .route(
             "/api/config",
-            axum::routing::get(crate::dashboard::routes::get_config)
-                .patch(crate::dashboard::routes::update_config),
+            axum::routing::get(crate::server::routes::get_config)
+                .patch(crate::server::routes::update_config),
         )
         .route(
             "/api/chat",
-            axum::routing::post(crate::dashboard::routes::chat),
+            axum::routing::post(crate::server::routes::chat),
         )
         .route(
             "/api/chat/stream/{session_id}",
-            axum::routing::get(crate::dashboard::routes::chat_stream),
+            axum::routing::get(crate::server::routes::chat_stream),
         )
         .route(
             "/api/chat/stream/{session_id}/resume",
-            axum::routing::get(crate::dashboard::routes::chat_stream_resume),
+            axum::routing::get(crate::server::routes::chat_stream_resume),
         )
         .route(
             "/api/sessions/current",
-            axum::routing::get(crate::dashboard::routes::get_current_session),
+            axum::routing::get(crate::server::routes::get_current_session),
         )
         .route(
             "/api/sessions",
-            axum::routing::get(crate::dashboard::routes::list_sessions)
-                .post(crate::dashboard::routes::create_session),
+            axum::routing::get(crate::server::routes::list_sessions)
+                .post(crate::server::routes::create_session),
         )
         .route(
             "/api/sessions/{id}",
-            axum::routing::get(crate::dashboard::routes::get_session)
-                .delete(crate::dashboard::routes::delete_session),
+            axum::routing::get(crate::server::routes::get_session)
+                .delete(crate::server::routes::delete_session),
         )
         .route(
             "/api/sessions/{id}/switch",
-            axum::routing::post(crate::dashboard::routes::switch_session),
+            axum::routing::post(crate::server::routes::switch_session),
         )
         .route(
             "/api/sessions/{id}/feedback",
-            axum::routing::post(crate::dashboard::routes::post_session_feedback),
+            axum::routing::post(crate::server::routes::post_session_feedback),
         )
         .route(
             "/api/tools",
-            axum::routing::get(crate::dashboard::routes::list_tools),
+            axum::routing::get(crate::server::routes::list_tools),
         )
         .route(
             "/api/images/{filename}",
-            axum::routing::get(crate::dashboard::routes::serve_image),
+            axum::routing::get(crate::server::routes::serve_image),
         )
         .route(
             "/api/plugins",
-            axum::routing::get(crate::dashboard::routes::list_plugins),
+            axum::routing::get(crate::server::routes::list_plugins),
         )
         .route(
             "/api/skills",
-            axum::routing::get(crate::dashboard::routes::list_skills),
+            axum::routing::get(crate::server::routes::list_skills),
         )
         .route(
             "/api/guardrails/check",
-            axum::routing::post(crate::dashboard::routes::check_guardrails),
+            axum::routing::post(crate::server::routes::check_guardrails),
         )
         .route(
             "/api/checkpoints",
-            axum::routing::get(crate::dashboard::routes::list_checkpoints),
+            axum::routing::get(crate::server::routes::list_checkpoints),
         )
         .route(
             "/api/checkpoints/{id}",
-            axum::routing::get(crate::dashboard::routes::get_checkpoint_detail),
+            axum::routing::get(crate::server::routes::get_checkpoint_detail),
         )
         .route(
             "/api/checkpoints/restore",
-            axum::routing::post(crate::dashboard::routes::restore_checkpoint),
+            axum::routing::post(crate::server::routes::restore_checkpoint),
         )
         .route(
             "/api/memory/layered",
-            axum::routing::get(crate::dashboard::routes::get_layered_memory)
-                .post(crate::dashboard::routes::clear_layered_memory),
+            axum::routing::get(crate::server::routes::get_layered_memory)
+                .post(crate::server::routes::clear_layered_memory),
         )
         .route(
             "/api/memory/search",
-            axum::routing::get(crate::dashboard::routes::search_layered_memory),
+            axum::routing::get(crate::server::routes::search_layered_memory),
         )
         .route(
             "/api/evals",
-            axum::routing::get(crate::dashboard::routes::run_evals),
+            axum::routing::get(crate::server::routes::run_evals),
         )
         .route(
             "/api/stats",
-            axum::routing::get(crate::dashboard::routes::get_stats),
+            axum::routing::get(crate::server::routes::get_stats),
         )
         .route(
             "/api/agents",
-            axum::routing::get(crate::dashboard::routes::get_agents)
-                .post(crate::dashboard::routes::create_agent),
+            axum::routing::get(crate::server::routes::get_agents)
+                .post(crate::server::routes::create_agent),
         )
         .route(
             "/api/agents/{id}",
-            axum::routing::get(crate::dashboard::routes::get_agent_detail)
-                .put(crate::dashboard::routes::update_agent)
-                .delete(crate::dashboard::routes::delete_agent),
+            axum::routing::get(crate::server::routes::get_agent_detail)
+                .put(crate::server::routes::update_agent)
+                .delete(crate::server::routes::delete_agent),
         )
         .route(
             "/api/providers",
-            axum::routing::get(crate::dashboard::routes::list_providers),
+            axum::routing::get(crate::server::routes::list_providers),
         )
         .layer(auth_middleware);
 
@@ -171,10 +174,10 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
         public_routes.merge(api_routes).with_state(state)
     } else {
         let static_routes = axum::Router::new()
-            .route("/", axum::routing::get(crate::dashboard::assets::serve_root))
+            .route("/", axum::routing::get(crate::server::assets::serve_root))
             .route(
                 "/{*path}",
-                axum::routing::get(crate::dashboard::assets::serve_assets),
+                axum::routing::get(crate::server::assets::serve_assets),
             );
         public_routes
             .merge(api_routes)

@@ -2,11 +2,9 @@ mod app;
 mod cli;
 mod completion;
 mod config;
-#[cfg(feature = "dashboard")]
-mod dashboard;
 mod gateway;
 #[cfg(feature = "dashboard")]
-mod serve;
+mod server;
 #[cfg(test)]
 mod test_helpers;
 mod theme;

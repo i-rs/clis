@@ -201,7 +201,7 @@ pub fn run_serve(host: String, port: u16, api_only: bool) -> anyhow::Result<()> 
         " 🔷 i-rs-claw Serve".bold().bright_blue(),
         "🚀 Server starting...".bright_green()
     );
-    rt.block_on(crate::serve::run(core, host, port, api_only));
+    rt.block_on(crate::server::run(core, host, port, api_only));
     Ok(())
 }
 
