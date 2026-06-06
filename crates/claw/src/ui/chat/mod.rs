@@ -78,4 +78,20 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     if !app.stick_to_bottom {
         app.scroll_lines = scr.scroll as usize;
     }
+
+    // Write layout-critical metrics back so event handlers (selection
+    // mode scroll, expand/collapse) can compute viewport math without
+    // waiting for the next render. Previously these fields were only
+    // populated in tests, leaving selection-mode scrolling operating on
+    // stale `area_lines = 1` / `text_width = 20` placeholders.
+    app.render_state.cached_width = width as usize;
+    app.render_state.chat_height = viewport_h;
+    // heights is stored chronologically: heights[0] = oldest message,
+    // heights[len-1] = newest message — matches the order of `messages`
+    // and `components`.
+    let mut heights = Vec::with_capacity(app.components.len());
+    for c in &app.components {
+        heights.push(c.borrow().height(width) as usize);
+    }
+    app.render_state.heights = heights;
 }
