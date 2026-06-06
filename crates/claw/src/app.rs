@@ -1,14 +1,12 @@
 pub use i_rs_claw_core::app::*;
 
 use crate::config::Config;
-use i_rs_claw_core::llm::TokenUsage;
 use i_rs_claw_core::stats::TodaySummary;
 use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, build_component_for};
 use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::time::Instant;
