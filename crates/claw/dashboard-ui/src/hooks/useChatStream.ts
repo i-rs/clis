@@ -85,9 +85,10 @@ export function useChatStream(props: Props = {}): ChatStreamState {
     }
   }, [])
 
-  const processSse = useCallback((url: string, controller: AbortController, onComplete: () => void) => {
+  const processSse = useCallback((url: string, init: RequestInit, controller: AbortController, onComplete: () => void) => {
     fetch(url, {
-      headers: authHeaders(),
+      ...init,
+      headers: { ...authHeaders(), ...(init.headers || {}) },
       signal: controller.signal,
     }).then(async (response) => {
       const reader = response.body?.getReader()
@@ -208,7 +209,11 @@ export function useChatStream(props: Props = {}): ChatStreamState {
     const body: Record<string, string> = { message: text }
     if (agentId) body.agent_id = agentId
 
-    processSse(`${BASE}/chat`, controller, () => {})
+    processSse(`${BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }, controller, () => {})
   }, [processSse])
 
   const resumeStream = useCallback((sessionId: string) => {
@@ -220,7 +225,7 @@ export function useChatStream(props: Props = {}): ChatStreamState {
     setStreaming(true)
 
     const cursor = lastCursorRef.current
-    processSse(`${BASE}/chat/stream/${encodeURIComponent(sessionId)}/resume?cursor=${cursor}`, controller, () => {
+    processSse(`${BASE}/chat/stream/${encodeURIComponent(sessionId)}/resume?cursor=${cursor}`, {}, controller, () => {
       setStreaming(false)
     })
   }, [processSse])
