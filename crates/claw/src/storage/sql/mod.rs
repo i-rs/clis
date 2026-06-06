@@ -91,6 +91,39 @@ macro_rules! define_sql_stores {
                 tx.commit().await?;
                 Ok(())
             }
+
+            async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+                let row: Option<SessionRow> = sqlx::query_as(
+                    "SELECT id, title, agent_id, state, created_at, updated_at, message_count                      FROM sessions WHERE id = ?",
+                )
+                .bind(id)
+                .fetch_optional(&self.db.pool)
+                .await?;
+                Ok(row.map(|r| r.into()))
+            }
+
+            async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+                sqlx::query($upsert_session)
+                    .bind(&session.id).bind(&session.title).bind(&session.agent_id)
+                    .bind(serde_json::to_string(&session.state).unwrap_or_default())
+                    .bind(session.created_at).bind(session.updated_at)
+                    .bind(session.message_count as i64)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+
+            async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
+                sqlx::query("DELETE FROM sessions WHERE id = ?")
+                    .bind(id)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+
+            async fn count(&self) -> anyhow::Result<usize> {
+                let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sessions")
+                    .fetch_one(&self.db.pool).await?;
+                Ok(count as usize)
+            }
         }
 
         // ── MessageLog (append-only) ──
@@ -145,15 +178,21 @@ macro_rules! define_sql_stores {
             ) -> anyhow::Result<Vec<crate::app::Message>> {
                 // Use a safe limit value: clamp to i64 range to avoid
                 // usize::MAX -> -1 integer overflow in the SQL subquery.
-                let safe_limit = (limit.min(i64::MAX as usize)) as i64;
+                let limit_i64 = if limit >= i64::MAX as usize {
+                    i64::MAX
+                } else {
+                    limit as i64
+                };
                 let rows: Vec<(String,)> = sqlx::query_as(
-                    "SELECT payload FROM message_log WHERE session_id = ? \
-                     AND seq > (SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?) - ? \
-                     ORDER BY seq ASC",
+                    "SELECT payload FROM ( \
+                     SELECT payload FROM message_log \
+                     WHERE session_id = ? \
+                     ORDER BY seq DESC \
+                     LIMIT ? \
+                     ) sub ORDER BY seq ASC",
                 )
                 .bind(session_id)
-                .bind(session_id)
-                .bind(safe_limit)
+                .bind(limit_i64)
                 .fetch_all(&self.db.pool)
                 .await?;
                 Ok(rows

@@ -125,6 +125,40 @@ impl SessionRepo for RedisSessionStore {
         Ok(())
     }
 
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+        let mut conn = self.backend.conn.clone();
+        let json: Option<String> =
+            redis::cmd("HGET").arg(session_key(id)).arg("__json").query_async(&mut conn).await?;
+        Ok(json.and_then(|j| serde_json::from_str(&j).ok()))
+    }
+
+    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let json = serde_json::to_string(session)?;
+        redis::pipe()
+            .atomic()
+            .cmd("HSET").arg(session_key(&session.id)).arg("__json").arg(&json).ignore()
+            .cmd("ZADD").arg(SESSIONS_ZSET).arg(session.updated_at).arg(&session.id).ignore()
+            .query_async::<()>(&mut conn).await?;
+        Ok(())
+    }
+
+    async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        redis::pipe()
+            .atomic()
+            .cmd("DEL").arg(session_key(id)).ignore()
+            .cmd("ZREM").arg(SESSIONS_ZSET).arg(id).ignore()
+            .query_async::<()>(&mut conn).await?;
+        Ok(())
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        let mut conn = self.backend.conn.clone();
+        let count: i64 = redis::cmd("ZCARD").arg(SESSIONS_ZSET).query_async(&mut conn).await?;
+        Ok(count as usize)
+    }
+
     async fn get(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
         let mut conn = self.backend.conn.clone();
         let json: Option<String> =

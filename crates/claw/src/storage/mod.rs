@@ -80,6 +80,10 @@ pub struct StorageConfig {
 // ── Repository traits ──
 
 /// CRUD for session metadata (index.json).
+///
+/// Implementations SHOULD provide efficient single-row operations
+/// (get_one, upsert, delete_one, count). The file backend falls back
+/// to load_all/save_all internally.
 #[async_trait]
 #[allow(dead_code)]
 pub trait SessionRepo: Send + Sync {
@@ -88,20 +92,14 @@ pub trait SessionRepo: Send + Sync {
     /// Atomically replace all session metadata.
     async fn save_all(&self, sessions: &[crate::session::SessionMeta]) -> anyhow::Result<()>;
 
-    /// Get a single session by ID. Default impl scans load_all.
-    async fn get(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
-        Ok(self.load_all().await?.into_iter().find(|s| s.id == id))
-    }
-    /// Delete a session by ID. Default impl: remove from load_all + save_all.
-    async fn delete(&self, id: &str) -> anyhow::Result<()> {
-        let mut sessions = self.load_all().await?;
-        sessions.retain(|s| s.id != id);
-        self.save_all(&sessions).await
-    }
-    /// Count sessions. Default impl: load_all + len.
-    async fn count(&self) -> anyhow::Result<usize> {
-        Ok(self.load_all().await?.len())
-    }
+    /// Get a single session by ID.
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>>;
+    /// Upsert a single session metadata.
+    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()>;
+    /// Delete a single session by ID.
+    async fn delete_one(&self, id: &str) -> anyhow::Result<()>;
+    /// Count sessions.
+    async fn count(&self) -> anyhow::Result<usize>;
 }
 
 /// Append-only message log for per-session persistence.

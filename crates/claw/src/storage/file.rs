@@ -132,9 +132,9 @@ impl SessionRepo for FileSessionStore {
             let content = std::fs::read_to_string(&path)?;
             serde_json::from_str(&content)
                 .inspect_err(|e| {
-                    tracing::error!("index.json 损坏，无法解析 ({}); 返回空列表以允许重建", e)
+                    tracing::error!("index.json 损坏: {} — 不会静默清空", e)
                 })
-                .or_else(|_| Ok(Vec::new()))
+                .map_err(|e| anyhow::anyhow!("index.json 损坏: {}", e))
         })
         .await
     }
@@ -144,9 +144,39 @@ impl SessionRepo for FileSessionStore {
         let content = serde_json::to_string_pretty(sessions)?;
         blocking(move || {
             ensure_dir(&path)?;
+            // 备份旧文件 (如果存在)
+            if path.exists() {
+                let bak = path.with_extension("json.bak");
+                std::fs::copy(&path, &bak).ok();
+            }
             atomic_write(&path, &content).map_err(anyhow::Error::from)
         })
         .await
+    }
+
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+        let all = self.load_all().await?;
+        Ok(all.into_iter().find(|s| s.id == id))
+    }
+
+    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+        let mut all = self.load_all().await?;
+        if let Some(pos) = all.iter().position(|s| s.id == session.id) {
+            all[pos] = session.clone();
+        } else {
+            all.push(session.clone());
+        }
+        self.save_all(&all).await
+    }
+
+    async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
+        let mut all = self.load_all().await?;
+        all.retain(|s| s.id != id);
+        self.save_all(&all).await
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        Ok(self.load_all().await?.len())
     }
 }
 
@@ -344,6 +374,7 @@ impl StatsRepo for FileStatsStore {
     async fn prune(&self, keep_days: u32) -> anyhow::Result<usize> {
         let path = stats_path(&self.claw_dir);
         blocking(move || {
+            let _guard = lock_guard(&STATS_LOCK);
             if keep_days == 0 || !path.exists() {
                 return Ok(0);
             }

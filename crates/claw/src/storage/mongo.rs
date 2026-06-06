@@ -159,6 +159,40 @@ impl SessionRepo for MongoSessionStore {
         }
         Ok(())
     }
+
+    async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
+        let doc = self.db.db.collection::<Document>("sessions")
+            .find_one(doc! { "_id": id })
+            .await?;
+        doc.as_ref().map(doc_to_session_meta).transpose()
+    }
+
+    async fn upsert(&self, session: &crate::session::SessionMeta) -> anyhow::Result<()> {
+        let mut doc = session_meta_to_doc(session);
+        doc.insert("_id", session.id.clone());
+        self.db.db.collection::<Document>("sessions")
+            .update_one(
+                doc! { "_id": &session.id },
+                doc! { "$set": doc },
+            )
+            .upsert(true)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
+        self.db.db.collection::<Document>("sessions")
+            .delete_one(doc! { "_id": id })
+            .await?;
+        Ok(())
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        let count = self.db.db.collection::<Document>("sessions")
+            .estimated_document_count()
+            .await?;
+        Ok(count as usize)
+    }
 }
 
 fn session_meta_to_doc(s: &crate::session::SessionMeta) -> Document {
