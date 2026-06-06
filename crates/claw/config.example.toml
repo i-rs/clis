@@ -2,6 +2,9 @@
 # i-rs-claw 配置文件
 # 路径: ~/.i-rs/claw/config.toml
 # 格式: TOML
+# 
+# 默认启动模式: claw serve（HTTP API + Web Dashboard）
+# 终端模式:      claw tui（调试/专业模式）
 # ============================================================================
 
 # 可选：覆盖时区，默认使用系统本地
@@ -228,13 +231,28 @@ execution_mode = "React"
 #   enabled = false
 #   agent_id = "default"
 
-# ── Dashboard（Web 管理界面）───────────────────────────────────────────────
+# ── Dashboard（Web 管理界面 + HTTP API）─────────────────────────────────────
+#
+# claw serve 是默认启动模式，提供 REST API 和 Web 前端。
+# 使用 `--api-only` 标志仅启动 API 而无 Web UI。
+# Web 前端也通过 `/api` 代理调用 HTTP API，复用同一套认证。
 #
 # [dashboard]
-# enabled = false
-# host = "127.0.0.1"
-# port = 3000
-# auth_token = "your-secret-token"    # Bearer token 认证。未设置时自动生成随机 UUID
+# host = "0.0.0.0"                 # 监听地址（默认: 0.0.0.0）
+# port = 3000                      # 端口（默认: 3000）
+# auth_token = "your-secret-token" # Bearer token 认证。未设置时自动生成随机 UUID
+#
+# ── 多用户模式（可选）──
+# [[dashboard.users]]
+# id = "alice"
+# token = "alice-token-xxx"
+#
+# [[dashboard.users]]
+# id = "bob"
+# token = "bob-token-yyy"
+#
+# 未配置 users: 单用户模式，所有请求归属 "default" 用户
+# 配置了 users: 每个 token 对应一个 user_id，会话/Agent/统计按用户隔离
 
 # ── 图片生成 ─────────────────────────────────────────────────────────────────
 #

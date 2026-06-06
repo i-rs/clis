@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "TUI intelligent personal data assistant powered by i-rs CLI tools"
+description = "AI personal assistant — Web Dashboard + TUI terminal interface"
 
 [dependencies]
 i-rs-claw-core = { path = "../claw-core", features = ["mcp", "tui", "dashboard"] }
