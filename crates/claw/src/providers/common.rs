@@ -6,6 +6,26 @@ pub(crate) fn truncate_body(body: &str, max_chars: usize) -> String {
     body.chars().take(max_chars).collect()
 }
 
+/// Dump the full request body to a file when `CLAW_DUMP_PROMPTS` env var is set.
+/// Path format: `{CLAW_DUMP_PROMPTS}/prompt-{timestamp}.json`
+pub(crate) fn dump_prompt_body(body: &serde_json::Value) {
+    let Ok(dir) = std::env::var("CLAW_DUMP_PROMPTS") else {
+        return;
+    };
+    let dump_dir = std::path::PathBuf::from(&dir);
+    let _ = std::fs::create_dir_all(&dump_dir);
+    let path = dump_dir.join(format!(
+        "prompt-{}.json",
+        chrono::Local::now().format("%Y%m%d-%H%M%S")
+    ));
+    let Ok(pretty) = serde_json::to_string_pretty(body) else {
+        return;
+    };
+    if std::fs::write(&path, &pretty).is_ok() {
+        tracing::info!("prompt 已导出到 {}", path.display());
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn emit_usage_record(
     tx: &UnboundedSender<LlmEvent>,

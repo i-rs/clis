@@ -296,6 +296,7 @@ impl LlmProvider for AnthropicProvider {
         }
 
         let body_json = serde_json::to_string(&body).unwrap_or_default();
+        super::common::dump_prompt_body(&body);
 
         let headers = vec![
             ("x-api-key".to_string(), self.api_key.clone()),

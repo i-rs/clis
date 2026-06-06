@@ -151,6 +151,7 @@ pub(crate) async fn openai_stream_chat_impl(
     }
 
     let body_json = serde_json::to_string(&body).unwrap_or_default();
+    super::common::dump_prompt_body(&body);
 
     let headers: Vec<(String, String)> = if let Some(key) = api_key {
         vec![
