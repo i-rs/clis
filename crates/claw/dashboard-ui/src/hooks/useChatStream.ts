@@ -50,21 +50,11 @@ function commitAndClear(
   return { ...INITIAL_STATE }
 }
 
-function parseSseLine(
-  line: string,
-  currentEvent: string,
-  currentId: string,
-): { event: string; id: string; data: string } | null {
+function parseSseLine(line: string): { kind: 'event' | 'id' | 'data'; value: string } | null {
   const trimmed = line.trim()
-  if (trimmed.startsWith('event: ')) {
-    return { event: trimmed.slice(7).trim(), id: currentId, data: '' }
-  }
-  if (trimmed.startsWith('id: ')) {
-    return { event: currentEvent, id: trimmed.slice(4).trim(), data: '' }
-  }
-  if (trimmed.startsWith('data: ')) {
-    return { event: currentEvent, id: currentId, data: trimmed.slice(6) }
-  }
+  if (trimmed.startsWith('event: ')) return { kind: 'event', value: trimmed.slice(7).trim() }
+  if (trimmed.startsWith('id: ')) return { kind: 'id', value: trimmed.slice(4).trim() }
+  if (trimmed.startsWith('data: ')) return { kind: 'data', value: trimmed.slice(6) }
   return null
 }
 
@@ -110,13 +100,12 @@ export function useChatStream(props: Props = {}): ChatStreamState {
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          const parsed = parseSseLine(line, currentEvent, currentId)
+          const parsed = parseSseLine(line)
           if (!parsed) continue
-          if (parsed.event) { currentEvent = parsed.event; currentId = parsed.id; continue }
-          if (parsed.id) { currentId = parsed.id; continue }
-          if (!parsed.data) continue
+          if (parsed.kind === 'event') { currentEvent = parsed.value; continue }
+          if (parsed.kind === 'id') { currentId = parsed.value; continue }
 
-          const data = parsed.data
+          const data = parsed.value
           const evtId = parseInt(currentId, 10) || 0
           if (evtId > 0) lastCursorRef.current = evtId
 
