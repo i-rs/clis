@@ -974,7 +974,8 @@ pub async fn create_agent(
         execution_mode: None,
     };
 
-    // Add to config
+    // Add to config (clone first so we can use fields for ConfigStore)
+    let agent_config_clone = agent_config.clone();
     if let Err(e) = core.config.add_agent(&agent_id, agent_config) {
         return ApiResponse::err(&e.to_string());
     }
@@ -995,6 +996,35 @@ pub async fn create_agent(
     if let Err(e) = core.config.save() {
         return ApiResponse::err(&format!("Failed to save config: {}", e));
     }
+
+    // Also persist to ConfigStore (DB backend)
+    let now = chrono::Utc::now().timestamp();
+    let row_provider_ref = agent_config_clone.provider_ref.clone();
+    let row_provider = agent_config_clone.provider.map(|p| format!("{:?}", p)).unwrap_or_default();
+    let row_api_key = agent_config_clone.api_key.clone().unwrap_or_default();
+    let row_base_url = agent_config_clone.base_url.clone().unwrap_or_default();
+    let row_model = agent_config_clone.model.clone().unwrap_or_default();
+    let row_tools: Vec<String> = agent_config_clone.enabled_tools.clone().unwrap_or_default().into_iter().collect();
+    let row_prompt = agent_config_clone.system_prompt.clone().unwrap_or_default();
+    let row_prompt_file = agent_config_clone.system_prompt_file.clone();
+    let row_caps = agent_config_clone.capabilities.clone();
+    let row_execution = agent_config_clone.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
+    let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
+        user_id: "default".into(),
+        agent_id: agent_id.clone(),
+        provider_ref: row_provider_ref,
+        provider: row_provider,
+        api_key: row_api_key,
+        base_url: row_base_url,
+        model: row_model,
+        enabled_tools: row_tools,
+        system_prompt: row_prompt,
+        system_prompt_file: row_prompt_file,
+        capabilities: row_caps,
+        execution_mode: row_execution,
+        created_at: now,
+        updated_at: now,
+    }).await;
 
     ApiResponse::ok(serde_json::json!({
         "id": agent_id,
@@ -1025,6 +1055,9 @@ pub async fn delete_agent(
     if let Err(e) = core.config.save() {
         return ApiResponse::err(&format!("Failed to save config: {}", e));
     }
+
+    // Also delete from ConfigStore
+    let _ = core.config_store.agent_configs.delete("default", &id).await;
 
     ApiResponse::ok(serde_json::json!({
         "id": id,

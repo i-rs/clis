@@ -249,6 +249,7 @@ pub struct AppCore {
     pub stats_manager: std::sync::Arc<crate::stats::StatsManager>,
     #[allow(dead_code)]
     pub storage: std::sync::Arc<crate::storage::ClawStorage>,
+    pub config_store: crate::storage::config_store::ConfigStore,
     pub http_client: reqwest::Client,
     pub checkpoint_store:
         std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
@@ -386,12 +387,20 @@ impl AppCore {
 
         let tool_index_cache = build_full_tool_index(&config);
 
+        let config_store = match config.storage.backend {
+            crate::storage::StorageBackend::File => {
+                crate::storage::config_store::ConfigStore::file(claw_dir.clone())
+            }
+            _ => crate::storage::config_store::ConfigStore::default(),
+        };
+
         Ok(Self {
             config,
             session_mgr,
             agent_store,
             stats_manager,
             storage,
+            config_store,
             http_client: crate::providers::shared_client(),
             checkpoint_store: std::sync::Arc::new(std::sync::Mutex::new(
                 crate::core::checkpoint::CheckpointStore::new(20),
