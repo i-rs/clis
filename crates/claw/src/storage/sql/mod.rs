@@ -220,10 +220,7 @@ macro_rules! define_sql_stores {
                 }
                 let like = format!("%{}%", q);
 
-                // Identify candidate sessions via payload substring. The
-                // LIKE operates on the raw JSON text, which catches both
-                // `"text":"…"`, `"name":"…"`, etc. PG would prefer
-                // JSONB operators; this default is portable.
+                // Identify candidate sessions via payload substring.
                 let candidate_rows: Vec<(String,)> = sqlx::query_as(
                     concat!("SELECT DISTINCT session_id FROM message_log \
                      WHERE LOWER(payload) LIKE ", $ph1),
@@ -246,72 +243,19 @@ macro_rules! define_sql_stores {
                     }
                     let meta: crate::session::SessionMeta = session_rows[0].clone().into();
 
-                    let rows: Vec<(i64, String)> = sqlx::query_as(
-                        concat!("SELECT seq, payload FROM message_log WHERE session_id = ", $ph1, " ORDER BY seq"),
+                    let rows: Vec<(String,)> = sqlx::query_as(
+                        concat!("SELECT payload FROM message_log WHERE session_id = ", $ph1, " ORDER BY seq"),
                     )
                     .bind(sid)
                     .fetch_all(&self.db.pool)
                     .await?;
-                    let records: Vec<(usize, serde_json::Value)> = rows
+                    let records: Vec<serde_json::Value> = rows
                         .into_iter()
-                        .enumerate()
-                        .filter_map(|(idx, (_seq, p))| {
-                            let v: serde_json::Value = serde_json::from_str(&p).ok()?;
-                            Some((idx, v))
-                        })
+                        .filter_map(|(p,)| serde_json::from_str(&p).ok())
                         .collect();
 
-                    for (i, payload) in &records {
-                        let mt = payload["type"].as_str().unwrap_or("");
-                        let text = payload["text"].as_str().unwrap_or("");
-                        let name = payload["name"].as_str().unwrap_or("");
-                        let searchable = match mt {
-                            "user" | "assistant" | "error" => text.to_lowercase(),
-                            "tool_call" => name.to_lowercase(),
-                            _ => continue,
-                        };
-                        if !searchable.contains(&q) {
-                            continue;
-                        }
-                        let excerpt = match mt {
-                            "tool_call" => format!("[工具调用: {}]", name),
-                            _ => {
-                                let t: String = text.chars().take(200).collect();
-                                if text.len() > 200 { format!("{}...", t) } else { t }
-                            }
-                        };
-                        let ctx_before: Vec<String> = records[i.saturating_sub(2)..*i]
-                            .iter()
-                            .filter_map(|(_, p)| {
-                                let t = p["text"].as_str()?;
-                                Some(t.chars().take(100).collect())
-                            })
-                            .collect();
-                        let ctx_after: Vec<String> = records
-                            .get(i + 1..)
-                            .map(|slice| {
-                                slice
-                                    .iter()
-                                    .take(1)
-                                    .filter_map(|(_, p)| {
-                                        let t = p["text"].as_str()?;
-                                        Some(t.chars().take(100).collect())
-                                    })
-                                    .collect()
-                            })
-                            .unwrap_or_default();
-                        results.push(SearchResult {
-                            session_id: meta.id.clone(),
-                            session_title: meta.title.clone(),
-                            message_type: mt.to_string(),
-                            excerpt,
-                            context_before: ctx_before,
-                            context_after: ctx_after,
-                            updated_at: meta.updated_at,
-                        });
-                        if results.len() >= max_results {
-                            return Ok(results);
-                        }
+                    if super::scan_records_for_query(&records, &q, &meta, max_results, &mut results) {
+                        return Ok(results);
                     }
                 }
                 Ok(results)

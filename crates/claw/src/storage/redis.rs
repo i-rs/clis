@@ -342,61 +342,8 @@ impl MessageLog for RedisMessageLog {
                 })
                 .collect();
 
-            for (i, payload) in records.iter().enumerate() {
-                let mt = payload["type"].as_str().unwrap_or("");
-                let text = payload["text"].as_str().unwrap_or("");
-                let name = payload["name"].as_str().unwrap_or("");
-                let searchable = match mt {
-                    "user" | "assistant" | "error" => text.to_lowercase(),
-                    "tool_call" => name.to_lowercase(),
-                    _ => continue,
-                };
-                if !searchable.contains(&q) {
-                    continue;
-                }
-                let excerpt = match mt {
-                    "tool_call" => format!("[工具调用: {}]", name),
-                    _ => {
-                        let t: String = text.chars().take(200).collect();
-                        if text.len() > 200 {
-                            format!("{}...", t)
-                        } else {
-                            t
-                        }
-                    }
-                };
-                let ctx_before: Vec<String> = records[i.saturating_sub(2)..i]
-                    .iter()
-                    .filter_map(|p| {
-                        let t = p["text"].as_str()?;
-                        Some(t.chars().take(100).collect())
-                    })
-                    .collect();
-                let ctx_after: Vec<String> = records
-                    .get(i + 1..)
-                    .map(|slice| {
-                        slice
-                            .iter()
-                            .take(1)
-                            .filter_map(|p| {
-                                let t = p["text"].as_str()?;
-                                Some(t.chars().take(100).collect())
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                results.push(SearchResult {
-                    session_id: meta.id.clone(),
-                    session_title: meta.title.clone(),
-                    message_type: mt.to_string(),
-                    excerpt,
-                    context_before: ctx_before,
-                    context_after: ctx_after,
-                    updated_at: meta.updated_at,
-                });
-                if results.len() >= max_results {
-                    return Ok(results);
-                }
+            if super::scan_records_for_query(&records, &q, &meta, max_results, &mut results) {
+                return Ok(results);
             }
         }
         Ok(results)

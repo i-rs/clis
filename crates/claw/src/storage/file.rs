@@ -735,70 +735,18 @@ impl MessageLog for FileMessageLog {
                     Err(_) => continue,
                 };
                 use std::io::{BufRead, BufReader};
-                let records: Vec<crate::message::StoredRecord> = BufReader::new(file)
+                let records: Vec<serde_json::Value> = BufReader::new(file)
                     .lines()
                     .map_while(Result::ok)
                     .filter(|l| !l.trim().is_empty())
-                    .filter_map(|l| serde_json::from_str(&l).ok())
+                    .filter_map(|l| {
+                        let rec: crate::message::StoredRecord = serde_json::from_str(&l).ok()?;
+                        Some(rec.payload)
+                    })
                     .collect();
 
-                for (i, rec) in records.iter().enumerate() {
-                    let payload = &rec.payload;
-                    let msg_type = payload["type"].as_str().unwrap_or("");
-                    let text = payload["text"].as_str().unwrap_or("");
-                    let name = payload["name"].as_str().unwrap_or("");
-
-                    let searchable = match msg_type {
-                        "user" | "assistant" | "error" => text.to_lowercase(),
-                        "tool_call" => name.to_lowercase(),
-                        _ => continue,
-                    };
-                    if !searchable.contains(&q) {
-                        continue;
-                    }
-                    let excerpt = match msg_type {
-                        "tool_call" => format!("[工具调用: {}]", name),
-                        _ => {
-                            let t: String = text.chars().take(200).collect();
-                            if text.len() > 200 {
-                                format!("{}...", t)
-                            } else {
-                                t
-                            }
-                        }
-                    };
-                    let ctx_before: Vec<String> = records[i.saturating_sub(2)..i]
-                        .iter()
-                        .filter_map(|m| {
-                            let t = m.payload["text"].as_str()?;
-                            Some(t.chars().take(100).collect())
-                        })
-                        .collect();
-                    let ctx_after: Vec<String> = records
-                        .get(i + 1..)
-                        .map(|slice| {
-                            slice
-                                .iter()
-                                .take(1)
-                                .filter_map(|m| {
-                                    let t = m.payload["text"].as_str()?;
-                                    Some(t.chars().take(100).collect())
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    results.push(SearchResult {
-                        session_id: meta.id.clone(),
-                        session_title: meta.title.clone(),
-                        message_type: msg_type.to_string(),
-                        excerpt,
-                        context_before: ctx_before,
-                        context_after: ctx_after,
-                        updated_at: meta.updated_at,
-                    });
-                    if results.len() >= max_results {
-                        return Ok(results);
-                    }
+                if super::scan_records_for_query(&records, &q, meta, max_results, &mut results) {
+                    return Ok(results);
                 }
             }
             Ok(results)

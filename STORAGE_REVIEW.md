@@ -43,7 +43,7 @@
 | 13 | 🟡 中   | 设计     | `seq` 类型不一致: u64 / i64 / f64              | 未修复     | `message/mod.rs`, sql columns           |
 | 14 | 🟡 中   | 设计     | 全局静态 Mutex 序列化跨会话 I/O                | 未修复     | `file.rs:24-25`                         |
 | 15 | 🟡 中   | 耦合     | `FileMessageLogStore::search` 直接读 index.json | 未修复    | `file.rs:713-722`                       |
-| 16 | 🟡 中   | 可维护   | search 逻辑重复 (~100 行 × 4 后端)             | 未修复     | 全后端                                   |
+| 16 | 🟡 中   | 可维护   | search 逻辑重复 (~100 行 × 4 后端)             | ✅ 已修复   | 全后端 → `scan_records_for_query`      |
 | 19 | 🟢 低   | 安全     | Mongo regex 转义不完整                         | 未修复     | `mongo.rs:289-292`                      |
 | 20 | 🟢 低   | 安全     | Redis ZSET score 碰撞导致覆盖                  | 未修复     | `redis.rs:append_batch`                 |
 
