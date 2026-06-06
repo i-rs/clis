@@ -281,11 +281,10 @@ pub async fn send_message(
         None => return ApiResponse::err("没有活跃会话"),
     };
 
-    // Save user message
+    // Save user message via SessionManager (maintains cursor + message_count).
     {
-        let log = core.session_mgr.message_log();
         let msg = crate::app::Message::User { text: text.clone() };
-        if let Err(e) = log.append_one(&sid, &msg).await {
+        if let Err(e) = core.session_mgr.persist_messages(&sid, &[msg]) {
             tracing::error!("user message persist failed: {}", e);
         }
     }
@@ -327,28 +326,27 @@ pub async fn send_message(
                 LlmEvent::Done(msgs, _usage, _trace_id) => {
                     acc.apply(&LlmEvent::Done(msgs.clone(), None, String::new()));
                     let finalized = acc.into_messages();
-                    {
-                        let core = bg_state.core.read().await;
-                        let log = core.session_mgr.message_log();
-                        if let Err(e) = log.append_batch(&bg_sid, &finalized).await {
-                            tracing::error!("MessageLog::append_batch 失败: {}", e);
+                    let mut core = bg_state.core.write().await;
+                    if let Err(e) = core.session_mgr.persist_messages(&bg_sid, &finalized) {
+                        tracing::error!("persist_messages (Done) 失败: {}", e);
+                    }
+                    core.session_mgr.save_api_messages(&bg_sid, msgs);
+                    let quality = core.evaluate_completed_session(&bg_sid);
+                    if let Some(q) = quality {
+                        if let Err(e) = core.session_mgr.persist_messages(&bg_sid, &[q]) {
+                            tracing::error!("quality 持久化失败: {}", e);
                         }
                     }
-                    let mut core = bg_state.core.write().await;
-                    core.session_mgr.save_api_messages(&bg_sid, msgs);
-                    let _ = core.evaluate_completed_session(&bg_sid);
                     break;
                 }
                 LlmEvent::Error(e) => {
                     acc.apply(&event);
                     let finalized = acc.into_messages();
-                    {
-                        let core = bg_state.core.read().await;
-                        let log = core.session_mgr.message_log();
-                        let _ = log.append_batch(&bg_sid, &finalized).await;
-                    }
                     let mut core = bg_state.core.write().await;
                     core.session_mgr.mark_error(&bg_sid, e);
+                    if let Err(e) = core.session_mgr.persist_messages(&bg_sid, &finalized) {
+                        tracing::error!("persist_messages (Error) 失败: {}", e);
+                    }
                     break;
                 }
                 _ => {
@@ -469,32 +467,22 @@ pub async fn chat_stream(
                             .map(|m| m.agent_id.clone())
                             .unwrap_or_else(|| "default".to_string());
 
-                        // Apply Done to accumulator and persist via append-only log.
+                        // Apply Done to accumulator and persist via SessionManager.
                         acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
                         let finalized = acc.into_messages();
-                        {
-                            let log = core.session_mgr.message_log();
-                            if let Err(e) = log.append_batch(&sid, &finalized).await {
-                                tracing::error!("MessageLog::append_batch 失败: {}", e);
-                            }
+                        if let Err(e) = core.session_mgr.persist_messages(&sid, &finalized) {
+                            tracing::error!("persist_messages (stream Done) 失败: {}", e);
                         }
 
                         // Save api_cache (still needed for LLM context resume).
                         core.session_mgr.save_api_messages(&sid, &msgs);
                         let quality_msg = core.evaluate_completed_session(&sid);
 
-                        // Persist quality message through MessageLog.
-                        if let Some(crate::app::Message::Quality { .. }) = &quality_msg {
-                            let log = core.session_mgr.message_log();
-                            let sid2 = sid.clone();
-                            let q_clone = quality_msg.clone();
-                            tokio::spawn(async move {
-                                if let Some(q) = q_clone {
-                                    if let Err(e) = log.append_one(&sid2, &q).await {
-                                        tracing::error!("quality 持久化失败: {}", e);
-                                    }
-                                }
-                            });
+                        // Persist quality message through SessionManager.
+                        if let Some(q) = &quality_msg {
+                            if let Err(e) = core.session_mgr.persist_messages(&sid, &[q.clone()]) {
+                                tracing::error!("quality 持久化失败: {}", e);
+                            }
                         }
 
                         core.agent_store.memory_for_mut(&agent_id).flush();
@@ -514,12 +502,8 @@ pub async fn chat_stream(
                         {
                             let mut core = state.core.write().await;
                             core.session_mgr.mark_error(&sid, &e);
-                            let log = core.session_mgr.message_log();
-                            if let Err(err) = log.append_batch(&sid, &finalized).await {
-                                tracing::error!(
-                                    "MessageLog::append_batch (error path) 失败: {}",
-                                    err
-                                );
+                            if let Err(err) = core.session_mgr.persist_messages(&sid, &finalized) {
+                                tracing::error!("persist_messages (stream error) 失败: {}", err);
                             }
                         }
                         let sse = Event::default().event("error").data(e);
@@ -746,16 +730,13 @@ pub async fn post_session_feedback(
         .memory_for_mut(&agent_id)
         .record_session_feedback(&id, positive);
 
-    // Append feedback to session via MessageLog
-    {
-        let log = core.session_mgr.message_log();
-        let msg = crate::app::Message::Feedback {
-            positive,
-            message: feedback_msg.map(|s| s.to_string()),
-        };
-        if let Err(e) = log.append_one(&id, &msg).await {
-            tracing::error!("feedback persist failed: {}", e);
-        }
+    // Append feedback to session via SessionManager.
+    let msg = crate::app::Message::Feedback {
+        positive,
+        message: feedback_msg.map(|s| s.to_string()),
+    };
+    if let Err(e) = core.session_mgr.persist_messages(&id, &[msg]) {
+        tracing::error!("feedback persist failed: {}", e);
     }
 
     core.agent_store.memory_for_mut(&agent_id).flush();
