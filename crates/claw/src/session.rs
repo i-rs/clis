@@ -373,12 +373,24 @@ impl SessionManager {
         let log = self.storage.message_log.clone();
         let sid = session_id.to_string();
         let new_msgs = new_msgs.to_vec();
+        let append_count = new_msgs.len();
+        let new_msgs_clone = new_msgs.clone();
         let result =
-            crate::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs).await });
+            crate::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs_clone).await });
         match result {
             Ok(()) => {
                 self.saved_cursors
                     .insert(session_id.to_string(), messages.len());
+                // 更新 SessionMeta.message_count
+                if append_count > 0 {
+                    if let Some(idx) = self.index.get(session_id) {
+                        if let Some(meta) = self.sessions.get_mut(*idx) {
+                            meta.message_count += append_count;
+                            meta.updated_at = chrono::Utc::now().timestamp();
+                        }
+                    }
+                    self.save_index();
+                }
             }
             Err(e) => tracing::error!("append_new_messages 失败: {}", e),
         }
