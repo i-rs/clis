@@ -69,11 +69,11 @@ fn build_sse_stream(
                         let agent_id = core.session_mgr.session_meta(&sid)
                             .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
                         i_rs_claw_core::core::record_tool_memory(
-                            &mut core.agent_store, &i_rs_index, &agent_id, &name, &args, &result,
+                            "default", &mut core.agent_store, &i_rs_index, &agent_id, &name, &args, &result,
                         );
                         if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
                             i_rs_claw_core::core::record_layered_tool_memory(
-                                &mut core.agent_store, &agent_id, &name, &result,
+                                "default", &mut core.agent_store, &agent_id, &name, &result,
                             );
                         }
                         drop(core);
@@ -107,7 +107,7 @@ fn build_sse_stream(
                                 tracing::error!("quality 持久化失败: {}", e);
                             }
                         }
-                        core.agent_store.memory_for_mut(&agent_id).flush();
+                        core.agent_store.memory_for_mut("default", &agent_id).flush();
                         drop(core);
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
@@ -412,7 +412,7 @@ pub async fn send_message(
     }
 
     {
-        let layered = core.agent_store.layered_memory_for_mut(&agent_id);
+        let layered = core.agent_store.layered_memory_for_mut("default", &agent_id);
         layered.record_user_statement(&text);
     }
 
@@ -480,7 +480,7 @@ pub async fn chat(
         }
 
         {
-            let layered = core.agent_store.layered_memory_for_mut(&agent_id);
+            let layered = core.agent_store.layered_memory_for_mut("default", &agent_id);
             layered.record_user_statement(&text);
         }
 
@@ -712,7 +712,7 @@ pub async fn delete_session(
         .unwrap_or_else(|| "default".to_string());
     core.session_mgr.delete_session(&id);
     {
-        let layered = core.agent_store.layered_memory_for_mut(&agent_id);
+        let layered = core.agent_store.layered_memory_for_mut("default", &agent_id);
         layered.end_session();
     }
     drop(core);
@@ -740,7 +740,7 @@ pub async fn post_session_feedback(
 
     // Record in cross-session memory
     core.agent_store
-        .memory_for_mut(&agent_id)
+        .memory_for_mut("default", &agent_id)
         .record_session_feedback(&id, positive);
 
     // Append feedback to session via SessionManager.
@@ -752,7 +752,7 @@ pub async fn post_session_feedback(
         tracing::error!("feedback persist failed: {}", e);
     }
 
-    core.agent_store.memory_for_mut(&agent_id).flush();
+    core.agent_store.memory_for_mut("default", &agent_id).flush();
     drop(core);
 
     ApiResponse::ok("ok")
@@ -1070,7 +1070,7 @@ pub async fn list_skills(
     State(state): State<AppState>,
 ) -> Json<ApiResponse<Vec<i_rs_claw_core::skill_store::SkillDefinition>>> {
     let core = state.core.read().await;
-    let store = core.agent_store.skill_store_for("default");
+    let store = core.agent_store.skill_store_for("default", "default");
     let entries = store.list_skills();
     let skills: Vec<i_rs_claw_core::skill_store::SkillDefinition> = entries
         .iter()
@@ -1308,7 +1308,7 @@ pub async fn get_layered_memory(
 ) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let agent_id = query.agent_id.as_deref().unwrap_or("default");
-    let layered = core.agent_store.layered_memory_for(agent_id);
+    let layered = core.agent_store.layered_memory_for("default", agent_id);
     let summary = layered.format_for_prompt();
     let fact_count = layered.long_term.facts.len();
     let entity_count = layered.working.entities.len();
@@ -1330,7 +1330,7 @@ pub async fn clear_layered_memory(
         .get("agent_id")
         .and_then(|v| v.as_str())
         .unwrap_or("default");
-    let layered = core.agent_store.layered_memory_for_mut(agent_id);
+    let layered = core.agent_store.layered_memory_for_mut("default", agent_id);
     layered.working.clear();
     layered.long_term.facts.clear();
     layered.summaries.clear();
@@ -1349,7 +1349,7 @@ pub async fn search_layered_memory(
 ) -> Json<ApiResponse<Value>> {
     let core = state.core.read().await;
     let agent_id = query.agent_id.as_deref().unwrap_or("default");
-    let layered = core.agent_store.layered_memory_for(agent_id);
+    let layered = core.agent_store.layered_memory_for("default", agent_id);
 
     let facts: Vec<Value> = if let Some(ref q) = query.q {
         layered

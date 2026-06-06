@@ -63,9 +63,13 @@ impl AgentRuntime {
 }
 
 /// Central storage for per-agent runtime data.
-/// Each agent gets its own memory, tool cache, skill store, and MCP registry.
+/// Each (user, agent) pair gets its own memory, tool cache, skill store, and MCP registry.
 pub struct AgentRuntimeStore {
-    runtimes: HashMap<String, AgentRuntime>,
+    runtimes: HashMap<(String, String), AgentRuntime>,
+}
+
+fn runtime_key(user_id: &str, agent_id: &str) -> (String, String) {
+    (user_id.to_string(), agent_id.to_string())
 }
 
 impl AgentRuntimeStore {
@@ -77,11 +81,12 @@ impl AgentRuntimeStore {
     }
 
     /// Create with a shared storage backend.
+    /// Initializes runtimes for the "default" user and all configured agents.
     pub fn new_with_storage(config: &Config, storage: &Arc<ClawStorage>) -> Self {
         let agent_ids = config.all_agent_ids();
         let mut runtimes = HashMap::new();
         for id in &agent_ids {
-            runtimes.insert(id.clone(), AgentRuntime::new(config, storage, id));
+            runtimes.insert(runtime_key("default", id), AgentRuntime::new(config, storage, id));
         }
         let mut store = Self { runtimes };
         store.prefetch_hot_tools();
@@ -104,93 +109,126 @@ impl AgentRuntimeStore {
         }
     }
 
-    fn get(&self, agent_id: &str) -> &AgentRuntime {
-        self.runtimes.get(agent_id).unwrap_or_else(|| {
-            self.runtimes
-                .get("default")
-                .expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
-        })
-    }
-
-    fn get_mut(&mut self, agent_id: &str) -> &mut AgentRuntime {
-        if self.runtimes.contains_key(agent_id) {
-            self.runtimes
-                .get_mut(agent_id)
-                .expect("bug: agent just checked not found")
-        } else {
-            self.runtimes
-                .get_mut("default")
-                .expect("AgentRuntimeStore: 'default' agent not found, this is a bug")
+    fn get_or_init(&mut self, user_id: &str, agent_id: &str) -> &mut AgentRuntime {
+        let key = runtime_key(user_id, agent_id);
+        if !self.runtimes.contains_key(&key) {
+            let src_key = if self.runtimes.contains_key(&runtime_key("default", agent_id)) {
+                runtime_key("default", agent_id)
+            } else {
+                runtime_key("default", "default")
+            };
+            if let Some(src) = self.runtimes.get(&src_key) {
+                let cloned = AgentRuntime {
+                    memory: src.memory.clone(),
+                    tool_cache: src.tool_cache.clone(),
+                    skill_store: src.skill_store.clone(),
+                    layered_memory: src.layered_memory.clone(),
+                    mcp_registry: src.mcp_registry.clone(),
+                };
+                self.runtimes.insert(key.clone(), cloned);
+            }
+        }
+        match self.runtimes.get_mut(&key) {
+            Some(rt) => rt,
+            None => panic!("AgentRuntimeStore: ({user_id}, {agent_id}) not found"),
         }
     }
 
-    pub fn memory_for(&self, agent_id: &str) -> &CrossSessionMemory {
-        &self.get(agent_id).memory
+    fn get_ref(&self, user_id: &str, agent_id: &str) -> &AgentRuntime {
+        let key = runtime_key(user_id, agent_id);
+        self.runtimes.get(&key).unwrap_or_else(|| {
+            self.runtimes.get(&runtime_key("default", agent_id))
+                .or_else(|| self.runtimes.get(&runtime_key("default", "default")))
+                .expect("AgentRuntimeStore: 'default' agent not found")
+        })
     }
 
-    pub fn memory_for_mut(&mut self, agent_id: &str) -> &mut CrossSessionMemory {
-        &mut self.get_mut(agent_id).memory
+    pub fn memory_for(&self, user_id: &str, agent_id: &str) -> &CrossSessionMemory {
+        &self.get_ref(user_id, agent_id).memory
     }
 
-    pub fn tool_cache_for(&self, agent_id: &str) -> &ToolDocCache {
-        &self.get(agent_id).tool_cache
+    pub fn memory_for_mut(&mut self, user_id: &str, agent_id: &str) -> &mut CrossSessionMemory {
+        &mut self.get_or_init(user_id, agent_id).memory
     }
 
-    pub fn tool_cache_for_mut(&mut self, agent_id: &str) -> &mut ToolDocCache {
-        &mut self.get_mut(agent_id).tool_cache
+    pub fn tool_cache_for(&self, user_id: &str, agent_id: &str) -> &ToolDocCache {
+        &self.get_ref(user_id, agent_id).tool_cache
     }
 
-    pub fn skill_store_for(&self, agent_id: &str) -> &SkillStore {
-        &self.get(agent_id).skill_store
+    pub fn tool_cache_for_mut(&mut self, user_id: &str, agent_id: &str) -> &mut ToolDocCache {
+        &mut self.get_or_init(user_id, agent_id).tool_cache
     }
 
-    pub fn mcp_registry_for(&self, agent_id: &str) -> &McpRegistry {
-        &self.get(agent_id).mcp_registry
+    pub fn skill_store_for(&self, user_id: &str, agent_id: &str) -> &SkillStore {
+        &self.get_ref(user_id, agent_id).skill_store
     }
 
-    pub fn mcp_registry_for_mut(&mut self, agent_id: &str) -> &mut McpRegistry {
-        &mut self.get_mut(agent_id).mcp_registry
+    pub fn mcp_registry_for(&self, user_id: &str, agent_id: &str) -> &McpRegistry {
+        &self.get_ref(user_id, agent_id).mcp_registry
+    }
+
+    pub fn mcp_registry_for_mut(&mut self, user_id: &str, agent_id: &str) -> &mut McpRegistry {
+        &mut self.get_or_init(user_id, agent_id).mcp_registry
     }
 
     pub fn layered_memory_for(
-        &self,
-        agent_id: &str,
+        &self, user_id: &str, agent_id: &str,
     ) -> &crate::core::layered_memory::LayeredMemory {
-        &self.get(agent_id).layered_memory
+        &self.get_ref(user_id, agent_id).layered_memory
     }
 
     pub fn layered_memory_for_mut(
-        &mut self,
-        agent_id: &str,
+        &mut self, user_id: &str, agent_id: &str,
     ) -> &mut crate::core::layered_memory::LayeredMemory {
-        &mut self.get_mut(agent_id).layered_memory
+        &mut self.get_or_init(user_id, agent_id).layered_memory
     }
 
     /// Refresh MCP registries for all agents (e.g. after plugin discovery).
     #[allow(dead_code)]
     pub fn refresh_mcp_registries(&mut self, config: &Config) {
-        let agent_ids: Vec<String> = self.runtimes.keys().cloned().collect();
-        for id in agent_ids {
-            if let Some(runtime) = self.runtimes.get_mut(&id) {
-                runtime.refresh_mcp(config, &id);
+        let user_ids: Vec<String> = self
+            .runtimes.keys().map(|(u, _)| u.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter().collect();
+        for user_id in user_ids {
+            let key = runtime_key(&user_id, "default");
+            if let Some(rt) = self.runtimes.get_mut(&key) {
+                rt.refresh_mcp(config, "default");
             }
         }
     }
 
-    /// Initialize runtime data for a new agent.
+    /// Initialize runtime data for a new agent across all existing users.
     #[allow(dead_code)]
     pub fn add_agent(&mut self, config: &Config, agent_id: &str) {
-        let storage = Arc::new(ClawStorage::file(std::path::PathBuf::new()));
-        self.runtimes.insert(
-            agent_id.to_string(),
-            AgentRuntime::new(config, &storage, agent_id),
-        );
+        for user_id in self.user_ids() {
+            let key = runtime_key(&user_id, agent_id);
+            if !self.runtimes.contains_key(&key) {
+                let src_key = runtime_key(&user_id, "default");
+                if let Some(src) = self.runtimes.get(&src_key) {
+                    self.runtimes.insert(key.clone(), AgentRuntime {
+                        memory: src.memory.clone(),
+                        tool_cache: src.tool_cache.clone(),
+                        skill_store: src.skill_store.clone(),
+                        layered_memory: src.layered_memory.clone(),
+                        mcp_registry: src.mcp_registry.clone(),
+                    });
+                }
+            }
+        }
+        let _ = config;
     }
 
-    /// Remove runtime data for an agent.
+    /// Remove runtime data for an agent across all users.
     #[allow(dead_code)]
     pub fn remove_agent(&mut self, agent_id: &str) {
-        self.runtimes.remove(agent_id);
+        self.runtimes.retain(|(_, a), _| a != agent_id);
+    }
+
+    fn user_ids(&self) -> Vec<String> {
+        self.runtimes.keys().map(|(u, _)| u.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter().collect()
     }
 }
 
@@ -366,9 +404,9 @@ impl AppCore {
     /// Call this after the TUI main loop ends, before terminal restore.
     pub fn shutdown(&mut self) {
         tracing::info!("AppCore shutting down, flushing state to disk...");
-        for (agent_id, rt) in &mut self.agent_store.runtimes {
+        for ((user_id, agent_id), rt) in &mut self.agent_store.runtimes {
             rt.memory.flush();
-            tracing::debug!("Flushed memory for agent '{}'", agent_id);
+            tracing::debug!("Flushed memory for user '{}' agent '{}'", user_id, agent_id);
         }
         self.stats_manager.flush();
         #[allow(deprecated)]
@@ -415,7 +453,7 @@ impl AppCore {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
 
-        let memory = self.agent_store.memory_for(agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id);
 
         let identity = if let Some(nick) = memory.assistant_nickname() {
             format!("用户称呼你为{}，以这个身份与用户对话。", nick)
@@ -449,14 +487,14 @@ impl AppCore {
             tool_index: &tool_index,
             hot_tools: &self
                 .agent_store
-                .tool_cache_for(agent_id)
+                .tool_cache_for("default", agent_id)
                 .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
-            skills: &self.agent_store.skill_store_for(agent_id).format_skills(),
+            skills: &self.agent_store.skill_store_for("default", agent_id).format_skills(),
             user_memory: &{
                 let base = memory.format_user_memory();
                 let layered = self
                     .agent_store
-                    .layered_memory_for(agent_id)
+                    .layered_memory_for("default", agent_id)
                     .format_for_prompt();
                 if base.is_empty() {
                     layered
@@ -579,14 +617,14 @@ impl AppCore {
             agent_config.enabled_tools = tools.clone();
         }
 
-        let mcp = self.agent_store.mcp_registry_for(agent_id).clone();
+        let mcp = self.agent_store.mcp_registry_for("default", agent_id).clone();
         let skills = self
             .agent_store
-            .skill_store_for(agent_id)
+            .skill_store_for("default", agent_id)
             .executable_skills();
         let tool_frequency = self
             .agent_store
-            .memory_for(agent_id)
+            .memory_for("default", agent_id)
             .tool_frequency()
             .clone();
         let http_client = self.http_client.clone();
@@ -606,7 +644,7 @@ impl AppCore {
         parent_tx: mpsc::UnboundedSender<LlmEvent>,
         recent_messages: Vec<serde_json::Value>,
     ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
-        let memory = self.agent_store.memory_for(agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id);
         let nickname = memory.assistant_nickname().map(|s| s.to_string());
         let user_identity = if let Some(ref nick) = nickname {
             format!("用户称呼你为{}，以这个身份与用户对话。", nick)
@@ -615,10 +653,10 @@ impl AppCore {
         };
         std::sync::Arc::new(crate::tools::DelegateRuntime {
             irs_tool_index: self.config.i_rs_tool_index.clone(),
-            mcp_registry: self.agent_store.mcp_registry_for(agent_id).clone(),
+            mcp_registry: self.agent_store.mcp_registry_for("default", agent_id).clone(),
             skills: self
                 .agent_store
-                .skill_store_for(agent_id)
+                .skill_store_for("default", agent_id)
                 .executable_skills(),
             tool_frequency: memory.tool_frequency().clone(),
             parent_tx,
@@ -663,7 +701,7 @@ impl AppCore {
     /// Compress API messages after a conversation turn completes.
     /// Uses ContextManager for adaptive token-aware compression.
     pub fn compress_api_messages(&self, msgs: &mut Vec<Value>, agent_id: &str) {
-        let memory = self.agent_store.memory_for(agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id);
         let resolved = self.config.agent_config(agent_id);
         let ctx_mgr = context::ContextManager::for_model(&resolved.model);
         ctx_mgr.compress(msgs, memory.tool_frequency());
@@ -803,7 +841,7 @@ impl AppCore {
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
-        let memory = self.agent_store.memory_for(agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id);
 
         let nickname = memory.assistant_nickname().map(|s| s.to_string());
         let identity = if let Some(ref nick) = nickname {
@@ -819,9 +857,9 @@ impl AppCore {
                 &tool_index,
                 &self
                     .agent_store
-                    .tool_cache_for(agent_id)
+                    .tool_cache_for("default", agent_id)
                     .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
-                &self.agent_store.skill_store_for(agent_id).format_skills(),
+                &self.agent_store.skill_store_for("default", agent_id).format_skills(),
                 &memory.format_user_memory(),
                 &memory.format_user_profile(),
                 self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
@@ -937,7 +975,7 @@ fn build_full_tool_index(config: &Config) -> String {
 /// - **Tool tracking**: records i-rs usage and general tool frequency for hot-tool analysis
 ///
 /// All execution paths MUST call this to ensure consistent persistence.
-pub fn record_tool_memory(
+pub fn record_tool_memory(user_id: &str, 
     agent_store: &mut AgentRuntimeStore,
     i_rs_tool_index: &HashMap<String, String>,
     agent_id: &str,
@@ -946,17 +984,17 @@ pub fn record_tool_memory(
     result: &str,
 ) {
     if name == "update_user_memory" {
-        persist_user_memory(agent_store, agent_id, args);
+        persist_user_memory(user_id, agent_store, agent_id, args);
     }
 
     if name == "i_rs" {
-        track_i_rs_usage(agent_store, i_rs_tool_index, agent_id, args, result);
+        track_i_rs_usage(user_id, agent_store, i_rs_tool_index, agent_id, args, result);
     } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
-        agent_store.memory_for_mut(agent_id).record_tool_use(name);
+        agent_store.memory_for_mut("default", agent_id).record_tool_use(name);
     }
 }
 
-fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args: &str) {
+fn persist_user_memory(_user_id: &str, agent_store: &mut AgentRuntimeStore, agent_id: &str, args: &str) {
     if let Ok(parsed) = serde_json::from_str::<Value>(args) {
         if let Some(user_name) = parsed
             .get("user_name")
@@ -964,20 +1002,20 @@ fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args
             .filter(|s| !s.is_empty())
         {
             agent_store
-                .memory_for_mut(agent_id)
+                .memory_for_mut("default", agent_id)
                 .set_user_name(user_name);
         }
         if let Some(info) = parsed.get("user_info").and_then(|v| v.as_array()) {
             for item in info {
                 if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                    agent_store.memory_for_mut(agent_id).add_user_info(s);
+                    agent_store.memory_for_mut("default", agent_id).add_user_info(s);
                 }
             }
         }
         if let Some(prefs) = parsed.get("preferences").and_then(|v| v.as_array()) {
             for item in prefs {
                 if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                    agent_store.memory_for_mut(agent_id).add_preference(s);
+                    agent_store.memory_for_mut("default", agent_id).add_preference(s);
                 }
             }
         }
@@ -987,13 +1025,13 @@ fn persist_user_memory(agent_store: &mut AgentRuntimeStore, agent_id: &str, args
             .filter(|s| !s.is_empty())
         {
             agent_store
-                .memory_for_mut(agent_id)
+                .memory_for_mut("default", agent_id)
                 .set_assistant_nickname(nick);
         }
     }
 }
 
-fn track_i_rs_usage(
+fn track_i_rs_usage(_user_id: &str, 
     agent_store: &mut AgentRuntimeStore,
     i_rs_tool_index: &HashMap<String, String>,
     agent_id: &str,
@@ -1004,7 +1042,7 @@ fn track_i_rs_usage(
         && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
     {
         if i_rs_tool_index.contains_key(tool) {
-            agent_store.memory_for_mut(agent_id).record_tool_use(tool);
+            agent_store.memory_for_mut("default", agent_id).record_tool_use(tool);
         }
         let cmd = parsed.get("command").and_then(|c| c.as_str());
         if cmd == Some("skill")
@@ -1014,20 +1052,20 @@ fn track_i_rs_usage(
                 .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
                 .unwrap_or(false)
         {
-            let cache = agent_store.tool_cache_for_mut(agent_id);
+            let cache = agent_store.tool_cache_for_mut("default", agent_id);
             cache.hot_docs.insert(tool.to_string(), result.to_string());
             cache.save_hot_docs();
         }
     }
 }
 
-pub fn record_layered_tool_memory(
+pub fn record_layered_tool_memory(_user_id: &str, 
     agent_store: &mut AgentRuntimeStore,
     agent_id: &str,
     name: &str,
     result: &str,
 ) {
-    let layered = agent_store.layered_memory_for_mut(agent_id);
+    let layered = agent_store.layered_memory_for_mut("default", agent_id);
     layered.record_tool_result(name, result);
 }
 
@@ -1061,8 +1099,8 @@ mod tests {
         let store = AgentRuntimeStore::new(&config, dir.path());
 
         // 默认应包含 "default" agent
-        let default_memory = store.memory_for("default");
-        let default_skills = store.skill_store_for("default");
+        let default_memory = store.memory_for("default", "default");
+        let default_skills = store.skill_store_for("default", "default");
         let _ = default_memory;
         let _ = default_skills;
     }

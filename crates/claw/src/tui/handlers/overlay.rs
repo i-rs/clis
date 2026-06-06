@@ -284,7 +284,7 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                 handler
                     .app_core
                     .agent_store
-                    .memory_for_mut(agent_id)
+                    .memory_for_mut("default", agent_id)
                     .analyze_sessions(
                         handler.app_core.session_mgr.sessions(),
                         &handler.app_core.session_mgr,
@@ -605,7 +605,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
             let store = handler
                 .app_core
                 .agent_store
-                .skill_store_for(&handler.app.current_agent);
+                .skill_store_for("default", &handler.app.current_agent);
             handler.app.skill_list = store.list_skills();
             let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
             handler.app.plugin_list = plugin_mgr
@@ -659,7 +659,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
                 let memory = handler
                     .app_core
                     .agent_store
-                    .memory_for_mut(&handler.app.current_agent);
+                    .memory_for_mut("default", &handler.app.current_agent);
                 memory.analyze_sessions(
                     handler.app_core.session_mgr.sessions(),
                     &handler.app_core.session_mgr,

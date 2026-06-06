@@ -293,7 +293,7 @@ impl<'a> KeyEventHandler<'a> {
                     let store = self
                         .app_core
                         .agent_store
-                        .skill_store_for(&self.app.current_agent);
+                        .skill_store_for("default", &self.app.current_agent);
                     self.app.skill_list = store.list_skills();
                     let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
                     self.app.plugin_list = plugin_mgr
@@ -423,7 +423,7 @@ impl<'a> KeyEventHandler<'a> {
                 let lm = self
                     .app_core
                     .agent_store
-                    .layered_memory_for_mut(&self.app.current_agent);
+                    .layered_memory_for_mut("default", &self.app.current_agent);
                 lm.record_user_statement(&text);
             }
             let msgs = self.app_core.build_messages_for(
@@ -584,11 +584,11 @@ impl<'a> KeyEventHandler<'a> {
         if let Some(sid) = self.app_core.session_mgr.current_id() {
             self.app_core
                 .agent_store
-                .memory_for_mut(&self.app.current_agent)
+                .memory_for_mut("default", &self.app.current_agent)
                 .record_session_feedback(sid, positive);
             self.app_core
                 .agent_store
-                .memory_for_mut(&self.app.current_agent)
+                .memory_for_mut("default", &self.app.current_agent)
                 .flush();
         }
     }

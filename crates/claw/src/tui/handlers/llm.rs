@@ -157,7 +157,7 @@ impl<'a> LlmEventHandler<'a> {
         }
 
         let agent_id = &self.app.current_agent;
-        i_rs_claw_core::core::record_tool_memory(
+        i_rs_claw_core::core::record_tool_memory("default", 
             &mut self.app_core.agent_store,
             &self.app_core.config.i_rs_tool_index,
             agent_id,
@@ -167,7 +167,7 @@ impl<'a> LlmEventHandler<'a> {
         );
         if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
             i_rs_claw_core::core::record_layered_tool_memory(
-                &mut self.app_core.agent_store,
+                "default", &mut self.app_core.agent_store,
                 agent_id,
                 name,
                 result,
@@ -334,7 +334,7 @@ impl<'a> LlmEventHandler<'a> {
 
         self.app_core
             .agent_store
-            .memory_for_mut(&self.app.current_agent)
+            .memory_for_mut("default", &self.app.current_agent)
             .flush();
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {

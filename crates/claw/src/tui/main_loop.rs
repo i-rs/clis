@@ -69,7 +69,7 @@ pub fn main_loop(
         {
             let mcp = app_core
                 .agent_store
-                .mcp_registry_for_mut(&app.current_agent);
+                .mcp_registry_for_mut("default", &app.current_agent);
             let reconnected = mcp.health_check_and_reconnect();
             if reconnected > 0 {
                 tracing::info!("MCP 健康检查: {} 个客户端已重连", reconnected);

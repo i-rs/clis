@@ -93,7 +93,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     let agent_id = app.current_agent.clone();
     app_core
         .agent_store
-        .memory_for_mut(&agent_id)
+        .memory_for_mut("default", &agent_id)
         .analyze_sessions(app_core.session_mgr.sessions(), &app_core.session_mgr);
 
     // Load messages from current session
@@ -119,7 +119,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     if app.messages.is_empty() {
         let onboarding = !app_core
             .agent_store
-            .memory_for(&app.current_agent)
+            .memory_for("default", &app.current_agent)
             .has_user_profile();
         if onboarding {
             app.messages.push(app::Message::Assistant {
