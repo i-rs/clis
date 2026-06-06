@@ -190,7 +190,7 @@ impl SessionManager {
         });
         self.index.insert(id.clone(), idx);
         self.current_id = Some(id.clone());
-        self.save_index();
+        self.save_session(&id);
         id
     }
 
@@ -202,6 +202,7 @@ impl SessionManager {
             let storage = self.storage.clone();
             let sid = id.to_string();
             crate::utils::sync_block_on(async move {
+                let _ = storage.sessions.delete_one(&sid).await;
                 let _ = storage.message_log.delete_session(&sid).await;
                 let _ = storage.api_cache.delete(&sid).await;
                 let _ = storage.plan_steps.delete(&sid).await;
@@ -209,7 +210,6 @@ impl SessionManager {
             if self.current_id.as_deref() == Some(id) {
                 self.current_id = self.sessions.first().map(|s| s.id.clone());
             }
-            self.save_index();
             true
         } else {
             false
@@ -227,7 +227,7 @@ impl SessionManager {
             if meta.state.can_transition_to(&new_state) {
                 meta.state = new_state;
                 meta.updated_at = now_secs();
-                self.save_index();
+                self.save_session(id);
                 true
             } else {
                 false
@@ -345,7 +345,7 @@ impl SessionManager {
     pub fn rename_session(&mut self, id: &str, title: &str) -> bool {
         if let Some(idx) = self.find_index(id) {
             self.sessions[idx].title = title.to_string();
-            self.save_index();
+            self.save_session(id);
             true
         } else {
             false
@@ -389,7 +389,7 @@ impl SessionManager {
                         meta.message_count += append_count;
                         meta.updated_at = chrono::Utc::now().timestamp();
                     }
-                    self.save_index();
+                    self.save_session(session_id);
                 }
             }
             Err(e) => tracing::error!("append_new_messages 失败: {}", e),
@@ -431,11 +431,28 @@ impl SessionManager {
         }
     }
 
+    /// Flush all sessions to storage (bulk save). Use only for shutdown/migration.
+    /// Prefer `save_session` for single-session updates.
+    #[deprecated(note = "use save_session for single-session updates")]
     pub(crate) fn save_index(&self) {
         let storage = self.storage.clone();
         let sessions = self.sessions.clone();
         if let Err(e) =
             crate::utils::sync_block_on(async move { storage.sessions.save_all(&sessions).await })
+        {
+            tracing::error!("持久化写入失败: {}", e);
+        }
+    }
+
+    /// Upsert a single session to storage (avoids rewriting the entire index).
+    fn save_session(&self, id: &str) {
+        let Some(idx) = self.find_index(id) else {
+            return;
+        };
+        let storage = self.storage.clone();
+        let meta = self.sessions[idx].clone();
+        if let Err(e) =
+            crate::utils::sync_block_on(async move { storage.sessions.upsert(&meta).await })
         {
             tracing::error!("持久化写入失败: {}", e);
         }

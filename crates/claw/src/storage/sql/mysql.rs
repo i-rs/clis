@@ -173,4 +173,5 @@ define_sql_stores!(
     "INSERT INTO memory (agent_id, data) VALUES (?, ?) ON DUPLICATE KEY UPDATE data=VALUES(data)",
     "INSERT INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE timestamp=VALUES(timestamp), agent_id=VALUES(agent_id), model=VALUES(model), provider=VALUES(provider), prompt_tokens=VALUES(prompt_tokens), completion_tokens=VALUES(completion_tokens), total_tokens=VALUES(total_tokens), has_tool_calls=VALUES(has_tool_calls), tool_call_count=VALUES(tool_call_count), react_rounds=VALUES(react_rounds), success=VALUES(success), latency_ms=VALUES(latency_ms), estimated_cost_usd=VALUES(estimated_cost_usd), trace_id=VALUES(trace_id)",
     "INSERT INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE content=VALUES(content), parameters=VALUES(parameters)",
+    "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ? FOR UPDATE",
 );

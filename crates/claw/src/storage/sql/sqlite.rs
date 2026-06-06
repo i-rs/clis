@@ -108,6 +108,7 @@ define_sql_stores!(
     "INSERT OR REPLACE INTO memory (agent_id, data) VALUES (?, ?)",
     "INSERT OR REPLACE INTO token_records (id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     "INSERT OR REPLACE INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?)",
+    "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?",
 );
 
 #[cfg(test)]

@@ -371,6 +371,7 @@ impl AppCore {
             tracing::debug!("Flushed memory for agent '{}'", agent_id);
         }
         self.stats_manager.flush();
+        #[allow(deprecated)]
         self.session_mgr.save_index();
         tracing::info!("AppCore shutdown complete");
     }

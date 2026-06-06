@@ -43,6 +43,7 @@ macro_rules! define_sql_stores {
         $memory:ident, $stats:ident, $skills:ident, $toolcache:ident,
         $upsert_session:expr,
         $upsert_apicache:expr, $upsert_memory:expr, $upsert_token:expr, $upsert_skill:expr,
+        $select_max_seq:expr,
     ) => {
         // ── SessionRepo ──
 
@@ -144,9 +145,7 @@ macro_rules! define_sql_stores {
                     return Ok(());
                 }
                 let mut tx = self.db.pool.begin().await?;
-                let next_seq: i64 = sqlx::query_scalar(
-                    "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?",
-                )
+                let next_seq: i64 = sqlx::query_scalar($select_max_seq)
                 .bind(session_id)
                 .fetch_one(&mut *tx)
                 .await?;
@@ -185,7 +184,7 @@ macro_rules! define_sql_stores {
                 };
                 let rows: Vec<(String,)> = sqlx::query_as(
                     "SELECT payload FROM ( \
-                     SELECT payload FROM message_log \
+                     SELECT payload, seq FROM message_log \
                      WHERE session_id = ? \
                      ORDER BY seq DESC \
                      LIMIT ? \
