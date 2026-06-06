@@ -39,7 +39,6 @@ impl PgBackend {
                 agent_id VARCHAR(64) NOT NULL DEFAULT 'default',
                 user_id VARCHAR(64) NOT NULL DEFAULT 'default',
                 state VARCHAR(32) NOT NULL DEFAULT 'Active',
-                user_id VARCHAR(64) NOT NULL DEFAULT 'default',
                 created_at BIGINT NOT NULL,
                 updated_at BIGINT NOT NULL,
                 message_count BIGINT NOT NULL DEFAULT 0
