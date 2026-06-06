@@ -1,366 +1,306 @@
-# claw Storage 抽象层审查报告 (v2)
+# claw Storage 抽象层审查报告 (v3)
 
-**审查范围:** `crates/claw/src/storage/` 全部 4 个后端 (file / sql / mongo / redis)、`message/`、`session.rs` 中的消费者代码。
+**审查范围:** `crates/claw/src/storage/` 全 5 后端 (file / sql / mongo / redis)、`message/`、`session.rs` + gateway 消费者。
 
-**审查日期:** 2026-06-06 (初版) / 2026-06-06 (v2, 基于 commit `a3581b29`)
+**审查日期:** 2026-06-06 (v3, 基于 commits `547b8576` ~ `859858f4`)
 
-**v2 变更说明:** 基于 Phase 1 修复 (commit `bbec4825`) 后的代码重新审查。6 个关键问题中 4 个已修复、1 个修复不完整、1 个未触及；同时发现 3 个修复引入的新问题。
+**v3 变更:** 基于 Phase 1.5 + Phase 2 + Phase 3 (#16) 修复后的全量重审。所有 5 后端 compile 通过 + 全部 tests pass。发现 25 个新问题/遗留问题。
 
 ---
 
 ## 1. 执行摘要
 
-存储抽象层由 8 个 trait + `ClawStorage` 容器构成，共 4 个后端实现，代码总量约 3,700 行。
+**整体评价:** 抽象层架构坚实 — 8 个 trait 设计合理，5 个后端全部通过 trait 一致性检查，383 个测试通过，clippy 0 警告。
 
-**Phase 1 修复后整体状态:**
-- ✅ **4 个关键 bug 已修复:** SQL load 查询、index.json 备份、prune 加锁、message_count 漂移
-- ⚠️ **1 个关键修复不完整:** index.json 损坏保护在存储层已修，但 `SessionManager` 消费者仍用 `unwrap_or_default()` 吞掉错误
-- ❌ **2 个关键问题未触及:** PostgreSQL 占位符、SQL seq 竞争
-- 🔸 **3 个新问题由修复引入:** Redis 死代码 + 错误吞噬、SessionManager 未利用新 trait 方法、不必要的 clone
-
-**后端可用性:**
-- File + SQLite: 单用户可用 ✅
-- MongoDB: 基本可用 ✅
-- Redis: 基本可用，但有死代码需清理 ⚠️
-- MySQL: 并发追加有竞争 ⚠️
-- PostgreSQL: 完全不可用 ❌
+**剩余风险:** 存在 3 个 CRITICAL 数据丢失/一致性 bug 和 6 个 HIGH 级问题。最严重的涉及:
+- 序列号并发竞争（所有 SQL 后端）
+- 静默数据损坏（File 后端 deserialize 失败）
+- PostgreSQL 运行时崩溃（JSONB 类型不匹配）
+- SessionManager 写穿导致数据丢失
 
 ---
 
-## 2. 问题汇总表 (按严重性排序)
+## 2. 已修复问题总览
 
-### 2.1 当前仍存在的问题
-
-| #  | 严重性 | 类别     | 问题                                          | 状态       | 位置                                    |
-|----|--------|----------|-----------------------------------------------|------------|-----------------------------------------|
-| 1  | 🔴 关键 | 正确性   | PostgreSQL `?` 占位符完全失效                  | ✅ 已修复   | `sql/mod.rs`, `sql/postgres.rs`        |
-| 2  | 🔴 关键 | 正确性   | SQL `MAX(seq)+1` 并发竞争 (MySQL/PG)          | ✅ 已修复   | `sql/mod.rs`, dialect files            |
-| 4R | 🔴 关键 | 数据丢失 | index.json 损坏保护 — 消费者仍吞错 (回归)      | ✅ 已修复   | `session.rs` (Phase 1.5)               |
-| 9  | 🟠 高   | 性能     | 搜索将全部消息加载到内存                       | 未修复     | 全后端 `search()`                        |
-| 10 | 🟠 高   | 性能     | `SessionManager` 全量 sync-over-async          | 未修复     | `session.rs:118,202,379,410,419,438`   |
-| 11 | 🟡 中   | 设计     | `SCHEMA_VERSION=1` 无迁移路径                  | 未修复     | `message/mod.rs:7`                      |
-| 12 | 🟡 中   | 设计     | `Arc<dyn>` vs `Box<dyn>` 不一致                | 未修复     | `storage/mod.rs:231-239`                |
-| 13 | 🟡 中   | 设计     | `seq` 类型不一致: u64 / i64 / f64              | 未修复     | `message/mod.rs`, sql columns           |
-| 14 | 🟡 中   | 设计     | 全局静态 Mutex 序列化跨会话 I/O                | 未修复     | `file.rs:24-25`                         |
-| 15 | 🟡 中   | 耦合     | `FileMessageLogStore::search` 直接读 index.json | 未修复    | `file.rs:713-722`                       |
-| 16 | 🟡 中   | 可维护   | search 逻辑重复 (~100 行 × 4 后端)             | ✅ 已修复   | 全后端 → `scan_records_for_query`      |
-| 19 | 🟢 低   | 安全     | Mongo regex 转义不完整                         | 未修复     | `mongo.rs:289-292`                      |
-| 20 | 🟢 低   | 安全     | Redis ZSET score 碰撞导致覆盖                  | 未修复     | `redis.rs:append_batch`                 |
-
-### 2.2 修复引入的新问题
-
-| #  | 严重性 | 类别     | 问题                                          | 位置                                    |
-|----|--------|----------|-----------------------------------------------|-----------------------------------------|
-| N1 | 🟠 高   | 代码质量 | Redis `get_one` 用 `.ok()` 吞 JSON 解析错误     | ✅ 已修复   | `redis.rs` (Phase 1.5)                 |
-| N2 | 🟠 高   | 死代码   | Redis 残留旧 `get`/`delete` 方法 (非 trait 成员) | ✅ 已修复   | `redis.rs` (Phase 1.5)                 |
-| N3 | 🟡 中   | 性能     | `SessionManager` 未使用新 `upsert`/`delete_one` 方法 | ✅ 已修复   | `session.rs` (Phase 2)                 |
-| N4 | 🟢 低   | 代码质量 | `append_new_messages` 不必要的 `new_msgs.clone()` | ✅ 已修复   | `session.rs` (Phase 1.5)               |
-| N5 | 🟢 低   | 格式     | SQL `get_one` 查询字符串含大量多余空格          | ✅ 已修复   | `sql/mod.rs` (Phase 1.5)               |
-
-### 2.3 已修复的问题
-
-| #  | 问题                                  | 修复 commit  | 验证状态 |
-|----|--------------------------------------|--------------|----------|
-| 3  | SQL `load` 查询逻辑错误 + 整数下溢     | `bbec4825`   | ✅ 已验证: 子查询 + `LIMIT` + `ORDER BY` |
-| 4  | `index.json` 损坏时静默清空 (存储层)   | `bbec4825`   | ⚠️ 存储层已修，消费者未修 → 见 #4R |
-| 5  | `StatsRepo::prune` 缺锁导致竞争        | `bbec4825`   | ✅ 已验证: `file.rs:377` 持有 `STATS_LOCK` |
-| 6  | `append_new_messages` 不更新 `message_count` | `a3581b29` (后续修补) | ✅ 已验证: `session.rs:384-393` |
-| 7  | `SessionRepo::save_all` 全量替换 (trait 层) | `bbec4825`   | ✅ trait 已添加 `upsert`/`delete_one`/`get_one`/`count` |
-| 8  | `SessionRepo` 默认实现使用 `load_all`  | `bbec4825`   | ✅ 默认实现已移除，改为必需方法 |
+| # | 问题 | 修复版本 | 验证 |
+|---|------|----------|------|
+| #1 | PostgreSQL `?` 占位符 → `$N` | Phase 2 (#1) | ✅ Postgres 编译通过 |
+| #2 | SQL `MAX(seq)+1` 并发竞争 → `FOR UPDATE` | Phase 2 (#2) | ✅ 已加 `$select_max_seq` + 方言特定锁 |
+| #3 | SQL load 查询逻辑错误 + seq 列缺失 | Phase 1 | ✅ `SELECT payload, seq` + 子查询修复 |
+| #4 | index.json 损坏时静默清空 | Phase 1.5 | ✅ 存储层 `.bak` + `Result` 返回 |
+| #5 | `StatsRepo::prune` 缺锁 | Phase 1 | ✅ `STATS_LOCK` 已加 |
+| #6 | `append_new_messages` 不更新 `message_count` | Phase 1 | ✅ 已加更新逻辑 |
+| #7 | SessionRepo 缺单行操作方法 | Phase 1 | ✅ 已加 `get_one`/`upsert`/`delete_one`/`count` |
+| #8 | SessionRepo 默认实现不安全 | Phase 1 | ✅ 已移除默认实现，改为必需方法 |
+| #16 | search 逻辑 4 后端重复 ~48 行 × 4 | Phase 3 | ✅ 提取 `scan_records_for_query()` |
+| N1-N5 | Phase 1 引入的回归问题 | Phase 1.5 | ✅ 全部修复 |
+| MySQL 编译错误 | `or_else` 类型不匹配 | Chore | ✅ 修复 |
 
 ---
 
-## 3. 详细发现
+## 3. 新发现 / 遗留问题 (按严重性排序)
 
-### 3.1 🔴 关键: PostgreSQL `?` 占位符完全失效 (未修复)
+### 3.1 🔴 CRITICAL: SessionManager `unwrap_or_default()` 在 `load_all` 失败时写穿数据
 
-**位置:** `sql/mod.rs:14-17` (文档承认), `sql/postgres.rs:162-166`
-
-**问题:** PostgreSQL 协议要求 `$1, $2, $3...` 风格的占位符。`define_sql_stores!` 宏在所有 SQL 中使用 `?`，包括 `ON CONFLICT` 等 PG 特有语法。PG 后端在第一次执行任何查询时就会报错。
-
-**影响:** PG 后端完全不可用。
-
-**修复方向:**
-- 方案 A (推荐): 在 `define_sql_stores!` 宏中添加 dialect 参数，每个 dialect 自行生成 SQL
-- 方案 B: 用 sqlx 的 `query!` 宏在编译期绑定到具体 Pool 类型
-- 方案 C: 在 PG backend 中用正则替换 `?` → `$N` (不推荐，影响性能)
-
----
-
-### 3.2 🔴 关键: SQL `MAX(seq)+1` 并发竞争 (未修复)
-
-**位置:** `sql/mod.rs:146-172`
-
-**代码:**
-```rust
-let mut tx = self.db.pool.begin().await?;
-let next_seq: i64 = sqlx::query_scalar(
-    "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?",
-).fetch_one(&mut *tx).await?;
-let mut seq = next_seq + 1;
-for msg in messages { /* INSERT ... */ }
-tx.commit().await?;
-```
-
-**问题:** 经典的 read-modify-write 反模式。在 MySQL (READ COMMITTED) 和 PostgreSQL (READ COMMITTED) 默认隔离级别下，两个并发事务可能读到相同的 `MAX(seq)`，导致重复 seq。
-
-**SQLite 安全原因:** SQLite 的写锁是数据库级别的，整个事务期间数据库被锁定。
-
-**影响:** 多 agent 并发追加消息时，消息 seq 重复，后续 `load` 返回的顺序错乱。
-
-**修复方向:**
-- 添加 `SELECT ... FOR UPDATE` (MySQL/PG)
-- 或使用数据库自增序列 (PG `BIGSERIAL`, MySQL `AUTO_INCREMENT`)
-- 或使用应用层 advisory lock (`SELECT pg_advisory_xact_lock(hashtext($session_id))`)
-
----
-
-### 3.4R 🔴 关键: index.json 损坏保护 — 消费者仍吞错 (修复不完整)
-
-**位置:** `session.rs:118-120`
-
-**背景:** 存储层 `FileSessionStore::load_all` (`file.rs:133-137`) 已正确改为返回 `Err`。但消费者 `SessionManager::with_storage` 仍然吞掉错误：
+**位置:** `session.rs:122`
 
 ```rust
-pub fn with_storage(storage: Arc<ClawStorage>) -> Self {
-    let sessions = crate::utils::sync_block_on(async {
-        storage.sessions.load_all().await.unwrap_or_default()  // ← 仍然吞错
-    });
-    ...
-}
+let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().await })
+    .inspect_err(|e| {
+        tracing::error!("加载会话列表失败: {} — 以空列表启动，不会覆盖损坏文件", e);
+    })
+    .unwrap_or_default();  // ← 返回空 Vec，但 SessionManager 仍可写！
 ```
 
-**问题:** 如果 `index.json` 损坏，`load_all` 返回 `Err`，`unwrap_or_default()` 将其转为空 Vec。`SessionManager` 以空列表启动，随后第一次 `save_index()` (例如创建新会话) 调用 `save_all`，覆盖 `index.json` (虽然有 `.bak` 备份，但主文件已丢失所有会话)。
+**问题:** 日志说 "不会覆盖损坏文件"，但实际行为是: 空 session 列表加载后，下一次 `save_session` 或 `save_index` 会正常写入 `index.json`，**覆盖损坏文件为新文件（含空内容）**，丢弃所有原有数据。`.bak` 备份存在但无自动恢复逻辑。
 
-**影响:** 存储层的修复 (#4) 被消费者的 `unwrap_or_default()` 绕过。用户仍会丢失全部会话列表，只是现在有了 `.bak` 文件作为最后手段。
+**修复:** `load_all` 失败时设置内部 `readonly` 标志，禁止所有写操作直到用户明确执行 recovery 命令。或者 `with_storage` 返回 `Err` 让调用方完全拒绝启动。
 
-**修复方向:**
+---
+
+### 3.2 🔴 CRITICAL: SQL `message_log` 无 `UNIQUE(session_id, seq)` 约束 — 首次写入并发竞争
+
+**位置:** `sql/sqlite.rs:83-88`, `sql/mysql.rs:150`, `sql/postgres.rs:139-144`
+
+**问题:** Phase 2 加的 `FOR UPDATE` 仅在目标行已存在时有效。当 session 首次写入 (`MAX(seq) = NULL`) 时:
+1. `SELECT COALESCE(MAX(seq), 0)` → 返回 0
+2. PG `FOR UPDATE` 锁定 0 行（无幻读保护在 READ COMMITTED）
+3. SQLite `BEGIN` 默认为 deferred（WAL 模式下不阻止并发写）
+4. 两个事务同时读到 `next_seq=0`，都写入 `seq=1` → **重复 seq**
+
+**修复:** 所有方言添加 `UNIQUE(session_id, seq)` 约束 + 写入侧添加 `ON CONFLICT` 重试。
+
+---
+
+### 3.3 🔴 CRITICAL: PostgreSQL `payload JSONB` 被读取为 `String` — 运行时崩溃
+
+**位置:** `sql/mod.rs:185-196` (load), `sql/mod.rs:247-250` (search), `sql/postgres.rs:134` (schema)
+
+**问题:** PostgreSQL schema 定义 `payload JSONB NOT NULL`。但 SQL load 和 search 查询用:
 ```rust
-let sessions = crate::utils::sync_block_on(async {
-    storage.sessions.load_all().await
-}).unwrap_or_else(|e| {
-    tracing::error!("加载会话列表失败: {}, 尝试从 .bak 恢复", e);
-    // 尝试从 index.json.bak 恢复，或返回空列表但不立即覆盖
-    Vec::new()  // 标记为"恢复模式"，避免覆盖
-});
+let rows: Vec<(String,)> = sqlx::query_as("SELECT payload FROM ...")
 ```
+sqlx binary 协议对 JSONB 列返回 `serde_json::Value`，不是 `String`。**PG 后端在首次读取 message_log 时必定崩溃。**
 
-或更好的方案：`with_storage` 返回 `Result<Self>`，让调用方决定如何处理错误。
+另外，`search` 中的 `WHERE LOWER(payload) LIKE ?` 在 JSONB 列上行为与 TEXT 不同（JSONB 键排序、空格规范化 → 搜索文本可能与原始 JSON 不一致）。
 
----
-
-### 3.9 🟠 高: 搜索全量加载到内存 (未修复)
-
-**位置:** 全部 4 个后端的 `search()` 方法
-
-**问题:** 搜索流程对每个候选 session 加载全部消息到 `Vec`，然后在内存中线性扫描。
-
-**影响:** 100 个会话 × 10,000 条消息 = 100 万条消息加载到内存中做 substring 匹配。
-
-**修复方向:**
-- 短期: SQL `WHERE payload LIKE '%query%'` / Mongo `$regex` 只返回匹配行
-- 中期: 全文索引 (PG `tsvector`, Mongo text index, Redis `FT.SEARCH`)
-- 长期: 语义搜索 (已有 `semantic.rs` TF-IDF)
+**修复:** PostgreSQL schema 的 `payload` 改用 `TEXT NOT NULL`（与 SQLite/MySQL 一致），或所有读取端改用 `serde_json::Value` 类型。
 
 ---
 
-### 3.10 🟠 高: SessionManager 全量 sync-over-async (未修复)
+### 3.4 🔴 CRITICAL: `save_session` 在 session 不在 index 时静默 no-op
 
-**位置:** `session.rs:118, 202, 379, 410, 419, 438`
+**位置:** `session.rs:448-450`
 
-**问题:** `SessionManager` 的所有方法都是同步的，每次调用通过 `sync_block_on` 桥接 async 存储。
-
-**影响:** 网络后端 (Mongo/Redis/MySQL/PG) 下，`block_in_place` 会阻塞 tokio worker thread。高频消息追加场景下 TUI 渲染会卡顿。
-
-**修复方向:** SessionManager async 化，或用 channel 把存储操作推到独立 actor。
-
----
-
-### 3.N1 🟠 高 (新): Redis `get_one` 吞 JSON 解析错误
-
-**位置:** `redis.rs:128-132`
-
-**代码:**
 ```rust
-async fn get_one(&self, id: &str) -> anyhow::Result<Option<SessionMeta>> {
-    let json: Option<String> = redis::cmd("HGET")...query_async(...).await?;
-    Ok(json.and_then(|j| serde_json::from_str(&j).ok()))  // ← .ok() 吞错
-}
+fn save_session(&self, id: &str) {
+    let Some(idx) = self.find_index(id) else {
+        return; // ← 静默返回，不保存，不报错
+    };
 ```
 
-**对比旧代码 (`redis.rs:162-170`, 现为死代码):**
+**问题:** 如果 session 从 `sessions` Vec 中被删除（通过 `delete_session`）但在调用 `save_session` 之前 `find_index` 找不到它，该 session 的保存静默失败。这可能导致 `updated_at` / `message_count` / `state` 变更丢失。
+
+**修复:** 至少用 `tracing::warn!` 记录这种异常；理想情况是返回 `Result`。
+
+---
+
+### 3.5 🟠 HIGH: File 后端 `unwrap_or_default()` 在 deserialize 失败时静默返回空数据
+
+**位置:** `file.rs:218` (`ApiCacheRepo::load`), `file.rs:266` (`PlanStepsRepo::load`), `file.rs:606` (`ToolCacheRepo::load`)
+
 ```rust
-async fn get(&self, id: &str) -> anyhow::Result<Option<SessionMeta>> {
-    let json: Option<String> = ...;
-    match json {
-        Some(j) => Ok(Some(serde_json::from_str(&j)?)),  // ← 正确传播错误
-        None => Ok(None),
-    }
-}
+Ok(serde_json::from_str(&content).unwrap_or_default())
 ```
 
-**影响:** 如果 Redis 中的 session JSON 损坏，`get_one` 静默返回 `None`，调用方以为会话不存在。
+**问题:** JSON 解析失败时返回 `Ok(vec![])` / `Ok(HashMap::new())` — 调用方认为数据为空，下一次 `save` 会覆盖损坏文件。与 `SessionRepo::load_all` (Phase 1.5 后返回 `Err`) 不一致。
 
-**修复:** 用 `serde_json::from_str(&j).map_err(|e| anyhow::anyhow!("session JSON 解析失败: {}", e)).map(Some)` 或直接 `?`。
-
----
-
-### 3.N2 🟠 高 (新): Redis 残留旧 `get`/`delete` 方法
-
-**位置:** `redis.rs:162-180`
-
-**问题:** `SessionRepo` trait 已移除 `get`/`delete`，改为 `get_one`/`delete_one`。但 `RedisSessionStore` 仍然保留了旧的 `get`/`delete` 作为固有方法 (inherent methods)。这些方法不是 trait 成员，编译器不会报错，但它们是**死代码**。
-
-**影响:** 维护负担，且 `get` (传播错误) 比 `get_one` (吞错) 实现更好，容易造成混淆。
-
-**修复:** 删除 `redis.rs:162-180` 的 `get` 和 `delete` 方法。
+**修复:** `map_err(|e| anyhow!("..."))?` 传播错误。
 
 ---
 
-### 3.N3 🟡 中 (新): SessionManager 未使用新 trait 方法
+### 3.6 🟠 HIGH: File 后端 TOCTOU 竞态在 `SessionRepo::upsert` / `delete_one`
 
-**位置:** `session.rs:434-442` (`save_index` 方法)
+**位置:** `file.rs:160-178`
 
-**代码:**
+**问题:** 两个方法都走 `load_all()` → 修改内存 → `save_all()`。没有锁保护。两个并发调用方读到相同快照，各自修改，后写覆盖先写 —— 丢失中间变更。
+
+**修复:** 对 session 变更操作加 `SESSION_LOCK`（类似 `STATS_LOCK`）。
+
+---
+
+### 3.7 🟠 HIGH: File 后端 I/O 错误被 `map_while(Result::ok)` 静默截断
+
+**位置:** `file.rs:689` (`load`), `file.rs:740` (`search`), `file.rs:776` (`count`)
+
 ```rust
-pub(crate) fn save_index(&self) {
-    let storage = self.storage.clone();
-    let sessions = self.sessions.clone();
-    // 仍然用 save_all 重写整个索引
-    crate::utils::sync_block_on(async move { storage.sessions.save_all(&sessions).await })
-}
+BufReader::new(file).lines().map_while(Result::ok)
 ```
 
-**问题:** Phase 1 给 `SessionRepo` trait 添加了 `upsert`/`delete_one` 等单行操作方法，SQL/Mongo/Redis 后端都实现了高效的单行操作。但 `SessionManager` (唯一消费者) 仍然只调用 `load_all` + `save_all`，完全忽略了新方法。
+**问题:** 读取到一半遇到 I/O 错误时（坏块、网络 FS 断开），`map_while(Result::ok)` 停止迭代但不报错。调用方得到"成功"的**部分结果**。
 
-**影响:** 新增的 4 个 trait 方法 + 4 个后端 × 4 个实现 = 16 个新方法未被使用。性能改进为零。
-
-**修复方向:** 重构 `SessionManager`:
-- `create_session` → 调用 `upsert` 而非 `save_all`
-- `delete_session` → 调用 `delete_one` 而非 `save_all`
-- `rename_session` / `transition_state` → 调用 `upsert` 而非 `save_all`
-- `append_new_messages` → 已经调了 `save_index`，改为调 `upsert` 只更新单个 session
+**修复:** 收集 lines → 检查是否有任何错误 → 有错则返回 `Err`。
 
 ---
 
-### 3.11-3.16 🟡 中 (未变)
+### 3.8 🟠 HIGH: File 后端 search 与 load_all 对 `index.json` 损坏的处理不一致
 
-| #  | 问题                                  | 状态     |
-|----|--------------------------------------|----------|
-| 11 | `SCHEMA_VERSION=1` 无迁移路径         | 未修复   |
-| 12 | `Arc<dyn>` vs `Box<dyn>` 不一致       | 未修复   |
-| 13 | `seq` 类型不一致: u64 / i64 / f64     | 未修复   |
-| 14 | 全局静态 Mutex 序列化跨会话 I/O       | 未修复   |
-| 15 | File search 直接读 index.json         | 未修复   |
-| 16 | search 逻辑重复 (~100 行 × 4 后端)    | 未修复   |
+**位置:** `file.rs:718-724`
 
----
-
-### 3.N4 🟢 低 (新): append_new_messages 不必要的 clone
-
-**位置:** `session.rs:375-377`
-
-**代码:**
 ```rust
-let new_msgs = new_msgs.to_vec();        // clone 1
-let append_count = new_msgs.len();
-let new_msgs_clone = new_msgs.clone();   // clone 2 (不必要)
-let result =
-    crate::utils::sync_block_on(async move { log.append_batch(&sid, &new_msgs_clone).await });
+std::fs::read_to_string(&index_path)
+    .ok()
+    .and_then(|c| serde_json::from_str(&c).ok())
+    .unwrap_or_default()
 ```
 
-**问题:** `new_msgs` 在 clone 后不再使用，第二个 clone 是多余的。
+**问题:** `SessionRepo::load_all` 在 Phase 1.5 后正确返回 `Err`。但 `search` 仍吞掉所有错误，返回 0 结果，且无任何日志。
 
-**修复:** 直接 move `new_msgs` 进 async block。
+**修复:** 统一使用 `load_all` trait 方法，或至少 `tracing::error!` + 空结果。
 
 ---
 
-### 3.N5 🟢 低 (新): SQL get_one 查询字符串多余空格
+### 3.9 🟠 HIGH: Gateway 绕过 `append_new_messages` 直接调 `message_log().append_batch()`
 
-**位置:** `sql/mod.rs:97`
+**位置:** `gateway/mod.rs:283-296`, `session.rs:363`
 
-**代码:**
 ```rust
-"SELECT id, title, agent_id, state, created_at, updated_at, message_count                      FROM sessions WHERE id = ?"
+let log = core.session_mgr.message_log();
+log.append_batch(&session_uuid, &msgs).await  // ← 绕过 SessionManager
 ```
 
-**问题:** `message_count` 和 `FROM` 之间有大量空格 (约 20 个)。虽然 SQL 语义不受影响，但看起来像是编辑器粘贴错误。
+**问题:**
+1. `saved_cursors` 不更新 → TUI 打开该 session 时 `append_new_messages` 会把已有消息重新写入一次（重复）
+2. `SessionMeta.message_count` 不更新 → session 列表中计数错误
+3. `SessionMeta.updated_at` 不更新 → 最后活跃时间错误
 
-**修复:** 清理多余空格。
-
----
-
-## 4. 后端能力矩阵 (Phase 1 后)
-
-| 能力                | File      | SQLite    | MySQL     | PostgreSQL | Mongo     | Redis     |
-|---------------------|-----------|-----------|-----------|------------|-----------|-----------|
-| 基础 CRUD           | ✅        | ✅        | ✅        | ❌ (#1)    | ✅        | ✅        |
-| 原子 seq            | ✅ (锁)   | ✅ (锁)   | ❌ (#2)   | ❌ (#2)    | ✅ (原子) | ✅ (INCR) |
-| 按 ID 查会话        | ⚠️ (fallback) | ✅   | ✅        | ❌ (#1)    | ✅        | ⚠️ (N1: 吞错) |
-| 单会话 upsert       | ⚠️ (fallback) | ✅   | ✅        | ❌ (#1)    | ✅        | ✅        |
-| 单会话 delete       | ⚠️ (fallback) | ✅   | ✅        | ❌ (#1)    | ✅        | ✅        |
-| 损坏保护            | ⚠️ (#4R)  | N/A       | N/A       | N/A        | N/A       | N/A       |
-| 流式搜索            | ❌ (#9)   | ❌ (#9)   | ❌ (#9)   | ❌ (#9)    | ❌ (#9)   | ❌ (#9)   |
-| Schema 迁移         | ❌ (#11)  | ❌ (#11)  | ❌ (#11)  | ❌ (#11)   | ❌ (#11)  | ❌ (#11)  |
-
-**File 后端 "fallback" 含义:** 实现了 `get_one`/`upsert`/`delete_one`/`count`，但内部仍 fallback 到 `load_all` + `save_all`。
+**修复:** Gateway 应该通过 `SessionManager` 的方法持久化消息（即使需要新增方法），而不是绕过去直接调 MessageLog。
 
 ---
 
-## 5. 建议修复优先级 (修订版)
+### 3.10 🟠 HIGH: SQL search N+1 查询模式
 
-### Phase 1.5 — 修复 Phase 1 的遗漏 (立即)
+**位置:** `sql/mod.rs:233-259`
 
-1. **#4R** `SessionManager::with_storage` 不再吞 `load_all` 错误 — 返回 `Result` 或做恢复处理
-2. **N1** Redis `get_one` 用 `?` 传播 JSON 解析错误
-3. **N2** 删除 Redis 残留的旧 `get`/`delete` 死代码
-4. **N5** 清理 SQL `get_one` 多余空格
-5. **N4** 移除 `append_new_messages` 多余 clone
+**问题:** 对每个候选 session 执行 2 个额外查询（sessions 表 + message_log 表）。100 个候选 = 201 次查询。message_log 查询加载**全部消息**到内存（10,000 条/session → 1M 条加载然后 Rust 扫描）。
 
-### Phase 2 — 后端可用性 (1-2 周)
-
-6. **#1** PostgreSQL `$N` 占位符支持
-7. **#2** SQL `append_batch` 用 `FOR UPDATE` 或 advisory lock
-8. **N3** `SessionManager` 改用 `upsert`/`delete_one` 取代 `save_all`
-
-### Phase 3 — 性能与可扩展性 (2-4 周)
-
-9. **#9** 搜索下推到数据库 (LIKE / 全文索引)
-10. **#10** SessionManager async 化 (或 actor 化)
-11. **#16** 提取共享 search 逻辑
-
-### Phase 4 — 设计改进 (持续)
-
-12. **#11** Schema 迁移路径
-13. **#12** Arc/Box 统一
-14. **#13** seq 类型统一
-15. **#14** per-session 锁替代全局 Mutex
-16. **#15** File search 解耦 index.json
+**修复:** JOIN sessions 表一次查询完成；message_log 只加载匹配行的上下文而非全部。
 
 ---
 
-## 6. 审查覆盖文件清单
+### 3.11 🟡 MEDIUM: `.bak` 文件死代码 — 从未恢复也从未清理
 
-| 文件                                 | 行数  | 审查状态 |
-|--------------------------------------|-------|----------|
-| `storage/mod.rs`                     | 248   | ✅ v2 完整 |
-| `storage/file.rs`                    | 1326  | ✅ v2 完整 |
-| `storage/sql/mod.rs`                 | 594   | ✅ v2 完整 |
-| `storage/sql/sqlite.rs`              | 154   | ✅ 未变   |
-| `storage/sql/mysql.rs`               | 176   | ✅ 未变   |
-| `storage/sql/postgres.rs`            | 167   | ✅ 未变   |
-| `storage/mongo.rs`                   | 977   | ✅ v2 完整 |
-| `storage/redis.rs`                   | 811   | ✅ v2 完整 |
-| `message/mod.rs`                     | 162   | ✅ 未变   |
-| `session.rs`                         | 724   | ✅ v2 完整 |
-| `utils.rs` (sync_block_on)           | ~20   | ✅ 未变   |
-| `core/mod.rs` (block_on)             | ~5    | ✅ 未变   |
+**位置:** `file.rs:146-149`
+
+```rust
+let bak = path.with_extension("json.bak");
+std::fs::copy(&path, &bak).ok();  // ← 总是忽略错误
+```
+
+**问题:**
+- `atomic_write` 本身就 crash-safe（write-tmp-rename），`.bak` 不提供额外保护
+- `.bak` 从未在恢复时被读取/使用
+- `.bak` 从未被清理，在 `~/.i-rs/data/` 中无限累积
+
+**修复:** 删除 `.bak` 创建逻辑，或在恢复时读取 `.bak` 文件。
 
 ---
 
-## 7. 变更日志
+### 3.12 🟡 MEDIUM: SQL `save_all` / `upsert_batch` 单行操作（非批量）
 
-| 日期       | 版本 | 变更                                              |
-|------------|------|---------------------------------------------------|
-| 2026-06-06 | v1   | 初始审查 (20 个问题)                               |
-| 2026-06-06 | v2   | Phase 1 后复审: 6 个已修复/部分修复, 5 个新问题发现 |
+**位置:** `sql/mod.rs:76-83` (`save_all` 删除), `sql/mod.rs:358-369` (`upsert_batch`)
+
+**问题:** `save_all` 对每个过期 session 发一条 DELETE；`upsert_batch` 对每条 token 记录发一条 UPSERT。N 个记录 = N 次网络往返。
+
+**修复:** `save_all` 用 `DELETE FROM sessions WHERE id IN (...)`；`upsert_batch` 用事务或批量插入。
+
+---
+
+### 3.13 🟡 MEDIUM: MongoDB `append_batch` 非原子（seq counter + insert 分两步）
+
+**位置:** `mongo.rs:233-277`
+
+**问题:** `findOneAndUpdate` (seq 递增) 和 `insert_many` (消息写入) 是两个独立操作。如果 `insert_many` 失败，seq 计数器已递增，但消息未写入 → seq 空洞。违反 trait 契约: "all-or-nothing"。
+
+**修复:** 用 MongoDB transaction (`session.with_transaction()`)。
+
+---
+
+### 3.14 🟡 MEDIUM: mongo/redis `save_all(empty)` 留下孤儿数据
+
+**位置:** `mongo.rs:122-131`, `redis.rs:120-154`
+
+**问题:** 传入空 sessions 时只清空 sessions 表，不清空 `message_log` / `seq_counters`。如果因数据损坏而重建 sessions 为空，孤儿消息数据永远留在 DB 中。
+
+**修复:** 空 sessions 时也清空 `message_log` + `seq_counters`。
+
+---
+
+### 3.15 🟡 MEDIUM: `serde_json::to_string(&s.state).unwrap_or_default()` 静默损坏状态
+
+**位置:** `sql/mod.rs:88,110`, `mongo.rs:202`
+
+**问题:** 如果 `SessionState` 序列化失败（如添加了不可序列化的变体），状态字段保存为空字符串/空文档。重新加载时恢复为 `Default::default()` → **状态静默变更**。
+
+**修复:** 使用 `?` 传播序列化错误。
+
+---
+
+### 3.16 🟡 MEDIUM: `append_batch` 不更新 session 的 `message_count` 列
+
+**位置:** `sql/mod.rs:140-171` vs `session.rs:384-392`
+
+**问题:** `append_batch` 插入消息但 transaction 内不更新对应 session 行的 `message_count`。SessionManager 在 Rust 侧更新后调 `save_session`，但若进程在此之间崩溃，DB 中 `message_count` 仍是旧值。
+
+**修复:** `append_batch` 内 `UPDATE sessions SET message_count = message_count + N WHERE id = ?`。
+
+---
+
+### 3.17 🟢 LOW: 次要问题汇总
+
+| # | 严重性 | 位置 | 描述 |
+|---|--------|------|------|
+| L1 | LOW | `file.rs:146-149` | `std::fs::copy(...).ok()` 忽略备份创建错误 |
+| L2 | LOW | `file.rs:379` | `keep_days as i64 * 86400` 可能溢出（需要 >68 年） |
+| L3 | LOW | `file.rs:101-105` | `extract_timestamp` 每行解析完整 JSON（性能） |
+| L4 | LOW | `sql/mod.rs:47` | `$ph1..$ph5` 只有 5 个占位符槽位，未来扩展受限 |
+| L5 | LOW | `sql/mod.rs:498-500` | `i64 as u32` 截断 token 计数（需 40 亿+） |
+| L6 | LOW | `sql/mod.rs:487` | `Option<String>` for `NOT NULL DEFAULT ''` 列 |
+| L7 | LOW | `mysql.rs:115-117` | `let _ =` 吞掉所有 index 创建错误 |
+| L8 | LOW | `mongo.rs:321-333` | `]` 未在 regex 中转义 |
+| L9 | LOW | `mongo.rs:139` | 大量 sessions 时 `$nin` 性能退化 |
+| L10 | LOW | `mongo.rs:205,220` | `usize→i64` / `i64→usize` 转换溢出 |
+| L11 | LOW | `mongo.rs:211-212` | 畸形 state 字段静默回退 Default |
+| L12 | LOW | `redis.rs:278-287` | limit 计算 `usize→isize` 回绕 |
+| L13 | LOW | `redis.rs:303-348` | search 客户端加载全部数据（未文档化） |
+| L14 | LOW | `session.rs:462-467` | `now_secs()` 在时钟错误时返回 0 |
+| L15 | LOW | `session.rs:304-306` | export 中无效时间戳显示空字符串 |
+| L16 | LOW | StatsRepo | mongo/redis 批量操作 N+1 查询 |
+
+---
+
+## 4. 后端能力矩阵
+
+| 能力 | File | SQLite | MySQL | PostgreSQL | Mongo | Redis |
+|------|------|--------|-------|------------|-------|-------|
+| 编译 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 测试 | ✅ | ✅ (383 pass) | — | — | — | — |
+| 基础 CRUD | ✅ | ✅ | ✅ | ⚠️ (F3) | ✅ | ✅ |
+| session 写保护 | ❌ (3.6) | ⚠️ (3.2) | ⚠️ (3.2) | ⚠️ (3.2) | ⚠️ (3.13) | ✅ (Lua 原子) |
+| 损坏容忍 | ❌ (3.5) | ✅ | ✅ | ❌ (3.3) | ⚠️ (3.15) | ✅ |
+| 搜索 | ⚠️ (3.8) | ⚠️ (3.10) | ⚠️ (3.10) | ❌ (3.3) | ⚠️ (3.4) | ❌ (L13) |
+| Schema 迁移 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+## 5. 推荐修复路线
+
+| 阶段 | 问题 | 预估工作量 |
+|------|------|-----------|
+| Phase 4 | 3.1 (SessionManager write-through) + 3.4 (save_session no-op) | 中 |
+| Phase 4 | 3.2 (UNIQUE seq 约束) + 3.3 (PG TEXT payload) | 中 |
+| Phase 4 | 3.5 (File unwrap_or_default) + 3.7 (I/O 截断) + 3.8 (search 不一致) | 中 |
+| Phase 5 | 3.6 (Session TOCTOU lock) + 3.9 (Gateway 绕过) | 中 |
+| Phase 5 | 3.10 (search N+1) + 3.12 (批量操作) | 大 |
+| Phase 6 | 3.11 (.bak 清理) + 3.13 (Mongo 事务) + 3.14 (孤儿数据) | 小-中 |
+| Backlog | L1-L16 (低优先级) | 小 |
