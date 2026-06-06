@@ -479,6 +479,20 @@ pub async fn chat_stream(
                         let quality_msg = core.evaluate_completed_session(&sid);
 
                         // Persist quality message through SessionManager.
+                        let quality_json = match &quality_msg {
+                            Some(crate::app::Message::Quality {
+                                score,
+                                complete,
+                                issues,
+                                references_valid,
+                            }) => serde_json::json!({
+                                "score": score.map(|s| s.to_string()).unwrap_or_default(),
+                                "complete": complete,
+                                "issues": issues,
+                                "references_valid": references_valid,
+                            }),
+                            _ => serde_json::json!(null),
+                        };
                         if let Some(q) = &quality_msg {
                             if let Err(e) = core.session_mgr.persist_messages(&sid, &[q.clone()]) {
                                 tracing::error!("quality 持久化失败: {}", e);
@@ -488,7 +502,10 @@ pub async fn chat_stream(
                         core.agent_store.memory_for_mut(&agent_id).flush();
                         drop(core);
 
-                        let done_json = serde_json::json!({"usage": usage});
+                        let done_json = serde_json::json!({
+                            "usage": usage,
+                            "quality": quality_json,
+                        });
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         let sse = Event::default().event("done").data(data);
                         return Some((
