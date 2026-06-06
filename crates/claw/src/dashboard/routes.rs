@@ -1,4 +1,4 @@
-use crate::dashboard::AppState;
+use crate::serve::AppState;
 use i_rs_claw_core::llm::LlmEvent;
 #[cfg(feature = "dashboard")]
 use i_rs_claw_core::message::MessageAccumulator;

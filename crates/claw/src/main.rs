@@ -5,6 +5,10 @@ mod config;
 #[cfg(feature = "dashboard")]
 mod dashboard;
 mod gateway;
+#[cfg(feature = "dashboard")]
+mod serve;
+#[cfg(test)]
+mod test_helpers;
 mod theme;
 mod tui;
 mod ui;
@@ -15,7 +19,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "i-rs-claw",
     version,
-    about = "TUI intelligent personal data assistant for i-rs CLI tools"
+    about = "AI personal assistant — Web Dashboard + TUI terminal interface"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -24,11 +28,26 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Launch the TUI assistant (default)
+    /// Start HTTP API server + Web Dashboard (default mode)
+    Serve {
+        /// Host to bind (default: 0.0.0.0)
+        #[arg(long, default_value = "0.0.0.0")]
+        host: String,
+        /// Port to listen on (default: 3000)
+        #[arg(long, short, default_value = "3000")]
+        port: u16,
+        /// Disable the Web Dashboard UI (API only)
+        #[arg(long)]
+        api_only: bool,
+    },
+    /// Start TUI terminal interface (debug/power-user mode)
     Tui {
         /// Resume a specific session by ID
         #[arg(long)]
         session: Option<String>,
+        /// User ID for multi-tenant mode
+        #[arg(long)]
+        user: Option<String>,
     },
     /// Interactive configuration wizard
     Config,
@@ -56,7 +75,7 @@ enum Command {
     },
     /// Start the gateway server for social platform integration
     Gateway,
-    /// Start the dashboard web server
+    /// Start the dashboard web server (alias for `serve`)
     Dashboard,
     /// List and manage plugins
     Plugin {
@@ -154,59 +173,37 @@ fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    match cli.command.unwrap_or(Command::Tui { session: None }) {
-        Command::Tui { session } => tui::run(session.as_deref()),
+    match cli.command.unwrap_or(Command::Serve {
+        host: "0.0.0.0".to_string(),
+        port: 3000,
+        api_only: false,
+    }) {
+        Command::Serve { host, port, api_only } => cli::run_serve(host, port, api_only),
+        Command::Tui { session, user: _ } => tui::run(session.as_deref()),
         Command::Config => cli::run_config(),
         Command::Tools => cli::run_tools(),
         Command::Session { list: true, .. } => cli::run_session_list(),
-        Command::Session {
-            export_md: Some(id),
-            ..
-        } => cli::run_export(&id, "md"),
-        Command::Session {
-            export_json: Some(id),
-            ..
-        } => cli::run_export(&id, "json"),
+        Command::Session { export_md: Some(id), .. } => cli::run_export(&id, "md"),
+        Command::Session { export_json: Some(id), .. } => cli::run_export(&id, "json"),
         Command::Session { .. } => cli::run_session_list(),
         Command::Ask { message, session } => cli::run_ask(&message, session.as_deref()),
         Command::Gateway => cli::run_gateway(),
         Command::Dashboard => cli::run_dashboard(),
         Command::Plugin { list: true, .. } => cli::run_plugin_list(),
-        Command::Plugin {
-            info: Some(name), ..
-        } => cli::run_plugin_info(&name),
-        Command::Plugin {
-            enable: Some(name), ..
-        } => cli::run_plugin_enable(&name),
-        Command::Plugin {
-            disable: Some(name),
-            ..
-        } => cli::run_plugin_disable(&name),
+        Command::Plugin { info: Some(name), .. } => cli::run_plugin_info(&name),
+        Command::Plugin { enable: Some(name), .. } => cli::run_plugin_enable(&name),
+        Command::Plugin { disable: Some(name), .. } => cli::run_plugin_disable(&name),
         Command::Plugin { .. } => cli::run_plugin_list(),
         Command::Skill { list: true, .. } => cli::run_skill_list(),
-        Command::Skill {
-            install: Some(name),
-            ..
-        } => cli::run_skill_install(&name),
-        Command::Skill {
-            remove: Some(name), ..
-        } => cli::run_skill_remove(&name),
-        Command::Skill {
-            info: Some(name), ..
-        } => cli::run_skill_info(&name),
+        Command::Skill { install: Some(name), .. } => cli::run_skill_install(&name),
+        Command::Skill { remove: Some(name), .. } => cli::run_skill_remove(&name),
+        Command::Skill { info: Some(name), .. } => cli::run_skill_info(&name),
         Command::Skill { .. } => cli::run_skill_list(),
         Command::Stats { period, json } => cli::run_stats(&period, json),
         Command::Mcp { list: true, .. } => cli::run_mcp_list(),
-        Command::Mcp {
-            enable: Some(name), ..
-        } => cli::run_mcp_enable(&name),
-        Command::Mcp {
-            disable: Some(name),
-            ..
-        } => cli::run_mcp_disable(&name),
-        Command::Mcp {
-            check: Some(name), ..
-        } => cli::run_mcp_check(&name),
+        Command::Mcp { enable: Some(name), .. } => cli::run_mcp_enable(&name),
+        Command::Mcp { disable: Some(name), .. } => cli::run_mcp_disable(&name),
+        Command::Mcp { check: Some(name), .. } => cli::run_mcp_check(&name),
         Command::Mcp { .. } => cli::run_mcp_list(),
     }
 }

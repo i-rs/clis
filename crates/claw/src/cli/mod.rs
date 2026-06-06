@@ -178,40 +178,44 @@ pub fn run_gateway() -> anyhow::Result<()> {
 }
 
 // =============================================
-// Dashboard subcommand
+// Serve subcommand (API server + Web Dashboard)
 // =============================================
 
 #[cfg(feature = "dashboard")]
-pub fn run_dashboard() -> anyhow::Result<()> {
+pub fn run_serve(host: String, port: u16, api_only: bool) -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
     let core = i_rs_claw_core::core::AppCore::new(config.clone())?;
 
-    // Discover plugins and merge into MCP config
     if core.config.plugins_auto_discover {
         let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
         let plugin_configs = plugin_mgr.to_mcp_configs();
         if !plugin_configs.is_empty() {
-            tracing::info!("{} plugins discovered", plugin_configs.len(),);
+            tracing::info!("{} plugins discovered", plugin_configs.len());
         }
     }
 
-    let dashboard = crate::dashboard::Dashboard::new(config.dashboard);
     println!(
         " {}  {}\n",
-        " 🔷 i-rs-claw Dashboard".bold().bright_blue(),
+        " 🔷 i-rs-claw Serve".bold().bright_blue(),
         "🚀 Server starting...".bright_green()
     );
-    rt.block_on(dashboard.run(core));
+    rt.block_on(crate::serve::run(core, host, port, api_only));
     Ok(())
 }
 
 #[cfg(not(feature = "dashboard"))]
-pub fn run_dashboard() -> anyhow::Result<()> {
+pub fn run_serve(_host: String, _port: u16, _api_only: bool) -> anyhow::Result<()> {
     anyhow::bail!(
         "Dashboard feature is not enabled. Rebuild with: cargo build --features dashboard"
     );
+}
+
+/// Legacy alias for `claw serve` (used by the `Dashboard` subcommand).
+pub fn run_dashboard() -> anyhow::Result<()> {
+    let config = crate::config::Config::load()?;
+    run_serve(config.dashboard.host.clone(), config.dashboard.port, false)
 }
 
 // =============================================
