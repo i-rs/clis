@@ -131,9 +131,111 @@ Dashboard 的 `/api/data/{tool}` 端点有两种实现选择：
 
 **决策**：先用直接调用（方案 A），因为当前所有 CLI crate 已在 workspace 中。后续如需独立扩展 i-rs-api，再加代理模式。
 
-## 3. API 设计
+## 3. 多租户设计
 
-### 3.1 端点列表
+### 3.1 用户模型
+
+Dashboard 作为服务端产品，天然需要多用户隔离。每个用户拥有独立的会话、Agent 配置、用量统计。
+
+```
+User {
+  id: String          ← 唯一标识（通过 auth token 解析）
+  sessions: [Session] ← 该用户的会话
+  agents: [Agent]     ← 该用户的自定义 Agent
+  stats: Stats       ← 该用户的用量统计
+  data: ...          ← 该用户的 i-rs 个人数据
+}
+```
+
+### 3.2 认证 → 用户映射
+
+当前 dashboard 已有 Bearer token 认证。扩展为 token → user_id 映射：
+
+```toml
+# config.toml
+[dashboard]
+# 单用户模式（兼容现有）
+auth_token = "my-secret-token"
+
+# 多用户模式（新增）
+[[dashboard.users]]
+id = "alice"
+token = "alice-token-xxx"
+
+[[dashboard.users]]
+id = "bob"
+token = "bob-token-yyy"
+```
+
+- 未配置 `users`：单用户模式，所有请求归属 `default` 用户
+- 配置了 `users`：每个 token 对应一个 user_id，所有 API 按 user_id 隔离
+
+### 3.3 数据隔离
+
+| 资源 | 隔离键 | 说明 |
+|------|--------|------|
+| Session | user_id | 每个用户只能访问自己的会话 |
+| Agent | user_id | 自定义 Agent 按用户隔离（default agent 共享） |
+| Message | user_id（通过 session） | 会话内的消息自动隔离 |
+| Stats | user_id | 用量统计按用户分开 |
+| Config | global + user overrides | 全局配置可被用户级覆盖 |
+| i-rs Data | user_id | 体重/睡眠等个人数据按用户隔离 |
+
+### 3.4 Storage 层变更
+
+所有涉及用户数据的 SQL/查询增加 `user_id` 维度：
+
+- `sessions` 表：已有 `agent_id`，新增 `user_id`
+- `messages` 表：通过 session 级联隔离
+- `stats` 表：新增 `user_id`
+- `agent_configs`：新增 `user_id`（NULL = global）
+
+**兼容性**：默认 `user_id = "default"`，现有单用户数据不受影响。
+
+## 4. TUI ↔ Dashboard 数据互通
+
+### 4.1 核心原则
+
+TUI 直连 claw-core，Dashboard 通过 HTTP API。两者共享同一个 DB 后端，数据天然互通。
+
+```
+TUI ──→ claw-core ──→ DB（写/读）
+                          ↑
+Dashboard API ──→ claw-core ──→ DB（写/读）
+```
+
+### 4.2 场景
+
+| 场景 | 数据流 |
+|------|--------|
+| TUI 聊天创建会话 | claw-core → DB，Dashboard 刷新即见 |
+| Dashboard 聊天创建会话 | API → claw-core → DB，TUI 切换即见 |
+| TUI 修改 Agent | claw-core → DB config，Dashboard API 实时反映 |
+| Dashboard 创建 Agent | API → claw-core → DB，TUI 重启或 reload 可见 |
+
+### 4.3 单用户多端
+
+同一用户可能同时使用 TUI + Web：
+
+```
+用户 alice:
+  ├── claw tui（本地终端）
+  │     └── user_id = "alice"（通过环境变量或参数指定）
+  └── Dashboard Web
+        └── Bearer token = alice-token-xxx → user_id = "alice"
+```
+
+两端看到相同的会话列表、相同的消息历史、相同的 Agent 配置。通过 user_id 关联。
+
+### 4.4 实现要点
+
+- TUI 启动时通过 `--user` flag 或 `CLAW_USER` 环境变量指定 user_id
+- claw-core 的 SessionManager 和 Config 按 user_id 分区读写
+- 不需要额外的同步协议——DB 即共享状态
+
+## 5. API 设计
+
+### 5.1 端点列表
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -156,7 +258,7 @@ Dashboard 的 `/api/data/{tool}` 端点有两种实现选择：
 | PUT | `/api/config` | 更新配置 |
 | GET/POST/DELETE/PATCH | `/api/data/{tool}[/{id}]` | i-rs 数据工具代理 |
 
-### 3.2 聊天 API 详细设计
+### 5.2 聊天 API 详细设计
 
 **POST /api/chat**
 
@@ -214,13 +316,13 @@ function connect(sessionId: string) {
 }
 ```
 
-## 4. 增量持久化
+## 6. 增量持久化
 
-### 4.1 问题
+### 6.1 问题
 
 当前 dashboard 后端用 MessageAccumulator 在内存中积累整个对话的所有事件，仅在 LlmEvent::Done 或 Error 时才调用 persist_messages。SSE 断开 → 所有消息丢失。
 
-### 4.2 方案
+### 6.2 方案
 
 chat_loop 每次返回一轮 Assistant 响应时（即 LlmEvent::NewRound），立即将本轮消息 persist 到 DB。同时在 LlmEvent::Done 时 persist 最终状态（包括 quality）。
 
@@ -241,9 +343,9 @@ persist final state + quality to DB
 emit SSE done
 ```
 
-## 5. 前端重新设计
+## 7. 前端重新设计
 
-### 5.1 页面结构
+### 7.1 页面结构
 
 | 页面 | 路由 | 说明 |
 |------|------|------|
@@ -254,7 +356,7 @@ emit SSE done
 | Usage | `/usage` | Token 用量 + 费用统计 |
 | Settings | `/settings` | 系统配置（Provider、模型等） |
 
-### 5.2 技术决策
+### 7.2 技术决策
 
 | 决策项 | 选择 | 原因 |
 |--------|------|------|
@@ -265,7 +367,7 @@ emit SSE done
 | Markdown | react-markdown + remark-gfm | 现有依赖不变 |
 | Build | Vite | 现有不变 |
 
-### 5.3 组件树
+### 7.3 组件树
 
 ```
 App
@@ -291,9 +393,9 @@ App
 └── OtherPages...
 ```
 
-## 6. 分布式部署
+## 8. 分布式部署
 
-### 6.1 拓扑
+### 8.1 拓扑
 
 ```
          ┌─── Nginx / Cloud LB ───┐
@@ -312,14 +414,14 @@ App
               └─────────────┘
 ```
 
-### 6.2 关键约束
+### 8.2 关键约束
 
 - Sticky session 保证同一用户的 POST `/api/chat` 和 SSE `chat/stream` 落在同一实例
 - API 层无本地状态，所有状态在 DB
 - 实例宕机：LB 重路由到其他实例，客户端重连 SSE
 - 静态资源（Web UI）可选择用 Nginx 直接 serve 或 CDN
 
-## 7. 实施阶段
+## 9. 实施阶段
 
 ### Phase 1: 基础架构
 1. 拆分 `claw-core` crate（lib only）
@@ -345,7 +447,7 @@ App
 2. TUI 模式验证（确保不受影响）
 3. 分布式部署测试（多实例 + PostgreSQL）
 
-## 8. 不做的
+## 10. 不做的
 
 - TUI 代码本身不重构（只拆分 crate，功能不变）
 - i-rs-api 不修改（保留现有 70 工具端点）
