@@ -338,10 +338,15 @@ impl<'a> LlmEventHandler<'a> {
             .flush();
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
-            self.app.messages.push(quality);
+            self.app.messages.push(quality.clone());
             self.app
                 .message_timestamps
                 .push(chrono::Local::now().naive_local());
+            // Persist immediately so dashboard/iOS see the quality message.
+            let _ = self
+                .app_core
+                .session_mgr
+                .persist_messages(&session_id, &[quality]);
             self.app.mark_dirty();
         }
 
