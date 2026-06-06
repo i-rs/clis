@@ -484,8 +484,8 @@ pub async fn chat_stream(
                         let sse = Event::default().event("status").data(s);
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }
-                    LlmEvent::NewRound => {
-                        acc.apply(&LlmEvent::NewRound);
+                    LlmEvent::NewRound(_) => {
+                        acc.apply(&event);
                         let sse = Event::default().event("new_round").data("");
                         return Some((Ok::<_, Infallible>(sse), (Some(rx), state, sid, acc)));
                     }

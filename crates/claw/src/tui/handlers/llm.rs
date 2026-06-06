@@ -18,7 +18,7 @@ impl<'a> LlmEventHandler<'a> {
 
     pub fn handle(&mut self, event: LlmEvent) -> Action {
         match event {
-            LlmEvent::NewRound => self.handle_new_round(),
+            LlmEvent::NewRound(_) => self.handle_new_round(),
             LlmEvent::Token(text) => self.handle_token(&text),
             LlmEvent::Reasoning(text) => self.handle_reasoning(&text),
             LlmEvent::Status(text) => self.handle_status(&text),

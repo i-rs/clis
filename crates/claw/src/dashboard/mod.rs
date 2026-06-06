@@ -198,10 +198,10 @@ impl Dashboard {
     }
 }
 
-/// Axum middleware that validates Bearer token on API routes.
+/// Axum middleware that validates Bearer token and resolves user_id.
 async fn auth_guard(
     axum::extract::State(state): axum::extract::State<AppState>,
-    req: axum::extract::Request,
+    mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     let provided = req
@@ -210,23 +210,56 @@ async fn auth_guard(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
 
-    match provided {
-        Some(token) if token == state.auth_token => next.run(req).await,
-        _ => {
-            tracing::warn!("Dashboard 认证失败: {}", req.uri().path());
-            let mut resp =
-                axum::response::IntoResponse::into_response(axum::Json(serde_json::json!({
-                    "success": false,
-                    "data": null,
-                    "error": "Unauthorized",
-                })));
-            *resp.status_mut() = axum::http::StatusCode::UNAUTHORIZED;
-            resp.headers_mut().insert(
-                axum::http::header::WWW_AUTHENTICATE,
-                axum::http::HeaderValue::from_static("Bearer realm=\"claw-dashboard\""),
-            );
-            resp
+    let user_id: String = match provided {
+        Some(token) => {
+            let core = state.core.read().await;
+            // Check multi-user tokens first
+            if let Some(user) = core.config.dashboard.users.iter()
+                .find(|u| u.token == token)
+            {
+                user.id.clone()
+            } else if state.auth_token == token {
+                // Global auth_token → "default" user
+                "default".to_string()
+            } else {
+                return unauthorized();
+            }
         }
+        None => return unauthorized(),
+    };
+
+    // Inject user_id into request extensions for downstream handlers
+    req.extensions_mut().insert(UserId(user_id));
+    next.run(req).await
+}
+
+fn unauthorized() -> axum::response::Response {
+    let mut resp = axum::response::IntoResponse::into_response(axum::Json(
+        serde_json::json!({"success": false, "data": null, "error": "Unauthorized"}),
+    ));
+    *resp.status_mut() = axum::http::StatusCode::UNAUTHORIZED;
+    resp.headers_mut().insert(
+        axum::http::header::WWW_AUTHENTICATE,
+        axum::http::HeaderValue::from_static("Bearer realm=\"claw-dashboard\""),
+    );
+    resp
+}
+
+/// Extractor: resolves the current user_id from request context.
+#[derive(Clone, Debug)]
+pub struct UserId(pub String);
+
+impl<S: Send + Sync> axum::extract::FromRequestParts<S> for UserId {
+    type Rejection = (axum::http::StatusCode, &'static str);
+
+    fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        parts.extensions
+            .get::<UserId>()
+            .cloned()
+            .ok_or((axum::http::StatusCode::UNAUTHORIZED, "Missing user context"))
     }
 }
 

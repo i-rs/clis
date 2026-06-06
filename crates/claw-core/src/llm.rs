@@ -26,13 +26,28 @@ pub struct TokenUsage {
 }
 
 #[derive(Debug, Clone)]
+pub struct RoundData {
+    pub assistant_text: String,
+    pub tool_calls: Vec<ToolCallData>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ToolCallData {
+    pub name: String,
+    pub args: String,
+    pub result: String,
+    pub step: usize,
+    pub total_steps: usize,
+}
+
+#[derive(Debug, Clone)]
 pub enum LlmEvent {
     /// A text token from the streaming response
     Token(String),
     /// Reasoning content from the model (DeepSeek chain-of-thought)
     Reasoning(String),
-    /// Signals the app to start a new assistant message (for multi-round responses)
-    NewRound,
+    /// Signals a ReAct round completed, carrying the round's content for incremental persistence
+    NewRound(RoundData),
     /// A tool was executed (with result)
     ToolExecuted {
         name: String,

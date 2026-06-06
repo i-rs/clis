@@ -360,7 +360,10 @@ pub async fn chat_loop(
             )));
             break;
         }
-        let _ = tx.send(LlmEvent::NewRound);
+        let _ = tx.send(LlmEvent::NewRound(crate::llm::RoundData {
+            assistant_text: String::new(),
+            tool_calls: Vec::new(),
+        }));
         let _ = tx.send(LlmEvent::Status("🤔 思考中…".to_string()));
 
         let round_start = std::time::Instant::now();

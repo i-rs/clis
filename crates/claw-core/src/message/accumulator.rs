@@ -42,7 +42,7 @@ impl MessageAccumulator {
                 self.pending_reasoning.push_str(r);
                 false
             }
-            LlmEvent::NewRound => {
+            LlmEvent::NewRound(_) => {
                 self.flush_pending_assistant(None);
                 true
             }
