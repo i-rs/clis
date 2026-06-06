@@ -1,211 +1,132 @@
-# i-rs-claw 系统提示词 Token 消耗分析报告
+# i-rs-claw 系统提示词 Token 消耗分析报告 (v2 修订版)
 
 **分析日期:** 2026-06-06  
-**分析范围:** `crates/claw/src/core/engine/builder.rs`, `context.rs`, `tools/`, `skill_store.rs`, `memory.rs`, `tool_cache.rs`, `providers/`
+**修订:** v2 — 修正 3 个分析偏差
+
+---
+
+## v2 修订说明
+
+| 偏差 | 原分析 | 修正后 |
+|------|--------|--------|
+| {{SKILLS}} 35K tokens 浪费 | 误认为 75 个预置 SKILL.md 文件全部注入 | **用户手动安装的技能**，典型用户 0 个技能 → 0 tokens |
+| reasoning_content 回传浪费 | 标记为可安全剥离 | DeepSeek-reasoner 官方文档要求**必须剥离**（含此字段→400 错误），是 **bug 非仅优化** |
+| TOOL_INDEX 70 个工具浪费 | 假设全部 70 个工具都注入 | 仅注入 `config.i_rs_tools` 中**已配置且已安装**的工具，典型 5-20 个 |
 
 ---
 
 ## 1. 执行摘要
 
-i-rs-claw 的系统提示词构建存在显著的 token 浪费。**单次 API 调用的系统提示词可达 40,000+ tokens**，其中 55-65% 为冗余或可优化内容。按 GPT-4o 定价 ($2.50/1M input)，每次对话回合浪费约 $0.05-0.10，跨数千次对话和子代理委托后累计显著。
+i-rs-claw 的系统提示词构建存在 token 浪费，但严重程度需正确评估。不同用户配置下差异极大：
 
-**核心问题:** 大量静态内容被无条件注入每次 API 调用，且从未被模型实际使用。
+| 用户场景 | 系统提示词 Token | 浪费 Token | 浪费比例 |
+|----------|-----------------|-----------|---------|
+| 新用户 (0 工具, 0 技能) | ~2,000 | ~300 | ~15% |
+| 典型用户 (10 工具, 0 技能) | ~4,500 | ~2,000 | ~44% |
+| 重度用户 (30 工具, 5 技能, 5 热工具) | ~15,000 | ~8,000 | ~53% |
 
----
-
-## 2. Token 消耗全景图
-
-| # | 组件 | 条件 | 典型 Token | 最大 Token | 浪费评级 |
-|---|------|------|-----------|-----------|---------|
-| 1 | Base 模板 (system.md) | Always | ~450 | 450 | 🟢 低 |
-| 2 | 日期/时间占位符 | Always | ~10 | 10 | 🟢 无 |
-| 3 | Plan mode prompt | Always | ~40-120 | 120 | 🟢 低 |
-| 4 | **TOOL_INDEX** (i-rs 工具目录) | Always | ~2,600 | ~3,500 | 🔴 严重 |
-| 5 | **HOT_TOOLS** (完整 teach 文档) | Conditional | 0-2,500 | 3,000+ | 🔴 严重 |
-| 6 | **SKILLS** (全部技能文件) | Always (if exist) | **~35,000** | **50,000+** | 🔴 严重 |
-| 7 | USER_MEMORY | Conditional | 0-300 | 500+ | 🟡 中等 |
-| 8 | USER_PROFILE | Always | 50-200 | 200 | 🟢 低 |
-| 9 | ROUTING_HINT | Conditional | 0-200 | 200 | 🟢 低 |
-| 10 | Reminder injection | Conditional | 0-200 | 200 | 🟢 低 |
-| 11 | **API tool schemas** | Every call | ~1,500 | 4,000+ | 🟡 中等 |
-| 12 | **Conversation history** | Every call | 500-5,000 | 50,000+ | 🟡 中等 |
-| 13 | **Reasoning content** | Every turn (DeepSeek) | **1,000-2,000** | **per turn** | 🔴 严重 |
+**核心问题:** 系统提示词体积随工具数量**线性增长**，且存在冗余内容。
 
 ---
 
-## 3. 关键发现
+## 2. 修正后的 Token 消耗全景图
 
-### 3.1 🔴 CRITICAL: 全部技能文件注入系统提示词
-
-**位置:** `src/skill_store.rs:274-326` → `format_skills()`  
-**代码路径:** `builder.rs:86` → `("{{SKILLS}}", skills)`
-
-- `skills/` 目录下有 **75 个 SKILL.md 文件**，总计 **~140KB / ~35,000 tokens**
-- `format_skills()` 将所有文件的**完整内容**无条件拼接到系统提示词
-- 模型已经可以通过 `skill_{name}` 工具按需加载技能文档
-- 几乎没有任何一个对话会用到超过 3-5 个技能
-
-**浪费:** 每个请求 35,000 tokens，但 95%+ 的技能内容从未被使用。  
-**修复:** 移除 `{{SKILLS}}` 占位符，完全依赖按需 `skill_{name}` 工具加载。
+| # | 组件 | 条件 | 典型 Token | 浪费评级 | 修正说明 |
+|---|------|------|-----------|---------|---------|
+| 1 | Base 模板 (system.md) | Always | ~450 | 🟢 低 | — |
+| 2 | TOOL_INDEX (i-rs 工具目录) | 有 i_rs_tools 配置 | ~150/tool | 🟡 中等 | **修正:** 仅已配置+已安装的工具 |
+| 3 | HOT_TOOLS (完整 teach 文档) | 有热工具时 | ~500/tool | 🔴 严重 | 完整 teach 文档注入每轮 |
+| 4 | **SKILLS (用户自定义技能)** | **用户安装后** | **0-10,000+** | 🟡 中等 | **修正:** 非预置 75 文件；是用户手动安装 |
+| 5 | `reasoning_content` 回传 | 每轮 (reasoning 模型) | **1,000-2,000/轮** | 🔴 严重 (BUG) | **修正:** DeepSeek 要求必须剥离，否则 400 错误 |
+| 6 | API tool schemas | Every call | ~100/tool | 🟡 中等 | — |
+| 7 | i_rs 参数描述 | Always | ~200 | 🟡 中等 | teach-first 重复 4 次 |
+| 8 | Conversation history | Every call | 500-5,000 | 🟡 中等 | — |
 
 ---
 
-### 3.2 🔴 CRITICAL: Reasoning Content 回传 API
+## 3. 关键发现 (修正后)
 
-**位置:** `src/core/engine/mod.rs:168-169, 389-391` — reasoning_content 存储在消息 JSON  
-**位置:** `src/providers/sse.rs:140-143` — messages 原样发送，**未剥离 reasoning_content**
+### 3.1 🔴 CRITICAL BUG: `reasoning_content` 回传导致 DeepSeek-reasoner 400 错误
 
-- DeepSeek 等模型产生大量 `reasoning_content`（每次工具调度和文本回复都有）
-- 这些 reasoning 链被存储在 assistant 消息的 JSON 中
-- **下一轮 API 调用时，所有历史 reasoning 链被重新发送**
-- N 轮对话 → (N-1) × ~1,000-2,000 tokens 的回传浪费
+**位置:** `src/core/engine/mod.rs:168-169, 389-391` / `src/providers/sse.rs:140-143`
 
-**浪费:** 10 轮对话产生 10,000-20,000 个仅用于回传的 reasoning tokens。  
-**修复:** 在发送 API 请求前剥离消息中的 `reasoning_content` 字段。注：Anthropic provider 已经在转换时跳过了，但 OpenAI-compatible 路径未处理。
+**DeepSeek 官方文档明文规定:**
+> "If the `reasoning_content` field is included in the sequence of input messages, the API will return a `400` error. Therefore, you should remove the `reasoning_content` field from the API response before making the API request."
 
----
+当前代码在存储 assistant 消息时保留了 `reasoning_content`，并在下一轮 API 调用中原样发送。这意味着：
+- **`deepseek-reasoner` 多轮对话必然失败（400 错误）**
+- `deepseek-chat` 等标准模型会收到多余的 `reasoning_content` 字段（浪费 tokens 但不会报错）
+- Anthropic 路径不受影响（转换时已隐式过滤）
 
-### 3.3 🔴 CRITICAL: TOOL_INDEX 与 API Tool Schema 完全重复
-
-**位置:** `src/core/mod.rs:637-661` → `build_irs_tool_index()`  
-**代码路径:** `builder.rs:84` → `("{{TOOL_INDEX}}", tool_index)`
-
-- `build_irs_tool_index()` 将 70 个 i-rs CLI 工具格式化为 Markdown 列表  
-- 每个工具一行描述，共 ~2,600 tokens
-- **这些工具的 `name` + `description` + `parameters` 已经通过 API 的 `tools` 数组发送**
-- 模型从 tool schema 中就能知道有哪些工具可用
-- 系统提示词中的工具列表是**完全冗余的**
-
-**浪费:** 每个请求 2,600 tokens 的重复信息。  
-**修复:** 移除 `{{TOOL_INDEX}}` 占位符；模型已从 API tool schemas 获取工具信息。
+**修复:** 在 `sse.rs` 发送消息前剥离所有消息中的 `reasoning_content` 字段。
 
 ---
 
-### 3.4 🔴 CRITICAL: HOT_TOOLS 注入完整 CLI 教学文档
+### 3.2 🔴 CRITICAL: HOT_TOOLS 注入完整 CLI 教学文档
 
-**位置:** `src/tool_cache.rs:63-83` → `format_hot_tools()`  
-**代码路径:** `builder.rs:85` → `("{{HOT_TOOLS}}", hot_tools)`
+**位置:** `src/tool_cache.rs:63-83` → `format_hot_tools()`
 
-- 对最常用的 5 个工具调用 `i-rs <tool> skill teach` 获取完整文档
-- 每个 teach 文档包含命令签名、参数、示例（200-1,000+ 字符）
-- 5 个工具 × ~500 tokens/个 = **~2,500 tokens** 每请求
-- 模型可以按需调用 `skill teach`
+同上版分析，此问题不变。每轮注入 5 个常用工具的完整 `skill teach` 输出（每工具 200-1,000+ 字符）。
 
-**浪费:** 2,500 tokens 每次对话，且与 TOOL_INDEX 重复。  
-**修复:** 仅保留工具名 + 1 行摘要（或完全移除，依赖按需查询）。
+**修复:** 仅保留工具名 + 1 行摘要，或完全移除依赖按需 `skill teach` 查询。
 
 ---
 
-### 3.5 🟡 HIGH: i_rs 工具参数描述 4 次重复 "teach-first"
+### 3.3 🟡 HIGH: i_rs 工具参数描述重复 "teach-first"
 
 **位置:** `src/tools/i_rs.rs:16-17, 27, 31, 36, 40`
 
-- tool 描述: "使用标准流程：先用 command=skill args=["teach"]..."
-- `tool` 参数: "首次使用不熟悉的工具时，先调用 command=skill..."
-- `command` 参数: "必须先用 skill teach 确认工具支持哪些命令..."
-- `args` 参数: "严格按 skill teach 返回的文档中的参数顺序传入..."
-- `explanation` 参数: "用中文简要解释当前操作"
+不变。同一指令在 4 个字段中重复。
 
-**"teach-first" 指令在 4 个字段中重复了 4 次。**
-
-**浪费:** ~200 tokens 的冗余文本。  
-**修复:** 将 teach-first 指令压缩到 tool description 中一行，参数描述仅保留功能说明。
+**修复:** 压缩到 tool description 中一行。
 
 ---
 
-### 3.6 🟡 HIGH: 用户记忆向量无大小上限
+### 3.4 🟡 MEDIUM: TOOL_INDEX 与 API Schema 内容重叠
 
-**位置:** `src/memory.rs:29-30, 209, 218`
+**位置:** `src/core/mod.rs:637-661` / `builder.rs:84`
 
-```rust
-user_info: Vec<String>,      // 无上限
-preferences: Vec<String>,    // 无上限
-```
+修正后的结论：TOOL_INDEX 只包含已配置+已安装的工具（非全部 70 个）。但仍与 API tool schemas 部分重叠 — 工具名称和描述在两边都出现。
 
-- `add_user_info` 和 `add_preference` 仅做去重，不做截断
-- 每次系统提示词注入所有 user_info 和 preferences
-- 随着使用时间增长会无限膨胀
-
-**修复:** 添加 `user_info.truncate(10)` 和 `preferences.truncate(10)` 或基于 token 预算的截断。
+**典型影响:** 10 个工具 ≈ 1,500 chars / ~400 tokens。  
+**修复:** 考虑将 TOOL_INDEX 替换为更精简的格式（仅工具名列表），或完全移除依赖 schema 中的描述。
 
 ---
 
-### 3.7 🟡 MEDIUM: 对话历史保留 20 轮
+### 3.5 🟡 MEDIUM: {{SKILLS}} — 用户自定义技能（非 75 预置文件）
 
-**位置:** `src/core/engine/builder.rs:527-528`
+**位置:** `src/skill_store.rs:274-326` → `format_skills()`
 
-```rust
-smart_compress(msgs, tool_frequency, 5, 20, 6);
-// max_teach_docs=5, recent_keep=20, min_retain=6
-```
+**修正:** {{SKILLS}} 占位符加载的是用户通过 `i-rs-claw skill install <name>` **手动安装**的自定义 `.md` 文件。这些文件存储在 `~/.i-rs/claw/agents/{agent_id}/skills/`，默认目录为空。
 
-- `recent_keep=20` — 保留最近 20 条消息不压缩
-- 对于工具密集型对话，20 条消息可能包含大量 tool_call/tool_result 对
-- 自适应 token 预算检查仅在全上下文超限时触发
+- 典型用户安装 0 个技能 → 占用 0 tokens
+- 高级用户可能安装 1-5 个技能 → 占用数百到数千 tokens
+- 75 个预置 `skills/i-rs-{name}/SKILL.md` 文件是**按需加载的**（通过 `skill teach` 命令），不会被注入系统提示词
 
-**修复:** 将 `recent_keep` 从 20 降至 8-10，或基于 token 计数而非消息计数。
+**此问题严重度从 P0 降级。** 但仍建议：用户安装的技能若包含参数（callable as tool），系统提示词应仅保留摘要，模型可通过 `skill_{name}` 工具按需获取完整内容。
 
 ---
 
-### 3.8 🟡 MEDIUM: 压缩阈值过高 (128K)
+### 3.6 🟢 LOW: 其他发现（与 v1 一致）
 
-**位置:** `src/core/context.rs:132-156`
-
-```rust
-pub fn compress(&mut self, msgs: &mut Vec<Value>, ...) {
-    let total = self.token_counter.count_messages(msgs);
-    if total <= self.max_tokens {
-        return; // 不超过 128K 就不压缩
-    }
-```
-
-- 仅在超过 `max_tokens`（通常 128K）时才触发压缩
-- 在此阈值以下，所有历史消息、reasoning、冗余内容都留在上下文中
-- 实际可用上下文空间被大量无效内容消耗
-
-**修复:** 添加主动压缩策略（如超过 50% 预算时轻度压缩），或基于消息年龄的逐出策略。
+| 发现 | 说明 |
+|------|------|
+| user_info/preferences 无大小上限 | 长期使用会累积，应加 truncate |
+| recent_keep=20 过高 | 建议降至 8-10 |
+| 压缩阈值 128K 过高 | 可在 50% 时主动轻度压缩 |
+| 子代理委托复制 TOOL_INDEX | delegate 无需 i-rs 工具列表 |
 
 ---
 
-### 3.9 🟢 LOW: 其他次要发现
+## 4. 修正后的修复优先级
 
-| 发现 | 位置 | 说明 |
-|------|------|------|
-| 新用户引导提示词每轮重复 | `memory.rs:296-304` | ~80 tokens 的引导文本，用户填写 profile 后会消失 |
-| structural_summary 仅 10 条事实 | `context.rs:209` | 这是好的（限制大小），但旧消息未做 LLM 摘要 |
-| 子代理委托复制工具索引 | `delegate.rs:334-351` | 每次 delegate_task 重新注入全部 TOOL_INDEX |
-| MCP 工具动态增加 schema | `tools/mcp_tools.rs` | 每个 MCP 工具增加 ~50-200 tokens schema |
-| 没有发送前 token 预算检查 | `engine/mod.rs` | 可能在 API 调用失败时才发现超限 |
+| 优先级 | 问题 | 难度 | 节省 Token | 说明 |
+|--------|------|------|-----------|------|
+| **P0** | 剥离 `reasoning_content` (BUG) | 🟢 低 | 1-2K/轮 | **不是优化，是修 bug** |
+| **P1** | 压缩 HOT_TOOLS 为摘要 | 🟡 中 | 0-2,500 | 完整 teach 文档不必要 |
+| **P1** | 压缩 i_rs 参数描述 | 🟢 低 | ~200 | 消除 4 次重复 |
+| **P2** | 精简 TOOL_INDEX | 🟢 低 | ~400 | 仅保留工具名列表 |
+| **P2** | {{SKILLS}} 摘要模式 | 🟡 中 | 变化 | 仅影响有安装技能的用户 |
+| **P3** | 降低 recent_keep / 压缩阈值 | 🟢 低 | 渐进式 | 长对话场景 |
 
----
-
-## 4. 修复优先级矩阵
-
-| 优先级 | 问题 | 难度 | 节省 Token/请求 | 影响 |
-|--------|------|------|----------------|------|
-| **P0** | 移除 `{{SKILLS}}` 全量注入 | 🟢 低 | **35,000** | 所有请求 |
-| **P0** | 剥离 API 请求中的 `reasoning_content` | 🟢 低 | **1,000-2,000/轮** | 多轮对话 |
-| **P0** | 移除 `{{TOOL_INDEX}}` 或压缩为 1 行 | 🟢 低 | **2,600** | 所有请求 |
-| **P1** | 压缩 `{{HOT_TOOLS}}` 为工具名+摘要 | 🟡 中 | **2,000** | 有热工具时 |
-| **P1** | 压缩 i_rs 工具参数描述 | 🟢 低 | **200** | 所有请求 |
-| **P2** | user_info/preferences 截断 | 🟢 低 | 渐进式节省 | 长期使用 |
-| **P2** | 降低 recent_keep 和压缩阈值 | 🟢 低 | 渐进式节省 | 长对话 |
-| **P3** | 子代理不复制 TOOL_INDEX | 🟡 中 | 2,600/委托 | 多代理场景 |
-
-**P0 三项修复可节省 ~40,000 tokens/请求（约 90% 的系统提示词体积）。**
-
----
-
-## 5. 优化后预期 Token 预算
-
-| 组件 | 当前 | 优化后 |
-|------|------|--------|
-| Base 模板 | ~450 | ~450 |
-| TOOL_INDEX | ~2,600 | **0** (移除) |
-| HOT_TOOLS | ~2,500 | **200** (压缩) |
-| SKILLS | ~35,000 | **0** (按需) |
-| USER_MEMORY | ~300 | ~300 (截断) |
-| API tool schemas | ~1,500 | ~1,200 (压缩描述) |
-| Conversation history | ~2,000 | ~1,500 (更低压缩阈值) |
-| **系统提示词合计** | **~44,000** | **~3,500** |
-| **节省** | — | **~40,500 tokens (92%)** |
+**P0 修复是关键 bug 修复（deepseek-reasoner 多轮对话失败），非可选优化。**
