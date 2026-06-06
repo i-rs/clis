@@ -44,6 +44,7 @@ macro_rules! define_sql_stores {
         $upsert_session:expr,
         $upsert_apicache:expr, $upsert_memory:expr, $upsert_token:expr, $upsert_skill:expr,
         $select_max_seq:expr,
+        $ph1:literal, $ph2:literal, $ph3:literal, $ph4:literal, $ph5:literal,
     ) => {
         // ── SessionRepo ──
 
@@ -74,7 +75,7 @@ macro_rules! define_sql_stores {
 
                 for (id,) in &existing {
                     if !incoming_ids.contains(id.as_str()) {
-                        sqlx::query("DELETE FROM sessions WHERE id = ?")
+                        sqlx::query(concat!("DELETE FROM sessions WHERE id = ", $ph1))
                             .bind(id)
                             .execute(&mut *tx)
                             .await?;
@@ -95,7 +96,7 @@ macro_rules! define_sql_stores {
 
             async fn get_one(&self, id: &str) -> anyhow::Result<Option<crate::session::SessionMeta>> {
                 let row: Option<SessionRow> = sqlx::query_as(
-                    "SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ?",
+                    concat!("SELECT id, title, agent_id, state, created_at, updated_at, message_count FROM sessions WHERE id = ", $ph1),
                 )
                 .bind(id)
                 .fetch_optional(&self.db.pool)
@@ -114,7 +115,7 @@ macro_rules! define_sql_stores {
             }
 
             async fn delete_one(&self, id: &str) -> anyhow::Result<()> {
-                sqlx::query("DELETE FROM sessions WHERE id = ?")
+                sqlx::query(concat!("DELETE FROM sessions WHERE id = ", $ph1))
                     .bind(id)
                     .execute(&self.db.pool).await?;
                 Ok(())
@@ -154,8 +155,7 @@ macro_rules! define_sql_stores {
                     let rec = crate::message::StoredRecord::from_message(msg)?;
                     let payload = serde_json::to_string(&rec.payload)?;
                     sqlx::query(
-                        "INSERT INTO message_log (session_id, seq, ts, schema_v, payload) \
-                         VALUES (?, ?, ?, ?, ?)",
+                        concat!("INSERT INTO message_log (session_id, seq, ts, schema_v, payload) VALUES (", $ph1, ", ", $ph2, ", ", $ph3, ", ", $ph4, ", ", $ph5, ")"),
                     )
                     .bind(session_id)
                     .bind(seq)
@@ -183,12 +183,12 @@ macro_rules! define_sql_stores {
                     limit as i64
                 };
                 let rows: Vec<(String,)> = sqlx::query_as(
-                    "SELECT payload FROM ( \
+                    concat!("SELECT payload FROM ( \
                      SELECT payload, seq FROM message_log \
-                     WHERE session_id = ? \
+                     WHERE session_id = ", $ph1, " \
                      ORDER BY seq DESC \
-                     LIMIT ? \
-                     ) sub ORDER BY seq ASC",
+                     LIMIT ", $ph2, " \
+                     ) sub ORDER BY seq ASC"),
                 )
                 .bind(session_id)
                 .bind(limit_i64)
@@ -225,8 +225,8 @@ macro_rules! define_sql_stores {
                 // `"text":"…"`, `"name":"…"`, etc. PG would prefer
                 // JSONB operators; this default is portable.
                 let candidate_rows: Vec<(String,)> = sqlx::query_as(
-                    "SELECT DISTINCT session_id FROM message_log \
-                     WHERE LOWER(payload) LIKE ?",
+                    concat!("SELECT DISTINCT session_id FROM message_log \
+                     WHERE LOWER(payload) LIKE ", $ph1),
                 )
                 .bind(&like)
                 .fetch_all(&self.db.pool)
@@ -235,8 +235,8 @@ macro_rules! define_sql_stores {
                 let mut results = Vec::new();
                 for (sid,) in &candidate_rows {
                     let session_rows: Vec<SessionRow> = sqlx::query_as(
-                        "SELECT id, title, agent_id, state, created_at, updated_at, message_count \
-                         FROM sessions WHERE id = ?",
+                        concat!("SELECT id, title, agent_id, state, created_at, updated_at, message_count \
+                         FROM sessions WHERE id = ", $ph1),
                     )
                     .bind(sid)
                     .fetch_all(&self.db.pool)
@@ -247,7 +247,7 @@ macro_rules! define_sql_stores {
                     let meta: crate::session::SessionMeta = session_rows[0].clone().into();
 
                     let rows: Vec<(i64, String)> = sqlx::query_as(
-                        "SELECT seq, payload FROM message_log WHERE session_id = ? ORDER BY seq",
+                        concat!("SELECT seq, payload FROM message_log WHERE session_id = ", $ph1, " ORDER BY seq"),
                     )
                     .bind(sid)
                     .fetch_all(&self.db.pool)
@@ -318,7 +318,7 @@ macro_rules! define_sql_stores {
             }
 
             async fn delete_session(&self, session_id: &str) -> anyhow::Result<()> {
-                sqlx::query("DELETE FROM message_log WHERE session_id = ?")
+                sqlx::query(concat!("DELETE FROM message_log WHERE session_id = ", $ph1))
                     .bind(session_id)
                     .execute(&self.db.pool)
                     .await?;
@@ -327,7 +327,7 @@ macro_rules! define_sql_stores {
 
             async fn count(&self, session_id: &str) -> anyhow::Result<usize> {
                 let n: i64 = sqlx::query_scalar(
-                    "SELECT COUNT(*) FROM message_log WHERE session_id = ?",
+                    concat!("SELECT COUNT(*) FROM message_log WHERE session_id = ", $ph1),
                 )
                 .bind(session_id)
                 .fetch_one(&self.db.pool)
@@ -349,11 +349,11 @@ macro_rules! define_sql_stores {
                 Ok(())
             }
             async fn load(&self, sid: &str) -> anyhow::Result<Option<Vec<serde_json::Value>>> {
-                let row: Option<(String,)> = sqlx::query_as("SELECT messages FROM api_cache WHERE session_id = ?").bind(sid).fetch_optional(&self.db.pool).await?;
+                let row: Option<(String,)> = sqlx::query_as(concat!("SELECT messages FROM api_cache WHERE session_id = ", $ph1)).bind(sid).fetch_optional(&self.db.pool).await?;
                 Ok(row.and_then(|(j,)| serde_json::from_str(&j).ok()))
             }
             async fn delete(&self, sid: &str) -> anyhow::Result<()> {
-                sqlx::query("DELETE FROM api_cache WHERE session_id = ?").bind(sid).execute(&self.db.pool).await?;
+                sqlx::query(concat!("DELETE FROM api_cache WHERE session_id = ", $ph1)).bind(sid).execute(&self.db.pool).await?;
                 Ok(())
             }
         }
@@ -367,21 +367,21 @@ macro_rules! define_sql_stores {
         impl PlanStepsRepo for $plansteps {
             async fn save(&self, sid: &str, steps: &[crate::app::PlanStep]) -> anyhow::Result<()> {
                 let mut tx = self.db.pool.begin().await?;
-                sqlx::query("DELETE FROM plan_steps WHERE session_id = ?").bind(sid).execute(&mut *tx).await?;
+                sqlx::query(concat!("DELETE FROM plan_steps WHERE session_id = ", $ph1)).bind(sid).execute(&mut *tx).await?;
                 for (i, s) in steps.iter().enumerate() {
-                    sqlx::query("INSERT INTO plan_steps (session_id, step_order, description, done) VALUES (?, ?, ?, ?)")
+                    sqlx::query(concat!("INSERT INTO plan_steps (session_id, step_order, description, done) VALUES (", $ph1, ", ", $ph2, ", ", $ph3, ", ", $ph4, ")"))
                         .bind(sid).bind(i as i64).bind(&s.description).bind(s.done as i64).execute(&mut *tx).await?;
                 }
                 tx.commit().await?;
                 Ok(())
             }
             async fn load(&self, sid: &str) -> anyhow::Result<Vec<crate::app::PlanStep>> {
-                let rows: Vec<(String, i64)> = sqlx::query_as("SELECT description, done FROM plan_steps WHERE session_id = ? ORDER BY step_order")
+                let rows: Vec<(String, i64)> = sqlx::query_as(concat!("SELECT description, done FROM plan_steps WHERE session_id = ", $ph1, " ORDER BY step_order"))
                     .bind(sid).fetch_all(&self.db.pool).await?;
                 Ok(rows.into_iter().map(|(d, done)| crate::app::PlanStep { description: d, done: done != 0 }).collect())
             }
             async fn delete(&self, sid: &str) -> anyhow::Result<()> {
-                sqlx::query("DELETE FROM plan_steps WHERE session_id = ?").bind(sid).execute(&self.db.pool).await?;
+                sqlx::query(concat!("DELETE FROM plan_steps WHERE session_id = ", $ph1)).bind(sid).execute(&self.db.pool).await?;
                 Ok(())
             }
         }
@@ -394,7 +394,7 @@ macro_rules! define_sql_stores {
         #[async_trait]
         impl MemoryRepo for $memory {
             async fn load(&self, aid: &str) -> anyhow::Result<Option<crate::memory::CrossSessionMemory>> {
-                let row: Option<(String,)> = sqlx::query_as("SELECT data FROM memory WHERE agent_id = ?").bind(aid).fetch_optional(&self.db.pool).await?;
+                let row: Option<(String,)> = sqlx::query_as(concat!("SELECT data FROM memory WHERE agent_id = ", $ph1)).bind(aid).fetch_optional(&self.db.pool).await?;
                 Ok(row.map(|(j,)| serde_json::from_str(&j)).transpose()?)
             }
             async fn save(&self, aid: &str, mem: &crate::memory::CrossSessionMemory) -> anyhow::Result<()> {
@@ -426,9 +426,9 @@ macro_rules! define_sql_stores {
             async fn read_range(&self, from: Option<i64>, to: Option<i64>) -> anyhow::Result<Vec<crate::stats::TokenRecord>> {
                 macro_rules! cols { () => { "SELECT id, timestamp, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id FROM token_records" }; }
                 let rows: Vec<TokenRecordRow> = match (from, to) {
-                    (Some(f), Some(t)) => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp")).bind(f).bind(t).fetch_all(&self.db.pool).await?,
-                    (Some(f), None)     => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ? ORDER BY timestamp")).bind(f).fetch_all(&self.db.pool).await?,
-                    (None, Some(t))     => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp <= ? ORDER BY timestamp")).bind(t).fetch_all(&self.db.pool).await?,
+                    (Some(f), Some(t)) => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ", $ph1, " AND timestamp <= ", $ph2, " ORDER BY timestamp")).bind(f).bind(t).fetch_all(&self.db.pool).await?,
+                    (Some(f), None)     => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp >= ", $ph1, " ORDER BY timestamp")).bind(f).fetch_all(&self.db.pool).await?,
+                    (None, Some(t))     => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " WHERE timestamp <= ", $ph1, " ORDER BY timestamp")).bind(t).fetch_all(&self.db.pool).await?,
                     (None, None)        => sqlx::query_as::<_, TokenRecordRow>(concat!(cols!(), " ORDER BY timestamp")).fetch_all(&self.db.pool).await?,
                 };
                 Ok(rows.into_iter().map(|r| r.into()).collect())
@@ -436,7 +436,7 @@ macro_rules! define_sql_stores {
             async fn prune(&self, keep_days: u32) -> anyhow::Result<usize> {
                 if keep_days == 0 { return Ok(0); }
                 let cutoff = chrono::Local::now().timestamp() - (keep_days as i64 * 86400);
-                Ok(sqlx::query("DELETE FROM token_records WHERE timestamp < ?").bind(cutoff).execute(&self.db.pool).await?.rows_affected() as usize)
+                Ok(sqlx::query(concat!("DELETE FROM token_records WHERE timestamp < ", $ph1)).bind(cutoff).execute(&self.db.pool).await?.rows_affected() as usize)
             }
         }
 
@@ -448,11 +448,11 @@ macro_rules! define_sql_stores {
         #[async_trait]
         impl SkillRepo for $skills {
             async fn list(&self, aid: &str) -> anyhow::Result<Vec<SkillEntry>> {
-                Ok(sqlx::query_as::<_, (String,String)>("SELECT name, content FROM skills WHERE agent_id = ? ORDER BY name")
+                Ok(sqlx::query_as::<_, (String,String)>(concat!("SELECT name, content FROM skills WHERE agent_id = ", $ph1, " ORDER BY name"))
                     .bind(aid).fetch_all(&self.db.pool).await?.into_iter().map(|(n,c)| SkillEntry{name:n,content:c}).collect())
             }
             async fn get(&self, aid: &str, name: &str) -> anyhow::Result<Option<crate::skill_store::SkillDefinition>> {
-                let row: Option<(String,Option<String>)> = sqlx::query_as("SELECT content, parameters FROM skills WHERE agent_id = ? AND name = ?").bind(aid).bind(name).fetch_optional(&self.db.pool).await?;
+                let row: Option<(String,Option<String>)> = sqlx::query_as(concat!("SELECT content, parameters FROM skills WHERE agent_id = ", $ph1, " AND name = ", $ph2)).bind(aid).bind(name).fetch_optional(&self.db.pool).await?;
                 Ok(row.map(|(c,p)| crate::skill_store::SkillDefinition { name: name.into(), description: name.into(), parameters: p.and_then(|x| serde_json::from_str(&x).ok()), content: c }))
             }
             async fn install(&self, aid: &str, name: &str, content: &str) -> anyhow::Result<()> {
@@ -463,11 +463,11 @@ macro_rules! define_sql_stores {
                 Ok(())
             }
             async fn remove(&self, aid: &str, name: &str) -> anyhow::Result<()> {
-                sqlx::query("DELETE FROM skills WHERE agent_id = ? AND name = ?").bind(aid).bind(name).execute(&self.db.pool).await?;
+                sqlx::query(concat!("DELETE FROM skills WHERE agent_id = ", $ph1, " AND name = ", $ph2)).bind(aid).bind(name).execute(&self.db.pool).await?;
                 Ok(())
             }
             async fn list_executable(&self, aid: &str) -> anyhow::Result<Vec<crate::skill_store::SkillDefinition>> {
-                Ok(sqlx::query_as::<_,(String,String,Option<String>)>("SELECT name, content, parameters FROM skills WHERE agent_id = ? AND parameters IS NOT NULL ORDER BY name")
+                Ok(sqlx::query_as::<_,(String,String,Option<String>)>(concat!("SELECT name, content, parameters FROM skills WHERE agent_id = ", $ph1, " AND parameters IS NOT NULL ORDER BY name"))
                     .bind(aid).fetch_all(&self.db.pool).await?.into_iter()
                     .filter_map(|(n,c,p)| Some(crate::skill_store::SkillDefinition{name:n,description:String::new(),parameters:p.and_then(|x| serde_json::from_str(&x).ok()),content:c})).collect())
             }
@@ -481,13 +481,13 @@ macro_rules! define_sql_stores {
         #[async_trait]
         impl ToolCacheRepo for $toolcache {
             async fn load(&self, aid: &str) -> anyhow::Result<HashMap<String,String>> {
-                Ok(sqlx::query_as::<_,(String,String)>("SELECT tool_name, doc FROM tool_cache WHERE agent_id = ?").bind(aid).fetch_all(&self.db.pool).await?.into_iter().collect())
+                Ok(sqlx::query_as::<_,(String,String)>(concat!("SELECT tool_name, doc FROM tool_cache WHERE agent_id = ", $ph1)).bind(aid).fetch_all(&self.db.pool).await?.into_iter().collect())
             }
             async fn save(&self, aid: &str, docs: &HashMap<String,String>) -> anyhow::Result<()> {
                 let mut tx = self.db.pool.begin().await?;
-                sqlx::query("DELETE FROM tool_cache WHERE agent_id = ?").bind(aid).execute(&mut *tx).await?;
+                sqlx::query(concat!("DELETE FROM tool_cache WHERE agent_id = ", $ph1)).bind(aid).execute(&mut *tx).await?;
                 for (tn, doc) in docs {
-                    sqlx::query("INSERT INTO tool_cache (agent_id, tool_name, doc) VALUES (?, ?, ?)")
+                    sqlx::query(concat!("INSERT INTO tool_cache (agent_id, tool_name, doc) VALUES (", $ph1, ", ", $ph2, ", ", $ph3, ")"))
                         .bind(aid).bind(tn).bind(doc).execute(&mut *tx).await?;
                 }
                 tx.commit().await?;
