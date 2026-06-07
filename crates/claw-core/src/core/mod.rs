@@ -1285,7 +1285,7 @@ mod tests {
     #[test]
     fn test_spawn_chat_for() {
         // 在独立线程创建 tokio runtime 避免嵌套
-        std::thread::spawn(|| {
+        let handle = std::thread::spawn(|| {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let (_config, core) = crate::test_helpers::test_core();
             let (tx, _rx) = mpsc::unbounded_channel();
@@ -1293,8 +1293,20 @@ mod tests {
             // spawn_chat 不应 panic
             core.spawn_chat(&rt, tx, messages);
             std::thread::sleep(std::time::Duration::from_millis(50));
-        })
-        .join()
-        .expect("spawn_chat_for 不应 panic");
+        });
+
+        match handle.join() {
+            Ok(()) => {}
+            Err(payload) => {
+                let msg = if let Some(s) = payload.downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = payload.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "(unknown panic payload)".to_string()
+                };
+                panic!("spawn_chat_for test thread panicked: {}", msg);
+            }
+        }
     }
 }

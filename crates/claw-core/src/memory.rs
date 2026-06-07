@@ -449,8 +449,8 @@ mod tests {
             .memory
             .load("agent-a")
             .await
-            .unwrap()
-            .expect("memory should exist after save");
+            .unwrap_or_else(|e| panic!("memory load failed: {}", e))
+            .unwrap_or_else(|| panic!("memory for 'agent-a' missing after save"));
         assert!(loaded.has_user_profile());
         assert_eq!(loaded.test_user_name(), Some("TestUser"));
         assert!(loaded.preferences.contains(&"dark theme".to_string()));

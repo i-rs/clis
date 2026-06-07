@@ -8,6 +8,7 @@
 //!   let results = searcher.search("running weight last week", 5)?;
 
 use crate::convstore::ConvStore;
+use anyhow::Context;
 use crate::storage::SearchResult;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -38,17 +39,17 @@ pub struct OpenaiEmbeddingProvider {
 
 impl OpenaiEmbeddingProvider {
     #[allow(dead_code)]
-    pub fn new(api_key: String, base_url: String, model: Option<String>) -> Self {
+    pub fn new(api_key: String, base_url: String, model: Option<String>) -> anyhow::Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .expect("Failed to create HTTP client");
-        Self {
+            .context("Failed to create HTTP client")?;
+        Ok(Self {
             client,
             api_key,
             base_url,
             model: model.unwrap_or_else(|| "text-embedding-3-small".to_string()),
-        }
+        })
     }
 }
 
