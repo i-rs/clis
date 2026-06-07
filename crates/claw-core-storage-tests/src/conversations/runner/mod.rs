@@ -1,5 +1,6 @@
 pub mod loader;
 pub mod verifier;
+pub mod executor;
 
 use std::collections::HashMap;
 
@@ -87,3 +88,248 @@ pub struct Script {
     pub meta: ScriptMeta,
     pub steps: Vec<ScriptStep>,
 }
+
+/// Result of executing a single conversation step.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StepResult {
+    pub step: u32,
+    pub title: String,
+    pub passed: bool,
+    #[serde(default)]
+    pub tool_mismatches: Vec<String>,
+    #[serde(default)]
+    pub missing_keywords: Vec<String>,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub error: Option<String>,
+}
+
+/// Result of executing an entire conversation script.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ScriptResult {
+    pub meta: ScriptMeta,
+    pub passed: bool,
+    pub total_steps: usize,
+    pub passed_steps: usize,
+    pub steps: Vec<StepResult>,
+    pub total_prompt_tokens: u32,
+    pub total_completion_tokens: u32,
+}
+
+/// Coordinates script loading, execution, and verification.
+pub struct ScriptRunner {
+    script: Script,
+}
+
+impl ScriptRunner {
+    pub fn new(script: Script) -> Self {
+        Self { script }
+    }
+
+    /// Execute the script against a session backend and verify results.
+    pub async fn run(
+        &self,
+        session: &mut dyn executor::SessionBackend,
+    ) -> ScriptResult {
+        let mut steps = Vec::new();
+        let mut total_prompt = 0;
+        let mut total_completion = 0;
+        let mut all_passed = true;
+
+        for step_def in &self.script.steps {
+            let (result, step_pass) = self.execute_step(session, step_def).await;
+            total_prompt += result.prompt_tokens;
+            total_completion += result.completion_tokens;
+            if !step_pass {
+                all_passed = false;
+            }
+            steps.push(result);
+        }
+
+        let passed = steps.iter().filter(|s| s.passed).count();
+
+        ScriptResult {
+            meta: self.script.meta.clone(),
+            passed: all_passed,
+            total_steps: steps.len(),
+            passed_steps: passed,
+            steps,
+            total_prompt_tokens: total_prompt,
+            total_completion_tokens: total_completion,
+        }
+    }
+
+    async fn execute_step(
+        &self,
+        session: &mut dyn executor::SessionBackend,
+        step: &ScriptStep,
+    ) -> (StepResult, bool) {
+        let output = match session.send_message(&step.user_message).await {
+            Ok(o) => o,
+            Err(e) => {
+                return (StepResult {
+                    step: step.step,
+                    title: step.title.clone(),
+                    passed: false,
+                    tool_mismatches: vec![],
+                    missing_keywords: vec![],
+                    prompt_tokens: 0,
+                    completion_tokens: 0,
+                    error: Some(format!("执行错误: {}", e)),
+                }, false);
+            }
+        };
+
+        let mut all_pass = true;
+
+        let tool_call = output.tool_calls.first();
+        let tool_mismatches = match tool_call {
+            Some(tc) => verifier::check_tool_call(step, tc),
+            None if step.expected_tool.is_some() => {
+                all_pass = false;
+                vec!["未产生任何工具调用".into()]
+            }
+            None => vec![],
+        };
+        if !tool_mismatches.is_empty() {
+            all_pass = false;
+        }
+
+        let missing_keywords = verifier::check_reply(step, &output.reply);
+        if !missing_keywords.is_empty() {
+            all_pass = false;
+        }
+
+        (
+            StepResult {
+                step: step.step,
+                title: step.title.clone(),
+                passed: all_pass,
+                tool_mismatches,
+                missing_keywords,
+                prompt_tokens: output.prompt_tokens,
+                completion_tokens: output.completion_tokens,
+                error: None,
+            },
+            all_pass,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::conversations::runner::executor::{MockSession, StepOutput};
+
+    fn make_mock_session() -> MockSession {
+        MockSession::new(vec![
+            StepOutput {
+                reply: "已记录 blog_url".into(),
+                tool_calls: vec![ToolCallInfo::new("i-rs-kv")
+                    .with_command("add")
+                    .with_arg("KEY", "blog_url")
+                    .with_arg("VALUE", "https://example.com")],
+                prompt_tokens: 100,
+                completion_tokens: 30,
+            },
+            StepOutput {
+                reply: "已删除 blog_url".into(),
+                tool_calls: vec![ToolCallInfo::new("i-rs-kv")
+                    .with_command("delete")
+                    .with_arg("KEY", "blog_url")],
+                prompt_tokens: 50,
+                completion_tokens: 20,
+            },
+        ])
+    }
+
+    #[tokio::test]
+    async fn test_script_runner_all_pass() {
+        let script = Script {
+            meta: ScriptMeta {
+                tool: "i-rs-kv".into(),
+                name: "test".into(),
+                description: "test".into(),
+                required_capabilities: vec![],
+                storage_backends: vec![],
+                tags: vec![],
+            },
+            steps: vec![
+                ScriptStep {
+                    step: 1,
+                    title: "记录".into(),
+                    user_message: "存一下 blog_url".into(),
+                    expected_tool: Some("i-rs-kv".into()),
+                    expected_command: Some("add".into()),
+                    expected_args: Some(HashMap::from([
+                        ("KEY".into(), "blog_url".into()),
+                    ])),
+                    expected_flags: None,
+                    check_reply: Some(ReplyCheck {
+                        contains: vec!["已记录".into()],
+                    }),
+                    verify_storage: None,
+                },
+                ScriptStep {
+                    step: 2,
+                    title: "删除".into(),
+                    user_message: "删掉 blog_url".into(),
+                    expected_tool: Some("i-rs-kv".into()),
+                    expected_command: Some("delete".into()),
+                    expected_args: Some(HashMap::from([
+                        ("KEY".into(), "blog_url".into()),
+                    ])),
+                    expected_flags: None,
+                    check_reply: Some(ReplyCheck {
+                        contains: vec!["已删除".into()],
+                    }),
+                    verify_storage: None,
+                },
+            ],
+        };
+
+        let runner = ScriptRunner::new(script);
+        let mut session = make_mock_session();
+        let result = runner.run(&mut session).await;
+
+        assert!(result.passed, "all steps should pass");
+        assert_eq!(result.total_steps, 2);
+        assert_eq!(result.passed_steps, 2);
+        assert_eq!(result.total_prompt_tokens, 150);
+        assert_eq!(result.total_completion_tokens, 50);
+    }
+
+    #[tokio::test]
+    async fn test_script_runner_tool_mismatch() {
+        let script = Script {
+            meta: ScriptMeta {
+                tool: "i-rs-kv".into(),
+                name: "test".into(),
+                description: "test".into(),
+                required_capabilities: vec![],
+                storage_backends: vec![],
+                tags: vec![],
+            },
+            steps: vec![ScriptStep {
+                step: 1,
+                title: "记录".into(),
+                user_message: "存一下".into(),
+                expected_tool: Some("i-rs-weight".into()), // wrong tool
+                expected_command: Some("add".into()),
+                expected_args: None,
+                expected_flags: None,
+                check_reply: None,
+                verify_storage: None,
+            }],
+        };
+
+        let runner = ScriptRunner::new(script);
+        let mut session = make_mock_session();
+        let result = runner.run(&mut session).await;
+
+        assert!(!result.passed);
+        assert_eq!(result.passed_steps, 0);
+        assert!(!result.steps[0].tool_mismatches.is_empty());
+    }
+}
+

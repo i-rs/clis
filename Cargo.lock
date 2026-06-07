@@ -968,6 +968,7 @@ name = "claw-core-storage-tests"
 version = "0.0.2"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "i-rs-claw-core",
  "serde",
