@@ -1,5 +1,5 @@
 /// Tab completion for tool names and command names.
-use crate::config::Config;
+use i_rs_claw_core::config::Config;
 
 /// Common commands shared across most tools.
 const COMMON_COMMANDS: &[&str] = &["add", "list", "get", "update", "delete"];

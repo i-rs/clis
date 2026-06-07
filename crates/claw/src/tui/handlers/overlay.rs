@@ -304,7 +304,7 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
 }
 
 fn handle_theme_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Action {
-    let max = crate::theme::BUILT_IN_THEMES.len().saturating_sub(1);
+    let max = i_rs_claw_core::theme::BUILT_IN_THEMES.len().saturating_sub(1);
     match key.code {
         KeyCode::Up => {
             handler.app.overlay.theme_index = handler.app.overlay.theme_index.saturating_sub(1);
@@ -331,9 +331,9 @@ fn handle_theme_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
 }
 
 fn apply_theme_preview(handler: &mut KeyEventHandler) {
-    if let Some(preset) = crate::theme::BUILT_IN_THEMES.get(handler.app.overlay.theme_index) {
+    if let Some(preset) = i_rs_claw_core::theme::BUILT_IN_THEMES.get(handler.app.overlay.theme_index) {
         handler.app.config.theme =
-            crate::theme::Theme::from_preset(preset.name).unwrap_or_default();
+            i_rs_claw_core::theme::Theme::from_preset(preset.name).unwrap_or_default();
     }
 }
 
@@ -674,7 +674,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
         }
         Some(crate::app::SlashAction::Theme) => {
             handler.app.overlay.show(Overlay::ThemePicker);
-            handler.app.overlay.theme_index = crate::theme::BUILT_IN_THEMES
+            handler.app.overlay.theme_index = i_rs_claw_core::theme::BUILT_IN_THEMES
                 .iter()
                 .position(|t| {
                     let theme = &handler.app.config.theme;

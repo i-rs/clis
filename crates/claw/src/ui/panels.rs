@@ -50,7 +50,7 @@ pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(Paragraph::new(lines), area);
 }
 
-pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &i_rs_claw_core::theme::Theme) {
     if !app.is_processing() || app.status_text.is_empty() {
         return;
     }
@@ -65,7 +65,7 @@ pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &cr
     f.render_widget(label, area);
 }
 
-pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
+pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &i_rs_claw_core::theme::Theme) {
     let popup_width = 50u16.min(area.width.saturating_sub(4));
     let popup_height = 29u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -151,7 +151,7 @@ pub(super) fn render_config_panel(
     f: &mut Frame,
     area: Rect,
     app: &App,
-    theme: &crate::theme::Theme,
+    theme: &i_rs_claw_core::theme::Theme,
 ) {
     let popup_width = 52u16.min(area.width.saturating_sub(4));
     let popup_height = 16u16.min(area.height.saturating_sub(4));
@@ -227,7 +227,7 @@ pub(super) fn render_tool_list_panel(
     f: &mut Frame,
     area: Rect,
     _app: &App,
-    theme: &crate::theme::Theme,
+    theme: &i_rs_claw_core::theme::Theme,
 ) {
     static TOOLS: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
     let tools = TOOLS.get_or_init(|| {
@@ -284,7 +284,7 @@ pub(super) fn render_agent_list_panel(
     f: &mut Frame,
     area: Rect,
     app: &App,
-    theme: &crate::theme::Theme,
+    theme: &i_rs_claw_core::theme::Theme,
 ) {
     let popup_width = 70u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
@@ -375,7 +375,7 @@ pub(super) fn render_stats_history_panel(
     f: &mut Frame,
     area: Rect,
     app: &App,
-    theme: &crate::theme::Theme,
+    theme: &i_rs_claw_core::theme::Theme,
 ) {
     let popup_width = 55u16.min(area.width.saturating_sub(4));
     let popup_height = 16u16.min(area.height.saturating_sub(4));
@@ -468,7 +468,7 @@ pub(super) fn render_plugin_list_panel(
     f: &mut Frame,
     area: Rect,
     app: &App,
-    theme: &crate::theme::Theme,
+    theme: &i_rs_claw_core::theme::Theme,
 ) {
     let popup_width = 65u16.min(area.width.saturating_sub(4));
     let popup_height = 20u16.min(area.height.saturating_sub(4));
@@ -565,7 +565,7 @@ pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
     );
 }
 
-pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
+pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &i_rs_claw_core::theme::Theme) {
     let width = 44u16.min(area.width.saturating_sub(4));
     let height = 6u16;
     let x = (area.width - width) / 2;
@@ -609,7 +609,7 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &crate::t
     f.render_widget(Paragraph::new(text).alignment(Alignment::Center), inner);
 }
 
-pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &crate::theme::Theme) {
+pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &i_rs_claw_core::theme::Theme) {
     let popup_width = 48u16.min(area.width.saturating_sub(4));
     let popup_height = 22u16.min(area.height.saturating_sub(4));
     let popup_x = (area.width - popup_width) / 2;
@@ -762,7 +762,7 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
     let dim = theme.dim_text();
     let bg = theme.background();
 
-    let themes = crate::theme::BUILT_IN_THEMES;
+    let themes = i_rs_claw_core::theme::BUILT_IN_THEMES;
     let idx = app.overlay.theme_index.min(themes.len().saturating_sub(1));
 
     let popup_height = (themes.len() as u16).saturating_add(2);
@@ -777,7 +777,7 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
 
     for (i, preset) in themes.iter().enumerate() {
         let selected = i == idx;
-        let preset_theme = crate::theme::Theme::from_preset(preset.name).unwrap_or_default();
+        let preset_theme = i_rs_claw_core::theme::Theme::from_preset(preset.name).unwrap_or_default();
         let p_color = preset_theme.primary();
         let s_color = preset_theme.secondary();
         let a_color = preset_theme.accent();

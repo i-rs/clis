@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Per-model pricing (USD per 1M tokens).
 #[derive(Debug, Clone)]
@@ -14,6 +15,20 @@ impl ModelPricing {
     }
 }
 
+static MODEL_PRICING_TABLE: LazyLock<HashMap<String, (f64, f64)>> = LazyLock::new(|| {
+    let raw: toml::Value =
+        toml::from_str(include_str!("../../data/pricing.toml")).expect("failed to parse pricing.toml");
+    let mut m = HashMap::new();
+    if let Some(models) = raw.get("models").and_then(|v| v.as_table()) {
+        for (name, val) in models {
+            let input = val.get("input").and_then(|v| v.as_float()).unwrap_or(0.0);
+            let output = val.get("output").and_then(|v| v.as_float()).unwrap_or(0.0);
+            m.insert(name.clone(), (input, output));
+        }
+    }
+    m
+});
+
 /// Built-in pricing table with known model costs.
 /// Unknown models default to $0.00.
 #[derive(Debug, Clone)]
@@ -24,90 +39,15 @@ pub struct ModelPricingTable {
 impl ModelPricingTable {
     pub fn new() -> Self {
         let mut inner = HashMap::new();
-        inner.insert(
-            "gpt-4o-mini".to_string(),
-            ModelPricing {
-                input_per_m: 0.150,
-                output_per_m: 0.600,
-            },
-        );
-        inner.insert(
-            "gpt-4o".to_string(),
-            ModelPricing {
-                input_per_m: 2.500,
-                output_per_m: 10.000,
-            },
-        );
-        inner.insert(
-            "gpt-4".to_string(),
-            ModelPricing {
-                input_per_m: 30.00,
-                output_per_m: 60.00,
-            },
-        );
-        inner.insert(
-            "gpt-4-turbo".to_string(),
-            ModelPricing {
-                input_per_m: 10.00,
-                output_per_m: 30.00,
-            },
-        );
-        inner.insert(
-            "claude-sonnet-4-20250514".to_string(),
-            ModelPricing {
-                input_per_m: 3.000,
-                output_per_m: 15.000,
-            },
-        );
-        inner.insert(
-            "claude-sonnet-4".to_string(),
-            ModelPricing {
-                input_per_m: 3.000,
-                output_per_m: 15.000,
-            },
-        );
-        inner.insert(
-            "claude-3-5-sonnet".to_string(),
-            ModelPricing {
-                input_per_m: 3.000,
-                output_per_m: 15.000,
-            },
-        );
-        inner.insert(
-            "claude-haiku-4-20250514".to_string(),
-            ModelPricing {
-                input_per_m: 0.800,
-                output_per_m: 4.000,
-            },
-        );
-        inner.insert(
-            "claude-haiku-4".to_string(),
-            ModelPricing {
-                input_per_m: 0.800,
-                output_per_m: 4.000,
-            },
-        );
-        inner.insert(
-            "claude-3-haiku".to_string(),
-            ModelPricing {
-                input_per_m: 0.250,
-                output_per_m: 1.250,
-            },
-        );
-        inner.insert(
-            "deepseek-chat".to_string(),
-            ModelPricing {
-                input_per_m: 0.500,
-                output_per_m: 2.000,
-            },
-        );
-        inner.insert(
-            "deepseek-reasoner".to_string(),
-            ModelPricing {
-                input_per_m: 0.500,
-                output_per_m: 2.000,
-            },
-        );
+        for (name, (input, output)) in MODEL_PRICING_TABLE.iter() {
+            inner.insert(
+                name.clone(),
+                ModelPricing {
+                    input_per_m: *input,
+                    output_per_m: *output,
+                },
+            );
+        }
         Self { inner }
     }
 

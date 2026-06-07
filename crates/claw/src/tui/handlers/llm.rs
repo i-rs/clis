@@ -95,7 +95,7 @@ impl<'a> LlmEventHandler<'a> {
 
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
-        if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
+        if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute
             && (text.contains('\n') || self.app.plan_steps.is_empty())
         {
             let should_detect = self.app.messages.last().is_some_and(|m| {
@@ -149,7 +149,7 @@ impl<'a> LlmEventHandler<'a> {
         self.app
             .add_tool_call(name, args, result, step, total_steps);
 
-        if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute {
+        if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute {
             self.app.mark_next_plan_step_done();
             if let Some(sid) = self.app_core.session_mgr.current_id() {
                 self.app_core
@@ -227,7 +227,7 @@ impl<'a> LlmEventHandler<'a> {
             self.app_core.session_mgr.mark_active(&sid);
         }
 
-        if self.app.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute
+        if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute
             && let Some(sid) = self.app_core.session_mgr.current_id()
         {
             self.app_core.session_mgr.save_plan_steps(sid, &[]);

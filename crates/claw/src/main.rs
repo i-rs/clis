@@ -1,13 +1,11 @@
 mod app;
 mod cli;
 mod completion;
-mod config;
 mod gateway;
 #[cfg(feature = "dashboard")]
 mod server;
 #[cfg(test)]
 mod test_helpers;
-mod theme;
 mod tui;
 mod ui;
 

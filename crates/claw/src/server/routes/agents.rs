@@ -100,7 +100,7 @@ pub async fn update_agent(
     };
 
     // Merge body with existing (only override provided fields)
-    let agent_config = crate::config::AgentConfig {
+    let agent_config = i_rs_claw_core::config::AgentConfig {
         provider_ref: body
             .get("provider_ref")
             .and_then(|v| v.as_str())
@@ -184,7 +184,7 @@ pub async fn create_agent(
     }
 
     // Build agent config from request body (all optional)
-    let agent_config = crate::config::AgentConfig {
+    let agent_config = i_rs_claw_core::config::AgentConfig {
         provider: body
             .get("provider")
             .and_then(|v| v.as_str())

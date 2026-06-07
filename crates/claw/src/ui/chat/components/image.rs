@@ -2,7 +2,7 @@ use super::MessageComponent;
 use super::style::{
     BLOCK_LEFT_RESERVED, block_border, body_line, header_line, render_block_chrome,
 };
-use crate::theme::Theme;
+use i_rs_claw_core::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};

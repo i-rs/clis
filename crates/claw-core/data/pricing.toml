@@ -1,0 +1,13 @@
+[models]
+"gpt-4o-mini" = { input = 0.150, output = 0.600 }
+"gpt-4o" = { input = 2.500, output = 10.000 }
+"gpt-4" = { input = 30.00, output = 60.00 }
+"gpt-4-turbo" = { input = 10.00, output = 30.00 }
+"claude-sonnet-4-20250514" = { input = 3.000, output = 15.000 }
+"claude-sonnet-4" = { input = 3.000, output = 15.000 }
+"claude-3-5-sonnet" = { input = 3.000, output = 15.000 }
+"claude-haiku-4-20250514" = { input = 0.800, output = 4.000 }
+"claude-haiku-4" = { input = 0.800, output = 4.000 }
+"claude-3-haiku" = { input = 0.250, output = 1.250 }
+"deepseek-chat" = { input = 0.500, output = 2.000 }
+"deepseek-reasoner" = { input = 0.500, output = 2.000 }

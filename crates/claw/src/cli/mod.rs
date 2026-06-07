@@ -5,7 +5,7 @@ pub(crate) use config_wizard::claw_dir;
 pub use config_wizard::run_config;
 pub use tools_ui::run_tools;
 
-use crate::config::Config;
+use i_rs_claw_core::config::Config;
 use i_rs_claw_core::session::SessionManager;
 #[cfg(feature = "dashboard")]
 use owo_colors::OwoColorize;
@@ -68,7 +68,7 @@ pub fn run_export(session_id: &str, format: &str) -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
-    let config = crate::config::Config::load()?;
+    let config = i_rs_claw_core::config::Config::load()?;
     let client = i_rs_claw_core::providers::shared_client();
     let provider = i_rs_claw_core::providers::create_provider(&client, &config);
 
@@ -117,7 +117,7 @@ pub fn run_ask(message: &str, _session_id: Option<&str>) -> anyhow::Result<()> {
 // =============================================
 
 pub fn run_gateway() -> anyhow::Result<()> {
-    let config = crate::config::Config::load()?;
+    let config = i_rs_claw_core::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
     let core = std::sync::Arc::new(tokio::sync::RwLock::new(i_rs_claw_core::core::AppCore::new(
@@ -204,7 +204,7 @@ pub fn run_serve(
         );
     }
 
-    let mut config = crate::config::Config::load()?;
+    let mut config = i_rs_claw_core::config::Config::load()?;
 
     // Apply CLI flag to the runtime HitlPolicy. We do NOT persist this flag
     // to disk to avoid accidentally enabling it permanently.
@@ -255,7 +255,7 @@ pub fn run_serve(
 
 /// Legacy alias for `claw serve` (used by the `Dashboard` subcommand).
 pub fn run_dashboard() -> anyhow::Result<()> {
-    let config = crate::config::Config::load()?;
+    let config = i_rs_claw_core::config::Config::load()?;
     run_serve(
         config.dashboard.host.clone(),
         config.dashboard.port,
@@ -592,7 +592,7 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
 
 pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     let claw_data_dir = claw_dir();
-    let cfg = crate::config::Config::load()?;
+    let cfg = i_rs_claw_core::config::Config::load()?;
     let stats_mgr = i_rs_claw_core::stats::StatsManager::new(&claw_data_dir, &cfg.stats, cfg.tz_offset);
 
     // Clean up expired records before querying

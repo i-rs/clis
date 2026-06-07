@@ -22,7 +22,7 @@ use ratatui::{
     widgets::{Paragraph, Widget},
 };
 
-use crate::theme::Theme;
+use i_rs_claw_core::theme::Theme;
 
 /// Inner horizontal padding (in cells) on the left side of every block.
 pub const BLOCK_INDENT: usize = 2;

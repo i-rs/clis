@@ -5,7 +5,7 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::theme::Theme;
+use i_rs_claw_core::theme::Theme;
 
 pub(super) fn render_markdown(text: &str, max_width: usize, theme: &Theme) -> Vec<Line<'static>> {
     let mut lines: Vec<Line<'static>> = Vec::new();

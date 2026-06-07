@@ -140,73 +140,8 @@ fn build_sse_stream(
     Sse::new(stream)
 }
 
-/// Send a message and start LLM processing.
-/// Returns the session ID so the client can subscribe to SSE events.
-#[allow(dead_code)]
-pub async fn send_message(
-    State(state): State<AppState>,
-    UserId(user_id): UserId,
-    Json(body): Json<Value>,
-) -> Json<super::ApiResponse<Value>> {
-    let text = match body.get("message").and_then(|v| v.as_str()) {
-        Some(t) => t.to_string(),
-        None => return super::ApiResponse::err("Missing 'message' field"),
-    };
-
-    let agent_id = body
-        .get("agent_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("default")
-        .to_string();
-
-    let mut core = state.core.write().await;
-
-    // Create or get a session
-    let session_id = core
-        .session_mgr
-        .current_id()
-        .map(|id| id.to_string())
-        .unwrap_or_default();
-
-    if session_id.is_empty() {
-        core.session_mgr.create_session_for(&agent_id, &user_id);
-    }
-
-    let sid = match core.session_mgr.current_id() {
-        Some(id) => id.to_string(),
-        None => return super::ApiResponse::err("没有活跃会话"),
-    };
-
-    // Save user message via SessionManager (maintains cursor + message_count).
-    {
-        let msg = crate::app::Message::User { text: text.clone() };
-        if let Err(e) = core.session_mgr.persist_messages(&sid, &[msg]) {
-            tracing::error!("user message persist failed: {}", e);
-        }
-    }
-
-    {
-        let layered = match core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
-            Ok(l) => l,
-            Err(e) => {
-                tracing::error!(error = %e, "agent lookup failed");
-                return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
-            }
-        };
-        layered.record_user_statement(&text);
-    }
-
-    // Drop the write lock — chat_stream will spawn the actual LLM call.
-    drop(core);
-
-    super::ApiResponse::ok(serde_json::json!({
-        "session_id": sid,
-        "status": "processing",
-    }))
-}
-
 /// Single-endpoint chat: POST body → SSE stream directly.
-/// Unifies send_message + chat_stream into one endpoint.
+/// Replaces the deprecated send_message + chat_stream pattern.
 pub async fn chat(
     State(state): State<AppState>,
     UserId(user_id): UserId,
@@ -343,8 +278,9 @@ pub async fn chat_stream(
 }
 
 /// Resume an SSE stream after disconnection.
+/// NOTE: This is a simplified replay (re-runs chat_loop from saved messages),
+/// NOT a true cursor-based resume. Client handles deduplication via event IDs.
 /// Accepts `?cursor=N` (last received event ID) via query params.
-/// Returns a fresh stream. Client handles deduplication via event IDs.
 pub async fn chat_stream_resume(
     State(state): State<AppState>,
     UserId(user_id): UserId,

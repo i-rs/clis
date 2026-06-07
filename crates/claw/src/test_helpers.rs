@@ -7,7 +7,7 @@
 //!
 //! NOTE: This file is compiled only under #[cfg(test)] (see main.rs).
 
-use crate::config::Config;
+use i_rs_claw_core::config::Config;
 use i_rs_claw_core::llm::{LlmEvent, StreamResult, TokenUsage};
 use i_rs_claw_core::providers::ProviderKind;
 use serde_json::Value;

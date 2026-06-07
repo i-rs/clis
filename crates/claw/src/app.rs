@@ -1,6 +1,6 @@
 pub use i_rs_claw_core::app::*;
 
-use crate::config::Config;
+use i_rs_claw_core::config::Config;
 use i_rs_claw_core::stats::TodaySummary;
 use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, build_component_for};
 use chrono::NaiveDateTime;

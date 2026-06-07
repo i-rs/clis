@@ -1,5 +1,5 @@
 use crate::app;
-use crate::config::Config;
+use i_rs_claw_core::config::Config;
 use i_rs_claw_core::llm::LlmEvent;
 use owo_colors::OwoColorize;
 use ratatui::backend::CrosstermBackend;

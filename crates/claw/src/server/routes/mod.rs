@@ -197,47 +197,6 @@ use crate::server::UserId;
     }
 
     #[test]
-    fn test_send_message_missing_body() {
-        run_state_test("test_send_message_missing_body", |state| async move {
-            let result = send_message(State(state), test_uid(), Json(serde_json::json!({}))).await;
-            assert!(!result.success, "missing message should return error");
-            assert_eq!(result.error, Some("Missing 'message' field".to_string()));
-        });
-    }
-
-    #[test]
-    fn test_send_message_valid() {
-        run_state_test("test_send_message_valid", |state| async move {
-            let result = send_message(
-                State(state),
-                test_uid(),
-                Json(serde_json::json!({"message": "hello"})),
-            ).await;
-            assert!(result.success, "valid message should return success");
-            let data = result.0.data.unwrap();
-            assert_eq!(data["status"], "processing");
-            assert!(
-                !data["session_id"].as_str().unwrap_or("").is_empty(),
-                "should return non-empty session_id"
-            );
-        });
-    }
-
-    #[test]
-    fn test_send_message_with_agent_id() {
-        run_state_test("test_send_message_with_agent_id", |state| async move {
-            let result = send_message(
-                State(state),
-                test_uid(),
-                Json(serde_json::json!({"message": "hi", "agent_id": "default"})),
-            ).await;
-            assert!(result.success);
-            let data = result.0.data.unwrap();
-            assert_eq!(data["status"], "processing");
-        });
-    }
-
-    #[test]
     fn test_list_tools_returns_schemas() {
         run_state_test("test_list_tools_returns_schemas", |state| async move {
             let result = list_tools(State(state)).await;

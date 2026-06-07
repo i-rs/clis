@@ -3,7 +3,7 @@ use super::style::{
 };
 use super::{ComponentOp, MessageComponent};
 use i_rs_claw_core::llm::TokenUsage;
-use crate::theme::Theme;
+use i_rs_claw_core::theme::Theme;
 use crate::ui::chat::markdown::render_markdown;
 use crate::ui::utils;
 use ratatui::buffer::Buffer;

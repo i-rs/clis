@@ -14,7 +14,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
 use crate::app::Message;
-use crate::theme::Theme;
+use i_rs_claw_core::theme::Theme;
 
 /// Operations the App can apply to a component after construction.
 /// The default impl for `apply` is a no-op, so each component only

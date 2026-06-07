@@ -1,4 +1,4 @@
-use crate::config::Config;
+use i_rs_claw_core::config::Config;
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;

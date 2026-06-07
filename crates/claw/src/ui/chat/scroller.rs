@@ -1,5 +1,5 @@
 use super::components::{ComponentOp, MessageComponent};
-use crate::theme::Theme;
+use i_rs_claw_core::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui_interact::traits::ClickRegionRegistry;
