@@ -229,8 +229,6 @@ async fn test_storage_verification_file_exists() {
         storage.message_log.append_one(&session_id, &msg).await.unwrap();
     }
 
-    eprintln!("DEBUG: log_path={:?} exists={}", log_path, log_path.exists());
-
     let mut session = MockSession::new(vec![StepOutput {
         reply: "已记录".into(),
         tool_calls: vec![ToolCallInfo::new("i-rs-kv")
@@ -244,11 +242,6 @@ async fn test_storage_verification_file_exists() {
 
     let runner = ScriptRunner::new(script);
     let result = runner.run_with_storage(&mut session, Some(&storage)).await;
-
-    for sr in &result.steps {
-        eprintln!("  step {}: passed={} tool_mismatches={:?} keywords={:?} storage={:?}",
-            sr.step, sr.passed, sr.tool_mismatches, sr.missing_keywords, sr.storage_results);
-    }
 
     assert!(result.passed, "file existence check should pass");
     assert!(result.steps[0].storage_results.iter().any(|c| c.check_type == "file_check" && c.passed));
