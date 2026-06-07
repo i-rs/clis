@@ -304,8 +304,16 @@ impl ToolCallExecutor {
             let ctx_for_spawn = self.tool_ctx.clone();
             let registry_for_spawn = Arc::clone(&self.tool_registry);
             let timeout_dur = std::time::Duration::from_secs(self.cli_timeout_secs.max(10));
-            let trunc_display = self.truncate_display;
-            let trunc_context = self.truncate_context;
+
+            // Skill 'teach' results contain full tool documentation — must not be truncated.
+            let is_skill_teach = tc_name == "i_rs"
+                && args.get("command").and_then(|c| c.as_str()) == Some("skill")
+                && args.get("args")
+                    .and_then(|a| a.as_array())
+                    .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
+                    .unwrap_or(false);
+            let trunc_display = if is_skill_teach { usize::MAX } else { self.truncate_display };
+            let trunc_context = if is_skill_teach { usize::MAX } else { self.truncate_context };
 
             let cache_key = Self::cache_key(&tc_name, &args);
             let cache_entry = self.get_cached(&cache_key);
