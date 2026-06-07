@@ -78,13 +78,19 @@ pub fn evaluate_response_heuristic(
         }
     }
 
+    let mut mentioned_but_not_executed: Vec<&str> = Vec::new();
     for pattern in known_tools {
-        if response_text.contains(*pattern)
-            && !executed_tools.contains(pattern)
-            && response_text.contains("i-rs")
-        {
-            issues.push(format!("回复提及未执行的工具: {}", pattern));
+        if response_text.contains(*pattern) && !executed_tools.contains(pattern) {
+            mentioned_but_not_executed.push(pattern);
         }
+    }
+    if mentioned_but_not_executed.len() > 3 {
+        // Only flag as an issue when the AI mentions many tools it didn't execute,
+        // suggesting possible hallucination. Mentioning 1-3 tools is normal conversation.
+        issues.push(format!(
+            "回复提及未执行的工具: {}",
+            mentioned_but_not_executed.join(", ")
+        ));
     }
 
     let complete = !response_text.trim().is_empty();
