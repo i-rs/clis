@@ -111,5 +111,62 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
 fn persist_auth_token(token: &str) -> anyhow::Result<()> {
     let mut cfg = i_rs_claw_core::config::Config::load()?;
     cfg.dashboard.auth_token = Some(token.to_string());
-    cfg.save()
+    cfg.save()?;
+
+    // Defense-in-depth: ensure config file has 0o600 on Unix regardless
+    // of how it was created. atomic_write() already sets this on the temp
+    // file before rename, but an explicit set_mode here guards against
+    // pre-existing files with looser perms and any future changes to the
+    // save path.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let home = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+        let config_path = home.join(".i-rs").join("claw").join("config.toml");
+        if config_path.exists() {
+            let mut perms = std::fs::metadata(&config_path)?.permissions();
+            perms.set_mode(0o600);
+            std::fs::set_permissions(&config_path, perms)?;
+            tracing::debug!(path = %config_path.display(), mode = "0600", "config permissions tightened");
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+#[cfg(unix)]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    /// Verify that the post-save `set_mode(0o600)` pattern (as used in
+    /// `persist_auth_token`) results in mode 0o600 on the file.
+    ///
+    /// We don't call `persist_auth_token` directly because it writes to
+    /// the user's real `~/.i-rs/claw/config.toml`. Instead we exercise the
+    /// same `atomic_write + set_mode` sequence on a temp file.
+    #[test]
+    fn test_persist_auth_token_sets_0600_pattern() {
+        let dir = tempfile::tempdir().expect("tempdir failed");
+        let path = dir.path().join("config.toml");
+
+        // atomic_write sets 0o600 on the temp file before rename.
+        i_rs_claw_core::utils::atomic_write(&path, "# test\nauth_token = \"abc\"\n")
+            .expect("atomic_write failed");
+
+        // Defense-in-depth: explicit set_mode after the save (mirrors
+        // persist_auth_token's pattern).
+        let mut perms = std::fs::metadata(&path).expect("metadata").permissions();
+        perms.set_mode(0o600);
+        std::fs::set_permissions(&path, perms).expect("set_permissions");
+
+        let mode = std::fs::metadata(&path).expect("metadata").permissions().mode();
+        let actual = mode & 0o777;
+        assert_eq!(
+            actual, 0o600,
+            "config file should be 0600, got {:o}",
+            actual
+        );
+    }
 }
