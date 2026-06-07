@@ -91,3 +91,87 @@ impl ClawTool for UserMemoryTool {
         Ok(format!("已保存用户信息:\n{}", saved.join("\n")))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tools::ClawTool;
+    use serde_json::json;
+
+    fn test_ctx() -> ToolContext {
+        ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: reqwest::Client::new(),
+            delegate_runtime: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_save_user_name() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({"user_name": "Alice"}), &test_ctx()).await.unwrap();
+        assert!(result.contains("Alice"));
+        assert!(result.contains("称呼"));
+    }
+
+    #[tokio::test]
+    async fn test_save_user_info() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({
+            "user_info": ["喜欢跑步", "程序员"]
+        }), &test_ctx()).await.unwrap();
+        assert!(result.contains("喜欢跑步"));
+        assert!(result.contains("程序员"));
+    }
+
+    #[tokio::test]
+    async fn test_save_preferences() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({
+            "preferences": ["简洁输出", "中文优先"]
+        }), &test_ctx()).await.unwrap();
+        assert!(result.contains("简洁输出"));
+    }
+
+    #[tokio::test]
+    async fn test_save_assistant_nickname() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({"assistant_nickname": "小助手"}), &test_ctx()).await.unwrap();
+        assert!(result.contains("小助手"));
+    }
+
+    #[tokio::test]
+    async fn test_save_all_fields() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({
+            "user_name": "Bob",
+            "user_info": ["设计师"],
+            "preferences": ["暗色模式"],
+            "assistant_nickname": "Bob助手"
+        }), &test_ctx()).await.unwrap();
+        assert!(result.contains("Bob"));
+        assert!(result.contains("设计师"));
+        assert!(result.contains("暗色模式"));
+        assert!(result.contains("Bob助手"));
+    }
+
+    #[tokio::test]
+    async fn test_save_empty_args() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({}), &test_ctx()).await;
+        assert!(result.is_err(), "empty args should fail");
+        assert!(result.unwrap_err().to_string().contains("没有需要保存"));
+    }
+
+    #[tokio::test]
+    async fn test_save_ignores_empty_strings() {
+        let tool = UserMemoryTool;
+        let result = tool.execute(&json!({
+            "user_name": "",
+            "user_info": [""],
+            "preferences": [""],
+            "assistant_nickname": ""
+        }), &test_ctx()).await;
+        assert!(result.is_err(), "all empty fields should result in error");
+    }
+}

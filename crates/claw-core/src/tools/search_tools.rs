@@ -63,3 +63,56 @@ impl super::ClawTool for SearchToolsTool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tools::{ClawTool, ToolContext};
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn test_context() -> ToolContext {
+        let mut config = crate::test_helpers::test_config();
+        config.i_rs_tool_index = HashMap::from([
+            ("i-rs-kv".into(), "Key-value storage".into()),
+            ("i-rs-todo".into(), "Todo list management".into()),
+            ("i-rs-weight".into(), "Weight tracking".into()),
+            ("i-rs-water".into(), "Water intake tracker".into()),
+        ]);
+        ToolContext {
+            config,
+            http_client: reqwest::Client::new(),
+            delegate_runtime: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_exact_match() {
+        let tool = SearchToolsTool;
+        let result = tool.execute(&json!({"query": "kv"}), &test_context()).await.unwrap();
+        assert!(result.contains("i-rs-kv"), "should find kv tool");
+        assert!(result.contains("Key-value"), "should show description");
+    }
+
+    #[tokio::test]
+    async fn test_search_partial_match() {
+        let tool = SearchToolsTool;
+        let result = tool.execute(&json!({"query": "track"}), &test_context()).await.unwrap();
+        assert!(result.contains("i-rs-weight"), "should match weight");
+        assert!(result.contains("i-rs-water"), "should match water");
+    }
+
+    #[tokio::test]
+    async fn test_search_no_match() {
+        let tool = SearchToolsTool;
+        let result = tool.execute(&json!({"query": "nonexistent"}), &test_context()).await.unwrap();
+        assert!(result.contains("未找到"), "should say not found");
+    }
+
+    #[tokio::test]
+    async fn test_search_empty_query() {
+        let tool = SearchToolsTool;
+        let result = tool.execute(&json!({"query": ""}), &test_context()).await.unwrap();
+        assert!(result.contains("请输入"));
+    }
+}
