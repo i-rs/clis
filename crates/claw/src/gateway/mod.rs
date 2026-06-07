@@ -226,8 +226,8 @@ impl GatewayServer {
                 new_id
             };
 
-            let saved = core.session_mgr.load_api_messages(&uuid);
-            let msgs = core.build_messages_for(&[], &text_owned, &saved, None, &agent_id_owned);
+            let saved = core.session_mgr.load_api_messages_async(&uuid).await;
+            let msgs = core.build_messages_for_async(&[], &text_owned, &saved, None, &agent_id_owned).await;
 
             let resolved = core.config.agent_config(&agent_id_owned);
             let mut agent_config = core.config.clone();

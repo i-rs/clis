@@ -404,6 +404,101 @@ impl AppCore {
         })
     }
 
+    /// Async version of [`build_messages_for`].
+    #[cfg(feature = "dashboard")]
+    pub async fn build_messages_for_async(
+        &self,
+        app_messages: &[Message],
+        user_text: &str,
+        saved_api_messages: &Option<Vec<Value>>,
+        reminder_text: Option<&str>,
+        agent_id: &str,
+    ) -> Vec<Value> {
+        let resolved = self.config.agent_config(agent_id);
+        let tool_index = self.build_irs_tool_index(&resolved);
+
+        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+            tracing::error!(agent_id, "agent runtime lookup failed in build_messages_for_async");
+            return Vec::new();
+        };
+
+        let identity = if let Some(nick) = memory.assistant_nickname() {
+            format!("用户称呼你为{}，以这个身份与用户对话。", nick)
+        } else {
+            String::from(
+                "用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。",
+            )
+        };
+
+        let routing_hint = {
+            let agents: Vec<crate::config::ResolvedAgentConfig> = self
+                .config
+                .agent_ids()
+                .iter()
+                .map(|id| self.config.agent_config(id))
+                .collect();
+            let sub_agents: Vec<crate::config::ResolvedAgentConfig> = self
+                .config
+                .sub_agents
+                .keys()
+                .map(|id| self.config.agent_config(id))
+                .collect();
+            crate::router::TaskRouter::new(agents, sub_agents).routing_hint()
+        };
+
+        let hot_tools = {
+            let Ok(cache) = self.agent_store.tool_cache_for("default", agent_id) else {
+                tracing::error!(agent_id, "agent runtime tool cache lookup failed");
+                return Vec::new();
+            };
+            cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
+        };
+        let skills = match self.agent_store.skill_store_for("default", agent_id) {
+            Ok(s) => s.format_skills_async().await,
+            Err(e) => {
+                tracing::error!(%e, agent_id, "skill store lookup failed");
+                return Vec::new();
+            }
+        };
+
+        engine::build_messages(engine::MessageBuildParams {
+            app_messages,
+            user_text,
+            saved_api_messages,
+            tool_frequency: memory.tool_frequency(),
+            tool_index: &tool_index,
+            hot_tools: &hot_tools,
+            skills: &skills,
+            user_memory: &{
+                let base = memory.format_user_memory();
+                let layered = {
+                    let Ok(lm) = self.agent_store.layered_memory_for("default", agent_id) else {
+                        tracing::error!(agent_id, "agent runtime layered memory lookup failed");
+                        return Vec::new();
+                    };
+                    lm.format_for_prompt()
+                };
+                if base.is_empty() {
+                    layered
+                } else if layered.is_empty() {
+                    base
+                } else {
+                    format!("{}\n\n{}", base, layered)
+                }
+            },
+            user_profile: &memory.format_user_profile(),
+            reminder_text,
+            system_prompt_override: resolved.system_prompt.as_deref(),
+            plan_then_execute: self.config.execution_mode
+                == crate::config::ExecutionMode::PlanThenExecute,
+            max_conversation_turns: self.config.max_conversation_turns,
+            tz_offset: self.config.tz_offset,
+            identity: &identity,
+            routing_hint: &routing_hint,
+            model: &resolved.model,
+        })
+    }
+
     /// Spawn the LLM chat loop in a background task.
     /// The `llm_tx` sender receives LlmEvent updates (tokens, tool calls, errors, done).
     #[allow(dead_code)]
@@ -531,6 +626,76 @@ impl AppCore {
         ))
     }
 
+    /// Async version of [`prepare_chat_loop`].
+    #[cfg(feature = "dashboard")]
+    async fn prepare_chat_loop_async(
+        &self,
+        agent_id: &str,
+    ) -> Result<(
+        Box<dyn crate::providers::LlmProvider>,
+        Config,
+        McpRegistry,
+        Vec<SkillDefinition>,
+        HashMap<String, usize>,
+        reqwest::Client,
+    ), crate::error::ClawError> {
+        let agent = self
+            .config
+            .agents
+            .get(agent_id)
+            .or_else(|| self.config.sub_agents.get(agent_id));
+
+        let resolved_pc = self.config.resolve_provider_config(agent);
+        let final_provider = agent
+            .and_then(|a| a.provider)
+            .unwrap_or(resolved_pc.provider);
+        let final_api_key = agent
+            .and_then(|a| a.api_key.as_deref())
+            .unwrap_or(&resolved_pc.api_key);
+        let final_base_url = agent
+            .and_then(|a| a.base_url.as_deref())
+            .unwrap_or(&resolved_pc.base_url);
+        let final_model = agent
+            .and_then(|a| a.model.as_deref())
+            .unwrap_or(&resolved_pc.model);
+
+        let provider = crate::providers::create_provider_for(
+            &self.http_client,
+            final_provider,
+            final_api_key,
+            final_base_url,
+            final_model,
+        );
+
+        let mut agent_config = self.config.clone();
+        if let Some(a) = agent
+            && let Some(ref tools) = a.enabled_tools
+        {
+            agent_config.enabled_tools = tools.clone();
+        }
+
+        let mcp = self.agent_store.mcp_registry_for("default", agent_id)?.clone();
+        let skills = self
+            .agent_store
+            .skill_store_for("default", agent_id)?
+            .executable_skills_async()
+            .await;
+        let tool_frequency = self
+            .agent_store
+            .memory_for("default", agent_id)?
+            .tool_frequency()
+            .clone();
+        let http_client = self.http_client.clone();
+        Ok((
+            provider,
+            agent_config,
+            mcp,
+            skills,
+            tool_frequency,
+            http_client,
+        ))
+    }
+
     fn build_delegate_runtime(
         &self,
         agent_id: &str,
@@ -602,6 +767,94 @@ impl AppCore {
                 };
                 ss.executable_skills()
             },
+            tool_frequency: memory.tool_frequency().clone(),
+            parent_tx,
+            stats_manager: self.stats_manager.clone(),
+            user_identity,
+            user_memory: memory.format_user_memory(),
+            user_profile: memory.format_user_profile(),
+            recent_messages,
+            tz_offset: self.config.tz_offset,
+            plan_then_execute: self.config.agent_config(agent_id).execution_mode
+                == crate::config::ExecutionMode::PlanThenExecute,
+        })
+    }
+
+    /// Async version of [`build_delegate_runtime`].
+    #[cfg(feature = "dashboard")]
+    async fn build_delegate_runtime_async(
+        &self,
+        agent_id: &str,
+        parent_tx: mpsc::UnboundedSender<LlmEvent>,
+        recent_messages: Vec<serde_json::Value>,
+    ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
+        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+            tracing::error!(agent_id, "agent runtime memory lookup failed");
+            return std::sync::Arc::new(crate::tools::DelegateRuntime {
+                irs_tool_index: self.config.i_rs_tool_index.clone(),
+                mcp_registry: Default::default(),
+                skills: Vec::new(),
+                tool_frequency: Default::default(),
+                parent_tx,
+                stats_manager: self.stats_manager.clone(),
+                user_identity: String::new(),
+                user_memory: String::new(),
+                user_profile: String::new(),
+                recent_messages,
+                tz_offset: self.config.tz_offset,
+                plan_then_execute: false,
+            });
+        };
+        let nickname = memory.assistant_nickname().map(|s| s.to_string());
+        let user_identity = if let Some(ref nick) = nickname {
+            format!("用户称呼你为{}，以这个身份与用户对话。", nick)
+        } else {
+            String::new()
+        };
+        let mcp_registry = {
+            let Ok(mcp) = self.agent_store.mcp_registry_for("default", agent_id) else {
+                tracing::error!(agent_id, "agent runtime MCP lookup failed");
+                return std::sync::Arc::new(crate::tools::DelegateRuntime {
+                    irs_tool_index: self.config.i_rs_tool_index.clone(),
+                    mcp_registry: Default::default(),
+                    skills: Vec::new(),
+                    tool_frequency: Default::default(),
+                    parent_tx,
+                    stats_manager: self.stats_manager.clone(),
+                    user_identity: String::new(),
+                    user_memory: String::new(),
+                    user_profile: String::new(),
+                    recent_messages,
+                    tz_offset: self.config.tz_offset,
+                    plan_then_execute: false,
+                });
+            };
+            mcp.clone()
+        };
+        let skills = {
+            let Ok(ss) = self.agent_store.skill_store_for("default", agent_id) else {
+                tracing::error!(agent_id, "agent runtime skill store lookup failed");
+                return std::sync::Arc::new(crate::tools::DelegateRuntime {
+                    irs_tool_index: self.config.i_rs_tool_index.clone(),
+                    mcp_registry: Default::default(),
+                    skills: Vec::new(),
+                    tool_frequency: Default::default(),
+                    parent_tx,
+                    stats_manager: self.stats_manager.clone(),
+                    user_identity: String::new(),
+                    user_memory: String::new(),
+                    user_profile: String::new(),
+                    recent_messages,
+                    tz_offset: self.config.tz_offset,
+                    plan_then_execute: false,
+                });
+            };
+            ss.executable_skills_async().await
+        };
+        std::sync::Arc::new(crate::tools::DelegateRuntime {
+            irs_tool_index: self.config.i_rs_tool_index.clone(),
+            mcp_registry,
+            skills,
             tool_frequency: memory.tool_frequency().clone(),
             parent_tx,
             stats_manager: self.stats_manager.clone(),
@@ -707,7 +960,63 @@ impl AppCore {
         Some(quality)
     }
 
-    /// Run LLM-as-Judge evaluation when enabled and conditions are met.
+    /// Async version of [`evaluate_completed_session`].
+    #[cfg(feature = "dashboard")]
+    pub async fn evaluate_completed_session_async(
+        &mut self,
+        session_id: &str,
+    ) -> Option<crate::app::Message> {
+        let messages = self
+            .session_mgr
+            .load_app_messages_async(session_id, 100)
+            .await;
+        let tool_results: Vec<(&str, bool)> = messages
+            .iter()
+            .filter_map(|m| match m {
+                crate::app::Message::ToolCall { name, result, .. } => {
+                    let cat = crate::error::category_from_result(result);
+                    Some((name.as_str(), !cat.is_retryable_or_fatal()))
+                }
+                _ => None,
+            })
+            .collect();
+        let last_assistant = messages.iter().rev().find_map(|m| match m {
+            crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.as_str()),
+            _ => None,
+        })?;
+        if last_assistant.is_empty() {
+            return None;
+        }
+
+        let quality = {
+            let i_rs_tools: Vec<&str> = self.config.i_rs_tools.iter().map(|s| s.as_str()).collect();
+            crate::app::evaluate_response_heuristic(last_assistant, &tool_results, &i_rs_tools)
+        };
+        {
+            let suite = crate::core::evals::builtin_eval_suite();
+            let eval_tool_results: Vec<(String, String)> = messages
+                .iter()
+                .filter_map(|m| match m {
+                    crate::app::Message::ToolCall { name, result, .. } => {
+                        Some((name.clone(), result.clone()))
+                    }
+                    _ => None,
+                })
+                .collect();
+            if !eval_tool_results.is_empty() {
+                let eval_results = suite.evaluate(&eval_tool_results);
+                let summary = suite.summary(&eval_results);
+                tracing::info!(
+                    suite = %suite.name,
+                    passed = summary.passed,
+                    total = summary.total_cases,
+                    avg_score = summary.avg_score,
+                    "EvalSuite 自动评估完成"
+                );
+            }
+        }
+        Some(quality)
+    }
     /// Returns None if the judge is disabled or skipped.
     #[allow(dead_code)]
     pub async fn evaluate_with_judge(
@@ -876,10 +1185,110 @@ impl AppCore {
         msgs
     }
 
+    /// Async version of [`build_messages_from_log`].
+    #[cfg(feature = "dashboard")]
+    pub async fn build_messages_from_log_async(
+        &self,
+        messages: &[crate::app::Message],
+        agent_id: &str,
+    ) -> Vec<Value> {
+        let resolved = self.config.agent_config(agent_id);
+        let tool_index = self.build_irs_tool_index(&resolved);
+        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+            tracing::error!(agent_id, "agent runtime memory lookup failed");
+            return Vec::new();
+        };
+
+        let nickname = memory.assistant_nickname().map(|s| s.to_string());
+        let identity = if let Some(ref nick) = nickname {
+            format!("用户称呼你为{}，以这个身份与用户对话。", nick)
+        } else {
+            String::from(
+                "用户尚未给你起昵称。如果在对话中用户突然以某个名字称呼你，询问这是否是给你的新名字。",
+            )
+        };
+
+        let hot_tools = {
+            let Ok(cache) = self.agent_store.tool_cache_for("default", agent_id) else {
+                tracing::error!(agent_id, "agent runtime tool cache lookup failed");
+                return Vec::new();
+            };
+            cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
+        };
+        let skills_fmt = {
+            let skills = match self.agent_store.skill_store_for("default", agent_id) {
+                Ok(s) => s.format_skills_async().await,
+                Err(e) => {
+                    tracing::error!(%e, agent_id, "skill store lookup failed");
+                    return Vec::new();
+                }
+            };
+            skills
+        };
+
+        let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
+            engine::builder::build_system_prompt(
+                &tool_index,
+                &hot_tools,
+                &skills_fmt,
+                &memory.format_user_memory(),
+                &memory.format_user_profile(),
+                self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
+                self.config.tz_offset,
+                &identity,
+                "",
+            )
+        });
+
+        let mut msgs = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
+
+        let mut tool_call_counter: u32 = 0;
+
+        for msg in messages {
+            match msg {
+                crate::app::Message::User { text } => {
+                    msgs.push(serde_json::json!({ "role": "user", "content": text }));
+                }
+                crate::app::Message::Assistant { text, .. } if !text.is_empty() => {
+                    msgs.push(serde_json::json!({ "role": "assistant", "content": text }));
+                }
+                crate::app::Message::ToolCall {
+                    name, args, result, ..
+                } => {
+                    tool_call_counter += 1;
+                    let call_id = format!("call_{}_{}", name, tool_call_counter);
+                    msgs.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "arguments": args
+                            }
+                        }]
+                    }));
+                    msgs.push(serde_json::json!({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": result
+                    }));
+                }
+                _ => {}
+            }
+        }
+
+        msgs
+    }
+
     /// Spawn the LLM chat loop from an async context (no Runtime reference needed).
     /// Uses `tokio::spawn` from the current tokio runtime.
+    ///
+    /// This is the async version — it uses async-compatible methods throughout
+    /// to avoid `sync_block_on` warnings when called from within a tokio runtime.
     #[cfg(feature = "dashboard")]
-    pub fn spawn_chat_for_async(
+    pub async fn spawn_chat_for_async(
         &self,
         llm_tx: mpsc::UnboundedSender<LlmEvent>,
         messages: Vec<Value>,
@@ -887,15 +1296,16 @@ impl AppCore {
         recent_messages: &[Value],
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
-            match self.prepare_chat_loop(agent_id) {
+            match self.prepare_chat_loop_async(agent_id).await {
                 Ok(p) => p,
                 Err(e) => {
                     let _ = llm_tx.send(LlmEvent::Error(format!("Failed to prepare chat loop: {}", e)));
                     return;
                 }
             };
-        let delegate_rt =
-            self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
+        let delegate_rt = self
+            .build_delegate_runtime_async(agent_id, llm_tx.clone(), recent_messages.to_vec())
+            .await;
         let checkpoint_store = self.checkpoint_store.clone();
         tokio::spawn(async move {
             engine::chat_loop(
@@ -960,6 +1370,42 @@ pub fn record_tool_memory(user_id: &str,
 
     if name == "i_rs" {
         track_i_rs_usage(user_id, agent_store, i_rs_tool_index, agent_id, args, result);
+    } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
+        let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+            tracing::error!(agent_id, "agent runtime memory lookup failed");
+            return;
+        };
+        mem.record_tool_use(name);
+    }
+}
+
+/// Async version of [`record_tool_memory`].
+///
+/// Avoids `sync_block_on` when persisting hot docs to a storage backend.
+#[cfg(feature = "dashboard")]
+pub async fn record_tool_memory_async(
+    user_id: &str,
+    agent_store: &mut AgentRuntimeStore,
+    i_rs_tool_index: &HashMap<String, String>,
+    agent_id: &str,
+    name: &str,
+    args: &str,
+    result: &str,
+) {
+    if name == "update_user_memory" {
+        persist_user_memory(user_id, agent_store, agent_id, args);
+    }
+
+    if name == "i_rs" {
+        track_i_rs_usage_async(
+            user_id,
+            agent_store,
+            i_rs_tool_index,
+            agent_id,
+            args,
+            result,
+        )
+        .await;
     } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
         let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
@@ -1037,6 +1483,44 @@ fn track_i_rs_usage(_user_id: &str,
             };
             cache.hot_docs.insert(tool.to_string(), result.to_string());
             cache.save_hot_docs();
+        }
+    }
+}
+
+/// Async version of [`track_i_rs_usage`].
+#[cfg(feature = "dashboard")]
+async fn track_i_rs_usage_async(
+    _user_id: &str,
+    agent_store: &mut AgentRuntimeStore,
+    i_rs_tool_index: &HashMap<String, String>,
+    agent_id: &str,
+    args: &str,
+    result: &str,
+) {
+    if let Ok(parsed) = serde_json::from_str::<Value>(args)
+        && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
+    {
+        if i_rs_tool_index.contains_key(tool) {
+            let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+                tracing::error!(agent_id, "agent runtime memory lookup failed");
+                return;
+            };
+            mem.record_tool_use(tool);
+        }
+        let cmd = parsed.get("command").and_then(|c| c.as_str());
+        if cmd == Some("skill")
+            && parsed
+                .get("args")
+                .and_then(|a| a.as_array())
+                .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
+                .unwrap_or(false)
+        {
+            let Ok(cache) = agent_store.tool_cache_for_mut("default", agent_id) else {
+                tracing::error!(agent_id, "agent runtime tool cache lookup failed");
+                return;
+            };
+            cache.hot_docs.insert(tool.to_string(), result.to_string());
+            cache.save_hot_docs_async().await;
         }
     }
 }

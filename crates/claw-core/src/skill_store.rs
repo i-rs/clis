@@ -423,6 +423,29 @@ type = "object"
         // Fallback: sync file I/O (no async needed for local fs reads)
         self.list_skills()
     }
+
+    /// Async version of [`executable_skills`].
+    pub async fn executable_skills_async(&self) -> Vec<SkillDefinition> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            return storage
+                .skills
+                .list_executable(&aid)
+                .await
+                .unwrap_or_default();
+        }
+        self.executable_skills()
+    }
+
+    /// Async version of [`format_skills`].
+    pub async fn format_skills_async(&self) -> String {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let entries = storage.skills.list(&aid).await.unwrap_or_default();
+            return format_skill_entries(&entries);
+        }
+        self.format_skills()
+    }
 }
 
 #[cfg(test)]

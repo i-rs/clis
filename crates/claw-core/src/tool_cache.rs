@@ -159,6 +159,20 @@ impl ToolDocCache {
         }
     }
 
+    /// Async version of [`save_hot_docs`].
+    pub async fn save_hot_docs_async(&self) {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let docs = self.hot_docs.clone();
+            if let Err(e) = storage.tool_cache.save(&aid, &docs).await {
+                tracing::error!("持久化写入失败: {}", e);
+            }
+            return;
+        }
+        // File fallback: sync file I/O (no async needed for local fs writes)
+        self.save_hot_docs();
+    }
+
     // --- File fallback ---
 
     fn cache_path(cache_dir: &Path) -> PathBuf {

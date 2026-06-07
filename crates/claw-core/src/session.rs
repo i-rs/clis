@@ -585,6 +585,13 @@ impl SessionManager {
             .unwrap_or(None)
     }
 
+    /// Async version of [`load_api_messages`].
+    pub async fn load_api_messages_async(&self, id: &str) -> Option<Vec<serde_json::Value>> {
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        storage.api_cache.load(&sid).await.unwrap_or(None)
+    }
+
     #[allow(dead_code)]
     fn ensure_current_session(&mut self) -> Option<String> {
         if self.current_id.is_some() {

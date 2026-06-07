@@ -216,10 +216,10 @@ async fn writer_task(
         match cmd {
             WriteCmd::RecordToolMemory { user_id, agent_id, tool_name, tool_args, tool_result, i_rs_index } => {
                 let mut c = core.write().await;
-                i_rs_claw_core::core::record_tool_memory(
+                i_rs_claw_core::core::record_tool_memory_async(
                     &user_id, &mut c.agent_store, &i_rs_index,
                     &agent_id, &tool_name, &tool_args, &tool_result,
-                );
+                ).await;
             }
             WriteCmd::RecordLayeredMemory { user_id, agent_id, tool_name, tool_result } => {
                 let mut c = core.write().await;
@@ -238,7 +238,7 @@ async fn writer_task(
                 c.session_mgr.save_api_messages_async(&session_id, &messages).await;
             }
             WriteCmd::EvaluateSession { session_id, reply } => {
-                let msg = core.write().await.evaluate_completed_session(&session_id);
+                let msg = core.write().await.evaluate_completed_session_async(&session_id).await;
                 let _ = reply.send(msg);
             }
             WriteCmd::FlushMemory { user_id, agent_id } => {
@@ -333,7 +333,7 @@ pub async fn chat(
 
         // Build messages and spawn chat_loop
         let records = core.session_mgr.load_app_messages_async(&sid, 50).await;
-        let msgs = core.build_messages_from_log(&records, &agent_id);
+        let msgs = core.build_messages_from_log_async(&records, &agent_id).await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -347,7 +347,7 @@ pub async fn chat(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
         drop(core);
         sid
     };
@@ -389,7 +389,7 @@ pub async fn chat_stream(
             .unwrap_or_else(|| "default".to_string());
 
         let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
-        let msgs = core.build_messages_from_log(&records, &agent_id);
+        let msgs = core.build_messages_from_log_async(&records, &agent_id).await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -403,7 +403,7 @@ pub async fn chat_stream(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
     }
 
     let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
@@ -456,7 +456,7 @@ pub async fn chat_stream_resume(
             .unwrap_or_else(|| "default".to_string());
 
         let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
-        let msgs = core.build_messages_from_log(&records, &agent_id);
+        let msgs = core.build_messages_from_log_async(&records, &agent_id).await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -470,7 +470,7 @@ pub async fn chat_stream_resume(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
     }
 
     let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
