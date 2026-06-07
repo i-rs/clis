@@ -1,4 +1,5 @@
 use crate::server::AppState;
+use crate::server::UserId;
 use i_rs_claw_core::llm::LlmEvent;
 #[cfg(feature = "dashboard")]
 use i_rs_claw_core::message::MessageAccumulator;
@@ -17,11 +18,12 @@ use tokio::sync::mpsc;
 fn build_sse_stream(
     rx: mpsc::UnboundedReceiver<LlmEvent>,
     state: AppState,
+    user_id: String,
     sid: String,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = futures_util::stream::unfold(
-        (Some(rx), state, sid, MessageAccumulator::new(), 0u64),
-        |(rx_opt, state, sid, mut acc, mut seq)| async move {
+        (Some(rx), state, user_id, sid, MessageAccumulator::new(), 0u64),
+        |(rx_opt, state, user_id, sid, mut acc, mut seq)| async move {
             let mut rx = rx_opt?;
             loop {
                 let event = rx.recv().await?;
@@ -35,11 +37,11 @@ fn build_sse_stream(
                         let agent_id = core.session_mgr.session_meta(&sid)
                             .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
                         i_rs_claw_core::core::record_tool_memory(
-                            "default", &mut core.agent_store, &i_rs_index, &agent_id, &name, &args, &result,
+                            &user_id, &mut core.agent_store, &i_rs_index, &agent_id, &name, &args, &result,
                         );
                         if !category.is_retryable_or_fatal() {
                             i_rs_claw_core::core::record_layered_tool_memory(
-                                "default", &mut core.agent_store, &agent_id, &name, &result,
+                                &user_id, &mut core.agent_store, &agent_id, &name, &result,
                             );
                         }
                         drop(core);
@@ -73,10 +75,11 @@ fn build_sse_stream(
                                 tracing::error!("quality 持久化失败: {}", e);
                             }
                         }
-                        core.agent_store.memory_for_mut("default", &agent_id)
+                        core.agent_store.memory_for_mut(&user_id, &agent_id)
                             .expect("BUG: default agent runtime not initialized")
                             .flush();
                         drop(core);
+                        state.chat_concurrency.release();
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         sse_event = Event::default().event("done").data(data).id(seq.to_string());
@@ -93,6 +96,7 @@ fn build_sse_stream(
                                 tracing::error!("persist_messages (error) 失败: {}", err);
                             }
                         }
+                        state.chat_concurrency.release();
                         sse_event = Event::default().event("error").data(e).id(seq.to_string());
                         keep_rx = false;
                     }
@@ -129,7 +133,7 @@ fn build_sse_stream(
                 }
                 seq += 1;
                 let (next_rx, next_acc) = if keep_rx { (Some(rx), acc) } else { (None, MessageAccumulator::new()) };
-                return Some((Ok::<_, Infallible>(sse_event), (next_rx, state, sid, next_acc, seq)));
+                return Some((Ok::<_, Infallible>(sse_event), (next_rx, state, user_id, sid, next_acc, seq)));
             }
         },
     );
@@ -141,6 +145,7 @@ fn build_sse_stream(
 #[allow(dead_code)]
 pub async fn send_message(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<Value>> {
     let text = match body.get("message").and_then(|v| v.as_str()) {
@@ -164,7 +169,7 @@ pub async fn send_message(
         .unwrap_or_default();
 
     if session_id.is_empty() {
-        core.session_mgr.create_session_for(&agent_id, "default");
+        core.session_mgr.create_session_for(&agent_id, &user_id);
     }
 
     let sid = match core.session_mgr.current_id() {
@@ -181,7 +186,7 @@ pub async fn send_message(
     }
 
     {
-        let layered = match core.agent_store.layered_memory_for_mut("default", &agent_id) {
+        let layered = match core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
             Ok(l) => l,
             Err(e) => {
                 tracing::error!(error = %e, "agent lookup failed");
@@ -204,11 +209,18 @@ pub async fn send_message(
 /// Unifies send_message + chat_stream into one endpoint.
 pub async fn chat(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> axum::response::Response {
+    if let Err(e) = state.chat_concurrency.try_acquire() {
+        let err = serde_json::json!({"success": false, "error": e});
+        return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
+    }
+
     let text = match body.get("message").and_then(|v| v.as_str()) {
         Some(t) => t.to_string(),
         None => {
+            state.chat_concurrency.release();
             let err = serde_json::json!({"success": false, "error": "Missing 'message'"});
             return (axum::http::StatusCode::BAD_REQUEST, axum::Json(err)).into_response();
         }
@@ -232,7 +244,7 @@ pub async fn chat(
             .unwrap_or_default();
 
         if session_id.is_empty() {
-            core.session_mgr.create_session_for(&agent_id, "default");
+            core.session_mgr.create_session_for(&agent_id, &user_id);
         }
 
         let sid = core
@@ -241,7 +253,7 @@ pub async fn chat(
             .map(|id| id.to_string())
             .unwrap_or_else(|| {
                 // Fallback: create a fresh session
-                core.session_mgr.create_session_for(&agent_id, "default");
+                core.session_mgr.create_session_for(&agent_id, &user_id);
                 core.session_mgr
                     .current_id()
                     .map(|id| id.to_string())
@@ -255,10 +267,11 @@ pub async fn chat(
         }
 
         {
-            let layered = match core.agent_store.layered_memory_for_mut("default", &agent_id) {
+            let layered = match core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
                 Ok(l) => l,
                 Err(e) => {
                     tracing::error!(error = %e, "agent lookup failed");
+                    state.chat_concurrency.release();
                     let err = serde_json::json!({"success": false, "error": format!("Agent not initialized: {}", e)});
                     return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err)).into_response();
                 }
@@ -287,12 +300,13 @@ pub async fn chat(
         sid
     };
 
-    build_sse_stream(rx, state.clone(), sid).into_response()
+    build_sse_stream(rx, state.clone(), user_id, sid).into_response()
 }
 
 /// Legacy SSE stream endpoint (backward compatible).
 pub async fn chat_stream(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(session_id): Path<String>,
 ) -> axum::response::Response {
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
@@ -325,7 +339,7 @@ pub async fn chat_stream(
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
     }
 
-    build_sse_stream(rx, state.clone(), session_id).into_response()
+    build_sse_stream(rx, state.clone(), user_id, session_id).into_response()
 }
 
 /// Resume an SSE stream after disconnection.
@@ -333,6 +347,7 @@ pub async fn chat_stream(
 /// Returns a fresh stream. Client handles deduplication via event IDs.
 pub async fn chat_stream_resume(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(session_id): Path<String>,
     Query(query): Query<ResumeQuery>,
 ) -> axum::response::Response {
@@ -368,7 +383,7 @@ pub async fn chat_stream_resume(
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
     }
 
-    build_sse_stream(rx, state.clone(), session_id).into_response()
+    build_sse_stream(rx, state.clone(), user_id, session_id).into_response()
 }
 
 #[derive(Deserialize)]

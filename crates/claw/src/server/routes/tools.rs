@@ -1,4 +1,5 @@
 use crate::server::AppState;
+use crate::server::UserId;
 use axum::{
     Json,
     extract::State,
@@ -44,9 +45,10 @@ pub async fn list_plugins(State(_state): State<AppState>) -> Json<super::ApiResp
 /// List user-defined skills with parsed metadata.
 pub async fn list_skills(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
 ) -> Json<super::ApiResponse<Vec<i_rs_claw_core::skill_store::SkillDefinition>>> {
     let core = state.core.read().await;
-    let store = match core.agent_store.skill_store_for("default", "default") {
+    let store = match core.agent_store.skill_store_for(&user_id, "default") {
         Ok(s) => s,
         Err(e) => {
             tracing::error!(error = %e, "agent lookup failed");

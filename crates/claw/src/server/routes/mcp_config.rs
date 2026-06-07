@@ -1,4 +1,5 @@
 use crate::server::AppState;
+use crate::server::UserId;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -14,13 +15,14 @@ pub struct McpListQuery {
 /// GET /api/mcp — List MCP server configs. Query: ?agent_id=xxx
 pub async fn list_mcp_configs(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Query(query): Query<McpListQuery>,
 ) -> Json<super::ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     match core
         .config_store
         .mcp_servers
-        .load_for("default", query.agent_id.as_deref())
+        .load_for(&user_id, query.agent_id.as_deref())
         .await
     {
         Ok(rows) => {
@@ -48,6 +50,7 @@ pub async fn list_mcp_configs(
 /// POST /api/mcp — Create a new MCP server config.
 pub async fn create_mcp_config(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<Value>> {
     let name = match body.get("name").and_then(|v| v.as_str()) {
@@ -57,7 +60,7 @@ pub async fn create_mcp_config(
 
     let core = state.core.read().await;
     let row = i_rs_claw_core::storage::config_store::McpServerConfigRow {
-        user_id: "default".to_string(),
+        user_id: user_id,
         agent_id: body.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
         name,
         transport_type: body
@@ -84,13 +87,14 @@ pub async fn create_mcp_config(
 /// PUT /api/mcp/{name} — Update an MCP server config. Query: ?agent_id=xxx
 pub async fn update_mcp_config(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(name): Path<String>,
     Query(query): Query<McpListQuery>,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let row = i_rs_claw_core::storage::config_store::McpServerConfigRow {
-        user_id: "default".to_string(),
+        user_id: user_id,
         agent_id: query.agent_id.or_else(|| {
             body.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string())
         }),
@@ -119,6 +123,7 @@ pub async fn update_mcp_config(
 /// DELETE /api/mcp/{name} — Delete an MCP server config. Query: ?agent_id=xxx
 pub async fn delete_mcp_config(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(name): Path<String>,
     Query(query): Query<McpListQuery>,
 ) -> Json<super::ApiResponse<Value>> {
@@ -126,7 +131,7 @@ pub async fn delete_mcp_config(
     match core
         .config_store
         .mcp_servers
-        .delete("default", query.agent_id.as_deref(), &name)
+        .delete(&user_id, query.agent_id.as_deref(), &name)
         .await
     {
         Ok(_) => super::ApiResponse::ok(serde_json::json!({

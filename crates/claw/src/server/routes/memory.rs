@@ -1,4 +1,5 @@
 use crate::server::AppState;
+use crate::server::UserId;
 use axum::{
     Json,
     extract::{Query, State},
@@ -20,11 +21,12 @@ pub struct MemorySearchQuery {
 
 pub async fn get_layered_memory(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Query(query): Query<MemoryQuery>,
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let agent_id = query.agent_id.as_deref().unwrap_or("default");
-    let layered = match core.agent_store.layered_memory_for("default", agent_id) {
+    let layered = match core.agent_store.layered_memory_for(&user_id, agent_id) {
         Ok(l) => l,
         Err(e) => {
             tracing::error!(error = %e, "agent lookup failed");
@@ -45,6 +47,7 @@ pub async fn get_layered_memory(
 
 pub async fn clear_layered_memory(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<&'static str>> {
     let mut core = state.core.write().await;
@@ -52,7 +55,7 @@ pub async fn clear_layered_memory(
         .get("agent_id")
         .and_then(|v| v.as_str())
         .unwrap_or("default");
-    let layered = match core.agent_store.layered_memory_for_mut("default", agent_id) {
+    let layered = match core.agent_store.layered_memory_for_mut(&user_id, agent_id) {
         Ok(l) => l,
         Err(e) => {
             tracing::error!(error = %e, "agent lookup failed");
@@ -68,11 +71,12 @@ pub async fn clear_layered_memory(
 
 pub async fn search_layered_memory(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Query(query): Query<MemorySearchQuery>,
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let agent_id = query.agent_id.as_deref().unwrap_or("default");
-    let layered = match core.agent_store.layered_memory_for("default", agent_id) {
+    let layered = match core.agent_store.layered_memory_for(&user_id, agent_id) {
         Ok(l) => l,
         Err(e) => {
             tracing::error!(error = %e, "agent lookup failed");

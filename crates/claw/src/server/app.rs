@@ -3,11 +3,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use owo_colors::OwoColorize;
 
+use crate::server::rate_limit::ChatConcurrency;
+
 /// Shared application state for all HTTP handlers.
 #[derive(Clone)]
 pub struct AppState {
     pub core: Arc<RwLock<i_rs_claw_core::core::AppCore>>,
     pub auth_token: String,
+    pub chat_concurrency: Arc<ChatConcurrency>,
 }
 
 impl AppState {
@@ -15,6 +18,7 @@ impl AppState {
         Self {
             core: Arc::new(RwLock::new(core)),
             auth_token,
+            chat_concurrency: Arc::new(ChatConcurrency::new(3)),
         }
     }
 }

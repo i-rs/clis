@@ -8,7 +8,9 @@
 pub mod app;
 pub mod assets;
 pub mod middleware;
+pub mod rate_limit;
 pub mod routes;
 
 pub use app::AppState;
 pub use app::run;
+pub use middleware::UserId;

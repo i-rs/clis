@@ -81,7 +81,6 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use axum::routing::get;
-    use tokio::sync::RwLock;
     use tower::ServiceExt;
 
     async fn ok_handler() -> &'static str {
@@ -90,10 +89,7 @@ mod tests {
 
     fn test_state() -> AppState {
         let (_cfg, core) = crate::test_helpers::test_core();
-        AppState {
-            core: std::sync::Arc::new(RwLock::new(core)),
-            auth_token: "secret".to_string(),
-        }
+        AppState::new(core, "secret".to_string())
     }
 
     fn run_auth_test<F, Fut>(name: &str, f: F)

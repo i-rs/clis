@@ -1,4 +1,5 @@
 use crate::server::AppState;
+use crate::server::UserId;
 use i_rs_claw_core::providers::ProviderKind;
 use axum::{
     Json,
@@ -166,6 +167,7 @@ pub async fn update_agent(
 /// - `enabled_tools`: list of tool names to enable (empty = all)
 pub async fn create_agent(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<Value>> {
     let agent_id = match body.get("id").and_then(|v| v.as_str()) {
@@ -258,7 +260,7 @@ pub async fn create_agent(
     let row_caps = agent_config_clone.capabilities.clone();
     let row_execution = agent_config_clone.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
     let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
-        user_id: "default".into(),
+        user_id: user_id.into(),
         agent_id: agent_id.clone(),
         provider_ref: row_provider_ref,
         provider: row_provider,
@@ -283,6 +285,7 @@ pub async fn create_agent(
 /// Delete an agent profile. Cannot delete "default".
 pub async fn delete_agent(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(id): Path<String>,
 ) -> Json<super::ApiResponse<Value>> {
     if id == "default" {
@@ -305,7 +308,7 @@ pub async fn delete_agent(
     }
 
     // Also delete from ConfigStore
-    let _ = core.config_store.agent_configs.delete("default", &id).await;
+    let _ = core.config_store.agent_configs.delete(&user_id, &id).await;
 
     super::ApiResponse::ok(serde_json::json!({
         "id": id,

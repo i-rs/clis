@@ -66,10 +66,16 @@ mod tests {
     use crate::server::AppState;
     use axum::extract::{Path, State};
 
+use crate::server::UserId;
+
     /// Creates a test AppState.
     fn new_test_state() -> AppState {
         let (_cfg, core) = crate::test_helpers::test_core();
         AppState::new(core, "test-token".to_string())
+    }
+
+    fn test_uid() -> UserId {
+        UserId("default".to_string())
     }
 
     fn run_state_test<F, Fut>(name: &str, f: F)
@@ -151,6 +157,7 @@ mod tests {
         run_state_test("test_create_session_returns_id", |state| async move {
             let result = create_session(
                 State(state),
+                test_uid(),
                 Some(Json(serde_json::json!({"agent_id": "default"}))),
             ).await;
             assert!(result.success, "create_session should succeed");
@@ -166,7 +173,7 @@ mod tests {
     #[test]
     fn test_create_session_default_agent() {
         run_state_test("test_create_session_default_agent", |state| async move {
-            let result = create_session(State(state), None).await;
+            let result = create_session(State(state), test_uid(), None).await;
             assert!(result.success);
             let data = result.0.data.unwrap();
             assert_eq!(data["agent_id"], "default");
@@ -178,6 +185,7 @@ mod tests {
         run_state_test("test_list_sessions_after_create", |state| async move {
             let _created = create_session(
                 State(state.clone()),
+                test_uid(),
                 Some(Json(serde_json::json!({"agent_id": "default"}))),
             ).await;
             let result = list_sessions(State(state)).await;
@@ -191,7 +199,7 @@ mod tests {
     #[test]
     fn test_send_message_missing_body() {
         run_state_test("test_send_message_missing_body", |state| async move {
-            let result = send_message(State(state), Json(serde_json::json!({}))).await;
+            let result = send_message(State(state), test_uid(), Json(serde_json::json!({}))).await;
             assert!(!result.success, "missing message should return error");
             assert_eq!(result.error, Some("Missing 'message' field".to_string()));
         });
@@ -202,6 +210,7 @@ mod tests {
         run_state_test("test_send_message_valid", |state| async move {
             let result = send_message(
                 State(state),
+                test_uid(),
                 Json(serde_json::json!({"message": "hello"})),
             ).await;
             assert!(result.success, "valid message should return success");
@@ -219,6 +228,7 @@ mod tests {
         run_state_test("test_send_message_with_agent_id", |state| async move {
             let result = send_message(
                 State(state),
+                test_uid(),
                 Json(serde_json::json!({"message": "hi", "agent_id": "default"})),
             ).await;
             assert!(result.success);
@@ -271,7 +281,7 @@ mod tests {
     #[test]
     fn test_list_skills_returns_list() {
         run_state_test("test_list_skills_returns_list", |state| async move {
-            let result = list_skills(State(state)).await;
+            let result = list_skills(State(state), test_uid()).await;
             assert!(result.success);
             let _skills = result.0.data.unwrap();
         });

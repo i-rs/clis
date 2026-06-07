@@ -1,4 +1,5 @@
 use crate::server::AppState;
+use crate::server::UserId;
 use axum::{
     Json,
     extract::{Path, State},
@@ -111,6 +112,7 @@ pub async fn get_current_session(State(state): State<AppState>) -> Json<super::A
 /// Create a new session and switch to it.
 pub async fn create_session(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     body: Option<Json<Value>>,
 ) -> Json<super::ApiResponse<Value>> {
     let agent_id = body
@@ -120,7 +122,7 @@ pub async fn create_session(
         .unwrap_or("default");
 
     let mut core = state.core.write().await;
-    let id = core.session_mgr.create_session_for(agent_id, "default");
+    let id = core.session_mgr.create_session_for(agent_id, &user_id);
     super::ApiResponse::ok(serde_json::json!({
         "id": id,
         "title": "",
@@ -190,6 +192,7 @@ pub async fn get_session(
 /// Delete a session.
 pub async fn delete_session(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(id): Path<String>,
 ) -> Json<super::ApiResponse<&'static str>> {
     let mut core = state.core.write().await;
@@ -200,7 +203,7 @@ pub async fn delete_session(
         .unwrap_or_else(|| "default".to_string());
     core.session_mgr.delete_session(&id);
     {
-        let layered = match core.agent_store.layered_memory_for_mut("default", &agent_id) {
+        let layered = match core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
             Ok(l) => l,
             Err(e) => {
                 tracing::error!(error = %e, "agent lookup failed");
@@ -217,6 +220,7 @@ pub async fn delete_session(
 /// POST /api/sessions/{id}/feedback — record user feedback (thumbs up/down).
 pub async fn post_session_feedback(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(id): Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Json<super::ApiResponse<&'static str>> {
@@ -235,7 +239,7 @@ pub async fn post_session_feedback(
 
     // Record in cross-session memory
     core.agent_store
-        .memory_for_mut("default", &agent_id)
+        .memory_for_mut(&user_id, &agent_id)
         .expect("BUG: default agent runtime not initialized")
         .record_session_feedback(&id, positive);
 
@@ -248,7 +252,7 @@ pub async fn post_session_feedback(
         tracing::error!("feedback persist failed: {}", e);
     }
 
-    core.agent_store.memory_for_mut("default", &agent_id)
+    core.agent_store.memory_for_mut(&user_id, &agent_id)
         .expect("BUG: default agent runtime not initialized")
         .flush();
     drop(core);
