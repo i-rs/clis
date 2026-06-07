@@ -36,3 +36,11 @@ async fn skill() -> anyhow::Result<()> {
     let fs = helpers::file_storage().await;
     contracts::skill::run(&fs.storage).await
 }
+
+#[tokio::test]
+async fn config_store() -> anyhow::Result<()> {
+    use i_rs_claw_core::storage::config_store::ConfigStore;
+    let dir = tempfile::tempdir().unwrap();
+    let store = ConfigStore::file(dir.path().join("claw"));
+    contracts::config_store::run_config(&store).await
+}

@@ -36,3 +36,12 @@ async fn skill() -> anyhow::Result<()> {
     let (storage, _dir) = helpers::sqlite_storage().await;
     contracts::skill::run(&storage).await
 }
+
+#[tokio::test]
+async fn config_store() -> anyhow::Result<()> {
+    use i_rs_claw_core::storage::sql::sqlite::SqliteBackend;
+    let dir = tempfile::tempdir().unwrap();
+    let backend = SqliteBackend::new(dir.path().join("test.db")).await.unwrap();
+    let store = backend.into_config_store();
+    contracts::config_store::run_config(&store).await
+}
