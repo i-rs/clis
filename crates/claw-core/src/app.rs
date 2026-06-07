@@ -108,7 +108,8 @@ pub fn evaluate_response_heuristic(
 
     let has_errors = !issues.is_empty();
     let score = if has_errors {
-        Some(1.0 - (issues.len() as f64 * 0.2).min(0.8))
+        let raw = 1.0 - (issues.len() as f64 * 0.2).min(0.8);
+        Some((raw * 100.0).round() / 100.0)
     } else if complete {
         Some(1.0)
     } else {
