@@ -109,7 +109,11 @@ impl AgentRuntimeStore {
         }
     }
 
-    fn get_or_init(&mut self, user_id: &str, agent_id: &str) -> &mut AgentRuntime {
+    fn get_or_init(
+        &mut self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&mut AgentRuntime, crate::error::ClawError> {
         let key = runtime_key(user_id, agent_id);
         if !self.runtimes.contains_key(&key) {
             let src_key = if self.runtimes.contains_key(&runtime_key("default", agent_id)) {
@@ -128,59 +132,102 @@ impl AgentRuntimeStore {
                 self.runtimes.insert(key.clone(), cloned);
             }
         }
-        match self.runtimes.get_mut(&key) {
-            Some(rt) => rt,
-            None => panic!("AgentRuntimeStore: ({user_id}, {agent_id}) not found"),
-        }
-    }
-
-    fn get_ref(&self, user_id: &str, agent_id: &str) -> &AgentRuntime {
-        let key = runtime_key(user_id, agent_id);
-        self.runtimes.get(&key).unwrap_or_else(|| {
-            self.runtimes.get(&runtime_key("default", agent_id))
-                .or_else(|| self.runtimes.get(&runtime_key("default", "default")))
-                .expect("AgentRuntimeStore: 'default' agent not found")
+        self.runtimes.get_mut(&key).ok_or_else(|| {
+            crate::error::ClawError::NotFound(format!(
+                "AgentRuntimeStore: (user='{}', agent='{}') not found and no 'default' fallback initialized",
+                user_id, agent_id
+            ))
         })
     }
 
-    pub fn memory_for(&self, user_id: &str, agent_id: &str) -> &CrossSessionMemory {
-        &self.get_ref(user_id, agent_id).memory
+    fn get_ref(
+        &self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&AgentRuntime, crate::error::ClawError> {
+        let key = runtime_key(user_id, agent_id);
+        self.runtimes
+            .get(&key)
+            .or_else(|| self.runtimes.get(&runtime_key("default", agent_id)))
+            .or_else(|| self.runtimes.get(&runtime_key("default", "default")))
+            .ok_or_else(|| {
+                crate::error::ClawError::NotFound(format!(
+                    "AgentRuntimeStore: (user='{}', agent='{}') not found and no 'default' fallback initialized",
+                    user_id, agent_id
+                ))
+            })
     }
 
-    pub fn memory_for_mut(&mut self, user_id: &str, agent_id: &str) -> &mut CrossSessionMemory {
-        &mut self.get_or_init(user_id, agent_id).memory
+    pub fn memory_for(
+        &self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&CrossSessionMemory, crate::error::ClawError> {
+        Ok(&self.get_ref(user_id, agent_id)?.memory)
     }
 
-    pub fn tool_cache_for(&self, user_id: &str, agent_id: &str) -> &ToolDocCache {
-        &self.get_ref(user_id, agent_id).tool_cache
+    pub fn memory_for_mut(
+        &mut self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&mut CrossSessionMemory, crate::error::ClawError> {
+        Ok(&mut self.get_or_init(user_id, agent_id)?.memory)
     }
 
-    pub fn tool_cache_for_mut(&mut self, user_id: &str, agent_id: &str) -> &mut ToolDocCache {
-        &mut self.get_or_init(user_id, agent_id).tool_cache
+    pub fn tool_cache_for(
+        &self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&ToolDocCache, crate::error::ClawError> {
+        Ok(&self.get_ref(user_id, agent_id)?.tool_cache)
     }
 
-    pub fn skill_store_for(&self, user_id: &str, agent_id: &str) -> &SkillStore {
-        &self.get_ref(user_id, agent_id).skill_store
+    pub fn tool_cache_for_mut(
+        &mut self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&mut ToolDocCache, crate::error::ClawError> {
+        Ok(&mut self.get_or_init(user_id, agent_id)?.tool_cache)
     }
 
-    pub fn mcp_registry_for(&self, user_id: &str, agent_id: &str) -> &McpRegistry {
-        &self.get_ref(user_id, agent_id).mcp_registry
+    pub fn skill_store_for(
+        &self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&SkillStore, crate::error::ClawError> {
+        Ok(&self.get_ref(user_id, agent_id)?.skill_store)
     }
 
-    pub fn mcp_registry_for_mut(&mut self, user_id: &str, agent_id: &str) -> &mut McpRegistry {
-        &mut self.get_or_init(user_id, agent_id).mcp_registry
+    pub fn mcp_registry_for(
+        &self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&McpRegistry, crate::error::ClawError> {
+        Ok(&self.get_ref(user_id, agent_id)?.mcp_registry)
+    }
+
+    pub fn mcp_registry_for_mut(
+        &mut self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&mut McpRegistry, crate::error::ClawError> {
+        Ok(&mut self.get_or_init(user_id, agent_id)?.mcp_registry)
     }
 
     pub fn layered_memory_for(
-        &self, user_id: &str, agent_id: &str,
-    ) -> &crate::core::layered_memory::LayeredMemory {
-        &self.get_ref(user_id, agent_id).layered_memory
+        &self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&crate::core::layered_memory::LayeredMemory, crate::error::ClawError> {
+        Ok(&self.get_ref(user_id, agent_id)?.layered_memory)
     }
 
     pub fn layered_memory_for_mut(
-        &mut self, user_id: &str, agent_id: &str,
-    ) -> &mut crate::core::layered_memory::LayeredMemory {
-        &mut self.get_or_init(user_id, agent_id).layered_memory
+        &mut self,
+        user_id: &str,
+        agent_id: &str,
+    ) -> Result<&mut crate::core::layered_memory::LayeredMemory, crate::error::ClawError> {
+        Ok(&mut self.get_or_init(user_id, agent_id)?.layered_memory)
     }
 
     /// Refresh MCP registries for all agents (e.g. after plugin discovery).
@@ -527,7 +574,8 @@ impl AppCore {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
 
-        let memory = self.agent_store.memory_for("default", agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id)
+            .expect("BUG: default agent runtime not initialized");
 
         let identity = if let Some(nick) = memory.assistant_nickname() {
             format!("用户称呼你为{}，以这个身份与用户对话。", nick)
@@ -562,13 +610,15 @@ impl AppCore {
             hot_tools: &self
                 .agent_store
                 .tool_cache_for("default", agent_id)
+                .expect("BUG: default agent runtime not initialized")
                 .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
-            skills: &self.agent_store.skill_store_for("default", agent_id).format_skills(),
+            skills: &self.agent_store.skill_store_for("default", agent_id).expect("BUG: default agent runtime not initialized").format_skills(),
             user_memory: &{
                 let base = memory.format_user_memory();
                 let layered = self
                     .agent_store
                     .layered_memory_for("default", agent_id)
+                    .expect("BUG: default agent runtime not initialized")
                     .format_for_prompt();
                 if base.is_empty() {
                     layered
@@ -613,7 +663,13 @@ impl AppCore {
         recent_messages: &[Value],
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
-            self.prepare_chat_loop(agent_id);
+            match self.prepare_chat_loop(agent_id) {
+                Ok(p) => p,
+                Err(e) => {
+                    let _ = llm_tx.send(LlmEvent::Error(format!("Failed to prepare chat loop: {}", e)));
+                    return;
+                }
+            };
         let delegate_rt =
             self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
         let checkpoint_store = self.checkpoint_store.clone();
@@ -645,14 +701,14 @@ impl AppCore {
     fn prepare_chat_loop(
         &self,
         agent_id: &str,
-    ) -> (
+    ) -> Result<(
         Box<dyn crate::providers::LlmProvider>,
         Config,
         McpRegistry,
         Vec<SkillDefinition>,
         HashMap<String, usize>,
         reqwest::Client,
-    ) {
+    ), crate::error::ClawError> {
         let agent = self
             .config
             .agents
@@ -691,25 +747,25 @@ impl AppCore {
             agent_config.enabled_tools = tools.clone();
         }
 
-        let mcp = self.agent_store.mcp_registry_for("default", agent_id).clone();
+        let mcp = self.agent_store.mcp_registry_for("default", agent_id)?.clone();
         let skills = self
             .agent_store
-            .skill_store_for("default", agent_id)
+            .skill_store_for("default", agent_id)?
             .executable_skills();
         let tool_frequency = self
             .agent_store
-            .memory_for("default", agent_id)
+            .memory_for("default", agent_id)?
             .tool_frequency()
             .clone();
         let http_client = self.http_client.clone();
-        (
+        Ok((
             provider,
             agent_config,
             mcp,
             skills,
             tool_frequency,
             http_client,
-        )
+        ))
     }
 
     fn build_delegate_runtime(
@@ -718,7 +774,8 @@ impl AppCore {
         parent_tx: mpsc::UnboundedSender<LlmEvent>,
         recent_messages: Vec<serde_json::Value>,
     ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
-        let memory = self.agent_store.memory_for("default", agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id)
+            .expect("BUG: default agent runtime not initialized");
         let nickname = memory.assistant_nickname().map(|s| s.to_string());
         let user_identity = if let Some(ref nick) = nickname {
             format!("用户称呼你为{}，以这个身份与用户对话。", nick)
@@ -727,10 +784,12 @@ impl AppCore {
         };
         std::sync::Arc::new(crate::tools::DelegateRuntime {
             irs_tool_index: self.config.i_rs_tool_index.clone(),
-            mcp_registry: self.agent_store.mcp_registry_for("default", agent_id).clone(),
+            mcp_registry: self.agent_store.mcp_registry_for("default", agent_id)
+                .expect("BUG: default agent runtime not initialized").clone(),
             skills: self
                 .agent_store
                 .skill_store_for("default", agent_id)
+                .expect("BUG: default agent runtime not initialized")
                 .executable_skills(),
             tool_frequency: memory.tool_frequency().clone(),
             parent_tx,
@@ -775,7 +834,8 @@ impl AppCore {
     /// Compress API messages after a conversation turn completes.
     /// Uses ContextManager for adaptive token-aware compression.
     pub fn compress_api_messages(&self, msgs: &mut Vec<Value>, agent_id: &str) {
-        let memory = self.agent_store.memory_for("default", agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id)
+            .expect("BUG: default agent runtime not initialized");
         let resolved = self.config.agent_config(agent_id);
         let ctx_mgr = context::ContextManager::for_model(&resolved.model);
         ctx_mgr.compress(msgs, memory.tool_frequency());
@@ -915,7 +975,8 @@ impl AppCore {
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
-        let memory = self.agent_store.memory_for("default", agent_id);
+        let memory = self.agent_store.memory_for("default", agent_id)
+            .expect("BUG: default agent runtime not initialized");
 
         let nickname = memory.assistant_nickname().map(|s| s.to_string());
         let identity = if let Some(ref nick) = nickname {
@@ -932,8 +993,9 @@ impl AppCore {
                 &self
                     .agent_store
                     .tool_cache_for("default", agent_id)
+                    .expect("BUG: default agent runtime not initialized")
                     .format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>()),
-                &self.agent_store.skill_store_for("default", agent_id).format_skills(),
+                &self.agent_store.skill_store_for("default", agent_id).expect("BUG: default agent runtime not initialized").format_skills(),
                 &memory.format_user_memory(),
                 &memory.format_user_profile(),
                 self.config.execution_mode == crate::config::ExecutionMode::PlanThenExecute,
@@ -996,7 +1058,13 @@ impl AppCore {
         recent_messages: &[Value],
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
-            self.prepare_chat_loop(agent_id);
+            match self.prepare_chat_loop(agent_id) {
+                Ok(p) => p,
+                Err(e) => {
+                    let _ = llm_tx.send(LlmEvent::Error(format!("Failed to prepare chat loop: {}", e)));
+                    return;
+                }
+            };
         let delegate_rt =
             self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
         let checkpoint_store = self.checkpoint_store.clone();
@@ -1064,7 +1132,9 @@ pub fn record_tool_memory(user_id: &str,
     if name == "i_rs" {
         track_i_rs_usage(user_id, agent_store, i_rs_tool_index, agent_id, args, result);
     } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
-        agent_store.memory_for_mut("default", agent_id).record_tool_use(name);
+        agent_store.memory_for_mut("default", agent_id)
+            .expect("BUG: default agent runtime not initialized")
+            .record_tool_use(name);
     }
 }
 
@@ -1077,19 +1147,24 @@ fn persist_user_memory(_user_id: &str, agent_store: &mut AgentRuntimeStore, agen
         {
             agent_store
                 .memory_for_mut("default", agent_id)
+                .expect("BUG: default agent runtime not initialized")
                 .set_user_name(user_name);
         }
         if let Some(info) = parsed.get("user_info").and_then(|v| v.as_array()) {
             for item in info {
                 if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                    agent_store.memory_for_mut("default", agent_id).add_user_info(s);
+                    agent_store.memory_for_mut("default", agent_id)
+                        .expect("BUG: default agent runtime not initialized")
+                        .add_user_info(s);
                 }
             }
         }
         if let Some(prefs) = parsed.get("preferences").and_then(|v| v.as_array()) {
             for item in prefs {
                 if let Some(s) = item.as_str().filter(|s| !s.is_empty()) {
-                    agent_store.memory_for_mut("default", agent_id).add_preference(s);
+                    agent_store.memory_for_mut("default", agent_id)
+                        .expect("BUG: default agent runtime not initialized")
+                        .add_preference(s);
                 }
             }
         }
@@ -1100,6 +1175,7 @@ fn persist_user_memory(_user_id: &str, agent_store: &mut AgentRuntimeStore, agen
         {
             agent_store
                 .memory_for_mut("default", agent_id)
+                .expect("BUG: default agent runtime not initialized")
                 .set_assistant_nickname(nick);
         }
     }
@@ -1116,7 +1192,9 @@ fn track_i_rs_usage(_user_id: &str,
         && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
     {
         if i_rs_tool_index.contains_key(tool) {
-            agent_store.memory_for_mut("default", agent_id).record_tool_use(tool);
+            agent_store.memory_for_mut("default", agent_id)
+                .expect("BUG: default agent runtime not initialized")
+                .record_tool_use(tool);
         }
         let cmd = parsed.get("command").and_then(|c| c.as_str());
         if cmd == Some("skill")
@@ -1126,7 +1204,8 @@ fn track_i_rs_usage(_user_id: &str,
                 .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
                 .unwrap_or(false)
         {
-            let cache = agent_store.tool_cache_for_mut("default", agent_id);
+            let cache = agent_store.tool_cache_for_mut("default", agent_id)
+                .expect("BUG: default agent runtime not initialized");
             cache.hot_docs.insert(tool.to_string(), result.to_string());
             cache.save_hot_docs();
         }
@@ -1139,7 +1218,8 @@ pub fn record_layered_tool_memory(_user_id: &str,
     name: &str,
     result: &str,
 ) {
-    let layered = agent_store.layered_memory_for_mut("default", agent_id);
+    let layered = agent_store.layered_memory_for_mut("default", agent_id)
+        .expect("BUG: default agent runtime not initialized");
     layered.record_tool_result(name, result);
 }
 
@@ -1175,8 +1255,10 @@ mod tests {
         let store = AgentRuntimeStore::new(&config, dir.path());
 
         // 默认应包含 "default" agent
-        let default_memory = store.memory_for("default", "default");
-        let default_skills = store.skill_store_for("default", "default");
+        let default_memory = store.memory_for("default", "default")
+            .expect("test setup invariant");
+        let default_skills = store.skill_store_for("default", "default")
+            .expect("test setup invariant");
         let _ = default_memory;
         let _ = default_skills;
     }

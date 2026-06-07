@@ -46,7 +46,13 @@ pub async fn list_skills(
     State(state): State<AppState>,
 ) -> Json<super::ApiResponse<Vec<i_rs_claw_core::skill_store::SkillDefinition>>> {
     let core = state.core.read().await;
-    let store = core.agent_store.skill_store_for("default", "default");
+    let store = match core.agent_store.skill_store_for("default", "default") {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!(error = %e, "agent lookup failed");
+            return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
+        }
+    };
     let entries = store.list_skills();
     let skills: Vec<i_rs_claw_core::skill_store::SkillDefinition> = entries
         .iter()

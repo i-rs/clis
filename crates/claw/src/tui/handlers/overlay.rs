@@ -285,6 +285,7 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                     .app_core
                     .agent_store
                     .memory_for_mut("default", agent_id)
+                    .expect("BUG: default agent runtime not initialized")
                     .analyze_sessions(
                         handler.app_core.session_mgr.sessions(),
                         &handler.app_core.session_mgr,
@@ -605,7 +606,8 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
             let store = handler
                 .app_core
                 .agent_store
-                .skill_store_for("default", &handler.app.current_agent);
+                .skill_store_for("default", &handler.app.current_agent)
+                .expect("BUG: default agent runtime not initialized");
             handler.app.skill_list = store.list_skills();
             let plugin_mgr = i_rs_claw_core::plugin::PluginManager::new();
             handler.app.plugin_list = plugin_mgr
@@ -659,7 +661,8 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
                 let memory = handler
                     .app_core
                     .agent_store
-                    .memory_for_mut("default", &handler.app.current_agent);
+                    .memory_for_mut("default", &handler.app.current_agent)
+                    .expect("BUG: default agent runtime not initialized");
                 memory.analyze_sessions(
                     handler.app_core.session_mgr.sessions(),
                     &handler.app_core.session_mgr,

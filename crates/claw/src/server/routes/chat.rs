@@ -73,7 +73,9 @@ fn build_sse_stream(
                                 tracing::error!("quality 持久化失败: {}", e);
                             }
                         }
-                        core.agent_store.memory_for_mut("default", &agent_id).flush();
+                        core.agent_store.memory_for_mut("default", &agent_id)
+                            .expect("BUG: default agent runtime not initialized")
+                            .flush();
                         drop(core);
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
@@ -179,7 +181,13 @@ pub async fn send_message(
     }
 
     {
-        let layered = core.agent_store.layered_memory_for_mut("default", &agent_id);
+        let layered = match core.agent_store.layered_memory_for_mut("default", &agent_id) {
+            Ok(l) => l,
+            Err(e) => {
+                tracing::error!(error = %e, "agent lookup failed");
+                return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
+            }
+        };
         layered.record_user_statement(&text);
     }
 
@@ -247,7 +255,14 @@ pub async fn chat(
         }
 
         {
-            let layered = core.agent_store.layered_memory_for_mut("default", &agent_id);
+            let layered = match core.agent_store.layered_memory_for_mut("default", &agent_id) {
+                Ok(l) => l,
+                Err(e) => {
+                    tracing::error!(error = %e, "agent lookup failed");
+                    let err = serde_json::json!({"success": false, "error": format!("Agent not initialized: {}", e)});
+                    return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err)).into_response();
+                }
+            };
             layered.record_user_statement(&text);
         }
 

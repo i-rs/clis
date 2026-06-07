@@ -24,7 +24,13 @@ pub async fn get_layered_memory(
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let agent_id = query.agent_id.as_deref().unwrap_or("default");
-    let layered = core.agent_store.layered_memory_for("default", agent_id);
+    let layered = match core.agent_store.layered_memory_for("default", agent_id) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!(error = %e, "agent lookup failed");
+            return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
+        }
+    };
     let summary = layered.format_for_prompt();
     let fact_count = layered.long_term.facts.len();
     let entity_count = layered.working.entities.len();
@@ -46,7 +52,13 @@ pub async fn clear_layered_memory(
         .get("agent_id")
         .and_then(|v| v.as_str())
         .unwrap_or("default");
-    let layered = core.agent_store.layered_memory_for_mut("default", agent_id);
+    let layered = match core.agent_store.layered_memory_for_mut("default", agent_id) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!(error = %e, "agent lookup failed");
+            return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
+        }
+    };
     layered.working.clear();
     layered.long_term.facts.clear();
     layered.summaries.clear();
@@ -60,7 +72,13 @@ pub async fn search_layered_memory(
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let agent_id = query.agent_id.as_deref().unwrap_or("default");
-    let layered = core.agent_store.layered_memory_for("default", agent_id);
+    let layered = match core.agent_store.layered_memory_for("default", agent_id) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!(error = %e, "agent lookup failed");
+            return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
+        }
+    };
 
     let facts: Vec<Value> = if let Some(ref q) = query.q {
         layered

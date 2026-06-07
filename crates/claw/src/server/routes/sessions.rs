@@ -200,7 +200,14 @@ pub async fn delete_session(
         .unwrap_or_else(|| "default".to_string());
     core.session_mgr.delete_session(&id);
     {
-        let layered = core.agent_store.layered_memory_for_mut("default", &agent_id);
+        let layered = match core.agent_store.layered_memory_for_mut("default", &agent_id) {
+            Ok(l) => l,
+            Err(e) => {
+                tracing::error!(error = %e, "agent lookup failed");
+                drop(core);
+                return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
+            }
+        };
         layered.end_session();
     }
     drop(core);
@@ -229,6 +236,7 @@ pub async fn post_session_feedback(
     // Record in cross-session memory
     core.agent_store
         .memory_for_mut("default", &agent_id)
+        .expect("BUG: default agent runtime not initialized")
         .record_session_feedback(&id, positive);
 
     // Append feedback to session via SessionManager.
@@ -240,7 +248,9 @@ pub async fn post_session_feedback(
         tracing::error!("feedback persist failed: {}", e);
     }
 
-    core.agent_store.memory_for_mut("default", &agent_id).flush();
+    core.agent_store.memory_for_mut("default", &agent_id)
+        .expect("BUG: default agent runtime not initialized")
+        .flush();
     drop(core);
 
     super::ApiResponse::ok("ok")

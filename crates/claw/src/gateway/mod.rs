@@ -232,7 +232,8 @@ impl GatewayServer {
             let resolved = core.config.agent_config(&agent_id_owned);
             let mut agent_config = core.config.clone();
             agent_config.enabled_tools = resolved.enabled_tools;
-            let mcp = core.agent_store.mcp_registry_for("default", &agent_id_owned).clone();
+            let mcp = core.agent_store.mcp_registry_for("default", &agent_id_owned)
+                .expect("BUG: default agent runtime not initialized").clone();
 
             (uuid, session_title, msgs, agent_config, mcp)
         };

@@ -335,6 +335,7 @@ impl<'a> LlmEventHandler<'a> {
         self.app_core
             .agent_store
             .memory_for_mut("default", &self.app.current_agent)
+            .expect("BUG: default agent runtime not initialized")
             .flush();
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
