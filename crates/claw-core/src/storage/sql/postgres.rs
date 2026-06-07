@@ -31,6 +31,17 @@ impl PgBackend {
         }
     }
 
+    pub fn into_config_store(self) -> super::config_store::ConfigStore {
+        let arc = Arc::new(self);
+        super::config_store::ConfigStore {
+            agent_configs: Box::new(PgAgentConfigStore { db: arc.clone() }),
+            provider_configs: Box::new(PgProviderConfigStore { db: arc.clone() }),
+            dashboard_users: Box::new(PgDashboardUserStore { db: arc.clone() }),
+            mcp_servers: Box::new(PgMcpServerConfigStore { db: arc.clone() }),
+            app_settings: Box::new(PgAppSettingsStore { db: arc }),
+        }
+    }
+
     async fn migrate(&self) -> anyhow::Result<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS sessions (
@@ -146,6 +157,86 @@ impl PgBackend {
         .execute(&self.pool)
         .await?;
 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS agent_configs (
+                user_id VARCHAR(255) NOT NULL,
+                agent_id VARCHAR(255) NOT NULL,
+                provider_ref VARCHAR(255),
+                provider VARCHAR(255) NOT NULL DEFAULT 'openai',
+                api_key TEXT NOT NULL DEFAULT '',
+                base_url VARCHAR(1024) NOT NULL DEFAULT '',
+                model VARCHAR(255) NOT NULL DEFAULT '',
+                enabled_tools_json JSONB NOT NULL DEFAULT '[]',
+                system_prompt TEXT NOT NULL DEFAULT '',
+                system_prompt_file VARCHAR(512),
+                capabilities_json JSONB NOT NULL DEFAULT '[]',
+                execution_mode VARCHAR(64) NOT NULL DEFAULT 'React',
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL,
+                PRIMARY KEY (user_id, agent_id)
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS provider_configs (
+                name VARCHAR(255) PRIMARY KEY,
+                provider VARCHAR(255) NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                base_url VARCHAR(1024) NOT NULL DEFAULT '',
+                model VARCHAR(255) NOT NULL DEFAULT '',
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS dashboard_users (
+                user_id VARCHAR(255) PRIMARY KEY,
+                token_hash VARCHAR(255) NOT NULL,
+                display_name VARCHAR(255) NOT NULL DEFAULT '',
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_dashboard_token_hash ON dashboard_users(token_hash)",
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS mcp_server_configs (
+                user_id VARCHAR(255) NOT NULL,
+                agent_id VARCHAR(255),
+                name VARCHAR(255) NOT NULL,
+                transport_type VARCHAR(64) NOT NULL DEFAULT 'stdio',
+                command TEXT,
+                args_json JSONB,
+                url VARCHAR(1024),
+                env_json JSONB,
+                enabled BOOLEAN NOT NULL DEFAULT true,
+                PRIMARY KEY (user_id, agent_id, name)
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS app_settings (
+                key VARCHAR(255) PRIMARY KEY,
+                value_json JSONB NOT NULL DEFAULT 'null',
+                updated_at BIGINT NOT NULL
+            )",
+        )
+        .execute(&self.pool)
+        .await?;
+
         Ok(())
     }
 }
@@ -169,4 +260,20 @@ define_sql_stores!(
     "INSERT INTO skills (agent_id, name, content, parameters) VALUES ($1, $2, $3, $4) ON CONFLICT (agent_id, name) DO UPDATE SET content = excluded.content, parameters = excluded.parameters",
     "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = $1 FOR UPDATE",
     "$1", "$2", "$3", "$4", "$5",
+);
+
+define_config_sql_stores!(
+    sqlx::PgPool,
+    PgBackend,
+    PgAgentConfigStore,
+    PgProviderConfigStore,
+    PgDashboardUserStore,
+    PgMcpServerConfigStore,
+    PgAppSettingsStore,
+    "INSERT INTO agent_configs (user_id, agent_id, provider_ref, provider, api_key, base_url, model, enabled_tools_json, system_prompt, system_prompt_file, capabilities_json, execution_mode, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (user_id, agent_id) DO UPDATE SET provider_ref=EXCLUDED.provider_ref, provider=EXCLUDED.provider, api_key=EXCLUDED.api_key, base_url=EXCLUDED.base_url, model=EXCLUDED.model, enabled_tools_json=EXCLUDED.enabled_tools_json, system_prompt=EXCLUDED.system_prompt, system_prompt_file=EXCLUDED.system_prompt_file, capabilities_json=EXCLUDED.capabilities_json, execution_mode=EXCLUDED.execution_mode, updated_at=EXCLUDED.updated_at",
+    "INSERT INTO provider_configs (name, provider, api_key, base_url, model, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (name) DO UPDATE SET provider=EXCLUDED.provider, api_key=EXCLUDED.api_key, base_url=EXCLUDED.base_url, model=EXCLUDED.model, updated_at=EXCLUDED.updated_at",
+    "INSERT INTO dashboard_users (user_id, token_hash, display_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id) DO UPDATE SET token_hash=EXCLUDED.token_hash, display_name=EXCLUDED.display_name, updated_at=EXCLUDED.updated_at",
+    "INSERT INTO mcp_server_configs (user_id, agent_id, name, transport_type, command, args_json, url, env_json, enabled) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (user_id, agent_id, name) DO UPDATE SET transport_type=EXCLUDED.transport_type, command=EXCLUDED.command, args_json=EXCLUDED.args_json, url=EXCLUDED.url, env_json=EXCLUDED.env_json, enabled=EXCLUDED.enabled",
+    "INSERT INTO app_settings (key, value_json, updated_at) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value_json=EXCLUDED.value_json, updated_at=EXCLUDED.updated_at",
+    "$1", "$2", "$3",
 );

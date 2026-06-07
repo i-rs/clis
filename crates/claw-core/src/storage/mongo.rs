@@ -18,6 +18,11 @@
 //! | `token_records` | `_id = record_id` |
 //! | `skills` | `_id = {agent_id, name}` |
 //! | `tool_cache` | `_id = agent_id` |
+//! | `agent_configs` | `(user_id, agent_id)` |
+//! | `provider_configs` | `name` |
+//! | `dashboard_users` | `user_id` |
+//! | `mcp_server_configs` | `(user_id, agent_id, name)` |
+//! | `app_settings` | `_id = key` |
 
 #![allow(dead_code)]
 
@@ -34,6 +39,11 @@ use crate::message::StoredRecord;
 use crate::storage::{
     ApiCacheRepo, MemoryRepo, MessageLog, PlanStepsRepo, SearchResult, SessionRepo, SkillEntry,
     SkillRepo, StatsRepo, ToolCacheRepo,
+};
+use crate::storage::config_store::{
+    AgentConfigRepo, AgentConfigRow, AppSettingRow, AppSettingsRepo, DashboardUserRepo,
+    DashboardUserRow, McpServerConfigRepo, McpServerConfigRow, ProviderConfigRepo,
+    ProviderConfigRow,
 };
 
 // ── Backend ──
@@ -81,6 +91,27 @@ impl MongoBackend {
             )
             .await?;
 
+        // dashboard_users: unique index on token_hash for auth lookups
+        self.db
+            .collection::<Document>("dashboard_users")
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "token_hash": 1 })
+                    .options(IndexOptions::builder().unique(true).build())
+                    .build(),
+            )
+            .await?;
+
+        // mcp_server_configs: compound index for user+agent lookups
+        self.db
+            .collection::<Document>("mcp_server_configs")
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "user_id": 1, "agent_id": 1 })
+                    .build(),
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -95,6 +126,17 @@ impl MongoBackend {
             stats: Box::new(MongoStatsStore { db: arc.clone() }),
             skills: Box::new(MongoSkillStore { db: arc.clone() }),
             tool_cache: Box::new(MongoToolCacheStore { db: arc }),
+        }
+    }
+
+    pub fn into_config_store(self) -> crate::storage::config_store::ConfigStore {
+        let arc = Arc::new(self);
+        crate::storage::config_store::ConfigStore {
+            agent_configs: Box::new(MongoAgentConfigStore { db: arc.clone() }),
+            provider_configs: Box::new(MongoProviderConfigStore { db: arc.clone() }),
+            dashboard_users: Box::new(MongoDashboardUserStore { db: arc.clone() }),
+            mcp_servers: Box::new(MongoMcpServerConfigStore { db: arc.clone() }),
+            app_settings: Box::new(MongoAppSettingsStore { db: arc }),
         }
     }
 }
@@ -210,6 +252,7 @@ fn session_meta_to_doc(s: &crate::session::SessionMeta) -> anyhow::Result<Docume
     Ok(doc! {
         "title": s.title.clone(),
         "agent_id": s.agent_id.clone(),
+        "user_id": s.user_id.clone(),
         "state": serde_json::to_string(&s.state)?,
         "created_at": s.created_at,
         "updated_at": s.updated_at,
@@ -225,6 +268,7 @@ fn doc_to_session_meta(d: &Document) -> anyhow::Result<crate::session::SessionMe
         id,
         title: d.get_str("title").unwrap_or("").to_string(),
         agent_id: d.get_str("agent_id").unwrap_or("default").to_string(),
+        user_id: d.get_str("user_id").unwrap_or("default").to_string(),
         state,
         created_at: d.get_i64("created_at").unwrap_or(0),
         updated_at: d.get_i64("updated_at").unwrap_or(0),
@@ -854,6 +898,314 @@ impl ToolCacheRepo for MongoToolCacheStore {
             .upsert(true)
             .await?;
         Ok(())
+    }
+}
+
+// ── AgentConfigRepo ──
+
+#[derive(Clone)]
+struct MongoAgentConfigStore {
+    db: Arc<MongoBackend>,
+}
+
+#[async_trait]
+impl AgentConfigRepo for MongoAgentConfigStore {
+    async fn load_all(&self, user_id: &str) -> anyhow::Result<Vec<AgentConfigRow>> {
+        let cursor = self
+            .db
+            .db
+            .collection::<Document>("agent_configs")
+            .find(doc! { "user_id": user_id })
+            .sort(doc! { "agent_id": 1 })
+            .await?;
+        let docs: Vec<Document> = cursor.try_collect().await?;
+        docs.into_iter()
+            .map(|mut d| {
+                d.remove("_id");
+                Ok(mongodb::bson::from_document(d)?)
+            })
+            .collect()
+    }
+
+    async fn upsert(&self, row: &AgentConfigRow) -> anyhow::Result<()> {
+        let doc = mongodb::bson::to_document(row)?;
+        self.db
+            .db
+            .collection::<Document>("agent_configs")
+            .update_one(
+                doc! { "user_id": &row.user_id, "agent_id": &row.agent_id },
+                doc! { "$set": doc },
+            )
+            .upsert(true)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete(&self, user_id: &str, agent_id: &str) -> anyhow::Result<()> {
+        self.db
+            .db
+            .collection::<Document>("agent_configs")
+            .delete_one(doc! { "user_id": user_id, "agent_id": agent_id })
+            .await?;
+        Ok(())
+    }
+}
+
+// ── ProviderConfigRepo ──
+
+#[derive(Clone)]
+struct MongoProviderConfigStore {
+    db: Arc<MongoBackend>,
+}
+
+#[async_trait]
+impl ProviderConfigRepo for MongoProviderConfigStore {
+    async fn load_all(&self) -> anyhow::Result<Vec<ProviderConfigRow>> {
+        let cursor = self
+            .db
+            .db
+            .collection::<Document>("provider_configs")
+            .find(doc! {})
+            .sort(doc! { "name": 1 })
+            .await?;
+        let docs: Vec<Document> = cursor.try_collect().await?;
+        docs.into_iter()
+            .map(|mut d| {
+                d.remove("_id");
+                Ok(mongodb::bson::from_document(d)?)
+            })
+            .collect()
+    }
+
+    async fn upsert(&self, row: &ProviderConfigRow) -> anyhow::Result<()> {
+        let doc = mongodb::bson::to_document(row)?;
+        self.db
+            .db
+            .collection::<Document>("provider_configs")
+            .update_one(doc! { "name": &row.name }, doc! { "$set": doc })
+            .upsert(true)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete(&self, name: &str) -> anyhow::Result<()> {
+        self.db
+            .db
+            .collection::<Document>("provider_configs")
+            .delete_one(doc! { "name": name })
+            .await?;
+        Ok(())
+    }
+}
+
+// ── DashboardUserRepo ──
+
+#[derive(Clone)]
+struct MongoDashboardUserStore {
+    db: Arc<MongoBackend>,
+}
+
+#[async_trait]
+impl DashboardUserRepo for MongoDashboardUserStore {
+    async fn load_all(&self) -> anyhow::Result<Vec<DashboardUserRow>> {
+        let cursor = self
+            .db
+            .db
+            .collection::<Document>("dashboard_users")
+            .find(doc! {})
+            .sort(doc! { "user_id": 1 })
+            .await?;
+        let docs: Vec<Document> = cursor.try_collect().await?;
+        docs.into_iter()
+            .map(|mut d| {
+                d.remove("_id");
+                Ok(mongodb::bson::from_document(d)?)
+            })
+            .collect()
+    }
+
+    async fn upsert(&self, row: &DashboardUserRow) -> anyhow::Result<()> {
+        let doc = mongodb::bson::to_document(row)?;
+        self.db
+            .db
+            .collection::<Document>("dashboard_users")
+            .update_one(doc! { "user_id": &row.user_id }, doc! { "$set": doc })
+            .upsert(true)
+            .await?;
+        Ok(())
+    }
+
+    async fn find_by_token_hash(
+        &self,
+        hash: &str,
+    ) -> anyhow::Result<Option<DashboardUserRow>> {
+        let doc = self
+            .db
+            .db
+            .collection::<Document>("dashboard_users")
+            .find_one(doc! { "token_hash": hash })
+            .await?;
+        match doc {
+            Some(mut d) => {
+                d.remove("_id");
+                Ok(Some(mongodb::bson::from_document(d)?))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn delete(&self, user_id: &str) -> anyhow::Result<()> {
+        self.db
+            .db
+            .collection::<Document>("dashboard_users")
+            .delete_one(doc! { "user_id": user_id })
+            .await?;
+        Ok(())
+    }
+}
+
+// ── McpServerConfigRepo ──
+
+#[derive(Clone)]
+struct MongoMcpServerConfigStore {
+    db: Arc<MongoBackend>,
+}
+
+#[async_trait]
+impl McpServerConfigRepo for MongoMcpServerConfigStore {
+    async fn load_for(
+        &self,
+        user_id: &str,
+        agent_id: Option<&str>,
+    ) -> anyhow::Result<Vec<McpServerConfigRow>> {
+        let mut filter = doc! { "user_id": user_id };
+        match agent_id {
+            Some(aid) => {
+                filter.insert("agent_id", aid);
+            }
+            None => {
+                filter.insert("agent_id", doc! { "$exists": false });
+            }
+        }
+        let cursor = self
+            .db
+            .db
+            .collection::<Document>("mcp_server_configs")
+            .find(filter)
+            .sort(doc! { "name": 1 })
+            .await?;
+        let docs: Vec<Document> = cursor.try_collect().await?;
+        docs.into_iter()
+            .map(|mut d| {
+                d.remove("_id");
+                Ok(mongodb::bson::from_document(d)?)
+            })
+            .collect()
+    }
+
+    async fn upsert(&self, row: &McpServerConfigRow) -> anyhow::Result<()> {
+        let doc = mongodb::bson::to_document(row)?;
+        let mut filter = doc! { "user_id": &row.user_id, "name": &row.name };
+        match &row.agent_id {
+            Some(aid) => {
+                filter.insert("agent_id", aid.as_str());
+            }
+            None => {
+                filter.insert("agent_id", doc! { "$exists": false });
+            }
+        }
+        self.db
+            .db
+            .collection::<Document>("mcp_server_configs")
+            .update_one(filter, doc! { "$set": doc })
+            .upsert(true)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete(
+        &self,
+        user_id: &str,
+        agent_id: Option<&str>,
+        name: &str,
+    ) -> anyhow::Result<()> {
+        let mut filter = doc! { "user_id": user_id, "name": name };
+        match agent_id {
+            Some(aid) => {
+                filter.insert("agent_id", aid);
+            }
+            None => {
+                filter.insert("agent_id", doc! { "$exists": false });
+            }
+        }
+        self.db
+            .db
+            .collection::<Document>("mcp_server_configs")
+            .delete_one(filter)
+            .await?;
+        Ok(())
+    }
+}
+
+// ── AppSettingsRepo ──
+
+#[derive(Clone)]
+struct MongoAppSettingsStore {
+    db: Arc<MongoBackend>,
+}
+
+#[async_trait]
+impl AppSettingsRepo for MongoAppSettingsStore {
+    async fn get(&self, key: &str) -> anyhow::Result<Option<serde_json::Value>> {
+        let doc = self
+            .db
+            .db
+            .collection::<Document>("app_settings")
+            .find_one(doc! { "_id": key })
+            .await?;
+        match doc {
+            Some(d) => {
+                let json_str = d.get_str("value").unwrap_or("null");
+                Ok(Some(serde_json::from_str(json_str)?))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn set(&self, key: &str, value: &serde_json::Value) -> anyhow::Result<()> {
+        let value_str = serde_json::to_string(value)?;
+        let now = chrono::Utc::now().timestamp();
+        self.db
+            .db
+            .collection::<Document>("app_settings")
+            .update_one(
+                doc! { "_id": key },
+                doc! { "$set": { "value": &value_str, "updated_at": now } },
+            )
+            .upsert(true)
+            .await?;
+        Ok(())
+    }
+
+    async fn load_all(&self) -> anyhow::Result<Vec<AppSettingRow>> {
+        let cursor = self
+            .db
+            .db
+            .collection::<Document>("app_settings")
+            .find(doc! {})
+            .sort(doc! { "_id": 1 })
+            .await?;
+        let docs: Vec<Document> = cursor.try_collect().await?;
+        docs.into_iter()
+            .map(|d| {
+                Ok(AppSettingRow {
+                    key: d.get_str("_id").unwrap_or("").to_string(),
+                    value: serde_json::from_str(d.get_str("value").unwrap_or("null"))
+                        .unwrap_or(serde_json::Value::Null),
+                    updated_at: d.get_i64("updated_at").unwrap_or(0),
+                })
+            })
+            .collect()
     }
 }
 

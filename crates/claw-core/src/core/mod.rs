@@ -391,6 +391,71 @@ impl AppCore {
             crate::storage::StorageBackend::File => {
                 crate::storage::config_store::ConfigStore::file(claw_dir.clone())
             }
+            #[cfg(feature = "sqlite")]
+            crate::storage::StorageBackend::Sqlite => {
+                let path = config
+                    .storage
+                    .sqlite_path
+                    .clone()
+                    .unwrap_or_else(|| claw_dir.join("claw.db"));
+                let backend = crate::utils::sync_block_on(async {
+                    crate::storage::sql::sqlite::SqliteBackend::new(path).await
+                })?;
+                backend.into_config_store()
+            }
+            #[cfg(feature = "mysql")]
+            crate::storage::StorageBackend::Mysql => {
+                let url = config
+                    .storage
+                    .sql_url
+                    .as_deref()
+                    .unwrap_or("mysql://localhost:3306/i_rs_claw");
+                let backend = crate::utils::sync_block_on(async {
+                    crate::storage::sql::mysql::MySqlBackend::new(url).await
+                })?;
+                backend.into_config_store()
+            }
+            #[cfg(feature = "postgres")]
+            crate::storage::StorageBackend::Postgres => {
+                let url = config
+                    .storage
+                    .sql_url
+                    .as_deref()
+                    .unwrap_or("postgres://localhost:5432/i_rs_claw");
+                let backend = crate::utils::sync_block_on(async {
+                    crate::storage::sql::postgres::PgBackend::new(url).await
+                })?;
+                backend.into_config_store()
+            }
+            #[cfg(feature = "mongo")]
+            crate::storage::StorageBackend::Mongo => {
+                let url = config
+                    .storage
+                    .mongo_url
+                    .as_deref()
+                    .unwrap_or("mongodb://localhost:27017");
+                let db = config
+                    .storage
+                    .mongo_database
+                    .as_deref()
+                    .unwrap_or("i_rs_claw");
+                let backend = crate::utils::sync_block_on(async {
+                    crate::storage::mongo::MongoBackend::new(url, db).await
+                })?;
+                backend.into_config_store()
+            }
+            #[cfg(feature = "redis")]
+            crate::storage::StorageBackend::Redis => {
+                let url = config
+                    .storage
+                    .redis_url
+                    .as_deref()
+                    .unwrap_or("redis://localhost:6379/0");
+                let backend = crate::utils::sync_block_on(async {
+                    crate::storage::redis::RedisBackend::new(url).await
+                })?;
+                backend.into_config_store()
+            }
             _ => crate::storage::config_store::ConfigStore::default(),
         };
 
@@ -1086,7 +1151,9 @@ pub fn record_layered_tool_memory(_user_id: &str,
     feature = "mongo",
     feature = "redis"
 ))]
-fn block_on<F: std::future::Future>(f: F) -> F::Output {
+fn block_on<F: std::future::Future + Send>(f: F) -> F::Output
+where F::Output: Send
+{
     crate::utils::sync_block_on(f)
 }
 

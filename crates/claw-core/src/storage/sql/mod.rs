@@ -558,3 +558,301 @@ impl ClawStorage {
 }
 
 pub(crate) use define_sql_stores;
+
+/// Generates store wrapper structs for the 5 ConfigStore tables
+/// (agent_configs, provider_configs, dashboard_users, mcp_server_configs,
+/// app_settings) for a given database pool type.
+macro_rules! define_config_sql_stores {
+    (
+        $pool:ty,
+        $backend:ty,
+        $agentconfigs:ident, $providerconfigs:ident, $dashboardusers:ident,
+        $mcpservers:ident, $appsettings:ident,
+        $upsert_agent:expr, $upsert_provider:expr, $upsert_dashboard:expr,
+        $upsert_mcp:expr, $upsert_appsetting:expr,
+        $ph1:literal, $ph2:literal, $ph3:literal,
+    ) => {
+        // ── AgentConfigRepo ──
+
+        #[derive(Clone)]
+        struct $agentconfigs { db: Arc<$backend> }
+
+        #[async_trait]
+        impl crate::storage::config_store::AgentConfigRepo for $agentconfigs {
+            async fn load_all(&self, user_id: &str) -> anyhow::Result<Vec<crate::storage::config_store::AgentConfigRow>> {
+                let rows = sqlx::query_as::<_, SqlAgentConfigRow>(
+                    concat!("SELECT user_id, agent_id, provider_ref, provider, api_key, base_url, model, enabled_tools_json as enabled_tools, system_prompt, system_prompt_file, capabilities_json as capabilities, execution_mode, created_at, updated_at FROM agent_configs WHERE user_id = ", $ph1, " ORDER BY agent_id"),
+                ).bind(user_id).fetch_all(&self.db.pool).await?;
+                Ok(rows.into_iter().map(Into::into).collect())
+            }
+            async fn upsert(&self, row: &crate::storage::config_store::AgentConfigRow) -> anyhow::Result<()> {
+                let tools = serde_json::to_string(&row.enabled_tools).unwrap_or_default();
+                let caps = serde_json::to_string(&row.capabilities).unwrap_or_default();
+                sqlx::query($upsert_agent)
+                    .bind(&row.user_id).bind(&row.agent_id).bind(&row.provider_ref)
+                    .bind(&row.provider).bind(&row.api_key).bind(&row.base_url)
+                    .bind(&row.model).bind(&tools).bind(&row.system_prompt)
+                    .bind(&row.system_prompt_file).bind(&caps)
+                    .bind(&row.execution_mode).bind(row.created_at).bind(row.updated_at)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+            async fn delete(&self, user_id: &str, agent_id: &str) -> anyhow::Result<()> {
+                sqlx::query(concat!("DELETE FROM agent_configs WHERE user_id = ", $ph1, " AND agent_id = ", $ph2))
+                    .bind(user_id).bind(agent_id).execute(&self.db.pool).await?;
+                Ok(())
+            }
+        }
+
+        // ── ProviderConfigRepo ──
+
+        #[derive(Clone)]
+        struct $providerconfigs { db: Arc<$backend> }
+
+        #[async_trait]
+        impl crate::storage::config_store::ProviderConfigRepo for $providerconfigs {
+            async fn load_all(&self) -> anyhow::Result<Vec<crate::storage::config_store::ProviderConfigRow>> {
+                let rows = sqlx::query_as::<_, SqlProviderConfigRow>(
+                    "SELECT name, provider, api_key, base_url, model, created_at, updated_at FROM provider_configs ORDER BY name"
+                ).fetch_all(&self.db.pool).await?;
+                Ok(rows.into_iter().map(Into::into).collect())
+            }
+            async fn upsert(&self, row: &crate::storage::config_store::ProviderConfigRow) -> anyhow::Result<()> {
+                sqlx::query($upsert_provider)
+                    .bind(&row.name).bind(&row.provider).bind(&row.api_key)
+                    .bind(&row.base_url).bind(&row.model).bind(row.created_at).bind(row.updated_at)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+            async fn delete(&self, name: &str) -> anyhow::Result<()> {
+                sqlx::query(concat!("DELETE FROM provider_configs WHERE name = ", $ph1))
+                    .bind(name).execute(&self.db.pool).await?;
+                Ok(())
+            }
+        }
+
+        // ── DashboardUserRepo ──
+
+        #[derive(Clone)]
+        struct $dashboardusers { db: Arc<$backend> }
+
+        #[async_trait]
+        impl crate::storage::config_store::DashboardUserRepo for $dashboardusers {
+            async fn load_all(&self) -> anyhow::Result<Vec<crate::storage::config_store::DashboardUserRow>> {
+                let rows = sqlx::query_as::<_, SqlDashboardUserRow>(
+                    "SELECT user_id, token_hash, display_name, created_at, updated_at FROM dashboard_users ORDER BY user_id"
+                ).fetch_all(&self.db.pool).await?;
+                Ok(rows.into_iter().map(Into::into).collect())
+            }
+            async fn upsert(&self, row: &crate::storage::config_store::DashboardUserRow) -> anyhow::Result<()> {
+                sqlx::query($upsert_dashboard)
+                    .bind(&row.user_id).bind(&row.token_hash).bind(&row.display_name)
+                    .bind(row.created_at).bind(row.updated_at)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+            async fn find_by_token_hash(&self, hash: &str) -> anyhow::Result<Option<crate::storage::config_store::DashboardUserRow>> {
+                Ok(sqlx::query_as::<_, SqlDashboardUserRow>(
+                    concat!("SELECT user_id, token_hash, display_name, created_at, updated_at FROM dashboard_users WHERE token_hash = ", $ph1)
+                ).bind(hash).fetch_optional(&self.db.pool).await?.map(Into::into))
+            }
+            async fn delete(&self, user_id: &str) -> anyhow::Result<()> {
+                sqlx::query(concat!("DELETE FROM dashboard_users WHERE user_id = ", $ph1))
+                    .bind(user_id).execute(&self.db.pool).await?;
+                Ok(())
+            }
+        }
+
+        // ── McpServerConfigRepo ──
+
+        #[derive(Clone)]
+        struct $mcpservers { db: Arc<$backend> }
+
+        #[async_trait]
+        impl crate::storage::config_store::McpServerConfigRepo for $mcpservers {
+            async fn load_for(&self, user_id: &str, agent_id: Option<&str>) -> anyhow::Result<Vec<crate::storage::config_store::McpServerConfigRow>> {
+                let rows = match agent_id {
+                    Some(aid) => sqlx::query_as::<_, SqlMcpServerConfigRow>(
+                        concat!("SELECT user_id, agent_id, name, transport_type, command, args_json, url, env_json, enabled FROM mcp_server_configs WHERE user_id = ", $ph1, " AND agent_id = ", $ph2, " ORDER BY name")
+                    ).bind(user_id).bind(aid).fetch_all(&self.db.pool).await?,
+                    None => sqlx::query_as::<_, SqlMcpServerConfigRow>(
+                        concat!("SELECT user_id, agent_id, name, transport_type, command, args_json, url, env_json, enabled FROM mcp_server_configs WHERE user_id = ", $ph1, " AND (agent_id IS NULL OR agent_id = '') ORDER BY name")
+                    ).bind(user_id).fetch_all(&self.db.pool).await?,
+                };
+                Ok(rows.into_iter().map(Into::into).collect())
+            }
+            async fn upsert(&self, row: &crate::storage::config_store::McpServerConfigRow) -> anyhow::Result<()> {
+                sqlx::query($upsert_mcp)
+                    .bind(&row.user_id).bind(&row.agent_id).bind(&row.name)
+                    .bind(&row.transport_type).bind(&row.command).bind(&row.args_json)
+                    .bind(&row.url).bind(&row.env_json).bind(row.enabled)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+            async fn delete(&self, user_id: &str, agent_id: Option<&str>, name: &str) -> anyhow::Result<()> {
+                match agent_id {
+                    Some(aid) => sqlx::query(
+                        concat!("DELETE FROM mcp_server_configs WHERE user_id = ", $ph1, " AND agent_id = ", $ph2, " AND name = ", $ph3)
+                    ).bind(user_id).bind(aid).bind(name).execute(&self.db.pool).await?,
+                    None => sqlx::query(
+                        concat!("DELETE FROM mcp_server_configs WHERE user_id = ", $ph1, " AND (agent_id IS NULL OR agent_id = '') AND name = ", $ph2)
+                    ).bind(user_id).bind(name).execute(&self.db.pool).await?,
+                };
+                Ok(())
+            }
+        }
+
+        // ── AppSettingsRepo ──
+
+        #[derive(Clone)]
+        struct $appsettings { db: Arc<$backend> }
+
+        #[async_trait]
+        impl crate::storage::config_store::AppSettingsRepo for $appsettings {
+            async fn get(&self, key: &str) -> anyhow::Result<Option<serde_json::Value>> {
+                let row: Option<SqlAppSettingRow> = sqlx::query_as(
+                    concat!("SELECT key, value_json as value, updated_at FROM app_settings WHERE key = ", $ph1)
+                ).bind(key).fetch_optional(&self.db.pool).await?;
+                let cfg_row: Option<crate::storage::config_store::AppSettingRow> = row.map(Into::into);
+                Ok(cfg_row.map(|r| r.value))
+            }
+            async fn set(&self, key: &str, value: &serde_json::Value) -> anyhow::Result<()> {
+                let now = chrono::Utc::now().timestamp();
+                let val_str = serde_json::to_string(value).unwrap_or_default();
+                sqlx::query($upsert_appsetting)
+                    .bind(key).bind(&val_str).bind(now)
+                    .execute(&self.db.pool).await?;
+                Ok(())
+            }
+            async fn load_all(&self) -> anyhow::Result<Vec<crate::storage::config_store::AppSettingRow>> {
+                let rows = sqlx::query_as::<_, SqlAppSettingRow>(
+                    "SELECT key, value_json as value, updated_at FROM app_settings ORDER BY key"
+                ).fetch_all(&self.db.pool).await?;
+                Ok(rows.into_iter().map(Into::into).collect())
+            }
+        }
+    };
+}
+
+pub(crate) use define_config_sql_stores;
+
+// ── ConfigStore SQL row types ──
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SqlAgentConfigRow {
+    user_id: String,
+    agent_id: String,
+    provider_ref: Option<String>,
+    provider: String,
+    api_key: String,
+    base_url: String,
+    model: String,
+    enabled_tools: String,
+    system_prompt: String,
+    system_prompt_file: Option<String>,
+    capabilities: String,
+    execution_mode: String,
+    created_at: i64,
+    updated_at: i64,
+}
+
+impl From<SqlAgentConfigRow> for crate::storage::config_store::AgentConfigRow {
+    fn from(r: SqlAgentConfigRow) -> Self {
+        Self {
+            user_id: r.user_id,
+            agent_id: r.agent_id,
+            provider_ref: r.provider_ref,
+            provider: r.provider,
+            api_key: r.api_key,
+            base_url: r.base_url,
+            model: r.model,
+            enabled_tools: serde_json::from_str(&r.enabled_tools).unwrap_or_default(),
+            system_prompt: r.system_prompt,
+            system_prompt_file: r.system_prompt_file,
+            capabilities: serde_json::from_str(&r.capabilities).unwrap_or_default(),
+            execution_mode: r.execution_mode,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SqlProviderConfigRow {
+    name: String,
+    provider: String,
+    api_key: String,
+    base_url: String,
+    model: String,
+    created_at: i64,
+    updated_at: i64,
+}
+
+impl From<SqlProviderConfigRow> for crate::storage::config_store::ProviderConfigRow {
+    fn from(r: SqlProviderConfigRow) -> Self {
+        Self {
+            name: r.name, provider: r.provider, api_key: r.api_key,
+            base_url: r.base_url, model: r.model,
+            created_at: r.created_at, updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SqlDashboardUserRow {
+    user_id: String,
+    token_hash: String,
+    display_name: String,
+    created_at: i64,
+    updated_at: i64,
+}
+
+impl From<SqlDashboardUserRow> for crate::storage::config_store::DashboardUserRow {
+    fn from(r: SqlDashboardUserRow) -> Self {
+        Self {
+            user_id: r.user_id, token_hash: r.token_hash, display_name: r.display_name,
+            created_at: r.created_at, updated_at: r.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SqlMcpServerConfigRow {
+    user_id: String,
+    agent_id: Option<String>,
+    name: String,
+    transport_type: String,
+    command: Option<String>,
+    args_json: Option<String>,
+    url: Option<String>,
+    env_json: Option<String>,
+    enabled: bool,
+}
+
+impl From<SqlMcpServerConfigRow> for crate::storage::config_store::McpServerConfigRow {
+    fn from(r: SqlMcpServerConfigRow) -> Self {
+        Self {
+            user_id: r.user_id, agent_id: r.agent_id, name: r.name,
+            transport_type: r.transport_type, command: r.command,
+            args_json: r.args_json, url: r.url, env_json: r.env_json,
+            enabled: r.enabled,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SqlAppSettingRow {
+    key: String,
+    value: String,
+    updated_at: i64,
+}
+
+impl From<SqlAppSettingRow> for crate::storage::config_store::AppSettingRow {
+    fn from(r: SqlAppSettingRow) -> Self {
+        Self {
+            key: r.key,
+            value: serde_json::from_str(&r.value).unwrap_or_default(),
+            updated_at: r.updated_at,
+        }
+    }
+}

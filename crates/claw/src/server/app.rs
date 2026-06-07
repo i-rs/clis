@@ -77,7 +77,14 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
         .route("/api/stats", axum::routing::get(crate::server::routes::get_stats))
         .route("/api/agents", axum::routing::get(crate::server::routes::get_agents).post(crate::server::routes::create_agent))
         .route("/api/agents/{id}", axum::routing::get(crate::server::routes::get_agent_detail).put(crate::server::routes::update_agent).delete(crate::server::routes::delete_agent))
-        .route("/api/providers", axum::routing::get(crate::server::routes::list_providers))
+        .route("/api/providers", axum::routing::get(crate::server::routes::list_providers).post(crate::server::routes::create_provider))
+        .route("/api/providers/{name}", axum::routing::put(crate::server::routes::update_provider).delete(crate::server::routes::delete_provider))
+        .route("/api/users", axum::routing::get(crate::server::routes::list_users).post(crate::server::routes::create_user))
+        .route("/api/users/{id}", axum::routing::delete(crate::server::routes::delete_user))
+        .route("/api/mcp", axum::routing::get(crate::server::routes::list_mcp_configs).post(crate::server::routes::create_mcp_config))
+        .route("/api/mcp/{name}", axum::routing::put(crate::server::routes::update_mcp_config).delete(crate::server::routes::delete_mcp_config))
+        .route("/api/settings", axum::routing::get(crate::server::routes::list_settings).put(crate::server::routes::set_setting))
+        .route("/api/settings/{key}", axum::routing::get(crate::server::routes::get_setting).put(crate::server::routes::set_setting_by_key).delete(crate::server::routes::delete_setting))
         .layer(auth_middleware);
 
     let app = if api_only {

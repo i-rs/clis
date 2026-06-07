@@ -792,6 +792,452 @@ impl ToolCacheRepo for RedisToolCacheStore {
     }
 }
 
+// ── Config store repos ──
+
+use crate::storage::config_store::{
+    AgentConfigRepo, AgentConfigRow, AppSettingRow, AppSettingsRepo, ConfigStore,
+    DashboardUserRepo, DashboardUserRow, McpServerConfigRepo, McpServerConfigRow,
+    ProviderConfigRepo, ProviderConfigRow,
+};
+
+fn agent_cfg_key(user_id: &str, agent_id: &str) -> String {
+    format!("claw:cfg:agent:{user_id}:{agent_id}")
+}
+
+fn agent_cfg_index_key(user_id: &str) -> String {
+    format!("claw:cfg:agents:{user_id}")
+}
+
+fn provider_cfg_key(name: &str) -> String {
+    format!("claw:cfg:provider:{name}")
+}
+
+const PROVIDERS_INDEX_KEY: &str = "claw:cfg:providers";
+
+fn dashboard_user_key(user_id: &str) -> String {
+    format!("claw:cfg:dashboard:{user_id}")
+}
+
+const DASHBOARD_USERS_INDEX_KEY: &str = "claw:cfg:dashboard_users";
+
+fn token_hash_key(hash: &str) -> String {
+    format!("claw:cfg:tokenhash:{hash}")
+}
+
+fn mcp_cfg_key(user_id: &str, agent_id: &str, name: &str) -> String {
+    format!("claw:cfg:mcp:{user_id}:{agent_id}:{name}")
+}
+
+fn mcp_cfg_index_key(user_id: &str) -> String {
+    format!("claw:cfg:mcp:{user_id}")
+}
+
+const APP_SETTINGS_KEY: &str = "claw:cfg:settings";
+
+fn mcp_agent_id(agent_id: Option<&str>) -> &str {
+    agent_id.unwrap_or("*")
+}
+
+// ── RedisAgentConfigStore ──
+
+#[derive(Clone)]
+pub struct RedisAgentConfigStore {
+    backend: Arc<RedisBackend>,
+}
+
+#[async_trait]
+impl AgentConfigRepo for RedisAgentConfigStore {
+    async fn load_all(&self, user_id: &str) -> anyhow::Result<Vec<AgentConfigRow>> {
+        let mut conn = self.backend.conn.clone();
+        let agent_ids: Vec<String> = redis::cmd("SMEMBERS")
+            .arg(agent_cfg_index_key(user_id))
+            .query_async(&mut conn)
+            .await?;
+        let mut rows = Vec::with_capacity(agent_ids.len());
+        for agent_id in &agent_ids {
+            let json: Option<String> = redis::cmd("HGET")
+                .arg(agent_cfg_key(user_id, agent_id))
+                .arg("__json")
+                .query_async(&mut conn)
+                .await?;
+            if let Some(j) = json {
+                if let Ok(row) = serde_json::from_str::<AgentConfigRow>(&j) {
+                    rows.push(row);
+                }
+            }
+        }
+        Ok(rows)
+    }
+
+    async fn upsert(&self, row: &AgentConfigRow) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let json = serde_json::to_string(row)?;
+        redis::pipe()
+            .atomic()
+            .cmd("HSET")
+            .arg(agent_cfg_key(&row.user_id, &row.agent_id))
+            .arg("__json")
+            .arg(&json)
+            .ignore()
+            .cmd("SADD")
+            .arg(agent_cfg_index_key(&row.user_id))
+            .arg(&row.agent_id)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete(&self, user_id: &str, agent_id: &str) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        redis::pipe()
+            .atomic()
+            .cmd("DEL")
+            .arg(agent_cfg_key(user_id, agent_id))
+            .ignore()
+            .cmd("SREM")
+            .arg(agent_cfg_index_key(user_id))
+            .arg(agent_id)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+}
+
+// ── RedisProviderConfigStore ──
+
+#[derive(Clone)]
+pub struct RedisProviderConfigStore {
+    backend: Arc<RedisBackend>,
+}
+
+#[async_trait]
+impl ProviderConfigRepo for RedisProviderConfigStore {
+    async fn load_all(&self) -> anyhow::Result<Vec<ProviderConfigRow>> {
+        let mut conn = self.backend.conn.clone();
+        let names: Vec<String> = redis::cmd("SMEMBERS")
+            .arg(PROVIDERS_INDEX_KEY)
+            .query_async(&mut conn)
+            .await?;
+        let mut rows = Vec::with_capacity(names.len());
+        for name in &names {
+            let json: Option<String> = redis::cmd("HGET")
+                .arg(provider_cfg_key(name))
+                .arg("__json")
+                .query_async(&mut conn)
+                .await?;
+            if let Some(j) = json {
+                if let Ok(row) = serde_json::from_str::<ProviderConfigRow>(&j) {
+                    rows.push(row);
+                }
+            }
+        }
+        Ok(rows)
+    }
+
+    async fn upsert(&self, row: &ProviderConfigRow) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let json = serde_json::to_string(row)?;
+        redis::pipe()
+            .atomic()
+            .cmd("HSET")
+            .arg(provider_cfg_key(&row.name))
+            .arg("__json")
+            .arg(&json)
+            .ignore()
+            .cmd("SADD")
+            .arg(PROVIDERS_INDEX_KEY)
+            .arg(&row.name)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete(&self, name: &str) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        redis::pipe()
+            .atomic()
+            .cmd("DEL")
+            .arg(provider_cfg_key(name))
+            .ignore()
+            .cmd("SREM")
+            .arg(PROVIDERS_INDEX_KEY)
+            .arg(name)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+}
+
+// ── RedisDashboardUserStore ──
+
+#[derive(Clone)]
+pub struct RedisDashboardUserStore {
+    backend: Arc<RedisBackend>,
+}
+
+#[async_trait]
+impl DashboardUserRepo for RedisDashboardUserStore {
+    async fn load_all(&self) -> anyhow::Result<Vec<DashboardUserRow>> {
+        let mut conn = self.backend.conn.clone();
+        let user_ids: Vec<String> = redis::cmd("SMEMBERS")
+            .arg(DASHBOARD_USERS_INDEX_KEY)
+            .query_async(&mut conn)
+            .await?;
+        let mut rows = Vec::with_capacity(user_ids.len());
+        for user_id in &user_ids {
+            let json: Option<String> = redis::cmd("HGET")
+                .arg(dashboard_user_key(user_id))
+                .arg("__json")
+                .query_async(&mut conn)
+                .await?;
+            if let Some(j) = json {
+                if let Ok(row) = serde_json::from_str::<DashboardUserRow>(&j) {
+                    rows.push(row);
+                }
+            }
+        }
+        Ok(rows)
+    }
+
+    async fn upsert(&self, row: &DashboardUserRow) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let json = serde_json::to_string(row)?;
+        redis::pipe()
+            .atomic()
+            .cmd("HSET")
+            .arg(dashboard_user_key(&row.user_id))
+            .arg("__json")
+            .arg(&json)
+            .ignore()
+            .cmd("SADD")
+            .arg(DASHBOARD_USERS_INDEX_KEY)
+            .arg(&row.user_id)
+            .ignore()
+            .cmd("SET")
+            .arg(token_hash_key(&row.token_hash))
+            .arg(&row.user_id)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+
+    async fn find_by_token_hash(&self, hash: &str) -> anyhow::Result<Option<DashboardUserRow>> {
+        let mut conn = self.backend.conn.clone();
+        let user_id: Option<String> = redis::cmd("GET")
+            .arg(token_hash_key(hash))
+            .query_async(&mut conn)
+            .await?;
+        match user_id {
+            Some(uid) => {
+                let json: Option<String> = redis::cmd("HGET")
+                    .arg(dashboard_user_key(&uid))
+                    .arg("__json")
+                    .query_async(&mut conn)
+                    .await?;
+                match json {
+                    Some(j) => Ok(Some(serde_json::from_str(&j)?)),
+                    None => Ok(None),
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn delete(&self, user_id: &str) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        // Look up token_hash to clean up reverse lookup
+        let json: Option<String> = redis::cmd("HGET")
+            .arg(dashboard_user_key(user_id))
+            .arg("__json")
+            .query_async(&mut conn)
+            .await?;
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+        pipe.cmd("DEL").arg(dashboard_user_key(user_id)).ignore();
+        pipe.cmd("SREM")
+            .arg(DASHBOARD_USERS_INDEX_KEY)
+            .arg(user_id)
+            .ignore();
+        if let Some(j) = json {
+            if let Ok(row) = serde_json::from_str::<DashboardUserRow>(&j) {
+                pipe.cmd("DEL").arg(token_hash_key(&row.token_hash)).ignore();
+            }
+        }
+        pipe.query_async::<()>(&mut conn).await?;
+        Ok(())
+    }
+}
+
+// ── RedisMcpServerConfigStore ──
+
+#[derive(Clone)]
+pub struct RedisMcpServerConfigStore {
+    backend: Arc<RedisBackend>,
+}
+
+#[async_trait]
+impl McpServerConfigRepo for RedisMcpServerConfigStore {
+    async fn load_for(
+        &self,
+        user_id: &str,
+        agent_id: Option<&str>,
+    ) -> anyhow::Result<Vec<McpServerConfigRow>> {
+        let mut conn = self.backend.conn.clone();
+        let entries: Vec<String> = redis::cmd("SMEMBERS")
+            .arg(mcp_cfg_index_key(user_id))
+            .query_async(&mut conn)
+            .await?;
+        let target_agent = mcp_agent_id(agent_id);
+        let mut rows = Vec::new();
+        for entry in &entries {
+            // entry format: "{agent_id}:{name}"
+            let (entry_agent, name) = match entry.split_once(':') {
+                Some((a, n)) => (a, n),
+                None => continue,
+            };
+            if entry_agent != target_agent {
+                continue;
+            }
+            let json: Option<String> = redis::cmd("HGET")
+                .arg(mcp_cfg_key(user_id, entry_agent, name))
+                .arg("__json")
+                .query_async(&mut conn)
+                .await?;
+            if let Some(j) = json {
+                if let Ok(row) = serde_json::from_str::<McpServerConfigRow>(&j) {
+                    rows.push(row);
+                }
+            }
+        }
+        Ok(rows)
+    }
+
+    async fn upsert(&self, row: &McpServerConfigRow) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let json = serde_json::to_string(row)?;
+        let agent_id = mcp_agent_id(row.agent_id.as_deref());
+        redis::pipe()
+            .atomic()
+            .cmd("HSET")
+            .arg(mcp_cfg_key(&row.user_id, agent_id, &row.name))
+            .arg("__json")
+            .arg(&json)
+            .ignore()
+            .cmd("SADD")
+            .arg(mcp_cfg_index_key(&row.user_id))
+            .arg(format!("{agent_id}:{}", &row.name))
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+
+    async fn delete(
+        &self,
+        user_id: &str,
+        agent_id: Option<&str>,
+        name: &str,
+    ) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let agent_id = mcp_agent_id(agent_id);
+        redis::pipe()
+            .atomic()
+            .cmd("DEL")
+            .arg(mcp_cfg_key(user_id, agent_id, name))
+            .ignore()
+            .cmd("SREM")
+            .arg(mcp_cfg_index_key(user_id))
+            .arg(format!("{agent_id}:{name}"))
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+}
+
+// ── RedisAppSettingsStore ──
+
+#[derive(Clone)]
+pub struct RedisAppSettingsStore {
+    backend: Arc<RedisBackend>,
+}
+
+#[async_trait]
+impl AppSettingsRepo for RedisAppSettingsStore {
+    async fn get(&self, key: &str) -> anyhow::Result<Option<serde_json::Value>> {
+        let mut conn = self.backend.conn.clone();
+        let val: Option<String> = redis::cmd("HGET")
+            .arg(APP_SETTINGS_KEY)
+            .arg(key)
+            .query_async(&mut conn)
+            .await?;
+        match val {
+            Some(s) => Ok(Some(serde_json::from_str(&s)?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn set(&self, key: &str, value: &serde_json::Value) -> anyhow::Result<()> {
+        let mut conn = self.backend.conn.clone();
+        let json = serde_json::to_string(value)?;
+        redis::pipe()
+            .atomic()
+            .cmd("HSET")
+            .arg(APP_SETTINGS_KEY)
+            .arg(key)
+            .arg(&json)
+            .ignore()
+            .query_async::<()>(&mut conn)
+            .await?;
+        Ok(())
+    }
+
+    async fn load_all(&self) -> anyhow::Result<Vec<AppSettingRow>> {
+        let mut conn = self.backend.conn.clone();
+        let map: HashMap<String, String> = redis::cmd("HGETALL")
+            .arg(APP_SETTINGS_KEY)
+            .query_async(&mut conn)
+            .await?;
+        let now = chrono::Utc::now().timestamp();
+        Ok(map
+            .into_iter()
+            .map(|(key, value)| AppSettingRow {
+                key,
+                value: serde_json::from_str(&value).unwrap_or_default(),
+                updated_at: now,
+            })
+            .collect())
+    }
+}
+
+// ── into_config_store ──
+
+impl RedisBackend {
+    pub fn into_config_store(self) -> ConfigStore {
+        let arc = Arc::new(self);
+        ConfigStore {
+            agent_configs: Box::new(RedisAgentConfigStore {
+                backend: arc.clone(),
+            }),
+            provider_configs: Box::new(RedisProviderConfigStore {
+                backend: arc.clone(),
+            }),
+            dashboard_users: Box::new(RedisDashboardUserStore {
+                backend: arc.clone(),
+            }),
+            mcp_servers: Box::new(RedisMcpServerConfigStore {
+                backend: arc.clone(),
+            }),
+            app_settings: Box::new(RedisAppSettingsStore { backend: arc }),
+        }
+    }
+}
+
 // ── ClawStorage constructor ──
 
 impl crate::storage::ClawStorage {

@@ -92,7 +92,65 @@ impl SqliteBackend {
         .execute(&self.pool)
         .await?;
 
+        // ConfigStore tables
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS agent_configs (
+                user_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+                provider_ref TEXT, provider TEXT NOT NULL DEFAULT 'openai',
+                api_key TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '', enabled_tools_json TEXT NOT NULL DEFAULT '[]',
+                system_prompt TEXT NOT NULL DEFAULT '',
+                system_prompt_file TEXT, capabilities_json TEXT NOT NULL DEFAULT '[]',
+                execution_mode TEXT NOT NULL DEFAULT 'React',
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                PRIMARY KEY (user_id, agent_id)
+            )",
+        ).execute(&self.pool).await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS provider_configs (
+                name TEXT PRIMARY KEY, provider TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )",
+        ).execute(&self.pool).await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS dashboard_users (
+                user_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL,
+                display_name TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )",
+        ).execute(&self.pool).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_dashboard_token_hash ON dashboard_users(token_hash)")
+            .execute(&self.pool).await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS mcp_server_configs (
+                user_id TEXT NOT NULL, agent_id TEXT, name TEXT NOT NULL,
+                transport_type TEXT NOT NULL DEFAULT 'stdio',
+                command TEXT, args_json TEXT, url TEXT, env_json TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (user_id, agent_id, name)
+            )",
+        ).execute(&self.pool).await?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY, value_json TEXT NOT NULL DEFAULT 'null',
+                updated_at INTEGER NOT NULL
+            )",
+        ).execute(&self.pool).await?;
+
         Ok(())
+    }
+
+    pub fn into_config_store(self) -> super::config_store::ConfigStore {
+        let arc = Arc::new(self);
+        super::config_store::ConfigStore {
+            agent_configs: Box::new(SqliteAgentConfigStore { db: arc.clone() }),
+            provider_configs: Box::new(SqliteProviderConfigStore { db: arc.clone() }),
+            dashboard_users: Box::new(SqliteDashboardUserStore { db: arc.clone() }),
+            mcp_servers: Box::new(SqliteMcpServerConfigStore { db: arc.clone() }),
+            app_settings: Box::new(SqliteAppSettingsStore { db: arc }),
+        }
     }
 }
 
@@ -115,6 +173,23 @@ define_sql_stores!(
     "INSERT OR REPLACE INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?)",
     "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ?",
     "?", "?", "?", "?", "?",
+);
+
+// Generate ConfigStore trait implementations
+define_config_sql_stores!(
+    sqlx::SqlitePool,
+    SqliteBackend,
+    SqliteAgentConfigStore,
+    SqliteProviderConfigStore,
+    SqliteDashboardUserStore,
+    SqliteMcpServerConfigStore,
+    SqliteAppSettingsStore,
+    "INSERT INTO agent_configs (user_id, agent_id, provider_ref, provider, api_key, base_url, model, enabled_tools_json, system_prompt, system_prompt_file, capabilities_json, execution_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, agent_id) DO UPDATE SET provider_ref=excluded.provider_ref, provider=excluded.provider, api_key=excluded.api_key, base_url=excluded.base_url, model=excluded.model, enabled_tools_json=excluded.enabled_tools_json, system_prompt=excluded.system_prompt, system_prompt_file=excluded.system_prompt_file, capabilities_json=excluded.capabilities_json, execution_mode=excluded.execution_mode, updated_at=excluded.updated_at",
+    "INSERT OR REPLACE INTO provider_configs (name, provider, api_key, base_url, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    "INSERT OR REPLACE INTO dashboard_users (user_id, token_hash, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO mcp_server_configs (user_id, agent_id, name, transport_type, command, args_json, url, env_json, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, agent_id, name) DO UPDATE SET transport_type=excluded.transport_type, command=excluded.command, args_json=excluded.args_json, url=excluded.url, env_json=excluded.env_json, enabled=excluded.enabled",
+    "INSERT OR REPLACE INTO app_settings (key, value_json, updated_at) VALUES (?, ?, ?)",
+    "?", "?", "?",
 );
 
 #[cfg(test)]
