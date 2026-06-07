@@ -13,10 +13,51 @@ static SHARED_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
         .expect("sync_block_on: failed to create shared runtime")
 });
 
+/// Block the current thread on a future by spawning a dedicated scope thread
+/// that drives the future on `SHARED_RUNTIME`.
+///
+/// This is a **bridge** from sync code to async storage backends. It is the
+/// only sanctioned way to call async storage code from sync context in this
+/// crate.
+///
+/// # Panics
+///
+/// Panics if the spawned scope thread panics (only happens if `f` itself
+/// panics). The scope thread is joined with `unwrap()`, so a panic in `f`
+/// propagates to the caller.
+///
+/// # Runtime nesting
+///
+/// If called from inside a tokio runtime context, a warning is emitted but
+/// execution continues via `std::thread::scope`. The scope thread runs on a
+/// fresh OS thread with no tokio context, which safely avoids runtime
+/// nesting. However, callers should prefer `.await` over `sync_block_on`
+/// whenever possible.
+///
+/// # When to use
+///
+/// - Inside sync constructors like `SessionManager::with_storage`
+/// - Inside TUI event handlers (which run on the main thread, not in an async runtime)
+///
+/// # When NOT to use
+///
+/// - Inside `async fn` — just `.await` the future directly
+/// - Inside axum handlers — they're already async
+/// - Inside tokio tasks — they're already async
 pub fn sync_block_on<F: std::future::Future + Send>(f: F) -> F::Output
 where
     F::Output: Send,
 {
+    // If already inside a tokio runtime, emit a warning so we can find
+    // and fix these call sites. The scope thread still runs safely because
+    // it spawns on a fresh OS thread without tokio context.
+    if tokio::runtime::Handle::try_current().is_ok() {
+        tracing::warn!(
+            "sync_block_on called from inside a tokio runtime context — \
+             prefer .await; falling back to scope thread"
+        );
+    }
+
     // Always run on a dedicated scope thread using SHARED_RUNTIME.
     // This avoids ALL runtime nesting issues — including the
     // "Cannot drop a runtime in a context where blocking is not allowed"
