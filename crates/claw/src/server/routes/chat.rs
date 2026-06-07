@@ -1,5 +1,6 @@
 use crate::server::AppState;
 use crate::server::UserId;
+use crate::server::rate_limit::ConcurrencyGuard;
 use i_rs_claw_core::llm::LlmEvent;
 #[cfg(feature = "dashboard")]
 use i_rs_claw_core::message::MessageAccumulator;
@@ -12,20 +13,21 @@ use axum::{
 use serde::Deserialize;
 use serde_json::Value;
 use std::convert::Infallible;
+use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 
 /// Build an SSE stream from an LlmEvent receiver with auto-incrementing event IDs.
 fn build_sse_stream(
     rx: mpsc::UnboundedReceiver<LlmEvent>,
     write_tx: mpsc::UnboundedSender<WriteCmd>,
-    concurrency: std::sync::Arc<crate::server::rate_limit::ChatConcurrency>,
+    guard: std::sync::Arc<ConcurrencyGuard>,
     state: AppState,
     user_id: String,
     sid: String,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = futures_util::stream::unfold(
-        (Some(rx), write_tx, concurrency, state, user_id, sid, MessageAccumulator::new(), 0u64),
-        |(rx_opt, write_tx, concurrency, state, user_id, sid, mut acc, mut seq)| async move {
+        (Some(rx), write_tx, guard, state, user_id, sid, MessageAccumulator::new(), 0u64),
+        |(rx_opt, write_tx, guard, state, user_id, sid, mut acc, mut seq)| async move {
             let mut rx = rx_opt?;
             loop {
                 let event = rx.recv().await?;
@@ -41,21 +43,25 @@ fn build_sse_stream(
                             let idx = core.config.i_rs_tool_index.clone();
                             (aid, idx)
                         };
-                        let _ = write_tx.send(WriteCmd::RecordToolMemory {
+                        if write_tx.send(WriteCmd::RecordToolMemory {
                             user_id: user_id.clone(),
                             agent_id: agent_id.clone(),
                             tool_name: name.clone(),
                             tool_args: args.clone(),
                             tool_result: result.clone(),
                             i_rs_index,
-                        });
+                        }).is_err() {
+                            tracing::error!("writer task dead — RecordToolMemory lost");
+                        }
                         if !category.is_retryable_or_fatal() {
-                            let _ = write_tx.send(WriteCmd::RecordLayeredMemory {
+                            if write_tx.send(WriteCmd::RecordLayeredMemory {
                                 user_id: user_id.clone(),
                                 agent_id: agent_id.clone(),
                                 tool_name: name.clone(),
                                 tool_result: result.clone(),
-                            });
+                            }).is_err() {
+                                tracing::error!("writer task dead — RecordLayeredMemory lost");
+                            }
                         }
                         let data = serde_json::to_string(&serde_json::json!({
                             "name": name, "args": args, "result": result,
@@ -73,12 +79,21 @@ fn build_sse_stream(
                         acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
-                        let _ = write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized });
-                        let _ = write_tx.send(WriteCmd::SaveApiMessages { session_id: sid.clone(), messages: msgs.to_vec() });
+                        if write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized }).is_err() {
+                            tracing::error!("writer task dead — PersistMessages lost");
+                        }
+                        if write_tx.send(WriteCmd::SaveApiMessages { session_id: sid.clone(), messages: msgs.to_vec() }).is_err() {
+                            tracing::error!("writer task dead — SaveApiMessages lost");
+                        }
 
                         let (reply_tx, reply_rx) = oneshot::channel();
-                        let _ = write_tx.send(WriteCmd::EvaluateSession { session_id: sid.clone(), reply: reply_tx });
-                        let quality_msg = reply_rx.await.ok().flatten();
+                        if write_tx.send(WriteCmd::EvaluateSession { session_id: sid.clone(), reply: reply_tx }).is_err() {
+                            tracing::error!("writer task dead — EvaluateSession lost");
+                        }
+                        let quality_msg = tokio::time::timeout(
+                            Duration::from_secs(5),
+                            reply_rx,
+                        ).await.ok().and_then(|r| r.ok()).flatten();
 
                         let quality_json = match &quality_msg {
                             Some(crate::app::Message::Quality { score, complete, issues, references_valid }) => {
@@ -87,10 +102,14 @@ fn build_sse_stream(
                             _ => serde_json::json!(null),
                         };
                         if let Some(q) = &quality_msg {
-                            let _ = write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: vec![q.clone()] });
+                            if write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: vec![q.clone()] }).is_err() {
+                                tracing::error!("writer task dead — PersistMessages(quality) lost");
+                            }
                         }
-                        let _ = write_tx.send(WriteCmd::FlushMemory { user_id: user_id.clone(), agent_id: agent_id.clone() });
-                        concurrency.release();
+                        if write_tx.send(WriteCmd::FlushMemory { user_id: user_id.clone(), agent_id: agent_id.clone() }).is_err() {
+                            tracing::error!("writer task dead — FlushMemory lost");
+                        }
+                        guard.release();
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         sse_event = Event::default().event("done").data(data).id(seq.to_string());
@@ -100,9 +119,13 @@ fn build_sse_stream(
                         acc.apply(&LlmEvent::Error(e.clone()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
-                        let _ = write_tx.send(WriteCmd::MarkError { session_id: sid.clone(), error: e.clone() });
-                        let _ = write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized });
-                        concurrency.release();
+                        if write_tx.send(WriteCmd::MarkError { session_id: sid.clone(), error: e.clone() }).is_err() {
+                            tracing::error!("writer task dead — MarkError lost");
+                        }
+                        if write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized }).is_err() {
+                            tracing::error!("writer task dead — PersistMessages(error) lost");
+                        }
+                        guard.release();
                         sse_event = Event::default().event("error").data(e).id(seq.to_string());
                         keep_rx = false;
                     }
@@ -139,7 +162,7 @@ fn build_sse_stream(
                 }
                 seq += 1;
                 let (next_rx, next_acc) = if keep_rx { (Some(rx), acc) } else { (None, MessageAccumulator::new()) };
-                return Some((Ok::<_, Infallible>(sse_event), (next_rx, write_tx, concurrency, state, user_id, sid, next_acc, seq)));
+                return Some((Ok::<_, Infallible>(sse_event), (next_rx, write_tx, guard, state, user_id, sid, next_acc, seq)));
             }
         },
     );
@@ -211,7 +234,7 @@ async fn writer_task(
                 }
             }
             WriteCmd::SaveApiMessages { session_id, messages } => {
-                let mut c = core.write().await;
+                let c = core.write().await;
                 c.session_mgr.save_api_messages(&session_id, &messages);
             }
             WriteCmd::EvaluateSession { session_id, reply } => {
@@ -244,10 +267,11 @@ pub async fn chat(
         return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
     }
 
+    let guard = std::sync::Arc::new(ConcurrencyGuard::new(state.chat_concurrency.clone()));
+
     let text = match body.get("message").and_then(|v| v.as_str()) {
         Some(t) => t.to_string(),
         None => {
-            state.chat_concurrency.release();
             let err = serde_json::json!({"success": false, "error": "Missing 'message'"});
             return (axum::http::StatusCode::BAD_REQUEST, axum::Json(err)).into_response();
         }
@@ -298,7 +322,6 @@ pub async fn chat(
                 Ok(l) => l,
                 Err(e) => {
                     tracing::error!(error = %e, "agent lookup failed");
-                    state.chat_concurrency.release();
                     let err = serde_json::json!({"success": false, "error": format!("Agent not initialized: {}", e)});
                     return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err)).into_response();
                 }
@@ -331,7 +354,7 @@ pub async fn chat(
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, state.chat_concurrency.clone(), state.clone(), user_id, sid).into_response()
+    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, sid).into_response()
 }
 
 /// Legacy SSE stream endpoint (backward compatible).
@@ -340,6 +363,17 @@ pub async fn chat_stream(
     UserId(user_id): UserId,
     Path(session_id): Path<String>,
 ) -> axum::response::Response {
+    if let Err(e) = state.chat_concurrency.try_acquire() {
+        let err = serde_json::json!({"success": false, "error": e});
+        return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
+    }
+
+    let guard = std::sync::Arc::new(ConcurrencyGuard::new(state.chat_concurrency.clone()));
+
+    // NOTE: This implementation does not prevent duplicate active streams for the
+    // same session. A full solution would require an active-stream tracking HashMap
+    // in AppState to detect and reject concurrent streaming on the same session.
+
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
 
     {
@@ -374,7 +408,7 @@ pub async fn chat_stream(
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, state.chat_concurrency.clone(), state.clone(), user_id, session_id).into_response()
+    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id).into_response()
 }
 
 /// Resume an SSE stream after disconnection.
@@ -387,7 +421,25 @@ pub async fn chat_stream_resume(
     Path(session_id): Path<String>,
     Query(query): Query<ResumeQuery>,
 ) -> axum::response::Response {
+    if let Err(e) = state.chat_concurrency.try_acquire() {
+        let err = serde_json::json!({"success": false, "error": e});
+        return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
+    }
+
+    let guard = std::sync::Arc::new(ConcurrencyGuard::new(state.chat_concurrency.clone()));
+
     let _cursor = query.cursor.unwrap_or(0);
+
+    // Verify session ownership
+    {
+        let core = state.core.read().await;
+        if let Some(meta) = core.session_mgr.session_meta(&session_id) {
+            if meta.user_id != user_id {
+                return (axum::http::StatusCode::FORBIDDEN,
+                    axum::Json(serde_json::json!({"success": false, "error": "Session does not belong to you"}))).into_response();
+            }
+        }
+    }
 
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
 
@@ -423,7 +475,7 @@ pub async fn chat_stream_resume(
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, state.chat_concurrency.clone(), state.clone(), user_id, session_id).into_response()
+    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id).into_response()
 }
 
 #[derive(Deserialize)]

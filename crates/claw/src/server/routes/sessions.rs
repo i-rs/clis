@@ -134,9 +134,16 @@ pub async fn create_session(
 /// Switch to an existing session.
 pub async fn switch_session(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(id): Path<String>,
 ) -> Json<super::ApiResponse<Value>> {
     let mut core = state.core.write().await;
+    // Verify session belongs to this user
+    if let Some(meta) = core.session_mgr.session_meta(&id) {
+        if meta.user_id != user_id {
+            return super::ApiResponse::err("Session does not belong to you");
+        }
+    }
     if core.session_mgr.switch_to(&id) {
         let meta = core.session_mgr.session_meta(&id);
         super::ApiResponse::ok(serde_json::json!({
@@ -201,18 +208,12 @@ pub async fn delete_session(
         .session_meta(&id)
         .map(|m| m.agent_id.clone())
         .unwrap_or_else(|| "default".to_string());
-    core.session_mgr.delete_session(&id);
     {
-        let layered = match core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
-            Ok(l) => l,
-            Err(e) => {
-                tracing::error!(error = %e, "agent lookup failed");
-                drop(core);
-                return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
-            }
-        };
-        layered.end_session();
+        if let Ok(layered) = core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
+            layered.end_session();
+        }
     }
+    core.session_mgr.delete_session(&id);
     drop(core);
     super::ApiResponse::ok("deleted")
 }
@@ -238,10 +239,9 @@ pub async fn post_session_feedback(
         .unwrap_or_else(|| "default".to_string());
 
     // Record in cross-session memory
-    core.agent_store
-        .memory_for_mut(&user_id, &agent_id)
-        .expect("BUG: default agent runtime not initialized")
-        .record_session_feedback(&id, positive);
+    if let Ok(mem) = core.agent_store.memory_for_mut(&user_id, &agent_id) {
+        mem.record_session_feedback(&id, positive);
+    }
 
     // Append feedback to session via SessionManager.
     let msg = crate::app::Message::Feedback {
@@ -252,9 +252,9 @@ pub async fn post_session_feedback(
         tracing::error!("feedback persist failed: {}", e);
     }
 
-    core.agent_store.memory_for_mut(&user_id, &agent_id)
-        .expect("BUG: default agent runtime not initialized")
-        .flush();
+    if let Ok(mem) = core.agent_store.memory_for_mut(&user_id, &agent_id) {
+        mem.flush();
+    }
     drop(core);
 
     super::ApiResponse::ok("ok")

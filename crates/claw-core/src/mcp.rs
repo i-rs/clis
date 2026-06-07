@@ -270,7 +270,7 @@ mod mcp_gated {
     ///
     /// Creates a single shared tokio runtime for all connected MCP clients,
     /// eliminating the per-connection runtime anti-pattern (see review C-4).
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Default)]
     pub struct McpRegistry {
         /// All connected MCP clients.
         clients: Vec<McpClient>,
@@ -680,11 +680,15 @@ mod mcp_gated {
 
     /// Stub McpRegistry used when the `mcp` feature is disabled.
     /// All methods return empty collections.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Default)]
     pub struct McpRegistry {
         clients: Vec<McpClient>,
-        tools: Vec<(usize, McpToolDefinition)>,
+        #[default]
+        tools: Vec<(usize, McpToolDefinition)>, // (client_index, tool_def)
+        #[default]
         tool_map: HashMap<String, (usize, McpToolDefinition)>,
+        #[allow(dead_code)]
+        rt: Option<Arc<tokio::runtime::Runtime>>,
         #[allow(dead_code)]
         pub server_configs: Vec<McpServerConfig>,
     }

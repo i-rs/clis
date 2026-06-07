@@ -109,7 +109,7 @@ pub async fn update_agent(
         provider: body
             .get("provider")
             .and_then(|v| v.as_str())
-            .map(|s| s.parse::<ProviderKind>().expect("invalid provider"))
+            .map(|s| s.parse::<ProviderKind>().unwrap_or(ProviderKind::OpenAI))
             .or(existing.provider),
         api_key: body
             .get("api_key")
@@ -188,7 +188,7 @@ pub async fn create_agent(
         provider: body
             .get("provider")
             .and_then(|v| v.as_str())
-            .map(|s| s.parse::<ProviderKind>().expect("invalid provider")),
+            .map(|s| s.parse::<ProviderKind>().unwrap_or(ProviderKind::OpenAI)),
         api_key: body
             .get("api_key")
             .and_then(|v| v.as_str())

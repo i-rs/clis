@@ -27,9 +27,6 @@ pub enum ErrorCategory {
     EmptyResult,
     /// JSON output from tool is malformed or contains error fields.
     BadOutput,
-    /// Async runtime contract violation (e.g. sync_block_on inside an async context).
-    /// Never retryable — the call site must be refactored.
-    Concurrency,
     /// Generic / uncategorized error.
     Unknown,
 }
@@ -58,10 +55,6 @@ pub enum ClawError {
     Network(String),
     /// Requested resource not found.
     NotFound(String),
-    /// sync_block_on was called from inside a tokio runtime context.
-    /// The call site must be refactored to use `.await` instead.
-    #[allow(dead_code)]
-    SyncBlockInAsync(String),
     /// Generic error message (fallback for conversions).
     Message(String),
 }
@@ -76,7 +69,6 @@ impl ClawError {
             ClawError::Timeout(_) => ErrorCategory::Timeout,
             ClawError::Network(_) => ErrorCategory::Network,
             ClawError::NotFound(_) => ErrorCategory::NotFound,
-            ClawError::SyncBlockInAsync(_) => ErrorCategory::Concurrency,
             ClawError::Message(_) => ErrorCategory::Unknown,
         }
     }
@@ -151,7 +143,6 @@ impl std::fmt::Display for ClawError {
             ClawError::Timeout(msg) => write!(f, "超时: {}", msg),
             ClawError::Network(msg) => write!(f, "网络错误: {}", msg),
             ClawError::NotFound(msg) => write!(f, "未找到: {}", msg),
-            ClawError::SyncBlockInAsync(msg) => write!(f, "并发错误: {}", msg),
             ClawError::Message(msg) => write!(f, "{}", msg),
         }
     }
