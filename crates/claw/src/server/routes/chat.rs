@@ -17,13 +17,15 @@ use tokio::sync::{mpsc, oneshot};
 /// Build an SSE stream from an LlmEvent receiver with auto-incrementing event IDs.
 fn build_sse_stream(
     rx: mpsc::UnboundedReceiver<LlmEvent>,
+    write_tx: mpsc::UnboundedSender<WriteCmd>,
+    concurrency: std::sync::Arc<crate::server::rate_limit::ChatConcurrency>,
     state: AppState,
     user_id: String,
     sid: String,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = futures_util::stream::unfold(
-        (Some(rx), state, user_id, sid, MessageAccumulator::new(), 0u64),
-        |(rx_opt, state, user_id, sid, mut acc, mut seq)| async move {
+        (Some(rx), write_tx, concurrency, state, user_id, sid, MessageAccumulator::new(), 0u64),
+        |(rx_opt, write_tx, concurrency, state, user_id, sid, mut acc, mut seq)| async move {
             let mut rx = rx_opt?;
             loop {
                 let event = rx.recv().await?;
@@ -32,19 +34,29 @@ fn build_sse_stream(
 
                 match event {
                     LlmEvent::ToolExecuted { name, args, result, step, total_steps, category } => {
-                        let mut core = state.core.write().await;
-                        let i_rs_index = core.config.i_rs_tool_index.clone();
-                        let agent_id = core.session_mgr.session_meta(&sid)
-                            .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
-                        i_rs_claw_core::core::record_tool_memory(
-                            &user_id, &mut core.agent_store, &i_rs_index, &agent_id, &name, &args, &result,
-                        );
+                        let (agent_id, i_rs_index) = {
+                            let core = state.core.read().await;
+                            let aid = core.session_mgr.session_meta(&sid)
+                                .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
+                            let idx = core.config.i_rs_tool_index.clone();
+                            (aid, idx)
+                        };
+                        let _ = write_tx.send(WriteCmd::RecordToolMemory {
+                            user_id: user_id.clone(),
+                            agent_id: agent_id.clone(),
+                            tool_name: name.clone(),
+                            tool_args: args.clone(),
+                            tool_result: result.clone(),
+                            i_rs_index,
+                        });
                         if !category.is_retryable_or_fatal() {
-                            i_rs_claw_core::core::record_layered_tool_memory(
-                                &user_id, &mut core.agent_store, &agent_id, &name, &result,
-                            );
+                            let _ = write_tx.send(WriteCmd::RecordLayeredMemory {
+                                user_id: user_id.clone(),
+                                agent_id: agent_id.clone(),
+                                tool_name: name.clone(),
+                                tool_result: result.clone(),
+                            });
                         }
-                        drop(core);
                         let data = serde_json::to_string(&serde_json::json!({
                             "name": name, "args": args, "result": result,
                             "step": step, "total_steps": total_steps,
@@ -53,17 +65,21 @@ fn build_sse_stream(
                         acc.apply(&LlmEvent::ToolExecuted { name: name.clone(), args: args.clone(), result: result.clone(), step, total_steps, category });
                     }
                     LlmEvent::Done(msgs, usage, _trace_id) => {
-                        let mut core = state.core.write().await;
-                        let agent_id = core.session_mgr.session_meta(&sid)
-                            .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
+                        let agent_id = {
+                            let core = state.core.read().await;
+                            core.session_mgr.session_meta(&sid)
+                                .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string())
+                        };
                         acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
-                        if let Err(e) = core.session_mgr.persist_messages(&sid, &finalized) {
-                            tracing::error!("persist_messages (Done) 失败: {}", e);
-                        }
-                        core.session_mgr.save_api_messages(&sid, &msgs);
-                        let quality_msg = core.evaluate_completed_session(&sid);
+                        let _ = write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized });
+                        let _ = write_tx.send(WriteCmd::SaveApiMessages { session_id: sid.clone(), messages: msgs.to_vec() });
+
+                        let (reply_tx, reply_rx) = oneshot::channel();
+                        let _ = write_tx.send(WriteCmd::EvaluateSession { session_id: sid.clone(), reply: reply_tx });
+                        let quality_msg = reply_rx.await.ok().flatten();
+
                         let quality_json = match &quality_msg {
                             Some(crate::app::Message::Quality { score, complete, issues, references_valid }) => {
                                 serde_json::json!({"score": score.map(|s| s.to_string()).unwrap_or_default(), "complete": complete, "issues": issues, "references_valid": references_valid})
@@ -71,15 +87,10 @@ fn build_sse_stream(
                             _ => serde_json::json!(null),
                         };
                         if let Some(q) = &quality_msg {
-                            if let Err(e) = core.session_mgr.persist_messages(&sid, &[q.clone()]) {
-                                tracing::error!("quality 持久化失败: {}", e);
-                            }
+                            let _ = write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: vec![q.clone()] });
                         }
-                        core.agent_store.memory_for_mut(&user_id, &agent_id)
-                            .expect("BUG: default agent runtime not initialized")
-                            .flush();
-                        drop(core);
-                        state.chat_concurrency.release();
+                        let _ = write_tx.send(WriteCmd::FlushMemory { user_id: user_id.clone(), agent_id: agent_id.clone() });
+                        concurrency.release();
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
                         sse_event = Event::default().event("done").data(data).id(seq.to_string());
@@ -89,14 +100,9 @@ fn build_sse_stream(
                         acc.apply(&LlmEvent::Error(e.clone()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
-                        {
-                            let mut core = state.core.write().await;
-                            core.session_mgr.mark_error(&sid, &e);
-                            if let Err(err) = core.session_mgr.persist_messages(&sid, &finalized) {
-                                tracing::error!("persist_messages (error) 失败: {}", err);
-                            }
-                        }
-                        state.chat_concurrency.release();
+                        let _ = write_tx.send(WriteCmd::MarkError { session_id: sid.clone(), error: e.clone() });
+                        let _ = write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized });
+                        concurrency.release();
                         sse_event = Event::default().event("error").data(e).id(seq.to_string());
                         keep_rx = false;
                     }
@@ -133,7 +139,7 @@ fn build_sse_stream(
                 }
                 seq += 1;
                 let (next_rx, next_acc) = if keep_rx { (Some(rx), acc) } else { (None, MessageAccumulator::new()) };
-                return Some((Ok::<_, Infallible>(sse_event), (next_rx, state, user_id, sid, next_acc, seq)));
+                return Some((Ok::<_, Infallible>(sse_event), (next_rx, write_tx, concurrency, state, user_id, sid, next_acc, seq)));
             }
         },
     );
@@ -321,7 +327,11 @@ pub async fn chat(
         sid
     };
 
-    build_sse_stream(rx, state.clone(), user_id, sid).into_response()
+    let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
+    let core_arc = state.core.clone();
+    tokio::spawn(async move { writer_task(core_arc, write_rx).await });
+
+    build_sse_stream(rx, write_tx, state.chat_concurrency.clone(), state.clone(), user_id, sid).into_response()
 }
 
 /// Legacy SSE stream endpoint (backward compatible).
@@ -360,7 +370,11 @@ pub async fn chat_stream(
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
     }
 
-    build_sse_stream(rx, state.clone(), user_id, session_id).into_response()
+    let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
+    let core_arc = state.core.clone();
+    tokio::spawn(async move { writer_task(core_arc, write_rx).await });
+
+    build_sse_stream(rx, write_tx, state.chat_concurrency.clone(), state.clone(), user_id, session_id).into_response()
 }
 
 /// Resume an SSE stream after disconnection.
@@ -405,7 +419,11 @@ pub async fn chat_stream_resume(
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent);
     }
 
-    build_sse_stream(rx, state.clone(), user_id, session_id).into_response()
+    let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
+    let core_arc = state.core.clone();
+    tokio::spawn(async move { writer_task(core_arc, write_rx).await });
+
+    build_sse_stream(rx, write_tx, state.chat_concurrency.clone(), state.clone(), user_id, session_id).into_response()
 }
 
 #[derive(Deserialize)]
