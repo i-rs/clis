@@ -34,3 +34,16 @@ pub async fn postgres_storage() -> ClawStorage {
         .unwrap_or("postgres://postgres:test@localhost:5432/claw_test".into());
     ClawStorage::postgres(&url).await.unwrap()
 }
+
+pub async fn mongo_storage() -> ClawStorage {
+    let url = std::env::var("MONGO_URL")
+        .unwrap_or("mongodb://localhost:27017".into());
+    let db = std::env::var("MONGO_DB").unwrap_or("claw_test".into());
+    ClawStorage::mongo(&url, &db).await.unwrap()
+}
+
+pub async fn redis_storage() -> ClawStorage {
+    let url = std::env::var("REDIS_URL")
+        .unwrap_or("redis://localhost:6379".into());
+    ClawStorage::redis(&url).await.unwrap()
+}

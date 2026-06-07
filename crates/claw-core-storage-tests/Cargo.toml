@@ -6,7 +6,7 @@ license.workspace = true
 description = "Integration tests for i-rs-claw-core storage backends"
 
 [dependencies]
-i-rs-claw-core = { path = "../claw-core", features = ["sqlite", "mysql", "postgres"] }
+i-rs-claw-core = { path = "../claw-core", features = ["sqlite", "mysql", "postgres", "mongo", "redis"] }
 chrono.workspace = true
 tokio.workspace = true
 serde.workspace = true
