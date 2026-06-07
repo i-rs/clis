@@ -109,6 +109,9 @@ fn build_sse_stream(
                         if write_tx.send(WriteCmd::FlushMemory { user_id: user_id.clone(), agent_id: agent_id.clone() }).is_err() {
                             tracing::error!("writer task dead — FlushMemory lost");
                         }
+                        if write_tx.send(WriteCmd::FlushStats).is_err() {
+                            tracing::error!("writer task dead — FlushStats lost");
+                        }
                         guard.release();
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
@@ -202,6 +205,7 @@ enum WriteCmd {
         user_id: String,
         agent_id: String,
     },
+    FlushStats,
     MarkError {
         session_id: String,
         error: String,
@@ -246,6 +250,10 @@ async fn writer_task(
                 if let Ok(mem) = c.agent_store.memory_for_mut(&user_id, &agent_id) {
                     mem.flush_async().await;
                 }
+            }
+            WriteCmd::FlushStats => {
+                let c = core.read().await;
+                c.stats_manager.flush_async().await;
             }
             WriteCmd::MarkError { session_id, error } => {
                 let mut c = core.write().await;

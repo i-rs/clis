@@ -249,6 +249,25 @@ impl StatsManager {
         }
     }
 
+    /// Async version of [`flush`].
+    #[allow(dead_code)]
+    pub async fn flush_async(&self) {
+        let records = {
+            let mut buffer = self
+                .buffer
+                .lock()
+                .expect("StatsManager buffer lock poisoned");
+            if buffer.is_empty() {
+                return;
+            }
+            std::mem::take(&mut *buffer)
+        };
+        let storage = self.storage.clone();
+        if let Err(e) = storage.stats.upsert_batch(&records).await {
+            tracing::error!("刷写 token 统计失败: {}", e);
+        }
+    }
+
     /// Create a TokenRecord from an LLM call event.
     #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]

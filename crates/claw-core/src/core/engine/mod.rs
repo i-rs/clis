@@ -103,6 +103,7 @@ fn prepare_loop(
                 .auto_approve("progress")
                 .auto_approve("chain")
                 .auto_approve("orchestrate")
+                .auto_approve("update_user_memory")
                 .require_confirm("file_ops")
                 .deny("delete")
                 .with_risk_threshold(crate::core::hitl::RiskLevel::High),
