@@ -276,4 +276,33 @@ mod tests {
             let _skills = result.0.data.unwrap();
         });
     }
+
+    #[test]
+    fn test_update_config_invalid_provider_returns_400() {
+        run_state_test("test_update_config_invalid_provider_returns_400", |state| async move {
+            let (status, Json(body)) = update_config(
+                State(state),
+                Json(serde_json::json!({"provider": "not-a-real-provider"})),
+            ).await;
+            assert_eq!(status, axum::http::StatusCode::BAD_REQUEST);
+            assert!(!body.success, "should report failure");
+            assert!(
+                body.error.as_ref().map(|e| e.contains("provider")).unwrap_or(false),
+                "error should mention 'provider'; got {:?}",
+                body.error
+            );
+        });
+    }
+
+    #[test]
+    fn test_update_config_valid_provider_returns_200() {
+        run_state_test("test_update_config_valid_provider_returns_200", |state| async move {
+            let (status, Json(body)) = update_config(
+                State(state),
+                Json(serde_json::json!({"provider": "anthropic"})),
+            ).await;
+            assert_eq!(status, axum::http::StatusCode::OK);
+            assert!(body.success, "should report success");
+        });
+    }
 }

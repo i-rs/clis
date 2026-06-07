@@ -2,7 +2,9 @@ use crate::server::AppState;
 use axum::{
     Json,
     extract::State,
+    http::StatusCode,
 };
+use i_rs_claw_core::providers::ProviderKind;
 use serde_json::Value;
 
 /// Get current configuration (sanitized, no API keys).
@@ -21,14 +23,34 @@ pub async fn get_config(State(state): State<AppState>) -> Json<super::ApiRespons
 }
 
 /// Update default LLM configuration (provider, api_key, base_url, model).
+///
+/// Returns 400 if `provider` is supplied but is not one of the known kinds
+/// (openai/anthropic/ollama/zhipu, case-insensitive).
 pub async fn update_config(
     State(state): State<AppState>,
     Json(body): Json<Value>,
-) -> Json<super::ApiResponse<Value>> {
+) -> (StatusCode, Json<super::ApiResponse<Value>>) {
     let mut core = state.core.write().await;
 
     if let Some(p) = body.get("provider").and_then(|v| v.as_str()) {
-        core.config.provider = p.parse().expect("invalid provider");
+        let known: Vec<&'static str> = ProviderKind::all()
+            .iter()
+            .map(ProviderKind::as_str)
+            .collect();
+        let lower = p.to_lowercase();
+        if !known.iter().any(|k| *k == lower.as_str()) {
+            return (
+                StatusCode::BAD_REQUEST,
+                super::ApiResponse::err(&format!(
+                    "Unknown provider '{}'. Valid providers: {}",
+                    p,
+                    known.join(", ")
+                )),
+            );
+        }
+        // FromStr for ProviderKind is Infallible (falls back to OpenAI), so
+        // unwrap is unreachable in practice after the validation above.
+        core.config.provider = p.parse().unwrap_or(ProviderKind::OpenAI);
     }
     if let Some(k) = body.get("api_key").and_then(|v| v.as_str()) {
         core.config.api_key = k.to_string();
@@ -41,7 +63,10 @@ pub async fn update_config(
     }
 
     if let Err(e) = core.config.save() {
-        return super::ApiResponse::err(&format!("Failed to save config: {}", e));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            super::ApiResponse::err(&format!("Failed to save config: {}", e)),
+        );
     }
 
     let result = serde_json::json!({
@@ -50,7 +75,7 @@ pub async fn update_config(
         "base_url": core.config.base_url,
         "model": core.config.model,
     });
-    super::ApiResponse::ok(result)
+    (StatusCode::OK, super::ApiResponse::ok(result))
 }
 
 /// List all configured providers from the config.
