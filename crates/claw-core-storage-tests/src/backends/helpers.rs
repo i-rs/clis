@@ -23,14 +23,12 @@ pub async fn sqlite_storage() -> (Arc<ClawStorage>, TempDir) {
     (storage, dir)
 }
 
-#[cfg(feature = "mysql")]
 pub async fn mysql_storage() -> ClawStorage {
     let url = std::env::var("MYSQL_URL")
         .unwrap_or("mysql://root:test@localhost:3306/claw_test".into());
     ClawStorage::mysql(&url).await.unwrap()
 }
 
-#[cfg(feature = "postgres")]
 pub async fn postgres_storage() -> ClawStorage {
     let url = std::env::var("PG_URL")
         .unwrap_or("postgres://postgres:test@localhost:5432/claw_test".into());

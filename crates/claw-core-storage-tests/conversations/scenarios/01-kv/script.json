@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "tool": "i-rs-kv",
+    "name": "kv_basic_usage",
+    "description": "引导用户学习使用 KV 存储：通过自然语言存储、查询和删除键值对",
+    "required_capabilities": ["add", "get", "list", "delete", "search", "stats"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "kv"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "存储一条配置",
+      "user_message": "帮我记一下，我的博客地址是 https://example.com",
+      "expected_tool": "i-rs-kv",
+      "expected_command": "add",
+      "expected_args": {"KEY": "blog_url", "VALUE": "https://example.com"},
+      "check_reply": {"contains": ["已记录", "blog_url"]}
+    },
+    {
+      "step": 2,
+      "title": "查询已存储的值",
+      "user_message": "我的博客地址是什么？",
+      "expected_tool": "i-rs-kv",
+      "expected_command": "get",
+      "expected_args": {"KEY": "blog_url"},
+      "check_reply": {"contains": ["https://example.com"]}
+    },
+    {
+      "step": 3,
+      "title": "列出所有键",
+      "user_message": "帮我看看我存了哪些键值对",
+      "expected_tool": "i-rs-kv",
+      "expected_command": "list"
+    },
+    {
+      "step": 4,
+      "title": "搜索键值",
+      "user_message": "帮我找一下包含 example 的记录",
+      "expected_tool": "i-rs-kv",
+      "expected_command": "search",
+      "expected_args": {"QUERY": "example"}
+    },
+    {
+      "step": 5,
+      "title": "删除记录",
+      "user_message": "把 blog_url 删掉",
+      "expected_tool": "i-rs-kv",
+      "expected_command": "delete",
+      "expected_args": {"KEY": "blog_url"},
+      "check_reply": {"contains": ["已删除"]}
+    },
+    {
+      "step": 6,
+      "title": "带标签的记录",
+      "user_message": "记一下 API 密钥 sk-test，标签是 test，备注是测试用",
+      "expected_tool": "i-rs-kv",
+      "expected_command": "add",
+      "expected_args": {"KEY": "api_key_test", "VALUE": "sk-test"},
+      "expected_flags": {"--tag": "test", "--remark": "测试用"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "tool": "i-rs-todo",
+    "name": "todo_basic_usage",
+    "description": "引导用户学习使用待办事项管理：创建、完成、筛选和删除待办",
+    "required_capabilities": ["add", "list", "done", "delete"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "todo"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "创建高优先级待办",
+      "user_message": "帮我记一个待办：买牛奶，高优先级",
+      "expected_tool": "i-rs-todo",
+      "expected_command": "add",
+      "expected_args": {"NAME": "买牛奶"},
+      "expected_flags": {"--priority": "high"},
+      "check_reply": {"contains": ["已记录", "买牛奶"]}
+    },
+    {
+      "step": 2,
+      "title": "查看所有待办",
+      "user_message": "看看我有哪些待办",
+      "expected_tool": "i-rs-todo",
+      "expected_command": "list"
+    },
+    {
+      "step": 3,
+      "title": "完成待办",
+      "user_message": "把买牛奶标为完成",
+      "expected_tool": "i-rs-todo",
+      "expected_command": "done",
+      "expected_args": {"NAME": "买牛奶"},
+      "check_reply": {"contains": ["done", "完成"]}
+    },
+    {
+      "step": 4,
+      "title": "查看待完成的待办",
+      "user_message": "看看我还有哪些没做完的",
+      "expected_tool": "i-rs-todo",
+      "expected_command": "list",
+      "expected_flags": {"--pending": ""}
+    },
+    {
+      "step": 5,
+      "title": "创建带内容的待办",
+      "user_message": "记一个待办写周报，内容：整理本周数据",
+      "expected_tool": "i-rs-todo",
+      "expected_command": "add",
+      "expected_args": {"NAME": "写周报"},
+      "expected_flags": {"--content": "整理本周数据"},
+      "check_reply": {"contains": ["已记录", "写周报"]}
+    },
+    {
+      "step": 6,
+      "title": "删除待办",
+      "user_message": "把买牛奶删除",
+      "expected_tool": "i-rs-todo",
+      "expected_command": "delete",
+      "expected_args": {"NAME": "买牛奶"},
+      "check_reply": {"contains": ["已删除"]}
+    }
+  ]
+}

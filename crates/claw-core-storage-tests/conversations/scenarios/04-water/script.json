@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "tool": "i-rs-water",
+    "name": "water_basic_usage",
+    "description": "引导用户学习使用喝水记录：记录饮水量和查看今日汇总",
+    "required_capabilities": ["add", "list"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "water"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录喝水量",
+      "user_message": "我喝了一杯水 300ml",
+      "expected_tool": "i-rs-water",
+      "expected_command": "add",
+      "expected_args": {"AMOUNT_ML": "300"},
+      "check_reply": {"contains": ["已记录", "300"]}
+    },
+    {
+      "step": 2,
+      "title": "再记录一次",
+      "user_message": "又喝了一杯 500ml",
+      "expected_tool": "i-rs-water",
+      "expected_command": "add",
+      "expected_args": {"AMOUNT_ML": "500"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 3,
+      "title": "查看喝水记录",
+      "user_message": "看看我今天喝了多少水",
+      "expected_tool": "i-rs-water",
+      "expected_command": "list",
+      "check_reply": {"contains": ["300", "500"]}
+    },
+    {
+      "step": 4,
+      "title": "带标签的记录",
+      "user_message": "喝了一杯咖啡 200ml，tag 为咖啡",
+      "expected_tool": "i-rs-water",
+      "expected_command": "add",
+      "expected_args": {"AMOUNT_ML": "200"},
+      "expected_flags": {"--tag": "咖啡"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}

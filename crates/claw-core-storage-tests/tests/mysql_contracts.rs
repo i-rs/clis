@@ -1,4 +1,3 @@
-#![cfg(feature = "mysql")]
 
 use claw_core_storage_tests::contracts;
 

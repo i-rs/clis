@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "tool": "i-rs-meal",
+    "name": "meal_basic_usage",
+    "description": "引导用户学习使用饮食记录：记录每餐食物和热量",
+    "required_capabilities": ["add", "list"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "meal"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录早餐",
+      "user_message": "早餐吃了面包和牛奶，大概 350 卡",
+      "expected_tool": "i-rs-meal",
+      "expected_command": "add",
+      "expected_args": {"TYPE": "breakfast"},
+      "expected_flags": {"--food": "面包牛奶", "--calories": "350"},
+      "check_reply": {"contains": ["已记录", "早餐"]}
+    },
+    {
+      "step": 2,
+      "title": "记录午餐",
+      "user_message": "午餐吃了米饭和炒菜，650 卡，标签为外卖",
+      "expected_tool": "i-rs-meal",
+      "expected_command": "add",
+      "expected_args": {"TYPE": "lunch"},
+      "expected_flags": {"--food": "米饭炒菜", "--calories": "650", "--tag": "外卖"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 3,
+      "title": "查看今日饮食",
+      "user_message": "看看我今天吃了什么",
+      "expected_tool": "i-rs-meal",
+      "expected_command": "list",
+      "expected_flags": {"--date": "today"},
+      "check_reply": {"contains": ["breakfast", "lunch"]}
+    },
+    {
+      "step": 4,
+      "title": "记录零食",
+      "user_message": "下午加餐吃了水果，100 卡",
+      "expected_tool": "i-rs-meal",
+      "expected_command": "add",
+      "expected_args": {"TYPE": "snack"},
+      "expected_flags": {"--food": "水果", "--calories": "100"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}

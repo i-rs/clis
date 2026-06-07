@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "tool": "i-rs-sit",
+    "name": "sit_basic_usage",
+    "description": "引导用户学习使用久坐记录：记录久坐时长",
+    "required_capabilities": ["add", "list"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "sit"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录久坐",
+      "user_message": "坐了 45 分钟了",
+      "expected_tool": "i-rs-sit",
+      "expected_command": "add",
+      "expected_args": {"DURATION_MINUTES": "45"},
+      "check_reply": {"contains": ["已记录", "45"]}
+    },
+    {
+      "step": 2,
+      "title": "查看久坐记录",
+      "user_message": "看看我的久坐记录",
+      "expected_tool": "i-rs-sit",
+      "expected_command": "list",
+      "check_reply": {"contains": ["45"]}
+    },
+    {
+      "step": 3,
+      "title": "带标签的记录",
+      "user_message": "坐了 60 分钟写代码，tag 为 work",
+      "expected_tool": "i-rs-sit",
+      "expected_command": "add",
+      "expected_args": {"DURATION_MINUTES": "60"},
+      "expected_flags": {"--tag": "work"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 4,
+      "title": "再记录一次",
+      "user_message": "又坐了 30 分钟",
+      "expected_tool": "i-rs-sit",
+      "expected_command": "add",
+      "expected_args": {"DURATION_MINUTES": "30"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "tool": "i-rs-mood",
+    "name": "mood_basic_usage",
+    "description": "引导用户学习使用情绪记录：记录每日心情和查看情绪日历",
+    "required_capabilities": ["add", "list", "calendar"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "mood"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录今日心情",
+      "user_message": "今天心情不错，good",
+      "expected_tool": "i-rs-mood",
+      "expected_command": "add",
+      "expected_args": {"MOOD": "good"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 2,
+      "title": "补记昨天的心情",
+      "user_message": "昨天心情很好，great",
+      "expected_tool": "i-rs-mood",
+      "expected_command": "add",
+      "expected_args": {"MOOD": "great"},
+      "expected_flags": {"--date": "yesterday"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 3,
+      "title": "查看最近心情",
+      "user_message": "看看最近一周的心情",
+      "expected_tool": "i-rs-mood",
+      "expected_command": "list",
+      "expected_flags": {"--days": "7"}
+    },
+    {
+      "step": 4,
+      "title": "查看心情日历",
+      "user_message": "给我看看心情月历",
+      "expected_tool": "i-rs-mood",
+      "expected_command": "list",
+      "expected_flags": {"--calendar": ""},
+      "check_reply": {"contains": ["😊", "🙂"]}
+    }
+  ]
+}

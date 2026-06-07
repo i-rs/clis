@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "tool": "i-rs-weight",
+    "name": "weight_basic_usage",
+    "description": "引导用户学习使用体重追踪：记录体重、查看统计和趋势",
+    "required_capabilities": ["add", "list", "stats", "chart"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "weight"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录今日体重",
+      "user_message": "我今天体重 75.5kg",
+      "expected_tool": "i-rs-weight",
+      "expected_command": "add",
+      "expected_args": {"WEIGHT": "75.5"},
+      "check_reply": {"contains": ["已记录", "75.5"]}
+    },
+    {
+      "step": 2,
+      "title": "查看最近记录",
+      "user_message": "看看最近一周的体重",
+      "expected_tool": "i-rs-weight",
+      "expected_command": "list",
+      "expected_flags": {"--days": "7"}
+    },
+    {
+      "step": 3,
+      "title": "查看体重统计",
+      "user_message": "我的体重统计怎么样？",
+      "expected_tool": "i-rs-weight",
+      "expected_command": "list",
+      "expected_flags": {"--stats": ""}
+    },
+    {
+      "step": 4,
+      "title": "带标签的记录",
+      "user_message": "记录一下今天早上空腹体重 74.8，tag 为 morning",
+      "expected_tool": "i-rs-weight",
+      "expected_command": "add",
+      "expected_args": {"WEIGHT": "74.8"},
+      "expected_flags": {"--tag": "morning"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 5,
+      "title": "查看趋势图",
+      "user_message": "给我看看体重趋势图",
+      "expected_tool": "i-rs-weight",
+      "expected_command": "list",
+      "expected_flags": {"--chart": ""}
+    }
+  ]
+}

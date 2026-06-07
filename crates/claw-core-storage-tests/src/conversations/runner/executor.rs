@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use super::ToolCallInfo;
 
 /// Output from a single conversation step execution.

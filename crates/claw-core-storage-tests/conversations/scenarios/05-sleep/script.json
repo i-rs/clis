@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "tool": "i-rs-sleep",
+    "name": "sleep_basic_usage",
+    "description": "引导用户学习使用睡眠追踪：记录睡眠、查看统计",
+    "required_capabilities": ["add", "list", "stats"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "sleep"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录昨晚睡眠",
+      "user_message": "昨晚 11 点睡早上 7 点起，睡眠质量 4 分",
+      "expected_tool": "i-rs-sleep",
+      "expected_command": "add",
+      "expected_args": {"BEDTIME": "23:00", "WAKE_TIME": "07:00", "QUALITY": "4"},
+      "check_reply": {"contains": ["已记录", "23:00", "07:00"]}
+    },
+    {
+      "step": 2,
+      "title": "查看睡眠记录",
+      "user_message": "看看我的睡眠记录",
+      "expected_tool": "i-rs-sleep",
+      "expected_command": "list",
+      "check_reply": {"contains": ["23:00", "07:00"]}
+    },
+    {
+      "step": 3,
+      "title": "查看睡眠统计",
+      "user_message": "我的睡眠统计怎么样？",
+      "expected_tool": "i-rs-sleep",
+      "expected_command": "stats",
+      "check_reply": {"contains": ["平均", "时长"]}
+    },
+    {
+      "step": 4,
+      "title": "带标签的记录",
+      "user_message": "昨晚 12 点半睡 8 点起，质量 3 分，tag 为 weekend",
+      "expected_tool": "i-rs-sleep",
+      "expected_command": "add",
+      "expected_args": {"BEDTIME": "00:30", "WAKE_TIME": "08:00", "QUALITY": "3"},
+      "expected_flags": {"--tag": "weekend"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}

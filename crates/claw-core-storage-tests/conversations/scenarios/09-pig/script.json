@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "tool": "i-rs-pig",
+    "name": "pig_basic_usage",
+    "description": "引导用户学习使用吃的念想记录：记录想吃的东西",
+    "required_capabilities": ["add", "list"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "pig"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录一个念想",
+      "user_message": "好想吃火锅",
+      "expected_tool": "i-rs-pig",
+      "expected_command": "add",
+      "expected_args": {"FOOD_NAME": "火锅"},
+      "check_reply": {"contains": ["已记录", "火锅"]}
+    },
+    {
+      "step": 2,
+      "title": "带描述的念想",
+      "user_message": "想喝奶茶，想和同事一起去",
+      "expected_tool": "i-rs-pig",
+      "expected_command": "add",
+      "expected_args": {"FOOD_NAME": "奶茶"},
+      "expected_flags": {"--description": "想和同事一起去"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 3,
+      "title": "查看所有念想",
+      "user_message": "看看我都想吃些什么",
+      "expected_tool": "i-rs-pig",
+      "expected_command": "list",
+      "check_reply": {"contains": ["火锅", "奶茶"]}
+    },
+    {
+      "step": 4,
+      "title": "带标签的记录",
+      "user_message": "想吃烤肉，tag 为周末",
+      "expected_tool": "i-rs-pig",
+      "expected_command": "add",
+      "expected_args": {"FOOD_NAME": "烤肉"},
+      "expected_flags": {"--tag": "周末"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}

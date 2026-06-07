@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "tool": "i-rs-spark",
+    "name": "spark_basic_usage",
+    "description": "引导用户学习使用灵感捕捉：记录灵感和想法",
+    "required_capabilities": ["add", "list"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "spark"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录一个灵感",
+      "user_message": "人生就像骑自行车，想保持平衡就得不断前进",
+      "expected_tool": "i-rs-spark",
+      "expected_command": "add",
+      "expected_args": {"CONTENT": "人生就像骑自行车"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 2,
+      "title": "带来源的灵感",
+      "user_message": "简单是终极的复杂，来自达芬奇",
+      "expected_tool": "i-rs-spark",
+      "expected_command": "add",
+      "expected_args": {"CONTENT": "简单是终极的复杂"},
+      "expected_flags": {"--source": "达芬奇"},
+      "check_reply": {"contains": ["已记录"]}
+    },
+    {
+      "step": 3,
+      "title": "查看所有灵感",
+      "user_message": "看看我记录过的灵感",
+      "expected_tool": "i-rs-spark",
+      "expected_command": "list",
+      "check_reply": {"contains": ["骑自行车", "达芬奇"]}
+    },
+    {
+      "step": 4,
+      "title": "带标签的灵感",
+      "user_message": "保持好奇，永远学习，tag 为人生哲学",
+      "expected_tool": "i-rs-spark",
+      "expected_command": "add",
+      "expected_args": {"CONTENT": "保持好奇，永远学习"},
+      "expected_flags": {"--tag": "人生哲学"},
+      "check_reply": {"contains": ["已记录"]}
+    }
+  ]
+}
