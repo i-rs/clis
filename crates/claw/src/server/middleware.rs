@@ -83,16 +83,16 @@ mod tests {
         }
     }
 
-    fn run_auth_test<F>(name: &str, f: F)
+    fn run_auth_test<F, Fut>(name: &str, f: F)
     where
-        F: FnOnce(tokio::runtime::Runtime, AppState) + Send + 'static,
+        F: FnOnce(AppState) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
     {
         let result = std::thread::Builder::new()
             .name(name.to_string())
             .spawn(move || {
-                let rt = tokio::runtime::Runtime::new().expect("create test runtime");
                 let state = test_state();
-                f(rt, state);
+                i_rs_claw_core::utils::sync_block_on(f(state));
             })
             .expect("spawn test thread")
             .join();
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_auth_valid_token() {
-        run_auth_test("test_auth_valid_token", |rt, state| {
+        run_auth_test("test_auth_valid_token", |state| async move {
             let app = Router::new()
                 .route("/api/test", get(ok_handler))
                 .layer(axum::middleware::from_fn_with_state(
@@ -123,14 +123,14 @@ mod tests {
                 .header("authorization", "Bearer secret")
                 .body(Body::empty())
                 .unwrap();
-            let resp = rt.block_on(app.oneshot(req)).unwrap();
+            let resp = app.oneshot(req).await.unwrap();
             assert_eq!(resp.status(), StatusCode::OK);
         });
     }
 
     #[test]
     fn test_auth_missing_token() {
-        run_auth_test("test_auth_missing_token", |rt, state| {
+        run_auth_test("test_auth_missing_token", |state| async move {
             let app = Router::new()
                 .route("/api/test", get(ok_handler))
                 .layer(axum::middleware::from_fn_with_state(
@@ -143,14 +143,14 @@ mod tests {
                 .uri("/api/test")
                 .body(Body::empty())
                 .unwrap();
-            let resp = rt.block_on(app.oneshot(req)).unwrap();
+            let resp = app.oneshot(req).await.unwrap();
             assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         });
     }
 
     #[test]
     fn test_auth_wrong_token() {
-        run_auth_test("test_auth_wrong_token", |rt, state| {
+        run_auth_test("test_auth_wrong_token", |state| async move {
             let app = Router::new()
                 .route("/api/test", get(ok_handler))
                 .layer(axum::middleware::from_fn_with_state(
@@ -164,7 +164,7 @@ mod tests {
                 .header("authorization", "Bearer wrong")
                 .body(Body::empty())
                 .unwrap();
-            let resp = rt.block_on(app.oneshot(req)).unwrap();
+            let resp = app.oneshot(req).await.unwrap();
             assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         });
     }

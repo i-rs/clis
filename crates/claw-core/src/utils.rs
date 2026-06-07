@@ -13,11 +13,16 @@ static SHARED_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
         .expect("sync_block_on: failed to create shared runtime")
 });
 
-pub fn sync_block_on<F: std::future::Future>(f: F) -> F::Output {
-    match tokio::runtime::Handle::try_current() {
-        Ok(_) => tokio::task::block_in_place(|| SHARED_RUNTIME.block_on(f)),
-        Err(_) => SHARED_RUNTIME.block_on(f),
-    }
+pub fn sync_block_on<F: std::future::Future + Send>(f: F) -> F::Output
+where
+    F::Output: Send,
+{
+    // Always run on a dedicated scope thread using SHARED_RUNTIME.
+    // This avoids ALL runtime nesting issues — including the
+    // "Cannot drop a runtime in a context where blocking is not allowed"
+    // panic when a `reqwest::Client` internal runtime is dropped within
+    // an async context.
+    std::thread::scope(|s| s.spawn(|| SHARED_RUNTIME.block_on(f)).join().unwrap())
 }
 
 // ── Timezone ──

@@ -281,7 +281,7 @@ mod mcp_gated {
         tool_map: HashMap<String, (usize, McpToolDefinition)>,
         /// Shared tokio runtime for all MCP connections.
         #[allow(dead_code)]
-        rt: Arc<tokio::runtime::Runtime>,
+        rt: Option<Arc<tokio::runtime::Runtime>>,
         /// Original server configs for reconnection.
         #[allow(dead_code)]
         pub server_configs: Vec<McpServerConfig>,
@@ -306,7 +306,13 @@ mod mcp_gated {
         /// Failed connections are logged but don't block startup.
         /// All MCP clients share a single tokio runtime.
         pub fn new(servers: &[McpServerConfig]) -> Self {
-            let rt = Arc::new(tokio::runtime::Runtime::new().expect("创建 MCP 共享运行时失败"));
+            let rt = if servers.iter().any(|s| s.enabled) {
+                Some(Arc::new(
+                    tokio::runtime::Runtime::new().expect("创建 MCP 共享运行时失败"),
+                ))
+            } else {
+                None
+            };
             let mut clients = Vec::new();
             let mut tools = Vec::new();
             let mut tool_map = HashMap::new();
@@ -317,16 +323,18 @@ mod mcp_gated {
                     continue;
                 }
 
+                let rt_ref = rt.as_ref().expect("MCP runtime 未初始化（无启用的服务器）");
+
                 // Dispatch based on transport type
                 let client = match server.transport_type.as_str() {
-                    "stdio" => match McpClient::connect(server, &rt) {
+                    "stdio" => match McpClient::connect(server, rt_ref) {
                         Ok(c) => c,
                         Err(e) => {
                             tracing::warn!("MCP 连接失败 '{}': {}", server.name, e);
                             continue;
                         }
                     },
-                    "sse" => match McpClient::connect_sse(server, &rt) {
+                    "sse" => match McpClient::connect_sse(server, rt_ref) {
                         Ok(c) => c,
                         Err(e) => {
                             tracing::warn!("MCP SSE 连接失败 '{}': {}", server.name, e);
@@ -487,7 +495,7 @@ mod mcp_gated {
                 clients: Vec::new(),
                 tools: Vec::new(),
                 tool_map: HashMap::new(),
-                rt,
+                rt: Some(rt),
                 server_configs: Vec::new(),
             }
         }
