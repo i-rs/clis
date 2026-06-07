@@ -1,4 +1,4 @@
-use super::ToolCallInfo;
+pub use super::ToolCallInfo;
 
 /// Output from a single conversation step execution.
 #[derive(Debug, Clone)]
@@ -7,6 +7,8 @@ pub struct StepOutput {
     pub tool_calls: Vec<ToolCallInfo>,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
+    /// Session ID if using a real backend (empty for mocks).
+    pub session_id: String,
 }
 
 /// Trait for session backends (mock or real AppCore).

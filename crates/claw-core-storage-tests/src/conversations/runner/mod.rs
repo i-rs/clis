@@ -1,8 +1,10 @@
 pub mod loader;
 pub mod verifier;
 pub mod executor;
+pub mod storage_verify;
 
 use std::collections::HashMap;
+use i_rs_claw_core::storage::ClawStorage;
 
 /// Information about a tool call made by the agent.
 #[derive(Debug, Clone)]
@@ -101,6 +103,8 @@ pub struct StepResult {
     pub missing_keywords: Vec<String>,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
+    #[serde(default)]
+    pub storage_results: Vec<storage_verify::StorageCheckResult>,
     pub error: Option<String>,
 }
 
@@ -131,13 +135,22 @@ impl ScriptRunner {
         &self,
         session: &mut dyn executor::SessionBackend,
     ) -> ScriptResult {
+        self.run_with_storage(session, None).await
+    }
+
+    /// Execute against a session backend with optional storage verification.
+    pub async fn run_with_storage(
+        &self,
+        session: &mut dyn executor::SessionBackend,
+        storage: Option<&std::sync::Arc<ClawStorage>>,
+    ) -> ScriptResult {
         let mut steps = Vec::new();
         let mut total_prompt = 0;
         let mut total_completion = 0;
         let mut all_passed = true;
 
         for step_def in &self.script.steps {
-            let (result, step_pass) = self.execute_step(session, step_def).await;
+            let (result, step_pass) = self.execute_step(session, step_def, storage).await;
             total_prompt += result.prompt_tokens;
             total_completion += result.completion_tokens;
             if !step_pass {
@@ -163,6 +176,7 @@ impl ScriptRunner {
         &self,
         session: &mut dyn executor::SessionBackend,
         step: &ScriptStep,
+        storage: Option<&std::sync::Arc<ClawStorage>>,
     ) -> (StepResult, bool) {
         let output = match session.send_message(&step.user_message).await {
             Ok(o) => o,
@@ -175,6 +189,7 @@ impl ScriptRunner {
                     missing_keywords: vec![],
                     prompt_tokens: 0,
                     completion_tokens: 0,
+                    storage_results: vec![],
                     error: Some(format!("执行错误: {}", e)),
                 }, false);
             }
@@ -200,6 +215,16 @@ impl ScriptRunner {
             all_pass = false;
         }
 
+        let storage_results = if let Some(storage) = storage {
+            storage_verify::verify_step(storage, step, &output.session_id).await
+        } else {
+            vec![]
+        };
+        let storage_pass = storage_results.iter().all(|r| r.passed);
+        if !storage_pass {
+            all_pass = false;
+        }
+
         (
             StepResult {
                 step: step.step,
@@ -207,6 +232,7 @@ impl ScriptRunner {
                 passed: all_pass,
                 tool_mismatches,
                 missing_keywords,
+                storage_results,
                 prompt_tokens: output.prompt_tokens,
                 completion_tokens: output.completion_tokens,
                 error: None,
@@ -231,6 +257,7 @@ mod tests {
                     .with_arg("VALUE", "https://example.com")],
                 prompt_tokens: 100,
                 completion_tokens: 30,
+                session_id: String::new(),
             },
             StepOutput {
                 reply: "已删除 blog_url".into(),
@@ -239,6 +266,7 @@ mod tests {
                     .with_arg("KEY", "blog_url")],
                 prompt_tokens: 50,
                 completion_tokens: 20,
+                session_id: String::new(),
             },
         ])
     }
