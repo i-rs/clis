@@ -1,0 +1,153 @@
+.content {
+  line-height: 1.7;
+}
+
+.content p {
+  margin: 8px 0;
+}
+
+.content p:first-child {
+  margin-top: 0;
+}
+
+.content p:last-child {
+  margin-bottom: 0;
+}
+
+.content ul,
+.content ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.content li {
+  margin: 4px 0;
+}
+
+.content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.content a:hover {
+  color: var(--accent-hover);
+}
+
+.content img {
+  max-width: 100%;
+  border-radius: var(--radius);
+  margin: 12px 0;
+}
+
+.inlineCode {
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--warning);
+  font-size: 0.9em;
+}
+
+.codeBlock {
+  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  overflow-x: auto;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.mdTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.mdTable th,
+.mdTable td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.mdTable th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.mdTable tr:last-child td {
+  border-bottom: none;
+}
+
+.mdTable tr:hover td {
+  background: var(--bg-hover);
+}
+
+.mdBlockquote {
+  border-left: 3px solid var(--accent);
+  padding: 8px 16px;
+  margin: 12px 0;
+  background: var(--accent-muted);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--text-secondary);
+}
+
+.mdList {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.mdH1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 16px 0 10px;
+  letter-spacing: -0.02em;
+}
+
+.mdH2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 14px 0 8px;
+}
+
+.mdH3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.mdH4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 10px 0 5px;
+}
+
+.mdH5 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+
+.mdH6 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 6px 0 3px;
+  color: var(--text-muted);
+}

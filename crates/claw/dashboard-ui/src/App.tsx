@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
-import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Lock, Sun, Moon, ChevronDown, BarChart3 } from 'lucide-react'
+import { MessageSquareText, History, Settings, Wrench, Puzzle, BookOpen, Bot, Lock, Sun, Moon, ChevronDown, BarChart3, Database } from 'lucide-react'
 import { listAgents, type AgentInfo, hasToken, setToken } from './api'
 import ChatPage from './pages/Chat'
 import SessionsPage from './pages/Sessions'
@@ -10,14 +10,16 @@ import PluginsPage from './pages/Plugins'
 import SkillsPage from './pages/Skills'
 import AgentsPage from './pages/Agents'
 import UsagePage from './pages/Usage'
+import DataPage from './pages/Data'
 
-type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins' | 'skills' | 'agents' | 'usage'
+type Page = 'chat' | 'sessions' | 'config' | 'tools' | 'plugins' | 'skills' | 'agents' | 'usage' | 'data'
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'chat', label: 'Chat', icon: <MessageSquareText size={18} /> },
   { id: 'sessions', label: 'Sessions', icon: <History size={18} /> },
   { id: 'agents', label: 'Agents', icon: <Bot size={18} /> },
   { id: 'usage', label: 'Usage', icon: <BarChart3 size={18} /> },
+  { id: 'data', label: 'Data', icon: <Database size={18} /> },
   { id: 'config', label: 'Config', icon: <Settings size={18} /> },
   { id: 'tools', label: 'Tools', icon: <Wrench size={18} /> },
   { id: 'plugins', label: 'Plugins', icon: <Puzzle size={18} /> },
@@ -208,6 +210,9 @@ export default function App() {
           </Route>
           <Route path="/skills">
             {() => <SkillsPage />}
+          </Route>
+          <Route path="/data">
+            {() => <DataPage />}
           </Route>
         </Switch>
       </main>
