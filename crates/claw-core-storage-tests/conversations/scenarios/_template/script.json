@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "tool": "i-rs-xxx",
+    "name": "xxx_basic_usage",
+    "description": "引导用户学习使用 xxx",
+    "required_capabilities": ["add", "list", "get", "update", "delete"],
+    "storage_backends": ["file", "sqlite"],
+    "tags": ["guided-tutorial", "xxx"]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "记录一条数据",
+      "user_message": "帮我记录一条数据",
+      "expected_tool": "i-rs-xxx",
+      "expected_command": "add",
+      "check_reply": {
+        "contains": ["已记录"]
+      },
+      "verify_storage": {
+        "expected_state": {}
+      }
+    },
+    {
+      "step": 2,
+      "title": "查询数据",
+      "user_message": "查一下刚才记录的数据",
+      "expected_tool": "i-rs-xxx",
+      "expected_command": "list",
+      "verify_storage": {
+        "no_new_records": true
+      }
+    },
+    {
+      "step": 3,
+      "title": "删除数据",
+      "user_message": "把刚才的记录删掉",
+      "expected_tool": "i-rs-xxx",
+      "expected_command": "delete",
+      "check_reply": {
+        "contains": ["已删除"]
+      }
+    }
+  ]
+}
