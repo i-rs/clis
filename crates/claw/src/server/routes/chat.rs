@@ -161,6 +161,23 @@ fn build_sse_stream(
                         })).unwrap_or_default();
                         sse_event = Event::default().event("evaluation").data(data).id(seq.to_string());
                     }
+                    LlmEvent::UsageRecord(mut record) => {
+                        let core = state.core.read().await;
+                        if record.estimated_cost_usd == 0.0 {
+                            record.estimated_cost_usd = core.stats_manager.estimate_cost(
+                                &record.model,
+                                record.prompt_tokens,
+                                record.completion_tokens,
+                            );
+                        }
+                        if record.agent_id == "default" {
+                            let agent_id = core.session_mgr.session_meta(&sid)
+                                .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
+                            record.agent_id = agent_id;
+                        }
+                        core.stats_manager.record(record);
+                        continue;
+                    }
                     _ => continue,
                 }
                 seq += 1;
