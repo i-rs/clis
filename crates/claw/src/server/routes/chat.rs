@@ -229,13 +229,13 @@ async fn writer_task(
             }
             WriteCmd::PersistMessages { session_id, messages } => {
                 let mut c = core.write().await;
-                if let Err(e) = c.session_mgr.persist_messages(&session_id, &messages) {
+                if let Err(e) = c.session_mgr.persist_messages_async(&session_id, &messages).await {
                     tracing::error!("persist_messages (writer) 失败: {}", e);
                 }
             }
             WriteCmd::SaveApiMessages { session_id, messages } => {
                 let c = core.write().await;
-                c.session_mgr.save_api_messages(&session_id, &messages);
+                c.session_mgr.save_api_messages_async(&session_id, &messages).await;
             }
             WriteCmd::EvaluateSession { session_id, reply } => {
                 let msg = core.write().await.evaluate_completed_session(&session_id);
@@ -244,12 +244,12 @@ async fn writer_task(
             WriteCmd::FlushMemory { user_id, agent_id } => {
                 let mut c = core.write().await;
                 if let Ok(mem) = c.agent_store.memory_for_mut(&user_id, &agent_id) {
-                    mem.flush();
+                    mem.flush_async().await;
                 }
             }
             WriteCmd::MarkError { session_id, error } => {
                 let mut c = core.write().await;
-                c.session_mgr.mark_error(&session_id, &error);
+                c.session_mgr.mark_error_async(&session_id, &error).await;
             }
         }
     }
@@ -295,25 +295,27 @@ pub async fn chat(
             .unwrap_or_default();
 
         if session_id.is_empty() {
-            core.session_mgr.create_session_for(&agent_id, &user_id);
+            core.session_mgr
+                .create_session_for_async(&agent_id, &user_id)
+                .await;
         }
 
-        let sid = core
-            .session_mgr
-            .current_id()
-            .map(|id| id.to_string())
-            .unwrap_or_else(|| {
-                // Fallback: create a fresh session
-                core.session_mgr.create_session_for(&agent_id, &user_id);
+        let sid = match core.session_mgr.current_id().map(|id| id.to_string()) {
+            Some(sid) if !sid.is_empty() => sid,
+            _ => {
+                core.session_mgr
+                    .create_session_for_async(&agent_id, &user_id)
+                    .await;
                 core.session_mgr
                     .current_id()
                     .map(|id| id.to_string())
                     .unwrap_or_default()
-            });
+            }
+        };
 
         // Persist user message
         let msg = crate::app::Message::User { text: text.clone() };
-        if let Err(e) = core.session_mgr.persist_messages(&sid, &[msg]) {
+        if let Err(e) = core.session_mgr.persist_messages_async(&sid, &[msg]).await {
             tracing::error!("user message persist failed: {}", e);
         }
 
@@ -330,7 +332,7 @@ pub async fn chat(
         }
 
         // Build messages and spawn chat_loop
-        let records = core.session_mgr.load_app_messages(&sid, 50);
+        let records = core.session_mgr.load_app_messages_async(&sid, 50).await;
         let msgs = core.build_messages_from_log(&records, &agent_id);
         let recent: Vec<Value> = records
             .iter()
@@ -386,7 +388,7 @@ pub async fn chat_stream(
             .map(|m| m.agent_id.clone())
             .unwrap_or_else(|| "default".to_string());
 
-        let records = core.session_mgr.load_app_messages(&session_id, 50);
+        let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
         let msgs = core.build_messages_from_log(&records, &agent_id);
         let recent: Vec<Value> = records
             .iter()
@@ -453,7 +455,7 @@ pub async fn chat_stream_resume(
             .map(|m| m.agent_id.clone())
             .unwrap_or_else(|| "default".to_string());
 
-        let records = core.session_mgr.load_app_messages(&session_id, 50);
+        let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
         let msgs = core.build_messages_from_log(&records, &agent_id);
         let recent: Vec<Value> = records
             .iter()

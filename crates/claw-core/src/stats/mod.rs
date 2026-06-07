@@ -314,6 +314,28 @@ impl StatsManager {
         aggregator::today_summary(&records, self.tz_offset)
     }
 
+    /// Async version of [`today_summary`].
+    pub async fn today_summary_async(&self) -> TodaySummary {
+        let start_of_today = crate::utils::now_in_tz(self.tz_offset)
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap_or_default()
+            .and_utc()
+            .timestamp();
+        let storage = self.storage.clone();
+        let mut records = storage
+            .stats
+            .read_range(Some(start_of_today), None)
+            .await
+            .unwrap_or_default();
+
+        if let Ok(buffer) = self.buffer.lock() {
+            records.extend(buffer.iter().cloned());
+        }
+
+        aggregator::today_summary(&records, self.tz_offset)
+    }
+
     pub fn daily_history(&self, days: u32) -> Vec<DailyStats> {
         let from = crate::utils::now_in_tz(self.tz_offset)
             .date_naive()
@@ -333,6 +355,21 @@ impl StatsManager {
         let records =
             crate::utils::sync_block_on(async move { storage.stats.read_range(None, None).await })
                 .unwrap_or_default();
+
+        let mut result = aggregator::aggregate(&records, &self.pricing);
+        result.period = period;
+        result
+    }
+
+    /// Async version of [`query`].
+    #[allow(dead_code)]
+    pub async fn query_async(&self, period: StatsPeriod) -> TokenStats {
+        let storage = self.storage.clone();
+        let records = storage
+            .stats
+            .read_range(None, None)
+            .await
+            .unwrap_or_default();
 
         let mut result = aggregator::aggregate(&records, &self.pricing);
         result.period = period;

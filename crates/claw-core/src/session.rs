@@ -203,6 +203,31 @@ impl SessionManager {
         id
     }
 
+    /// Async version of [`create_session_for`].
+    pub async fn create_session_for_async(
+        &mut self,
+        agent_id: &str,
+        user_id: &str,
+    ) -> String {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = now_secs();
+        let idx = self.sessions.len();
+        self.sessions.push(SessionMeta {
+            id: id.clone(),
+            title: "新对话".to_string(),
+            agent_id: agent_id.to_string(),
+            user_id: user_id.to_string(),
+            state: SessionState::Active,
+            created_at: now,
+            updated_at: now,
+            message_count: 0,
+        });
+        self.index.insert(id.clone(), idx);
+        self.current_id = Some(id.clone());
+        self.save_session_async(&id).await;
+        id
+    }
+
     #[allow(dead_code)]
     pub fn delete_session(&mut self, id: &str) -> bool {
         if let Some(idx) = self.find_index(id) {
@@ -216,6 +241,26 @@ impl SessionManager {
                 let _ = storage.api_cache.delete(&sid).await;
                 let _ = storage.plan_steps.delete(&sid).await;
             });
+            if self.current_id.as_deref() == Some(id) {
+                self.current_id = self.sessions.first().map(|s| s.id.clone());
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Async version of [`delete_session`].
+    pub async fn delete_session_async(&mut self, id: &str) -> bool {
+        if let Some(idx) = self.find_index(id) {
+            self.sessions.remove(idx);
+            self.rebuild_index();
+            let storage = self.storage.clone();
+            let sid = id.to_string();
+            let _ = storage.sessions.delete_one(&sid).await;
+            let _ = storage.message_log.delete_session(&sid).await;
+            let _ = storage.api_cache.delete(&sid).await;
+            let _ = storage.plan_steps.delete(&sid).await;
             if self.current_id.as_deref() == Some(id) {
                 self.current_id = self.sessions.first().map(|s| s.id.clone());
             }
@@ -246,6 +291,27 @@ impl SessionManager {
         }
     }
 
+    /// Async version of [`transition_state`].
+    pub async fn transition_state_async(
+        &mut self,
+        id: &str,
+        new_state: SessionState,
+    ) -> bool {
+        if let Some(idx) = self.find_index(id) {
+            let meta = &mut self.sessions[idx];
+            if meta.state.can_transition_to(&new_state) {
+                meta.state = new_state;
+                meta.updated_at = now_secs();
+                self.save_session_async(id).await;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     pub fn mark_waiting_for_tool(&mut self, id: &str) -> bool {
         self.transition_state(id, SessionState::WaitingForTool)
     }
@@ -266,6 +332,12 @@ impl SessionManager {
     }
     pub fn mark_error(&mut self, id: &str, msg: &str) -> bool {
         self.transition_state(id, SessionState::Error(msg.to_string()))
+    }
+
+    /// Async version of [`mark_error`].
+    pub async fn mark_error_async(&mut self, id: &str, msg: &str) -> bool {
+        self.transition_state_async(id, SessionState::Error(msg.to_string()))
+            .await
     }
     #[allow(dead_code)]
     pub fn sessions_by_state(&self, state: &SessionState) -> Vec<&SessionMeta> {
@@ -368,6 +440,17 @@ impl SessionManager {
             .unwrap_or_default()
     }
 
+    /// Async version of [`load_app_messages`].
+    pub async fn load_app_messages_async(
+        &self,
+        id: &str,
+        max_messages: usize,
+    ) -> Vec<crate::app::Message> {
+        let log = self.storage.message_log.clone();
+        let sid = id.to_string();
+        log.load(&sid, max_messages).await.unwrap_or_default()
+    }
+
     /// Get a clonable handle to the append-only MessageLog.
     #[allow(dead_code)]
     pub fn message_log(&self) -> std::sync::Arc<dyn crate::storage::MessageLog> {
@@ -402,6 +485,31 @@ impl SessionManager {
             meta.updated_at = chrono::Utc::now().timestamp();
         }
         self.save_session(session_id);
+        Ok(())
+    }
+
+    /// Async version of [`persist_messages`].
+    pub async fn persist_messages_async(
+        &mut self,
+        session_id: &str,
+        messages: &[crate::app::Message],
+    ) -> anyhow::Result<()> {
+        if messages.is_empty() {
+            return Ok(());
+        }
+        let log = self.storage.message_log.clone();
+        let sid = session_id.to_string();
+        let append_count = messages.len();
+        let msgs = messages.to_vec();
+        log.append_batch(&sid, &msgs).await?;
+
+        if let Some(idx) = self.index.get(session_id)
+            && let Some(meta) = self.sessions.get_mut(*idx)
+        {
+            meta.message_count += append_count;
+            meta.updated_at = chrono::Utc::now().timestamp();
+        }
+        self.save_session_async(session_id).await;
         Ok(())
     }
 
@@ -456,6 +564,20 @@ impl SessionManager {
         }
     }
 
+    /// Async version of [`save_api_messages`].
+    pub async fn save_api_messages_async(
+        &self,
+        id: &str,
+        messages: &[serde_json::Value],
+    ) {
+        let storage = self.storage.clone();
+        let sid = id.to_string();
+        let messages = messages.to_vec();
+        if let Err(e) = storage.api_cache.save(&sid, &messages).await {
+            tracing::error!("持久化写入失败: {}", e);
+        }
+    }
+
     pub fn load_api_messages(&self, id: &str) -> Option<Vec<serde_json::Value>> {
         let storage = self.storage.clone();
         let sid = id.to_string();
@@ -496,6 +618,19 @@ impl SessionManager {
         if let Err(e) =
             crate::utils::sync_block_on(async move { storage.sessions.upsert(&meta).await })
         {
+            tracing::error!("持久化写入失败: {}", e);
+        }
+    }
+
+    /// Async version of [`save_session`].
+    async fn save_session_async(&self, id: &str) {
+        let Some(idx) = self.find_index(id) else {
+            tracing::warn!("save_session: session '{}' 不在 index 中，保存已跳过", id);
+            return;
+        };
+        let storage = self.storage.clone();
+        let meta = self.sessions[idx].clone();
+        if let Err(e) = storage.sessions.upsert(&meta).await {
             tracing::error!("持久化写入失败: {}", e);
         }
     }

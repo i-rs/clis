@@ -445,7 +445,7 @@ impl Default for DashboardConfig {
 }
 
 fn default_dashboard_host() -> String {
-    "0.0.0.0".to_string()
+    "127.0.0.1".to_string()
 }
 
 fn default_dashboard_port() -> u16 {

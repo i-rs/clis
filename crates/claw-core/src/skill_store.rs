@@ -402,6 +402,27 @@ type = "object"
         entries.sort_by(|a, b| a.name.cmp(&b.name));
         entries
     }
+
+    /// Async version of [`list_skills`].
+    #[allow(dead_code)]
+    pub async fn list_skills_async(&self) -> Vec<SkillEntry> {
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            return storage
+                .skills
+                .list(&aid)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|e| SkillEntry {
+                    name: e.name,
+                    content: e.content,
+                })
+                .collect();
+        }
+        // Fallback: sync file I/O (no async needed for local fs reads)
+        self.list_skills()
+    }
 }
 
 #[cfg(test)]

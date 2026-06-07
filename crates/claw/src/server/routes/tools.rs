@@ -55,7 +55,7 @@ pub async fn list_skills(
             return super::ApiResponse::err(&format!("Agent not initialized: {}", e));
         }
     };
-    let entries = store.list_skills();
+    let entries = store.list_skills_async().await;
     let skills: Vec<i_rs_claw_core::skill_store::SkillDefinition> = entries
         .iter()
         .map(|e| {

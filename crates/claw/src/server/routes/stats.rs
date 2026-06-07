@@ -36,8 +36,8 @@ pub async fn get_stats(
         _ => StatsPeriod::Today,
     };
 
-    let result = core.stats_manager.query(period);
-    let today = core.stats_manager.today_summary();
+    let result = core.stats_manager.query_async(period).await;
+    let today = core.stats_manager.today_summary_async().await;
 
     match serde_json::to_value(&result) {
         Ok(mut v) => {

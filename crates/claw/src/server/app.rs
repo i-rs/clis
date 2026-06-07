@@ -101,6 +101,15 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
     };
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse().expect("Invalid address");
+
+    if host == "0.0.0.0" || host == "::" {
+        tracing::warn!(
+            host = %host,
+            "SECURITY: binding to a public address — dashboard is reachable from the network. \
+             Ensure auth_token is set and network access is restricted."
+        );
+    }
+
     println!("  {}  {}  http://{}/api/health", "📡".bright_blue(), "API".bold().bright_cyan(), addr);
     println!("  {}  {} http://{}/api/chat", "💬".bright_blue(), "Chat".bold().bright_cyan(), addr);
     if !api_only {

@@ -9,7 +9,7 @@ pub async fn run_evals(State(state): State<AppState>) -> Json<super::ApiResponse
     let core = state.core.read().await;
     let suite = i_rs_claw_core::core::evals::builtin_eval_suite();
     let messages = if let Some(sid) = core.session_mgr.current_id() {
-        core.session_mgr.load_app_messages(sid, 100)
+        core.session_mgr.load_app_messages_async(sid, 100).await
     } else {
         Vec::new()
     };

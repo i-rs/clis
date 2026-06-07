@@ -26,12 +26,12 @@ struct Cli {
 enum Command {
     /// Start HTTP API server + Web Dashboard (default mode)
     Serve {
-        /// Host to bind (default: 127.0.0.1; pass 0.0.0.0 to expose publicly)
-        #[arg(long, default_value = "127.0.0.1")]
-        host: String,
-        /// Port to listen on (default: 3000)
-        #[arg(long, short, default_value = "3000")]
-        port: u16,
+        /// Host to bind (overrides config [dashboard].host; default: 127.0.0.1)
+        #[arg(long)]
+        host: Option<String>,
+        /// Port to listen on (overrides config [dashboard].port; default: 3000)
+        #[arg(long, short)]
+        port: Option<u16>,
         /// Disable the Web Dashboard UI (API only)
         #[arg(long)]
         api_only: bool,
@@ -174,8 +174,8 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command.unwrap_or(Command::Serve {
-        host: "127.0.0.1".to_string(),
-        port: 3000,
+        host: None,
+        port: None,
         api_only: false,
         auto_approve_high_risk: false,
     }) {

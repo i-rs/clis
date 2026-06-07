@@ -331,6 +331,28 @@ impl CrossSessionMemory {
         self.dirty = false;
     }
 
+    /// Async version of [`flush`].
+    pub async fn flush_async(&mut self) {
+        if !self.dirty {
+            return;
+        }
+        if let Some(ref storage) = self.storage {
+            let aid = self.agent_id.clone();
+            let mem_value = serde_json::to_value(&*self).unwrap_or(serde_json::Value::Null);
+            let mem: Self =
+                serde_json::from_value(mem_value).unwrap_or_else(|_| Self::default_memory());
+            if let Err(e) = storage.memory.save(&aid, &mem).await {
+                tracing::error!("持久化写入失败: {}", e);
+            }
+        } else if !self.path.as_os_str().is_empty()
+            && let Ok(content) = serde_json::to_string_pretty(self)
+            && let Err(e) = atomic_write(&self.path, &content)
+        {
+            tracing::error!("持久化写入失败: {}", e);
+        }
+        self.dirty = false;
+    }
+
     // ── Access for testing ──
 
     #[cfg(test)]

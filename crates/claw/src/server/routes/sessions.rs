@@ -90,7 +90,7 @@ pub async fn get_current_session(State(state): State<AppState>) -> Json<super::A
     match id {
         Some(ref sid) => {
             let meta = core.session_mgr.session_meta(sid);
-            let messages = core.session_mgr.load_app_messages(sid, 50);
+            let messages = core.session_mgr.load_app_messages_async(sid, 50).await;
             let msgs: Vec<Value> = messages.iter().map(message_to_api_json).collect();
             super::ApiResponse::ok(serde_json::json!({
                 "id": sid,
@@ -122,7 +122,7 @@ pub async fn create_session(
         .unwrap_or("default");
 
     let mut core = state.core.write().await;
-    let id = core.session_mgr.create_session_for(agent_id, &user_id);
+    let id = core.session_mgr.create_session_for_async(agent_id, &user_id).await;
     super::ApiResponse::ok(serde_json::json!({
         "id": id,
         "title": "",
@@ -183,7 +183,7 @@ pub async fn get_session(
     Path(id): Path<String>,
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
-    let messages = core.session_mgr.load_app_messages(&id, 100);
+    let messages = core.session_mgr.load_app_messages_async(&id, 100).await;
     let msgs: Vec<Value> = messages.iter().map(message_to_api_json).collect();
 
     let meta = core.session_mgr.session_meta(&id);
@@ -213,7 +213,7 @@ pub async fn delete_session(
             layered.end_session();
         }
     }
-    core.session_mgr.delete_session(&id);
+    core.session_mgr.delete_session_async(&id).await;
     drop(core);
     super::ApiResponse::ok("deleted")
 }
@@ -248,12 +248,12 @@ pub async fn post_session_feedback(
         positive,
         message: feedback_msg.map(|s| s.to_string()),
     };
-    if let Err(e) = core.session_mgr.persist_messages(&id, &[msg]) {
+    if let Err(e) = core.session_mgr.persist_messages_async(&id, &[msg]).await {
         tracing::error!("feedback persist failed: {}", e);
     }
 
     if let Ok(mem) = core.agent_store.memory_for_mut(&user_id, &agent_id) {
-        mem.flush();
+        mem.flush_async().await;
     }
     drop(core);
 

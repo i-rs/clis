@@ -183,11 +183,17 @@ pub fn run_gateway() -> anyhow::Result<()> {
 
 #[cfg(feature = "dashboard")]
 pub fn run_serve(
-    host: String,
-    port: u16,
+    cli_host: Option<String>,
+    cli_port: Option<u16>,
     api_only: bool,
     auto_approve_high_risk: bool,
 ) -> anyhow::Result<()> {
+    let mut config = i_rs_claw_core::config::Config::load()?;
+
+    // CLI flags override config file values; fall back to config, then defaults.
+    let host = cli_host.unwrap_or_else(|| config.dashboard.host.clone());
+    let port = cli_port.unwrap_or(config.dashboard.port);
+
     // Warn on public bind — caller explicitly opted in.
     if host == "0.0.0.0" || host == "::" {
         tracing::warn!(
@@ -203,8 +209,6 @@ pub fn run_serve(
             host
         );
     }
-
-    let mut config = i_rs_claw_core::config::Config::load()?;
 
     // Apply CLI flag to the runtime HitlPolicy. We do NOT persist this flag
     // to disk to avoid accidentally enabling it permanently.
@@ -243,8 +247,8 @@ pub fn run_serve(
 
 #[cfg(not(feature = "dashboard"))]
 pub fn run_serve(
-    _host: String,
-    _port: u16,
+    _host: Option<String>,
+    _port: Option<u16>,
     _api_only: bool,
     _auto_approve_high_risk: bool,
 ) -> anyhow::Result<()> {
@@ -257,8 +261,8 @@ pub fn run_serve(
 pub fn run_dashboard() -> anyhow::Result<()> {
     let config = i_rs_claw_core::config::Config::load()?;
     run_serve(
-        config.dashboard.host.clone(),
-        config.dashboard.port,
+        Some(config.dashboard.host.clone()),
+        Some(config.dashboard.port),
         false,
         config.hitl.auto_approve_high_risk,
     )
