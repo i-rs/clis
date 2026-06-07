@@ -4,6 +4,25 @@ pub fn claw_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir().map(|h| h.join(".i-rs").join("claw"))
 }
 
+/// Expand a leading `~/` to the user's home directory.
+/// Returns the path unchanged if it doesn't start with `~` or if home cannot be determined.
+pub fn expand_tilde<P: AsRef<Path>>(path: P) -> std::path::PathBuf {
+    let path = path.as_ref();
+    let Some(s) = path.to_str() else {
+        return path.to_path_buf();
+    };
+    if let Some(rest) = s.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest);
+        }
+    } else if s == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    }
+    path.to_path_buf()
+}
+
 use std::sync::{Arc, LazyLock};
 static SHARED_RUNTIME: LazyLock<Arc<tokio::runtime::Runtime>> = LazyLock::new(|| {
     Arc::new(

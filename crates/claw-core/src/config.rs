@@ -126,6 +126,18 @@ pub struct Config {
     /// Cached timezone offset computed at load time.
     #[serde(skip, default = "crate::utils::system_tz_offset")]
     pub tz_offset: FixedOffset,
+    /// Env-var override for api_key (I_RS_CLAW_API_KEY). Applied at load
+    /// time, stored here so resolution uses it, but never serialized to disk.
+    #[serde(skip)]
+    pub env_api_key: Option<String>,
+    /// In-memory migration of legacy top-level provider fields. Set when
+    /// `providers` map is empty but top-level api_key exists. Never serialized.
+    #[serde(skip)]
+    pub migrated_default_provider: Option<ProviderConfig>,
+    /// Path this config was loaded from (or should save to). Set by `load()`.
+    /// Tests override to a temp path to avoid writing the real user config.
+    #[serde(skip)]
+    pub config_file: Option<std::path::PathBuf>,
 }
 
 fn default_max_react_rounds() -> u32 {
@@ -352,23 +364,33 @@ impl Config {
     /// fields continue to work, while new configs can use the richer
     /// named-provider setup.
     pub fn resolve_provider_config(&self, agent: Option<&AgentConfig>) -> ProviderConfig {
-        // 1. Try agent's provider_ref
-        if let Some(ref_name) = agent.and_then(|a| a.provider_ref.as_ref())
-            && let Some(pc) = self.providers.get(ref_name)
-        {
-            return pc.clone();
+        let mut pc = {
+            // 1. Try agent's provider_ref
+            if let Some(ref_name) = agent.and_then(|a| a.provider_ref.as_ref())
+                && let Some(pc) = self.providers.get(ref_name)
+            {
+                pc.clone()
+            } else if let Some(pc) = self.providers.get(&self.default_provider) {
+                // 2. Try default_provider in named map
+                pc.clone()
+            } else if let Some(ref pc) = self.migrated_default_provider {
+                // 3. Try migrated legacy fields (in-memory only)
+                pc.clone()
+            } else {
+                // 4. Legacy fallback from top-level fields
+                ProviderConfig {
+                    provider: self.provider,
+                    api_key: self.api_key.clone(),
+                    base_url: self.base_url.clone(),
+                    model: self.model.clone(),
+                }
+            }
+        };
+        // Apply env-var override (highest priority, never persisted to disk)
+        if let Some(ref env_key) = self.env_api_key {
+            pc.api_key = env_key.clone();
         }
-        // 2. Try default_provider
-        if let Some(pc) = self.providers.get(&self.default_provider) {
-            return pc.clone();
-        }
-        // 3. Legacy fallback
-        ProviderConfig {
-            provider: self.provider,
-            api_key: self.api_key.clone(),
-            base_url: self.base_url.clone(),
-            model: self.model.clone(),
-        }
+        pc
     }
 
     /// Get the list of ALL agent IDs (including sub_agents).
@@ -657,9 +679,11 @@ fn default_model() -> String {
 
 impl Config {
     pub fn new() -> Self {
-        let env_api_key = std::env::var("I_RS_CLAW_API_KEY").unwrap_or_default();
+        let env_api_key = std::env::var("I_RS_CLAW_API_KEY")
+            .ok()
+            .filter(|s| !s.is_empty());
         Self {
-            api_key: env_api_key,
+            api_key: String::new(),
             provider: default_provider(),
             base_url: default_base_url(),
             model: default_model(),
@@ -695,6 +719,9 @@ impl Config {
             hitl: HitlConfig::default(),
             timezone: None,
             tz_offset: crate::utils::system_tz_offset(),
+            env_api_key,
+            migrated_default_provider: None,
+            config_file: None,
         }
     }
 
@@ -731,51 +758,60 @@ impl Config {
         // Resolve timezone offset from config or system local
         config.tz_offset = crate::utils::parse_timezone(config.timezone.as_deref());
 
-        // Override API key from environment variable if set
+        // Override API key from environment variable if set.
+        // Stored in env_api_key (skip_serializing) so it never leaks to disk.
         if let Ok(env_key) = std::env::var("I_RS_CLAW_API_KEY")
             && !env_key.is_empty()
         {
-            config.api_key = env_key;
+            config.env_api_key = Some(env_key);
         }
 
         // Auto-migrate legacy top-level provider fields into providers map.
         // This lets old configs (which store provider/api_key/base_url/model
         // at the top level) work seamlessly with the new named-provider system.
+        // NOTE: migration is in-memory only; we do NOT write it back to the
+        // providers map to avoid duplicating fields on save.
         if config.providers.is_empty() && !config.api_key.is_empty() {
-            config.providers.insert(
-                "default".to_string(),
-                ProviderConfig {
-                    provider: config.provider,
-                    api_key: config.api_key.clone(),
-                    base_url: config.base_url.clone(),
-                    model: config.model.clone(),
-                },
-            );
+            config.migrated_default_provider = Some(ProviderConfig {
+                provider: config.provider,
+                api_key: config.api_key.clone(),
+                base_url: config.base_url.clone(),
+                model: config.model.clone(),
+            });
         }
 
-        // Validate default_provider exists in providers map, or add a
-        // placeholder so resolution doesn't panic at runtime.
+        // Validate default_provider exists in providers map, or use "default"
+        // for resolution if a migrated or explicit "default" entry exists.
         if !config.providers.contains_key(&config.default_provider)
-            && config.providers.contains_key("default")
+            && (config.providers.contains_key("default")
+                || config.migrated_default_provider.is_some())
+            && config.default_provider != "default"
         {
             config.default_provider = "default".to_string();
         }
 
-        // Ensure "default" agent always exists (safety net against manual config edits)
+        // "default" agent should not exist in the agents map (it uses
+        // top-level config). Remove in-memory only; do NOT persist.
         if config.agents.contains_key("default") {
             config.agents.remove("default");
             tracing::warn!(
-                "配置文件中不应包含 [agents.default]，已自动移除（default 使用顶层配置）"
+                "配置文件中不应包含 [agents.default]，本次运行已忽略（不修改文件）"
             );
         }
 
-        // Validate config - check both providers map and legacy fields
+        // Validate config - check named providers, migrated provider, and legacy fields
         {
-            let has_providers = !config.providers.is_empty();
+            let has_providers = !config.providers.is_empty()
+                || config.migrated_default_provider.is_some();
             let has_valid_default = config
                 .providers
                 .get(&config.default_provider)
                 .map(|pc| pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty())
+                .or_else(|| {
+                    config.migrated_default_provider.as_ref().map(|pc| {
+                        pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty()
+                    })
+                })
                 .unwrap_or(false);
             let has_legacy = config.provider != ProviderKind::Ollama && !config.api_key.is_empty();
 
@@ -798,11 +834,15 @@ impl Config {
             tracing::warn!("{}", warning);
         }
 
+        config.config_file = Some(config_path);
         Ok(config)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
-        let config_path = Self::config_path()?;
+        let config_path = match &self.config_file {
+            Some(p) => p.clone(),
+            None => Self::config_path()?,
+        };
         let content = toml::to_string_pretty(self)?;
         atomic_write(&config_path, &content)?;
         println!("✓ 配置已保存: {}", config_path.display());
@@ -1089,7 +1129,10 @@ mod tests {
     fn test_env_var_overrides_new() {
         with_env("I_RS_CLAW_API_KEY", Some("sk-test-key-from-env"), || {
             let config = Config::new();
-            assert_eq!(config.api_key, "sk-test-key-from-env");
+            assert_eq!(
+                config.env_api_key.as_deref(),
+                Some("sk-test-key-from-env"),
+            );
         });
     }
 

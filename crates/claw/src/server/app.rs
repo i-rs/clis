@@ -24,28 +24,31 @@ impl AppState {
 }
 
 /// Run the serve-mode HTTP server. Blocks until shutdown.
-pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, api_only: bool) {
-    let config = core.config.clone();
-
-    let auth_token = if let Some(token) = config.dashboard.auth_token.clone() {
+pub async fn run(mut core: i_rs_claw_core::core::AppCore, host: String, port: u16, api_only: bool) {
+    let auth_token = if let Some(token) = core.config.dashboard.auth_token.clone() {
         token
     } else {
         let token = uuid::Uuid::new_v4().to_string();
-        if let Err(e) = persist_auth_token(&token) {
-            eprintln!("  {}  Failed to persist auth token: {}", "⚠".yellow(), e);
-            println!(
-                "  {}  {} {} (not saved to config, will rotate on restart)",
-                "🔑".bright_blue(),
-                "Token:".bold().yellow(),
-                token.bright_white().bold()
-            );
-        } else {
-            println!(
-                "  {}  {} {} (saved to config)",
-                "🔑".bright_blue(),
-                "Token:".bold().yellow(),
-                token.bright_white().bold()
-            );
+        core.config.dashboard.auth_token = Some(token.clone());
+        match core.config.save() {
+            Ok(()) => {
+                ensure_config_permissions();
+                println!(
+                    "  {}  {} {} (saved to config)",
+                    "🔑".bright_blue(),
+                    "Token:".bold().yellow(),
+                    token.bright_white().bold()
+                );
+            }
+            Err(e) => {
+                eprintln!("  {}  Failed to persist auth token: {}", "⚠".yellow(), e);
+                println!(
+                    "  {}  {} {} (not saved to config, will rotate on restart)",
+                    "🔑".bright_blue(),
+                    "Token:".bold().yellow(),
+                    token.bright_white().bold()
+                );
+            }
         }
         token
     };
@@ -121,31 +124,20 @@ pub async fn run(core: i_rs_claw_core::core::AppCore, host: String, port: u16, a
     axum::serve(listener, app).await.expect("Serve error");
 }
 
-fn persist_auth_token(token: &str) -> anyhow::Result<()> {
-    let mut cfg = i_rs_claw_core::config::Config::load()?;
-    cfg.dashboard.auth_token = Some(token.to_string());
-    cfg.save()?;
-
-    // Defense-in-depth: ensure config file has 0o600 on Unix regardless
-    // of how it was created. atomic_write() already sets this on the temp
-    // file before rename, but an explicit set_mode here guards against
-    // pre-existing files with looser perms and any future changes to the
-    // save path.
+/// Ensure config file has 0o600 permissions on Unix.
+fn ensure_config_permissions() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let home = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("无法获取用户主目录"))?;
+        let Some(home) = dirs::home_dir() else { return };
         let config_path = home.join(".i-rs").join("claw").join("config.toml");
         if config_path.exists() {
-            let mut perms = std::fs::metadata(&config_path)?.permissions();
-            perms.set_mode(0o600);
-            std::fs::set_permissions(&config_path, perms)?;
-            tracing::debug!(path = %config_path.display(), mode = "0600", "config permissions tightened");
+            if let Ok(mut perms) = std::fs::metadata(&config_path).map(|m| m.permissions()) {
+                perms.set_mode(0o600);
+                let _ = std::fs::set_permissions(&config_path, perms);
+            }
         }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

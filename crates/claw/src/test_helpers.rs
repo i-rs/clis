@@ -128,9 +128,16 @@ pub fn test_core() -> (Config, i_rs_claw_core::core::AppCore) {
     let claw_dir = dir.path().join(".i-rs").join("claw");
     std::fs::create_dir_all(&claw_dir).expect("创建 claw 数据目录失败");
 
-    let config = test_config();
+    let mut config = test_config();
+    // Redirect config saves to the temp dir so tests never touch the real
+    // ~/.i-rs/claw/config.toml.
+    config.config_file = Some(dir.path().join("config.toml"));
     let core =
         i_rs_claw_core::core::AppCore::with_claw_dir(config.clone(), claw_dir).expect("AppCore 初始化失败");
+
+    // Leak the temp dir so it survives the test (AppCore may read from it
+    // during the test). Cleanup is handled by the OS or test runner.
+    std::mem::forget(dir);
 
     (config, core)
 }

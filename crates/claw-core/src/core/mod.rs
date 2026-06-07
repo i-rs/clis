@@ -93,6 +93,7 @@ impl AppCore {
                         .storage
                         .sqlite_path
                         .clone()
+                        .map(crate::utils::expand_tilde)
                         .unwrap_or_else(|| claw_dir.join("claw.db"));
                     std::sync::Arc::new(block_on(ClawStorage::sqlite(path))?)
                 }
