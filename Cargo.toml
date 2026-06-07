@@ -76,6 +76,7 @@ members = [
   "crates/cli-api",
   "crates/claw",
   "crates/claw-core",
+  "crates/claw-core-storage-tests",
   "crates/code",
 ]
 resolver = "2"
