@@ -12,7 +12,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::Value;
 use std::convert::Infallible;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 /// Build an SSE stream from an LlmEvent receiver with auto-incrementing event IDs.
 fn build_sse_stream(
@@ -138,6 +138,92 @@ fn build_sse_stream(
         },
     );
     Sse::new(stream)
+}
+
+// ── Writer task infrastructure ──
+
+enum WriteCmd {
+    RecordToolMemory {
+        user_id: String,
+        agent_id: String,
+        tool_name: String,
+        tool_args: String,
+        tool_result: String,
+        i_rs_index: std::collections::HashMap<String, String>,
+    },
+    RecordLayeredMemory {
+        user_id: String,
+        agent_id: String,
+        tool_name: String,
+        tool_result: String,
+    },
+    PersistMessages {
+        session_id: String,
+        messages: Vec<crate::app::Message>,
+    },
+    SaveApiMessages {
+        session_id: String,
+        messages: Vec<serde_json::Value>,
+    },
+    EvaluateSession {
+        session_id: String,
+        reply: oneshot::Sender<Option<crate::app::Message>>,
+    },
+    FlushMemory {
+        user_id: String,
+        agent_id: String,
+    },
+    MarkError {
+        session_id: String,
+        error: String,
+    },
+}
+
+async fn writer_task(
+    core: std::sync::Arc<tokio::sync::RwLock<i_rs_claw_core::core::AppCore>>,
+    mut rx: mpsc::UnboundedReceiver<WriteCmd>,
+) {
+    while let Some(cmd) = rx.recv().await {
+        match cmd {
+            WriteCmd::RecordToolMemory { user_id, agent_id, tool_name, tool_args, tool_result, i_rs_index } => {
+                let mut c = core.write().await;
+                i_rs_claw_core::core::record_tool_memory(
+                    &user_id, &mut c.agent_store, &i_rs_index,
+                    &agent_id, &tool_name, &tool_args, &tool_result,
+                );
+            }
+            WriteCmd::RecordLayeredMemory { user_id, agent_id, tool_name, tool_result } => {
+                let mut c = core.write().await;
+                i_rs_claw_core::core::record_layered_tool_memory(
+                    &user_id, &mut c.agent_store, &agent_id, &tool_name, &tool_result,
+                );
+            }
+            WriteCmd::PersistMessages { session_id, messages } => {
+                let mut c = core.write().await;
+                if let Err(e) = c.session_mgr.persist_messages(&session_id, &messages) {
+                    tracing::error!("persist_messages (writer) 失败: {}", e);
+                }
+            }
+            WriteCmd::SaveApiMessages { session_id, messages } => {
+                let mut c = core.write().await;
+                c.session_mgr.save_api_messages(&session_id, &messages);
+            }
+            WriteCmd::EvaluateSession { session_id, reply } => {
+                let msg = core.write().await.evaluate_completed_session(&session_id);
+                let _ = reply.send(msg);
+            }
+            WriteCmd::FlushMemory { user_id, agent_id } => {
+                let mut c = core.write().await;
+                if let Ok(mem) = c.agent_store.memory_for_mut(&user_id, &agent_id) {
+                    mem.flush();
+                }
+            }
+            WriteCmd::MarkError { session_id, error } => {
+                let mut c = core.write().await;
+                c.session_mgr.mark_error(&session_id, &error);
+            }
+        }
+    }
 }
 
 /// Single-endpoint chat: POST body → SSE stream directly.
