@@ -9,6 +9,7 @@ description = "Integration tests for i-rs-claw-core storage backends"
 i-rs-claw-core = { path = "../claw-core", features = ["sqlite", "mysql", "postgres"] }
 chrono.workspace = true
 tokio.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 uuid.workspace = true

@@ -49,3 +49,6 @@ crates/claw/examples/plugins/*/target/
 .omx/
 # Git worktrees
 .worktrees/
+
+# Test reports (generated)
+crates/claw-core-storage-tests/reports/
