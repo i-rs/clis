@@ -39,6 +39,10 @@ pub struct HitlPolicy {
     deny_tools: HashSet<String>,
     risk_threshold: RiskLevel,
     dangerous_commands: HashSet<String>,
+    /// When true, high-risk tool calls are auto-approved (DEV/CI only).
+    /// Default: false. Set via `with_auto_approve_high_risk(true)` or
+    /// `[hitl] auto_approve_high_risk = true` in config.toml.
+    auto_approve_high_risk: bool,
 }
 
 impl HitlPolicy {
@@ -55,6 +59,7 @@ impl HitlPolicy {
             deny_tools: HashSet::new(),
             risk_threshold: RiskLevel::Medium,
             dangerous_commands,
+            auto_approve_high_risk: false,
         }
     }
 
@@ -76,6 +81,17 @@ impl HitlPolicy {
     pub fn with_risk_threshold(mut self, level: RiskLevel) -> Self {
         self.risk_threshold = level;
         self
+    }
+
+    /// Opt in to auto-approving High-risk tools. Default is false.
+    pub fn with_auto_approve_high_risk(mut self, enabled: bool) -> Self {
+        self.auto_approve_high_risk = enabled;
+        self
+    }
+
+    /// Whether high-risk tool calls should be auto-approved.
+    pub fn should_auto_approve_high_risk(&self) -> bool {
+        self.auto_approve_high_risk
     }
 
     pub fn check(&self, tool_name: &str, args: &Value) -> ConfirmationRequest {
@@ -224,5 +240,17 @@ mod tests {
         let policy = HitlPolicy::new().auto_approve("i_rs");
         let req = policy.check("i_rs", &json!({"command": "list", "tool": "weight"}));
         assert!(policy.should_auto_approve(&req));
+    }
+
+    #[test]
+    fn test_high_risk_blocked_by_default() {
+        let policy = HitlPolicy::new(); // auto_approve_high_risk defaults to false
+        assert!(!policy.should_auto_approve_high_risk());
+    }
+
+    #[test]
+    fn test_high_risk_allowed_when_opted_in() {
+        let policy = HitlPolicy::new().with_auto_approve_high_risk(true);
+        assert!(policy.should_auto_approve_high_risk());
     }
 }

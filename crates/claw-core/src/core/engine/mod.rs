@@ -93,6 +93,7 @@ fn prepare_loop(
         )
         .with_hitl_policy(
             crate::core::hitl::HitlPolicy::new()
+                .with_auto_approve_high_risk(config.hitl.auto_approve_high_risk)
                 .auto_approve("i_rs")
                 .auto_approve("search")
                 .auto_approve("rag")

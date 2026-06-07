@@ -120,6 +120,9 @@ pub struct Config {
     /// Behavior analyst sub-agent configuration (data analysis and chart generation).
     #[serde(default)]
     pub behavior_analyst: BehaviorAnalystConfig,
+    /// HITL (Human-in-the-Loop) policy configuration.
+    #[serde(default)]
+    pub hitl: HitlConfig,
     /// Cached timezone offset computed at load time.
     #[serde(skip, default = "crate::utils::system_tz_offset")]
     pub tz_offset: FixedOffset,
@@ -615,6 +618,31 @@ pub struct WeChatPlatformConfig {
     pub agent_id: Option<String>,
 }
 
+// ── HITL (Human-in-the-Loop) Configuration ──
+
+/// Configuration for the HITL policy that gates high-risk tool calls.
+///
+/// # Example
+/// ```toml
+/// [hitl]
+/// auto_approve_high_risk = false   # default; only set true in sandboxed envs
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HitlConfig {
+    /// When true, the executor auto-approves High-risk tool calls.
+    /// Default: false. Set to true ONLY in sandboxed/CI environments.
+    #[serde(default)]
+    pub auto_approve_high_risk: bool,
+}
+
+impl Default for HitlConfig {
+    fn default() -> Self {
+        Self {
+            auto_approve_high_risk: false,
+        }
+    }
+}
+
 fn default_provider() -> ProviderKind {
     ProviderKind::OpenAI
 }
@@ -664,6 +692,7 @@ impl Config {
             quality_judge: QualityJudgeConfig::default(),
             image_gen: ImageGenConfig::default(),
             behavior_analyst: BehaviorAnalystConfig::default(),
+            hitl: HitlConfig::default(),
             timezone: None,
             tz_offset: crate::utils::system_tz_offset(),
         }

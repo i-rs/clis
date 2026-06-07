@@ -256,12 +256,42 @@ impl ToolCallExecutor {
                     continue;
                 }
                 if !hitl.should_auto_approve(&req) && !hitl.should_deny(&req) {
-                    // DEV-ONLY: auto-approve during development; TODO: implement interactive confirmation before production
-                    tracing::info!(tool = %tc.name, risk = ?req.risk_level, "高危操作需要确认 — 开发阶段自动批准");
-                    let _ = tx.send(LlmEvent::Status(format!(
-                        "⚠️ 高危操作 {} (风险: {:?}) — 自动批准 (开发模式)",
-                        tc.name, req.risk_level
-                    )));
+                    if hitl.should_auto_approve_high_risk() {
+                        // Explicit opt-in via --auto-approve or [hitl] config.
+                        tracing::info!(
+                            tool = %tc.name,
+                            risk = ?req.risk_level,
+                            "高危操作自动批准 (auto_approve_high_risk=true)"
+                        );
+                        let _ = tx.send(LlmEvent::Status(format!(
+                            "⚠️ 高危操作 {} (风险: {:?}) — 自动批准 (opt-in)",
+                            tc.name, req.risk_level
+                        )));
+                    } else {
+                        // Default: block high-risk operations that weren't
+                        // auto-approved (low risk) or explicitly denied.
+                        tracing::warn!(
+                            tool = %tc.name,
+                            risk = ?req.risk_level,
+                            "高危操作被 HITL 拦截 (默认策略；如需自动批准请使用 --auto-approve)"
+                        );
+                        let _ = tx.send(LlmEvent::Status(format!(
+                            "🚫 高危操作 {} 被策略拦截 (风险: {:?}) — 需要 --auto-approve 或 [hitl] 配置",
+                            tc.name, req.risk_level
+                        )));
+                        blocked_results.push(ToolCallResult {
+                            call: tc,
+                            args,
+                            result: "操作被安全策略拒绝: 高危操作需要 --auto-approve 或用户确认".to_string(),
+                            context_result: "操作被安全策略拒绝".to_string(),
+                            validation: ToolResultValidation {
+                                valid: false,
+                                issues: vec!["HITL: 高危操作未启用 auto_approve_high_risk".to_string()],
+                            },
+                            category: ErrorCategory::Validation,
+                        });
+                        continue;
+                    }
                 }
             }
             filtered_calls.push((step, tc, args));
