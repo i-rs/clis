@@ -6,12 +6,9 @@
 //! - `sql/postgres.rs` (feature = "postgres")
 //!
 //! A shared macro `define_sql_stores!` generates all repository trait
-//! implementations for a given database pool type.
-//!
-//! **PostgreSQL note:** sqlx requires `&'static str` for all SQL queries.
-//! The PG backend currently uses `?` placeholders which the PG protocol
-//! expects as `$N`. Until a proper placeholder adaptation layer is built,
-//! the PG backend is provided on a best-effort basis.
+//! implementations for a given database pool type. Dialects pass their
+//! own placeholder literals (`"?"` for SQLite/MySQL, `"$1".."$N"` for
+//! PostgreSQL) via the macro's `$ph` parameters.
 //!
 //! ## Search semantics
 //!
