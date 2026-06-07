@@ -1,4 +1,11 @@
 use crate::server::app::AppState;
+use subtle::ConstantTimeEq;
+
+/// Compare two byte slices in constant time.
+/// Returns true iff they are byte-equal; runtime does not leak length/prefix info.
+fn ct_eq(a: &str, b: &str) -> bool {
+    a.as_bytes().ct_eq(b.as_bytes()).into()
+}
 
 /// Axum middleware that validates Bearer token and resolves user_id.
 pub async fn auth_guard(
@@ -15,9 +22,15 @@ pub async fn auth_guard(
     let user_id: String = match provided {
         Some(token) => {
             let core = state.core.read().await;
-            if let Some(user) = core.config.dashboard.users.iter().find(|u| u.token == token) {
+            if let Some(user) = core
+                .config
+                .dashboard
+                .users
+                .iter()
+                .find(|u| ct_eq(&u.token, token))
+            {
                 user.id.clone()
-            } else if state.auth_token == token {
+            } else if ct_eq(&state.auth_token, token) {
                 "default".to_string()
             } else {
                 return unauthorized();
@@ -162,6 +175,59 @@ mod tests {
             let req = Request::builder()
                 .uri("/api/test")
                 .header("authorization", "Bearer wrong")
+                .body(Body::empty())
+                .unwrap();
+            let resp = app.oneshot(req).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+        });
+    }
+
+    #[test]
+    fn test_ct_eq_matches_eq() {
+        // Functional equivalence to == (timing properties not asserted here,
+        // but use of ConstantTimeEq is enforced by code review + the helper).
+        assert!(ct_eq("abcdef", "abcdef"));
+        assert!(!ct_eq("abcdef", "abcdeg"));
+        assert!(!ct_eq("abcdef", "abcdef-extra"));
+        assert!(!ct_eq("different-length", "abcdef"));
+        assert!(ct_eq("", ""));
+    }
+
+    #[test]
+    fn test_auth_valid_multi_user_token() {
+        run_auth_test("test_auth_valid_multi_user_token", |state| async move {
+            // Add a user with a known token
+            {
+                let mut core = state.core.write().await;
+                core.config.dashboard.users.push(
+                    i_rs_claw_core::config::DashboardUser {
+                        id: "alice".to_string(),
+                        token: "alice-secret".to_string(),
+                    },
+                );
+            }
+
+            let app = Router::new()
+                .route("/api/test", get(ok_handler))
+                .layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    auth_guard,
+                ))
+                .with_state(state);
+
+            // alice's token → 200
+            let req = Request::builder()
+                .uri("/api/test")
+                .header("authorization", "Bearer alice-secret")
+                .body(Body::empty())
+                .unwrap();
+            let resp = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+
+            // bob's token (different bytes, same length) → still 401
+            let req = Request::builder()
+                .uri("/api/test")
+                .header("authorization", "Bearer bob-secret")
                 .body(Body::empty())
                 .unwrap();
             let resp = app.oneshot(req).await.unwrap();
