@@ -4,14 +4,23 @@ pub fn claw_dir() -> Option<std::path::PathBuf> {
     dirs::home_dir().map(|h| h.join(".i-rs").join("claw"))
 }
 
-use std::sync::LazyLock;
-static SHARED_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
-    tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_all()
-        .build()
-        .expect("sync_block_on: failed to create shared runtime")
+use std::sync::{Arc, LazyLock};
+static SHARED_RUNTIME: LazyLock<Arc<tokio::runtime::Runtime>> = LazyLock::new(|| {
+    Arc::new(
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .expect("sync_block_on: failed to create shared runtime"),
+    )
 });
+
+/// Returns a clone of the shared tokio runtime (ref-counted `Arc`).
+/// Intended for components that need their own handle to the runtime,
+/// such as `McpRegistry`, to avoid creating additional runtimes.
+pub fn shared_runtime() -> Arc<tokio::runtime::Runtime> {
+    Arc::clone(&SHARED_RUNTIME)
+}
 
 /// Block the current thread on a future by spawning a dedicated scope thread
 /// that drives the future on `SHARED_RUNTIME`.

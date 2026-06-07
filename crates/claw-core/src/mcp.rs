@@ -307,9 +307,7 @@ mod mcp_gated {
         /// All MCP clients share a single tokio runtime.
         pub fn new(servers: &[McpServerConfig]) -> Self {
             let rt = if servers.iter().any(|s| s.enabled) {
-                Some(Arc::new(
-                    tokio::runtime::Runtime::new().expect("创建 MCP 共享运行时失败"),
-                ))
+                Some(crate::utils::shared_runtime())
             } else {
                 None
             };
