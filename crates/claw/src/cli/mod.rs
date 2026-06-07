@@ -182,8 +182,44 @@ pub fn run_gateway() -> anyhow::Result<()> {
 // =============================================
 
 #[cfg(feature = "dashboard")]
-pub fn run_serve(host: String, port: u16, api_only: bool) -> anyhow::Result<()> {
-    let config = crate::config::Config::load()?;
+pub fn run_serve(
+    host: String,
+    port: u16,
+    api_only: bool,
+    auto_approve_high_risk: bool,
+) -> anyhow::Result<()> {
+    // Warn on public bind — caller explicitly opted in.
+    if host == "0.0.0.0" || host == "::" {
+        tracing::warn!(
+            host = %host,
+            "SECURITY: claw serve is binding to a public address. \
+             Anyone with the auth token can access the dashboard. \
+             Use 127.0.0.1 (default) for local-only access."
+        );
+        eprintln!(
+            "  {}  {}  host={} — dashboard will be reachable from the network",
+            "⚠".yellow(),
+            "SECURITY WARNING".bold().red(),
+            host
+        );
+    }
+
+    let mut config = crate::config::Config::load()?;
+
+    // Apply CLI flag to the runtime HitlPolicy. We do NOT persist this flag
+    // to disk to avoid accidentally enabling it permanently.
+    if auto_approve_high_risk {
+        config.hitl.auto_approve_high_risk = true;
+        tracing::warn!(
+            "SECURITY: --auto-approve passed; high-risk tools will execute without confirmation"
+        );
+        eprintln!(
+            "  {}  {}  high-risk tools will be auto-approved",
+            "⚠".yellow(),
+            "SECURITY WARNING".bold().red(),
+        );
+    }
+
     let rt = tokio::runtime::Runtime::new()?;
 
     let core = i_rs_claw_core::core::AppCore::new(config.clone())?;
@@ -206,7 +242,12 @@ pub fn run_serve(host: String, port: u16, api_only: bool) -> anyhow::Result<()> 
 }
 
 #[cfg(not(feature = "dashboard"))]
-pub fn run_serve(_host: String, _port: u16, _api_only: bool) -> anyhow::Result<()> {
+pub fn run_serve(
+    _host: String,
+    _port: u16,
+    _api_only: bool,
+    _auto_approve_high_risk: bool,
+) -> anyhow::Result<()> {
     anyhow::bail!(
         "Dashboard feature is not enabled. Rebuild with: cargo build --features dashboard"
     );
@@ -215,7 +256,12 @@ pub fn run_serve(_host: String, _port: u16, _api_only: bool) -> anyhow::Result<(
 /// Legacy alias for `claw serve` (used by the `Dashboard` subcommand).
 pub fn run_dashboard() -> anyhow::Result<()> {
     let config = crate::config::Config::load()?;
-    run_serve(config.dashboard.host.clone(), config.dashboard.port, false)
+    run_serve(
+        config.dashboard.host.clone(),
+        config.dashboard.port,
+        false,
+        config.hitl.auto_approve_high_risk,
+    )
 }
 
 // =============================================

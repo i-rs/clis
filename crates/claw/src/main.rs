@@ -28,8 +28,8 @@ struct Cli {
 enum Command {
     /// Start HTTP API server + Web Dashboard (default mode)
     Serve {
-        /// Host to bind (default: 0.0.0.0)
-        #[arg(long, default_value = "0.0.0.0")]
+        /// Host to bind (default: 127.0.0.1; pass 0.0.0.0 to expose publicly)
+        #[arg(long, default_value = "127.0.0.1")]
         host: String,
         /// Port to listen on (default: 3000)
         #[arg(long, short, default_value = "3000")]
@@ -37,6 +37,10 @@ enum Command {
         /// Disable the Web Dashboard UI (API only)
         #[arg(long)]
         api_only: bool,
+        /// Allow tools classified as High-risk to run without confirmation.
+        /// DANGEROUS: only enable in sandboxed/CI environments.
+        #[arg(long = "auto-approve")]
+        auto_approve_high_risk: bool,
     },
     /// Start TUI terminal interface (debug/power-user mode)
     Tui {
@@ -172,11 +176,14 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command.unwrap_or(Command::Serve {
-        host: "0.0.0.0".to_string(),
+        host: "127.0.0.1".to_string(),
         port: 3000,
         api_only: false,
+        auto_approve_high_risk: false,
     }) {
-        Command::Serve { host, port, api_only } => cli::run_serve(host, port, api_only),
+        Command::Serve { host, port, api_only, auto_approve_high_risk } => {
+            cli::run_serve(host, port, api_only, auto_approve_high_risk)
+        }
         Command::Tui { session, user: _ } => tui::run(session.as_deref()),
         Command::Config => cli::run_config(),
         Command::Tools => cli::run_tools(),
