@@ -28,8 +28,9 @@ impl<'a> LlmEventHandler<'a> {
                 result,
                 step,
                 total_steps,
+                category,
             } => {
-                self.handle_tool_executed(&name, &args, &result, step, total_steps);
+                self.handle_tool_executed(&name, &args, &result, step, total_steps, category);
             }
             LlmEvent::Error(text) => self.handle_error(&text),
             LlmEvent::HttpLog(data) => {
@@ -143,6 +144,7 @@ impl<'a> LlmEventHandler<'a> {
         result: &str,
         step: usize,
         total_steps: usize,
+        category: i_rs_claw_core::error::ErrorCategory,
     ) {
         self.app
             .add_tool_call(name, args, result, step, total_steps);
@@ -165,7 +167,7 @@ impl<'a> LlmEventHandler<'a> {
             args,
             result,
         );
-        if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
+        if !category.is_retryable_or_fatal() {
             i_rs_claw_core::core::record_layered_tool_memory(
                 "default", &mut self.app_core.agent_store,
                 agent_id,

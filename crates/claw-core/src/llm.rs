@@ -1,3 +1,4 @@
+use crate::error::ErrorCategory;
 use crate::stats::TokenRecord;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -57,6 +58,8 @@ pub enum LlmEvent {
         step: usize,
         /// Total number of tool calls in the current round
         total_steps: usize,
+        /// Error category for type-safe result classification
+        category: ErrorCategory,
     },
     /// Real-time status update (shown in status bar)
     Status(String),

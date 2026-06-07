@@ -29,7 +29,7 @@ fn build_sse_stream(
                 let mut keep_rx = true;
 
                 match event {
-                    LlmEvent::ToolExecuted { name, args, result, step, total_steps } => {
+                    LlmEvent::ToolExecuted { name, args, result, step, total_steps, category } => {
                         let mut core = state.core.write().await;
                         let i_rs_index = core.config.i_rs_tool_index.clone();
                         let agent_id = core.session_mgr.session_meta(&sid)
@@ -37,7 +37,7 @@ fn build_sse_stream(
                         i_rs_claw_core::core::record_tool_memory(
                             "default", &mut core.agent_store, &i_rs_index, &agent_id, &name, &args, &result,
                         );
-                        if !result.starts_with("错误") && !result.starts_with("护栏拦截") {
+                        if !category.is_retryable_or_fatal() {
                             i_rs_claw_core::core::record_layered_tool_memory(
                                 "default", &mut core.agent_store, &agent_id, &name, &result,
                             );
@@ -48,7 +48,7 @@ fn build_sse_stream(
                             "step": step, "total_steps": total_steps,
                         })).unwrap_or_default();
                         sse_event = Event::default().event("tool_executed").data(data).id(seq.to_string());
-                        acc.apply(&LlmEvent::ToolExecuted { name: name.clone(), args: args.clone(), result: result.clone(), step, total_steps });
+                        acc.apply(&LlmEvent::ToolExecuted { name: name.clone(), args: args.clone(), result: result.clone(), step, total_steps, category });
                     }
                     LlmEvent::Done(msgs, usage, _trace_id) => {
                         let mut core = state.core.write().await;

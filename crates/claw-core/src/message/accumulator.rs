@@ -52,6 +52,7 @@ impl MessageAccumulator {
                 result,
                 step,
                 total_steps,
+                category: _,
             } => {
                 self.flush_pending_assistant(None);
                 self.messages.push(Message::ToolCall {
@@ -250,6 +251,7 @@ mod tests {
             result: "ok".into(),
             step: 2,
             total_steps: 5,
+            category: crate::error::ErrorCategory::Unknown,
         });
         acc.apply(&LlmEvent::Done(Arc::new(Vec::new()), None, String::new()));
         let msgs = acc.into_messages();
@@ -275,6 +277,7 @@ mod tests {
             result: "ok".into(),
             step: 0,
             total_steps: 1,
+            category: crate::error::ErrorCategory::Unknown,
         });
         acc.apply(&LlmEvent::Done(Arc::new(Vec::new()), None, String::new()));
         let msgs = acc.into_messages();
@@ -344,6 +347,7 @@ mod tests {
             result: "ok".into(),
             step: 0,
             total_steps: 1,
+            category: crate::error::ErrorCategory::Unknown,
         });
         // Done arrives — no pending text, but usage should backfill the
         // assistant prose emitted before the tool call.
@@ -424,6 +428,7 @@ mod tests {
                 result: "ok".into(),
                 step: 0,
                 total_steps: 1,
+                category: crate::error::ErrorCategory::Unknown,
             },
             LlmEvent::Token("done".into()),
             LlmEvent::Evaluation {

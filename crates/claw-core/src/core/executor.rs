@@ -333,6 +333,7 @@ impl ToolCallExecutor {
 
                 let display_result = utils::smart_truncate(&result, trunc_display);
                 let context_result = utils::compact_tool_result(&tc_name, &result, trunc_context);
+                let category = category_from_result(&result);
 
                 let _ = tx.send(LlmEvent::ToolExecuted {
                     name: tc.name.clone(),
@@ -340,6 +341,7 @@ impl ToolCallExecutor {
                     result: display_result,
                     step,
                     total_steps: total,
+                    category,
                 });
 
                 let (validation, category) = validate_tool_result(&tc.name, &result);

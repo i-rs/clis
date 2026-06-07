@@ -62,8 +62,10 @@ where
 }
 
 use crate::skill_store::SkillDefinition;
+use indexmap::IndexMap;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 /// Execution context passed to all tools during execution.
 /// Contains application state needed for advanced tool operations
@@ -209,32 +211,37 @@ impl ClawTool for TypedToolAdapter {
 /// 1. Create `tools/my_tool.rs` with a struct implementing `ClawTool`
 /// 2. Add `Box::new(my_tool::MyTool)` to `ToolRegistry::new()`
 pub struct ToolRegistry {
-    pub tools: Vec<Box<dyn ClawTool>>,
+    pub tools: IndexMap<String, Arc<dyn ClawTool>>,
     excluded: std::collections::HashSet<String>,
 }
 
 impl ToolRegistry {
     pub fn new() -> Self {
+        let tools: Vec<Arc<dyn ClawTool>> = vec![
+            Arc::new(calculator_typed::CalculatorTyped::as_claw_tool()),
+            Arc::new(chart_tool::ChartTool),
+            Arc::new(chart_image::ChartImageTool),
+            Arc::new(generate_image::GenerateImageTool),
+            Arc::new(file_ops::FileOpsTool),
+            Arc::new(i_rs::IrsTool),
+            Arc::new(search_conversations::SearchConversationsTool),
+            Arc::new(search_tools::SearchToolsTool),
+            Arc::new(user_memory::UserMemoryTool),
+            Arc::new(call_code_agent::CallCodeAgentTool),
+            Arc::new(delegate::DelegateTool),
+            Arc::new(vision_tool::VisionTool),
+            Arc::new(rag_tool::RagTool::new()),
+            Arc::new(web_search::WebSearchTool),
+            Arc::new(chain_tool::ChainTool::new()),
+            Arc::new(orchestration_tool::OrchestrationTool::new()),
+            Arc::new(progress_tool::ProgressTool::new()),
+        ];
+        let mut map = IndexMap::with_capacity(tools.len());
+        for t in tools {
+            map.insert(t.name().to_string(), t);
+        }
         Self {
-            tools: vec![
-                Box::new(calculator_typed::CalculatorTyped::as_claw_tool()),
-                Box::new(chart_tool::ChartTool),
-                Box::new(chart_image::ChartImageTool),
-                Box::new(generate_image::GenerateImageTool),
-                Box::new(file_ops::FileOpsTool),
-                Box::new(i_rs::IrsTool),
-                Box::new(search_conversations::SearchConversationsTool),
-                Box::new(search_tools::SearchToolsTool),
-                Box::new(user_memory::UserMemoryTool),
-                Box::new(call_code_agent::CallCodeAgentTool),
-                Box::new(delegate::DelegateTool),
-                Box::new(vision_tool::VisionTool),
-                Box::new(rag_tool::RagTool::new()),
-                Box::new(web_search::WebSearchTool),
-                Box::new(chain_tool::ChainTool::new()),
-                Box::new(orchestration_tool::OrchestrationTool::new()),
-                Box::new(progress_tool::ProgressTool::new()),
-            ],
+            tools: map,
             excluded: std::collections::HashSet::new(),
         }
     }
@@ -247,8 +254,8 @@ impl ToolRegistry {
     /// Add skill tools from SkillStore (builder pattern, consumes self).
     pub fn with_skills(mut self, skills: &[SkillDefinition]) -> Self {
         for skill in skills {
-            self.tools
-                .push(Box::new(skill_tool::SkillTool::new(skill.clone())));
+            let tool = Arc::new(skill_tool::SkillTool::new(skill.clone()));
+            self.tools.insert(tool.name().to_string(), tool);
         }
         self
     }
@@ -257,10 +264,11 @@ impl ToolRegistry {
     pub fn with_mcp(mut self, mcp_registry: &crate::mcp::McpRegistry) -> Self {
         for (client_idx, tool_def) in mcp_registry.tools() {
             if let Some(client) = mcp_registry.clients().get(*client_idx) {
-                self.tools.push(Box::new(mcp_tools::McpToolWrapper::new(
+                let tool = Arc::new(mcp_tools::McpToolWrapper::new(
                     tool_def.clone(),
                     client.clone(),
-                )));
+                ));
+                self.tools.insert(tool.name().to_string(), tool);
             }
         }
         self
@@ -284,7 +292,7 @@ impl ToolRegistry {
             i_rs_tool_names.to_vec()
         };
         self.tools
-            .iter()
+            .values()
             .filter(|tool| !self.excluded.contains(tool.name()))
             .map(|tool| {
                 let mut schema = serde_json::json!({
@@ -311,7 +319,7 @@ impl ToolRegistry {
         args: &Value,
         ctx: &ToolContext,
     ) -> Result<String, crate::error::ClawError> {
-        match self.tools.iter().find(|t| t.name() == name) {
+        match self.tools.get(name) {
             Some(t) => t.execute(args, ctx).await,
             None => Err(crate::error::ClawError::NotFound(format!(
                 "未知工具: {}",
@@ -323,12 +331,12 @@ impl ToolRegistry {
     /// Check if a built-in tool exists.
     #[allow(dead_code)]
     pub fn tool_exists(&self, name: &str) -> bool {
-        self.tools.iter().any(|t| t.name() == name)
+        self.tools.contains_key(name)
     }
 
     pub fn tool_info(&self) -> Vec<(&str, &str)> {
         self.tools
-            .iter()
+            .values()
             .map(|t| (t.name(), t.description()))
             .collect()
     }

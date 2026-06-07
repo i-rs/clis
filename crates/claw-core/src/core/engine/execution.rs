@@ -8,7 +8,7 @@ pub async fn execute_tool_call(
     registry: &crate::tools::ToolRegistry,
     ctx: &crate::tools::ToolContext,
 ) -> String {
-    if let Some(tool) = registry.tools.iter().find(|t| t.name() == name) {
+    if let Some(tool) = registry.tools.get(name) {
         return tool
             .execute(args, ctx)
             .await
