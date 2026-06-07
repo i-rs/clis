@@ -912,16 +912,7 @@ impl AppCore {
     /// Returns the Quality message for TUI rendering (None if no evaluation was done).
     pub fn evaluate_completed_session(&mut self, session_id: &str) -> Option<crate::app::Message> {
         let messages = self.session_mgr.load_app_messages(session_id, 100);
-        let tool_results: Vec<(&str, bool)> = messages
-            .iter()
-            .filter_map(|m| match m {
-                crate::app::Message::ToolCall { name, result, .. } => {
-                    let cat = crate::error::category_from_result(result);
-                    Some((name.as_str(), !cat.is_retryable_or_fatal()))
-                }
-                _ => None,
-            })
-            .collect();
+        let tool_results = current_turn_tool_results(&messages);
         let last_assistant = messages.iter().rev().find_map(|m| match m {
             crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.as_str()),
             _ => None,
@@ -970,16 +961,7 @@ impl AppCore {
             .session_mgr
             .load_app_messages_async(session_id, 100)
             .await;
-        let tool_results: Vec<(&str, bool)> = messages
-            .iter()
-            .filter_map(|m| match m {
-                crate::app::Message::ToolCall { name, result, .. } => {
-                    let cat = crate::error::category_from_result(result);
-                    Some((name.as_str(), !cat.is_retryable_or_fatal()))
-                }
-                _ => None,
-            })
-            .collect();
+        let tool_results = current_turn_tool_results(&messages);
         let last_assistant = messages.iter().rev().find_map(|m| match m {
             crate::app::Message::Assistant { text, .. } if !text.is_empty() => Some(text.as_str()),
             _ => None,
@@ -1017,6 +999,8 @@ impl AppCore {
         }
         Some(quality)
     }
+
+    /// Run LLM-as-Judge evaluation when enabled and conditions are met.
     /// Returns None if the judge is disabled or skipped.
     #[allow(dead_code)]
     pub async fn evaluate_with_judge(
@@ -1347,6 +1331,31 @@ fn build_full_tool_index(config: &Config) -> String {
         }
     }
     result
+}
+
+/// Only collect tool results from the most recent conversation turn
+/// (after the last User message), avoiding re-evaluation of stale tool
+/// calls from earlier turns in the same session.
+fn current_turn_tool_results(messages: &[crate::app::Message]) -> Vec<(&str, bool)> {
+    let cutoff = messages
+        .iter()
+        .rposition(|m| matches!(m, crate::app::Message::User { .. }));
+    messages
+        .iter()
+        .enumerate()
+        .filter_map(|(i, m)| {
+            if cutoff.map_or(true, |c| i <= c) {
+                return None;
+            }
+            match m {
+                crate::app::Message::ToolCall { name, result, .. } => {
+                    let cat = crate::error::category_from_result(result);
+                    Some((name.as_str(), !cat.is_retryable_or_fatal()))
+                }
+                _ => None,
+            }
+        })
+        .collect()
 }
 
 /// Central side-effect handler for tool execution results.
