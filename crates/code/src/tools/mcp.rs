@@ -75,7 +75,7 @@ impl Tool for McpConnectTool {
             ));
         }
 
-        let mut registry = MCP_TOOL_REGISTRY.lock().unwrap();
+        let mut registry = MCP_TOOL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
         for tool_def in &tools {
             let wrapper = Arc::new(McpToolWrapper {
                 server_name: server_name.to_string(),

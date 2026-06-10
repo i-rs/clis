@@ -69,14 +69,13 @@ impl Tool for CreateCrateTool {
         let storage_dir = format!("{}/storage", src_dir);
         let pres_dir = format!("{}/presentation", src_dir);
 
-        std::fs::create_dir_all(&cmds_dir)?;
-        std::fs::create_dir_all(&models_dir)?;
-        std::fs::create_dir_all(&storage_dir)?;
-        std::fs::create_dir_all(&pres_dir)?;
+        tokio::fs::create_dir_all(&cmds_dir).await?;
+        tokio::fs::create_dir_all(&models_dir).await?;
+        tokio::fs::create_dir_all(&storage_dir).await?;
+        tokio::fs::create_dir_all(&pres_dir).await?;
 
-        // Cargo.toml
         let cargo = subst(include_str!("templates/Cargo.toml.in"), &[("$NAME", name)]);
-        std::fs::write(format!("{}/Cargo.toml", crate_dir), &cargo)?;
+        tokio::fs::write(format!("{}/Cargo.toml", crate_dir), &cargo).await?;
 
         // main.rs
         let main_rs = subst(
@@ -87,7 +86,7 @@ impl Tool for CreateCrateTool {
                 ("$STORE_TYPE", &format!("{}Store", name)),
             ],
         );
-        std::fs::write(format!("{}/main.rs", src_dir), &main_rs)?;
+        tokio::fs::write(format!("{}/main.rs", src_dir), &main_rs).await?;
 
         // models/mod.rs
         let models = r#"use serde::{Deserialize, Serialize};
@@ -107,11 +106,10 @@ pub struct Entity {
 
 pub type Store = BTreeMap<String, Entity>;
 "#;
-        std::fs::write(format!("{}/mod.rs", models_dir), models)?;
+        tokio::fs::write(format!("{}/mod.rs", models_dir), models).await?;
 
-        // storage/mod.rs
         let storage = format!("i_rs_core::create_store!({}Store, \"{}\");", name, name);
-        std::fs::write(format!("{}/mod.rs", storage_dir), &storage)?;
+        tokio::fs::write(format!("{}/mod.rs", storage_dir), &storage).await?;
 
         // presentation/mod.rs
         let pres = r#"use crate::models::Entity;
@@ -134,7 +132,7 @@ struct Row<'a> {
     created: &'a str,
 }
 "#;
-        std::fs::write(format!("{}/mod.rs", pres_dir), pres)?;
+        tokio::fs::write(format!("{}/mod.rs", pres_dir), pres).await?;
 
         // commands/mod.rs
         let mut cmds_mod = String::from(
@@ -150,30 +148,33 @@ pub mod skill;
         for sc in &special_cmds {
             cmds_mod.push_str(&format!("pub mod {};\n", sc));
         }
-        std::fs::write(format!("{}/mod.rs", cmds_dir), &cmds_mod)?;
+        tokio::fs::write(format!("{}/mod.rs", cmds_dir), &cmds_mod).await?;
 
-        // Generate basic command files
         for cmd_name in &["add", "delete", "get", "list", "update", "example", "skill"] {
             let content = format!("// TODO: implement {} command\n", cmd_name);
-            std::fs::write(format!("{}/{}.rs", cmds_dir, cmd_name), &content)?;
+            tokio::fs::write(format!("{}/{}.rs", cmds_dir, cmd_name), &content).await?;
         }
 
-        // Generate special command files
         for sc in &special_cmds {
             let content = format!("// TODO: implement {} command\n", sc);
-            std::fs::write(format!("{}/{}.rs", cmds_dir, sc), &content)?;
+            tokio::fs::write(format!("{}/{}.rs", cmds_dir, sc), &content).await?;
         }
 
         Ok(format!(
             "Created crate {} at {}/\nFiles:\n{:?}",
             name,
             crate_dir,
-            std::fs::read_dir(&crate_dir)
-                .map(|d| d
-                    .filter_map(|e| e.ok())
-                    .map(|e| e.path())
-                    .collect::<Vec<_>>())
-                .unwrap_or_default()
+            {
+                let mut entries = match tokio::fs::read_dir(&crate_dir).await {
+                    Ok(d) => d,
+                    Err(_) => return Ok(format!("Created crate {} at {}/", name, crate_dir)),
+                };
+                let mut files = Vec::new();
+                while let Ok(Some(e)) = entries.next_entry().await {
+                    files.push(e.path());
+                }
+                files
+            }
         ))
     }
 }

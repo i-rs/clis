@@ -351,7 +351,7 @@ pub async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<Ag
             && app.input.content.is_empty()
             && app.selected_message.is_some() =>
         {
-            let idx = app.selected_message.unwrap();
+            let idx = app.selected_message.unwrap_or(app.messages.len().saturating_sub(1));
             if idx < app.components.len() {
                 use crate::tui::ui::components::ComponentOp;
                 app.components[idx].borrow_mut().apply(ComponentOp::Toggle);

@@ -223,13 +223,14 @@ pub async fn execute(cmd: SlashCommand, app: &mut App) -> Vec<AgentMessage> {
 
 fn cmd_clear(app: &mut App) -> Vec<AgentMessage> {
     app.messages.clear();
+    app.components.clear();
     app.agent_messages.clear();
     app.streaming = None;
+    app.streaming_component = None;
     app.token_usage = crate::app::TokenUsage::default();
     app.file_changes.clear();
     app.last_file_states.clear();
     app.status_message = None;
-    // Preserve tool_names so tab completion still works
     vec![AgentMessage::system("对话已清空。")]
 }
 
@@ -301,8 +302,10 @@ fn cmd_status(app: &App) -> Vec<AgentMessage> {
 
 fn cmd_new(app: &mut App) -> Vec<AgentMessage> {
     app.messages.clear();
+    app.components.clear();
     app.agent_messages.clear();
     app.streaming = None;
+    app.streaming_component = None;
     app.token_usage = crate::app::TokenUsage::default();
     app.file_changes.clear();
     app.last_file_states.clear();
@@ -336,6 +339,7 @@ fn cmd_undo(app: &mut App) -> Vec<AgentMessage> {
     match remove_idx {
         Some(idx) => {
             app.messages.truncate(idx);
+            app.components.truncate(idx);
             vec![AgentMessage::system("已撤回最后一条对话。")]
         }
         None => vec![AgentMessage::system("没有可撤回的对话。")],
@@ -375,7 +379,7 @@ fn cmd_retry(app: &mut App) -> Vec<AgentMessage> {
     match remove_idx {
         Some(idx) => {
             app.messages.truncate(idx);
-            // Also roll back agent_messages to match
+            app.components.truncate(idx);
             app.agent_messages.retain(|m| {
                 matches!(
                     m,
@@ -412,8 +416,10 @@ async fn cmd_load(app: &mut App, name: &str) -> Vec<AgentMessage> {
             app.messages = s.messages;
             app.agent_messages = s.agent_messages;
             app.streaming = None;
+            app.streaming_component = None;
             app.token_usage = crate::app::TokenUsage::default();
             app.session_id = Some(name.to_string());
+            app.rebuild_components();
             vec![AgentMessage::system(format!("已加载会话: {}", name))]
         }
         Err(e) => vec![AgentMessage::system(format!("加载失败: {}", e))],

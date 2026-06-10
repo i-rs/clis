@@ -84,10 +84,10 @@ impl Tool for RenameTool {
         }
 
         if let Some(parent) = safe_to.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
 
-        std::fs::rename(&safe_from, &safe_to)?;
+        tokio::fs::rename(&safe_from, &safe_to).await?;
         Ok(format!("Renamed {} → {}", from, to))
     }
 }

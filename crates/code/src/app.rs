@@ -207,8 +207,6 @@ impl App {
         }
     }
 
-    /// Rebuild the component list from the current messages.
-    /// Call this when `msg_gen` changes.
     pub fn rebuild_components(&mut self) {
         self.components = self.messages
             .iter()
@@ -223,25 +221,37 @@ impl App {
         }
     }
 
+    fn append_component_for_last(&mut self) {
+        if let Some(msg) = self.messages.last() {
+            let msg = msg.clone();
+            let comp: Box<dyn super::tui::ui::components::MessageComponent> = build_component_for(&msg);
+            self.components.push(Rc::new(RefCell::new(comp)));
+        }
+    }
+
     pub fn push_message(&mut self, msg: AgentMessage) {
         self.messages.push(msg);
         self.msg_gen += 1;
         self.needs_redraw = true;
-        self.rebuild_components();
+        self.append_component_for_last();
         self.trim_messages();
     }
 
     pub fn extend_messages(&mut self, msgs: impl IntoIterator<Item = AgentMessage>) {
-        let mut count = 0;
+        let start = self.messages.len();
         for m in msgs {
             self.messages.push(m);
-            count += 1;
         }
-        if count > 0 {
-            self.msg_gen += count;
+        let added = self.messages.len() - start;
+        if added > 0 {
+            self.msg_gen += added;
             self.layout_gen += 1;
             self.needs_redraw = true;
-            self.rebuild_components();
+            let new_msgs: Vec<_> = self.messages[start..].to_vec();
+            for msg in &new_msgs {
+                let comp: Box<dyn super::tui::ui::components::MessageComponent> = build_component_for(msg);
+                self.components.push(Rc::new(RefCell::new(comp)));
+            }
             self.trim_messages();
         }
     }

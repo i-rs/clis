@@ -44,7 +44,7 @@ impl McpManager {
 
     /// List names of all connected MCP servers.
     pub fn connected_server_names(&self) -> Vec<String> {
-        let map = self.connections.lock().unwrap();
+        let map = self.connections.lock().unwrap_or_else(|e| e.into_inner());
         map.keys().cloned().collect()
     }
 
@@ -61,7 +61,7 @@ impl McpManager {
             .await
             .map_err(|e| anyhow::anyhow!("MCP connection '{}' failed: {}", name, e))?;
 
-        let mut map = self.connections.lock().unwrap();
+        let mut map = self.connections.lock().unwrap_or_else(|e| e.into_inner());
         map.insert(name.to_string(), Arc::new(service));
         Ok(())
     }
@@ -69,7 +69,7 @@ impl McpManager {
     /// Discover tools from an MCP server by querying tools/list.
     pub async fn discover_tools(&self, name: &str) -> anyhow::Result<Vec<McpToolDef>> {
         let service = {
-            let map = self.connections.lock().unwrap();
+            let map = self.connections.lock().unwrap_or_else(|e| e.into_inner());
             map.get(name)
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", name))?
@@ -98,7 +98,7 @@ impl McpManager {
         args: Value,
     ) -> anyhow::Result<Value> {
         let service = {
-            let map = self.connections.lock().unwrap();
+            let map = self.connections.lock().unwrap_or_else(|e| e.into_inner());
             map.get(server_name)
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("no MCP connection: {}", server_name))?

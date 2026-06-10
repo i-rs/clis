@@ -2,6 +2,59 @@ use crate::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::{Map, Value, json};
 
+fn shell_split(input: &str) -> anyhow::Result<Vec<String>> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut chars = input.chars().peekable();
+
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            ' ' | '\t' => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+                chars.next();
+            }
+            '"' => {
+                chars.next();
+                while let Some(&c) = chars.peek() {
+                    if c == '"' {
+                        chars.next();
+                        break;
+                    }
+                    current.push(c);
+                    chars.next();
+                }
+            }
+            '\'' => {
+                chars.next();
+                while let Some(&c) = chars.peek() {
+                    if c == '\'' {
+                        chars.next();
+                        break;
+                    }
+                    current.push(c);
+                    chars.next();
+                }
+            }
+            '\\' => {
+                chars.next();
+                if let Some(c) = chars.next() {
+                    current.push(c);
+                }
+            }
+            _ => {
+                current.push(ch);
+                chars.next();
+            }
+        }
+    }
+    if !current.is_empty() {
+        args.push(current);
+    }
+    Ok(args)
+}
+
 pub struct GitTool;
 
 #[async_trait]
@@ -33,14 +86,15 @@ impl Tool for GitTool {
             .get("command")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("command required"))?;
-        let blocked = [
+
+        let blocked_subcmds = [
             "push --force",
             "push -f",
             "reset --hard",
             "clean -fd",
             "filter-branch",
         ];
-        for pattern in &blocked {
+        for pattern in &blocked_subcmds {
             if cmd.contains(pattern) {
                 return Err(anyhow::anyhow!(
                     "git command blocked: '{}' contains '{}'. This is dangerous and should be done manually.",
@@ -49,12 +103,16 @@ impl Tool for GitTool {
                 ));
             }
         }
+
+        let git_args = shell_split(cmd)?;
+        if git_args.is_empty() {
+            anyhow::bail!("empty git command");
+        }
+
         let cwd = std::env::current_dir()?;
-        let output = tokio::process::Command::new("sh")
-            .args([
-                "-c",
-                &format!("cd {} && git {}", cwd.to_string_lossy(), cmd),
-            ])
+        let output = tokio::process::Command::new("git")
+            .args(&git_args)
+            .current_dir(&cwd)
             .output()
             .await?;
         let stdout = String::from_utf8_lossy(&output.stdout);

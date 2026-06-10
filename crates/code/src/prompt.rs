@@ -92,7 +92,7 @@ pub fn build_context(project_info: &ProjectInfo) -> String {
     if should_rebuild {
         *cache_guard = Some(build_cached_context(project_info));
     }
-    let cache = cache_guard.as_ref().unwrap();
+    let cache = cache_guard.as_ref().expect("cache was just initialized");
 
     let mut ctx = String::new();
 
