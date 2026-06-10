@@ -1,8 +1,8 @@
 # i-rs-claw 架构评审报告
 
-> 日期: 2026-05-21
-> 范围: crates/claw/ 全量扫描（含 dashboard / gateway / mcp 所有 feature）
-> 基线: clippy --all-features 0 warnings, 217 tests pass
+&gt; 日期: 2026-05-21
+&gt; 范围: crates/claw/ 全量扫描（含 dashboard / gateway / mcp 所有 feature）
+&gt; 基线: clippy --all-features 0 warnings, 217 tests pass
 
 ## 现状总结
 
@@ -10,7 +10,7 @@
 
 - **AppCore** 单例持有 Config / SessionManager / AgentRuntimeStore / StatsManager
 - **AgentRuntimeStore** 按 agent 隔离 memory / tool_cache / skill_store / mcp_registry
-- **chat_loop** ReAct 循环（stream -> tool_call -> result -> loop -> done）
+- **chat_loop** ReAct 循环（stream -&gt; tool_call -&gt; result -&gt; loop -&gt; done）
 - **ToolCallExecutor** 并行执行 + 超时 + 截断
 - **SessionManager** 状态机（Active / WaitingForTool / Error / Completed / Interrupted）
 - **smart_compress** 按跨会话工具频率 + recency 评分保留高价值 teach pair
@@ -38,7 +38,7 @@
 |---|------|------|---------|
 | 6 | **session 磁盘写入无错误反馈** | `session.rs` 全文 `let _ = atomic_write(...)` 静默忽略写失败 | 至少 `tracing::error!`，最好在 TUI 显示提示 |
 | 7 | **memory/tool_cache 写入也静默失败** | `memory.rs:216` `let _ = atomic_write(...)` | 同上 |
-| 8 | **无 LLM 请求重连/恢复** | provider 返回错误 -> `chat_loop` 直接 break 发 Error 事件 | 对 transient error（网络抖动、5xx）自动重试 1-2 次 |
+| 8 | **无 LLM 请求重连/恢复** | provider 返回错误 -&gt; `chat_loop` 直接 break 发 Error 事件 | 对 transient error（网络抖动、5xx）自动重试 1-2 次 |
 | 9 | **Stats JSONL 无大小限制** | `usage.jsonl` 只在 startup/exit 时 cleanup，长期运行可能膨胀到 MB 级 | 定期 flush 时检查文件大小，超过阈值主动 prune |
 | 10 | **MCP 子进程无健康检查** | `McpClient` 创建后如果子进程崩溃，下次 tool call 会得到连接错误 | 加 health check / 自动重连 |
 | 11 | **Provider 重试过于粗糙** | `send_with_retry` 固定重试 3 次，无指数退避，无 jitter | 对 429 加 `Retry-After` header 解析 + 指数退避 |
@@ -51,12 +51,12 @@
 | # | 问题 | 现状 | 改进方向 |
 |---|------|------|---------|
 | 13 | **ui.rs 62KB 单文件** | 所有渲染逻辑在一个文件，ratatui 每次 `terminal.draw` 全量重绘 | 按面板拆分为 submodules；对长消息列表加虚拟滚动（只渲染可见区域） |
-| 14 | **Vec\<Value\> 消息大量 clone** | `handle_done` 里 `msgs.clone()` + `compress_api_messages` 里 `msg.clone()` | 用 `Arc<Value>` 替代消息体，减少序列化开销 |
+| 14 | **Vec\&lt;Value\&gt; 消息大量 clone** | `handle_done` 里 `msgs.clone()` + `compress_api_messages` 里 `msg.clone()` | 用 `Arc<Value>` 替代消息体，减少序列化开销 |
 | 15 | **`ClawError` 使用不充分** | `error.rs` 定义了 7 种错误变体，但大部分代码用 `anyhow::Result` | tool 层已用 `ClawError`，可扩展到 provider/executor 层做结构化错误 |
 | 16 | **Provider trait 只返回 anyhow::Result** | `LlmProvider::stream_chat` 无法区分网络错误、认证失败、限流 | 定义 `ProviderError` enum（Transient / Auth / RateLimit / InvalidResponse） |
 | 17 | **Config::validate 只 warning 不 block** | 错误的 `base_url` 格式、无效的 agent 配置只是 warning | 对明确会导致运行时失败的配置升级为 error |
 | 18 | **semantic.rs TF-IDF 无增量更新** | 每次搜索重建整个索引 | 对 embedding 做增量 cache |
-| 19 | **测试缺少集成层覆盖** | 217 个全是 unit test，无 chat_loop x real provider 的集成测试 | 至少加 1 个 MockProvider 端到端测试覆盖 send -> stream -> tool_call -> done 全流程 |
+| 19 | **测试缺少集成层覆盖** | 217 个全是 unit test，无 chat_loop x real provider 的集成测试 | 至少加 1 个 MockProvider 端到端测试覆盖 send -&gt; stream -&gt; tool_call -&gt; done 全流程 |
 | 20 | **`main_loop` poll 50ms 固定间隔** | 不处理 LLM 时也每 50ms 重绘 | 用 `tokio::select!` 替代固定 poll，只在有事件时重绘 |
 
 ---

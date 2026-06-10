@@ -1,6 +1,6 @@
 # 70 个 CLI 工具，我是怎么用 Rust 管理过来的
 
-> 一个 Cargo 工作空间，70 个 crate，全部用宏生成。`cargo check` = 0 errors, 0 warnings。
+&gt; 一个 Cargo 工作空间，70 个 crate，全部用宏生成。`cargo check` = 0 errors, 0 warnings。
 
 ## 问题
 

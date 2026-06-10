@@ -1,6 +1,6 @@
 # SSE Stream Lock Removal — Design Spec
 
-> **Status:** Approved | **Date:** 2026-06-07 | **Audit ref:** M4
+&gt; **Status:** Approved | **Date:** 2026-06-07 | **Audit ref:** M4
 
 ## 1. Problem
 

@@ -1,8 +1,8 @@
 # Claw Refactor & Cleanup Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Decompose 5 god modules (each >800 LOC) into focused sub-modules, delete or wire 7 entire dead-code modules (~2000 LOC unused), remove trivial shim files, externalize hardcoded data tables (pricing, themes), and consolidate the 4 chat endpoints down to 2.
+**Goal:** Decompose 5 god modules (each &gt;800 LOC) into focused sub-modules, delete or wire 7 entire dead-code modules (~2000 LOC unused), remove trivial shim files, externalize hardcoded data tables (pricing, themes), and consolidate the 4 chat endpoints down to 2.
 
 **Architecture:** Each refactor is independently committable. Use `pub use` re-exports to preserve public API during migration. Tests run after each module split to catch breakage. Dead modules are deleted entirely (not gated) to prevent zombie code. Hardcoded tables move to TOML/JSON files loaded at startup.
 
@@ -603,7 +603,7 @@ pub use loop_::chat_loop;
 pub use builder::*; // keep existing exports
 ```
 
-> **Note:** `loop` is a Rust keyword; use `loop_` as the module name and `pub use loop_ as lo` / `pub use loop_::chat_loop` to keep the public surface stable.
+&gt; **Note:** `loop` is a Rust keyword; use `loop_` as the module name and `pub use loop_ as lo` / `pub use loop_::chat_loop` to keep the public surface stable.
 
 - [ ] **Step 5: Verify build**
 
@@ -1225,7 +1225,7 @@ fn load_themes() -> HashMap<String, ThemePreset> {
 }
 ```
 
-> **Alternative:** use a single `themes.json` with an array. Pick whichever is more ergonomic; the file-per-theme version makes git diffs cleaner when adjusting a single theme.
+&gt; **Alternative:** use a single `themes.json` with an array. Pick whichever is more ergonomic; the file-per-theme version makes git diffs cleaner when adjusting a single theme.
 
 - [ ] **Step 4: Update consumers**
 

@@ -1,6 +1,6 @@
 # SSE Stream Lock Removal Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remove all `core.write().await` calls from the SSE event loop in `build_sse_stream()`, replacing them with an mpsc writer-task pattern that never holds the `RwLock` inside the stream.
 

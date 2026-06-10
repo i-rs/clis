@@ -125,7 +125,7 @@ token = "bob-token-yyy"
 Without `users`, single-user mode: all requests belong to `default` user.
 With `users`, each token maps to a distinct user with isolated sessions, agents, and stats.
 
-See [config.example.toml](config.example.toml) for all options (Agents, MCP, Gateway, Stats, Storage backends, etc.).
+See [config.example.toml](../../docs/examples/claw-config.example.toml) for all options (Agents, MCP, Gateway, Stats, Storage backends, etc.).
 
 ## Usage
 

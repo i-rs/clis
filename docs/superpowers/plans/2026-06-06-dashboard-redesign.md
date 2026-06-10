@@ -1,6 +1,6 @@
 # Dashboard Redesign Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Extract claw-core as a pure AI engine library, restructure claw into `serve` (main product) + `tui` (debug) subcommands, add multi-tenancy to storage, implement incremental persistence, and refactor the dashboard frontend.
 

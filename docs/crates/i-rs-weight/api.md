@@ -21,7 +21,7 @@ i-rs-api
 | PATCH | `/weight/{id}` | 更新指定记录 |
 | DELETE | `/weight/{id}` | 删除指定记录 |
 
-> 注释：自 weight 0.0.3 版本起，记录由日期主键改为 UUID 主键，CRUD 路径参数统一使用记录 ID。
+&gt; 注释：自 weight 0.0.3 版本起，记录由日期主键改为 UUID 主键，CRUD 路径参数统一使用记录 ID。
 
 ## 全局响应格式
 

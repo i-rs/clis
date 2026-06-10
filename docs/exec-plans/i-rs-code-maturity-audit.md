@@ -1,6 +1,6 @@
 # i-rs-code Maturity Fix Plan
 
-> 44 issues identified. Grouped by severity. Each item has a unique ID, file location, and clear acceptance criteria.
+&gt; 44 issues identified. Grouped by severity. Each item has a unique ID, file location, and clear acceptance criteria.
 
 ## Status: In Progress
 
@@ -200,7 +200,7 @@
 
 ### M16. No config validation
 - **File**: `config.rs:171-186`
-- **Fix**: After `toml::from_str`, validate: provider is one of [openai, anthropic, ollama], max_rounds > 0, tool_timeout_secs > 0. Print warnings for suspicious values.
+- **Fix**: After `toml::from_str`, validate: provider is one of [openai, anthropic, ollama], max_rounds &gt; 0, tool_timeout_secs &gt; 0. Print warnings for suspicious values.
 - **Accept**: Invalid config caught early with helpful error messages.
 
 ### M17. MCP no initialized notification

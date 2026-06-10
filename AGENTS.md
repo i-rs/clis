@@ -47,8 +47,7 @@ i-rs-clis/
 ├── Cargo.lock
 ├── Cargo.toml
 ├── README.md
-├── SPEC.md
-└── AGENTS.md               # 本文
+├── AGENTS.md               # 本文
 ```
 
 ---
@@ -338,7 +337,7 @@ transport_type = "stdio"
 command = "npx @anthropic-ai/claude-code-mcp"
 ```
 
-完整示例见 [config.example.toml](crates/claw/config.example.toml)。
+完整示例见 [config.example.toml](docs/examples/claw-config.example.toml)。
 
 ### 开发规范
 
@@ -408,7 +407,7 @@ crates/cli-api/src/
 **详见 [crates/mcp/README.md](/crates/mcp/README.md)**。关键点：
 
 - `make_mcp_tools!` 宏从统一的元组列表生成工具注册
-- 线程安全 `SharedStore<T>` (Arc<RwLock<T>>)
+- 线程安全 `SharedStore<T>` (Arc&lt;RwLock&lt;T&gt;&gt;)
 - 运行时 JSON 反射 (`store_values()` / `store_get()`)
 - 不遵循 CLI crate 结构
 
@@ -562,7 +561,7 @@ CI (cargo-dist) 自动构建并发布到 GitHub Releases / npm / Homebrew。
 
 ### 重要文件索引
 
-- `SPEC.md` — 项目详细规范
+- `docs/spec/index.md` — 项目详细规范
 - `AGENTS.md` — 本文件（AI 开发工作流参考）
 - `Cargo.toml` — Workspace 配置
 - `rust-toolchain.toml` — 固定 Rust 工具链

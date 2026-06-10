@@ -1,9 +1,9 @@
 # Dashboard / Gateway 认证 — 设计方案
 
-> 状态: Draft  
-> 日期: 2026-05-20  
-> 范围: i-rs-claw Dashboard + Gateway  
-> 优先级: P0（安全底线）
+&gt; 状态: Draft  
+&gt; 日期: 2026-05-20  
+&gt; 范围: i-rs-claw Dashboard + Gateway  
+&gt; 优先级: P0（安全底线）
 
 ---
 
@@ -746,7 +746,7 @@ hex = "0.4"
 ### Phase 4: 测试与文档（0.5 天）
 14. 单元测试（Token 生成/验证、签名验证）
 15. 集成测试（认证中间件）
-16. 更新 `config.example.toml`
+16. 更新 `docs/examples/claw-config.example.toml`
 17. 更新 README
 
 ---

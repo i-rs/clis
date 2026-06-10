@@ -59,7 +59,7 @@ define_backend_tests!("sqlite", || {
 | `memory_contract` | save、load、dirty 标记、flush | agent_id 隔离，序列化往返 |
 | `stats_contract` | upsert_batch、read_range、prune | 去重（按 id），时间范围过滤 |
 | `config_store_contract` | agent/providers/users/mcp/settings CRUD | ConfigStore 5 个 repo 全部 |
-| `tool_cache_contract` | get、set、delete、agent 隔离 | HashMap<String,String> 序列化 |
+| `tool_cache_contract` | get、set、delete、agent 隔离 | HashMap&lt;String,String&gt; 序列化 |
 | `skill_contract` | install、list、get、remove、executable | Markdown 文件内容，参数 schema |
 
 ### 设计约束

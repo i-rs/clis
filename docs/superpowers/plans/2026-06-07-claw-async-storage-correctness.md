@@ -1,6 +1,6 @@
 # Claw Async Runtime Hygiene & Storage Correctness Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Eliminate sync_block_on deadlock risk, unify tokio runtimes, repair the broken PostgreSQL backend placeholder protocol, and add storage integration tests for all supported backends.
 
@@ -278,7 +278,7 @@ Expected: Still FAILS because utils.rs references `ClawError::SyncBlockInAsync` 
 The signature changed from `F::Output` to `Result<F::Output, ClawError>`. Every call site must add `?` to unwrap the Result.
 
 **Files:**
-- Modify: `crates/claw-core/src/utils.rs:7-14` (SHARED_RUNTIME still LazyLock<Runtime> for now)
+- Modify: `crates/claw-core/src/utils.rs:7-14` (SHARED_RUNTIME still LazyLock&lt;Runtime&gt; for now)
 - Modify: `crates/claw-core/src/session.rs` (13 sites)
 - Modify: `crates/claw-core/src/skill_store.rs` (7 sites)
 - Modify: `crates/claw-core/src/stats/mod.rs` (5 sites)

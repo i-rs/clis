@@ -1,7 +1,7 @@
 # claw 存储层关键 Bug 修复设计
 
 **日期:** 2026-06-06
-**来源:** `STORAGE_REVIEW.md` 审查报告
+**来源:** `docs/review/storage-review.md` 审查报告
 
 ## 范围
 

@@ -54,11 +54,11 @@ i-rs-clis/
 ├── Cargo.toml                  # Workspace 配置
 ├── Cargo.lock                  # 依赖锁定 (已提交)
 ├── README.md
-├── SPEC.md                     # 本规范文档
+├── docs/spec/index.md          # 本规范文档
 └── AGENTS.md                   # 开发规范 (AI)
 ```
 
-> 当前项目包含 75+ crate + **3 个客户端**，覆盖三类产品形态：**CLI 工具** (70 个 i-rs-{name})、**TUI 智能助理** (i-rs-claw)、**服务器** (i-rs-api / i-rs-mcp)、**客户端** (IrsClawApp / IrsClawMiniProgram / dashboard-ui)。详见 AGENTS.md 获取各类组件开发规范和目录结构。
+&gt; 当前项目包含 75+ crate + **3 个客户端**，覆盖三类产品形态：**CLI 工具** (70 个 i-rs-{name})、**TUI 智能助理** (i-rs-claw)、**服务器** (i-rs-api / i-rs-mcp)、**客户端** (IrsClawApp / IrsClawMiniProgram / dashboard-ui)。详见 AGENTS.md 获取各类组件开发规范和目录结构。
 
 ## 2. 工具列表 (当前 70 个)
 
@@ -292,8 +292,8 @@ apps/IrsClawMiniProgram/
 
 ## 5. Crate 开发流程
 
-> 以下第 5-7 章规范仅适用于 `crates/clis/i-rs-{name}` 标准 CLI 工具。
-> **i-rs-claw**、**i-rs-api**、**i-rs-mcp** 的结构和开发规范与 CLI 工具不同，详见 AGENTS.md 的对应章节。
+&gt; 以下第 5-7 章规范仅适用于 `crates/clis/i-rs-{name}` 标准 CLI 工具。
+&gt; **i-rs-claw**、**i-rs-api**、**i-rs-mcp** 的结构和开发规范与 CLI 工具不同，详见 AGENTS.md 的对应章节。
 
 ### 5.1 创建新工具步骤
 
@@ -618,7 +618,7 @@ pub fn handle_delete(id: String, format: OutputFormat) -> Result<()> {
 }
 ```
 
-> 注意：i-rs-claw 等消费方始终追加 `--json` 参数，因此所有 handler 必须支持 JSON 输出。
+&gt; 注意：i-rs-claw 等消费方始终追加 `--json` 参数，因此所有 handler 必须支持 JSON 输出。
 
 ### 7.9 API 与 CLI 的关系
 
@@ -641,7 +641,7 @@ async fn delete_kv(
 
 ## 8. REST API 开发规范（i-rs-api）
 
-> 本章节是 i-rs-api（`crates/cli-api/`）REST API 服务器的专属规范。该 crate 的结构和开发方式与 CLI 工具不同，详见 AGENTS.md 的「i-rs-api」章节。
+&gt; 本章节是 i-rs-api（`crates/cli-api/`）REST API 服务器的专属规范。该 crate 的结构和开发方式与 CLI 工具不同，详见 AGENTS.md 的「i-rs-api」章节。
 
 ### 8.1 架构模式
 
@@ -790,8 +790,8 @@ if let Err(e) = validate_name(&name) {
 |------|------|
 | `validate_name` | 非空, ≤100字符, 无 `/ \ : * ? " < > \|` |
 | `validate_url` | 非空, 以 `http://` 或 `https://` 开头, ≤2000字符 |
-| `validate_weight` | > 0, ≤1000 kg |
-| `validate_amount` | > 0, ≤10亿 |
+| `validate_weight` | &gt; 0, ≤1000 kg |
+| `validate_amount` | &gt; 0, ≤10亿 |
 
 ## 12. Bug 预防
 
@@ -855,7 +855,7 @@ uuid = { version = "1.0", features = ["v4"] }
 | `rust-embed` | 8 | 嵌入 Dashboard 前端资源 (feature = "dashboard") |
 | `mime_guess` | 2 | MIME 类型推断 (feature = "dashboard") |
 
-> `rmcp`/`sqlx`/`mongodb`/`redis` 不在此 crate — 仅在 `i-rs-claw-core` 中，由 feature 转发。
+&gt; `rmcp`/`sqlx`/`mongodb`/`redis` 不在此 crate — 仅在 `i-rs-claw-core` 中，由 feature 转发。
 
 ### i-rs-api 额外依赖
 
@@ -943,7 +943,7 @@ inherits = "release"
 2. 在 `docs/.vitepress/config.ts` 的 Articles 侧边栏中添加链接
 3. 运行 `npx vitepress build .` 验证构建无报错
 
-> 注意：文章中如果包含泛型语法（如 `Storage<T>`），需要用反引号包裹 `<T>`，否则 VitePress 的 Vue 编译器会将其解析为 HTML 标签导致构建失败。
+&gt; 注意：文章中如果包含泛型语法（如 `Storage<T>`），需要用反引号包裹 `<T>`，否则 VitePress 的 Vue 编译器会将其解析为 HTML 标签导致构建失败。
 
 ### 17.5 文章分类
 
@@ -964,7 +964,7 @@ inherits = "release"
 
 | 文件 | 说明 |
 |------|------|
-| `SPEC.md` | 项目规范 (本文，中文) |
+| `docs/spec/index.md` | 项目规范 (本文，中文) |
 | `AGENTS.md` | AI 开发工作流 (按 crate 类别分章) |
 | `Cargo.toml` | Workspace 配置 |
 | `rust-toolchain.toml` | Rust 工具链固定 |

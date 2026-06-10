@@ -1,6 +1,6 @@
 # 存储层测试计划 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a multi-layer test suite covering 6 storage drivers (File/SQLite/MySQL/PG/Mongo/Redis) with contract tests, CLI-based conversation scripts, and actionable test reports.
 
@@ -1170,7 +1170,7 @@ This serves as the canonical template for adding any new CLI tool script.
 
 ### Task 19: Todo Script (02-todo)
 
-**Key characteristics:** User-chosen name (not UUID), special `done` command (toggle), priority levels, `content` is Vec\<String\>.
+**Key characteristics:** User-chosen name (not UUID), special `done` command (toggle), priority levels, `content` is Vec\&lt;String\&gt;.
 
 **Steps:**
 1. `add 买牛奶 --priority high` → create high-priority todo

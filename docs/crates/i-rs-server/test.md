@@ -155,9 +155,9 @@ i-rs-server list --tag db
 
 | Test Case | Scenario | Threshold | Status |
 |-----------|----------|-----------|--------|
-| List 100 servers | 100 servers in database | < 1 second | ✅ PASS |
-| Add server | Add single server | < 500ms | ✅ PASS |
-| Get server | Retrieve single server | < 200ms | ✅ PASS |
+| List 100 servers | 100 servers in database | &lt; 1 second | ✅ PASS |
+| Add server | Add single server | &lt; 500ms | ✅ PASS |
+| Get server | Retrieve single server | &lt; 200ms | ✅ PASS |
 
 ## Summary
 

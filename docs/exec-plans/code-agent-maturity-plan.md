@@ -1,12 +1,12 @@
 # i-rs-code 成熟度提升计划
 
-> 基于全面审计，从 P0（阻断性）到 P3（优化）共发现 24 项问题。本计划按优先级分 4 个阶段执行。
+&gt; 基于全面审计，从 P0（阻断性）到 P3（优化）共发现 24 项问题。本计划按优先级分 4 个阶段执行。
 
 ---
 
 ## Phase 0: 基础保障 (预计 1-2 天)
 
-> 目标：消除 crash 风险，建立 CI 安全网
+&gt; 目标：消除 crash 风险，建立 CI 安全网
 
 ### P0-1: CI 覆盖 i-rs-code
 - `check.yml` 添加 `cargo test -p i-rs-code -- --test-threads=1` job
@@ -36,7 +36,7 @@
 
 ## Phase 1: 安全 + 工具质量 (预计 3-5 天)
 
-> 目标：沙箱可靠，工具输出可控
+&gt; 目标：沙箱可靠，工具输出可控
 
 ### P1-1: Bash 沙箱重写
 - **白名单模式替代黑名单**: 定义允许的命令前缀（`cargo`, `git`, `ls`, `cat`, `grep`, `python`, `node`, `npm`, `go`, `rustc` 等）
@@ -76,7 +76,7 @@ pub enum ToolError {
 
 ## Phase 2: 工具增强 (预计 5-7 天)
 
-> 目标：补齐关键工具，达到可用水平
+&gt; 目标：补齐关键工具，达到可用水平
 
 ### P2-1: LSP 增强
 - 添加语言映射: C/C++ (`clangd`), Java (`jdtls`), Kotlin, Swift (`sourcekit-lsp`), Dart (`dart analyze`)
@@ -121,12 +121,12 @@ pub enum ToolError {
 
 ## Phase 3: 工程质量 (预计 3-5 天)
 
-> 目标：文档、可观测性、成本控制
+&gt; 目标：文档、可观测性、成本控制
 
 ### P3-1: 文档覆盖
 - `pub trait Tool` 添加完整 doc comment + 使用示例
 - `Agent` 结构体添加模块级 `//!` 文档
-- 所有 `pub fn` 添加 `///` doc（目标 >60% 覆盖率）
+- 所有 `pub fn` 添加 `///` doc（目标 &gt;60% 覆盖率）
 - 添加 `examples/` 目录含基础使用示例
 - **验收**: `cargo doc --no-deps` 无警告
 

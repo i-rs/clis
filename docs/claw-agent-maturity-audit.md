@@ -1,8 +1,8 @@
 # i-rs-claw Agent 成熟度审计报告
 
-> 对比 LangChain / LangGraph、CrewAI、AutoGen、OpenAI Agents SDK、Claude Code、Pydantic AI 等成熟 Agent 框架，评估 claw 当前能力矩阵和差距。
->
-> **最后更新**: 2026-06-02 — Phase 1~3 全部完成
+&gt; 对比 LangChain / LangGraph、CrewAI、AutoGen、OpenAI Agents SDK、Claude Code、Pydantic AI 等成熟 Agent 框架，评估 claw 当前能力矩阵和差距。
+&gt;
+&gt; **最后更新**: 2026-06-02 — Phase 1~3 全部完成
 
 ---
 
@@ -69,7 +69,7 @@
 
 ## 2. 缺失功能 → 已修复状态
 
-> 以下所有 P0 和 P1 缺失项已在 2026-06-02 的实施中全部完成。
+&gt; 以下所有 P0 和 P1 缺失项已在 2026-06-02 的实施中全部完成。
 
 ### 2.1 ✅ 已修复 — P0 关键缺失
 
@@ -156,7 +156,7 @@
 **实现**: `EvalSuite` (`core/evals.rs`, 325 行, 6 tests)
 - 5 个内置评估用例: weight_record, mood_stats, multi_tool, web_search, greeting
 - 评分公式: 40% 工具准确率 + 30% 关键词匹配 + 30% 无违禁内容
-- 通过阈值: score >= 0.6 AND 无违禁
+- 通过阈值: score &gt;= 0.6 AND 无违禁
 - **自动评估**: 在 `evaluate_completed_session()` 中自动运行，结果通过 `tracing::info!` 记录
 - **Dashboard API**: `GET /api/evals` 手动触发评估
 

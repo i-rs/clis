@@ -1,8 +1,8 @@
 # Dashboard Chat API 重设计
 
-> **状态**: 设计稿，待评审
-> **范围**: dashboard SSE 聊天流（不涉及 TUI、gateway、MCP）
-> **目标**: 与业界标准（OpenAI / Anthropic / Vercel AI SDK）对齐，根治"重复 spawn LLM"问题
+&gt; **状态**: 设计稿，待评审
+&gt; **范围**: dashboard SSE 聊天流（不涉及 TUI、gateway、MCP）
+&gt; **目标**: 与业界标准（OpenAI / Anthropic / Vercel AI SDK）对齐，根治"重复 spawn LLM"问题
 
 ---
 
@@ -453,7 +453,7 @@ function chatStream(opts, handlers) {
 | 风险 | 缓解 |
 |------|------|
 | MiniProgram POST chunked 在低端设备不稳定 | 已确认 libVersion 3.16.1；可加 fallback：POST 失败时自动降级到旧双端点（保留一周） |
-| 幂等缓存内存增长 | DashMap + TTL 24h + 后台定期清理；UUID 字符串作为 key，预估单条 < 100KB SSE 字节 |
+| 幂等缓存内存增长 | DashMap + TTL 24h + 后台定期清理；UUID 字符串作为 key，预估单条 &lt; 100KB SSE 字节 |
 | iOS URLSession.bytes POST 响应慢首字节 | 实测与 GET 相同；token 间隔由 LLM 决定 |
 | 客户端不生成 idem_key | 服务端兜底：缺 idem_key 返回 400，强制要求 |
 

@@ -1,6 +1,6 @@
 # Claw Performance & API Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add per-user rate limiting, eliminate write-lock contention in the SSE streaming path, replace linear tool lookup with HashMap dispatch, introduce a structured `ToolResult` enum to replace fragile string-prefix matching, and plumb `UserId` through every handler that currently hardcodes `"default"`.
 
@@ -949,7 +949,7 @@ fn build_sse_stream(
 }
 ```
 
-> **Note:** The `quality` evaluation currently happens **after** `Done` and uses `core.evaluate_completed_session`. That read+write of `core` cannot easily be moved off-thread without losing the synchronous ordering. Keep this as a single post-stream read in the `chat()` handler — outside the hot loop.
+&gt; **Note:** The `quality` evaluation currently happens **after** `Done` and uses `core.evaluate_completed_session`. That read+write of `core` cannot easily be moved off-thread without losing the synchronous ordering. Keep this as a single post-stream read in the `chat()` handler — outside the hot loop.
 
 - [ ] **Step 4: Refactor `chat()` to snapshot, spawn writer, and call new `build_sse_stream`**
 
@@ -1124,7 +1124,7 @@ pub async fn chat_stream_resume(
 }
 ```
 
-> **Note:** `crate::app::Message::from_json` may not exist yet. If the compile complains, fall back to passing `finalized: Vec<crate::app::Message>` directly from the accumulator (it already returns `Vec<crate::app::Message>`). The example above is intentionally tolerant — adjust to the actual signature `MessageAccumulator::into_messages()` returns.
+&gt; **Note:** `crate::app::Message::from_json` may not exist yet. If the compile complains, fall back to passing `finalized: Vec<crate::app::Message>` directly from the accumulator (it already returns `Vec<crate::app::Message>`). The example above is intentionally tolerant — adjust to the actual signature `MessageAccumulator::into_messages()` returns.
 
 - [ ] **Step 6: Verify compile + tests**
 

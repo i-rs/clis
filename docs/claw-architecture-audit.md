@@ -1,8 +1,8 @@
 # Claw Architecture Audit Report
 
-> Date: 2026-05-31
-> Status: Pending fixes
-> Scope: `crates/claw/src/` — 7-dimension architectural analysis
+&gt; Date: 2026-05-31
+&gt; Status: Pending fixes
+&gt; Scope: `crates/claw/src/` — 7-dimension architectural analysis
 
 ---
 

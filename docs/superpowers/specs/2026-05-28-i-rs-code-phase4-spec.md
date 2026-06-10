@@ -1,8 +1,8 @@
 # i-rs-code Phase 4: 生产级编码 Agent
 
-> **定位**: 通用编码 Agent (对标 Claude Code / Aider)
-> **版本**: 0.3.0
-> **状态**: 草案
+&gt; **定位**: 通用编码 Agent (对标 Claude Code / Aider)
+&gt; **版本**: 0.3.0
+&gt; **状态**: 草案
 
 ## 1. 概述
 

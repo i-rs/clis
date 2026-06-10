@@ -1,8 +1,8 @@
 # claw 存储层关键 Bug 修复 — 执行计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 修复 STORAGE_REVIEW.md 中 Phase 1 的 6 项关键问题 (4 🔴 数据丢失 + 1 🟠 性能 + 1 trait 重构)
+**Goal:** 修复 [docs/review/storage-review.md] 中 Phase 1 的 6 项关键问题 (4 🔴 数据丢失 + 1 🟠 性能 + 1 trait 重构)
 
 **架构:** 6 项修复按文件组织，无交叉依赖，可顺序或并行执行。Trait 重构 (#7+#8) 最后做因为它影响所有后端。
 
@@ -435,7 +435,7 @@ git commit -m "fix(claw/storage): resolve 6 critical bugs from STORAGE_REVIEW
 Phase 1 fixes covering data-loss, concurrency, SQL correctness,
 and SessionRepo trait improvements.
 
-Constraint: STORAGE_REVIEW.md audit (2026-06-06)
+Constraint: docs/review/storage-review.md audit (2026-06-06)
 Constraint: Phase 1 — critical correctness only
 Rejected: Full trait rewrite with generics | too large for Phase 1
 Rejected: Async SessionManager refactor | Phase 3 scope

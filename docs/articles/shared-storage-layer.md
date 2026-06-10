@@ -21,7 +21,7 @@ i-rs 选择了另一条路。
           │  i-rs-kv      │    │  (Axum)          │
           │  ... 70+ 工具  │    │                  │
           │               │    │  curl /api/weight │
-          │  load_store() │    │  SharedStore<T>   │
+          │  load_store() │    │  SharedStore&lt;T&gt;   │
           │  save_store() │    │  RwLock + 自动落盘 │
           └───────────────┘    └──────────────────┘
 ```

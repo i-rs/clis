@@ -167,13 +167,13 @@ curl -X POST http://127.0.0.1:3000/api/chat \
   -d '{"message": "记录体重75kg"}'
 
 # SSE stream for chat responses
-curl -N http://127.0.0.1:3000/api/chat/stream/<SESSION_ID>
+curl -N http://127.0.0.1:3000/api/chat/stream/&lt;SESSION_ID&gt;
 
 # Get session messages
-curl http://127.0.0.1:3000/api/sessions/<SESSION_ID>
+curl http://127.0.0.1:3000/api/sessions/&lt;SESSION_ID&gt;
 
 # Delete a session
-curl -X DELETE http://127.0.0.1:3000/api/sessions/<SESSION_ID>
+curl -X DELETE http://127.0.0.1:3000/api/sessions/&lt;SESSION_ID&gt;
 ```
 
 ## MCP (Model Context Protocol)

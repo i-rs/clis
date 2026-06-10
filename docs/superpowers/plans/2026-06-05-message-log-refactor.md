@@ -1,6 +1,6 @@
 # Message Log Append-Only Refactor — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the lossy `save_all_messages` + `api_msgs_to_jsonl` write path with an append-only `MessageLog` and a shared `MessageAccumulator`, eliminating the bug class where tool_call / evaluation / quality records get silently dropped on session reload.
 
@@ -20,7 +20,7 @@
 | File | Status | Responsibility |
 |------|--------|----------------|
 | `crates/claw/src/message/mod.rs` | **CREATE** | `StoredRecord`, `Message` re-export, `default_ts`, round-trip serde |
-| `crates/claw/src/message/accumulator.rs` | **CREATE** | `MessageAccumulator` (LlmEvent → Vec<Message>) |
+| `crates/claw/src/message/accumulator.rs` | **CREATE** | `MessageAccumulator` (LlmEvent → Vec&lt;Message&gt;) |
 | `crates/claw/src/storage/mod.rs` | MODIFY | Add `MessageLog` trait, add `ClawStorage::message_log` field |
 | `crates/claw/src/storage/file.rs` | MODIFY | Add `FileMessageLog`; wire into `ClawStorage::file` |
 | `crates/claw/src/storage/sql/mod.rs` | MODIFY | Extend `define_sql_stores!` macro with `MessageLog` impl segment |
@@ -1211,7 +1211,7 @@ git commit -m "feat(claw/storage): wire MessageLog into ClawStorage"
 
 ---
 
-## Task 6: `MessageAccumulator` (LlmEvent → Vec<Message>)
+## Task 6: `MessageAccumulator` (LlmEvent → Vec&lt;Message&gt;)
 
 **Files:**
 - Modify: `crates/claw/src/message/accumulator.rs`

@@ -15,7 +15,9 @@ export default defineConfig({
       {
         text: 'Guide',
         items: [
-          { text: 'Getting Started', link: '/guide/getting-started' }
+          { text: 'Getting Started', link: '/guide/getting-started' },
+          { text: 'Specification', link: '/spec/' },
+          { text: 'AGENTS.md (Dev Workflow)', link: 'https://github.com/i-rs/clis/blob/main/AGENTS.md' },
         ]
       },
       {
@@ -48,6 +50,36 @@ export default defineConfig({
               { text: 'claw MCP 接入指南', link: '/articles/mcp-integration-guide' },
             ]
           }
+        ]
+      },
+      {
+        text: 'Claw Deep Dives',
+        collapsed: false,
+        items: [
+          { text: 'Context Management', link: '/claw/context-management' },
+          { text: 'Dashboard Redesign', link: '/claw/dashboard-redesign' },
+          { text: 'Token Analysis', link: '/claw/token-analysis' },
+        ]
+      },
+      {
+        text: 'Architecture Reviews',
+        collapsed: false,
+        items: [
+          { text: 'Storage Review', link: '/review/storage-review' },
+          { text: 'Claw Architecture Review', link: '/review/i-rs-claw-architecture-review' },
+          { text: 'Claw Architecture Improvements', link: '/review/i-rs-claw-architecture-improvements' },
+        ]
+      },
+      {
+        text: 'Design Docs',
+        collapsed: false,
+        items: [
+          { text: 'CLI Trait & Storage', link: '/design/cli-trait-and-storage' },
+          { text: 'Storage Abstraction', link: '/design/storage-abstraction' },
+          { text: 'Token Usage Statistics', link: '/design/token-usage-statistics' },
+          { text: 'Dashboard Gateway Auth', link: '/design/dashboard-gateway-auth' },
+          { text: 'API Key Encryption', link: '/design/api-key-encryption' },
+          { text: 'TUI Scroll Fix', link: '/design/tui-scroll-fix' },
         ]
       },
       {

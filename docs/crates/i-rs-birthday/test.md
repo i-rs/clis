@@ -94,9 +94,9 @@
 | Test Case | Command | Expected | Status |
 |-----------|---------|----------|--------|
 | Today | Birthday is today | Shows "TODAY!" | ✅ PASS |
-| Within 7 days | Birthday in < 7 days | Yellow text | ✅ PASS |
-| Within 30 days | Birthday in < 30 days | Cyan text | ✅ PASS |
-| Far away | Birthday in > 30 days | Normal text | ✅ PASS |
+| Within 7 days | Birthday in &lt; 7 days | Yellow text | ✅ PASS |
+| Within 30 days | Birthday in &lt; 30 days | Cyan text | ✅ PASS |
+| Far away | Birthday in &gt; 30 days | Normal text | ✅ PASS |
 
 ### Relationships and Tags
 

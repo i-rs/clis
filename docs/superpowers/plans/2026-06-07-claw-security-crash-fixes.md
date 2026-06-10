@@ -1,6 +1,6 @@
 # Claw Security & Crash Fixes Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Eliminate all panic-on-input paths, fix timing-attack token comparison, secure default bind address, protect auto-generated auth tokens at rest, and gate HITL auto-approval behind an explicit flag.
 
@@ -441,7 +441,7 @@ pub fn run_dashboard() -> anyhow::Result<()> {
 Run: `cargo check -p i-rs-claw --features dashboard`
 Expected: `Finished` with 0 errors. The HitlConfig changes from Task 8 may not exist yet — if so, comment out the `config.hitl.auto_approve_high_risk` lines with a `// TODO: wire in Task 8` and uncomment after Task 8. **Recommended order: do Task 8 first, then Task 4.** But for documentation purposes we keep the user's original ordering and add the TODO.
 
-> **NOTE:** If implementing tasks in order, Task 8 must complete before this step will compile. Either (a) do Task 8 first, or (b) leave the `config.hitl.*` lines as TODO stubs until Task 8. The recommended sequence is Task 8 → Task 4.
+&gt; **NOTE:** If implementing tasks in order, Task 8 must complete before this step will compile. Either (a) do Task 8 first, or (b) leave the `config.hitl.*` lines as TODO stubs until Task 8. The recommended sequence is Task 8 → Task 4.
 
 - [ ] **Step 4: Manual smoke test (optional)**
 

@@ -143,4 +143,4 @@ i-rs 是一组 CLI 工具，i-rs-claw 是它们的 AI 副驾驶。
 
 你可以继续用命令行精确控制每一个操作，也可以在不想记命令的时候，用自然语言告诉 i-rs-claw 你要什么——两种方式，同一份数据，同一个终端。
 
-> 项目地址：[github.com/i-rs/clis](https://github.com/i-rs/clis)
+&gt; 项目地址：[github.com/i-rs/clis](https://github.com/i-rs/clis)

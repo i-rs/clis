@@ -1,8 +1,8 @@
 # TUI 消息滚动异常 — 排查分析与修复方案
 
-> 日期: 2026-05-20  
-> 范围: i-rs-claw TUI (`ui/chat.rs`, `tui/main_loop.rs`, `app.rs`)  
-> 症状: 滚动时部分消息"消失"，表现不稳定
+&gt; 日期: 2026-05-20  
+&gt; 范围: i-rs-claw TUI (`ui/chat.rs`, `tui/main_loop.rs`, `app.rs`)  
+&gt; 症状: 滚动时部分消息"消失"，表现不稳定
 
 ---
 

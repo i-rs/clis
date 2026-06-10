@@ -1,9 +1,9 @@
 # API Key 安全存储 — 设计方案
 
-> 状态: Draft  
-> 日期: 2026-05-20  
-> 范围: i-rs-claw  
-> 优先级: P0（安全底线）
+&gt; 状态: Draft  
+&gt; 日期: 2026-05-20  
+&gt; 范围: i-rs-claw  
+&gt; 优先级: P0（安全底线）
 
 ---
 
@@ -790,7 +790,7 @@ fn migrate_api_keys_to_keyring(config: &Config) {
 ### Phase 4: 测试与文档（0.5 天）
 14. 单元测试（keyring mock + 优先级链）
 15. 集成测试（多 Agent Key 解析）
-16. 更新 `config.example.toml` 注释
+16. 更新 `docs/examples/claw-config.example.toml` 注释
 17. 更新 README 配置说明
 
 ---

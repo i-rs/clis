@@ -147,7 +147,7 @@ After Phase 1 has zero callers of `MessageRepo` / `load_messages(Value)` /
 | `build_messages_from_jsonl` | `core/mod.rs:766-844` |
 | `append_message` (legacy) | `session.rs:366-401` |
 | `save_all_messages` | `session.rs:450-461` |
-| `load_messages` (Vec<Value>) | `session.rs:403-408` |
+| `load_messages` (Vec&lt;Value&gt;) | `session.rs:403-408` |
 | Tests for `api_msgs_to_jsonl` | `core/mod.rs:1194-1280` |
 
 ### Phase 3 — Test Migration

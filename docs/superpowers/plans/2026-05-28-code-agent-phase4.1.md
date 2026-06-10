@@ -1,6 +1,6 @@
 # i-rs-code Phase 4.1: 安全沙箱 + 测试覆盖 + 代码清理 + 文件工具
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 补齐 i-rs-code 的基础安全防护、测试基础设施、代码质量和文件工具，作为 Phase 4 的第一阶段。
 

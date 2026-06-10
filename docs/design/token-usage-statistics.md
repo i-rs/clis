@@ -1,9 +1,9 @@
 # Token 用量统计 — 设计方案
 
-> 状态: Phase 1 Complete / Phase 2&3 In Progress  
-> 日期: 2026-05-20  
-> 更新: 2026-05-20 — 完成 stats 模块、CLI stats 命令、数据保留清理、配置集成  
-> 范围: i-rs-claw  
+&gt; 状态: Phase 1 Complete / Phase 2&3 In Progress  
+&gt; 日期: 2026-05-20  
+&gt; 更新: 2026-05-20 — 完成 stats 模块、CLI stats 命令、数据保留清理、配置集成  
+&gt; 范围: i-rs-claw  
 
 ---
 
@@ -207,7 +207,7 @@ LlmEvent::UsageRecord(record) → provider.rs 发送 → main_loop 消费 → st
 - **记录点**: 在 provider.rs 的 OpenAI/Anthropic stream 结束时发送 `UsageRecord`，而非在 chat_loop 中
 - **内存缓冲**: 最多缓存 50 条后自动刷盘
 - **优雅关闭**: 应用退出时在 tui/mod.rs 中主动 flush
-- **无需 Tokio Channel**: 使用 `Mutex<Vec<TokenRecord>>` 同步缓冲（record 操作 <1μs，无需异步）
+- **无需 Tokio Channel**: 使用 `Mutex<Vec<TokenRecord>>` 同步缓冲（record 操作 &lt;1μs，无需异步）
 - **原子写入**: 使用 `std::fs::rename` 先写 `.tmp` 再重命名
 
 ### 3.3 读取策略
@@ -230,7 +230,7 @@ crates/claw/src/stats/
 └── store.rs        — JSONL 读写 + 索引管理 + 过期清理
 ```
 
-> 注意：设计中的 `collector.rs` 未单独创建。采用了更简单的同步 `Mutex<Vec>` 缓冲方案替代异步 mpsc channel，省去一个文件。
+&gt; 注意：设计中的 `collector.rs` 未单独创建。采用了更简单的同步 `Mutex<Vec>` 缓冲方案替代异步 mpsc channel，省去一个文件。
 
 ### 4.2 StatsManager — 核心结构体 (实际)
 
@@ -273,7 +273,7 @@ pub struct TodaySummary {
 pub fn record(&self, record: TokenRecord) {
     let mut buffer = self.buffer.lock().unwrap();
     buffer.push(record);
-    if buffer.len() >= self.flush_threshold {
+    if buffer.len() &gt;= self.flush_threshold {
         let records = std::mem::take(&mut *buffer);
         store::append_records(&self.store_path, &records).ok();
     }
@@ -291,12 +291,12 @@ pub fn record(&self, record: TokenRecord) {
 
 ```rust
 // 自由函数，无需构造 Aggregator 实例
-pub fn aggregate(records: &[TokenRecord], pricing: &ModelPricingTable) -> TokenStats;
-pub fn filter_by_period<'a>(records: &'a [TokenRecord], period: &StatsPeriod) -> Vec<&'a TokenRecord>;
-pub fn group_by_model(records: &[TokenRecord], pricing: &ModelPricingTable) -> Vec<ModelStats>;
-pub fn group_by_agent(records: &[TokenRecord], pricing: &ModelPricingTable) -> Vec<AgentStats>;
-pub fn group_by_day(records: &[TokenRecord], pricing: &ModelPricingTable) -> Vec<DailyStats>;
-pub fn today_summary(records: &[TokenRecord]) -> TodaySummary;
+pub fn aggregate(records: &[TokenRecord], pricing: &ModelPricingTable) -&gt; TokenStats;
+pub fn filter_by_period&lt;'a&gt;(records: &'a [TokenRecord], period: &StatsPeriod) -&gt; Vec&lt;&'a TokenRecord&gt;;
+pub fn group_by_model(records: &[TokenRecord], pricing: &ModelPricingTable) -&gt; Vec&lt;ModelStats&gt;;
+pub fn group_by_agent(records: &[TokenRecord], pricing: &ModelPricingTable) -&gt; Vec&lt;AgentStats&gt;;
+pub fn group_by_day(records: &[TokenRecord], pricing: &ModelPricingTable) -&gt; Vec&lt;DailyStats&gt;;
+pub fn today_summary(records: &[TokenRecord]) -&gt; TodaySummary;
 ```
 
 ---
@@ -309,7 +309,7 @@ pub fn today_summary(records: &[TokenRecord]) -> TodaySummary;
 
 ```rust
 // engine.rs: chat_loop 中 LlmEvent::Done 发送处
-Ok(StreamResult::Text(usage, text)) => {
+Ok(StreamResult::Text(usage, text)) =&gt; {
     // ... 现有逻辑 ...
     
     // 记录 token 用量
@@ -357,7 +357,7 @@ pub struct AppCore {
 // app.rs: App 结构体
 pub struct App {
     // ... 现有字段 ...
-    pub today_stats: Option<TodaySummary>,  // ← 新增
+    pub today_stats: Option&lt;TodaySummary&gt;,  // ← 新增
 }
 ```
 
@@ -433,7 +433,7 @@ GET /api/stats/daily     — 时间序列数据（用于图表）
 enabled = true                                   # 是否启用统计 (默认 true)
 keep_days = 90                                   # 保留天数 (0 = 永久保留)
 
-# 自定义模型定价 (覆盖内置定价表), 见 config.example.toml
+# 自定义模型定价 (覆盖内置定价表), 见 docs/examples/claw-config.example.toml
 # 格式: "模型名" = { input = 每百万输入价格, output = 每百万输出价格 }
 [stats.pricing]
 # "gpt-4o-mini" = { input = 0.15, output = 0.60 }
