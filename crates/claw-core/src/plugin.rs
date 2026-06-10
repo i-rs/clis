@@ -111,6 +111,12 @@ pub struct PluginManager {
     state_path: PathBuf,
 }
 
+impl Default for PluginManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PluginManager {
     /// Create a new PluginManager and discover plugins.
     pub fn new() -> Self {

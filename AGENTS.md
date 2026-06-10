@@ -212,44 +212,50 @@ cargo build -p i-rs-claw --features dashboard --release
 cargo build -p i-rs-claw --release
 ```
 
-### 源码结构 (47 个 .rs 文件)
+### 源码结构 (63 个 .rs 文件)
 
 ```
 crates/claw/src/
 ├── main.rs            # CLI 入口: Serve (默认) / Tui / Ask / Config / ...
-├── lib.rs             # pub use i_rs_claw_core::*
 ├── app.rs             # TUI 专用状态 (InputState, App, OverlayState, Message)
-├── config.rs          # re-export: pub use i_rs_claw_core::config::*
-├── theme.rs           # re-export: pub use i_rs_claw_core::theme::*
+├── completion.rs      # 终端输入补全
 ├── test_helpers.rs    # 测试工具 (仅 #[cfg(test)])
 ├── cli/               # 命令行处理器
 │   ├── mod.rs         # 所有子命令实现
 │   ├── config_wizard.rs
 │   └── tools_ui.rs
+├── server/            # [serve 模式, gated by feature = "dashboard"]
+│   ├── mod.rs         # 模块声明
+│   ├── app.rs         # AppState + run() 服务器启动
+│   ├── assets.rs      # SPA 静态文件服务 (rust-embed)
+│   ├── middleware.rs   # Auth guard + UserId 提取器
+│   ├── rate_limit.rs  # 并发限流
+│   └── routes/        # 17 个路由模块
+│       ├── mod.rs     # ApiResponse + 集成测试
+│       ├── chat.rs    # SSE 聊天流
+│       ├── agents.rs, sessions.rs, providers.rs
+│       ├── mcp_config.rs, config.rs, settings.rs
+│       ├── memory.rs, checkpoints.rs, users.rs
+│       ├── stats.rs, tools.rs, guardrails.rs
+│       ├── images.rs, evals.rs, health.rs
 ├── tui/               # TUI 终端模式
 │   ├── mod.rs         # 主循环入口 + AppCore 初始化
 │   ├── main_loop.rs   # 事件循环
 │   ├── clipboard.rs
 │   ├── reminders.rs
 │   └── handlers/      # 键盘/鼠标/LLM 事件处理
+│       ├── mod.rs, key.rs, overlay.rs, llm.rs, mouse.rs
 ├── ui/                # ratatui 渲染组件
 │   ├── mod.rs
 │   ├── chat/          # 聊天消息渲染
 │   │   ├── mod.rs, scroller.rs, markdown.rs
-│   │   └── components/ # assistant/user/tool_call/error/image/...
-│   ├── sidebar.rs, input.rs, status.rs, title.rs, panels.rs
-│   └── completions.rs, utils.rs
-├── serve/             # [serve 模式] HTTP 服务器
-│   └── mod.rs         # AppState, auth_guard, UserId, run()
-├── dashboard/         # HTTP API 路由 + 静态服务
-│   ├── mod.rs         # 模块声明
-│   ├── routes.rs      # 所有 /api/* 处理器
-│   └── assets.rs      # SPA 静态文件服务 (rust-embed)
-├── gateway/           # 社交平台适配器
-│   ├── mod.rs
-│   ├── telegram.rs
-│   └── wechat.rs
-└── completion.rs      # 终端输入补全
+│   │   └── components/ # 10 个组件 (assistant/user/tool_call/error/...)
+│   ├── panels.rs, sidebar.rs, input.rs, status.rs
+│   └── title.rs, completions.rs, utils.rs
+└── gateway/           # 社交平台适配器 (Telegram/WeChat 均为 stub)
+    ├── mod.rs
+    ├── telegram.rs
+    └── wechat.rs
 ```
 
 ### i-rs-claw-core (AI 引擎库)

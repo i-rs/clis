@@ -179,7 +179,7 @@ impl AgentConfigRepo for FileAgentConfigStore {
     }
     async fn upsert(&self, row: &AgentConfigRow) -> anyhow::Result<()> {
         let path = self.claw_dir.join("agents").join(&row.user_id).join("agent_configs.json");
-        let _ = std::fs::create_dir_all(path.parent().unwrap());
+        let _ = std::fs::create_dir_all(path.parent().expect("agent config path should have parent"));
         let mut rows = self.load_all(&row.user_id).await?;
         rows.retain(|r| r.agent_id != row.agent_id);
         rows.push(row.clone());
@@ -232,7 +232,7 @@ impl DashboardUserRepo for FileDashboardUserStore {
     }
     async fn upsert(&self, row: &DashboardUserRow) -> anyhow::Result<()> {
         let path = self.claw_dir.join("dashboard").join("users.json");
-        let _ = std::fs::create_dir_all(path.parent().unwrap());
+        let _ = std::fs::create_dir_all(path.parent().expect("dashboard user config path should have parent"));
         let mut rows = self.load_all().await?;
         rows.retain(|r| r.user_id != row.user_id);
         rows.push(row.clone());

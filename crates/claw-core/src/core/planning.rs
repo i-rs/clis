@@ -80,7 +80,7 @@ impl StructuredPlan {
             actual_result: None,
         });
         self.updated_at = chrono::Utc::now().timestamp();
-        self.steps.last_mut().unwrap()
+        self.steps.last_mut().expect("step just pushed in add_step")
     }
 
     pub fn start(&mut self) {

@@ -147,6 +147,12 @@ impl EmbeddingIndex {
         self.entries.len()
     }
 
+    /// Returns true if the index has no entries.
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     /// Add entries to the index and persist.
     #[allow(dead_code)]
     pub fn add_entries(&mut self, new_entries: Vec<IndexEntry>) {

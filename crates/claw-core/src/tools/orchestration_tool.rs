@@ -4,6 +4,12 @@ use serde_json::Value;
 
 pub struct OrchestrationTool;
 
+impl Default for OrchestrationTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OrchestrationTool {
     pub fn new() -> Self {
         Self

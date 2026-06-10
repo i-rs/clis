@@ -650,6 +650,7 @@ pub struct WeChatPlatformConfig {
 /// auto_approve_high_risk = false   # default; only set true in sandboxed envs
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct HitlConfig {
     /// When true, the executor auto-approves High-risk tool calls.
     /// Default: false. Set to true ONLY in sandboxed/CI environments.
@@ -657,13 +658,6 @@ pub struct HitlConfig {
     pub auto_approve_high_risk: bool,
 }
 
-impl Default for HitlConfig {
-    fn default() -> Self {
-        Self {
-            auto_approve_high_risk: false,
-        }
-    }
-}
 
 fn default_provider() -> ProviderKind {
     ProviderKind::OpenAI
@@ -675,6 +669,12 @@ fn default_base_url() -> String {
 
 fn default_model() -> String {
     "gpt-4o-mini".to_string()
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Config {

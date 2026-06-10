@@ -260,7 +260,7 @@ pub async fn create_agent(
     let row_caps = agent_config_clone.capabilities.clone();
     let row_execution = agent_config_clone.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
     let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
-        user_id: user_id.into(),
+        user_id,
         agent_id: agent_id.clone(),
         provider_ref: row_provider_ref,
         provider: row_provider,

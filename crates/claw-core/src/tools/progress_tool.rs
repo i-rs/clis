@@ -5,6 +5,12 @@ use serde_json::Value;
 
 pub struct ProgressTool;
 
+impl Default for ProgressTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProgressTool {
     pub fn new() -> Self {
         Self

@@ -453,6 +453,7 @@ impl Theme {
             .unwrap_or_else(|| Self::parse_hex(fallback).unwrap_or(Color::White))
     }
 
+    #[allow(dead_code)]
     fn preset_default(field: &str) -> &'static str {
         BUILT_IN_THEMES
             .iter()

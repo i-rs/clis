@@ -38,7 +38,7 @@ pub async fn update_config(
             .map(ProviderKind::as_str)
             .collect();
         let lower = p.to_lowercase();
-        if !known.iter().any(|k| *k == lower.as_str()) {
+        if !known.contains(&lower.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,
                 super::ApiResponse::err(&format!(

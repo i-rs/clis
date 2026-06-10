@@ -139,11 +139,10 @@ pub async fn switch_session(
 ) -> Json<super::ApiResponse<Value>> {
     let mut core = state.core.write().await;
     // Verify session belongs to this user
-    if let Some(meta) = core.session_mgr.session_meta(&id) {
-        if meta.user_id != user_id {
+    if let Some(meta) = core.session_mgr.session_meta(&id)
+        && meta.user_id != user_id {
             return super::ApiResponse::err("Session does not belong to you");
         }
-    }
     if core.session_mgr.switch_to(&id) {
         let meta = core.session_mgr.session_meta(&id);
         super::ApiResponse::ok(serde_json::json!({

@@ -8,6 +8,12 @@ pub struct RagTool {
     pipeline: Mutex<RagPipeline>,
 }
 
+impl Default for RagTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RagTool {
     pub fn new() -> Self {
         Self {

@@ -48,12 +48,6 @@ impl CallbackChain {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn add(mut self, cb: Box<dyn AgentCallbacks>) -> Self {
-        self.callbacks.push(cb);
-        self
-    }
-
     pub fn with(mut self, cb: Box<dyn AgentCallbacks>) -> Self {
         self.callbacks.push(cb);
         self

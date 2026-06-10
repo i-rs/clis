@@ -53,8 +53,8 @@ fn build_sse_stream(
                         }).is_err() {
                             tracing::error!("writer task dead — RecordToolMemory lost");
                         }
-                        if !category.is_retryable_or_fatal() {
-                            if write_tx.send(WriteCmd::RecordLayeredMemory {
+                        if !category.is_retryable_or_fatal()
+                            && write_tx.send(WriteCmd::RecordLayeredMemory {
                                 user_id: user_id.clone(),
                                 agent_id: agent_id.clone(),
                                 tool_name: name.clone(),
@@ -62,7 +62,6 @@ fn build_sse_stream(
                             }).is_err() {
                                 tracing::error!("writer task dead — RecordLayeredMemory lost");
                             }
-                        }
                         let data = serde_json::to_string(&serde_json::json!({
                             "name": name, "args": args, "result": result,
                             "step": step, "total_steps": total_steps,
@@ -101,11 +100,10 @@ fn build_sse_stream(
                             }
                             _ => serde_json::json!(null),
                         };
-                        if let Some(q) = &quality_msg {
-                            if write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: vec![q.clone()] }).is_err() {
+                        if let Some(q) = &quality_msg
+                            && write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: vec![q.clone()] }).is_err() {
                                 tracing::error!("writer task dead — PersistMessages(quality) lost");
                             }
-                        }
                         if write_tx.send(WriteCmd::FlushMemory { user_id: user_id.clone(), agent_id: agent_id.clone() }).is_err() {
                             tracing::error!("writer task dead — FlushMemory lost");
                         }
@@ -460,12 +458,11 @@ pub async fn chat_stream_resume(
     // Verify session ownership
     {
         let core = state.core.read().await;
-        if let Some(meta) = core.session_mgr.session_meta(&session_id) {
-            if meta.user_id != user_id {
+        if let Some(meta) = core.session_mgr.session_meta(&session_id)
+            && meta.user_id != user_id {
                 return (axum::http::StatusCode::FORBIDDEN,
                     axum::Json(serde_json::json!({"success": false, "error": "Session does not belong to you"}))).into_response();
             }
-        }
     }
 
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();

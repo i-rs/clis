@@ -5,6 +5,12 @@ use serde_json::Value;
 
 pub struct ChainTool;
 
+impl Default for ChainTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ChainTool {
     pub fn new() -> Self {
         Self

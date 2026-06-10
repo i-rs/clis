@@ -18,6 +18,15 @@ impl CalculatorTyped {
     pub fn new() -> Self {
         Self
     }
+}
+
+impl Default for CalculatorTyped {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CalculatorTyped {
 
     pub fn as_claw_tool() -> TypedToolAdapter {
         TypedToolAdapter::new(Box::new(Self))

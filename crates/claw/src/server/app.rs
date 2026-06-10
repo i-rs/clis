@@ -131,12 +131,11 @@ fn ensure_config_permissions() {
         use std::os::unix::fs::PermissionsExt;
         let Some(home) = dirs::home_dir() else { return };
         let config_path = home.join(".i-rs").join("claw").join("config.toml");
-        if config_path.exists() {
-            if let Ok(mut perms) = std::fs::metadata(&config_path).map(|m| m.permissions()) {
+        if config_path.exists()
+            && let Ok(mut perms) = std::fs::metadata(&config_path).map(|m| m.permissions()) {
                 perms.set_mode(0o600);
                 let _ = std::fs::set_permissions(&config_path, perms);
             }
-        }
     }
 }
 

@@ -215,6 +215,12 @@ pub struct ToolRegistry {
     excluded: std::collections::HashSet<String>,
 }
 
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ToolRegistry {
     pub fn new() -> Self {
         let tools: Vec<Arc<dyn ClawTool>> = vec![

@@ -365,14 +365,14 @@ impl AppCore {
                 cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
             },
             skills: &{
-                let skills = match self.agent_store.skill_store_for("default", agent_id) {
+                
+                match self.agent_store.skill_store_for("default", agent_id) {
                     Ok(s) => s.format_skills(),
                     Err(e) => {
                         tracing::error!(%e, agent_id, "skill store lookup failed");
                         return Vec::new();
                     }
-                };
-                skills
+                }
             },
             user_memory: &{
                 let base = memory.format_user_memory();
@@ -1102,15 +1102,12 @@ impl AppCore {
             };
             cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
         };
-        let skills_fmt = {
-            let skills = match self.agent_store.skill_store_for("default", agent_id) {
-                Ok(s) => s.format_skills(),
-                Err(e) => {
-                    tracing::error!(%e, agent_id, "skill store lookup failed");
-                    return Vec::new();
-                }
-            };
-            skills
+        let skills_fmt = match self.agent_store.skill_store_for("default", agent_id) {
+            Ok(s) => s.format_skills(),
+            Err(e) => {
+                tracing::error!(%e, agent_id, "skill store lookup failed");
+                return Vec::new();
+            }
         };
 
         let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
@@ -1199,15 +1196,12 @@ impl AppCore {
             };
             cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
         };
-        let skills_fmt = {
-            let skills = match self.agent_store.skill_store_for("default", agent_id) {
-                Ok(s) => s.format_skills_async().await,
-                Err(e) => {
-                    tracing::error!(%e, agent_id, "skill store lookup failed");
-                    return Vec::new();
-                }
-            };
-            skills
+        let skills_fmt = match self.agent_store.skill_store_for("default", agent_id) {
+            Ok(s) => s.format_skills_async().await,
+            Err(e) => {
+                tracing::error!(%e, agent_id, "skill store lookup failed");
+                return Vec::new();
+            }
         };
 
         let system_prompt = resolved.system_prompt.clone().unwrap_or_else(|| {
@@ -1344,7 +1338,7 @@ fn current_turn_tool_results(messages: &[crate::app::Message]) -> Vec<(&str, boo
         .iter()
         .enumerate()
         .filter_map(|(i, m)| {
-            if cutoff.map_or(true, |c| i <= c) {
+            if cutoff.is_none_or(|c| i <= c) {
                 return None;
             }
             match m {

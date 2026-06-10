@@ -60,7 +60,7 @@ pub async fn create_mcp_config(
 
     let core = state.core.read().await;
     let row = i_rs_claw_core::storage::config_store::McpServerConfigRow {
-        user_id: user_id,
+        user_id,
         agent_id: body.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
         name,
         transport_type: body
@@ -94,7 +94,7 @@ pub async fn update_mcp_config(
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let row = i_rs_claw_core::storage::config_store::McpServerConfigRow {
-        user_id: user_id,
+        user_id,
         agent_id: query.agent_id.or_else(|| {
             body.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string())
         }),
