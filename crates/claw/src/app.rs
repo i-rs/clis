@@ -462,6 +462,8 @@ pub struct OverlayState {
     pub copy_feedback: Option<(String, std::time::Instant)>,
     pub tab_completions: Vec<String>,
     pub tab_completion_index: usize,
+    pub tab_completion_prefix: String,
+    pub tab_completion_cursor: usize,
     pub slash_visible: bool,
     pub slash_index: usize,
     pub theme_index: usize,
@@ -503,6 +505,16 @@ impl OverlayState {
         filtered
     }
 
+    pub fn get_filtered_sessions(&self) -> &[i_rs_claw_core::session::SessionMeta] {
+        if let Some(ref cached) = self.cached_filtered_sessions {
+            cached
+        } else if self.session_search.is_empty() {
+            &self.session_list
+        } else {
+            &[]
+        }
+    }
+
     pub fn invalidate_session_cache(&mut self) {
         self.cached_filtered_sessions = None;
         self.cached_search_hash = 0;
@@ -528,6 +540,8 @@ impl OverlayState {
             copy_feedback: None,
             tab_completions: Vec::new(),
             tab_completion_index: 0,
+            tab_completion_prefix: String::new(),
+            tab_completion_cursor: 0,
             slash_visible: false,
             slash_index: 0,
             theme_index: 0,
@@ -623,49 +637,38 @@ pub fn spinner_char_alt(spinner_start: Instant, chars: &[char]) -> char {
     chars[idx]
 }
 
-pub struct App {
+pub struct ChatState {
     pub messages: Vec<Message>,
     pub message_timestamps: Vec<NaiveDateTime>,
-    /// Persistent, parallel to `messages`: the render component for
-    /// each message. State that affects layout (tool call
-    /// expand/collapse, assistant reasoning expand/collapse) lives
-    /// on the component itself, so toggling is just a `borrow_mut`
-    /// on this `Rc` and survives message inserts/pops without any
-    /// re-indexing.
     pub components: Vec<ComponentCell>,
-    pub input: InputState,
-    pub overlay: OverlayState,
-    pub state: AppState,
-    pub config: Config,
-    pub tool_call_count: usize,
-    pub status_text: String,
+    pub current_reasoning: String,
     pub api_messages: Option<Vec<Value>>,
-    pub token_usage: Option<i_rs_claw_core::llm::TokenUsage>,
-    /// Scroll offset in "rows from the top of the content" convention:
-    /// `0` = top (oldest message), `max_scroll` = bottom (newest message).
-    /// Only consulted by the renderer when `stick_to_bottom` is false;
-    /// when sticky, render overrides this with `max_scroll` so the
-    /// viewport tracks the live tail without the App having to know
-    /// the exact content height.
+    pub tool_call_count: usize,
+    pub plan_steps: Vec<PlanStep>,
+}
+
+pub struct ScrollState {
     pub scroll_lines: usize,
     pub max_scroll: usize,
-    /// True when the viewport is "stuck" to the bottom — i.e. the user is
-    /// reading the latest message and new content should auto-scroll
-    /// into view. Set to `false` whenever the user scrolls up; restored
-    /// to `true` when they scroll back to the bottom or send a message.
     pub stick_to_bottom: bool,
-    /// Clickable regions for the last render. Populated by
-    /// `render_chat`; consumed by mouse and key handlers. Each entry
-    /// covers one `clickable` component in screen-absolute
-    /// coordinates, keyed by the component index. The library
-    /// implementation handles the row/col hit-test in O(n) over
-    /// registered regions, which is fine because the registry only
-    /// contains clickable components (almost always << n_messages).
+}
+
+pub struct LlmState {
+    pub state: AppState,
+    pub status_text: String,
+    pub token_usage: Option<i_rs_claw_core::llm::TokenUsage>,
+}
+
+pub struct App {
+    pub chat: ChatState,
+    pub scroll: ScrollState,
+    pub llm: LlmState,
+    pub input: InputState,
+    pub overlay: OverlayState,
+    pub config: Config,
     pub hit_regions: ClickRegionRegistry<usize>,
     pub http_logs: VecDeque<HttpLog>,
-    pub current_reasoning: String,
     pub reminder_text: Option<String>,
-    pub plan_steps: Vec<PlanStep>,
     pub current_agent: String,
     pub today_stats: TodaySummary,
     pub stats_history: Vec<i_rs_claw_core::stats::DailyStats>,
@@ -680,25 +683,31 @@ impl App {
         let agent_list = config.agent_ids();
 
         Self {
-            messages: Vec::new(),
-            message_timestamps: Vec::new(),
-            components: Vec::new(),
+            chat: ChatState {
+                messages: Vec::new(),
+                message_timestamps: Vec::new(),
+                components: Vec::new(),
+                current_reasoning: String::new(),
+                api_messages: None,
+                tool_call_count: 0,
+                plan_steps: Vec::new(),
+            },
+            scroll: ScrollState {
+                scroll_lines: 0,
+                max_scroll: 0,
+                stick_to_bottom: true,
+            },
+            llm: LlmState {
+                state: AppState::Idle,
+                status_text: String::new(),
+                token_usage: None,
+            },
             input: InputState::new(),
             overlay: OverlayState::new(agent_list),
-            state: AppState::Idle,
             config,
-            tool_call_count: 0,
-            status_text: String::new(),
-            api_messages: None,
-            token_usage: None,
-            scroll_lines: 0,
-            max_scroll: 0,
-            stick_to_bottom: true,
             hit_regions: ClickRegionRegistry::new(),
             http_logs: VecDeque::new(),
-            current_reasoning: String::new(),
             reminder_text: None,
-            plan_steps: Vec::new(),
             current_agent: "default".to_string(),
             today_stats: TodaySummary::default(),
             stats_history: Vec::new(),
@@ -710,7 +719,7 @@ impl App {
     }
 
     pub fn is_processing(&self) -> bool {
-        matches!(self.state, AppState::Processing)
+        matches!(self.llm.state, AppState::Processing)
     }
 
     /// Rebuild the entire `components` Vec from `messages`. Use this
@@ -718,7 +727,8 @@ impl App {
     /// other code path prefer `push_component_for` /
     /// `pop_last_component` so component state survives.
     pub fn rebuild_components(&mut self) {
-        self.components = self
+        self.chat.components = self
+            .chat
             .messages
             .iter()
             .map(|m| Rc::new(RefCell::new(build_component_for(m))) as ComponentCell)
@@ -727,9 +737,9 @@ impl App {
 
     /// Append the component that corresponds to `msg` at the tail of
     /// the `components` Vec. Must be called right after pushing the
-    /// message into `self.messages`.
+    /// message into `self.chat.messages`.
     pub fn push_component_for(&mut self, msg: &Message) {
-        self.components
+        self.chat.components
             .push(Rc::new(RefCell::new(build_component_for(msg))) as ComponentCell);
     }
 
@@ -737,7 +747,7 @@ impl App {
     /// component was actually mutated (i.e. the op landed in an arm
     /// that changes state). No-op if `idx` is out of range.
     pub fn apply_to_component(&mut self, idx: usize, op: ComponentOp) -> bool {
-        if let Some(c) = self.components.get(idx) {
+        if let Some(c) = self.chat.components.get(idx) {
             // The default `apply` is a no-op; we still mark dirty
             // because the clickable region is what changed.
             c.borrow_mut().apply(op);
@@ -749,7 +759,7 @@ impl App {
 
     /// Convenience: apply to the trailing component.
     pub fn apply_to_last_component(&mut self, op: ComponentOp) {
-        if let Some(c) = self.components.last() {
+        if let Some(c) = self.chat.components.last() {
             c.borrow_mut().apply(op);
         }
     }
@@ -778,14 +788,14 @@ impl App {
             text: text.to_string(),
         };
         self.push_component_for(&msg);
-        self.messages.push(msg);
-        self.message_timestamps
+        self.chat.messages.push(msg);
+        self.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
-        self.state = AppState::Processing;
+        self.llm.state = AppState::Processing;
         // Snap to the live tail: render reads `stick_to_bottom` and
         // overrides `scroll_lines` with `max_scroll` for us.
-        self.stick_to_bottom = true;
-        self.plan_steps.clear();
+        self.scroll.stick_to_bottom = true;
+        self.chat.plan_steps.clear();
         self.mark_dirty();
     }
 
@@ -821,7 +831,7 @@ impl App {
         // Snap to the live tail when the user sends a message.
         // Render reads `stick_to_bottom` and overrides `scroll_lines`
         // with `max_scroll`, so we don't need an exact value here.
-        self.stick_to_bottom = true;
+        self.scroll.stick_to_bottom = true;
     }
 
     #[allow(dead_code)]
@@ -840,44 +850,44 @@ impl App {
         // Capture the effective position before disengaging stickiness,
         // otherwise the user's first scroll-up from "follow bottom" mode
         // would jump to row 0 instead of stepping back from the bottom.
-        if self.stick_to_bottom {
-            self.scroll_lines = self.max_scroll;
-            self.stick_to_bottom = false;
+        if self.scroll.stick_to_bottom {
+            self.scroll.scroll_lines = self.scroll.max_scroll;
+            self.scroll.stick_to_bottom = false;
         }
-        self.scroll_lines = self.scroll_lines.saturating_sub(3);
+        self.scroll.scroll_lines = self.scroll.scroll_lines.saturating_sub(3);
     }
 
     /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
     /// "Down" = toward the bottom of the content (newer messages), so scroll_lines INCREASES.
     pub fn scroll_down(&mut self) {
-        if self.stick_to_bottom {
+        if self.scroll.stick_to_bottom {
             return;
         }
-        self.scroll_lines = self.scroll_lines.saturating_add(3);
-        if self.scroll_lines >= self.max_scroll {
-            self.scroll_lines = self.max_scroll;
-            self.stick_to_bottom = true;
+        self.scroll.scroll_lines = self.scroll.scroll_lines.saturating_add(3);
+        if self.scroll.scroll_lines >= self.scroll.max_scroll {
+            self.scroll.scroll_lines = self.scroll.max_scroll;
+            self.scroll.stick_to_bottom = true;
         }
     }
 
     /// Scroll one line at a time — used by arrow keys for precise navigation.
     pub fn scroll_up_one(&mut self) {
-        if self.stick_to_bottom {
-            self.scroll_lines = self.max_scroll;
-            self.stick_to_bottom = false;
+        if self.scroll.stick_to_bottom {
+            self.scroll.scroll_lines = self.scroll.max_scroll;
+            self.scroll.stick_to_bottom = false;
         }
-        self.scroll_lines = self.scroll_lines.saturating_sub(1);
+        self.scroll.scroll_lines = self.scroll.scroll_lines.saturating_sub(1);
     }
 
     /// Scroll one line at a time — used by arrow keys for precise navigation.
     pub fn scroll_down_one(&mut self) {
-        if self.stick_to_bottom {
+        if self.scroll.stick_to_bottom {
             return;
         }
-        self.scroll_lines = self.scroll_lines.saturating_add(1);
-        if self.scroll_lines >= self.max_scroll {
-            self.scroll_lines = self.max_scroll;
-            self.stick_to_bottom = true;
+        self.scroll.scroll_lines = self.scroll.scroll_lines.saturating_add(1);
+        if self.scroll.scroll_lines >= self.scroll.max_scroll {
+            self.scroll.scroll_lines = self.scroll.max_scroll;
+            self.scroll.stick_to_bottom = true;
         }
     }
 
@@ -889,19 +899,19 @@ impl App {
             .saturating_sub(2)
             .max(1);
         if dir > 0 {
-            if self.stick_to_bottom {
-                self.scroll_lines = self.max_scroll;
-                self.stick_to_bottom = false;
+            if self.scroll.stick_to_bottom {
+                self.scroll.scroll_lines = self.scroll.max_scroll;
+                self.scroll.stick_to_bottom = false;
             }
-            self.scroll_lines = self.scroll_lines.saturating_sub(area_lines);
+            self.scroll.scroll_lines = self.scroll.scroll_lines.saturating_sub(area_lines);
         } else if dir < 0 {
-            if self.stick_to_bottom {
+            if self.scroll.stick_to_bottom {
                 return;
             }
-            self.scroll_lines = self.scroll_lines.saturating_add(area_lines);
-            if self.scroll_lines >= self.max_scroll {
-                self.scroll_lines = self.max_scroll;
-                self.stick_to_bottom = true;
+            self.scroll.scroll_lines = self.scroll.scroll_lines.saturating_add(area_lines);
+            if self.scroll.scroll_lines >= self.scroll.max_scroll {
+                self.scroll.scroll_lines = self.scroll.max_scroll;
+                self.scroll.stick_to_bottom = true;
             }
         }
     }
@@ -941,10 +951,10 @@ impl App {
         let total: usize = heights.iter().sum();
         let new_max_scroll = total.saturating_sub(area_lines);
         // stick_to_bottom 时实际视口在底部，所以从 max_scroll 起算
-        let effective_scroll = if self.stick_to_bottom {
+        let effective_scroll = if self.scroll.stick_to_bottom {
             new_max_scroll
         } else {
-            self.scroll_lines
+            self.scroll.scroll_lines
         };
         let viewport_top = effective_scroll;
         let viewport_bottom = effective_scroll.saturating_add(area_lines);
@@ -952,12 +962,12 @@ impl App {
         if sel_top < viewport_top || sel_bottom > viewport_bottom {
             // 选中的不在视口内 → 居中对齐：让选中条落在视口中央，
             // 既保证选中条可见，又让用户能感知上下文。
-            self.scroll_lines = sel_top.saturating_sub(area_lines / 2);
-            self.stick_to_bottom = false;
+            self.scroll.scroll_lines = sel_top.saturating_sub(area_lines / 2);
+            self.scroll.stick_to_bottom = false;
         }
         // 夹到合法范围
-        self.scroll_lines = self.scroll_lines.min(new_max_scroll);
-        self.max_scroll = new_max_scroll;
+        self.scroll.scroll_lines = self.scroll.scroll_lines.min(new_max_scroll);
+        self.scroll.max_scroll = new_max_scroll;
     }
 
     /// 事件处理中调用：在 mark_dirty 清空 heights 后，用组件自身的
@@ -968,9 +978,9 @@ impl App {
     /// heights 约定：时间顺序存储（heights[0] = 最旧消息），与 render_chat 一致。
     pub fn rebuild_heights_approx(&mut self) {
         let text_width = self.render_state.cached_width.max(20);
-        let mut heights: Vec<usize> = Vec::with_capacity(self.components.len());
+        let mut heights: Vec<usize> = Vec::with_capacity(self.chat.components.len());
         // 时间顺序遍历以匹配 render_chat 的 heights 约定
-        for comp in self.components.iter() {
+        for comp in self.chat.components.iter() {
             let h = comp.borrow().height(text_width as u16);
             heights.push((h as usize).max(1));
         }
@@ -980,11 +990,11 @@ impl App {
             .saturating_sub(1)
             .max(1);
         let total: usize = self.render_state.heights.iter().sum();
-        self.max_scroll = total.saturating_sub(area_lines);
+        self.scroll.max_scroll = total.saturating_sub(area_lines);
     }
 
     pub fn set_status(&mut self, text: &str) {
-        self.status_text = text.to_string();
+        self.llm.status_text = text.to_string();
     }
 
     pub fn start_assistant_message(&mut self) {
@@ -994,9 +1004,9 @@ impl App {
         // the previous message was already an Assistant, so it was silently
         // dropped every time the last message was a `ToolCall` — which is
         // the common case mid-conversation.
-        let carried_reasoning = std::mem::take(&mut self.current_reasoning);
+        let carried_reasoning = std::mem::take(&mut self.chat.current_reasoning);
         let is_empty_assistant = matches!(
-            self.messages.last(),
+            self.chat.messages.last(),
             Some(Message::Assistant { text, .. }) if text.is_empty()
         );
         if !is_empty_assistant {
@@ -1006,11 +1016,11 @@ impl App {
                 token_usage: None,
             };
             self.push_component_for(&msg);
-            self.messages.push(msg);
-            self.message_timestamps
+            self.chat.messages.push(msg);
+            self.chat.message_timestamps
                 .push(chrono::Local::now().naive_local());
             self.mark_dirty();
-        } else if let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+        } else if let Some(Message::Assistant { reasoning, .. }) = self.chat.messages.last_mut()
             && !carried_reasoning.is_empty()
         {
             // Reuse the trailing empty Assistant so we don't end up with
@@ -1025,7 +1035,7 @@ impl App {
     }
 
     pub fn append_assistant_text(&mut self, text: &str) {
-        let last_is_assistant = matches!(self.messages.last_mut(), Some(Message::Assistant { .. }));
+        let last_is_assistant = matches!(self.chat.messages.last_mut(), Some(Message::Assistant { .. }));
         if !last_is_assistant {
             self.start_assistant_message();
         }
@@ -1035,16 +1045,16 @@ impl App {
         // the next round boundary (when the last message is a ToolCall).
         if let Some(Message::Assistant {
             text: t, reasoning, ..
-        }) = self.messages.last_mut()
+        }) = self.chat.messages.last_mut()
             && t.is_empty()
-            && !self.current_reasoning.is_empty()
+            && !self.chat.current_reasoning.is_empty()
         {
-            let pending = std::mem::take(&mut self.current_reasoning);
+            let pending = std::mem::take(&mut self.chat.current_reasoning);
             reasoning.push_str(&pending);
             // Sync the trailing component too.
             self.apply_to_last_component(ComponentOp::AppendReasoning(pending));
         }
-        if let Some(Message::Assistant { text: t, .. }) = self.messages.last_mut() {
+        if let Some(Message::Assistant { text: t, .. }) = self.chat.messages.last_mut() {
             t.push_str(text);
             // Mirror onto the trailing component so its `height()`,
             // body rows, and `reasoning` stay consistent with the
@@ -1074,10 +1084,10 @@ impl App {
             total_steps,
         };
         self.push_component_for(&msg);
-        self.messages.push(msg);
-        self.message_timestamps
+        self.chat.messages.push(msg);
+        self.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
-        self.tool_call_count += 1;
+        self.chat.tool_call_count += 1;
         self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
@@ -1091,69 +1101,69 @@ impl App {
     }
 
     pub fn add_error(&mut self, text: &str) {
-        if !self.current_reasoning.is_empty()
-            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+        if !self.chat.current_reasoning.is_empty()
+            && let Some(Message::Assistant { reasoning, .. }) = self.chat.messages.last_mut()
         {
-            reasoning.push_str(&self.current_reasoning);
+            reasoning.push_str(&self.chat.current_reasoning);
         }
-        self.current_reasoning.clear();
+        self.chat.current_reasoning.clear();
         // Only discard a trailing Assistant placeholder if it is *truly*
         // empty (no text, no reasoning). Otherwise the error banner would
         // eat the user's thinking content as well.
         if let Some(Message::Assistant {
             text: t, reasoning, ..
-        }) = self.messages.last()
+        }) = self.chat.messages.last()
             && t.is_empty()
             && reasoning.is_empty()
         {
-            self.messages.pop();
-            self.message_timestamps.pop();
-            self.components.pop();
+            self.chat.messages.pop();
+            self.chat.message_timestamps.pop();
+            self.chat.components.pop();
         }
         let msg = Message::Error {
             text: text.to_string(),
         };
         self.push_component_for(&msg);
-        self.messages.push(msg);
-        self.message_timestamps
+        self.chat.messages.push(msg);
+        self.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
-        self.api_messages = None;
-        self.state = AppState::Idle;
-        self.status_text.clear();
+        self.chat.api_messages = None;
+        self.llm.state = AppState::Idle;
+        self.llm.status_text.clear();
         self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
     pub fn finish_processing(&mut self, api_messages: Option<Vec<Value>>) {
-        if !self.current_reasoning.is_empty()
-            && let Some(Message::Assistant { reasoning, .. }) = self.messages.last_mut()
+        if !self.chat.current_reasoning.is_empty()
+            && let Some(Message::Assistant { reasoning, .. }) = self.chat.messages.last_mut()
         {
-            reasoning.push_str(&self.current_reasoning);
+            reasoning.push_str(&self.chat.current_reasoning);
         }
-        self.current_reasoning.clear();
+        self.chat.current_reasoning.clear();
         // Only pop the trailing Assistant placeholder if it has nothing to
         // show. Previously we dropped it whenever `text` was empty, which
         // threw away any reasoning that had been streamed in.
         if let Some(Message::Assistant {
             text: t, reasoning, ..
-        }) = self.messages.last()
+        }) = self.chat.messages.last()
             && t.is_empty()
             && reasoning.is_empty()
         {
-            self.messages.pop();
-            self.message_timestamps.pop();
-            self.components.pop();
+            self.chat.messages.pop();
+            self.chat.message_timestamps.pop();
+            self.chat.components.pop();
         }
-        self.api_messages = api_messages;
-        self.state = AppState::Idle;
-        self.status_text.clear();
+        self.chat.api_messages = api_messages;
+        self.llm.state = AppState::Idle;
+        self.llm.status_text.clear();
         self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
     pub fn detect_plan(&mut self, text: &str) {
         if self.is_processing() {
-            self.plan_steps.clear();
+            self.chat.plan_steps.clear();
             for line in text.lines() {
                 let trimmed = line.trim();
                 let rest = trimmed
@@ -1163,7 +1173,7 @@ impl App {
                 if let Some(rest) = rest.strip_prefix(". ") {
                     let clean = rest.trim_end_matches(['.', '，', ',']);
                     if !clean.is_empty() {
-                        self.plan_steps.push(PlanStep {
+                        self.chat.plan_steps.push(PlanStep {
                             description: clean.to_string(),
                             done: false,
                         });
@@ -1174,7 +1184,7 @@ impl App {
     }
 
     pub fn mark_next_plan_step_done(&mut self) {
-        for step in &mut self.plan_steps {
+        for step in &mut self.chat.plan_steps {
             if !step.done {
                 step.done = true;
                 break;
@@ -1183,40 +1193,40 @@ impl App {
     }
 
     pub fn reset_for_new_session(&mut self) {
-        self.messages.clear();
-        self.message_timestamps.clear();
-        self.components.clear();
-        self.api_messages = None;
-        self.state = AppState::Idle;
-        self.tool_call_count = 0;
-        self.status_text.clear();
-        self.token_usage = None;
+        self.chat.messages.clear();
+        self.chat.message_timestamps.clear();
+        self.chat.components.clear();
+        self.chat.api_messages = None;
+        self.llm.state = AppState::Idle;
+        self.chat.tool_call_count = 0;
+        self.llm.status_text.clear();
+        self.llm.token_usage = None;
         self.input = InputState::new();
         self.overlay.current = None;
         self.http_logs.clear();
         self.overlay.sidebar_selected = 0;
         self.overlay.sidebar_body_idx = None;
         self.overlay.sidebar_body_scroll = 0;
-        self.plan_steps.clear();
+        self.chat.plan_steps.clear();
         self.overlay.session_search.clear();
         self.overlay.session_search_mode = false;
         self.overlay.selected_message = None;
         self.overlay.selection_mode = false;
         // Reset viewport to "follow live tail" so the next message the
         // user sends is visible without manual scrolling.
-        self.scroll_lines = 0;
-        self.max_scroll = 0;
-        self.stick_to_bottom = true;
+        self.scroll.scroll_lines = 0;
+        self.scroll.max_scroll = 0;
+        self.scroll.stick_to_bottom = true;
         self.mark_dirty();
     }
 
     pub fn sync_message_timestamps(&mut self) {
         let now = chrono::Local::now().naive_local();
-        while self.message_timestamps.len() < self.messages.len() {
-            self.message_timestamps.push(now);
+        while self.chat.message_timestamps.len() < self.chat.messages.len() {
+            self.chat.message_timestamps.push(now);
         }
-        if self.message_timestamps.len() > self.messages.len() {
-            self.message_timestamps.truncate(self.messages.len());
+        if self.chat.message_timestamps.len() > self.chat.messages.len() {
+            self.chat.message_timestamps.truncate(self.chat.messages.len());
         }
     }
 }
@@ -1234,22 +1244,22 @@ mod tests {
     #[test]
     fn test_app_new() {
         let app = App::new(test_config());
-        assert!(app.messages.is_empty());
-        assert_eq!(app.state, AppState::Idle);
+        assert!(app.chat.messages.is_empty());
+        assert_eq!(app.llm.state, AppState::Idle);
         assert!(!app.is_processing());
         assert!(app.http_logs.is_empty());
         assert_eq!(app.current_agent, "default");
-        assert_eq!(app.tool_call_count, 0);
+        assert_eq!(app.chat.tool_call_count, 0);
     }
 
     #[test]
     fn test_add_user_message_sets_processing() {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
-        assert_eq!(app.messages.len(), 1);
-        assert!(matches!(app.messages[0], Message::User { ref text } if text == "hello"));
+        assert_eq!(app.chat.messages.len(), 1);
+        assert!(matches!(app.chat.messages[0], Message::User { ref text } if text == "hello"));
         assert!(app.is_processing());
-        assert!(app.stick_to_bottom, "sending snaps viewport to live tail");
+        assert!(app.scroll.stick_to_bottom, "sending snaps viewport to live tail");
     }
 
     #[test]
@@ -1262,9 +1272,9 @@ mod tests {
             serde_json::json!({"role": "assistant", "content": "hi"}),
         ]));
         assert!(!app.is_processing());
-        assert_eq!(app.state, AppState::Idle);
-        assert!(app.status_text.is_empty());
-        assert!(app.api_messages.is_some());
+        assert_eq!(app.llm.state, AppState::Idle);
+        assert!(app.llm.status_text.is_empty());
+        assert!(app.chat.api_messages.is_some());
     }
 
     #[test]
@@ -1272,9 +1282,9 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
         app.start_assistant_message();
-        assert_eq!(app.messages.len(), 2);
+        assert_eq!(app.chat.messages.len(), 2);
         app.finish_processing(None);
-        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.chat.messages.len(), 1);
         assert!(!app.is_processing());
     }
 
@@ -1287,12 +1297,12 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
         app.start_assistant_message();
-        app.current_reasoning.push_str("thinking hard");
+        app.chat.current_reasoning.push_str("thinking hard");
         app.finish_processing(None);
-        assert_eq!(app.messages.len(), 2);
+        assert_eq!(app.chat.messages.len(), 2);
         if let Message::Assistant {
             text, reasoning, ..
-        } = &app.messages[1]
+        } = &app.chat.messages[1]
         {
             assert!(text.is_empty());
             assert_eq!(reasoning, "thinking hard");
@@ -1312,11 +1322,11 @@ mod tests {
         app.append_assistant_text("thinking out loud");
         app.add_tool_call("i_rs", "{}", "{}", 1, 1);
         // Simulate the LLM streaming reasoning for the next round.
-        app.current_reasoning.push_str("between-rounds thought");
+        app.chat.current_reasoning.push_str("between-rounds thought");
         app.start_assistant_message();
         if let Message::Assistant {
             text, reasoning, ..
-        } = app.messages.last().unwrap()
+        } = app.chat.messages.last().unwrap()
         {
             assert!(text.is_empty());
             assert_eq!(reasoning, "between-rounds thought");
@@ -1332,18 +1342,18 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
         app.start_assistant_message();
-        app.current_reasoning.push_str("planning");
+        app.chat.current_reasoning.push_str("planning");
         app.append_assistant_text("hi");
         if let Message::Assistant {
             text, reasoning, ..
-        } = &app.messages[1]
+        } = &app.chat.messages[1]
         {
             assert_eq!(text, "hi");
             assert_eq!(reasoning, "planning");
         } else {
             panic!("expected Assistant, got other variant");
         }
-        assert!(app.current_reasoning.is_empty());
+        assert!(app.chat.current_reasoning.is_empty());
     }
 
     #[test]
@@ -1354,11 +1364,11 @@ mod tests {
 
         app.add_error("something went wrong");
         assert!(!app.is_processing());
-        assert_eq!(app.messages.len(), 2);
+        assert_eq!(app.chat.messages.len(), 2);
         assert!(
-            matches!(app.messages[1], Message::Error { ref text } if text == "something went wrong")
+            matches!(app.chat.messages[1], Message::Error { ref text } if text == "something went wrong")
         );
-        assert!(app.api_messages.is_none());
+        assert!(app.chat.api_messages.is_none());
     }
 
     #[test]
@@ -1366,23 +1376,23 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_user_message("hello");
         app.start_assistant_message();
-        assert_eq!(app.messages.len(), 2);
+        assert_eq!(app.chat.messages.len(), 2);
         app.add_error("err");
-        assert_eq!(app.messages.len(), 2);
-        assert!(matches!(app.messages[1], Message::Error { .. }));
+        assert_eq!(app.chat.messages.len(), 2);
+        assert!(matches!(app.chat.messages[1], Message::Error { .. }));
     }
 
     #[test]
     fn test_assistant_message_append() {
         let mut app = App::new(test_config());
         app.start_assistant_message();
-        assert_eq!(app.messages.len(), 1);
-        assert!(matches!(app.messages[0], Message::Assistant { ref text, .. } if text.is_empty()));
+        assert_eq!(app.chat.messages.len(), 1);
+        assert!(matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text.is_empty()));
 
         app.append_assistant_text("hello ");
         app.append_assistant_text("world");
         assert!(
-            matches!(app.messages[0], Message::Assistant { ref text, .. } if text == "hello world")
+            matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text == "hello world")
         );
     }
 
@@ -1390,19 +1400,19 @@ mod tests {
     fn test_append_assistant_reuses_empty() {
         let mut app = App::new(test_config());
         app.append_assistant_text("direct");
-        assert_eq!(app.messages.len(), 1);
-        assert!(matches!(app.messages[0], Message::Assistant { ref text, .. } if text == "direct"));
+        assert_eq!(app.chat.messages.len(), 1);
+        assert!(matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text == "direct"));
     }
 
     #[test]
     fn test_add_tool_call() {
         let mut app = App::new(test_config());
         app.add_tool_call("weight", r#"{"action":"list"}"#, "OK", 1, 2);
-        assert_eq!(app.messages.len(), 1);
+        assert_eq!(app.chat.messages.len(), 1);
         assert!(
-            matches!(&app.messages[0], Message::ToolCall { name, step: 1, total_steps: 2, .. } if name == "weight")
+            matches!(&app.chat.messages[0], Message::ToolCall { name, step: 1, total_steps: 2, .. } if name == "weight")
         );
-        assert_eq!(app.tool_call_count, 1);
+        assert_eq!(app.chat.tool_call_count, 1);
     }
 
     /// Regression: older session records save tool_call records without
@@ -1468,35 +1478,35 @@ mod tests {
         // Convention: scroll_lines counts rows FROM TOP (0 = oldest/top,
         // max_scroll = newest/bottom). scroll_up subtracts, scroll_down adds.
         let mut app = App::new(test_config());
-        app.max_scroll = 30;
-        assert_eq!(app.scroll_lines, 0);
-        assert!(app.stick_to_bottom);
+        app.scroll.max_scroll = 30;
+        assert_eq!(app.scroll.scroll_lines, 0);
+        assert!(app.scroll.stick_to_bottom);
 
         // scroll_up from sticky: capture max (30), subtract 3 → 27
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 27);
-        assert!(!app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 27);
+        assert!(!app.scroll.stick_to_bottom);
 
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 24);
+        assert_eq!(app.scroll.scroll_lines, 24);
 
         // scroll_down: 24 + 3 = 27 (still < max)
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 27);
-        assert!(!app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 27);
+        assert!(!app.scroll.stick_to_bottom);
 
         // scroll_down hits max → re-engage sticky
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 30);
-        assert!(app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 30);
+        assert!(app.scroll.stick_to_bottom);
 
         // scroll_down at sticky bottom is a no-op
         app.scroll_down();
-        assert_eq!(app.scroll_lines, 30);
+        assert_eq!(app.scroll.scroll_lines, 30);
 
         // scroll_up captures and steps back
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 27);
+        assert_eq!(app.scroll.scroll_lines, 27);
 
         // Scroll all the way to the top with trackpad-sized steps
         app.scroll_up();
@@ -1509,12 +1519,12 @@ mod tests {
         app.scroll_up();
         app.scroll_up();
         // 27 - 9*3 = 0 (saturating)
-        assert_eq!(app.scroll_lines, 0);
-        assert!(!app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 0);
+        assert!(!app.scroll.stick_to_bottom);
 
         // Beyond top: saturates at 0
         app.scroll_up();
-        assert_eq!(app.scroll_lines, 0);
+        assert_eq!(app.scroll.scroll_lines, 0);
     }
 
     #[test]
@@ -1524,13 +1534,13 @@ mod tests {
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
-        app.max_scroll = 20;
+        app.scroll.max_scroll = 20;
         // stick_to_bottom=true（底部），选中 idx=9（最新）→ sel_top=27, viewport=[20,30) → 可见 → 不变
         app.overlay.selected_message = Some(9);
         app.scroll_to_selected();
-        assert_eq!(app.scroll_lines, 0);
+        assert_eq!(app.scroll.scroll_lines, 0);
         assert!(
-            app.stick_to_bottom,
+            app.scroll.stick_to_bottom,
             "sticky preserved when selected already visible"
         );
     }
@@ -1541,12 +1551,12 @@ mod tests {
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
-        app.max_scroll = 20;
+        app.scroll.max_scroll = 20;
         app.overlay.selected_message = Some(0);
         app.scroll_to_selected();
         // sel_top=0, 居中: 0-5=0 (saturating)
-        assert_eq!(app.scroll_lines, 0);
-        assert!(!app.stick_to_bottom, "moved away from bottom");
+        assert_eq!(app.scroll.scroll_lines, 0);
+        assert!(!app.scroll.stick_to_bottom, "moved away from bottom");
     }
 
     #[test]
@@ -1555,14 +1565,14 @@ mod tests {
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
-        app.max_scroll = 20;
-        app.scroll_lines = 0;
-        app.stick_to_bottom = false;
+        app.scroll.max_scroll = 20;
+        app.scroll.scroll_lines = 0;
+        app.scroll.stick_to_bottom = false;
         app.overlay.selected_message = Some(0);
         app.scroll_to_selected();
         // sel_top=0, sel_bottom=3, viewport=[0,10) → 可见 → 不变
-        assert_eq!(app.scroll_lines, 0);
-        assert!(!app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 0);
+        assert!(!app.scroll.stick_to_bottom);
     }
 
     #[test]
@@ -1571,15 +1581,15 @@ mod tests {
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
-        app.max_scroll = 20;
-        app.scroll_lines = 0;
-        app.stick_to_bottom = false;
+        app.scroll.max_scroll = 20;
+        app.scroll.scroll_lines = 0;
+        app.scroll.stick_to_bottom = false;
         app.overlay.selected_message = Some(9);
         app.scroll_to_selected();
         // sel_top=27, 居中: 27-5=22, clamp 到 max=20
-        assert_eq!(app.scroll_lines, 20);
-        assert_eq!(app.max_scroll, 20);
-        assert!(!app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 20);
+        assert_eq!(app.scroll.max_scroll, 20);
+        assert!(!app.scroll.stick_to_bottom);
     }
 
     #[test]
@@ -1588,13 +1598,13 @@ mod tests {
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
         app.render_state.chat_height = 11;
-        app.max_scroll = 20;
-        app.scroll_lines = 10;
-        app.stick_to_bottom = false;
+        app.scroll.max_scroll = 20;
+        app.scroll.scroll_lines = 10;
+        app.scroll.stick_to_bottom = false;
         app.overlay.selected_message = Some(5);
         app.scroll_to_selected();
         // sel_top=sum(heights[0..5])=15, sel_bottom=18, viewport=[10,20) → 可见
-        assert_eq!(app.scroll_lines, 10);
+        assert_eq!(app.scroll.scroll_lines, 10);
     }
 
     #[test]
@@ -1602,24 +1612,24 @@ mod tests {
         let mut app = App::new(test_config());
         app.overlay.selected_message = Some(0);
         app.scroll_to_selected();
-        assert_eq!(app.scroll_lines, 0);
+        assert_eq!(app.scroll.scroll_lines, 0);
     }
 
     #[test]
     fn test_scroll_to_selected_none_selected() {
         let mut app = App::new(test_config());
         app.render_state.heights = vec![3; 10];
-        app.scroll_lines = 5;
+        app.scroll.scroll_lines = 5;
         app.scroll_to_selected();
-        assert_eq!(app.scroll_lines, 5);
+        assert_eq!(app.scroll.scroll_lines, 5);
     }
 
     #[test]
     fn test_set_status() {
         let mut app = App::new(test_config());
-        assert!(app.status_text.is_empty());
+        assert!(app.llm.status_text.is_empty());
         app.set_status("thinking…");
-        assert_eq!(app.status_text, "thinking…");
+        assert_eq!(app.llm.status_text, "thinking…");
     }
 
     #[test]
@@ -1629,13 +1639,13 @@ mod tests {
         app.add_tool_call("test", "{}", "ok", 1, 1);
         app.set_status("done");
         app.reset_for_new_session();
-        assert!(app.messages.is_empty());
-        assert!(app.message_timestamps.is_empty());
-        assert!(app.api_messages.is_none());
-        assert_eq!(app.tool_call_count, 0);
-        assert!(app.status_text.is_empty());
+        assert!(app.chat.messages.is_empty());
+        assert!(app.chat.message_timestamps.is_empty());
+        assert!(app.chat.api_messages.is_none());
+        assert_eq!(app.chat.tool_call_count, 0);
+        assert!(app.llm.status_text.is_empty());
         assert!(app.http_logs.is_empty());
-        assert!(app.plan_steps.is_empty());
+        assert!(app.chat.plan_steps.is_empty());
     }
 
     #[test]
@@ -1645,70 +1655,70 @@ mod tests {
         // viewport when the user is reading older content (stick=false),
         // and the renderer pins to the bottom when stick=true.
         let mut app = App::new(test_config());
-        app.max_scroll = 30;
-        assert!(app.stick_to_bottom, "starts at the bottom");
+        app.scroll.max_scroll = 30;
+        assert!(app.scroll.stick_to_bottom, "starts at the bottom");
 
         // scroll_up from sticky: capture 30, step back → 27
         app.scroll_up();
-        assert!(!app.stick_to_bottom);
+        assert!(!app.scroll.stick_to_bottom);
 
         app.scroll_up();
-        assert!(!app.stick_to_bottom);
+        assert!(!app.scroll.stick_to_bottom);
 
         // scroll_down_one: 24 + 1 = 25
         app.scroll_down_one();
-        assert!(!app.stick_to_bottom, "still above the bottom");
+        assert!(!app.scroll.stick_to_bottom, "still above the bottom");
 
         // Walk back to the bottom with 1-line steps; stick_to_bottom
         // re-engages when scroll_lines reaches max_scroll.
-        while app.scroll_lines < app.max_scroll {
+        while app.scroll.scroll_lines < app.scroll.max_scroll {
             app.scroll_down_one();
         }
-        assert!(app.stick_to_bottom, "re-engaged at the bottom");
+        assert!(app.scroll.stick_to_bottom, "re-engaged at the bottom");
 
         // Scrolling away disengages; manually re-engage.
         app.scroll_up();
-        assert!(!app.stick_to_bottom);
-        app.stick_to_bottom = true;
+        assert!(!app.scroll.stick_to_bottom);
+        app.scroll.stick_to_bottom = true;
 
         // New tool call preserves stickiness (scroll_to_bottom_if_stuck is
         // a no-op; the renderer reads stick_to_bottom directly).
-        let prev_count = app.tool_call_count;
+        let prev_count = app.chat.tool_call_count;
         app.add_tool_call("weight", "{}", "ok", 0, 1);
-        assert!(app.stick_to_bottom, "stuck at bottom stays stuck");
-        assert_eq!(app.tool_call_count, prev_count + 1);
+        assert!(app.scroll.stick_to_bottom, "stuck at bottom stays stuck");
+        assert_eq!(app.chat.tool_call_count, prev_count + 1);
 
         // When not stuck, new content must not yank the user.
         app.scroll_up();
         app.scroll_up();
-        let pinned = app.scroll_lines;
+        let pinned = app.scroll.scroll_lines;
         app.add_tool_call("weight2", "{}", "ok", 0, 1);
-        assert_eq!(app.scroll_lines, pinned, "back-scroll position preserved");
+        assert_eq!(app.scroll.scroll_lines, pinned, "back-scroll position preserved");
     }
 
     #[test]
     fn test_scroll_page_uses_viewport_with_overlap() {
         let mut app = App::new(test_config());
         app.render_state.chat_height = 20;
-        app.max_scroll = 200;
+        app.scroll.max_scroll = 200;
 
         // PageUp (dir>0): from sticky, capture 200 then subtract 18 → 182
         app.scroll_page(1);
         // 20 - 2 = 18
-        assert_eq!(app.scroll_lines, 182);
-        assert!(!app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 182);
+        assert!(!app.scroll.stick_to_bottom);
 
         app.scroll_page(1);
-        assert_eq!(app.scroll_lines, 164);
+        assert_eq!(app.scroll.scroll_lines, 164);
 
         // PageDown (dir<0): 164 + 18 = 182
         app.scroll_page(-1);
-        assert_eq!(app.scroll_lines, 182);
+        assert_eq!(app.scroll.scroll_lines, 182);
 
         // PageDown hits bottom → re-engage sticky
         app.scroll_page(-1);
-        assert_eq!(app.scroll_lines, 200);
-        assert!(app.stick_to_bottom);
+        assert_eq!(app.scroll.scroll_lines, 200);
+        assert!(app.scroll.stick_to_bottom);
     }
 
     #[test]
@@ -1740,10 +1750,10 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_user_message("plan something");
         app.detect_plan("1. first step.\n2. second step，\n3. third step.");
-        assert_eq!(app.plan_steps.len(), 3);
-        assert_eq!(app.plan_steps[0].description, "first step");
-        assert!(!app.plan_steps[0].done);
-        assert_eq!(app.plan_steps[2].description, "third step");
+        assert_eq!(app.chat.plan_steps.len(), 3);
+        assert_eq!(app.chat.plan_steps[0].description, "first step");
+        assert!(!app.chat.plan_steps[0].done);
+        assert_eq!(app.chat.plan_steps[2].description, "third step");
     }
 
     #[test]
@@ -1751,15 +1761,15 @@ mod tests {
         let mut app = App::new(test_config());
         app.add_user_message("hi");
         app.detect_plan("- bullet item\nplain text\n1. actual step");
-        assert_eq!(app.plan_steps.len(), 1);
-        assert_eq!(app.plan_steps[0].description, "actual step");
+        assert_eq!(app.chat.plan_steps.len(), 1);
+        assert_eq!(app.chat.plan_steps[0].description, "actual step");
     }
 
     #[test]
     fn test_detect_plan_only_when_processing() {
         let mut app = App::new(test_config());
         app.detect_plan("1. first step");
-        assert!(app.plan_steps.is_empty());
+        assert!(app.chat.plan_steps.is_empty());
     }
 
     #[test]
@@ -1768,38 +1778,38 @@ mod tests {
         app.add_user_message("do it");
         app.detect_plan("1. step A\n2. step B");
         app.mark_next_plan_step_done();
-        assert!(app.plan_steps[0].done);
-        assert!(!app.plan_steps[1].done);
+        assert!(app.chat.plan_steps[0].done);
+        assert!(!app.chat.plan_steps[1].done);
         app.mark_next_plan_step_done();
-        assert!(app.plan_steps[1].done);
+        assert!(app.chat.plan_steps[1].done);
     }
 
     #[test]
     fn test_sync_message_timestamps_fills_gaps() {
         let mut app = App::new(test_config());
-        app.messages.push(Message::User {
+        app.chat.messages.push(Message::User {
             text: "a".to_string(),
         });
-        app.messages.push(Message::User {
+        app.chat.messages.push(Message::User {
             text: "b".to_string(),
         });
-        assert!(app.message_timestamps.is_empty());
+        assert!(app.chat.message_timestamps.is_empty());
         app.sync_message_timestamps();
-        assert_eq!(app.message_timestamps.len(), 2);
+        assert_eq!(app.chat.message_timestamps.len(), 2);
     }
 
     #[test]
     fn test_sync_message_timestamps_truncates_excess() {
         let mut app = App::new(test_config());
-        app.messages.push(Message::User {
+        app.chat.messages.push(Message::User {
             text: "a".to_string(),
         });
-        app.message_timestamps
+        app.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
-        app.message_timestamps
+        app.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
         app.sync_message_timestamps();
-        assert_eq!(app.message_timestamps.len(), 1);
+        assert_eq!(app.chat.message_timestamps.len(), 1);
     }
 
     #[test]

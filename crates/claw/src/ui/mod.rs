@@ -30,9 +30,9 @@ pub(crate) mod chat_api {
 pub fn render(f: &mut Frame, app: &mut App) {
     let area = f.area();
 
-    let plan_height: u16 = if !app.plan_steps.is_empty() && app.is_processing() {
-        let steps = (app.plan_steps.len() as u16).min(5);
-        let more = if app.plan_steps.len() > 5 { 1 } else { 0 };
+    let plan_height: u16 = if !app.chat.plan_steps.is_empty() && app.is_processing() {
+        let steps = (app.chat.plan_steps.len() as u16).min(5);
+        let more = if app.chat.plan_steps.len() > 5 { 1 } else { 0 };
         steps + 1 + more
     } else {
         0

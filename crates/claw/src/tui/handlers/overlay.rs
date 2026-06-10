@@ -163,29 +163,29 @@ fn handle_session_enter(
             crate::tui::clipboard::save_session_messages(
                 &mut handler.app_core.session_mgr,
                 &old_id,
-                &handler.app.messages,
-                handler.app.api_messages.as_deref(),
+                &handler.app.chat.messages,
+                handler.app.chat.api_messages.as_deref(),
             );
 
             handler.app_core.session_mgr.switch_to(&new_id);
             let loaded = handler.app_core.session_mgr.load_app_messages(&new_id, 200);
-            handler.app.messages = loaded;
+            handler.app.chat.messages = loaded;
             handler
                 .app_core
                 .session_mgr
-                .reset_cursor(&new_id, handler.app.messages.len());
+                .reset_cursor(&new_id, handler.app.chat.messages.len());
             handler.app.sync_message_timestamps();
-            handler.app.api_messages = handler.app_core.session_mgr.load_api_messages(&new_id);
-            handler.app.tool_call_count = 0;
-            handler.app.status_text.clear();
-            handler.app.token_usage = None;
-            handler.app.plan_steps = handler.app_core.session_mgr.load_plan_steps(&new_id);
+            handler.app.chat.api_messages = handler.app_core.session_mgr.load_api_messages(&new_id);
+            handler.app.chat.tool_call_count = 0;
+            handler.app.llm.status_text.clear();
+            handler.app.llm.token_usage = None;
+            handler.app.chat.plan_steps = handler.app_core.session_mgr.load_plan_steps(&new_id);
             // Snap to the bottom of the freshly loaded session: render
             // reads `stick_to_bottom` and overrides `scroll_lines` with
             // the current `max_scroll`.
-            handler.app.scroll_lines = 0;
-            handler.app.max_scroll = 0;
-            handler.app.stick_to_bottom = true;
+            handler.app.scroll.scroll_lines = 0;
+            handler.app.scroll.max_scroll = 0;
+            handler.app.scroll.stick_to_bottom = true;
             // Component state is rebuilt from the freshly loaded
             // messages a moment later, so we don't need to clear the
             // hash sets here any more.
@@ -273,13 +273,13 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                     crate::tui::clipboard::save_session_messages(
                         &mut handler.app_core.session_mgr,
                         &old_id_s,
-                        &handler.app.messages,
-                        handler.app.api_messages.as_deref(),
+                        &handler.app.chat.messages,
+                        handler.app.chat.api_messages.as_deref(),
                     );
                 }
                 handler.app.current_agent = agent_id.clone();
                 handler.app.reset_for_new_session();
-                handler.app.status_text = format!("已切换到 agent: {}", agent_id);
+                handler.app.llm.status_text = format!("已切换到 agent: {}", agent_id);
                 handler.app_core.session_mgr.create_session_for(agent_id, "default");
                 handler
                     .app_core
@@ -349,7 +349,7 @@ fn save_theme(handler: &KeyEventHandler) {
 }
 
 pub fn handle_export_session(handler: &mut KeyEventHandler) -> Action {
-    if handler.app.messages.is_empty() {
+    if handler.app.chat.messages.is_empty() {
         handler.app.overlay.copy_feedback =
             Some(("无消息可导出".to_string(), std::time::Instant::now()));
         return Action::Continue;
@@ -364,7 +364,7 @@ pub fn handle_export_session(handler: &mut KeyEventHandler) -> Action {
     md.push_str(&format!("模型: {}\n\n", handler.app.config.model));
     md.push_str("---\n\n");
 
-    for msg in &handler.app.messages {
+    for msg in &handler.app.chat.messages {
         match msg {
             AppMessage::User { text } => {
                 md.push_str("## 👤 用户\n\n");
@@ -633,22 +633,22 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
             handler.app.overlay.show(Overlay::InfoPanel);
         }
         Some(crate::app::SlashAction::Select) => {
-            if !handler.app.messages.is_empty() {
+            if !handler.app.chat.messages.is_empty() {
                 handler.app.overlay.selection_mode = true;
                 handler.app.overlay.selected_message =
-                    Some(handler.app.messages.len().saturating_sub(1));
+                    Some(handler.app.chat.messages.len().saturating_sub(1));
             }
         }
         Some(crate::app::SlashAction::Clear) => {
-            handler.app.messages.clear();
-            handler.app.message_timestamps.clear();
-            handler.app.components.clear();
-            handler.app.api_messages = None;
-            handler.app.tool_call_count = 0;
-            handler.app.status_text.clear();
-            handler.app.scroll_lines = 0;
-            handler.app.max_scroll = 0;
-            handler.app.stick_to_bottom = true;
+            handler.app.chat.messages.clear();
+            handler.app.chat.message_timestamps.clear();
+            handler.app.chat.components.clear();
+            handler.app.chat.api_messages = None;
+            handler.app.chat.tool_call_count = 0;
+            handler.app.llm.status_text.clear();
+            handler.app.scroll.scroll_lines = 0;
+            handler.app.scroll.max_scroll = 0;
+            handler.app.scroll.stick_to_bottom = true;
             handler.app.mark_dirty();
         }
         Some(crate::app::SlashAction::Compact) => {

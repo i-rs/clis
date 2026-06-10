@@ -140,7 +140,6 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
 
 /// Centered overlay showing the session list for switching conversations.
 pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
-    // Calculate popup dimensions
     let popup_width = (area.width as f32 * 0.7) as u16;
     let popup_height = (area.height as f32 * 0.6) as u16;
     let popup_x = (area.width - popup_width) / 2;
@@ -148,8 +147,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
 
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
-    // Filter sessions by search text
-    let filtered = app.overlay.filtered_sessions();
+    let filtered = app.overlay.get_filtered_sessions();
 
     let empty = filtered.is_empty();
     let theme_primary = app.config.theme.primary();

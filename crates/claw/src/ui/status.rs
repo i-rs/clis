@@ -49,18 +49,18 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     } else if app.is_processing() {
         let spinner = spinner_char(app.spinner_start);
         spans.push(Span::styled(
-            format!(" {} {} ", spinner, app.status_text),
+            format!(" {} {} ", spinner, app.llm.status_text),
             Style::default()
                 .fg(theme.accent())
                 .add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
         spans.push(Span::styled(
-            format!("⚙ {} ", app.tool_call_count),
+            format!("⚙ {} ", app.chat.tool_call_count),
             Style::default().fg(theme.primary()),
         ));
         spans.push(Span::styled(
-            format!("💬 {} ", app.messages.len()),
+            format!("💬 {} ", app.chat.messages.len()),
             Style::default().fg(theme.primary()),
         ));
     } else {
@@ -76,11 +76,11 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
         ));
         spans.push(Span::styled("│ ", Style::default().fg(theme.dim_text())));
         spans.push(Span::styled(
-            format!("⚙ {} ", app.tool_call_count),
+            format!("⚙ {} ", app.chat.tool_call_count),
             Style::default().fg(theme.primary()),
         ));
         spans.push(Span::styled(
-            format!("💬 {} ", app.messages.len()),
+            format!("💬 {} ", app.chat.messages.len()),
             Style::default().fg(theme.primary()),
         ));
         if app.today_stats.requests > 0 {

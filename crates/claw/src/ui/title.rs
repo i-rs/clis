@@ -36,7 +36,7 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
     if app.is_processing() {
         let spinner = spinner_char(app.spinner_start);
         spans.push(Span::styled(
-            format!(" {} {} ", spinner, app.status_text),
+            format!(" {} {} ", spinner, app.llm.status_text),
             Style::default()
                 .fg(theme.accent())
                 .add_modifier(Modifier::BOLD),

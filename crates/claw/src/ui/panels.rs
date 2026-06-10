@@ -9,12 +9,12 @@ use ratatui::{
 use crate::app::{App, spinner_char_alt};
 
 pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
-    if app.plan_steps.is_empty() {
+    if app.chat.plan_steps.is_empty() {
         return;
     }
-    let done_count = app.plan_steps.iter().filter(|s| s.done).count();
+    let done_count = app.chat.plan_steps.iter().filter(|s| s.done).count();
 
-    let total = app.plan_steps.len();
+    let total = app.chat.plan_steps.len();
     let max_show = total.min(5);
 
     let mut lines: Vec<Line> = Vec::with_capacity(max_show + 1);
@@ -26,7 +26,7 @@ pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
             .add_modifier(Modifier::BOLD),
     )));
 
-    for (i, step) in app.plan_steps.iter().take(max_show).enumerate() {
+    for (i, step) in app.chat.plan_steps.iter().take(max_show).enumerate() {
         let (icon, color) = if step.done {
             ("✓", app.config.theme.secondary())
         } else if i == done_count || (done_count == 0 && i == 0) {
@@ -51,13 +51,13 @@ pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
 }
 
 pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &i_rs_claw_core::theme::Theme) {
-    if !app.is_processing() || app.status_text.is_empty() {
+    if !app.is_processing() || app.llm.status_text.is_empty() {
         return;
     }
     let spinner = spinner_char_alt(app.spinner_start, &['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
 
     let label = Line::from(Span::styled(
-        format!(" {}  {}", spinner, app.status_text),
+        format!(" {}  {}", spinner, app.llm.status_text),
         Style::default()
             .fg(theme.primary())
             .add_modifier(Modifier::BOLD),
@@ -672,14 +672,14 @@ pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &i_
         Style::default().fg(accent).add_modifier(Modifier::BOLD),
     )));
     lines.push(Line::from(vec![Span::styled(
-        format!("  消息  {:>6} 条", app.messages.len()),
+        format!("  消息  {:>6} 条", app.chat.messages.len()),
         Style::default().fg(text),
     )]));
     lines.push(Line::from(vec![Span::styled(
-        format!("  工具调用 {:>3} 次", app.tool_call_count),
+        format!("  工具调用 {:>3} 次", app.chat.tool_call_count),
         Style::default().fg(text),
     )]));
-    if let Some(ref usage) = app.token_usage {
+    if let Some(ref usage) = app.llm.token_usage {
         lines.push(Line::from(vec![Span::styled(
             format!(
                 "  最后请求 {:>4} in + {:>4} out",

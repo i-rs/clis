@@ -63,7 +63,7 @@ impl<'a> LlmEventHandler<'a> {
                 self.handle_evaluation(&tool, valid, &issues);
             }
             LlmEvent::PlanProgress(steps) => {
-                self.app.plan_steps = steps;
+                self.app.chat.plan_steps = steps;
                 self.app.mark_overlay_dirty();
             }
             LlmEvent::ImageGenerated {
@@ -73,15 +73,14 @@ impl<'a> LlmEventHandler<'a> {
                 width,
                 height,
             } => {
-                self.app.messages.push(app::Message::Image {
+                self.app.chat.messages.push(app::Message::Image {
                     path,
                     alt_text,
                     width,
                     height,
                     format: "png".to_string(),
                 });
-                self.app
-                    .message_timestamps
+                self.app.chat.message_timestamps
                     .push(chrono::Local::now().naive_local());
                 self.app.mark_dirty();
             }
@@ -96,9 +95,9 @@ impl<'a> LlmEventHandler<'a> {
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
         if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute
-            && (text.contains('\n') || self.app.plan_steps.is_empty())
+            && (text.contains('\n') || self.app.chat.plan_steps.is_empty())
         {
-            let should_detect = self.app.messages.last().is_some_and(|m| {
+            let should_detect = self.app.chat.messages.last().is_some_and(|m| {
                 if let super::AppMessage::Assistant { text: t, .. } = m {
                     !t.is_empty()
                 } else {
@@ -106,7 +105,7 @@ impl<'a> LlmEventHandler<'a> {
                 }
             });
             if should_detect {
-                let plan_text = match self.app.messages.last() {
+                let plan_text = match self.app.chat.messages.last() {
                     Some(super::AppMessage::Assistant { text: t, .. }) => t.clone(),
                     _ => String::new(),
                 };
@@ -116,7 +115,7 @@ impl<'a> LlmEventHandler<'a> {
                         let sid = sid.to_string();
                         self.app_core
                             .session_mgr
-                            .save_plan_steps(&sid, &self.app.plan_steps);
+                            .save_plan_steps(&sid, &self.app.chat.plan_steps);
                     }
                 }
             }
@@ -124,7 +123,7 @@ impl<'a> LlmEventHandler<'a> {
     }
 
     fn handle_reasoning(&mut self, text: &str) {
-        self.app.current_reasoning.push_str(text);
+        self.app.chat.current_reasoning.push_str(text);
     }
 
     fn handle_status(&mut self, text: &str) {
@@ -154,7 +153,7 @@ impl<'a> LlmEventHandler<'a> {
             if let Some(sid) = self.app_core.session_mgr.current_id() {
                 self.app_core
                     .session_mgr
-                    .save_plan_steps(sid, &self.app.plan_steps);
+                    .save_plan_steps(sid, &self.app.chat.plan_steps);
             }
         }
 
@@ -186,13 +185,12 @@ impl<'a> LlmEventHandler<'a> {
     }
 
     fn handle_evaluation(&mut self, tool: &str, valid: bool, issues: &[String]) {
-        self.app.messages.push(app::Message::Evaluation {
+        self.app.chat.messages.push(app::Message::Evaluation {
             tool: tool.to_string(),
             valid,
             issues: issues.to_vec(),
         });
-        self.app
-            .message_timestamps
+        self.app.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.app.mark_dirty();
         if !valid {
@@ -233,84 +231,24 @@ impl<'a> LlmEventHandler<'a> {
             self.app_core.session_mgr.save_plan_steps(sid, &[]);
         }
 
-        let session_id = match self.app_core.session_mgr.current_id() {
-            Some(id) => id.to_string(),
-            None => {
-                tracing::warn!("未找到当前会话，跳过持久化");
-                self.app.finish_processing(Some(msgs.clone()));
-                self.app.token_usage = usage;
-                // Estimate cost from model pricing
-                if let Some(ref mut u) = self.app.token_usage
-                    && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
-                {
-                    let model = self
-                        .app_core
-                        .config
-                        .agent_config(&self.app.current_agent)
-                        .model
-                        .clone();
-                    u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
-                        &model,
-                        u.prompt_tokens,
-                        u.completion_tokens,
-                    ));
-                }
-
-                // Backfill token usage onto all Assistant messages so
-                // every block header shows usage (cumulative for the turn).
-                for msg in self.app.messages.iter_mut() {
-                    if let super::AppMessage::Assistant { token_usage, .. } = msg
-                        && token_usage.is_none()
-                        && let Some(ref u) = self.app.token_usage
-                    {
-                        *token_usage = Some(*u);
-                    }
-                }
-                self.app.rebuild_components();
-                return Action::Continue;
-            }
-        };
+        let session_id = self.app_core.session_mgr.current_id().map(|id| id.to_string());
 
         self.app.finish_processing(Some(msgs.clone()));
-        self.app.token_usage = usage;
-        // Estimate cost from model pricing (before the immutable backfill loop)
-        if let Some(ref mut u) = self.app.token_usage
-            && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
-        {
-            let model = self
-                .app_core
-                .config
-                .agent_config(&self.app.current_agent)
-                .model
-                .clone();
-            u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
-                &model,
-                u.prompt_tokens,
-                u.completion_tokens,
-            ));
-        }
+        self.app.llm.token_usage = usage;
 
-        // Backfill token usage onto all Assistant messages so the
-        // block header can render it alongside the timestamp. In
-        // multi-round ReAct loops each intermediate assistant message
-        // receives the cumulative token usage for the entire turn.
-        for msg in self.app.messages.iter_mut() {
-            if let super::AppMessage::Assistant { token_usage, .. } = msg
-                && token_usage.is_none()
-                && let Some(ref u) = self.app.token_usage
-            {
-                *token_usage = Some(*u);
-            }
-        }
+        self.backfill_token_usage();
 
         self.app.rebuild_components();
 
-        // Persist messages AFTER token_usage has been backfilled so
-        // re-loaded sessions show usage in the block header.
+        let Some(session_id) = session_id else {
+            tracing::warn!("未找到当前会话，跳过持久化");
+            return Action::Continue;
+        };
+
         crate::tui::clipboard::save_session_messages(
             &mut self.app_core.session_mgr,
             &session_id,
-            &self.app.messages,
+            &self.app.chat.messages,
             Some(&msgs),
         );
 
@@ -321,7 +259,7 @@ impl<'a> LlmEventHandler<'a> {
             .map(|s| s.title == "新对话" || s.title.is_empty())
             .unwrap_or(false);
         if needs_rename
-            && let Some(first_user) = self.app.messages.iter().find_map(|m| {
+            && let Some(first_user) = self.app.chat.messages.iter().find_map(|m| {
                 if let super::AppMessage::User { text } = m {
                     Some(text.clone())
                 } else {
@@ -341,11 +279,9 @@ impl<'a> LlmEventHandler<'a> {
             .flush();
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
-            self.app.messages.push(quality.clone());
-            self.app
-                .message_timestamps
+            self.app.chat.messages.push(quality.clone());
+            self.app.chat.message_timestamps
                 .push(chrono::Local::now().naive_local());
-            // Persist immediately so dashboard/iOS see the quality message.
             let _ = self
                 .app_core
                 .session_mgr
@@ -354,5 +290,32 @@ impl<'a> LlmEventHandler<'a> {
         }
 
         Action::Continue
+    }
+
+    fn backfill_token_usage(&mut self) {
+        if let Some(ref mut u) = self.app.llm.token_usage
+            && (u.estimated_cost_usd.is_none() || u.estimated_cost_usd == Some(0.0))
+        {
+            let model = self
+                .app_core
+                .config
+                .agent_config(&self.app.current_agent)
+                .model
+                .clone();
+            u.estimated_cost_usd = Some(self.app_core.stats_manager.estimate_cost(
+                &model,
+                u.prompt_tokens,
+                u.completion_tokens,
+            ));
+        }
+
+        for msg in self.app.chat.messages.iter_mut() {
+            if let super::AppMessage::Assistant { token_usage, .. } = msg
+                && token_usage.is_none()
+                && let Some(ref u) = self.app.llm.token_usage
+            {
+                *token_usage = Some(*u);
+            }
+        }
     }
 }

@@ -77,10 +77,10 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         && !app_core.session_mgr.switch_to(sid)
     {
         // Show error in-app since stderr is invisible in alternate screen
-        app.messages.push(app::Message::Error {
+        app.chat.messages.push(app::Message::Error {
             text: format!("未找到会话: {}", sid),
         });
-        app.message_timestamps
+        app.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
     }
 
@@ -103,10 +103,10 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("无当前会话，无法加载消息"))?
         .to_string();
     let loaded = app_core.session_mgr.load_app_messages(&session_id, 200);
-    app.messages = loaded;
+    app.chat.messages = loaded;
     app_core
         .session_mgr
-        .reset_cursor(&session_id, app.messages.len());
+        .reset_cursor(&session_id, app.chat.messages.len());
     app.sync_message_timestamps();
 
     // Check for due reminders at startup
@@ -116,13 +116,13 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         reminders::notify_reminders(count);
     }
 
-    if app.messages.is_empty() {
+    if app.chat.messages.is_empty() {
         let onboarding = !app_core
             .agent_store
             .memory_for("default", &app.current_agent)?
             .has_user_profile();
         if onboarding {
-            app.messages.push(app::Message::Assistant {
+            app.chat.messages.push(app::Message::Assistant {
                 text: concat!(
                     "你好，我是 i-rs-claw，你的个人数据助理。\n\n",
                     "初次见面！怎么称呼你？有什么我可以帮你的？",
@@ -131,15 +131,15 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 reasoning: String::new(),
                 token_usage: None,
             });
-            app.message_timestamps
+            app.chat.message_timestamps
                 .push(chrono::Local::now().naive_local());
         } else {
-            app.messages.push(app::Message::Assistant {
+            app.chat.messages.push(app::Message::Assistant {
                 text: "你好，有什么可以帮你的？".to_string(),
                 reasoning: String::new(),
                 token_usage: None,
             });
-            app.message_timestamps
+            app.chat.message_timestamps
                 .push(chrono::Local::now().naive_local());
         }
     }
@@ -158,8 +158,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         crate::tui::clipboard::save_session_messages(
             &mut app_core.session_mgr,
             &sid,
-            &app.messages,
-            app.api_messages.as_deref(),
+            &app.chat.messages,
+            app.chat.api_messages.as_deref(),
         );
     }
 
@@ -176,8 +176,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
     )?;
 
     // Print styled re-entry command and session summary
-    let msg_count = app.messages.len();
-    let tool_count = app.tool_call_count;
+    let msg_count = app.chat.messages.len();
+    let tool_count = app.chat.tool_call_count;
     let stats = app_core.stats_manager.today_summary();
     let stats_display = if stats.requests > 0 {
         format!(

@@ -108,27 +108,14 @@ impl<'a> KeyEventHandler<'a> {
                 self.app.mark_overlay_dirty();
                 return true;
             }
-            KeyCode::Esc => match self.app.overlay.current {
-                Some(Overlay::ToolList)
-                | Some(Overlay::AgentList)
-                | Some(Overlay::StatsHistory)
-                | Some(Overlay::PluginList)
-                | Some(Overlay::InfoPanel)
-                | Some(Overlay::Config)
-                | Some(Overlay::ThemePicker) => {
-                    self.app.overlay.close();
-                }
-                Some(Overlay::Help) | Some(Overlay::Feedback) => {
-                    self.app.overlay.close();
-                }
-                _ => {}
-            },
+            KeyCode::Esc if self.app.overlay.current.is_some() => {
+                self.app.overlay.close();
+            }
             KeyCode::Enter if self.app.overlay.current == Some(Overlay::Help) => {
                 self.app.overlay.close();
             }
             _ => {}
         }
-        self.app.mark_overlay_dirty();
         false
     }
 
@@ -138,11 +125,6 @@ impl<'a> KeyEventHandler<'a> {
         }
 
         match key.code {
-            KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.app.overlay.selection_mode = false;
-                self.app.overlay.selected_message = None;
-                self.app.mark_overlay_dirty();
-            }
             KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.handle_delete_selected_message();
                 self.app.mark_dirty();
@@ -158,7 +140,7 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Down => {
                 if let Some(idx) = self.app.overlay.selected_message
-                    && idx + 1 < self.app.messages.len()
+                    && idx + 1 < self.app.chat.messages.len()
                 {
                     self.app.overlay.selected_message = Some(idx + 1);
                     self.app.scroll_to_selected();
@@ -172,9 +154,7 @@ impl<'a> KeyEventHandler<'a> {
                     // (i.e. a tool call card or an assistant with
                     // reasoning). This is the keyboard counterpart of
                     // the hit-test used by `mouse::handle_click`.
-                    let can_toggle = self
-                        .app
-                        .components
+                    let can_toggle = self.app.chat.components
                         .get(idx)
                         .map(|c| c.borrow().clickable())
                         .unwrap_or(false);
@@ -239,7 +219,7 @@ impl<'a> KeyEventHandler<'a> {
         let has_ctrl = m.contains(KeyModifiers::CONTROL);
         let has_shift = m.contains(KeyModifiers::SHIFT);
         match (key.code, has_ctrl, has_shift) {
-            (KeyCode::Char('s'), true, false) if !self.app.messages.is_empty() => {
+            (KeyCode::Char('s'), true, false) if !self.app.chat.messages.is_empty() => {
                 if self.app.overlay.current == Some(Overlay::AgentList) {
                     let agent_ids: Vec<&String> = self.app.config.agents.keys().collect();
                     if !agent_ids.is_empty() {
@@ -255,7 +235,7 @@ impl<'a> KeyEventHandler<'a> {
                 } else {
                     self.app.overlay.selection_mode = !self.app.overlay.selection_mode;
                     self.app.overlay.selected_message = if self.app.overlay.selection_mode {
-                        Some(self.app.messages.len().saturating_sub(1))
+                        Some(self.app.chat.messages.len().saturating_sub(1))
                     } else {
                         None
                     };
@@ -393,13 +373,13 @@ impl<'a> KeyEventHandler<'a> {
             }
             KeyCode::Home if can_scroll && self.app.input.text.is_empty() => {
                 // Home = top of content (oldest message)
-                self.app.scroll_lines = 0;
-                self.app.stick_to_bottom = false;
+                self.app.scroll.scroll_lines = 0;
+                self.app.scroll.stick_to_bottom = false;
                 self.app.mark_overlay_dirty();
             }
             KeyCode::End if can_scroll && self.app.input.text.is_empty() => {
                 // End = bottom of content (newest message); render snaps via stick_to_bottom.
-                self.app.stick_to_bottom = true;
+                self.app.scroll.stick_to_bottom = true;
                 self.app.mark_overlay_dirty();
             }
             KeyCode::Enter => return self.handle_enter_key(key),
@@ -429,15 +409,13 @@ impl<'a> KeyEventHandler<'a> {
                 lm.record_user_statement(&text);
             }
             let msgs = self.app_core.build_messages_for(
-                &self.app.messages,
+                &self.app.chat.messages,
                 &text,
-                &self.app.api_messages,
+                &self.app.chat.api_messages,
                 self.app.reminder_text.as_deref(),
                 &self.app.current_agent,
             );
-            let recent: Vec<Value> = self
-                .app
-                .api_messages
+            let recent: Vec<Value> = self.app.chat.api_messages
                 .as_deref()
                 .map(|m| m.to_vec())
                 .unwrap_or_default();
@@ -518,7 +496,7 @@ impl<'a> KeyEventHandler<'a> {
     fn handle_copy(&mut self) -> Action {
         let content = if self.app.overlay.selection_mode {
             self.app.overlay.selected_message.and_then(|idx| {
-                self.app.messages.get(idx).map(|m| match m {
+                self.app.chat.messages.get(idx).map(|m| match m {
                     AppMessage::User { text } => text.clone(),
                     AppMessage::Assistant { text, .. } => text.clone(),
                     AppMessage::ToolCall {
@@ -532,7 +510,7 @@ impl<'a> KeyEventHandler<'a> {
                 })
             })
         } else {
-            self.app.messages.iter().rev().find_map(|m| match m {
+            self.app.chat.messages.iter().rev().find_map(|m| match m {
                 AppMessage::Assistant { text, .. } if !text.is_empty() => Some(text.clone()),
                 _ => None,
             })
@@ -555,18 +533,18 @@ impl<'a> KeyEventHandler<'a> {
 
     fn handle_delete_selected_message(&mut self) {
         if let Some(idx) = self.app.overlay.selected_message {
-            let idx = idx.min(self.app.messages.len().saturating_sub(1));
-            self.app.messages.remove(idx);
-            self.app.message_timestamps.remove(idx);
+            let idx = idx.min(self.app.chat.messages.len().saturating_sub(1));
+            self.app.chat.messages.remove(idx);
+            self.app.chat.message_timestamps.remove(idx);
             // Drop the matching component too — state lives there
             // now, so we just hand the slot to the caller.
-            self.app.components.remove(idx);
+            self.app.chat.components.remove(idx);
 
-            if idx >= self.app.messages.len() {
-                self.app.overlay.selected_message = if self.app.messages.is_empty() {
+            if idx >= self.app.chat.messages.len() {
+                self.app.overlay.selected_message = if self.app.chat.messages.is_empty() {
                     None
                 } else {
-                    Some(self.app.messages.len() - 1)
+                    Some(self.app.chat.messages.len() - 1)
                 };
             }
             self.app.mark_dirty();
@@ -575,12 +553,11 @@ impl<'a> KeyEventHandler<'a> {
 
     fn handle_submit_feedback(&mut self, positive: bool) {
         self.app.overlay.close();
-        self.app.messages.push(app::Message::Feedback {
+        self.app.chat.messages.push(app::Message::Feedback {
             positive,
             message: None,
         });
-        self.app
-            .message_timestamps
+        self.app.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.app.mark_dirty();
         if let Some(sid) = self.app_core.session_mgr.current_id() {
@@ -603,8 +580,8 @@ impl<'a> KeyEventHandler<'a> {
             crate::tui::clipboard::save_session_messages(
                 &mut self.app_core.session_mgr,
                 &old_id,
-                &self.app.messages,
-                self.app.api_messages.as_deref(),
+                &self.app.chat.messages,
+                self.app.chat.api_messages.as_deref(),
             );
         }
         self.app_core.session_mgr.create_session();
@@ -649,24 +626,24 @@ impl<'a> KeyEventHandler<'a> {
         );
         if !completions.is_empty() {
             if self.app.overlay.tab_completions.is_empty() {
+                let before = &self.app.input.text[..self.app.input.cursor];
+                let word_start = before
+                    .rfind(|c: char| c.is_whitespace())
+                    .map(|i| i + 1)
+                    .unwrap_or(0);
+                self.app.overlay.tab_completion_prefix = before[..word_start].to_string();
+                self.app.overlay.tab_completion_cursor = self.app.input.cursor;
                 self.app.overlay.tab_completions = completions;
                 self.app.overlay.tab_completion_index = 0;
             } else {
                 self.app.overlay.tab_completion_index = (self.app.overlay.tab_completion_index + 1)
                     % self.app.overlay.tab_completions.len();
             }
-            let selected = &self.app.overlay.tab_completions[self.app.overlay.tab_completion_index];
-            let before = &self.app.input.text[..self.app.input.cursor];
-            let after = &self.app.input.text[self.app.input.cursor..];
-            let word_start = before
-                .rfind(|c: char| c.is_whitespace())
-                .map(|i| i + 1)
-                .unwrap_or(0);
-            self.app.input.text = format!("{}{} {}", &before[..word_start], selected, after);
-            self.app.input.cursor = word_start + selected.len() + 1;
+            self.apply_tab_completion();
         } else {
             self.app.overlay.tab_completions.clear();
             self.app.overlay.tab_completion_index = 0;
+            self.app.overlay.tab_completion_prefix.clear();
         }
         self.app.mark_overlay_dirty();
     }
@@ -678,15 +655,18 @@ impl<'a> KeyEventHandler<'a> {
         } else {
             self.app.overlay.tab_completion_index - 1
         };
-        let selected = &self.app.overlay.tab_completions[self.app.overlay.tab_completion_index];
-        let before = &self.app.input.text[..self.app.input.cursor];
-        let after = &self.app.input.text[self.app.input.cursor..];
-        let word_start = before
-            .rfind(|c: char| c.is_whitespace())
-            .map(|i| i + 1)
-            .unwrap_or(0);
-        self.app.input.text = format!("{}{} {}", &before[..word_start], selected, after);
-        self.app.input.cursor = word_start + selected.len() + 1;
+        self.apply_tab_completion();
         self.app.mark_overlay_dirty();
+    }
+
+    fn apply_tab_completion(&mut self) {
+        let selected = &self.app.overlay.tab_completions[self.app.overlay.tab_completion_index];
+        let after_cursor = &self.app.input.text[self.app.overlay.tab_completion_cursor..];
+        self.app.input.text = format!(
+            "{}{} {}",
+            self.app.overlay.tab_completion_prefix, selected, after_cursor
+        );
+        self.app.input.cursor =
+            self.app.overlay.tab_completion_prefix.len() + selected.len() + 1;
     }
 }

@@ -30,12 +30,8 @@ pub(crate) struct Scroller {
     pub scroll: u16,
     pub viewport_h: u16,
     layout_w: u16,
-    /// Content-relative click regions for every component that opts
-    /// in via `MessageComponent::clickable() == true`. `y_start` /
-    /// `y_end` are rows in the same space as `offsets` (0 = top of
-    /// the chat content). `register_clicks` translates these into
-    /// screen-absolute `Rect`s when populating the click registry.
     hits: Vec<HitRegion>,
+    heights: Vec<u16>,
 }
 
 #[cfg(test)]
@@ -310,11 +306,11 @@ impl Scroller {
         let mut offsets = Vec::with_capacity(components.len());
         let mut hits = Vec::new();
         let mut total = 0u16;
+        let mut heights: Vec<u16> = Vec::with_capacity(components.len());
         let mut last_was_real = false;
         for (i, c) in components.iter().enumerate() {
             let h = c.borrow().height(width);
-            // Don't insert spacing for the very first row, and don't
-            // insert spacing after a zero-height component.
+            heights.push(h);
             if i > 0 && h > 0 && last_was_real {
                 total = total.saturating_add(spacing);
             }
@@ -349,11 +345,16 @@ impl Scroller {
             viewport_h,
             layout_w: width,
             hits,
+            heights,
         }
     }
 
     pub fn max_scroll(&self) -> u16 {
         self.total_height.saturating_sub(self.viewport_h)
+    }
+
+    pub fn heights(&self) -> &[u16] {
+        &self.heights
     }
 
     pub fn set_scroll(&mut self, s: u16) {

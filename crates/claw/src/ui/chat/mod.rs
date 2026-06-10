@@ -15,21 +15,21 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // any path that mutated `messages` without mirroring to
     // `components`), rebuild it. `push_component_for` keeps them in
     // lock-step for the streaming hot path so this is normally a no-op.
-    if app.components.len() != app.messages.len() {
+    if app.chat.components.len() != app.chat.messages.len() {
         app.rebuild_components();
     }
 
-    let mut scr = scroller::Scroller::new(&app.components, width, viewport_h);
+    let mut scr = scroller::Scroller::new(&app.chat.components, width, viewport_h);
     // App's `scroll_lines` uses the Scroller's own convention
     // (0 = top / oldest, max_scroll = bottom / newest). When
     // `stick_to_bottom` is engaged, override to the current max so the
     // viewport tracks the live tail without App having to know the
     // exact content height (which changes every time tokens stream in).
     let max = scr.max_scroll();
-    let scroll = if app.stick_to_bottom {
+    let scroll = if app.scroll.stick_to_bottom {
         max
     } else {
-        (app.scroll_lines as u16).min(max)
+        (app.scroll.scroll_lines as u16).min(max)
     };
     scr.set_scroll(scroll);
 
@@ -48,7 +48,7 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         ..area
     };
     let buf = f.buffer_mut();
-    scr.render(&app.components, inner_area, buf, theme, selected);
+    scr.render(&app.chat.components, inner_area, buf, theme, selected);
 
     // Top border. In the new convention `scr.scroll == max_scroll`
     // means the viewport is at the bottom (newest), so the dim border
@@ -71,12 +71,12 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // The registry now owns the click dispatch — the input handlers
     // just need the absolute row/col of the click event.
     scr.register_clicks(inner_area, &mut app.hit_regions);
-    app.max_scroll = scr.max_scroll() as usize;
+    app.scroll.max_scroll = scr.max_scroll() as usize;
     // Only persist `scroll_lines` when not sticky — sticky mode means
     // "the renderer decides", so saving `scr.scroll` back would freeze
     // the viewport once content stopped growing.
-    if !app.stick_to_bottom {
-        app.scroll_lines = scr.scroll as usize;
+    if !app.scroll.stick_to_bottom {
+        app.scroll.scroll_lines = scr.scroll as usize;
     }
 
     // Write layout-critical metrics back so event handlers (selection
@@ -86,12 +86,5 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // stale `area_lines = 1` / `text_width = 20` placeholders.
     app.render_state.cached_width = width as usize;
     app.render_state.chat_height = viewport_h;
-    // heights is stored chronologically: heights[0] = oldest message,
-    // heights[len-1] = newest message — matches the order of `messages`
-    // and `components`.
-    let mut heights = Vec::with_capacity(app.components.len());
-    for c in &app.components {
-        heights.push(c.borrow().height(width) as usize);
-    }
-    app.render_state.heights = heights;
+    app.render_state.heights = scr.heights().iter().map(|&h| h as usize).collect();
 }
