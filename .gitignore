@@ -24,10 +24,19 @@ extensions/i-rs-native-msg/target/
 # Example plugin build artifacts
 crates/claw/examples/plugins/*/target/
 
-# Browser agent screenshots
-*.png
-*.jpeg
-*.jpg
+# Browser agent screenshots (only in docs and extensions)
+docs/**/*.png
+docs/**/*.jpeg
+docs/**/*.jpg
+extensions/**/*.png
+extensions/**/*.jpeg
+extensions/**/*.jpg
+crates/**/*.png
+crates/**/*.jpeg
+crates/**/*.jpg
+skills/**/*.png
+skills/**/*.jpeg
+skills/**/*.jpg
 
 # Xcode / macOS project build artifacts
 .DS_Store

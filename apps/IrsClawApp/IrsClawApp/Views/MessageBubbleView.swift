@@ -403,7 +403,11 @@ struct MessageBubbleView: View {
                             EmptyView()
                         }
                     }
-                    .background(Color(.systemGray6))
+                    #if os(macOS)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    #else
+                    .background(Color(uiColor: .systemGray6))
+                    #endif
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
