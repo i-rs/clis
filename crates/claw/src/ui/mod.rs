@@ -24,6 +24,7 @@ pub(crate) mod chat_api {
     //! privacy boundary is clear and documented.
     pub(crate) use crate::ui::chat::components::{ComponentOp, build_component_for};
     pub(crate) use crate::ui::chat::scroller::ComponentCell;
+    pub(crate) use crate::ui::chat::scroller::Scroller;
     pub(crate) use ratatui_interact::traits::ClickRegionRegistry;
 }
 
@@ -40,6 +41,11 @@ pub fn render(f: &mut Frame, app: &mut App) {
 
     let processing_height: u16 = 1;
     let slash_height = completions::slash_picker_height(app);
+    let input_h = input::input_height(
+        &app.input.text,
+        area.width,
+        &mut app.render_state.cached_input_height,
+    );
 
     let mut constraints = Vec::with_capacity(7);
     constraints.push(Constraint::Length(1));
@@ -55,10 +61,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
         constraints.push(Constraint::Length(slash_height));
     }
 
-    constraints.push(Constraint::Length(input::input_height(
-        &app.input.text,
-        area.width,
-    )));
+    constraints.push(Constraint::Length(input_h));
     constraints.push(Constraint::Length(1));
 
     let layout = Layout::default()
@@ -94,49 +97,51 @@ pub fn render(f: &mut Frame, app: &mut App) {
     idx += 1;
     status::render_status(f, layout[idx], app);
 
+    let theme = &app.config.theme;
+
     match app.overlay.current {
         Some(Overlay::SessionList) => {
-            panels::render_backdrop(f, area);
+            panels::render_backdrop(f, area, theme);
             sidebar::render_session_list(f, area, app);
         }
         Some(Overlay::AgentPicker) => {
-            panels::render_backdrop(f, area);
+            panels::render_backdrop(f, area, theme);
             sidebar::render_agent_picker(f, area, app);
         }
         Some(Overlay::Help) => {
-            panels::render_backdrop(f, area);
-            panels::render_help_panel(f, area, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_help_panel(f, area, theme);
         }
         Some(Overlay::Config) => {
-            panels::render_backdrop(f, area);
-            panels::render_config_panel(f, area, app, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_config_panel(f, area, app, theme);
         }
         Some(Overlay::ToolList) => {
-            panels::render_backdrop(f, area);
-            panels::render_tool_list_panel(f, area, app, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_tool_list_panel(f, area, app, theme);
         }
         Some(Overlay::AgentList) => {
-            panels::render_backdrop(f, area);
-            panels::render_agent_list_panel(f, area, app, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_agent_list_panel(f, area, app, theme);
         }
         Some(Overlay::StatsHistory) => {
-            panels::render_backdrop(f, area);
-            panels::render_stats_history_panel(f, area, app, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_stats_history_panel(f, area, app, theme);
         }
         Some(Overlay::PluginList) => {
-            panels::render_backdrop(f, area);
-            panels::render_plugin_list_panel(f, area, app, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_plugin_list_panel(f, area, app, theme);
         }
         Some(Overlay::InfoPanel) => {
-            panels::render_backdrop(f, area);
-            panels::render_info_panel(f, area, app, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_info_panel(f, area, app, theme);
         }
         Some(Overlay::Feedback) => {
-            panels::render_backdrop(f, area);
-            panels::render_feedback_prompt(f, area, &app.config.theme);
+            panels::render_backdrop(f, area, theme);
+            panels::render_feedback_prompt(f, area, theme);
         }
         Some(Overlay::ThemePicker) => {
-            panels::render_backdrop(f, area);
+            panels::render_backdrop(f, area, theme);
             panels::render_theme_picker(f, area, app);
         }
         Some(Overlay::Sidebar) => {}
@@ -158,6 +163,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
             app.http_logs.len(),
             app.overlay.sidebar_body_scroll,
             &mut app.overlay.sidebar_formatted_json,
+            &app.config.theme,
         );
     }
 }

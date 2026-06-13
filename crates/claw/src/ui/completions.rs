@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
@@ -9,7 +9,7 @@ use ratatui::{
 use super::input;
 use crate::app::{App, SLASH_COMMANDS};
 
-pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
+pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &mut App) {
     if app.overlay.tab_completions.is_empty() {
         return;
     }
@@ -20,7 +20,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     let popup_x = area.x + 2;
 
     let status_height: u16 = 1;
-    let input_h = input::input_height(&app.input.text, area.width);
+    let input_h = input::input_height(&app.input.text, area.width, &mut app.render_state.cached_input_height);
     let popup_y = area
         .bottom()
         .saturating_sub(status_height + input_h + 1 + popup_height + 1);
@@ -30,7 +30,10 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
 
     let idx = app.overlay.tab_completion_index;
-    let theme_primary = app.config.theme.primary();
+    let theme = &app.config.theme;
+    let theme_primary = theme.primary();
+    let dim = theme.dim_text();
+    let text_color = theme.text();
 
     let mut items: Vec<ListItem> = Vec::new();
 
@@ -42,7 +45,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ────────────────────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(dim),
     ))]));
 
     for (i, completion) in app.overlay.tab_completions.iter().enumerate() {
@@ -50,7 +53,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
             let remaining = count - 12;
             items.push(ListItem::new(vec![Line::from(Span::styled(
                 format!("   ... 还有 {} 个", remaining),
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(dim),
             ))]));
             break;
         }
@@ -61,7 +64,7 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
                 .fg(theme_primary)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::White)
+            Style::default().fg(text_color)
         };
         items.push(ListItem::new(vec![Line::from(vec![
             Span::styled(prefix, style),
@@ -71,11 +74,11 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
 
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ────────────────────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(dim),
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " Tab 选择  Shift+Tab 反向  Esc 关闭",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(dim),
     ))]));
 
     let list = List::new(items).block(
@@ -85,6 +88,14 @@ pub(super) fn render_completions(f: &mut Frame, area: Rect, app: &App) {
     );
 
     f.render_widget(list, popup_area);
+}
+
+fn slash_matches_query(cmd: &crate::app::SlashCommand, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+    let q = query.to_ascii_lowercase();
+    cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
 }
 
 pub(super) fn slash_picker_height(app: &App) -> u16 {
@@ -98,13 +109,7 @@ pub(super) fn slash_picker_height(app: &App) -> u16 {
     };
     let count = SLASH_COMMANDS
         .iter()
-        .filter(|cmd| {
-            if query.is_empty() {
-                return true;
-            }
-            let q = query.to_lowercase();
-            cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
-        })
+        .filter(|cmd| slash_matches_query(cmd, query))
         .count();
     if count == 0 {
         0
@@ -125,13 +130,7 @@ pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
     };
     let matches: Vec<&crate::app::SlashCommand> = SLASH_COMMANDS
         .iter()
-        .filter(|cmd| {
-            if query.is_empty() {
-                return true;
-            }
-            let q = query.to_lowercase();
-            cmd.name.starts_with(&q) || (query.len() > 1 && cmd.desc.contains(&query[1..]))
-        })
+        .filter(|cmd| slash_matches_query(cmd, query))
         .collect();
 
     if matches.is_empty() {
@@ -145,6 +144,7 @@ pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
 
     let primary = app.config.theme.primary();
     let dim = app.config.theme.dim_text();
+    let text_color = app.config.theme.text();
     let bg = app.config.theme.background();
     let border_color = app.config.theme.border();
 
@@ -166,10 +166,10 @@ pub(super) fn render_slash_panel(f: &mut Frame, area: Rect, app: &App) {
         let name_style = if selected {
             Style::default().fg(primary).add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::White)
+            Style::default().fg(text_color)
         };
-        let desc_fg = if selected { Color::White } else { dim };
-        let shortcut_fg = if selected { dim } else { Color::DarkGray };
+        let desc_fg = if selected { text_color } else { dim };
+        let shortcut_fg = dim;
 
         let name = format!("/{}", &cmd.name[1..]);
         let shortcut = if cmd.shortcut.is_empty() {

@@ -24,6 +24,7 @@ struct HitRegion {
     op: ComponentOp,
 }
 
+#[derive(Clone)]
 pub(crate) struct Scroller {
     offsets: Vec<u16>,
     total_height: u16,
@@ -32,6 +33,15 @@ pub(crate) struct Scroller {
     layout_w: u16,
     hits: Vec<HitRegion>,
     heights: Vec<u16>,
+    cache_key: ScrollerCacheKey,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct ScrollerCacheKey {
+    component_count: usize,
+    viewport_h: u16,
+    layout_w: u16,
+    version: u64,
 }
 
 #[cfg(test)]
@@ -296,7 +306,35 @@ mod tests {
 }
 
 impl Scroller {
+    #[allow(dead_code)]
     pub fn new(components: &[ComponentCell], width: u16, viewport_h: u16) -> Self {
+        Self::build(components, width, viewport_h, 0)
+    }
+
+    pub fn new_if_stale(
+        cached: Option<&Self>,
+        components: &[ComponentCell],
+        width: u16,
+        viewport_h: u16,
+        version: u64,
+    ) -> Self {
+        if let Some(prev) = cached {
+            let key = ScrollerCacheKey {
+                component_count: components.len(),
+                viewport_h,
+                layout_w: width,
+                version,
+            };
+            if prev.cache_key == key {
+                let mut cloned = prev.clone();
+                cloned.viewport_h = viewport_h;
+                return cloned;
+            }
+        }
+        Self::build(components, width, viewport_h, version)
+    }
+
+    fn build(components: &[ComponentCell], width: u16, viewport_h: u16, version: u64) -> Self {
         // Each block has its own rounded border, so the only spacing we
         // need between blocks is one empty row of breathing room.
         // Zero-height components (e.g. filtered empty messages) should
@@ -309,14 +347,15 @@ impl Scroller {
         let mut heights: Vec<u16> = Vec::with_capacity(components.len());
         let mut last_was_real = false;
         for (i, c) in components.iter().enumerate() {
-            let h = c.borrow().height(width);
+            let comp = c.borrow();
+            let h = comp.height(width);
             heights.push(h);
             if i > 0 && h > 0 && last_was_real {
                 total = total.saturating_add(spacing);
             }
             offsets.push(total);
-            if c.borrow().clickable() && h > 0 {
-                let extras = c.borrow().extra_click_targets(width);
+            if comp.clickable() && h > 0 {
+                let extras = comp.extra_click_targets(width);
                 if extras.is_empty() {
                     hits.push(HitRegion {
                         component_idx: i,
@@ -335,6 +374,7 @@ impl Scroller {
                     }
                 }
             }
+            drop(comp);
             total = total.saturating_add(h);
             last_was_real = h > 0;
         }
@@ -346,6 +386,12 @@ impl Scroller {
             layout_w: width,
             hits,
             heights,
+            cache_key: ScrollerCacheKey {
+                component_count: components.len(),
+                viewport_h,
+                layout_w: width,
+                version,
+            },
         }
     }
 

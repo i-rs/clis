@@ -1,16 +1,12 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Block,
 };
 
 use crate::app::{App, spinner_char};
-
-fn get_padding(width: usize) -> String {
-    " ".repeat(width)
-}
 
 pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(
@@ -45,7 +41,7 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
         spans.push(Span::styled(
             format!(" {} ", app.current_agent),
             Style::default()
-                .fg(Color::Rgb(180, 180, 200))
+                .fg(theme.text())
                 .add_modifier(Modifier::BOLD),
         ));
     }
@@ -67,13 +63,13 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
         .saturating_sub(2);
 
     if padding > 0 {
-        spans.push(Span::styled(get_padding(padding), Style::default()));
+        spans.push(Span::raw(" ".repeat(padding)));
     }
 
     spans.push(Span::styled(
         model_text,
         Style::default()
-            .fg(Color::Rgb(80, 80, 100))
+            .fg(dim)
             .add_modifier(Modifier::BOLD),
     ));
 

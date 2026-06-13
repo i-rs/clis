@@ -95,7 +95,7 @@ impl<'a> LlmEventHandler<'a> {
     fn handle_token(&mut self, text: &str) {
         self.app.append_assistant_text(text);
         if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute
-            && (text.contains('\n') || self.app.chat.plan_steps.is_empty())
+            && text.contains('\n')
         {
             let should_detect = self.app.chat.messages.last().is_some_and(|m| {
                 if let super::AppMessage::Assistant { text: t, .. } = m {
@@ -309,12 +309,15 @@ impl<'a> LlmEventHandler<'a> {
             ));
         }
 
-        for msg in self.app.chat.messages.iter_mut() {
-            if let super::AppMessage::Assistant { token_usage, .. } = msg
-                && token_usage.is_none()
-                && let Some(ref u) = self.app.llm.token_usage
-            {
-                *token_usage = Some(*u);
+        if let Some(ref usage) = self.app.llm.token_usage {
+            for msg in self.app.chat.messages.iter_mut().rev().take(5) {
+                if let super::AppMessage::Assistant { token_usage, .. } = msg {
+                    if token_usage.is_none() {
+                        *token_usage = Some(*usage);
+                    } else {
+                        break;
+                    }
+                }
             }
         }
     }

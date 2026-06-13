@@ -1,4 +1,4 @@
-use super::style::{BLOCK_LEFT_RESERVED, blend, block_border, body_line, render_block_chrome};
+use super::style::{BLOCK_LEFT_RESERVED, blend, block_border, body_line, render_block_chrome, LEFT_PAD};
 use super::{ComponentOp, MessageComponent};
 use i_rs_claw_core::theme::Theme;
 use crate::ui::utils;
@@ -75,8 +75,8 @@ impl ToolStatus {
     fn color(self, theme: &Theme) -> Color {
         match self {
             ToolStatus::Running => theme.accent(),
-            ToolStatus::Success => Color::Rgb(120, 200, 120),
-            ToolStatus::Failure => Color::Rgb(220, 110, 110),
+            ToolStatus::Success => theme.secondary(),
+            ToolStatus::Failure => theme.error(),
         }
     }
 }
@@ -317,7 +317,7 @@ impl ToolCallCard {
         {
             return None;
         }
-        let lines = utils::format_json_lines(val, usable);
+        let lines = utils::format_json_lines(val, usable, Color::Rgb(160, 180, 160));
         if lines.is_empty() { None } else { Some(lines) }
     }
 
@@ -452,7 +452,7 @@ impl MessageComponent for ToolCallCard {
         // Build the custom header (status + tool glyph + name + preview + chevron + ts).
         let usable = area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
         let mut header_spans: Vec<Span<'static>> = Vec::with_capacity(8);
-        header_spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
+        header_spans.push(Span::raw(LEFT_PAD));
         header_spans.push(Span::styled(
             status.glyph().to_string(),
             Style::default()
@@ -514,19 +514,12 @@ impl MessageComponent for ToolCallCard {
         if self.expanded {
             // Divider
             if body.contains(y) {
-                Paragraph::new(Line::from(Span::styled(
-                    "─".repeat(area.width.saturating_sub(2) as usize),
-                    Style::default().fg(border),
-                )))
-                .style(Style::default().bg(interior_bg))
-                .render(
-                    Rect {
-                        y,
-                        height: 1,
-                        ..area
-                    },
-                    buf,
-                );
+                let divider_style = Style::default().fg(border).bg(interior_bg);
+                for x in area.left()..area.right() {
+                    if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, y)) {
+                        cell.set_char('─').set_style(divider_style);
+                    }
+                }
                 y += 1;
             }
 

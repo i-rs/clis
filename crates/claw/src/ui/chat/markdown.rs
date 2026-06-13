@@ -1,6 +1,6 @@
 use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
 };
 use unicode_width::UnicodeWidthStr;
@@ -67,10 +67,10 @@ pub(super) fn render_markdown(text: &str, max_width: usize, theme: &Theme) -> Ve
     let list_bullet = theme.accent();
     let code_bg = theme.code_bg();
     let inline_code_fg = theme.accent();
-    let inline_code_bg = Color::Rgb(30, 30, 30);
-    let code_text_color = Color::Rgb(220, 180, 120);
     let code_border = theme.dim_text();
-    let hr_color = Color::DarkGray;
+    let inline_code_bg = theme.code_bg();
+    let code_text_color = theme.dim_text();
+    let hr_color = theme.border();
 
     for event in Parser::new(text) {
         match event {

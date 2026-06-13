@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, Paragraph},
 };
@@ -313,7 +313,7 @@ pub(super) fn render_agent_list_panel(
     if app.config.agents.is_empty() {
         lines.push(Line::from(vec![Span::styled(
             "  (无自定义 Agent，使用默认配置)",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.dim_text()),
         )]));
     } else {
         let agent_ids: Vec<&String> = app.config.agents.keys().collect();
@@ -349,7 +349,7 @@ pub(super) fn render_agent_list_panel(
                     format!(" {}@{}", provider, model),
                     Style::default().fg(theme.text()),
                 ),
-                Span::styled(caps, Style::default().fg(Color::DarkGray)),
+                Span::styled(caps, Style::default().fg(theme.dim_text())),
             ]));
         }
     }
@@ -357,7 +357,7 @@ pub(super) fn render_agent_list_panel(
     lines.push(Line::from(vec![Span::raw("")]));
     lines.push(Line::from(vec![Span::styled(
         "  Ctrl+S 切换  |  Ctrl+D 删除",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme.dim_text()),
     )]));
 
     let list = List::new(lines).block(
@@ -420,7 +420,7 @@ pub(super) fn render_stats_history_panel(
     if app.stats_history.is_empty() {
         lines.push(Line::from(vec![Span::styled(
             "  (暂无历史数据)",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.dim_text()),
         )]));
     } else {
         let max_tokens = app
@@ -447,7 +447,7 @@ pub(super) fn render_stats_history_panel(
                 Span::styled(bar, Style::default().fg(theme.primary())),
                 Span::styled(
                     format!(" {:>3}K", token_k),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(theme.dim_text()),
                 ),
             ]));
         }
@@ -488,7 +488,7 @@ pub(super) fn render_plugin_list_panel(
     if app.skill_list.is_empty() {
         lines.push(Line::from(vec![Span::styled(
             "    (无已安装技能)",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.dim_text()),
         )]));
     } else {
         for skill in &app.skill_list {
@@ -501,7 +501,7 @@ pub(super) fn render_plugin_list_panel(
                 ),
                 Span::styled(
                     skill.content.chars().take(30).collect::<String>(),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(theme.dim_text()),
                 ),
             ]));
         }
@@ -518,14 +518,14 @@ pub(super) fn render_plugin_list_panel(
     if app.plugin_list.is_empty() {
         lines.push(Line::from(vec![Span::styled(
             "    (无已安装插件)",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.dim_text()),
         )]));
     } else {
         for plugin in &app.plugin_list {
             let status_color = if plugin.enabled {
                 theme.secondary()
             } else {
-                Color::DarkGray
+                theme.dim_text()
             };
             let status = if plugin.enabled { "✓" } else { "✗" };
             lines.push(Line::from(vec![
@@ -543,7 +543,7 @@ pub(super) fn render_plugin_list_panel(
     lines.push(Line::from(vec![Span::raw("")]));
     lines.push(Line::from(vec![Span::styled(
         "  Ctrl+E 切换插件  |  Ctrl+R 删除技能",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme.dim_text()),
     )]));
 
     let list = List::new(lines).block(
@@ -557,10 +557,10 @@ pub(super) fn render_plugin_list_panel(
     f.render_widget(list, popup_area);
 }
 
-pub(super) fn render_backdrop(f: &mut Frame, area: Rect) {
+pub(super) fn render_backdrop(f: &mut Frame, area: Rect, theme: &i_rs_claw_core::theme::Theme) {
     f.render_widget(Clear, area);
     f.render_widget(
-        Block::default().style(Style::default().bg(Color::Rgb(8, 8, 15))),
+        Block::default().style(Style::default().bg(theme.background())),
         area,
     );
 }
@@ -589,13 +589,15 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &i_rs_cla
             Span::styled(
                 "  [y] ",
                 Style::default()
-                    .fg(Color::Green)
+                    .fg(theme.secondary())
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled("👍 满意   ", Style::default().fg(theme.text())),
             Span::styled(
                 "  [n] ",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.error())
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("👎 不满意", Style::default().fg(theme.text())),
         ]),
@@ -783,10 +785,10 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
         let a_color = preset_theme.accent();
         let bg_color = preset_theme.background();
 
-        let sel_bg = if selected { theme.selection_bg() } else { bg };
+    let sel_bg = if selected { theme.selection_bg() } else { bg };
 
-        let name_fg = if selected { Color::White } else { dim };
-        let label_fg = if selected { p_color } else { dim };
+    let name_fg = if selected { theme.text() } else { dim };
+    let label_fg = if selected { p_color } else { dim };
 
         let prefix = if selected { " > " } else { "   " };
 

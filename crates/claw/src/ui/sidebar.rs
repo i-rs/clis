@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
@@ -10,7 +10,6 @@ use super::utils;
 use crate::app::App;
 
 pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
-    // Sidebar block with border - refined styling
     let theme = &app.config.theme;
     let block = Block::default()
         .borders(Borders::LEFT | Borders::TOP)
@@ -25,7 +24,7 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
     if app.http_logs.is_empty() {
         let empty = Paragraph::new(Line::from(Span::styled(
             " (no requests)",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.dim_text()),
         )));
         f.render_widget(empty, inner);
         return;
@@ -43,17 +42,17 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
         let is_selected = i == app.overlay.sidebar_selected;
         let select_prefix = if is_selected { " ▶" } else { "  " };
         let select_fg = if is_selected {
-            Color::Cyan
+            theme.primary()
         } else {
-            Color::White
+            theme.text()
         };
 
         let (status_icon, status_color) = if log.error.is_some() {
-            ("✗", Color::Red)
+            ("✗", theme.error())
         } else if log.status == 200 || log.status == 201 {
-            ("✓", Color::Green)
+            ("✓", theme.secondary())
         } else {
-            ("!", Color::Yellow)
+            ("!", theme.accent())
         };
 
         let duration_fmt = if log.duration_ms >= 1000 {
@@ -62,10 +61,8 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
             format!("{}ms", log.duration_ms)
         };
 
-        // Count messages in request body (pre-computed in HttpLog)
         let msg_count = log.msg_count;
 
-        // Line 1: selection indicator + timestamp + status
         items.push(ListItem::new(vec![
             Line::from(vec![
                 Span::styled(
@@ -74,7 +71,7 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
                 ),
                 Span::styled(
                     format!(" {} ", log.timestamp),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(theme.dim_text()),
                 ),
                 Span::styled(
                     format!("{} {}", status_icon, log.status),
@@ -83,38 +80,35 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
                         .add_modifier(Modifier::BOLD),
                 ),
             ]),
-            // Line 2: duration + model
             Line::from(vec![
                 Span::styled(
                     format!(" {} ", duration_fmt),
-                    Style::default().fg(Color::Yellow),
+                    Style::default().fg(theme.accent()),
                 ),
                 Span::styled(
                     utils::truncate_str(&log.model, side_width.saturating_sub(10)),
-                    Style::default().fg(Color::Cyan),
+                    Style::default().fg(theme.primary()),
                 ),
             ]),
         ]));
 
-        // Token stats line
         if log.prompt_tokens > 0 || log.completion_tokens > 0 {
             items.push(ListItem::new(vec![Line::from(Span::styled(
                 format!("   {}p + {}c", log.prompt_tokens, log.completion_tokens),
-                Style::default().fg(Color::Rgb(140, 140, 160)),
+                Style::default().fg(theme.dim_text()),
             ))]));
         }
 
-        // Messages count & Enter hint
         items.push(ListItem::new(vec![Line::from(vec![
             Span::styled(
                 format!("   📝 {} msgs", msg_count),
-                Style::default().fg(Color::Rgb(140, 140, 160)),
+                Style::default().fg(theme.dim_text()),
             ),
             if is_selected {
                 Span::styled(
                     "  <Enter>",
                     Style::default()
-                        .fg(Color::Cyan)
+                        .fg(theme.primary())
                         .add_modifier(Modifier::BOLD),
                 )
             } else {
@@ -122,14 +116,13 @@ pub(super) fn render_sidebar(f: &mut Frame, area: Rect, app: &App) {
             },
         ])]));
 
-        // Error detail line
         if let Some(err) = &log.error {
             items.push(ListItem::new(vec![Line::from(Span::styled(
                 format!(
                     "   {}",
                     utils::truncate_str(err, side_width.saturating_sub(4))
                 ),
-                Style::default().fg(Color::Red),
+                Style::default().fg(theme.error()),
             ))]));
         }
     }
@@ -176,12 +169,12 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         Line::from(Span::styled(
             search_display,
             Style::default()
-                .fg(Color::White)
+                .fg(theme_primary)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             " ────────────────────────────────────────",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(app.config.theme.dim_text()),
         )),
     ]));
 
@@ -192,7 +185,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
             } else {
                 " 未找到匹配会话"
             },
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(app.config.theme.dim_text()),
         ))]));
     } else {
         for (i, session) in filtered.iter().enumerate() {
@@ -203,7 +196,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                     .fg(theme_primary)
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::White)
+                Style::default().fg(app.config.theme.text())
             };
 
             items.push(ListItem::new(vec![Line::from(vec![
@@ -223,17 +216,18 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
                         session.message_count,
                         utils::relative_time(session.updated_at)
                     ),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(app.config.theme.dim_text()),
                 ),
             ])]));
         }
     }
 
-    // Rename input field
+    let theme_dim = app.config.theme.dim_text();
+
     if !app.overlay.session_rename_buf.is_empty() {
         items.push(ListItem::new(vec![Line::from(Span::styled(
             " ────────────────────────────────────────",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme_dim),
         ))]));
         items.push(ListItem::new(vec![Line::from(vec![
             Span::styled(
@@ -245,29 +239,27 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
             Span::styled(
                 app.overlay.session_rename_buf.as_str(),
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(app.config.theme.accent())
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" ▌", Style::default().fg(Color::Yellow)),
+            Span::styled(" ▌", Style::default().fg(app.config.theme.accent())),
         ])]));
     }
 
-    // Delete confirmation
     if app.overlay.session_confirm_delete {
         items.push(ListItem::new(vec![Line::from(Span::styled(
             " ────────────────────────────────────────",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme_dim),
         ))]));
         items.push(ListItem::new(vec![Line::from(Span::styled(
             " ⚠ 确认删除此会话? (y = 确认, n = 取消)",
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            Style::default().fg(app.config.theme.error()).add_modifier(Modifier::BOLD),
         ))]));
     }
 
-    // Footer
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ────────────────────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme_dim),
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
         if app.overlay.session_confirm_delete {
@@ -281,7 +273,7 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         } else {
             " ↑↓ 选择  Enter 切换  / 搜索  Ctrl+R 重命名  Ctrl+D 删除  Ctrl+N 新建  Ctrl+L 关闭"
         },
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme_dim),
     ))]));
 
     let list = List::new(items).block(
@@ -315,9 +307,9 @@ pub(super) fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
                 .fg(theme_primary)
                 .add_modifier(Modifier::BOLD)
         } else if is_current {
-            Style::default().fg(Color::Green)
+            Style::default().fg(app.config.theme.secondary())
         } else {
-            Style::default().fg(Color::White)
+            Style::default().fg(app.config.theme.text())
         };
         items.push(ListItem::new(vec![Line::from(vec![
             Span::styled(prefix, style),
@@ -325,14 +317,15 @@ pub(super) fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
         ])]));
     }
 
-    // Footer
+    let theme_dim = app.config.theme.dim_text();
+
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ──────────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme_dim),
     ))]));
     items.push(ListItem::new(vec![Line::from(Span::styled(
         " ↑↓ 选择  Enter 切换  Esc 取消",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme_dim),
     ))]));
 
     let list = List::new(items).block(
@@ -354,6 +347,7 @@ pub(super) fn render_request_body(
     total: usize,
     scroll: usize,
     cached_json: &mut Option<String>,
+    theme: &i_rs_claw_core::theme::Theme,
 ) {
     let popup_width = (area.width as f32 * 0.85) as u16;
     let popup_height = (area.height as f32 * 0.8) as u16;
@@ -387,15 +381,14 @@ pub(super) fn render_request_body(
             total
         ),
         Style::default()
-            .fg(Color::Cyan)
+            .fg(theme.primary())
             .add_modifier(Modifier::BOLD),
     )));
     lines.push(Line::from(Span::styled(
         "  ────────────────────────────────────────",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme.dim_text()),
     )));
 
-    // Build all JSON content lines first
     let mut content_lines: Vec<Line> = Vec::new();
     for line in formatted.lines() {
         let trimmed = line.trim_end();
@@ -409,17 +402,13 @@ pub(super) fn render_request_body(
         };
         for w in wrapped {
             let color = if w.contains('"') && w.trim_start().starts_with('"') {
-                // Key names
-                Color::Green
+                theme.secondary()
             } else if w.contains('"') {
-                // String values
-                Color::Yellow
+                theme.accent()
             } else if w.contains('{') || w.contains('}') {
-                // Brackets
-                Color::DarkGray
+                theme.dim_text()
             } else {
-                // Numbers, booleans, null
-                Color::Cyan
+                theme.primary()
             };
             content_lines.push(Line::from(Span::styled(
                 format!("  {}", w),
@@ -430,15 +419,13 @@ pub(super) fn render_request_body(
 
     let total_content = content_lines.len();
 
-    // Apply scroll offset
     let scroll = scroll.min(total_content.saturating_sub(visible_lines));
     let end = (scroll + visible_lines).min(total_content);
     if scroll > 0 {
         lines.push(Line::from(Span::styled(
             format!("  ↑ 还有 {} 行 ...", scroll),
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(theme.dim_text()),
         )));
-        // Adjust visible lines to account for this indicator
         let remaining = visible_lines.saturating_sub(1);
         let end2 = (scroll + remaining).min(total_content);
         for line in content_lines.iter().take(end2).skip(scroll) {
@@ -450,19 +437,18 @@ pub(super) fn render_request_body(
         }
     }
 
-    // Scroll indicator at bottom
     let more_below = end < total_content;
     if more_below {
         lines.push(Line::from(Span::styled(
             format!("  ↓ 还有 {} 行 ...", total_content - end),
-            Style::default().fg(Color::Rgb(140, 140, 160)),
+            Style::default().fg(theme.dim_text()),
         )));
     }
 
     let list = List::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(theme.primary())),
     );
     f.render_widget(list, popup_area);
 }

@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
@@ -9,7 +9,19 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::app::App;
 
-pub(super) fn input_height(input: &str, terminal_width: u16) -> u16 {
+pub(super) fn input_height(input: &str, terminal_width: u16, cached: &mut Option<(String, u16, u16)>) -> u16 {
+    if let Some((prev_input, prev_width, prev_h)) = cached
+        && prev_input == input
+        && *prev_width == terminal_width
+    {
+        return *prev_h;
+    }
+    let h = compute_input_height(input, terminal_width);
+    *cached = Some((input.to_string(), terminal_width, h));
+    h
+}
+
+fn compute_input_height(input: &str, terminal_width: u16) -> u16 {
     let max_visual_width = (terminal_width as usize).saturating_sub(4).max(20);
     let content_lines = if input.is_empty() {
         1
@@ -18,11 +30,7 @@ pub(super) fn input_height(input: &str, terminal_width: u16) -> u16 {
             .lines()
             .map(|line| {
                 let w = UnicodeWidthStr::width(line);
-                if w == 0 {
-                    1
-                } else {
-                    w.div_ceil(max_visual_width)
-                }
+                if w == 0 { 1 } else { w.div_ceil(max_visual_width) }
             })
             .sum::<usize>()
             .max(1)
@@ -56,7 +64,7 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
 
     // Prefix character - styled based on state
     let prefix = if app.is_processing() {
-        ("⏳ ", Color::Rgb(113, 113, 122))
+        ("⏳ ", theme.dim_text())
     } else {
         ("❯ ", theme.primary())
     };
@@ -70,11 +78,11 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
         vec![
             Line::from(Span::styled(
                 format!("{}输入消息...", prefix.0),
-                Style::default().fg(Color::Rgb(113, 113, 122)),
+                Style::default().fg(theme.dim_text()),
             )),
             Line::from(Span::styled(
                 input_hint_text(),
-                Style::default().fg(Color::Rgb(80, 80, 90)),
+                Style::default().fg(theme.border()),
             )),
         ]
     } else {
@@ -87,13 +95,13 @@ pub(super) fn render_input(f: &mut Frame, area: Rect, app: &App) {
                 let p = if i == 0 { prefix.0 } else { "  " };
                 Line::from(Span::styled(
                     format!("{}{}", p, line),
-                    Style::default().fg(Color::Rgb(250, 250, 250)),
+                    Style::default().fg(theme.text()),
                 ))
             })
             .collect();
         result.push(Line::from(Span::styled(
             input_hint_text(),
-            Style::default().fg(Color::Rgb(80, 80, 90)),
+            Style::default().fg(theme.border()),
         )));
         result
     };

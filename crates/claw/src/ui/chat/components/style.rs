@@ -34,11 +34,16 @@ pub const BLOCK_GUTTER: usize = 3;
 /// Body content may use everything from here to the right edge.
 pub const BLOCK_LEFT_RESERVED: usize = BLOCK_INDENT + BLOCK_GUTTER;
 
+pub(super) const INDENT_STR: &str = "  ";
+pub(super) const GUTTER_STR: &str = "▎ ";
+/// Pre-computed left padding string (BLOCK_LEFT_RESERVED = 5 spaces).
+pub(super) const LEFT_PAD: &str = "     ";
 /// Build the top rounded border for a block of the given total width.
 ///
 /// ```text
 /// ╭───────────╮
 /// ```
+#[allow(dead_code)]
 pub fn rounded_top(width: u16, border: Color) -> Line<'static> {
     if width < 2 {
         return Line::from("");
@@ -55,6 +60,7 @@ pub fn rounded_top(width: u16, border: Color) -> Line<'static> {
 /// ```text
 /// ╰───────────╯
 /// ```
+#[allow(dead_code)]
 pub fn rounded_bottom(width: u16, border: Color) -> Line<'static> {
     if width < 2 {
         return Line::from("");
@@ -79,7 +85,7 @@ pub fn header_line(
     meta: Option<&str>,
 ) -> Line<'static> {
     let mut spans: Vec<Span<'static>> = Vec::with_capacity(5);
-    spans.push(Span::raw(" ".repeat(BLOCK_INDENT)));
+    spans.push(Span::raw(INDENT_STR));
     spans.push(Span::styled(
         glyph.to_string(),
         Style::default()
@@ -96,7 +102,7 @@ pub fn header_line(
     if let Some(m) = meta {
         spans.push(Span::styled(
             format!("  {}", m),
-            Style::default().fg(Color::Rgb(110, 110, 130)),
+            Style::default().fg(label_color),
         ));
     }
     Line::from(spans)
@@ -108,8 +114,8 @@ pub fn header_line(
 /// header label, and paints the gutter bar.
 pub fn body_line(text: &str, style: Style) -> Line<'static> {
     let spans: Vec<Span<'static>> = vec![
-        Span::raw(" ".repeat(BLOCK_INDENT)),
-        Span::raw("▎ "),
+        Span::raw(INDENT_STR),
+        Span::raw(GUTTER_STR),
         Span::styled(text.to_string(), style),
     ];
     Line::from(spans)
@@ -207,17 +213,21 @@ pub fn render_block_chrome(
     interior_bg: Color,
     header: Line<'static>,
 ) -> BodyArea {
-    // Top border.
-    Paragraph::new(rounded_top(area.width, border))
-        .style(Style::default().bg(interior_bg))
-        .render(
-            Rect {
-                y: area.y,
-                height: 1,
-                ..area
-            },
-            buf,
-        );
+    let border_style = Style::default().fg(border).bg(interior_bg);
+
+    // Top border — write directly to buffer cells to avoid allocation.
+    for x in area.left()..area.right() {
+        if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, area.y)) {
+            if x == area.left() {
+                cell.set_char('╭');
+            } else if x == area.right() - 1 {
+                cell.set_char('╮');
+            } else {
+                cell.set_char('─');
+            }
+            cell.set_style(border_style);
+        }
+    }
 
     // Header.
     Paragraph::new(header)
@@ -231,20 +241,21 @@ pub fn render_block_chrome(
             buf,
         );
 
-    // Bottom border. Always rendered at the last row, matching the
-    // previous code's `if area.height >= 1` guard.
+    // Bottom border.
     if area.height >= 1 {
         let by = area.y + area.height - 1;
-        Paragraph::new(rounded_bottom(area.width, border))
-            .style(Style::default().bg(interior_bg))
-            .render(
-                Rect {
-                    y: by,
-                    height: 1,
-                    ..area
-                },
-                buf,
-            );
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut(ratatui::layout::Position::new(x, by)) {
+                if x == area.left() {
+                    cell.set_char('╰');
+                } else if x == area.right() - 1 {
+                    cell.set_char('╯');
+                } else {
+                    cell.set_char('─');
+                }
+                cell.set_style(border_style);
+            }
+        }
     }
 
     BodyArea {

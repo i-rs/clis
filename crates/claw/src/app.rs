@@ -2,7 +2,7 @@ pub use i_rs_claw_core::app::*;
 
 use i_rs_claw_core::config::Config;
 use i_rs_claw_core::stats::TodaySummary;
-use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, build_component_for};
+use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, Scroller, build_component_for};
 use chrono::NaiveDateTime;
 use serde_json::Value;
 use std::cell::RefCell;
@@ -590,6 +590,10 @@ pub struct RenderState {
     pub chat_height: u16,
     pub dirty: bool,
     pub last_drawn_at: Option<Instant>,
+    pub component_version: u64,
+    pub cached_scroller: Option<Scroller>,
+    pub scroller_version: u64,
+    pub cached_input_height: Option<(String, u16, u16)>,
 }
 
 impl RenderState {
@@ -600,12 +604,17 @@ impl RenderState {
             chat_height: 0,
             dirty: true,
             last_drawn_at: None,
+            component_version: 0,
+            cached_scroller: None,
+            scroller_version: 0,
+            cached_input_height: None,
         }
     }
 
     pub fn invalidate(&mut self) {
         self.heights.clear();
         self.dirty = true;
+        self.component_version = self.component_version.wrapping_add(1);
     }
 
     pub fn invalidate_last(&mut self) {
@@ -916,15 +925,7 @@ impl App {
         }
     }
 
-    /// Called whenever a new message is appended to the buffer.
-    /// `stick_to_bottom` is the source of truth: when true, the next
-    /// render overrides `scroll_lines` with `max_scroll` so the
-    /// viewport tracks the live tail. We don't need to mutate
-    /// `scroll_lines` here — keeping it stable lets us fall back to
-    /// the same position if the user later re-engages stickiness.
-    pub fn scroll_to_bottom_if_stuck(&mut self) {
-        // Render reads `stick_to_bottom` directly; nothing to do.
-    }
+    pub fn scroll_to_bottom_if_stuck(&mut self) {}
 
     /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
     /// 依据 render_state.heights 估算每个消息行高；若缓存为空（如首屏未渲染）则放弃调整。
@@ -1162,23 +1163,32 @@ impl App {
     }
 
     pub fn detect_plan(&mut self, text: &str) {
-        if self.is_processing() {
-            self.chat.plan_steps.clear();
-            for line in text.lines() {
+        if !self.is_processing() {
+            return;
+        }
+        let new_steps: Vec<PlanStep> = text
+            .lines()
+            .filter_map(|line| {
                 let trimmed = line.trim();
                 let rest = trimmed
                     .strip_prefix(|c: char| c.is_ascii_digit())
                     .unwrap_or("");
                 let rest = rest.trim_start_matches(|c: char| c.is_ascii_digit());
-                if let Some(rest) = rest.strip_prefix(". ") {
-                    let clean = rest.trim_end_matches(['.', '，', ',']);
-                    if !clean.is_empty() {
-                        self.chat.plan_steps.push(PlanStep {
-                            description: clean.to_string(),
-                            done: false,
-                        });
-                    }
-                }
+                rest.strip_prefix(". ")
+                    .map(|r| r.trim_end_matches(['.', '，', ',']))
+                    .filter(|r| !r.is_empty())
+                    .map(|r| PlanStep {
+                        description: r.to_string(),
+                        done: false,
+                    })
+            })
+            .collect();
+
+        if new_steps.len() >= self.chat.plan_steps.len() {
+            let done_count = self.chat.plan_steps.iter().take_while(|s| s.done).count();
+            self.chat.plan_steps = new_steps;
+            for step in self.chat.plan_steps.iter_mut().take(done_count) {
+                step.done = true;
             }
         }
     }

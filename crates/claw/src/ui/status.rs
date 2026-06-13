@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Block,
 };
@@ -12,9 +12,9 @@ pub(super) fn render_status(f: &mut Frame, area: Rect, app: &App) {
     let theme = &app.config.theme;
 
     let bg = if app.is_processing() {
-        Color::Rgb(15, 15, 30)
+        theme.background()
     } else if app.overlay.selection_mode {
-        Color::Rgb(30, 25, 15)
+        theme.selection_bg()
     } else {
         theme.background()
     };

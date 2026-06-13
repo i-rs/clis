@@ -19,7 +19,14 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
         app.rebuild_components();
     }
 
-    let mut scr = scroller::Scroller::new(&app.chat.components, width, viewport_h);
+    let version = app.render_state.component_version;
+    let mut scr = scroller::Scroller::new_if_stale(
+        app.render_state.cached_scroller.as_ref(),
+        &app.chat.components,
+        width,
+        viewport_h,
+        version,
+    );
     // App's `scroll_lines` uses the Scroller's own convention
     // (0 = top / oldest, max_scroll = bottom / newest). When
     // `stick_to_bottom` is engaged, override to the current max so the
@@ -86,5 +93,8 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     // stale `area_lines = 1` / `text_width = 20` placeholders.
     app.render_state.cached_width = width as usize;
     app.render_state.chat_height = viewport_h;
-    app.render_state.heights = scr.heights().iter().map(|&h| h as usize).collect();
+    app.render_state.heights.clear();
+    app.render_state.heights.extend(scr.heights().iter().map(|&h| h as usize));
+    app.render_state.cached_scroller = Some(scr.clone());
+    app.render_state.scroller_version = version;
 }

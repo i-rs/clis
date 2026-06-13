@@ -77,7 +77,8 @@ pub fn main_loop(
             last_mcp_health_check = Instant::now();
         }
 
-        if event::poll(std::time::Duration::from_millis(50))? {
+        let poll_ms = if need_continuous { 16 } else { 100 };
+        if event::poll(std::time::Duration::from_millis(poll_ms))? {
             match event::read()? {
                 Event::Key(key) => {
                     let mut kh = KeyEventHandler::new(app, app_core, rt, llm_tx);

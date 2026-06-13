@@ -1,5 +1,6 @@
 use super::style::{
     BLOCK_LEFT_RESERVED, blend, block_border, body_line, header_line, render_block_chrome,
+    LEFT_PAD,
 };
 use super::{ComponentOp, MessageComponent};
 use i_rs_claw_core::llm::TokenUsage;
@@ -32,22 +33,48 @@ pub(crate) struct AssistantBlock {
     text: String,
     reasoning: String,
     pub reasoning_expanded: bool,
-    timestamp: Option<String>,
-    token_usage: Option<TokenUsage>,
-    /// Cached `(width, body_row_count)` for `body_rows()`. The count
-    /// depends only on the text and the wrapping width, so we
-    /// invalidate it whenever `text` mutates. Interior mutability
-    /// lets `height(&self)` populate the cache without changing the
-    /// trait signature.
+    meta_formatted: Option<String>,
     body_rows_cache: Cell<Option<(u16, u16)>>,
-    /// Cached render output for the body. Hit by `render()` on every
-    /// frame after the first one (or after `AppendText`/width change
-    /// invalidates it). Cuts the render path's markdown parse + line
-    /// construction to zero on stable frames.
     body_render_cache: RefCell<Option<BodyRenderCache>>,
-    /// Cached `is_markdowny(&text)` result. Scanning a long message
-    /// is O(n); we only need to recompute after the text mutates.
     is_markdowny_cache: Cell<Option<bool>>,
+}
+
+fn fmt_tok(n: u32) -> String {
+    if n >= 1000 {
+        format!("{}K", n / 1000)
+    } else {
+        format!("{}", n)
+    }
+}
+
+fn format_meta(timestamp: Option<&str>, token_usage: Option<TokenUsage>) -> Option<String> {
+    match (timestamp, token_usage) {
+        (Some(ts), Some(usage)) => {
+            let mut parts = vec![ts.to_string()];
+            parts.push(format!(
+                "↑{}↓{}",
+                fmt_tok(usage.prompt_tokens),
+                fmt_tok(usage.completion_tokens)
+            ));
+            if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
+                parts.push(format!("${:.4}", cost));
+            }
+            Some(parts.join(" · "))
+        }
+        (Some(ts), None) => Some(ts.to_string()),
+        (None, Some(usage)) => {
+            let mut parts = vec![format!(
+                "↑{}↓{}",
+                fmt_tok(usage.prompt_tokens),
+                fmt_tok(usage.completion_tokens)
+            )];
+            if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
+                parts.push(format!("${:.4}", cost));
+            }
+            Some(parts.join(" · "))
+        }
+        (None, None) => None,
+    }
 }
 
 impl AssistantBlock {
@@ -58,12 +85,12 @@ impl AssistantBlock {
         timestamp: Option<&str>,
         token_usage: Option<TokenUsage>,
     ) -> Self {
+        let meta_formatted = format_meta(timestamp, token_usage);
         Self {
             text: text.to_string(),
             reasoning: reasoning.to_string(),
             reasoning_expanded,
-            timestamp: timestamp.map(|s| s.to_string()),
-            token_usage,
+            meta_formatted,
             body_rows_cache: Cell::new(None),
             body_render_cache: RefCell::new(None),
             is_markdowny_cache: Cell::new(None),
@@ -176,41 +203,7 @@ impl MessageComponent for AssistantBlock {
         };
         let avatar = theme.primary();
         let label = theme.text();
-        fn fmt_tok(n: u32) -> String {
-            if n >= 1000 {
-                format!("{}K", n / 1000)
-            } else {
-                format!("{}", n)
-            }
-        }
-        let meta = match (self.timestamp.as_deref(), self.token_usage) {
-            (Some(ts), Some(usage)) => {
-                let mut parts = vec![ts.to_string()];
-                parts.push(format!(
-                    "↑{}↓{}",
-                    fmt_tok(usage.prompt_tokens),
-                    fmt_tok(usage.completion_tokens)
-                ));
-                if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
-                    parts.push(format!("${:.4}", cost));
-                }
-                Some(parts.join(" · "))
-            }
-            (Some(ts), None) => Some(ts.to_string()),
-            (None, Some(usage)) => {
-                let mut parts = vec![format!(
-                    "↑{}↓{}",
-                    fmt_tok(usage.prompt_tokens),
-                    fmt_tok(usage.completion_tokens)
-                )];
-                if let Some(cost) = usage.estimated_cost_usd.filter(|c| *c > 0.0001) {
-                    parts.push(format!("${:.4}", cost));
-                }
-                Some(parts.join(" · "))
-            }
-            (None, None) => None,
-        };
-        let header = header_line("Claw", "◆", avatar, label, meta.as_deref());
+        let header = header_line("Claw", "◆", avatar, label, self.meta_formatted.as_deref());
         let body = render_block_chrome(area, buf, border, interior_bg, header);
 
         let mut y = body.top;
@@ -268,7 +261,7 @@ impl MessageComponent for AssistantBlock {
             let take = (md.len() as u16).min(body_max).min(body_h);
             for (i, ml) in md.iter().take(take as usize).enumerate() {
                 let mut spans: Vec<Span<'static>> = Vec::with_capacity(ml.spans.len() + 1);
-                spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
+                spans.push(Span::raw(LEFT_PAD));
                 for s in &ml.spans {
                     spans.push(Span::styled(s.content.clone(), s.style.fg(theme.text())));
                 }
@@ -333,14 +326,14 @@ impl MessageComponent for AssistantBlock {
             };
             let usable = area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
             let mut spans: Vec<Span<'static>> = Vec::with_capacity(6);
-            spans.push(Span::raw(" ".repeat(BLOCK_LEFT_RESERVED)));
+            spans.push(Span::raw(LEFT_PAD));
             spans.push(Span::styled(
-                "🧠".to_string(),
+                "🧠",
                 Style::default().fg(theme.accent()),
             ));
             spans.push(Span::raw(" "));
             spans.push(Span::styled(
-                "思考过程".to_string(),
+                "思考过程",
                 Style::default()
                     .fg(theme.dim_text())
                     .add_modifier(Modifier::BOLD),

@@ -146,7 +146,7 @@ fn force_split(text: &str, max_width: usize) -> Vec<String> {
 ///
 /// Callers that already hold a `&Value` should prefer this over
 /// re-parsing the JSON string.
-pub(super) fn format_json_lines(val: &serde_json::Value, max_width: usize) -> Vec<Line<'static>> {
+pub(super) fn format_json_lines(val: &serde_json::Value, max_width: usize, color: Color) -> Vec<Line<'static>> {
     let formatted = serde_json::to_string_pretty(val).unwrap_or_else(|_| val.to_string());
     let indent_width = max_width.saturating_sub(4);
     let mut lines = Vec::new();
@@ -154,7 +154,7 @@ pub(super) fn format_json_lines(val: &serde_json::Value, max_width: usize) -> Ve
         if line.is_empty() {
             lines.push(Line::from(Span::styled(
                 "  ".to_string(),
-                Style::default().fg(Color::Rgb(160, 180, 160)),
+                Style::default().fg(color),
             )));
             continue;
         }
@@ -162,13 +162,13 @@ pub(super) fn format_json_lines(val: &serde_json::Value, max_width: usize) -> Ve
         if line_w <= indent_width {
             lines.push(Line::from(Span::styled(
                 format!("  {}", line),
-                Style::default().fg(Color::Rgb(160, 180, 160)),
+                Style::default().fg(color),
             )));
         } else {
             for part in wrap_text(line, indent_width) {
                 lines.push(Line::from(Span::styled(
                     format!("  {}", part),
-                    Style::default().fg(Color::Rgb(160, 180, 160)),
+                    Style::default().fg(color),
                 )));
             }
         }

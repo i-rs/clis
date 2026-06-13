@@ -111,13 +111,19 @@ pub fn get_completions(config: &Config, input: &str, cursor: usize) -> Vec<Strin
     }
 }
 
+fn starts_with_ci(haystack: &str, needle: &str) -> bool {
+    if needle.len() > haystack.len() {
+        return false;
+    }
+    haystack[..needle.len()].eq_ignore_ascii_case(needle)
+}
+
 /// Get tool names matching a prefix.
 fn get_tool_completions(config: &Config, prefix: &str) -> Vec<String> {
-    let lower = prefix.to_lowercase();
     let mut matches: Vec<String> = config
         .i_rs_tools
         .iter()
-        .filter(|name| name.starts_with(&lower))
+        .filter(|name| starts_with_ci(name, prefix))
         .cloned()
         .collect();
     matches.sort();
@@ -130,10 +136,9 @@ fn get_command_completions(tool: &str, prefix: &str) -> Vec<String> {
     if prefix.is_empty() {
         return commands;
     }
-    let lower = prefix.to_lowercase();
     commands
         .into_iter()
-        .filter(|cmd| cmd.starts_with(&lower))
+        .filter(|cmd| starts_with_ci(cmd, prefix))
         .collect()
 }
 
