@@ -35,12 +35,6 @@ impl AgentRuntime {
             layered_memory: crate::core::layered_memory::LayeredMemory::new(),
         }
     }
-
-    #[allow(dead_code)]
-    fn refresh_mcp(&mut self, config: &Config, agent_id: &str) {
-        let resolved = config.agent_config(agent_id);
-        self.mcp_registry = McpRegistry::for_agent(&resolved, &config.mcp_servers);
-    }
 }
 
 /// Central storage for per-agent runtime data.
@@ -211,23 +205,7 @@ impl AgentRuntimeStore {
         Ok(&mut self.get_or_init(user_id, agent_id)?.layered_memory)
     }
 
-    /// Refresh MCP registries for all agents (e.g. after plugin discovery).
-    #[allow(dead_code)]
-    pub fn refresh_mcp_registries(&mut self, config: &Config) {
-        let user_ids: Vec<String> = self
-            .runtimes.keys().map(|(u, _)| u.clone())
-            .collect::<HashSet<_>>()
-            .into_iter().collect();
-        for user_id in user_ids {
-            let key = runtime_key(&user_id, "default");
-            if let Some(rt) = self.runtimes.get_mut(&key) {
-                rt.refresh_mcp(config, "default");
-            }
-        }
-    }
-
     /// Initialize runtime data for a new agent across all existing users.
-    #[allow(dead_code)]
     pub fn add_agent(&mut self, config: &Config, agent_id: &str) {
         for user_id in self.user_ids() {
             let key = runtime_key(&user_id, agent_id);
@@ -248,7 +226,6 @@ impl AgentRuntimeStore {
     }
 
     /// Remove runtime data for an agent across all users.
-    #[allow(dead_code)]
     pub fn remove_agent(&mut self, agent_id: &str) {
         self.runtimes.retain(|(_, a), _| a != agent_id);
     }

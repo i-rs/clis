@@ -6,11 +6,12 @@ use tokio::sync::mpsc;
 const TELEGRAM_API_BASE: &str = "https://api.telegram.org/bot";
 
 /// Configuration for the Telegram bot adapter.
-#[allow(dead_code)]
 pub struct TelegramConfig {
     pub bot_token: String,
+    #[allow(dead_code)]
     pub enabled: bool,
     pub agent_id: String,
+    pub allowed_users: Vec<String>,
 }
 
 /// Telegram bot adapter using the Bot API via reqwest.
@@ -53,6 +54,7 @@ impl PlatformAdapter for TelegramAdapter {
         let token = self.config.bot_token.clone();
         let name = self.name().to_string();
         let agent_id = self.config.agent_id.clone();
+        let allowed_users = self.config.allowed_users.clone();
 
         let handle = tokio::spawn(async move {
             let mut offset: i64 = 0;
@@ -72,6 +74,19 @@ impl PlatformAdapter for TelegramAdapter {
                                     let chat_id = msg["chat"]["id"].to_string();
                                     let user_id = msg["from"]["id"].to_string();
                                     let text = msg["text"].as_str().unwrap_or("").to_string();
+
+                                    if !allowed_users.is_empty()
+                                        && !allowed_users.contains(&user_id)
+                                    {
+                                        tracing::debug!(
+                                            user_id = %user_id,
+                                            "blocked message from non-allowlisted Telegram user"
+                                        );
+                                        if let Some(update_id) = update["update_id"].as_i64() {
+                                            offset = update_id + 1;
+                                        }
+                                        continue;
+                                    }
 
                                     if !text.is_empty() {
                                         let _ = event_tx.send(GatewayEvent::Message {

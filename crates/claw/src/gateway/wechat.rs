@@ -11,10 +11,11 @@ use tokio::sync::mpsc;
 const WECHAT_API_BASE: &str = "https://ilinkai.weixin.qq.com";
 
 /// Configuration for the WeChat iLink Bot adapter.
-#[allow(dead_code)]
 pub struct WeChatConfig {
+    #[allow(dead_code)]
     pub enabled: bool,
     pub agent_id: String,
+    pub allowed_users: Vec<String>,
 }
 
 /// Persisted credentials from QR login.
@@ -30,6 +31,7 @@ struct WeChatCredentials {
 /// Credentials are persisted to `~/.i-rs/claw/wechat_credentials.json`.
 pub struct WeChatAdapter {
     client: reqwest::Client,
+    config: WeChatConfig,
     credentials: Arc<Mutex<Option<WeChatCredentials>>>,
     /// Map of user_id -> context_token for tracking reply context.
     reply_tokens: Arc<Mutex<HashMap<String, String>>>,
@@ -50,7 +52,7 @@ fn make_x_wechat_uin() -> String {
 }
 
 impl WeChatAdapter {
-    pub fn new(_config: WeChatConfig) -> Self {
+    pub fn new(config: WeChatConfig) -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
             .build()
@@ -63,6 +65,7 @@ impl WeChatAdapter {
             .unwrap_or_else(|| PathBuf::from("./wechat_credentials.json"));
         Self {
             client,
+            config,
             credentials: Arc::new(Mutex::new(None)),
             reply_tokens: Arc::new(Mutex::new(HashMap::new())),
             typing_tickets: Arc::new(Mutex::new(HashMap::new())),
@@ -280,6 +283,8 @@ impl PlatformAdapter for WeChatAdapter {
 
         let bot_token = credentials.bot_token;
         let reply_tokens = self.reply_tokens.clone();
+        let allowed_users = self.config.allowed_users.clone();
+        let agent_id = self.config.agent_id.clone();
 
         let handle = tokio::spawn(async move {
             // The get_updates_buf cursor - similar to Telegram's offset
@@ -361,15 +366,27 @@ impl PlatformAdapter for WeChatAdapter {
                                             );
                                         }
 
+                                        let wx_user_id = msg["from_user_id"]
+                                            .as_str()
+                                            .unwrap_or("")
+                                            .to_string();
+
+                                        if !allowed_users.is_empty()
+                                            && !allowed_users.contains(&wx_user_id)
+                                        {
+                                            tracing::debug!(
+                                                user_id = %wx_user_id,
+                                                "blocked message from non-allowlisted WeChat user"
+                                            );
+                                            continue;
+                                        }
+
                                         let _ = event_tx.send(GatewayEvent::Message {
                                             platform: name.clone(),
                                             chat_id: from_user_id,
-                                            user_id: msg["from_user_id"]
-                                                .as_str()
-                                                .unwrap_or("")
-                                                .to_string(),
+                                            user_id: wx_user_id,
                                             text,
-                                            agent_id: "default".to_string(),
+                                            agent_id: agent_id.clone(),
                                         });
                                     }
                                 }

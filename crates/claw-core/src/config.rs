@@ -624,6 +624,10 @@ pub struct PlatformConfig {
     /// Optional agent profile to use for this platform.
     #[serde(default)]
     pub agent_id: Option<String>,
+    /// Optional allowlist of platform user IDs. When non-empty, only messages
+    /// from these users are processed; all others are silently dropped.
+    #[serde(default)]
+    pub allowed_users: Vec<String>,
 }
 
 /// WeChat iLink Bot (personal WeChat) configuration.
@@ -638,6 +642,10 @@ pub struct WeChatPlatformConfig {
     /// Optional agent profile to use for this platform.
     #[serde(default)]
     pub agent_id: Option<String>,
+    /// Optional allowlist of platform user IDs (when non-empty, only messages
+    /// from these users are processed).
+    #[serde(default)]
+    pub allowed_users: Vec<String>,
 }
 
 // ── HITL (Human-in-the-Loop) Configuration ──

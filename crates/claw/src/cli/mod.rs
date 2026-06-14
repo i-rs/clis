@@ -138,6 +138,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
                     bot_token: token.clone(),
                     enabled: true,
                     agent_id: tg.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                    allowed_users: tg.allowed_users.clone(),
                 },
             );
             server.register(std::sync::Arc::new(adapter));
@@ -151,6 +152,7 @@ pub fn run_gateway() -> anyhow::Result<()> {
                 crate::gateway::wechat::WeChatAdapter::new(crate::gateway::wechat::WeChatConfig {
                     enabled: true,
                     agent_id: wc.agent_id.clone().unwrap_or_else(|| "default".to_string()),
+                    allowed_users: wc.allowed_users.clone(),
                 });
             server.register(std::sync::Arc::new(adapter));
             println!("  ✓ WeChat bot registered");

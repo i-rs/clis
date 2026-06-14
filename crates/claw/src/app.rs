@@ -571,11 +571,6 @@ impl OverlayState {
     pub fn close(&mut self) {
         self.current = None;
     }
-
-    #[allow(dead_code)]
-    pub fn has_overlay(&self) -> bool {
-        self.current.is_some()
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -825,32 +820,12 @@ impl App {
         self.input.move_cursor_right();
     }
 
-    #[allow(dead_code)]
-    pub fn move_cursor_home(&mut self) {
-        self.input.move_cursor_home();
-    }
-
-    #[allow(dead_code)]
-    pub fn move_cursor_end(&mut self) {
-        self.input.move_cursor_end();
-    }
-
     pub fn commit_input_to_history(&mut self, text: &str) {
         self.input.commit_to_history(text);
         // Snap to the live tail when the user sends a message.
         // Render reads `stick_to_bottom` and overrides `scroll_lines`
         // with `max_scroll`, so we don't need an exact value here.
         self.scroll.stick_to_bottom = true;
-    }
-
-    #[allow(dead_code)]
-    pub fn navigate_history_up(&mut self) -> Option<String> {
-        self.input.navigate_up()
-    }
-
-    #[allow(dead_code)]
-    pub fn navigate_history_down(&mut self) -> Option<String> {
-        self.input.navigate_down()
     }
 
     /// Trackpad-optimized scroll: 3 lines per event for smooth macOS two-finger scrolling.
@@ -924,8 +899,6 @@ impl App {
             }
         }
     }
-
-    pub fn scroll_to_bottom_if_stuck(&mut self) {}
 
     /// 让选中的消息滚入视口。若已在视口内则保持滚动位置不变。
     /// 依据 render_state.heights 估算每个消息行高；若缓存为空（如首屏未渲染）则放弃调整。
@@ -1066,7 +1039,6 @@ impl App {
         // Streaming tokens: keep the viewport pinned to the bottom if the
         // user is following the live tail, but don't yank them out of a
         // back-scroll position.
-        self.scroll_to_bottom_if_stuck();
     }
 
     pub fn add_tool_call(
@@ -1089,7 +1061,6 @@ impl App {
         self.chat.message_timestamps
             .push(chrono::Local::now().naive_local());
         self.chat.tool_call_count += 1;
-        self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
@@ -1131,7 +1102,6 @@ impl App {
         self.chat.api_messages = None;
         self.llm.state = AppState::Idle;
         self.llm.status_text.clear();
-        self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
@@ -1158,7 +1128,6 @@ impl App {
         self.chat.api_messages = api_messages;
         self.llm.state = AppState::Idle;
         self.llm.status_text.clear();
-        self.scroll_to_bottom_if_stuck();
         self.mark_dirty();
     }
 
@@ -1691,8 +1660,7 @@ mod tests {
         assert!(!app.scroll.stick_to_bottom);
         app.scroll.stick_to_bottom = true;
 
-        // New tool call preserves stickiness (scroll_to_bottom_if_stuck is
-        // a no-op; the renderer reads stick_to_bottom directly).
+        // New tool call preserves stickiness (renderer reads stick_to_bottom directly).
         let prev_count = app.chat.tool_call_count;
         app.add_tool_call("weight", "{}", "ok", 0, 1);
         assert!(app.scroll.stick_to_bottom, "stuck at bottom stays stuck");
