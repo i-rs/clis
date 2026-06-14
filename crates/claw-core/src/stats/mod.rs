@@ -214,7 +214,7 @@ impl StatsManager {
         let mut buffer = self
             .buffer
             .lock()
-            .expect("StatsManager buffer lock poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         buffer.push(record);
 
         if buffer.len() >= self.flush_threshold {
@@ -236,7 +236,7 @@ impl StatsManager {
         let mut buffer = self
             .buffer
             .lock()
-            .expect("StatsManager buffer lock poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         if buffer.is_empty() {
             return;
         }

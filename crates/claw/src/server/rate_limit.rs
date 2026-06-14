@@ -97,3 +97,100 @@ impl UserConcurrencyLimiter {
         Ok(ConcurrencyGuard::new(limiter))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_try_acquire_under_limit() {
+        let limiter = ChatConcurrency::new(2);
+        assert!(limiter.try_acquire().is_ok());
+        assert!(limiter.try_acquire().is_ok());
+    }
+
+    #[test]
+    fn test_try_acquire_over_limit() {
+        let limiter = ChatConcurrency::new(2);
+        limiter.try_acquire().unwrap(); // 1
+        limiter.try_acquire().unwrap(); // 2
+        assert!(limiter.try_acquire().is_err()); // 3
+    }
+
+    #[test]
+    fn test_acquire_over_limit_rolls_back() {
+        let limiter = ChatConcurrency::new(1);
+        limiter.try_acquire().unwrap(); // counter = 1
+        assert!(limiter.try_acquire().is_err()); // increments to 2, then rolls back to 1
+        limiter.release(); // counter = 0
+        assert!(limiter.try_acquire().is_ok()); // should succeed now
+    }
+
+    #[test]
+    fn test_guard_release_idempotent() {
+        let cc = Arc::new(ChatConcurrency::new(1));
+        cc.active.store(1, std::sync::atomic::Ordering::Release);
+        let guard = ConcurrencyGuard::new(cc.clone());
+        guard.release();
+        guard.release(); // idempotent — should not underflow
+        assert_eq!(cc.active_count(), 0);
+    }
+
+    #[test]
+    fn test_guard_drop_releases() {
+        let cc = Arc::new(ChatConcurrency::new(1));
+        cc.active.store(1, Ordering::Release);
+        let guard = ConcurrencyGuard::new(cc.clone());
+        drop(guard);
+        assert_eq!(cc.active_count(), 0);
+    }
+
+    #[test]
+    fn test_guard_explicit_then_drop_idempotent() {
+        let cc = Arc::new(ChatConcurrency::new(1));
+        cc.active.store(1, Ordering::Release);
+        let guard = ConcurrencyGuard::new(cc.clone());
+        guard.release(); // explicit
+        assert_eq!(cc.active_count(), 0);
+        drop(guard); // drop should be idempotent (no double-release)
+        assert_eq!(cc.active_count(), 0);
+    }
+
+    #[test]
+    fn test_user_concurrency_different_users_independent() {
+        let limiter = UserConcurrencyLimiter::new(1);
+        let _g1 = limiter.try_acquire_for("alice").expect("alice should acquire");
+        // Bob should still be able to acquire (different user, own limit)
+        let g2 = limiter.try_acquire_for("bob").expect("bob should acquire");
+        drop(g2);
+        // Alice still holds hers
+        assert!(limiter.try_acquire_for("alice").is_err());
+    }
+
+    #[test]
+    fn test_user_concurrency_same_user_blocked() {
+        let limiter = UserConcurrencyLimiter::new(1);
+        let _g = limiter.try_acquire_for("alice").expect("alice should acquire");
+        assert!(limiter.try_acquire_for("alice").is_err());
+    }
+
+    #[test]
+    fn test_user_concurrency_release_frees_slot() {
+        let limiter = UserConcurrencyLimiter::new(1);
+        {
+            let _g = limiter.try_acquire_for("alice").expect("alice should acquire");
+        }
+        // Slot freed, should be able to acquire again
+        assert!(limiter.try_acquire_for("alice").is_ok());
+    }
+
+    #[test]
+    fn test_active_count_reflects_state() {
+        let cc = Arc::new(ChatConcurrency::new(2));
+        cc.try_acquire().unwrap(); // 1
+        cc.try_acquire().unwrap(); // 2
+        assert_eq!(cc.active_count(), 2);
+        cc.release(); // back to 1
+        assert_eq!(cc.active_count(), 1);
+    }
+}

@@ -145,7 +145,7 @@ use crate::server::UserId;
     #[test]
     fn test_get_current_session_no_session() {
         run_state_test("test_get_current_session_no_session", |state| async move {
-            let result = get_current_session(State(state)).await;
+            let result = get_current_session(State(state), test_uid()).await;
             assert!(result.success);
             let data = result.0.data.unwrap();
             assert!(data["id"].is_null(), "no session should return null id");

@@ -12,7 +12,6 @@ use tokio::sync::mpsc;
 #[derive(Debug)]
 pub enum GatewayEvent {
     /// A user message from a social platform.
-    #[allow(dead_code)]
     Message {
         /// Platform name (e.g. "telegram", "wechat").
         platform: String,
@@ -26,7 +25,6 @@ pub enum GatewayEvent {
         agent_id: String,
     },
     /// An error from a platform adapter.
-    #[allow(dead_code)]
     Error {
         /// Platform name.
         platform: String,
@@ -61,7 +59,6 @@ pub trait PlatformAdapter: Send + Sync {
     async fn send_typing(&self, _chat_id: &str) {}
 
     /// Stop the adapter and clean up resources.
-    #[allow(dead_code)]
     async fn stop(&self);
 }
 
@@ -145,7 +142,7 @@ impl GatewayServer {
             GatewayEvent::Message {
                 platform,
                 chat_id,
-                user_id: _,
+                user_id,
                 text,
                 agent_id,
             } => {
@@ -173,7 +170,7 @@ impl GatewayServer {
 
                 // Process the message with session continuity + tool execution
                 let response =
-                    Self::process_message(&core, &platform, &chat_id, &text, &agent_id).await;
+                    Self::process_message(&core, &platform, &chat_id, &user_id, &text, &agent_id).await;
 
                 // Stop the typing indicator
                 if let Some(h) = typing_handle {
@@ -201,11 +198,13 @@ impl GatewayServer {
         core: &Arc<RwLock<i_rs_claw_core::core::AppCore>>,
         platform: &str,
         chat_id: &str,
+        user_id: &str,
         text: &str,
         agent_id: &str,
     ) -> String {
         let text_owned = text.to_string();
         let agent_id_owned = agent_id.to_string();
+        let gateway_user_id = format!("gateway:{}:{}", platform, user_id);
 
         let (session_uuid, _session_title, msgs, config, mcp) = {
             let mut core = core.write().await;
@@ -221,18 +220,18 @@ impl GatewayServer {
                 core.session_mgr.switch_to(&found);
                 found
             } else {
-                let new_id = core.session_mgr.create_session_for(&agent_id_owned, "default");
+                let new_id = core.session_mgr.create_session_for(&agent_id_owned, &gateway_user_id);
                 core.session_mgr.rename_session(&new_id, &session_title);
                 new_id
             };
 
             let saved = core.session_mgr.load_api_messages_async(&uuid).await;
-            let msgs = core.build_messages_for_async(&[], &text_owned, &saved, None, &agent_id_owned).await;
+            let msgs = core.build_messages_for_async(&[], &text_owned, &saved, None, &agent_id_owned, &gateway_user_id).await;
 
             let resolved = core.config.agent_config(&agent_id_owned);
             let mut agent_config = core.config.clone();
             agent_config.enabled_tools = resolved.enabled_tools;
-            let mcp = core.agent_store.mcp_registry_for("default", &agent_id_owned)
+            let mcp = core.agent_store.mcp_registry_for(&gateway_user_id, &agent_id_owned)
                 .expect("BUG: default agent runtime not initialized").clone();
 
             (uuid, session_title, msgs, agent_config, mcp)

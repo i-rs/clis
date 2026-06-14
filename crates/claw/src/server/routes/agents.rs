@@ -84,6 +84,7 @@ pub async fn get_agent_detail(
 /// Update an agent profile. Only provided fields are overridden.
 pub async fn update_agent(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(id): Path<String>,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<Value>> {
@@ -194,7 +195,7 @@ pub async fn update_agent(
     let row_caps = agent_config.capabilities.clone();
     let row_execution = agent_config.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
     let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
-        user_id: "default".to_string(),
+        user_id,
         agent_id: id.clone(),
         provider_ref: row_provider_ref,
         provider: row_provider,

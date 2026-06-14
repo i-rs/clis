@@ -61,6 +61,10 @@ pub async fn run(mut core: i_rs_claw_core::core::AppCore, host: String, port: u1
     let auth_middleware =
         axum::middleware::from_fn_with_state(state.clone(), crate::server::middleware::auth_guard);
 
+    // Allow cross-origin requests so browser extensions, dev-mode Vite, and
+    // other clients can access the API. The auth_token still gates access.
+    let cors = tower_http::cors::CorsLayer::permissive();
+
     let public_routes =
         axum::Router::new().route("/api/health", axum::routing::get(crate::server::routes::health));
 
@@ -99,12 +103,12 @@ pub async fn run(mut core: i_rs_claw_core::core::AppCore, host: String, port: u1
         .layer(auth_middleware);
 
     let app = if api_only {
-        public_routes.merge(api_routes).with_state(state)
+        public_routes.merge(api_routes).layer(cors).with_state(state)
     } else {
         let static_routes = axum::Router::new()
             .route("/", axum::routing::get(crate::server::assets::serve_root))
             .route("/{*path}", axum::routing::get(crate::server::assets::serve_assets));
-        public_routes.merge(api_routes).merge(static_routes).with_state(state)
+        public_routes.merge(api_routes).merge(static_routes).layer(cors).with_state(state)
     };
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse().expect("Invalid address");

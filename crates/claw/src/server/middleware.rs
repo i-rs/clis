@@ -67,7 +67,7 @@ fn unauthorized() -> axum::response::Response {
 
 /// Extractor: resolves the current user_id from request context.
 #[derive(Clone, Debug)]
-pub struct UserId(#[allow(dead_code)] pub String);
+pub struct UserId(pub String);
 
 impl<S: Send + Sync> axum::extract::FromRequestParts<S> for UserId {
     type Rejection = (axum::http::StatusCode, &'static str);

@@ -83,10 +83,29 @@ fn message_to_api_json(msg: &crate::app::Message) -> Value {
     }
 }
 
-/// Get current session info.
-pub async fn get_current_session(State(state): State<AppState>) -> Json<super::ApiResponse<Value>> {
+/// Get current session info for the authenticated user.
+pub async fn get_current_session(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
-    let id = core.session_mgr.current_id().map(|s| s.to_string());
+    // Resolve the user's session: check if global current_id belongs to them,
+    // otherwise find their most recent session.
+    let id = core.session_mgr.current_id()
+        .filter(|sid| {
+            core.session_mgr.session_meta(sid)
+                .map(|m| m.user_id == user_id)
+                .unwrap_or(false)
+        })
+        .map(|s| s.to_string())
+        .or_else(|| {
+            core.session_mgr
+                .sessions()
+                .iter()
+                .rev()
+                .find(|s| s.user_id == user_id)
+                .map(|s| s.id.clone())
+        });
     match id {
         Some(ref sid) => {
             let meta = core.session_mgr.session_meta(sid);

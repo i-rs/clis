@@ -299,6 +299,7 @@ impl AppCore {
         user_text: &str,
         saved_api_messages: &Option<Vec<Value>>,
         reminder_text: Option<&str>,
+        user_id: &str,
     ) -> Vec<Value> {
         self.build_messages_for(
             app_messages,
@@ -306,6 +307,7 @@ impl AppCore {
             saved_api_messages,
             reminder_text,
             "default",
+            user_id,
         )
     }
 
@@ -318,11 +320,12 @@ impl AppCore {
         saved_api_messages: &Option<Vec<Value>>,
         reminder_text: Option<&str>,
         agent_id: &str,
+        user_id: &str,
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
 
-        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+        let Ok(memory) = self.agent_store.memory_for(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime lookup failed in build_messages_for");
             return Vec::new();
         };
@@ -358,7 +361,7 @@ impl AppCore {
             tool_frequency: memory.tool_frequency(),
             tool_index: &tool_index,
             hot_tools: &{
-                let Ok(cache) = self.agent_store.tool_cache_for("default", agent_id) else {
+                let Ok(cache) = self.agent_store.tool_cache_for(user_id, agent_id) else {
                     tracing::error!(agent_id, "agent runtime tool cache lookup failed");
                     return Vec::new();
                 };
@@ -366,7 +369,7 @@ impl AppCore {
             },
             skills: &{
                 
-                match self.agent_store.skill_store_for("default", agent_id) {
+                match self.agent_store.skill_store_for(user_id, agent_id) {
                     Ok(s) => s.format_skills(),
                     Err(e) => {
                         tracing::error!(%e, agent_id, "skill store lookup failed");
@@ -377,7 +380,7 @@ impl AppCore {
             user_memory: &{
                 let base = memory.format_user_memory();
                 let layered = {
-                    let Ok(lm) = self.agent_store.layered_memory_for("default", agent_id) else {
+                    let Ok(lm) = self.agent_store.layered_memory_for(user_id, agent_id) else {
                         tracing::error!(agent_id, "agent runtime layered memory lookup failed");
                         return Vec::new();
                     };
@@ -413,11 +416,12 @@ impl AppCore {
         saved_api_messages: &Option<Vec<Value>>,
         reminder_text: Option<&str>,
         agent_id: &str,
+        user_id: &str,
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
 
-        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+        let Ok(memory) = self.agent_store.memory_for(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime lookup failed in build_messages_for_async");
             return Vec::new();
         };
@@ -447,13 +451,13 @@ impl AppCore {
         };
 
         let hot_tools = {
-            let Ok(cache) = self.agent_store.tool_cache_for("default", agent_id) else {
+            let Ok(cache) = self.agent_store.tool_cache_for(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime tool cache lookup failed");
                 return Vec::new();
             };
             cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
         };
-        let skills = match self.agent_store.skill_store_for("default", agent_id) {
+        let skills = match self.agent_store.skill_store_for(user_id, agent_id) {
             Ok(s) => s.format_skills_async().await,
             Err(e) => {
                 tracing::error!(%e, agent_id, "skill store lookup failed");
@@ -472,7 +476,7 @@ impl AppCore {
             user_memory: &{
                 let base = memory.format_user_memory();
                 let layered = {
-                    let Ok(lm) = self.agent_store.layered_memory_for("default", agent_id) else {
+                    let Ok(lm) = self.agent_store.layered_memory_for(user_id, agent_id) else {
                         tracing::error!(agent_id, "agent runtime layered memory lookup failed");
                         return Vec::new();
                     };
@@ -507,8 +511,9 @@ impl AppCore {
         rt: &tokio::runtime::Runtime,
         llm_tx: mpsc::UnboundedSender<LlmEvent>,
         messages: Vec<Value>,
+        user_id: &str,
     ) {
-        self.spawn_chat_for(rt, llm_tx, messages, "default", &[])
+        self.spawn_chat_for(rt, llm_tx, messages, "default", &[], user_id)
     }
 
     /// Spawn the LLM chat loop for a specific agent.
@@ -519,9 +524,10 @@ impl AppCore {
         messages: Vec<Value>,
         agent_id: &str,
         recent_messages: &[Value],
+        user_id: &str,
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
-            match self.prepare_chat_loop(agent_id) {
+            match self.prepare_chat_loop(user_id, agent_id) {
                 Ok(p) => p,
                 Err(e) => {
                     let _ = llm_tx.send(LlmEvent::Error(format!("Failed to prepare chat loop: {}", e)));
@@ -529,7 +535,7 @@ impl AppCore {
                 }
             };
         let delegate_rt =
-            self.build_delegate_runtime(agent_id, llm_tx.clone(), recent_messages.to_vec());
+            self.build_delegate_runtime(user_id, agent_id, llm_tx.clone(), recent_messages.to_vec());
         let checkpoint_store = self.checkpoint_store.clone();
         rt.spawn(async move {
             engine::chat_loop(
@@ -558,6 +564,7 @@ impl AppCore {
     #[allow(clippy::type_complexity)]
     fn prepare_chat_loop(
         &self,
+        user_id: &str,
         agent_id: &str,
     ) -> Result<(
         Box<dyn crate::providers::LlmProvider>,
@@ -605,14 +612,14 @@ impl AppCore {
             agent_config.enabled_tools = tools.clone();
         }
 
-        let mcp = self.agent_store.mcp_registry_for("default", agent_id)?.clone();
+        let mcp = self.agent_store.mcp_registry_for(user_id, agent_id)?.clone();
         let skills = self
             .agent_store
-            .skill_store_for("default", agent_id)?
+            .skill_store_for(user_id, agent_id)?
             .executable_skills();
         let tool_frequency = self
             .agent_store
-            .memory_for("default", agent_id)?
+            .memory_for(user_id, agent_id)?
             .tool_frequency()
             .clone();
         let http_client = self.http_client.clone();
@@ -630,6 +637,7 @@ impl AppCore {
     #[cfg(feature = "dashboard")]
     async fn prepare_chat_loop_async(
         &self,
+        user_id: &str,
         agent_id: &str,
     ) -> Result<(
         Box<dyn crate::providers::LlmProvider>,
@@ -674,15 +682,15 @@ impl AppCore {
             agent_config.enabled_tools = tools.clone();
         }
 
-        let mcp = self.agent_store.mcp_registry_for("default", agent_id)?.clone();
+        let mcp = self.agent_store.mcp_registry_for(user_id, agent_id)?.clone();
         let skills = self
             .agent_store
-            .skill_store_for("default", agent_id)?
+            .skill_store_for(user_id, agent_id)?
             .executable_skills_async()
             .await;
         let tool_frequency = self
             .agent_store
-            .memory_for("default", agent_id)?
+            .memory_for(user_id, agent_id)?
             .tool_frequency()
             .clone();
         let http_client = self.http_client.clone();
@@ -698,11 +706,12 @@ impl AppCore {
 
     fn build_delegate_runtime(
         &self,
+        user_id: &str,
         agent_id: &str,
         parent_tx: mpsc::UnboundedSender<LlmEvent>,
         recent_messages: Vec<serde_json::Value>,
     ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
-        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+        let Ok(memory) = self.agent_store.memory_for(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
             return std::sync::Arc::new(crate::tools::DelegateRuntime {
                 irs_tool_index: self.config.i_rs_tool_index.clone(),
@@ -728,7 +737,7 @@ impl AppCore {
         std::sync::Arc::new(crate::tools::DelegateRuntime {
             irs_tool_index: self.config.i_rs_tool_index.clone(),
             mcp_registry: {
-                let Ok(mcp) = self.agent_store.mcp_registry_for("default", agent_id) else {
+                let Ok(mcp) = self.agent_store.mcp_registry_for(user_id, agent_id) else {
                     tracing::error!(agent_id, "agent runtime MCP lookup failed");
                     return std::sync::Arc::new(crate::tools::DelegateRuntime {
                         irs_tool_index: self.config.i_rs_tool_index.clone(),
@@ -748,7 +757,7 @@ impl AppCore {
                 mcp.clone()
             },
             skills: {
-                let Ok(ss) = self.agent_store.skill_store_for("default", agent_id) else {
+                let Ok(ss) = self.agent_store.skill_store_for(user_id, agent_id) else {
                     tracing::error!(agent_id, "agent runtime skill store lookup failed");
                     return std::sync::Arc::new(crate::tools::DelegateRuntime {
                         irs_tool_index: self.config.i_rs_tool_index.clone(),
@@ -784,11 +793,12 @@ impl AppCore {
     #[cfg(feature = "dashboard")]
     async fn build_delegate_runtime_async(
         &self,
+        user_id: &str,
         agent_id: &str,
         parent_tx: mpsc::UnboundedSender<LlmEvent>,
         recent_messages: Vec<serde_json::Value>,
     ) -> std::sync::Arc<crate::tools::DelegateRuntime> {
-        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+        let Ok(memory) = self.agent_store.memory_for(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
             return std::sync::Arc::new(crate::tools::DelegateRuntime {
                 irs_tool_index: self.config.i_rs_tool_index.clone(),
@@ -812,7 +822,7 @@ impl AppCore {
             String::new()
         };
         let mcp_registry = {
-            let Ok(mcp) = self.agent_store.mcp_registry_for("default", agent_id) else {
+            let Ok(mcp) = self.agent_store.mcp_registry_for(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime MCP lookup failed");
                 return std::sync::Arc::new(crate::tools::DelegateRuntime {
                     irs_tool_index: self.config.i_rs_tool_index.clone(),
@@ -832,7 +842,7 @@ impl AppCore {
             mcp.clone()
         };
         let skills = {
-            let Ok(ss) = self.agent_store.skill_store_for("default", agent_id) else {
+            let Ok(ss) = self.agent_store.skill_store_for(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime skill store lookup failed");
                 return std::sync::Arc::new(crate::tools::DelegateRuntime {
                     irs_tool_index: self.config.i_rs_tool_index.clone(),
@@ -1078,10 +1088,11 @@ impl AppCore {
         &self,
         messages: &[crate::app::Message],
         agent_id: &str,
+        user_id: &str,
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
-        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+        let Ok(memory) = self.agent_store.memory_for(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
             return Vec::new();
         };
@@ -1096,13 +1107,13 @@ impl AppCore {
         };
 
         let hot_tools = {
-            let Ok(cache) = self.agent_store.tool_cache_for("default", agent_id) else {
+            let Ok(cache) = self.agent_store.tool_cache_for(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime tool cache lookup failed");
                 return Vec::new();
             };
             cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
         };
-        let skills_fmt = match self.agent_store.skill_store_for("default", agent_id) {
+        let skills_fmt = match self.agent_store.skill_store_for(user_id, agent_id) {
             Ok(s) => s.format_skills(),
             Err(e) => {
                 tracing::error!(%e, agent_id, "skill store lookup failed");
@@ -1172,10 +1183,11 @@ impl AppCore {
         &self,
         messages: &[crate::app::Message],
         agent_id: &str,
+        user_id: &str,
     ) -> Vec<Value> {
         let resolved = self.config.agent_config(agent_id);
         let tool_index = self.build_irs_tool_index(&resolved);
-        let Ok(memory) = self.agent_store.memory_for("default", agent_id) else {
+        let Ok(memory) = self.agent_store.memory_for(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
             return Vec::new();
         };
@@ -1190,13 +1202,13 @@ impl AppCore {
         };
 
         let hot_tools = {
-            let Ok(cache) = self.agent_store.tool_cache_for("default", agent_id) else {
+            let Ok(cache) = self.agent_store.tool_cache_for(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime tool cache lookup failed");
                 return Vec::new();
             };
             cache.format_hot_tools(&memory.tool_frequency().keys().cloned().collect::<Vec<_>>())
         };
-        let skills_fmt = match self.agent_store.skill_store_for("default", agent_id) {
+        let skills_fmt = match self.agent_store.skill_store_for(user_id, agent_id) {
             Ok(s) => s.format_skills_async().await,
             Err(e) => {
                 tracing::error!(%e, agent_id, "skill store lookup failed");
@@ -1272,9 +1284,10 @@ impl AppCore {
         messages: Vec<Value>,
         agent_id: &str,
         recent_messages: &[Value],
+        user_id: &str,
     ) {
         let (provider, agent_config, mcp, skills, tool_frequency, http_client) =
-            match self.prepare_chat_loop_async(agent_id).await {
+            match self.prepare_chat_loop_async(user_id, agent_id).await {
                 Ok(p) => p,
                 Err(e) => {
                     let _ = llm_tx.send(LlmEvent::Error(format!("Failed to prepare chat loop: {}", e)));
@@ -1282,7 +1295,7 @@ impl AppCore {
                 }
             };
         let delegate_rt = self
-            .build_delegate_runtime_async(agent_id, llm_tx.clone(), recent_messages.to_vec())
+            .build_delegate_runtime_async(user_id, agent_id, llm_tx.clone(), recent_messages.to_vec())
             .await;
         let checkpoint_store = self.checkpoint_store.clone();
         tokio::spawn(async move {
@@ -1374,7 +1387,7 @@ pub fn record_tool_memory(user_id: &str,
     if name == "i_rs" {
         track_i_rs_usage(user_id, agent_store, i_rs_tool_index, agent_id, args, result);
     } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
-        let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+        let Ok(mem) = agent_store.memory_for_mut(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
             return;
         };
@@ -1410,7 +1423,7 @@ pub async fn record_tool_memory_async(
         )
         .await;
     } else if i_rs_tool_index.contains_key(name) || name.starts_with("skill_") {
-        let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+        let Ok(mem) = agent_store.memory_for_mut(user_id, agent_id) else {
             tracing::error!(agent_id, "agent runtime memory lookup failed");
             return;
         };
@@ -1418,8 +1431,8 @@ pub async fn record_tool_memory_async(
     }
 }
 
-fn persist_user_memory(_user_id: &str, agent_store: &mut AgentRuntimeStore, agent_id: &str, args: &str) {
-    let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+fn persist_user_memory(user_id: &str, agent_store: &mut AgentRuntimeStore, agent_id: &str, args: &str) {
+    let Ok(mem) = agent_store.memory_for_mut(user_id, agent_id) else {
         tracing::error!(agent_id, "agent runtime memory lookup failed");
         return;
     };
@@ -1455,7 +1468,7 @@ fn persist_user_memory(_user_id: &str, agent_store: &mut AgentRuntimeStore, agen
     }
 }
 
-fn track_i_rs_usage(_user_id: &str, 
+fn track_i_rs_usage(user_id: &str, 
     agent_store: &mut AgentRuntimeStore,
     i_rs_tool_index: &HashMap<String, String>,
     agent_id: &str,
@@ -1466,7 +1479,7 @@ fn track_i_rs_usage(_user_id: &str,
         && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
     {
         if i_rs_tool_index.contains_key(tool) {
-            let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+            let Ok(mem) = agent_store.memory_for_mut(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime memory lookup failed");
                 return;
             };
@@ -1480,7 +1493,7 @@ fn track_i_rs_usage(_user_id: &str,
                 .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
                 .unwrap_or(false)
         {
-            let Ok(cache) = agent_store.tool_cache_for_mut("default", agent_id) else {
+            let Ok(cache) = agent_store.tool_cache_for_mut(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime tool cache lookup failed");
                 return;
             };
@@ -1493,7 +1506,7 @@ fn track_i_rs_usage(_user_id: &str,
 /// Async version of [`track_i_rs_usage`].
 #[cfg(feature = "dashboard")]
 async fn track_i_rs_usage_async(
-    _user_id: &str,
+    user_id: &str,
     agent_store: &mut AgentRuntimeStore,
     i_rs_tool_index: &HashMap<String, String>,
     agent_id: &str,
@@ -1504,7 +1517,7 @@ async fn track_i_rs_usage_async(
         && let Some(tool) = parsed.get("tool").and_then(|t| t.as_str())
     {
         if i_rs_tool_index.contains_key(tool) {
-            let Ok(mem) = agent_store.memory_for_mut("default", agent_id) else {
+            let Ok(mem) = agent_store.memory_for_mut(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime memory lookup failed");
                 return;
             };
@@ -1518,7 +1531,7 @@ async fn track_i_rs_usage_async(
                 .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
                 .unwrap_or(false)
         {
-            let Ok(cache) = agent_store.tool_cache_for_mut("default", agent_id) else {
+            let Ok(cache) = agent_store.tool_cache_for_mut(user_id, agent_id) else {
                 tracing::error!(agent_id, "agent runtime tool cache lookup failed");
                 return;
             };
@@ -1528,13 +1541,13 @@ async fn track_i_rs_usage_async(
     }
 }
 
-pub fn record_layered_tool_memory(_user_id: &str, 
+pub fn record_layered_tool_memory(user_id: &str, 
     agent_store: &mut AgentRuntimeStore,
     agent_id: &str,
     name: &str,
     result: &str,
 ) {
-    let Ok(layered) = agent_store.layered_memory_for_mut("default", agent_id) else {
+    let Ok(layered) = agent_store.layered_memory_for_mut(user_id, agent_id) else {
         tracing::error!(agent_id, "agent runtime layered memory lookup failed");
         return;
     };
@@ -1584,7 +1597,7 @@ mod tests {
     #[test]
     fn test_build_messages_for_default() {
         let (_config, core) = crate::test_helpers::test_core();
-        let msgs = core.build_messages(&[], "hello", &None, None);
+        let msgs = core.build_messages(&[], "hello", &None, None, "default");
         assert!(msgs.len() >= 2, "至少应有 system + user 消息");
         assert_eq!(msgs[0]["role"], "system");
         assert_eq!(msgs.last().unwrap()["role"], "user");
@@ -1594,7 +1607,7 @@ mod tests {
     #[test]
     fn test_build_messages_for_agent() {
         let (_config, core) = crate::test_helpers::test_core();
-        let msgs = core.build_messages_for(&[], "test", &None, None, "default");
+        let msgs = core.build_messages_for(&[], "test", &None, None, "default", "default");
         assert!(msgs.len() >= 2);
         assert_eq!(msgs[0]["role"], "system");
         assert_eq!(msgs.last().unwrap()["role"], "user");
@@ -1609,7 +1622,7 @@ mod tests {
             let (tx, _rx) = mpsc::unbounded_channel();
             let messages = vec![json!({"role": "user", "content": "hi"})];
             // spawn_chat 不应 panic
-            core.spawn_chat(&rt, tx, messages);
+            core.spawn_chat(&rt, tx, messages, "default");
             std::thread::sleep(std::time::Duration::from_millis(50));
         });
 

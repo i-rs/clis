@@ -371,7 +371,7 @@ pub async fn chat(
 
         // Build messages and spawn chat_loop
         let records = core.session_mgr.load_app_messages_async(&sid, 50).await;
-        let msgs = core.build_messages_from_log_async(&records, &agent_id).await;
+        let msgs = core.build_messages_from_log_async(&records, &agent_id, &user_id).await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -385,7 +385,7 @@ pub async fn chat(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id).await;
         let i_rs_index = core.config.i_rs_tool_index.clone();
         drop(core);
         (sid, i_rs_index)
@@ -443,7 +443,7 @@ pub async fn chat_stream(
             .unwrap_or_else(|| "default".to_string());
 
         let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
-        let msgs = core.build_messages_from_log_async(&records, &agent_id).await;
+        let msgs = core.build_messages_from_log_async(&records, &agent_id, &user_id).await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -457,7 +457,7 @@ pub async fn chat_stream(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id).await;
         let i_rs_index = core.config.i_rs_tool_index.clone();
         (agent_id, i_rs_index)
     };
@@ -515,7 +515,7 @@ pub async fn chat_stream_resume(
             .unwrap_or_else(|| "default".to_string());
 
         let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
-        let msgs = core.build_messages_from_log_async(&records, &agent_id).await;
+        let msgs = core.build_messages_from_log_async(&records, &agent_id, &user_id).await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -529,7 +529,7 @@ pub async fn chat_stream_resume(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id).await;
         let i_rs_index = core.config.i_rs_tool_index.clone();
         (agent_id, i_rs_index)
     };

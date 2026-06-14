@@ -414,6 +414,7 @@ impl<'a> KeyEventHandler<'a> {
                 &self.app.chat.api_messages,
                 self.app.reminder_text.as_deref(),
                 &self.app.current_agent,
+                "default",
             );
             let recent: Vec<Value> = self.app.chat.api_messages
                 .as_deref()
@@ -425,6 +426,7 @@ impl<'a> KeyEventHandler<'a> {
                 msgs,
                 &self.app.current_agent,
                 &recent,
+                "default",
             );
         }
         Action::Continue
