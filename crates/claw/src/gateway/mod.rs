@@ -263,6 +263,7 @@ impl GatewayServer {
                 std::sync::Arc::new(std::sync::Mutex::new(
                     i_rs_claw_core::core::checkpoint::CheckpointStore::new(20),
                 )),
+                "default".to_string(),
             )
             .await;
         });

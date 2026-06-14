@@ -75,6 +75,7 @@ pub struct ToolContext {
     pub config: crate::config::Config,
     pub http_client: reqwest::Client,
     pub delegate_runtime: Option<std::sync::Arc<DelegateRuntime>>,
+    pub user_id: String,
 }
 
 /// Runtime state needed for sub-agent delegation with full tool support.
@@ -414,6 +415,7 @@ mod tests {
             config: crate::test_helpers::test_config(),
             http_client: crate::providers::shared_client(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         };
         let result = reg.execute("不存在", &json!({}), &ctx).await;
         assert!(result.is_err(), "未知工具应返回错误");

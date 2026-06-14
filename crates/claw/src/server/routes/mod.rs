@@ -60,6 +60,14 @@ impl<T: Serialize> ApiResponse<T> {
     }
 }
 
+/// Return an error response with a specific HTTP status code.
+pub fn err_status<T: Serialize>(
+    status: axum::http::StatusCode,
+    msg: &str,
+) -> (axum::http::StatusCode, Json<ApiResponse<T>>) {
+    (status, ApiResponse::err(msg))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -177,6 +177,7 @@ impl ClawTool for DelegateTool {
                 std::sync::Arc::new(std::sync::Mutex::new(
                     crate::core::checkpoint::CheckpointStore::new(20),
                 )),
+                "delegate".to_string(),
             )
             .await;
         });
@@ -611,6 +612,7 @@ mod tests {
             config: crate::test_helpers::test_config(),
             http_client: reqwest::Client::new(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         };
         let prompt = build_sub_agent_prompt(&config, &ctx);
         assert!(prompt.contains("财务分析师"));
@@ -656,6 +658,7 @@ mod tests {
                 tz_offset: chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
                 plan_then_execute: false,
             })),
+            user_id: "test".to_string(),
         };
         let prompt = build_sub_agent_prompt(&config, &ctx);
         assert!(prompt.contains("小助手"));
@@ -707,6 +710,7 @@ mod tests {
                 tz_offset: chrono::FixedOffset::east_opt(8 * 3600).unwrap(),
                 plan_then_execute: true,
             })),
+            user_id: "test".to_string(),
         };
         let prompt = build_sub_agent_prompt(&config, &ctx);
         // System prompt from agent config

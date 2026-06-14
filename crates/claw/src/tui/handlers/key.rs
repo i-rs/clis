@@ -416,10 +416,7 @@ impl<'a> KeyEventHandler<'a> {
                 &self.app.current_agent,
                 "default",
             );
-            let recent: Vec<Value> = self.app.chat.api_messages
-                .as_deref()
-                .map(|m| m.to_vec())
-                .unwrap_or_default();
+            let recent = self.app.chat.api_messages.clone().unwrap_or_default();
             self.app_core.spawn_chat_for(
                 self.rt,
                 self.llm_tx.clone(),

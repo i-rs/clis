@@ -46,6 +46,7 @@ fn prepare_loop(
         std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>,
     >,
     checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    user_id: String,
 ) -> ChatLoopInit {
     let enabled = if config.enabled_tools.is_empty() {
         None
@@ -79,6 +80,7 @@ fn prepare_loop(
         config: config.clone(),
         http_client: http_client.clone(),
         delegate_runtime,
+        user_id,
     };
     let executor = crate::core::executor::ToolCallExecutor::new(tool_registry, tool_ctx)
         .with_timeout(config.cli_timeout_secs)
@@ -329,6 +331,7 @@ pub async fn chat_loop(
         std::sync::Arc<std::sync::Mutex<crate::core::layered_memory::LayeredMemory>>,
     >,
     checkpoint_store: std::sync::Arc<std::sync::Mutex<crate::core::checkpoint::CheckpointStore>>,
+    user_id: String,
 ) {
     let trace_id = uuid::Uuid::new_v4().to_string();
     let mut msgs = messages;
@@ -343,6 +346,7 @@ pub async fn chat_loop(
         delegate_runtime,
         layered_memory,
         checkpoint_store,
+        user_id,
     );
     let mut retry_counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut round_count = 0u32;
@@ -896,6 +900,7 @@ mod tests {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::core::checkpoint::CheckpointStore::new(20),
             )),
+            "test".to_string(),
         )
         .await;
 
@@ -936,6 +941,7 @@ mod tests {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::core::checkpoint::CheckpointStore::new(20),
             )),
+            "test".to_string(),
         )
         .await;
 
@@ -973,6 +979,7 @@ mod tests {
             std::sync::Arc::new(std::sync::Mutex::new(
                 crate::core::checkpoint::CheckpointStore::new(20),
             )),
+            "test".to_string(),
         )
         .await;
 

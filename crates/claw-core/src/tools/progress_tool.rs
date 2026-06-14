@@ -111,6 +111,7 @@ mod tests {
             config: crate::test_helpers::test_config(),
             http_client: reqwest::Client::new(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         }
     }
 

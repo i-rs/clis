@@ -83,6 +83,7 @@ mod tests {
             config,
             http_client: reqwest::Client::new(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         }
     }
 

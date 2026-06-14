@@ -116,6 +116,7 @@ mod tests {
             config: test_config(),
             http_client: shared_client(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         }
     }
 

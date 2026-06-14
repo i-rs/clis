@@ -537,6 +537,7 @@ impl AppCore {
         let delegate_rt =
             self.build_delegate_runtime(user_id, agent_id, llm_tx.clone(), recent_messages.to_vec());
         let checkpoint_store = self.checkpoint_store.clone();
+        let user_id = user_id.to_string();
         rt.spawn(async move {
             engine::chat_loop(
                 provider,
@@ -550,6 +551,7 @@ impl AppCore {
                 Some(delegate_rt),
                 None,
                 checkpoint_store,
+                user_id,
             )
             .await;
         });
@@ -1298,6 +1300,7 @@ impl AppCore {
             .build_delegate_runtime_async(user_id, agent_id, llm_tx.clone(), recent_messages.to_vec())
             .await;
         let checkpoint_store = self.checkpoint_store.clone();
+        let user_id = user_id.to_string();
         tokio::spawn(async move {
             engine::chat_loop(
                 provider,
@@ -1311,6 +1314,7 @@ impl AppCore {
                 Some(delegate_rt),
                 None,
                 checkpoint_store,
+                user_id,
             )
             .await;
         });

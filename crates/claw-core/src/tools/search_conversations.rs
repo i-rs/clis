@@ -131,6 +131,7 @@ mod tests {
             config: crate::test_helpers::test_config(),
             http_client: reqwest::Client::new(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         };
         let result = tool.execute(&json!({}), &ctx).await;
         assert!(result.is_err(), "empty query should fail");
@@ -144,6 +145,7 @@ mod tests {
             config: crate::test_helpers::test_config(),
             http_client: reqwest::Client::new(),
             delegate_runtime: None,
+            user_id: "test".to_string(),
         };
         let result = tool.execute(&json!({"query": ""}), &ctx).await;
         assert!(result.is_err(), "blank query should fail");
