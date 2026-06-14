@@ -194,7 +194,7 @@ pub async fn update_agent(
     let row_prompt_file = agent_config.system_prompt_file.clone();
     let row_caps = agent_config.capabilities.clone();
     let row_execution = agent_config.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
-    let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
+    if let Err(e) = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
         user_id,
         agent_id: id.clone(),
         provider_ref: row_provider_ref,
@@ -209,7 +209,10 @@ pub async fn update_agent(
         execution_mode: row_execution,
         created_at: now,
         updated_at: now,
-    }).await;
+    }).await
+    {
+        tracing::error!(error = %e, "DB sync failed for agent update");
+    }
 
     super::ApiResponse::ok(serde_json::json!({
         "id": id,
@@ -317,7 +320,7 @@ pub async fn create_agent(
     let row_prompt_file = agent_config_clone.system_prompt_file.clone();
     let row_caps = agent_config_clone.capabilities.clone();
     let row_execution = agent_config_clone.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
-    let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
+    if let Err(e) = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
         user_id,
         agent_id: agent_id.clone(),
         provider_ref: row_provider_ref,
@@ -332,7 +335,10 @@ pub async fn create_agent(
         execution_mode: row_execution,
         created_at: now,
         updated_at: now,
-    }).await;
+    }).await
+    {
+        tracing::error!(error = %e, "DB sync failed for agent create");
+    }
 
     super::ApiResponse::ok(serde_json::json!({
         "id": agent_id,
@@ -366,7 +372,9 @@ pub async fn delete_agent(
     }
 
     // Also delete from ConfigStore
-    let _ = core.config_store.agent_configs.delete(&user_id, &id).await;
+    if let Err(e) = core.config_store.agent_configs.delete(&user_id, &id).await {
+        tracing::error!(error = %e, "DB cleanup failed for agent delete");
+    }
 
     super::ApiResponse::ok(serde_json::json!({
         "id": id,

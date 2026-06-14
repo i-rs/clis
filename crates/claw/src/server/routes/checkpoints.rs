@@ -108,8 +108,8 @@ pub async fn restore_checkpoint(
         }
     }
     let cp_id = format!("cp_{}_{}", session_id, round);
-    let core = state.core.read().await;
-    let result = {
+    let core = state.core.write().await;
+    let messages = {
         let Ok(store) = core.checkpoint_store.lock() else {
             drop(core);
             return super::ApiResponse::err("检查点存储不可用");
@@ -122,16 +122,16 @@ pub async fn restore_checkpoint(
                 session_id, round
             ));
         };
-        let messages = cp.restore_messages();
-        let data = serde_json::json!({
-            "restored": true,
-            "session_id": cp.session_id,
-            "round": cp.round,
-            "message_count": messages.len(),
-        });
-        drop(store);
-        data
+        cp.restore_messages()
     };
-    drop(core);
-    super::ApiResponse::ok(result)
+
+    // Actually restore: write the checkpoint's messages back to the session
+    core.session_mgr.save_api_messages_async(session_id, &messages).await;
+
+    super::ApiResponse::ok(serde_json::json!({
+        "restored": true,
+        "session_id": session_id,
+        "round": round,
+        "message_count": messages.len(),
+    }))
 }

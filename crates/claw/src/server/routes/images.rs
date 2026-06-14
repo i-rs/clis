@@ -5,7 +5,7 @@ pub async fn serve_image(Path(filename): Path<String>) -> axum::response::Respon
     use axum::body::Body;
     use axum::http::{StatusCode, header};
 
-    if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+    if filename.contains('/') || filename.contains('\\') {
         return axum::response::Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body(Body::from("Invalid filename"))
@@ -24,7 +24,7 @@ pub async fn serve_image(Path(filename): Path<String>) -> axum::response::Respon
 
     let filepath = claw_dir.join("images").join(&filename);
 
-    match std::fs::read(&filepath) {
+    match tokio::fs::read(&filepath).await {
         Ok(content) => {
             let mime = mime_guess::from_path(&filepath).first_or_octet_stream();
             axum::response::Response::builder()

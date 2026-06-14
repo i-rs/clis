@@ -669,7 +669,7 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
                 );
                 memory.flush();
                 handler.app.overlay.copy_feedback =
-                    Some(("✓ 上下文已压缩".to_string(), std::time::Instant::now()));
+                    Some(("✓ 记忆已更新（长期记忆提取完成）".to_string(), std::time::Instant::now()));
             }
         }
         Some(crate::app::SlashAction::Theme) => {

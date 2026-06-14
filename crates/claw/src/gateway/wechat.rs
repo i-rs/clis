@@ -90,7 +90,7 @@ impl WeChatAdapter {
             let _ = std::fs::create_dir_all(parent);
         }
         if let Ok(json) = serde_json::to_string_pretty(creds) {
-            let _ = std::fs::write(&self.credentials_path, json);
+            let _ = i_rs_claw_core::utils::atomic_write(&self.credentials_path, &json);
         }
     }
 

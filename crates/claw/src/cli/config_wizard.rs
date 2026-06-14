@@ -47,11 +47,13 @@ pub fn run_config() -> anyhow::Result<()> {
     // ── API Key ──
     let current = if cfg.api_key.is_empty() {
         String::new()
+    } else if cfg.api_key.len() <= 8 {
+        " [****]".to_string()
     } else {
         format!(
             " [{}...{}]",
-            &cfg.api_key[..4.min(cfg.api_key.len())],
-            &cfg.api_key[cfg.api_key.len().saturating_sub(4)..]
+            &cfg.api_key[..4],
+            &cfg.api_key[cfg.api_key.len() - 4..]
         )
     };
     print!("API Key{}: ", current);

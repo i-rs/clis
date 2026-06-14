@@ -333,10 +333,8 @@ impl RenderState {
     }
 
     pub fn invalidate_last(&mut self) {
-        if !self.heights.is_empty() {
-            self.heights[0] = 0;
-        } else {
-            self.heights.clear();
+        if let Some(last) = self.heights.last_mut() {
+            *last = 0;
         }
         self.dirty = true;
     }

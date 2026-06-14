@@ -38,39 +38,6 @@ pub(super) const INDENT_STR: &str = "  ";
 pub(super) const GUTTER_STR: &str = "▎ ";
 /// Pre-computed left padding string (BLOCK_LEFT_RESERVED = 5 spaces).
 pub(super) const LEFT_PAD: &str = "     ";
-/// Build the top rounded border for a block of the given total width.
-///
-/// ```text
-/// ╭───────────╮
-/// ```
-#[allow(dead_code)]
-pub fn rounded_top(width: u16, border: Color) -> Line<'static> {
-    if width < 2 {
-        return Line::from("");
-    }
-    let inner = (width as usize).saturating_sub(2);
-    Line::from(Span::styled(
-        format!("╭{}╮", "─".repeat(inner)),
-        Style::default().fg(border),
-    ))
-}
-
-/// Build the bottom rounded border for a block of the given total width.
-///
-/// ```text
-/// ╰───────────╯
-/// ```
-#[allow(dead_code)]
-pub fn rounded_bottom(width: u16, border: Color) -> Line<'static> {
-    if width < 2 {
-        return Line::from("");
-    }
-    let inner = (width as usize).saturating_sub(2);
-    Line::from(Span::styled(
-        format!("╰{}╯", "─".repeat(inner)),
-        Style::default().fg(border),
-    ))
-}
 
 /// A header line: `<indent><glyph> <label><meta?>`.
 ///
@@ -135,18 +102,6 @@ pub fn block_border(theme: &Theme, selected: bool) -> Color {
     } else {
         theme.border()
     }
-}
-
-/// Per-block tint identifier. Reserved for future use.
-#[allow(dead_code)]
-pub enum BlockTint {
-    User,
-    Assistant,
-    Tool,
-    Error,
-    Evaluation,
-    Quality,
-    Info,
 }
 
 /// Mix two colors. `t` is 0.0..=1.0 — at 0 returns `a`, at 1 returns `b`.

@@ -86,12 +86,23 @@ fn detect_status(result: &str) -> ToolStatus {
         return ToolStatus::Running;
     }
     let lower = result.to_lowercase();
-    if lower.contains("error")
-        || lower.contains("failed")
-        || lower.contains("failure")
-        || lower.contains("panic")
-        || lower.contains("exception")
-    {
+    // Use word-boundary-aware patterns to avoid false positives like "errorCount: 0"
+    let failure_patterns = [
+        "\"error\":",
+        "\"success\": false",
+        "\"success\":false",
+        "\"ok\": false",
+        "\"ok\":false",
+        "error:",
+        "traceback",
+        "panicked at",
+        "exception:",
+    ];
+    let has_error = failure_patterns.iter().any(|p| lower.contains(p))
+        || lower.starts_with("error ")
+        || lower.starts_with("failed ")
+        || lower.starts_with("failure ");
+    if has_error {
         ToolStatus::Failure
     } else {
         ToolStatus::Success

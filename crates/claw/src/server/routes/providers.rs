@@ -152,7 +152,9 @@ pub async fn delete_provider(
         return super::ApiResponse::err(&format!("Failed to save config: {}", e));
     }
 
-    let _ = core.config_store.provider_configs.delete(&name).await;
+    if let Err(e) = core.config_store.provider_configs.delete(&name).await {
+        tracing::error!(%e, "DB cleanup failed for provider delete");
+    }
 
     super::ApiResponse::ok(serde_json::json!({
         "name": name,
