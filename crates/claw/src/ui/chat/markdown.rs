@@ -133,9 +133,11 @@ pub(super) fn render_markdown(text: &str, max_width: usize, theme: &Theme) -> Ve
                             separator,
                             Style::default().fg(code_border).bg(code_bg),
                         )));
+                        let code_max_w = max_width.saturating_sub(2);
                         for cl in code_text.lines() {
+                            let display = crate::ui::utils::truncate_str(cl, code_max_w);
                             lines.push(Line::from(Span::styled(
-                                format!("  {}", cl),
+                                format!("  {}", display),
                                 Style::default().fg(code_text_color).bg(code_bg),
                             )));
                         }

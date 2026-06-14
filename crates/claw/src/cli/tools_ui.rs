@@ -27,7 +27,7 @@ pub fn run_tools() -> anyhow::Result<()> {
     let mut selection: usize = 0;
     let mut dirty = false;
 
-    let result: anyhow::Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> anyhow::Result<()> {
         loop {
             terminal.draw(|f| {
                 let area = f.area();
@@ -131,13 +131,18 @@ pub fn run_tools() -> anyhow::Result<()> {
                 }
             }
         }
-    })();
+    }));
 
-    // ── TUI teardown ──
+    // ── TUI teardown (always runs, even on panic) ──
     crossterm::terminal::disable_raw_mode()?;
     crossterm::execute!(io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
 
-    result?;
+    match result {
+        Ok(inner) => inner?,
+        Err(_) => {
+            anyhow::bail!("工具界面发生内部错误，终端已恢复");
+        }
+    }
 
     // Save if modified
     if dirty {

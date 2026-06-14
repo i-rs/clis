@@ -194,12 +194,18 @@ pub fn run_config() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 let sp = input.trim().to_string();
                 if !sp.is_empty() {
+                    let home = dirs::home_dir()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default();
                     cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
-                        sp.replace('~', &dirs::home_dir().unwrap().to_string_lossy()),
+                        sp.replace('~', &home),
                     ));
                 } else {
+                    let home = dirs::home_dir()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default();
                     cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
-                        sqlite_default.replace('~', &dirs::home_dir().unwrap().to_string_lossy()),
+                        sqlite_default.replace('~', &home),
                     ));
                 }
             }

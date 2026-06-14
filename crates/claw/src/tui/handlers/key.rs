@@ -660,11 +660,12 @@ impl<'a> KeyEventHandler<'a> {
     fn apply_tab_completion(&mut self) {
         let selected = &self.app.overlay.tab_completions[self.app.overlay.tab_completion_index];
         let after_cursor = &self.app.input.text[self.app.overlay.tab_completion_cursor..];
+        let spacer = if after_cursor.is_empty() { "" } else { " " };
         self.app.input.text = format!(
-            "{}{} {}",
-            self.app.overlay.tab_completion_prefix, selected, after_cursor
+            "{}{}{}{}",
+            self.app.overlay.tab_completion_prefix, selected, spacer, after_cursor
         );
         self.app.input.cursor =
-            self.app.overlay.tab_completion_prefix.len() + selected.len() + 1;
+            self.app.overlay.tab_completion_prefix.len() + selected.len() + spacer.len();
     }
 }

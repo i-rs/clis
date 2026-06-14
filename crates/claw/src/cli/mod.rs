@@ -638,7 +638,7 @@ pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     if result.total_cost_usd > 0.001 {
         println!("  预估费用:     ${:.4}", result.total_cost_usd);
     }
-    println!("  平均延迟:     {:>8}ms", result.avg_latency_ms as u64);
+    println!("  平均延迟:     {:>8.1}ms", result.avg_latency_ms);
     println!(
         "  成功率:       {:>7}%",
         (result.success_rate * 100.0).round() / 100.0

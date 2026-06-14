@@ -126,7 +126,26 @@ impl PlatformAdapter for TelegramAdapter {
             "text": text,
             "parse_mode": "Markdown",
         });
-        let _ = self.client.post(&url).json(&body).send().await;
+        let resp = self.client.post(&url).json(&body).send().await;
+        match resp {
+            Ok(r) if r.status().is_success() => { /* ok */ }
+            Ok(r) => {
+                tracing::warn!(
+                    status = %r.status(),
+                    "Telegram sendMessage with Markdown failed, retrying without parse_mode"
+                );
+                // Retry without parse_mode — LLM responses often contain
+                // unbalanced markdown that Telegram rejects.
+                let body_plain = serde_json::json!({
+                    "chat_id": chat_id,
+                    "text": text,
+                });
+                let _ = self.client.post(&url).json(&body_plain).send().await;
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Telegram sendMessage network error");
+            }
+        }
     }
 
     async fn stop(&self) {
