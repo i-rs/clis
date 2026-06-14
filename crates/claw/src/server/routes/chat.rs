@@ -2,7 +2,6 @@ use crate::server::AppState;
 use crate::server::UserId;
 use crate::server::rate_limit::ConcurrencyGuard;
 use i_rs_claw_core::llm::LlmEvent;
-#[cfg(feature = "dashboard")]
 use i_rs_claw_core::message::MessageAccumulator;
 use axum::{
     Json,
@@ -17,6 +16,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 
 /// Build an SSE stream from an LlmEvent receiver with auto-incrementing event IDs.
+#[allow(clippy::too_many_arguments)]
 fn build_sse_stream(
     rx: mpsc::UnboundedReceiver<LlmEvent>,
     write_tx: mpsc::UnboundedSender<WriteCmd>,
@@ -24,10 +24,12 @@ fn build_sse_stream(
     state: AppState,
     user_id: String,
     sid: String,
+    agent_id: String,
+    i_rs_index: std::collections::HashMap<String, String>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = futures_util::stream::unfold(
-        (Some(rx), write_tx, guard, state, user_id, sid, MessageAccumulator::new(), 0u64),
-        |(rx_opt, write_tx, guard, state, user_id, sid, mut acc, mut seq)| async move {
+        (Some(rx), write_tx, guard, state, user_id, sid, agent_id, i_rs_index, MessageAccumulator::new(), 0u64),
+        |(rx_opt, write_tx, guard, state, user_id, sid, agent_id, i_rs_index, mut acc, mut seq)| async move {
             let mut rx = rx_opt?;
             loop {
                 let event = rx.recv().await?;
@@ -36,20 +38,13 @@ fn build_sse_stream(
 
                 match event {
                     LlmEvent::ToolExecuted { name, args, result, step, total_steps, category } => {
-                        let (agent_id, i_rs_index) = {
-                            let core = state.core.read().await;
-                            let aid = core.session_mgr.session_meta(&sid)
-                                .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
-                            let idx = core.config.i_rs_tool_index.clone();
-                            (aid, idx)
-                        };
                         if write_tx.send(WriteCmd::RecordToolMemory {
                             user_id: user_id.clone(),
                             agent_id: agent_id.clone(),
                             tool_name: name.clone(),
                             tool_args: args.clone(),
                             tool_result: result.clone(),
-                            i_rs_index,
+                            i_rs_index: i_rs_index.clone(),
                         }).is_err() {
                             tracing::error!("writer task dead — RecordToolMemory lost");
                         }
@@ -70,11 +65,6 @@ fn build_sse_stream(
                         acc.apply(&LlmEvent::ToolExecuted { name: name.clone(), args: args.clone(), result: result.clone(), step, total_steps, category });
                     }
                     LlmEvent::Done(msgs, usage, _trace_id) => {
-                        let agent_id = {
-                            let core = state.core.read().await;
-                            core.session_mgr.session_meta(&sid)
-                                .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string())
-                        };
                         acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
@@ -160,6 +150,9 @@ fn build_sse_stream(
                         sse_event = Event::default().event("evaluation").data(data).id(seq.to_string());
                     }
                     LlmEvent::UsageRecord(mut record) => {
+                        if record.agent_id == "default" {
+                            record.agent_id = agent_id.clone();
+                        }
                         let core = state.core.read().await;
                         if record.estimated_cost_usd == 0.0 {
                             record.estimated_cost_usd = core.stats_manager.estimate_cost(
@@ -168,19 +161,17 @@ fn build_sse_stream(
                                 record.completion_tokens,
                             );
                         }
-                        if record.agent_id == "default" {
-                            let agent_id = core.session_mgr.session_meta(&sid)
-                                .map(|m| m.agent_id.clone()).unwrap_or_else(|| "default".to_string());
-                            record.agent_id = agent_id;
-                        }
                         core.stats_manager.record(record);
                         continue;
                     }
-                    _ => continue,
+                    _ => {
+                        tracing::debug!(event = ?std::mem::discriminant(&event), "unhandled LlmEvent variant, skipping");
+                        continue;
+                    }
                 }
                 seq += 1;
                 let (next_rx, next_acc) = if keep_rx { (Some(rx), acc) } else { (None, MessageAccumulator::new()) };
-                return Some((Ok::<_, Infallible>(sse_event), (next_rx, write_tx, guard, state, user_id, sid, next_acc, seq)));
+                return Some((Ok::<_, Infallible>(sse_event), (next_rx, write_tx, guard, state, user_id, sid, agent_id, i_rs_index, next_acc, seq)));
             }
         },
     );
@@ -278,6 +269,49 @@ async fn writer_task(
     }
 }
 
+/// Resolve the active session for `user_id`, ensuring multi-tenant isolation.
+///
+/// 1. If the global `current_id` belongs to this user, reuse it.
+/// 2. Otherwise, find the user's most recent session.
+/// 3. If the user has no sessions, create a new one.
+async fn resolve_user_session(
+    core: &mut i_rs_claw_core::core::AppCore,
+    user_id: &str,
+    agent_id: &str,
+) -> String {
+    // 1. Check if global current_id belongs to this user
+    if let Some(cid) = core.session_mgr.current_id() {
+        let cid = cid.to_string();
+        if core
+            .session_mgr
+            .session_meta(&cid)
+            .map(|m| m.user_id == user_id)
+            .unwrap_or(false)
+        {
+            return cid;
+        }
+    }
+
+    // 2. Find the user's most recent session
+    let user_session = core
+        .session_mgr
+        .sessions()
+        .iter()
+        .rev()
+        .find(|s| s.user_id == user_id)
+        .map(|s| s.id.clone());
+
+    if let Some(sid) = user_session {
+        core.session_mgr.switch_to(&sid);
+        return sid;
+    }
+
+    // 3. Create a new session for this user
+    core.session_mgr
+        .create_session_for_async(agent_id, user_id)
+        .await
+}
+
 /// Single-endpoint chat: POST body → SSE stream directly.
 /// Replaces the deprecated send_message + chat_stream pattern.
 pub async fn chat(
@@ -285,12 +319,13 @@ pub async fn chat(
     UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> axum::response::Response {
-    if let Err(e) = state.chat_concurrency.try_acquire() {
-        let err = serde_json::json!({"success": false, "error": e});
-        return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
-    }
-
-    let guard = std::sync::Arc::new(ConcurrencyGuard::new(state.chat_concurrency.clone()));
+    let guard = match state.chat_concurrency.try_acquire_for(&user_id) {
+        Ok(g) => std::sync::Arc::new(g),
+        Err(e) => {
+            let err = serde_json::json!({"success": false, "error": e});
+            return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
+        }
+    };
 
     let text = match body.get("message").and_then(|v| v.as_str()) {
         Some(t) => t.to_string(),
@@ -308,33 +343,13 @@ pub async fn chat(
 
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
 
-    let sid = {
+    let (sid, i_rs_index) = {
         let mut core = state.core.write().await;
 
-        let session_id = core
-            .session_mgr
-            .current_id()
-            .map(|id| id.to_string())
-            .unwrap_or_default();
-
-        if session_id.is_empty() {
-            core.session_mgr
-                .create_session_for_async(&agent_id, &user_id)
-                .await;
-        }
-
-        let sid = match core.session_mgr.current_id().map(|id| id.to_string()) {
-            Some(sid) if !sid.is_empty() => sid,
-            _ => {
-                core.session_mgr
-                    .create_session_for_async(&agent_id, &user_id)
-                    .await;
-                core.session_mgr
-                    .current_id()
-                    .map(|id| id.to_string())
-                    .unwrap_or_default()
-            }
-        };
+        // Resolve the user's active session. The global `current_id` may point
+        // to another user's session in multi-tenant mode, so verify ownership
+        // and fall back to the user's most recent session or create new.
+        let sid = resolve_user_session(&mut core, &user_id, &agent_id).await;
 
         // Persist user message
         let msg = crate::app::Message::User { text: text.clone() };
@@ -371,15 +386,16 @@ pub async fn chat(
             .collect();
 
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
+        let i_rs_index = core.config.i_rs_tool_index.clone();
         drop(core);
-        sid
+        (sid, i_rs_index)
     };
 
     let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, sid).into_response()
+    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, sid, agent_id, i_rs_index).into_response()
 }
 
 /// Legacy SSE stream endpoint (backward compatible).
@@ -388,12 +404,27 @@ pub async fn chat_stream(
     UserId(user_id): UserId,
     Path(session_id): Path<String>,
 ) -> axum::response::Response {
-    if let Err(e) = state.chat_concurrency.try_acquire() {
-        let err = serde_json::json!({"success": false, "error": e});
-        return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
-    }
+    let guard = match state.chat_concurrency.try_acquire_for(&user_id) {
+        Ok(g) => std::sync::Arc::new(g),
+        Err(e) => {
+            let err = serde_json::json!({"success": false, "error": e});
+            return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
+        }
+    };
 
-    let guard = std::sync::Arc::new(ConcurrencyGuard::new(state.chat_concurrency.clone()));
+    // Verify session ownership before granting access
+    {
+        let core = state.core.read().await;
+        if let Some(meta) = core.session_mgr.session_meta(&session_id) {
+            if meta.user_id != user_id {
+                return (axum::http::StatusCode::FORBIDDEN,
+                    axum::Json(serde_json::json!({"success": false, "error": "Session does not belong to you"}))).into_response();
+            }
+        } else {
+            return (axum::http::StatusCode::NOT_FOUND,
+                axum::Json(serde_json::json!({"success": false, "error": "Session not found"}))).into_response();
+        }
+    }
 
     // NOTE: This implementation does not prevent duplicate active streams for the
     // same session. A full solution would require an active-stream tracking HashMap
@@ -401,7 +432,7 @@ pub async fn chat_stream(
 
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
 
-    {
+    let (agent_id, i_rs_index) = {
         let mut core = state.core.write().await;
         core.session_mgr.switch_to(&session_id);
 
@@ -427,13 +458,15 @@ pub async fn chat_stream(
             .collect();
 
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
-    }
+        let i_rs_index = core.config.i_rs_tool_index.clone();
+        (agent_id, i_rs_index)
+    };
 
     let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id).into_response()
+    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id, agent_id, i_rs_index).into_response()
 }
 
 /// Resume an SSE stream after disconnection.
@@ -446,14 +479,18 @@ pub async fn chat_stream_resume(
     Path(session_id): Path<String>,
     Query(query): Query<ResumeQuery>,
 ) -> axum::response::Response {
-    if let Err(e) = state.chat_concurrency.try_acquire() {
-        let err = serde_json::json!({"success": false, "error": e});
-        return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
-    }
-
-    let guard = std::sync::Arc::new(ConcurrencyGuard::new(state.chat_concurrency.clone()));
+    let guard = match state.chat_concurrency.try_acquire_for(&user_id) {
+        Ok(g) => std::sync::Arc::new(g),
+        Err(e) => {
+            let err = serde_json::json!({"success": false, "error": e});
+            return (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(err)).into_response();
+        }
+    };
 
     let _cursor = query.cursor.unwrap_or(0);
+    if _cursor > 0 {
+        tracing::warn!(cursor = _cursor, "resume cursor requested but not yet implemented; performing full replay");
+    }
 
     // Verify session ownership
     {
@@ -467,7 +504,7 @@ pub async fn chat_stream_resume(
 
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
 
-    {
+    let (agent_id, i_rs_index) = {
         let mut core = state.core.write().await;
         core.session_mgr.switch_to(&session_id);
 
@@ -493,13 +530,15 @@ pub async fn chat_stream_resume(
             .collect();
 
         core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent).await;
-    }
+        let i_rs_index = core.config.i_rs_tool_index.clone();
+        (agent_id, i_rs_index)
+    };
 
     let (write_tx, write_rx) = mpsc::unbounded_channel::<WriteCmd>();
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id).into_response()
+    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id, agent_id, i_rs_index).into_response()
 }
 
 #[derive(Deserialize)]

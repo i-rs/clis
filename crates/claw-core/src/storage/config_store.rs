@@ -62,6 +62,13 @@ pub struct ProviderConfigRow {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardUserRow {
     pub user_id: String,
+    /// The dashboard auth token for this user.
+    ///
+    /// **Security note:** Despite the field name, this currently stores the
+    /// token in **plaintext** (the historical name predates a hashing
+    /// implementation that was never completed). The auth middleware
+    /// compares incoming tokens against this value using constant-time
+    /// comparison. Do not expose the DB contents to untrusted parties.
     pub token_hash: String,
     pub display_name: String,
     pub created_at: i64,

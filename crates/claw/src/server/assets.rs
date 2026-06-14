@@ -12,8 +12,6 @@ use rust_embed::RustEmbed;
 /// The output directory `dashboard-ui/dist/` is embedded at compile time.
 #[derive(RustEmbed)]
 #[folder = "dashboard-ui/dist"]
-#[include = "*"]
-#[include = "assets/*"]
 struct Assets;
 
 fn serve_embedded(path: &str) -> Response {
@@ -21,8 +19,15 @@ fn serve_embedded(path: &str) -> Response {
         Some(content) => {
             let body = Body::from(content.data.to_vec());
             let mime = mime_guess::from_path(path).first_or_octet_stream();
-            Response::builder()
-                .header(header::CONTENT_TYPE, mime.as_ref())
+            let mut builder = Response::builder().header(header::CONTENT_TYPE, mime.as_ref());
+            // index.html must always be revalidated so clients pick up new deploys;
+            // hashed assets under assets/ can be cached aggressively.
+            if path == "index.html" {
+                builder = builder.header(header::CACHE_CONTROL, "no-cache");
+            } else {
+                builder = builder.header(header::CACHE_CONTROL, "public, max-age=86400");
+            }
+            builder
                 .body(body)
                 .expect("Assets response builder never fails with valid body")
         }
@@ -44,24 +49,13 @@ pub async fn serve_root() -> Response {
 /// falls back to `index.html`.
 pub async fn serve_assets(Path(path): Path<String>) -> Response {
     let clean_path = path.trim_start_matches('/');
-    let asset_path = if clean_path.is_empty() {
+    if clean_path.is_empty() {
         return serve_root().await;
+    }
+    // For known embedded files, serve directly; otherwise SPA fallback.
+    if Assets::get(clean_path).is_some() {
+        serve_embedded(clean_path)
     } else {
-        clean_path
-    };
-
-    match Assets::get(asset_path) {
-        Some(content) => {
-            let body = Body::from(content.data.to_vec());
-            let mime = mime_guess::from_path(asset_path).first_or_octet_stream();
-            Response::builder()
-                .header(header::CONTENT_TYPE, mime.as_ref())
-                .body(body)
-                .expect("Assets response builder never fails with valid body")
-        }
-        None => {
-            // SPA fallback: serve index.html for unknown paths
-            serve_embedded("index.html")
-        }
+        serve_embedded("index.html")
     }
 }

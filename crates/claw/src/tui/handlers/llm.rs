@@ -245,7 +245,7 @@ impl<'a> LlmEventHandler<'a> {
             return Action::Continue;
         };
 
-        crate::tui::clipboard::save_session_messages(
+        crate::tui::clipboard::persist_session_messages(
             &mut self.app_core.session_mgr,
             &session_id,
             &self.app.chat.messages,

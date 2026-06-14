@@ -3,22 +3,26 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use owo_colors::OwoColorize;
 
-use crate::server::rate_limit::ChatConcurrency;
+use crate::server::rate_limit::UserConcurrencyLimiter;
 
 /// Shared application state for all HTTP handlers.
 #[derive(Clone)]
 pub struct AppState {
     pub core: Arc<RwLock<i_rs_claw_core::core::AppCore>>,
     pub auth_token: String,
-    pub chat_concurrency: Arc<ChatConcurrency>,
+    pub chat_concurrency: Arc<UserConcurrencyLimiter>,
 }
 
 impl AppState {
     pub fn new(core: i_rs_claw_core::core::AppCore, auth_token: String) -> Self {
+        let max_concurrent = std::env::var("CLAW_MAX_CONCURRENT_CHATS")
+            .ok()
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(3);
         Self {
             core: Arc::new(RwLock::new(core)),
             auth_token,
-            chat_concurrency: Arc::new(ChatConcurrency::new(3)),
+            chat_concurrency: Arc::new(UserConcurrencyLimiter::new(max_concurrent)),
         }
     }
 }
@@ -121,7 +125,37 @@ pub async fn run(mut core: i_rs_claw_core::core::AppCore, host: String, port: u1
     println!();
 
     let listener = tokio::net::TcpListener::bind(addr).await.expect("Failed to bind serve address");
-    axum::serve(listener, app).await.expect("Serve error");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .expect("Serve error");
+}
+
+/// Wait for SIGINT / SIGTERM (or Ctrl+C on Windows) to trigger graceful shutdown.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("shutdown signal received, draining in-flight requests");
 }
 
 /// Ensure config file has 0o600 permissions on Unix.

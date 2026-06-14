@@ -8,6 +8,31 @@ use ratatui::{
 
 use crate::app::{App, spinner_char_alt};
 
+/// Compute a centered popup rect within `area`, clamped to `pref_w × pref_h`.
+fn centered_popup(area: Rect, pref_w: u16, pref_h: u16) -> Rect {
+    let w = pref_w.min(area.width.saturating_sub(4));
+    let h = pref_h.min(area.height.saturating_sub(4));
+    let x = (area.width - w) / 2;
+    let y = (area.height - h) / 2;
+    Rect::new(x, y, w, h)
+}
+
+/// Build a rounded, centered-title list widget with theme-colored borders.
+fn themed_list<'a>(
+    title: &str,
+    lines: Vec<Line<'a>>,
+    theme: &i_rs_claw_core::theme::Theme,
+) -> List<'a> {
+    List::new(lines).block(
+        Block::default()
+            .title(title.to_string())
+            .title_alignment(Alignment::Center)
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(theme.primary())),
+    )
+}
+
 pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     if app.chat.plan_steps.is_empty() {
         return;
@@ -66,11 +91,7 @@ pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &i_
 }
 
 pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &i_rs_claw_core::theme::Theme) {
-    let popup_width = 50u16.min(area.width.saturating_sub(4));
-    let popup_height = 29u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 50, 29);
 
     let shortcuts = [
         ("Ctrl+Q", "退出程序"),
@@ -136,14 +157,7 @@ pub(super) fn render_help_panel(f: &mut Frame, area: Rect, theme: &i_rs_claw_cor
         }
     }
 
-    let list = List::new(lines).block(
-        Block::default()
-            .title(" ⌨ 快捷键帮助 ")
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(theme.primary())),
-    );
+    let list = themed_list(" ⌨ 快捷键帮助 ", lines, theme);
     f.render_widget(list, popup_area);
 }
 
@@ -153,11 +167,7 @@ pub(super) fn render_config_panel(
     app: &App,
     theme: &i_rs_claw_core::theme::Theme,
 ) {
-    let popup_width = 52u16.min(area.width.saturating_sub(4));
-    let popup_height = 16u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 52, 16);
 
     let config = &app.config;
     let stats = &app.today_stats;
@@ -212,14 +222,7 @@ pub(super) fn render_config_panel(
         ]));
     }
 
-    let list = List::new(lines).block(
-        Block::default()
-            .title(" ℹ 配置信息 ")
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(theme.primary())),
-    );
+    let list = themed_list(" ℹ 配置信息 ", lines, theme);
     f.render_widget(list, popup_area);
 }
 
@@ -238,13 +241,9 @@ pub(super) fn render_tool_list_panel(
             .collect()
     });
 
-    let popup_width = 60u16.min(area.width.saturating_sub(4));
-    let popup_height = 20u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 60, 20);
 
-    let max_width = (popup_width as usize).saturating_sub(4);
+    let max_width = (popup_area.width as usize).saturating_sub(4);
 
     let mut lines: Vec<Line> = Vec::new();
     for (name, desc) in tools {
@@ -269,14 +268,7 @@ pub(super) fn render_tool_list_panel(
         ]));
     }
 
-    let list = List::new(lines).block(
-        Block::default()
-            .title(" 🔧 可用工具 ")
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(theme.primary())),
-    );
+    let list = themed_list(" 🔧 可用工具 ", lines, theme);
     f.render_widget(list, popup_area);
 }
 
@@ -286,11 +278,7 @@ pub(super) fn render_agent_list_panel(
     app: &App,
     theme: &i_rs_claw_core::theme::Theme,
 ) {
-    let popup_width = 70u16.min(area.width.saturating_sub(4));
-    let popup_height = 20u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 70, 20);
 
     let mut lines: Vec<Line> = Vec::new();
 
@@ -360,14 +348,7 @@ pub(super) fn render_agent_list_panel(
         Style::default().fg(theme.dim_text()),
     )]));
 
-    let list = List::new(lines).block(
-        Block::default()
-            .title(" 👤 Agent 管理 ")
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(theme.primary())),
-    );
+    let list = themed_list(" 👤 Agent 管理 ", lines, theme);
     f.render_widget(list, popup_area);
 }
 
@@ -377,11 +358,7 @@ pub(super) fn render_stats_history_panel(
     app: &App,
     theme: &i_rs_claw_core::theme::Theme,
 ) {
-    let popup_width = 55u16.min(area.width.saturating_sub(4));
-    let popup_height = 16u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 55, 16);
 
     let mut lines: Vec<Line> = Vec::new();
 
@@ -429,7 +406,7 @@ pub(super) fn render_stats_history_panel(
             .map(|d| d.total_tokens)
             .max()
             .unwrap_or(1);
-        let bar_width = (popup_width as usize).saturating_sub(22);
+        let bar_width = (popup_area.width as usize).saturating_sub(22);
 
         for day in &app.stats_history {
             let token_k = day.total_tokens / 1000;
@@ -453,14 +430,7 @@ pub(super) fn render_stats_history_panel(
         }
     }
 
-    let list = List::new(lines).block(
-        Block::default()
-            .title(" 📊 Token 用量 ")
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(theme.primary())),
-    );
+    let list = themed_list(" 📊 Token 用量 ", lines, theme);
     f.render_widget(list, popup_area);
 }
 
@@ -470,11 +440,7 @@ pub(super) fn render_plugin_list_panel(
     app: &App,
     theme: &i_rs_claw_core::theme::Theme,
 ) {
-    let popup_width = 65u16.min(area.width.saturating_sub(4));
-    let popup_height = 20u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 65, 20);
 
     let mut lines: Vec<Line> = Vec::new();
 
@@ -546,14 +512,7 @@ pub(super) fn render_plugin_list_panel(
         Style::default().fg(theme.dim_text()),
     )]));
 
-    let list = List::new(lines).block(
-        Block::default()
-            .title(" 🔌 插件与技能 ")
-            .title_alignment(ratatui::layout::Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(theme.primary())),
-    );
+    let list = themed_list(" 🔌 插件与技能 ", lines, theme);
     f.render_widget(list, popup_area);
 }
 
@@ -612,11 +571,7 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &i_rs_cla
 }
 
 pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &i_rs_claw_core::theme::Theme) {
-    let popup_width = 48u16.min(area.width.saturating_sub(4));
-    let popup_height = 22u16.min(area.height.saturating_sub(4));
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_area = centered_popup(area, 48, 22);
 
     let primary = theme.primary();
     let accent = theme.accent();
@@ -747,14 +702,7 @@ pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &i_
         Style::default().fg(dim),
     )));
 
-    let info_list = List::new(lines).block(
-        Block::default()
-            .title(" ℹ Claw 状态 ")
-            .title_alignment(Alignment::Center)
-            .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(Style::default().fg(primary)),
-    );
+    let info_list = themed_list(" ℹ Claw 状态 ", lines, theme);
     f.render_widget(info_list, popup_area);
 }
 

@@ -156,13 +156,17 @@ pub async fn switch_session(
     }
 }
 
-/// List all sessions.
-pub async fn list_sessions(State(state): State<AppState>) -> Json<super::ApiResponse<Vec<Value>>> {
+/// List all sessions belonging to the authenticated user.
+pub async fn list_sessions(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+) -> Json<super::ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     let sessions: Vec<Value> = core
         .session_mgr
         .sessions()
         .iter()
+        .filter(|s| s.user_id == user_id)
         .map(|s| {
             serde_json::json!({
                 "id": s.id,
@@ -179,9 +183,20 @@ pub async fn list_sessions(State(state): State<AppState>) -> Json<super::ApiResp
 /// Get session messages.
 pub async fn get_session(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(id): Path<String>,
 ) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
+
+    // Verify session belongs to this user
+    if let Some(meta) = core.session_mgr.session_meta(&id) {
+        if meta.user_id != user_id {
+            return super::ApiResponse::err("Session does not belong to you");
+        }
+    } else {
+        return super::ApiResponse::err("Session not found");
+    }
+
     let messages = core.session_mgr.load_app_messages_async(&id, 100).await;
     let msgs: Vec<Value> = messages.iter().map(message_to_api_json).collect();
 
@@ -202,11 +217,14 @@ pub async fn delete_session(
     Path(id): Path<String>,
 ) -> Json<super::ApiResponse<&'static str>> {
     let mut core = state.core.write().await;
-    let agent_id = core
-        .session_mgr
-        .session_meta(&id)
-        .map(|m| m.agent_id.clone())
-        .unwrap_or_else(|| "default".to_string());
+
+    // Verify session belongs to this user
+    let agent_id = match core.session_mgr.session_meta(&id) {
+        Some(meta) if meta.user_id == user_id => meta.agent_id.clone(),
+        Some(_) => return super::ApiResponse::err("Session does not belong to you"),
+        None => return super::ApiResponse::err("Session not found"),
+    };
+
     {
         if let Ok(layered) = core.agent_store.layered_memory_for_mut(&user_id, &agent_id) {
             layered.end_session();

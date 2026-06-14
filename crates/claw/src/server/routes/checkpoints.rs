@@ -1,4 +1,4 @@
-use crate::server::AppState;
+use crate::server::{AppState, UserId};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -13,6 +13,7 @@ pub struct CheckpointQuery {
 
 pub async fn list_checkpoints(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Query(query): Query<CheckpointQuery>,
 ) -> Json<super::ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
@@ -25,6 +26,11 @@ pub async fn list_checkpoints(
                     .session_id
                     .as_ref()
                     .is_none_or(|sid| id.starts_with(&format!("cp_{}_", sid)))
+            })
+            .filter(|(id, _, _)| {
+                // Only return checkpoints for sessions owned by this user
+                let sid = id.strip_prefix("cp_").and_then(|s| s.rsplit_once('_').map(|(s, _)| s)).unwrap_or("");
+                core.session_mgr.session_meta(sid).map(|m| m.user_id == user_id).unwrap_or(false)
             })
             .map(|(id, round, ts)| {
                 serde_json::json!({
@@ -42,6 +48,7 @@ pub async fn list_checkpoints(
 }
 
 pub async fn get_checkpoint_detail(
+    UserId(user_id): UserId,
     Path(id): Path<String>,
     State(state): State<AppState>,
 ) -> Json<super::ApiResponse<Value>> {
@@ -56,6 +63,12 @@ pub async fn get_checkpoint_detail(
             drop(core);
             return super::ApiResponse::err("检查点未找到");
         };
+        // Verify session ownership
+        if core.session_mgr.session_meta(&cp.session_id).map(|m| m.user_id != user_id).unwrap_or(true) {
+            drop(store);
+            drop(core);
+            return super::ApiResponse::err("检查点不属于当前用户");
+        }
         let data = serde_json::json!({
             "id": cp.id,
             "session_id": cp.session_id,
@@ -75,6 +88,7 @@ pub async fn get_checkpoint_detail(
 
 pub async fn restore_checkpoint(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Json(body): Json<Value>,
 ) -> Json<super::ApiResponse<Value>> {
     let session_id = body
@@ -84,6 +98,14 @@ pub async fn restore_checkpoint(
     let round = body.get("round").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     if session_id.is_empty() {
         return super::ApiResponse::err("需要 session_id 参数");
+    }
+    // Verify session ownership
+    {
+        let core = state.core.read().await;
+        if core.session_mgr.session_meta(session_id).map(|m| m.user_id != user_id).unwrap_or(true) {
+            drop(core);
+            return super::ApiResponse::err("会话不属于当前用户");
+        }
     }
     let cp_id = format!("cp_{}_{}", session_id, round);
     let core = state.core.read().await;

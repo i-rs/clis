@@ -19,18 +19,29 @@ pub fn run_config() -> anyhow::Result<()> {
         .iter()
         .map(|p| p.as_str())
         .collect();
-    let provider_default = cfg.provider.as_str();
-    print!(
-        "Provider [{}] ({}): ",
-        provider_default,
-        provider_names.join("/")
-    );
-    io::stdout().flush()?;
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    let trimmed = input.trim().to_string();
-    if !trimmed.is_empty() {
-        cfg.provider = trimmed.parse().expect("invalid provider");
+    loop {
+        let provider_default = cfg.provider.as_str();
+        print!(
+            "Provider [{}] ({}): ",
+            provider_default,
+            provider_names.join("/")
+        );
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let trimmed = input.trim().to_string();
+        if trimmed.is_empty() {
+            break;
+        }
+        match trimmed.parse::<i_rs_claw_core::providers::ProviderKind>() {
+            Ok(p) => {
+                cfg.provider = p;
+                break;
+            }
+            Err(_) => {
+                println!("  Invalid provider '{}'. Valid options: {}", trimmed, provider_names.join("/"));
+            }
+        }
     }
 
     // ── API Key ──

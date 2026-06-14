@@ -1,4 +1,4 @@
-pub(super) fn save_session_messages(
+pub(super) fn persist_session_messages(
     session_mgr: &mut i_rs_claw_core::session::SessionManager,
     session_id: &str,
     messages: &[crate::app::Message],

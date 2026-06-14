@@ -1022,7 +1022,7 @@ impl AppCore {
             }
         }
 
-        let messages = self.session_mgr.load_app_messages(session_id, 100);
+        let messages = self.session_mgr.load_app_messages_async(session_id, 100).await;
 
         let user_query = messages.iter().rev().find_map(|m| match m {
             crate::app::Message::User { text } if !text.is_empty() => Some(text.clone()),

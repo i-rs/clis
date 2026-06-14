@@ -1,14 +1,25 @@
-use crate::server::AppState;
+use crate::server::{AppState, UserId};
 use axum::{
     Json,
     extract::State,
 };
 use serde_json::Value;
 
-pub async fn run_evals(State(state): State<AppState>) -> Json<super::ApiResponse<Value>> {
+pub async fn run_evals(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+) -> Json<super::ApiResponse<Value>> {
     let core = state.core.read().await;
     let suite = i_rs_claw_core::core::evals::builtin_eval_suite();
-    let messages = if let Some(sid) = core.session_mgr.current_id() {
+    // Resolve the user's most recent session instead of the global current_id
+    let user_sid = core
+        .session_mgr
+        .sessions()
+        .iter()
+        .rev()
+        .find(|s| s.user_id == user_id)
+        .map(|s| s.id.clone());
+    let messages = if let Some(ref sid) = user_sid {
         core.session_mgr.load_app_messages_async(sid, 100).await
     } else {
         Vec::new()

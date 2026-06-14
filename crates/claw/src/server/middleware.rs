@@ -22,6 +22,7 @@ pub async fn auth_guard(
     let user_id: String = match provided {
         Some(token) => {
             let core = state.core.read().await;
+            // 1. Check static config users (config.toml)
             if let Some(user) = core
                 .config
                 .dashboard
@@ -33,7 +34,16 @@ pub async fn auth_guard(
             } else if ct_eq(&state.auth_token, token) {
                 "default".to_string()
             } else {
-                return unauthorized();
+                // 2. Fall back to DB-stored users (created via POST /api/users)
+                match core
+                    .config_store
+                    .dashboard_users
+                    .find_by_token_hash(token)
+                    .await
+                {
+                    Ok(Some(row)) => row.user_id,
+                    _ => return unauthorized(),
+                }
             }
         }
         None => return unauthorized(),

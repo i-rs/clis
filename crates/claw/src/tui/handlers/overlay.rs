@@ -160,7 +160,7 @@ fn handle_session_enter(
                 .current_id()
                 .unwrap_or_default()
                 .to_string();
-            crate::tui::clipboard::save_session_messages(
+            crate::tui::clipboard::persist_session_messages(
                 &mut handler.app_core.session_mgr,
                 &old_id,
                 &handler.app.chat.messages,
@@ -270,7 +270,7 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
             {
                 if let Some(old_id) = handler.app_core.session_mgr.current_id() {
                     let old_id_s = old_id.to_string();
-                    crate::tui::clipboard::save_session_messages(
+                    crate::tui::clipboard::persist_session_messages(
                         &mut handler.app_core.session_mgr,
                         &old_id_s,
                         &handler.app.chat.messages,

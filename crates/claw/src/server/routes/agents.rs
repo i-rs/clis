@@ -93,10 +93,13 @@ pub async fn update_agent(
 
     let mut core = state.core.write().await;
 
-    // Get existing agent config
-    let existing = match core.config.agents.get(&id) {
-        Some(a) => a.clone(),
-        None => return super::ApiResponse::err(&format!("Agent '{}' not found", id)),
+    // Get existing agent config from either agents or sub_agents map
+    let (existing, is_sub) = match core.config.agents.get(&id) {
+        Some(a) => (a.clone(), false),
+        None => match core.config.sub_agents.get(&id) {
+            Some(a) => (a.clone(), true),
+            None => return super::ApiResponse::err(&format!("Agent '{}' not found", id)),
+        },
     };
 
     // Merge body with existing (only override provided fields)
@@ -141,17 +144,71 @@ pub async fn update_agent(
             .map(|s| s.to_string())
             .or(existing.system_prompt),
         system_prompt_file: existing.system_prompt_file,
-        mcp_servers: None, // inherit from existing via merge
-        allowed_dirs: None,
+        mcp_servers: body
+            .get("mcp_servers")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                    .collect()
+            })
+            .or(existing.mcp_servers),
+        allowed_dirs: body
+            .get("allowed_dirs")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .or(existing.allowed_dirs),
         capabilities: existing.capabilities,
         execution_mode: existing.execution_mode,
     };
 
-    core.config.agents.insert(id.clone(), agent_config);
+    // Insert into the correct map (agents or sub_agents)
+    if is_sub {
+        core.config.sub_agents.insert(id.clone(), agent_config.clone());
+    } else {
+        core.config.agents.insert(id.clone(), agent_config.clone());
+    }
 
     if let Err(e) = core.config.save() {
         return super::ApiResponse::err(&format!("Failed to save config: {}", e));
     }
+
+    // Refresh the runtime store so changes take effect immediately
+    let config = core.config.clone();
+    core.agent_store.add_agent(&config, &id);
+
+    // Also persist to ConfigStore (DB backend) so changes survive restart
+    let now = chrono::Utc::now().timestamp();
+    let row_provider_ref = agent_config.provider_ref.clone();
+    let row_provider = agent_config.provider.map(|p| format!("{:?}", p)).unwrap_or_default();
+    let row_api_key = agent_config.api_key.clone().unwrap_or_default();
+    let row_base_url = agent_config.base_url.clone().unwrap_or_default();
+    let row_model = agent_config.model.clone().unwrap_or_default();
+    let row_tools: Vec<String> = agent_config.enabled_tools.clone().unwrap_or_default().into_iter().collect();
+    let row_prompt = agent_config.system_prompt.clone().unwrap_or_default();
+    let row_prompt_file = agent_config.system_prompt_file.clone();
+    let row_caps = agent_config.capabilities.clone();
+    let row_execution = agent_config.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
+    let _ = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
+        user_id: "default".to_string(),
+        agent_id: id.clone(),
+        provider_ref: row_provider_ref,
+        provider: row_provider,
+        api_key: row_api_key,
+        base_url: row_base_url,
+        model: row_model,
+        enabled_tools: row_tools,
+        system_prompt: row_prompt,
+        system_prompt_file: row_prompt_file,
+        capabilities: row_caps,
+        execution_mode: row_execution,
+        created_at: now,
+        updated_at: now,
+    }).await;
 
     super::ApiResponse::ok(serde_json::json!({
         "id": id,

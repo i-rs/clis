@@ -577,7 +577,7 @@ impl<'a> KeyEventHandler<'a> {
     pub(crate) fn handle_new_session(&mut self) -> Action {
         if let Some(old_id) = self.app_core.session_mgr.current_id() {
             let old_id = old_id.to_string();
-            crate::tui::clipboard::save_session_messages(
+            crate::tui::clipboard::persist_session_messages(
                 &mut self.app_core.session_mgr,
                 &old_id,
                 &self.app.chat.messages,

@@ -155,7 +155,7 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
 
     // 退出前持久化当前会话的消息和 API 缓存，否则下次 --session 加载会丢失数据
     if let Some(sid) = app_core.session_mgr.current_id().map(|s| s.to_string()) {
-        crate::tui::clipboard::save_session_messages(
+        crate::tui::clipboard::persist_session_messages(
             &mut app_core.session_mgr,
             &sid,
             &app.chat.messages,

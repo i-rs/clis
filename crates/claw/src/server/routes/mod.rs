@@ -188,7 +188,7 @@ use crate::server::UserId;
                 test_uid(),
                 Some(Json(serde_json::json!({"agent_id": "default"}))),
             ).await;
-            let result = list_sessions(State(state)).await;
+            let result = list_sessions(State(state), test_uid()).await;
             assert!(result.success);
             let sessions = result.0.data.unwrap();
             assert!(!sessions.is_empty(), "list should not be empty after create");

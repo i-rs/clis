@@ -339,6 +339,7 @@ pub(super) fn render_agent_picker(f: &mut Frame, area: Rect, app: &App) {
 }
 
 /// Overlay showing the full request body JSON for a debug log entry.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn render_request_body(
     f: &mut Frame,
     area: Rect,

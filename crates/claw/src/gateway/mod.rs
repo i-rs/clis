@@ -279,7 +279,7 @@ impl GatewayServer {
                 }
                 i_rs_claw_core::llm::LlmEvent::Done(api_msgs, _, _) => {
                     let mut core = core.write().await;
-                    core.session_mgr.save_api_messages(&session_uuid, &api_msgs);
+                    core.session_mgr.save_api_messages_async(&session_uuid, &api_msgs).await;
                     let msgs = vec![
                         crate::app::Message::User {
                             text: text_owned.clone(),
@@ -290,7 +290,7 @@ impl GatewayServer {
                             token_usage: None,
                         },
                     ];
-                    if let Err(e) = core.session_mgr.persist_messages(&session_uuid, &msgs) {
+                    if let Err(e) = core.session_mgr.persist_messages_async(&session_uuid, &msgs).await {
                         tracing::error!("gateway persist_messages 失败: {}", e);
                     }
                     break;
