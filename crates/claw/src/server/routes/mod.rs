@@ -61,6 +61,7 @@ impl<T: Serialize> ApiResponse<T> {
 }
 
 /// Return an error response with a specific HTTP status code.
+#[allow(dead_code)]
 pub fn err_status<T: Serialize>(
     status: axum::http::StatusCode,
     msg: &str,

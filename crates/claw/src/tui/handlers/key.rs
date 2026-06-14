@@ -3,7 +3,6 @@ use i_rs_claw_core::core;
 use crate::ui::chat_api::ComponentOp;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui_interact::events::is_space;
-use serde_json::Value;
 use tokio::sync::mpsc;
 
 use super::{Action, AppMessage};
