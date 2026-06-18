@@ -574,8 +574,16 @@ class ClawService: ObservableObject {
                         } else if line.hasPrefix("data:") {
                             let raw = line.dropFirst(5)
                             let chunk = raw.hasPrefix(" ") ? String(raw.dropFirst()) : String(raw)
+                            // Per SSE spec, multi-line `data:` fields are joined with \n.
+                            // The axum backend preserves the original \n delimiters inside
+                            // the data payload, so we must re-insert \n between chunks to
+                            // avoid concatenating successive lines into one run-on word.
                             if !currentEvent.isEmpty || !chunk.isEmpty {
-                                currentData += chunk
+                                if currentData.isEmpty {
+                                    currentData = chunk
+                                } else {
+                                    currentData += "\n" + chunk
+                                }
                             }
                         } else if line.isEmpty {
                             // End of event — dispatch
