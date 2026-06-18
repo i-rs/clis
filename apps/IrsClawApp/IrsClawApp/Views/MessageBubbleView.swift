@@ -81,8 +81,8 @@ struct MessageBubbleView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     MarkdownTextView(text: text)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .fill(Color.platformSecondaryBackground)
@@ -811,14 +811,92 @@ struct JSONHighlightView: View {
 
 struct MarkdownTextView: View {
     let text: String
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.colorScheme) private var colorScheme
 
-    private var isCompact: Bool { horizontalSizeClass == .compact }
+    private var bubbleTheme: Theme {
+        // Adapt margins so headings, paragraphs, lists, blockquotes, and code
+        // blocks have breathing room inside the dark secondary-background bubble.
+        Theme.gitHub
+            .text {
+                ForegroundColor(colorScheme == .dark ? .white : Color(.label))
+            }
+            .heading1 { configuration in
+                configuration.label
+                    .markdownTextStyle {
+                        FontWeight(.semibold)
+                        FontSize(.em(1.35))
+                    }
+                    .markdownMargin(top: 12, bottom: 6)
+            }
+            .heading2 { configuration in
+                configuration.label
+                    .markdownTextStyle {
+                        FontWeight(.semibold)
+                        FontSize(.em(1.2))
+                    }
+                    .markdownMargin(top: 12, bottom: 6)
+            }
+            .heading3 { configuration in
+                configuration.label
+                    .markdownTextStyle {
+                        FontWeight(.semibold)
+                        FontSize(.em(1.08))
+                    }
+                    .markdownMargin(top: 10, bottom: 4)
+            }
+            .paragraph { configuration in
+                configuration.label
+                    .fixedSize(horizontal: false, vertical: true)
+                    .markdownMargin(top: 0, bottom: 8)
+            }
+            .listItem { configuration in
+                configuration.label
+                    .markdownMargin(top: 2, bottom: 2)
+            }
+            .blockquote { configuration in
+                configuration.label
+                    .markdownTextStyle {
+                        FontSize(.em(0.95))
+                    }
+                    .markdownMargin(top: 6, bottom: 6)
+            }
+            .codeBlock { configuration in
+                configuration.label
+                    .markdownTextStyle {
+                        FontSize(.em(0.92))
+                    }
+                    .padding(10)
+                    .markdownMargin(top: 8, bottom: 8)
+            }
+            .table { configuration in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    configuration.label
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .markdownTableBorderStyle(.init(
+                    color: Color(light: Color(rgba: 0xe4e4_e8ff), dark: Color(rgba: 0x4244_4eff))
+                ))
+                .markdownTableBackgroundStyle(.alternatingRows(
+                    Color(light: Color(rgba: 0xffff_ffff), dark: Color(rgba: 0x1819_1dff)),
+                    Color(light: Color(rgba: 0xf7f7_f9ff), dark: Color(rgba: 0x2526_2aff))
+                ))
+                .markdownMargin(top: 8, bottom: 12)
+            }
+            .thematicBreak {
+                Divider()
+                    .markdownMargin(top: 12, bottom: 12)
+            }
+    }
 
     var body: some View {
+        // Note: do NOT add `.id(text)` here. That would force SwiftUI to
+        // destroy & rebuild the Markdown view on every streamed token, which
+        // breaks in-flight rendering (incomplete/unbalanced markdown tokens
+        // resolve to empty or raw text). The bubble's parent already provides
+        // a stable id via `MessageBubbleView`, so identity is fine as-is.
         Markdown(text)
-            .id(text)
-            .markdownTheme(isCompact ? .gitHubTableScroll : .gitHub)
+            .markdownTheme(bubbleTheme)
             #if os(macOS)
             .markdownTextStyle(\.text) {
                 FontSize(11)
