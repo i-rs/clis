@@ -78,6 +78,7 @@ members = [
   "crates/claw-core",
   "crates/claw-core-storage-tests",
   "crates/code",
+  "apps/IrsClawTauri/src-tauri",
 ]
 resolver = "2"
 
