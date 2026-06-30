@@ -1,0 +1,10 @@
+.shell { display: flex; flex-direction: column; width: 100%; height: 100vh; background: var(--bg-primary); }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); min-height: 50px; }
+.title { font-size: 15px; font-weight: 600; }
+.btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.body { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.tabbar { display: flex; justify-content: space-around; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--bg-secondary); }
+.tab { background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; font-family: inherit; padding: 4px 8px; border-radius: 8px; transition: color var(--duration-fast); }
+.tab.active { color: var(--accent); }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 50; animation: fadeIn var(--duration-fast); }
