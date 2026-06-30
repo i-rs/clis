@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
-
 :root {
   --bg-primary: #08080b; --bg-secondary: #0d0d12; --bg-tertiary: #121218;
   --bg-elevated: #16161e; --bg-hover: rgba(255,255,255,0.04); --bg-active: rgba(255,255,255,0.06);
