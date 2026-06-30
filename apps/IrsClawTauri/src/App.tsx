@@ -1,51 +1,49 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useState } from 'react'
+import { Route, Switch } from 'wouter'
+import { Wrench, BookOpen, Puzzle } from 'lucide-react'
+import { useIsDesktop } from './hooks/useMediaQuery'
+import { useTheme } from './hooks/useTheme'
+import { useBackendHealth } from './hooks/useBackendHealth'
+import { useBackendStore } from './store/backend'
+import DesktopShell from './components/shell/DesktopShell'
+import MobileShell from './components/shell/MobileShell'
+import ConnectScreen from './components/shell/ConnectScreen'
+import { ToastContainer } from './components/common/Toast'
+import ChatPage from './pages/Chat'
+import SessionsPage from './pages/Sessions'
+import AgentsPage from './pages/Agents'
+import UsagePage from './pages/Usage'
+import SettingsPage from './pages/Settings'
+import PlaceholderPage from './pages/Placeholder'
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+export default function App() {
+  useTheme()
+  useBackendHealth()
+  const isDesktop = useIsDesktop()
+  const connectionState = useBackendStore((s) => s.connectionState)
+  const [selectedAgent] = useState('default')
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  if (connectionState !== 'connected') {
+    return (<><ConnectScreen /><ToastContainer /></>)
   }
 
+  const Shell = isDesktop ? DesktopShell : MobileShell
+
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
-  );
+    <>
+      <Shell>
+        <Switch>
+          <Route path="/"><ChatPage selectedAgent={selectedAgent} /></Route>
+          <Route path="/sessions"><SessionsPage /></Route>
+          <Route path="/agents"><AgentsPage /></Route>
+          <Route path="/usage"><UsagePage /></Route>
+          <Route path="/settings"><SettingsPage /></Route>
+          <Route path="/tools"><PlaceholderPage icon={<Wrench size={28} />} title="Tools" /></Route>
+          <Route path="/skills"><PlaceholderPage icon={<BookOpen size={28} />} title="Skills" /></Route>
+          <Route path="/plugins"><PlaceholderPage icon={<Puzzle size={28} />} title="Plugins" /></Route>
+        </Switch>
+      </Shell>
+      <ToastContainer />
+    </>
+  )
 }
-
-export default App;
