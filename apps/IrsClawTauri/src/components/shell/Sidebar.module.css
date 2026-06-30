@@ -1,0 +1,21 @@
+.sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); height: 100vh; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.header { padding: 20px 20px 16px; }
+.header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.03em; background: linear-gradient(135deg, var(--text-primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.subtitle { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.agentRow { padding: 0 12px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+.nav { flex: 1; padding: 8px 12px; overflow-y: auto; }
+.label { padding: 10px 12px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); }
+.item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius); cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 500; border: none; background: none; width: 100%; text-align: left; transition: all var(--duration-fast) var(--ease-out); }
+.item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.item.active { background: var(--accent-muted); color: var(--accent); }
+.icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sessionItem { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: var(--radius); cursor: pointer; font-size: 13px; color: var(--text-secondary); border: none; background: none; width: 100%; text-align: left; transition: all var(--duration-fast); }
+.sessionItem:hover { background: var(--bg-hover); color: var(--text-primary); }
+.sessionItem.active { background: var(--accent-muted); color: var(--accent); }
+.sessionTitle { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.footer { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; }
+.themeBtn { width: 34px; height: 34px; border-radius: var(--radius); border: none; background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--duration-fast); }
+.themeBtn:hover { color: var(--accent); }
+.delBtn { opacity: 0; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; transition: opacity var(--duration-fast); }
+.sessionItem:hover .delBtn { opacity: 1; }
+.delBtn:hover { color: var(--error); }
