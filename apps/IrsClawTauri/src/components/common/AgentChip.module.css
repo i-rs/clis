@@ -1,0 +1,4 @@
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border); font-family: inherit; font-size: 12px; font-weight: 600; background: var(--bg-tertiary); color: var(--text-secondary); transition: all var(--duration-fast) var(--ease-out); }
+.chip:hover { border-color: var(--border-light); }
+.chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.icon { display: flex; align-items: center; justify-content: center; }
