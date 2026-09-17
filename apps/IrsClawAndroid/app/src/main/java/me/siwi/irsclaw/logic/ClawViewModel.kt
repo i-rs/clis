@@ -618,6 +618,31 @@ class ClawViewModel(application: IrsClawApplication) : AndroidViewModel(applicat
         viewModelScope.launch { settingsStore.setAppearance(appearance) }
     }
 
+    // MARK: - Backend profiles
+
+    /** Switches the active backend profile and reconnects, mirroring iOS. */
+    fun switchBackend(id: String) {
+        viewModelScope.launch {
+            settingsStore.setCurrentBackend(id)
+            restartBackend()
+        }
+    }
+
+    fun saveBackend(config: me.siwi.irsclaw.data.settings.BackendConfig) {
+        viewModelScope.launch {
+            val exists = settings.value?.backends?.any { it.id == config.id } == true
+            if (exists) settingsStore.updateBackend(config) else settingsStore.addBackend(config)
+        }
+    }
+
+    fun deleteBackend(id: String) {
+        viewModelScope.launch {
+            val wasCurrent = settings.value?.currentBackend?.id == id
+            settingsStore.deleteBackend(id)
+            if (wasCurrent) restartBackend()
+        }
+    }
+
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
     }
