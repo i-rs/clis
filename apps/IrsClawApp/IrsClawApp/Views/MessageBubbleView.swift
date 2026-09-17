@@ -818,7 +818,7 @@ struct MarkdownTextView: View {
         // blocks have breathing room inside the dark secondary-background bubble.
         Theme.gitHub
             .text {
-                ForegroundColor(colorScheme == .dark ? .white : Color(.label))
+                ForegroundColor(colorScheme == .dark ? .white : .primary)
             }
             .heading1 { configuration in
                 configuration.label
