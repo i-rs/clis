@@ -22,7 +22,8 @@ import me.siwi.irsclaw.ui.components.EmptyState
 
 /**
  * Connection gate shown while disconnected/failed/waiting — the port of the iOS
- * "Connect to i-rs-claw Backend" screen.
+ * "Connect to i-rs-claw Backend" screen. Offers a settings entry so the backend
+ * URL/token can be configured before connecting.
  */
 @Composable
 fun ConnectScreen(
@@ -30,6 +31,7 @@ fun ConnectScreen(
     errorMessage: String?,
     backendName: String,
     onConnect: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -66,6 +68,11 @@ fun ConnectScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
                     Text(if (state == ConnectionState.FAILED) "重试连接" else "连接")
+                }
+                if (onOpenSettings != null) {
+                    androidx.compose.material3.TextButton(onClick = onOpenSettings) {
+                        Text("服务器设置")
+                    }
                 }
             }
         }

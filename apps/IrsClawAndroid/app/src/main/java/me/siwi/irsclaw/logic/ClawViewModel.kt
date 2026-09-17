@@ -65,10 +65,11 @@ data class ClawUiState(
  * [MutableStateFlow]; streaming events mutate it from the IO dispatcher
  * (StateFlow is thread-safe and updates stay ordered).
  */
-class ClawViewModel(application: IrsClawApplication) : AndroidViewModel(application) {
+class ClawViewModel(application: android.app.Application) : AndroidViewModel(application) {
 
-    private val api: ClawApi = application.container.clawApi
-    private val settingsStore: SettingsStore = application.container.settingsStore
+    private val app = application as IrsClawApplication
+    private val api: ClawApi = app.container.clawApi
+    private val settingsStore: SettingsStore = app.container.settingsStore
 
     private val _state = MutableStateFlow(ClawUiState())
     val state: StateFlow<ClawUiState> = _state.asStateFlow()

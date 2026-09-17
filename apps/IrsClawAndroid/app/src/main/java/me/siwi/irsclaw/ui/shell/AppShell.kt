@@ -73,10 +73,11 @@ fun AppShell(viewModel: ClawViewModel, windowWidth: WindowWidthSizeClass) {
     }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        if (state.connectionState == ConnectionState.CONNECTED) {
-            if (settingsVisible) {
-                SettingsScreen(viewModel = viewModel, onBack = { settingsVisible = false })
-            } else if (expanded) {
+        if (settingsVisible) {
+            // Settings must be reachable even while disconnected (backend URL/token setup).
+            SettingsScreen(viewModel = viewModel, onBack = { settingsVisible = false })
+        } else if (state.connectionState == ConnectionState.CONNECTED) {
+            if (expanded) {
                 TabletSplitBody(
                     viewModel = viewModel,
                     selectedTab = selectedTab,
@@ -99,6 +100,7 @@ fun AppShell(viewModel: ClawViewModel, windowWidth: WindowWidthSizeClass) {
                 errorMessage = state.errorMessage,
                 backendName = settings?.currentBackend?.name ?: "后端",
                 onConnect = { viewModel.connectToBackend() },
+                onOpenSettings = { settingsVisible = true },
             )
         }
     }
