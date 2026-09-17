@@ -14,6 +14,7 @@ Rust monorepo 包含 **75+ crate** + **3 个客户端**，覆盖三类产品形�
 | **共享库** | `i-rs-core` | 所有 crate 的基础库 |
 | **客户端** | `dashboard-ui` | React SPA (Chat + Data + Agents + Usage + Settings) |
 | **客户端** | `IrsClawApp` | 原生客户端 (macOS / iPad / iOS, SwiftUI) |
+| **客户端** | `IrsClawAndroid` | 原生客户端 (Android, Kotlin + Jetpack Compose) |
 | **客户端** | `IrsClawMiniProgram` | 微信小程序客户端 |
 
 **Current state:** `cargo check --workspace` — 0 errors. `pnpm build` (dashboard-ui) — 成功. 核心测试通过，15 个 dashboard 测试因 tokio runtime 嵌套待修复。
@@ -35,6 +36,7 @@ i-rs-clis/
 │   └── core/               # [共享库] i-rs-core
 ├── apps/                   # [客户端] 多端应用
 │   ├── IrsClawApp/         # 原生客户端 (macOS / iPad / iOS, SwiftUI)
+│   ├── IrsClawAndroid/     # 原生客户端 (Android, Kotlin + Jetpack Compose)
 │   └── IrsClawMiniProgram/ # 微信小程序客户端
 ├── docs/                   # VitePress 文档
 ├── skills/                 # AI 技能文档 (70 CLI crates)
@@ -477,6 +479,7 @@ apps/IrsClawMiniProgram/
 | `i-rs-claw serve` | 服务器 (HTTP) | axum + React SPA | API 网关 + Web Dashboard | claw-core |
 | `dashboard-ui` | 浏览器 (Web) | React (独立 SPA) | 数据可视化 + Chat + 系统管理 | claw serve HTTP API |
 | `IrsClawApp` | macOS/iPad/iOS | SwiftUI | 原生 AI 助理 | claw serve HTTP API |
+| `IrsClawAndroid` | Android 手机/平板 | Kotlin + Jetpack Compose | 原生 AI 助理 | claw serve HTTP API |
 | `IrsClawMiniProgram` | 微信 (iOS/Android) | WXML + WXSS | 移动端快速查询 + 录入 | claw serve HTTP API |
 
 ### 适配原则
@@ -575,4 +578,5 @@ CI (cargo-dist) 自动构建并发布到 GitHub Releases / npm / Homebrew。
 - `crates/cli-api/src/update.rs` — 通用 JSON 合并/部分更新工具
 - `crates/mcp/src/main.rs` — MCP 服务器入口
 - `crates/core/src/` — 共享库源码
+- `apps/IrsClawAndroid/` — Android 原生客户端源码
 - `apps/IrsClawMiniProgram/` — 微信小程序客户端源码
