@@ -75,14 +75,14 @@ fun AgentsPanel(viewModel: ClawViewModel, modifier: Modifier = Modifier) {
                     )
                 }
                 TextButton(onClick = { editing = agent; showEditor = true }) {
-                    Text("编辑")
+                    Text("Edit")
                 }
             }
         }
         item {
             TextButton(onClick = { editing = null; showEditor = true }) {
                 Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("新建智能体")
+                Text("New Agent")
             }
         }
     }

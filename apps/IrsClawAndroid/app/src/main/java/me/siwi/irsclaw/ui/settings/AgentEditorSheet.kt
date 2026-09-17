@@ -66,7 +66,7 @@ fun AgentEditorSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = if (existing == null) "新建智能体" else "编辑智能体 · ${existing.id}",
+                text = if (existing == null) "New Agent" else "Edit Agent · ${existing.id}",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -94,28 +94,28 @@ fun AgentEditorSheet(
             OutlinedTextField(
                 value = model,
                 onValueChange = { model = it },
-                label = { Text("模型") },
+                label = { Text("Model") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = apiKey,
                 onValueChange = { apiKey = it },
-                label = { Text("API Key（留空保持不变）") },
+                label = { Text("API Key (blank = unchanged)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = baseUrl,
                 onValueChange = { baseUrl = it },
-                label = { Text("Base URL（可选）") },
+                label = { Text("Base URL (optional)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = systemPrompt,
                 onValueChange = { systemPrompt = it },
-                label = { Text("系统提示词（可选）") },
+                label = { Text("System Prompt (optional)") },
                 minLines = 3,
                 maxLines = 6,
                 modifier = Modifier.fillMaxWidth(),
@@ -123,7 +123,7 @@ fun AgentEditorSheet(
             OutlinedTextField(
                 value = enabledTools,
                 onValueChange = { enabledTools = it },
-                label = { Text("启用工具（逗号分隔，留空 = 全部）") },
+                label = { Text("Enabled Tools (comma-separated, blank = all)") },
                 minLines = 1,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -138,7 +138,7 @@ fun AgentEditorSheet(
                         Text("MCP: ${d.mcpServers.joinToString()}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     if (!d.allowedDirs.isNullOrEmpty()) {
-                        Text("允许目录: ${d.allowedDirs.joinToString()}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text("Allowed Dirs: ${d.allowedDirs.joinToString()}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                 }
             }
@@ -164,10 +164,10 @@ fun AgentEditorSheet(
                     },
                     enabled = existing != null || agentId.isNotBlank(),
                 ) {
-                    Text("保存")
+                    Text("Save")
                 }
                 androidx.compose.material3.OutlinedButton(onClick = onDismiss) {
-                    Text("取消")
+                    Text("Cancel")
                 }
             }
         }

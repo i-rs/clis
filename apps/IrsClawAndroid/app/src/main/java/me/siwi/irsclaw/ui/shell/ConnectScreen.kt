@@ -13,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,7 +23,7 @@ import me.siwi.irsclaw.ui.components.EmptyState
 
 /**
  * Connection gate shown while disconnected/failed/waiting — the port of the iOS
- * "Connect to i-rs-claw Backend" screen. Offers a settings entry so the backend
+ * "Connect to i-rs-claw Backend" screen, with a settings entry so the backend
  * URL/token can be configured before connecting.
  */
 @Composable
@@ -43,7 +44,7 @@ fun ConnectScreen(
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(32.dp))
                 Text(
-                    text = "正在连接 $backendName…",
+                    text = "Connecting to $backendName…",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp),
@@ -59,19 +60,19 @@ fun ConnectScreen(
             ) {
                 EmptyState(
                     icon = Icons.Filled.Link,
-                    title = "连接 i-rs-claw 后端",
+                    title = "Connect to i-rs-claw Backend",
                     message = errorMessage
-                        ?: "无法连接 $backendName，请确认 claw serve 正在运行",
+                        ?: "Make sure claw serve is running and reachable at $backendName",
                 )
                 Button(
                     onClick = onConnect,
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    Text(if (state == ConnectionState.FAILED) "重试连接" else "连接")
+                    Text(if (state == ConnectionState.FAILED) "Retry" else "Connect")
                 }
                 if (onOpenSettings != null) {
-                    androidx.compose.material3.TextButton(onClick = onOpenSettings) {
-                        Text("服务器设置")
+                    TextButton(onClick = onOpenSettings) {
+                        Text("Server Settings")
                     }
                 }
             }

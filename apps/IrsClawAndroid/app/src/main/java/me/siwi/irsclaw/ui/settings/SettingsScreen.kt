@@ -1,8 +1,11 @@
 package me.siwi.irsclaw.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DesktopWindows
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -36,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,33 +74,26 @@ fun SettingsScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text("设置") },
+            title = { Text("Settings") },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             },
         )
         LazyColumn(Modifier.fillMaxSize()) {
             // 外观
-            item { SectionHeader("外观") }
+            item { SectionHeader("Appearance") }
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Appearance.entries.forEach { appearance ->
-                        FilterChip(
-                            selected = settings?.appearance == appearance,
-                            onClick = { viewModel.setAppearance(appearance) },
-                            label = { Text(appearance.label) },
-                        )
-                    }
-                }
+                ThemePicker(
+                    selected = settings?.appearance ?: Appearance.AUTO,
+                    onSelect = { viewModel.setAppearance(it) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
 
             // 连接
-            item { SectionHeader("连接") }
+            item { SectionHeader("Connection") }
             item {
                 val connection = state.connectionState.name.lowercase()
                 SettingsRow(
@@ -103,7 +103,7 @@ fun SettingsScreen(
             }
 
             // 后端
-            item { SectionHeader("后端") }
+            item { SectionHeader("Backend") }
             settings?.backends?.forEach { backend ->
                 item(key = "backend_${backend.id}") {
                     SettingsRow(
@@ -119,11 +119,11 @@ fun SettingsScreen(
                                     editingBackend = backend
                                     showBackendEditor = true
                                 }) {
-                                    Icon(Icons.Filled.Edit, contentDescription = "编辑", tint = scheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
+                                    Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = scheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
                                 }
                                 if ((settings?.backends?.size ?: 0) > 1) {
                                     IconButton(onClick = { viewModel.deleteBackend(backend.id) }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "删除", tint = scheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
+                                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = scheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
                                     }
                                 }
                             }
@@ -140,7 +140,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("添加后端")
+                    Text("Add Backend")
                 }
             }
 
@@ -149,7 +149,7 @@ fun SettingsScreen(
             item { ProviderSection(viewModel, settings?.llmProvider ?: "", settings?.llmApiKey ?: "", settings?.llmBaseUrl ?: "") }
 
             // Agents
-            item { SectionHeader("智能体") }
+            item { SectionHeader("Agents") }
             state.agents.forEach { agent ->
                 item(key = "agent_${agent.id}") {
                     SettingsRow(
@@ -164,7 +164,7 @@ fun SettingsScreen(
                             Row {
                                 if (agent.id != "default") {
                                     IconButton(onClick = { deletingAgent = agent }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "删除", tint = scheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
+                                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = scheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
                                     }
                                 }
                             }
@@ -181,14 +181,14 @@ fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("新建智能体")
+                    Text("New Agent")
                 }
             }
 
             // 关于
-            item { SectionHeader("关于") }
+            item { SectionHeader("About") }
             item {
-                SettingsRow(title = "i-rs Claw Android", subtitle = "版本 1.0.0 · 对接 claw serve HTTP API")
+                SettingsRow(title = "i-rs Claw Android", subtitle = "Version 1.0.0 · claw serve HTTP API")
             }
             item { androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 32.dp)) }
         }
@@ -214,18 +214,73 @@ fun SettingsScreen(
     deletingAgent?.let { agent ->
         AlertDialog(
             onDismissRequest = { deletingAgent = null },
-            title = { Text("删除智能体") },
-            text = { Text("确定删除「${agent.id}」？此操作不可撤销。") },
+            title = { Text("Delete Agent") },
+            text = { Text("Delete agent '${agent.id}'? This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteAgent(agent.id)
                     deletingAgent = null
-                }) { Text("删除", color = scheme.error) }
+                }) { Text("Delete", color = scheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { deletingAgent = null }) { Text("取消") }
+                TextButton(onClick = { deletingAgent = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+/** iOS ThemePicker: Light/Auto/Dark circles, accent-filled when selected. */
+@Composable
+private fun ThemePicker(
+    selected: Appearance,
+    onSelect: (Appearance) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(scheme.onSurfaceVariant.copy(alpha = 0.06f), RoundedCornerShape(10.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        listOf(
+            Triple(Appearance.LIGHT, Icons.Filled.WbSunny, "Light"),
+            Triple(Appearance.AUTO, Icons.Filled.DesktopWindows, "Auto"),
+            Triple(Appearance.DARK, Icons.Filled.DarkMode, "Dark"),
+        ).forEach { (appearance, icon, label) ->
+            val isSelected = selected == appearance
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onSelect(appearance) }
+                    .padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            if (isSelected) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.1f),
+                            androidx.compose.foundation.shape.CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = label,
+                        tint = if (isSelected) Color.White else scheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSelected) scheme.onSurface else scheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -316,10 +371,10 @@ private fun ProviderSection(viewModel: ClawViewModel, savedProvider: String, sav
                 viewModel.updateLlmConfig(provider, apiKey.trim(), baseUrl.trim())
                 saved = true
             }) {
-                Text("保存并应用")
+                Text("Save & Apply")
             }
             if (saved) {
-                Text("已保存 ✓", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text("Saved ✓", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -357,28 +412,28 @@ private fun BackendEditorSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = if (existing == null) "添加后端" else "编辑后端",
+                text = if (existing == null) "Add Backend" else "Edit Backend",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("名称") },
+                label = { Text("Name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                label = { Text("服务地址") },
+                label = { Text("Server URL") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = token,
                 onValueChange = { token = it },
-                label = { Text("Auth Token（如已设置）") },
+                label = { Text("Auth Token (if set)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -395,9 +450,9 @@ private fun BackendEditorSheet(
                     },
                     enabled = url.trim().startsWith("http"),
                 ) {
-                    Text("保存")
+                    Text("Save")
                 }
-                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
             }
         }
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,7 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -92,38 +93,24 @@ fun ChatScreen(
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column {
-            // Top bar
+            // Top bar — mirrors the iOS phone navbar: menu / new chat / settings.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (onMenuClick != null) {
                     IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Filled.Menu, contentDescription = "菜单")
+                        Icon(Icons.Filled.Menu, contentDescription = "Menu")
                     }
                 }
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    (listOf("default") + state.agents.map { it.id }).distinct().take(3).forEach { agentId ->
-                        AgentChip(
-                            agentId = agentId,
-                            selected = agentId == state.currentAgentId,
-                            onClick = { viewModel.switchAgent(agentId) },
-                        )
-                    }
-                }
+                Spacer(Modifier.weight(1f))
                 IconButton(onClick = { viewModel.createSession() }) {
-                    Icon(Icons.Filled.Add, contentDescription = "新会话")
+                    Icon(Icons.Filled.EditNote, contentDescription = "New chat")
                 }
                 IconButton(onClick = onOpenSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = "设置")
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
                 }
             }
 
@@ -144,7 +131,7 @@ fun ChatScreen(
                             modifier = Modifier.weight(1f),
                         )
                         Text(
-                            text = "关闭",
+                            text = "Dismiss",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier
@@ -160,8 +147,8 @@ fun ChatScreen(
                 if (state.messages.isEmpty()) {
                     EmptyState(
                         icon = Icons.AutoMirrored.Filled.Chat,
-                        title = "开始新的对话",
-                        message = "向 AI 助理发送第一条消息",
+                        title = "No Sessions",
+                        message = "Send the first message to start chatting",
                         modifier = Modifier.align(Alignment.Center),
                     )
                 } else {

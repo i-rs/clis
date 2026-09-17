@@ -1,46 +1,43 @@
 package me.siwi.irsclaw.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.Color
-import me.siwi.irsclaw.ui.theme.MonoStyle
+import me.siwi.irsclaw.ui.theme.IosColors
 
 /**
  * Hand-rolled JSON tokenizer producing a syntax-highlighted [AnnotatedString] —
- * the Compose port of the iOS JSONHighlightView (keys purple, strings green,
- * numbers blue, booleans/null orange).
+ * the Compose port of the iOS JSONHighlightView: keys purple, strings green,
+ * numbers blue, booleans orange, null red, punctuation secondary.
  */
 @Composable
 fun jsonColors(): JsonColors {
-    val dark = isSystemInDarkTheme()
-    return remember(dark) {
-        if (dark) {
-            JsonColors(
-                key = Color(0xFFBF5AF2),
-                string = Color(0xFF30D158),
-                number = Color(0xFF64D2FF),
-                boolean = Color(0xFFFF9F0A),
-                plain = Color(0xFFE2E2E5),
-            )
-        } else {
-            JsonColors(
-                key = Color(0xFFAF52DE),
-                string = Color(0xFF248A3D),
-                number = Color(0xFF0071E3),
-                boolean = Color(0xFFC93400),
-                plain = Color(0xFF1A1C1E),
-            )
-        }
+    val punctuation = MaterialTheme.colorScheme.onSurfaceVariant
+    return remember(punctuation) {
+        JsonColors(
+            key = IosColors.Purple,
+            string = IosColors.Green,
+            number = IosColors.Blue,
+            boolean = IosColors.Orange,
+            nullColor = IosColors.Red,
+            plain = punctuation,
+        )
     }
 }
 
-data class JsonColors(val key: Color, val string: Color, val number: Color, val boolean: Color, val plain: Color)
+data class JsonColors(
+    val key: Color,
+    val string: Color,
+    val number: Color,
+    val boolean: Color,
+    val nullColor: Color,
+    val plain: Color,
+)
 
 fun highlightJson(text: String, colors: JsonColors): AnnotatedString = buildAnnotatedString {
     var i = 0
@@ -49,7 +46,6 @@ fun highlightJson(text: String, colors: JsonColors): AnnotatedString = buildAnno
         val c = text[i]
         when {
             c == '"' -> {
-                // String (key if followed by colon)
                 var j = i + 1
                 while (j < n && text[j] != '"') {
                     if (text[j] == '\\') j++
@@ -61,7 +57,10 @@ fun highlightJson(text: String, colors: JsonColors): AnnotatedString = buildAnno
                     while (k < n && text[k].isWhitespace()) k++
                     k < n && text[k] == ':'
                 }
-                appendAnnotated(text.substring(i, end + 1), SpanStyle(color = if (isKey) colors.key else colors.string, fontWeight = if (isKey) FontWeight.Medium else null))
+                appendAnnotated(
+                    text.substring(i, end + 1),
+                    SpanStyle(color = if (isKey) colors.key else colors.string, fontWeight = if (isKey) FontWeight.Medium else null),
+                )
                 i = end + 1
             }
             c.isDigit() || (c == '-' && i + 1 < n && text[i + 1].isDigit()) -> {
@@ -70,14 +69,17 @@ fun highlightJson(text: String, colors: JsonColors): AnnotatedString = buildAnno
                 appendAnnotated(text.substring(i, j), SpanStyle(color = colors.number))
                 i = j
             }
-            text.startsWith("true", i) || text.startsWith("false", i) || text.startsWith("null", i) -> {
-                val word = if (text.startsWith("true", i) || text.startsWith("false", i)) {
-                    text.substring(i, i + 4)
-                } else {
-                    "null"
-                }
-                appendAnnotated(word, SpanStyle(color = colors.boolean, fontWeight = FontWeight.Medium))
-                i += word.length
+            text.startsWith("true", i) || text.startsWith("false", i) -> {
+                appendAnnotated(text.substring(i, i + if (text.startsWith("true", i)) 4 else 5), SpanStyle(color = colors.boolean, fontWeight = FontWeight.Medium))
+                i += if (text.startsWith("true", i)) 4 else 5
+            }
+            text.startsWith("null", i) -> {
+                appendAnnotated("null", SpanStyle(color = colors.nullColor))
+                i += 4
+            }
+            c == '{' || c == '}' || c == '[' || c == ']' || c == ',' || c == ':' -> {
+                appendAnnotated(c.toString(), SpanStyle(color = colors.plain))
+                i++
             }
             else -> {
                 appendAnnotated(c.toString(), SpanStyle(color = colors.plain))
