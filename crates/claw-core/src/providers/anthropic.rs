@@ -15,6 +15,8 @@ pub struct AnthropicProvider {
     api_key: String,
     base_url: String,
     model: String,
+    /// 稳定的会话 ID，OpenCode 网关 (opencode.ai) 路由/缓存亲和用。
+    session_id: String,
 }
 
 impl AnthropicProvider {
@@ -25,7 +27,20 @@ impl AnthropicProvider {
             api_key,
             base_url,
             model,
+            session_id: super::new_opencode_session_id(),
         }
+    }
+
+    /// 组装请求头：标准 Anthropic 头 + OpenCode 网关会话头（仅 opencode.ai）。
+    pub(crate) fn request_headers(&self) -> Vec<(String, String)> {
+        let mut headers = vec![
+            ("x-api-key".to_string(), self.api_key.clone()),
+            ("anthropic-version".to_string(), "2023-06-01".to_string()),
+        ];
+        if super::is_opencode_gateway(&self.base_url) {
+            headers.extend(super::opencode_session_headers(&self.session_id));
+        }
+        headers
     }
 }
 
@@ -298,10 +313,7 @@ impl LlmProvider for AnthropicProvider {
         let body_json = serde_json::to_string(&body).unwrap_or_default();
         super::common::dump_prompt_body(&body);
 
-        let headers = vec![
-            ("x-api-key".to_string(), self.api_key.clone()),
-            ("anthropic-version".to_string(), "2023-06-01".to_string()),
-        ];
+        let headers = self.request_headers();
         let response = send_with_retry(
             3,
             &self.client,
@@ -660,6 +672,32 @@ mod tests {
     fn test_parse_anthropic_unknown_event() {
         let event = AnthropicProvider::parse_anthropic_event("unknown_event", r#"{}"#);
         assert!(matches!(event, None), "未知事件类型应返回 None");
+    }
+
+    #[test]
+    fn test_request_headers_opencode_session() {
+        let client = reqwest::Client::new();
+        let opencode = AnthropicProvider::new(
+            client.clone(),
+            "sk-test".to_string(),
+            "https://opencode.ai/zen/go/v1".to_string(),
+            "minimax-m2".to_string(),
+        );
+        let headers = opencode.request_headers();
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "x-opencode-session" && !v.is_empty()));
+
+        let plain = AnthropicProvider::new(
+            client,
+            "sk-test".to_string(),
+            "https://api.anthropic.com".to_string(),
+            "claude-sonnet-4".to_string(),
+        );
+        assert!(!plain
+            .request_headers()
+            .iter()
+            .any(|(k, _)| k == "x-opencode-session"));
     }
 
     // ── openai_to_anthropic 消息转换测试 ──

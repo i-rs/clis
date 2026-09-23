@@ -51,6 +51,7 @@ impl LlmProvider for OllamaProvider {
             "ollama",
             messages,
             tool_schemas,
+            &[],
             tx,
             trace_id,
         )

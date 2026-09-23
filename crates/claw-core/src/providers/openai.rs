@@ -13,6 +13,8 @@ pub struct OpenaiProvider {
     api_key: String,
     base_url: String,
     model: String,
+    /// 稳定的会话 ID，OpenCode 网关 (opencode.ai) 路由/缓存亲和用。
+    session_id: String,
 }
 
 impl OpenaiProvider {
@@ -23,6 +25,16 @@ impl OpenaiProvider {
             api_key,
             base_url,
             model,
+            session_id: super::new_opencode_session_id(),
+        }
+    }
+
+    /// OpenCode 网关所需的额外请求头（非 opencode.ai 时为空）。
+    pub(crate) fn extra_headers(&self) -> Vec<(String, String)> {
+        if super::is_opencode_gateway(&self.base_url) {
+            super::opencode_session_headers(&self.session_id)
+        } else {
+            Vec::new()
         }
     }
 }
@@ -54,6 +66,7 @@ impl LlmProvider for OpenaiProvider {
             "openai",
             messages,
             tool_schemas,
+            &self.extra_headers(),
             tx,
             trace_id,
         )
@@ -64,6 +77,28 @@ impl LlmProvider for OpenaiProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_extra_headers_opencode() {
+        let opencode = OpenaiProvider::new(
+            reqwest::Client::new(),
+            "sk-test".to_string(),
+            "https://opencode.ai/zen/go/v1".to_string(),
+            "kimi-k3".to_string(),
+        );
+        let headers = opencode.extra_headers();
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "x-opencode-session" && !v.is_empty()));
+
+        let plain = OpenaiProvider::new(
+            reqwest::Client::new(),
+            "sk-test".to_string(),
+            "https://api.deepseek.com".to_string(),
+            "deepseek-v4-flash".to_string(),
+        );
+        assert!(plain.extra_headers().is_empty());
+    }
     use crate::test_helpers;
 
     #[test]

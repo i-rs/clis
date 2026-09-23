@@ -96,6 +96,39 @@ pub trait LlmProvider: Send + Sync {
 }
 
 // =============================================
+// OpenCode Go gateway (opencode.ai)
+// =============================================
+
+/// OpenCode Go 网关 (opencode.ai) 要求每个会话携带稳定的 `x-opencode-session`
+/// 请求头，否则返回 400 MissingSessionID。同时要求用自定义 User-Agent 标识客户端。
+/// 见 https://opencode.ai/docs/go/#where-can-i-use-it
+pub(crate) fn is_opencode_gateway(base_url: &str) -> bool {
+    let rest = base_url.split_once("://").map(|(_, r)| r).unwrap_or(base_url);
+    let host = rest.split('/').next().unwrap_or("");
+    let host = host.rsplit('@').next().unwrap_or(host); // 去掉 userinfo
+    let host = host.split(':').next().unwrap_or(host); // 去掉端口
+    host == "opencode.ai" || host.ends_with(".opencode.ai")
+}
+
+/// 生成 OpenCode 网关所需的请求头（会话 ID + 客户端标识）。
+/// `session_id` 在 provider 实例生命周期内保持稳定（一次 chat_loop 的所有
+/// ReAct 轮次复用同一个值），满足网关的路由/缓存亲和要求。
+pub(crate) fn opencode_session_headers(session_id: &str) -> Vec<(String, String)> {
+    vec![
+        ("x-opencode-session".to_string(), session_id.to_string()),
+        (
+            "User-Agent".to_string(),
+            format!("i-rs-claw/{}", env!("CARGO_PKG_VERSION")),
+        ),
+    ]
+}
+
+/// 每个 provider 实例生成一次的稳定会话 ID（OpenCode 网关用）。
+pub(crate) fn new_opencode_session_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+// =============================================
 // Factory
 // =============================================
 
@@ -243,5 +276,30 @@ mod tests {
             "Zhipu".parse::<ProviderKind>().unwrap(),
             ProviderKind::Zhipu
         );
+    }
+
+    #[test]
+    fn test_is_opencode_gateway() {
+        assert!(is_opencode_gateway("https://opencode.ai/zen/go/v1"));
+        assert!(is_opencode_gateway("https://opencode.ai"));
+        assert!(is_opencode_gateway("https://api.opencode.ai/v1"));
+        assert!(is_opencode_gateway("http://opencode.ai:8080/v1"));
+        // 域名后缀匹配，不能误伤
+        assert!(!is_opencode_gateway("https://api.deepseek.com"));
+        assert!(!is_opencode_gateway("https://notopencode.ai"));
+        assert!(!is_opencode_gateway("https://opencode.ai.evil.com"));
+        assert!(!is_opencode_gateway("https://api.openai.com"));
+    }
+
+    #[test]
+    fn test_opencode_session_headers() {
+        let headers = opencode_session_headers("sess-123");
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "x-opencode-session" && v == "sess-123"));
+        assert!(headers
+            .iter()
+            .any(|(k, v)| k == "User-Agent" && v.starts_with("i-rs-claw/")));
+        assert_ne!(new_opencode_session_id(), new_opencode_session_id());
     }
 }

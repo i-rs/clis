@@ -134,6 +134,7 @@ pub async fn openai_stream_chat_impl(
     provider_kind: &str,
     messages: &[Value],
     tool_schemas: &[Value],
+    extra_headers: &[(String, String)],
     tx: &UnboundedSender<LlmEvent>,
     trace_id: &str,
 ) -> anyhow::Result<StreamResult> {
@@ -153,7 +154,7 @@ pub async fn openai_stream_chat_impl(
     let body_json = serde_json::to_string(&body).unwrap_or_default();
     super::common::dump_prompt_body(&body);
 
-    let headers: Vec<(String, String)> = if let Some(key) = api_key {
+    let mut headers: Vec<(String, String)> = if let Some(key) = api_key {
         vec![
             ("Authorization".to_string(), format!("Bearer {}", key)),
             (
@@ -165,6 +166,7 @@ pub async fn openai_stream_chat_impl(
     } else {
         Vec::new()
     };
+    headers.extend_from_slice(extra_headers);
     let response = send_with_retry(3, client, url, &body, &headers).await?;
 
     let status = response.status().as_u16();
