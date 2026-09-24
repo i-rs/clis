@@ -1,6 +1,5 @@
 use crate::models::{Bookmark, BookmarkStore};
 use anyhow::Result;
-use keyring::use_native_store;
 use keyring_core::Entry;
 
 i_rs_core::create_store!(BookmarkStore, "bookmark");
@@ -8,7 +7,9 @@ i_rs_core::create_store!(BookmarkStore, "bookmark");
 const SERVICE_NAME: &str = "i-rs-bookmark";
 
 pub fn init_keyring() {
-    let _ = use_native_store(false);
+    // keyring 4.2 移除了 use_native_store：v1::Entry 首次使用时才自动初始化
+    // 平台凭据存储，这里显式触发一次，供下方 keyring_core::Entry 使用。
+    let _ = keyring::Entry::store_status();
 }
 
 pub fn store_password(name: &str, password: &str) -> Result<()> {

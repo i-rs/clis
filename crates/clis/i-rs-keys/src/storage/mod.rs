@@ -1,6 +1,5 @@
 use crate::models::KeyStore;
 use anyhow::Result;
-use keyring::use_native_store;
 use keyring_core::Entry;
 
 i_rs_core::create_store!(KeyStore, "keys");
@@ -8,7 +7,9 @@ i_rs_core::create_store!(KeyStore, "keys");
 const SERVICE_NAME: &str = "i-rs-keys";
 
 pub fn init_keyring() {
-    let _ = use_native_store(false);
+    // keyring 4.2 移除了 use_native_store：v1::Entry 首次使用时才自动初始化
+    // 平台凭据存储，这里显式触发一次，供下方 keyring_core::Entry 使用。
+    let _ = keyring::Entry::store_status();
 }
 
 pub fn store_key(name: &str, key: &str) -> Result<()> {
