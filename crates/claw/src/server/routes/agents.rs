@@ -1,10 +1,10 @@
 use crate::server::AppState;
 use crate::server::UserId;
-use i_rs_claw_core::providers::ProviderKind;
 use axum::{
     Json,
     extract::{Path, State},
 };
+use i_rs_claw_core::providers::ProviderKind;
 use serde_json::Value;
 
 /// List available agent profiles.
@@ -169,7 +169,9 @@ pub async fn update_agent(
 
     // Insert into the correct map (agents or sub_agents)
     if is_sub {
-        core.config.sub_agents.insert(id.clone(), agent_config.clone());
+        core.config
+            .sub_agents
+            .insert(id.clone(), agent_config.clone());
     } else {
         core.config.agents.insert(id.clone(), agent_config.clone());
     }
@@ -185,31 +187,46 @@ pub async fn update_agent(
     // Also persist to ConfigStore (DB backend) so changes survive restart
     let now = chrono::Utc::now().timestamp();
     let row_provider_ref = agent_config.provider_ref.clone();
-    let row_provider = agent_config.provider.map(|p| format!("{:?}", p)).unwrap_or_default();
+    let row_provider = agent_config
+        .provider
+        .map(|p| format!("{:?}", p))
+        .unwrap_or_default();
     let row_api_key = agent_config.api_key.clone().unwrap_or_default();
     let row_base_url = agent_config.base_url.clone().unwrap_or_default();
     let row_model = agent_config.model.clone().unwrap_or_default();
-    let row_tools: Vec<String> = agent_config.enabled_tools.clone().unwrap_or_default().into_iter().collect();
+    let row_tools: Vec<String> = agent_config
+        .enabled_tools
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
     let row_prompt = agent_config.system_prompt.clone().unwrap_or_default();
     let row_prompt_file = agent_config.system_prompt_file.clone();
     let row_caps = agent_config.capabilities.clone();
-    let row_execution = agent_config.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
-    if let Err(e) = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
-        user_id,
-        agent_id: id.clone(),
-        provider_ref: row_provider_ref,
-        provider: row_provider,
-        api_key: row_api_key,
-        base_url: row_base_url,
-        model: row_model,
-        enabled_tools: row_tools,
-        system_prompt: row_prompt,
-        system_prompt_file: row_prompt_file,
-        capabilities: row_caps,
-        execution_mode: row_execution,
-        created_at: now,
-        updated_at: now,
-    }).await
+    let row_execution = agent_config
+        .execution_mode
+        .map(|e| format!("{:?}", e))
+        .unwrap_or_else(|| "React".into());
+    if let Err(e) = core
+        .config_store
+        .agent_configs
+        .upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
+            user_id,
+            agent_id: id.clone(),
+            provider_ref: row_provider_ref,
+            provider: row_provider,
+            api_key: row_api_key,
+            base_url: row_base_url,
+            model: row_model,
+            enabled_tools: row_tools,
+            system_prompt: row_prompt,
+            system_prompt_file: row_prompt_file,
+            capabilities: row_caps,
+            execution_mode: row_execution,
+            created_at: now,
+            updated_at: now,
+        })
+        .await
     {
         tracing::error!(error = %e, "DB sync failed for agent update");
     }
@@ -311,31 +328,46 @@ pub async fn create_agent(
     // Also persist to ConfigStore (DB backend)
     let now = chrono::Utc::now().timestamp();
     let row_provider_ref = agent_config_clone.provider_ref.clone();
-    let row_provider = agent_config_clone.provider.map(|p| format!("{:?}", p)).unwrap_or_default();
+    let row_provider = agent_config_clone
+        .provider
+        .map(|p| format!("{:?}", p))
+        .unwrap_or_default();
     let row_api_key = agent_config_clone.api_key.clone().unwrap_or_default();
     let row_base_url = agent_config_clone.base_url.clone().unwrap_or_default();
     let row_model = agent_config_clone.model.clone().unwrap_or_default();
-    let row_tools: Vec<String> = agent_config_clone.enabled_tools.clone().unwrap_or_default().into_iter().collect();
+    let row_tools: Vec<String> = agent_config_clone
+        .enabled_tools
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
     let row_prompt = agent_config_clone.system_prompt.clone().unwrap_or_default();
     let row_prompt_file = agent_config_clone.system_prompt_file.clone();
     let row_caps = agent_config_clone.capabilities.clone();
-    let row_execution = agent_config_clone.execution_mode.map(|e| format!("{:?}", e)).unwrap_or_else(|| "React".into());
-    if let Err(e) = core.config_store.agent_configs.upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
-        user_id,
-        agent_id: agent_id.clone(),
-        provider_ref: row_provider_ref,
-        provider: row_provider,
-        api_key: row_api_key,
-        base_url: row_base_url,
-        model: row_model,
-        enabled_tools: row_tools,
-        system_prompt: row_prompt,
-        system_prompt_file: row_prompt_file,
-        capabilities: row_caps,
-        execution_mode: row_execution,
-        created_at: now,
-        updated_at: now,
-    }).await
+    let row_execution = agent_config_clone
+        .execution_mode
+        .map(|e| format!("{:?}", e))
+        .unwrap_or_else(|| "React".into());
+    if let Err(e) = core
+        .config_store
+        .agent_configs
+        .upsert(&i_rs_claw_core::storage::config_store::AgentConfigRow {
+            user_id,
+            agent_id: agent_id.clone(),
+            provider_ref: row_provider_ref,
+            provider: row_provider,
+            api_key: row_api_key,
+            base_url: row_base_url,
+            model: row_model,
+            enabled_tools: row_tools,
+            system_prompt: row_prompt,
+            system_prompt_file: row_prompt_file,
+            capabilities: row_caps,
+            execution_mode: row_execution,
+            created_at: now,
+            updated_at: now,
+        })
+        .await
     {
         tracing::error!(error = %e, "DB sync failed for agent create");
     }

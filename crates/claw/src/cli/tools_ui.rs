@@ -1,5 +1,5 @@
-use i_rs_claw_core::config::Config;
 use crossterm::event::{self, Event, KeyCode};
+use i_rs_claw_core::config::Config;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -27,9 +27,10 @@ pub fn run_tools() -> anyhow::Result<()> {
     let mut selection: usize = 0;
     let mut dirty = false;
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> anyhow::Result<()> {
-        loop {
-            terminal.draw(|f| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+        || -> anyhow::Result<()> {
+            loop {
+                terminal.draw(|f| {
                 let area = f.area();
 
                 // Layout: title + list + footer
@@ -101,37 +102,38 @@ pub fn run_tools() -> anyhow::Result<()> {
                 );
             })?;
 
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Up => selection = selection.saturating_sub(1),
-                    KeyCode::Down if selection + 1 < total => selection += 1,
-                    KeyCode::Char(' ') => {
-                        dirty = true;
-                        let name = &all_tools[selection];
-                        if cfg.enabled_tools.contains(name) {
-                            cfg.enabled_tools.remove(name);
-                        } else {
-                            cfg.enabled_tools.insert(name.to_string());
+                if let Event::Key(key) = event::read()? {
+                    match key.code {
+                        KeyCode::Up => selection = selection.saturating_sub(1),
+                        KeyCode::Down if selection + 1 < total => selection += 1,
+                        KeyCode::Char(' ') => {
+                            dirty = true;
+                            let name = &all_tools[selection];
+                            if cfg.enabled_tools.contains(name) {
+                                cfg.enabled_tools.remove(name);
+                            } else {
+                                cfg.enabled_tools.insert(name.to_string());
+                            }
                         }
+                        KeyCode::Char('a') | KeyCode::Char('A') => {
+                            dirty = true;
+                            cfg.enabled_tools = all_tools.iter().map(|s| s.to_string()).collect();
+                        }
+                        KeyCode::Char('n') | KeyCode::Char('N') => {
+                            dirty = true;
+                            cfg.enabled_tools.clear();
+                        }
+                        KeyCode::Enter => break Ok(()),
+                        KeyCode::Esc | KeyCode::Char('q') => {
+                            dirty = false;
+                            break Ok(());
+                        }
+                        _ => {}
                     }
-                    KeyCode::Char('a') | KeyCode::Char('A') => {
-                        dirty = true;
-                        cfg.enabled_tools = all_tools.iter().map(|s| s.to_string()).collect();
-                    }
-                    KeyCode::Char('n') | KeyCode::Char('N') => {
-                        dirty = true;
-                        cfg.enabled_tools.clear();
-                    }
-                    KeyCode::Enter => break Ok(()),
-                    KeyCode::Esc | KeyCode::Char('q') => {
-                        dirty = false;
-                        break Ok(());
-                    }
-                    _ => {}
                 }
             }
-        }
-    }));
+        },
+    ));
 
     // ── TUI teardown (always runs, even on panic) ──
     crossterm::terminal::disable_raw_mode()?;

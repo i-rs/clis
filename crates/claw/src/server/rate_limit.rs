@@ -48,7 +48,10 @@ pub struct ConcurrencyGuard {
 
 impl ConcurrencyGuard {
     pub fn new(inner: Arc<ChatConcurrency>) -> Self {
-        Self { inner, released: AtomicBool::new(false) }
+        Self {
+            inner,
+            released: AtomicBool::new(false),
+        }
     }
 
     /// Release the slot explicitly (idempotent).
@@ -159,7 +162,9 @@ mod tests {
     #[test]
     fn test_user_concurrency_different_users_independent() {
         let limiter = UserConcurrencyLimiter::new(1);
-        let _g1 = limiter.try_acquire_for("alice").expect("alice should acquire");
+        let _g1 = limiter
+            .try_acquire_for("alice")
+            .expect("alice should acquire");
         // Bob should still be able to acquire (different user, own limit)
         let g2 = limiter.try_acquire_for("bob").expect("bob should acquire");
         drop(g2);
@@ -170,7 +175,9 @@ mod tests {
     #[test]
     fn test_user_concurrency_same_user_blocked() {
         let limiter = UserConcurrencyLimiter::new(1);
-        let _g = limiter.try_acquire_for("alice").expect("alice should acquire");
+        let _g = limiter
+            .try_acquire_for("alice")
+            .expect("alice should acquire");
         assert!(limiter.try_acquire_for("alice").is_err());
     }
 
@@ -178,7 +185,9 @@ mod tests {
     fn test_user_concurrency_release_frees_slot() {
         let limiter = UserConcurrencyLimiter::new(1);
         {
-            let _g = limiter.try_acquire_for("alice").expect("alice should acquire");
+            let _g = limiter
+                .try_acquire_for("alice")
+                .expect("alice should acquire");
         }
         // Slot freed, should be able to acquire again
         assert!(limiter.try_acquire_for("alice").is_ok());

@@ -6,7 +6,7 @@
 //! - Collapsible `🧠 思考过程` reasoning section with gutter bar
 //! - Height cached per width
 
-use super::{ComponentOp, blend, block_border, render_block_chrome, body_line};
+use super::{ComponentOp, blend, block_border, body_line, render_block_chrome};
 use crate::tui::colors::*;
 use crate::tui::ui::chat::render_ai_content;
 use ratatui::buffer::Buffer;
@@ -31,7 +31,9 @@ pub(crate) struct AssistantBlock {
 
 impl AssistantBlock {
     pub fn new(text: &str, reasoning: &str, reasoning_expanded: bool) -> Self {
-        let body_rows = if text.is_empty() { 1 } else {
+        let body_rows = if text.is_empty() {
+            1
+        } else {
             render_ai_content(text).len().max(1)
         };
         Self {
@@ -46,14 +48,22 @@ impl AssistantBlock {
     }
 
     fn reasoning_rows(&self, width: u16) -> u16 {
-        if self.reasoning.is_empty() { return 0; }
-        if let Some(h) = self.reasoning_height_cache.get() { return h; }
+        if self.reasoning.is_empty() {
+            return 0;
+        }
+        if let Some(h) = self.reasoning_height_cache.get() {
+            return h;
+        }
         let indent = super::BLOCK_INDENT + 2;
         let usable = (width as usize).saturating_sub(indent + 4).max(8);
         let mut total = 0u16;
         for line in self.reasoning.lines() {
             let w = unicode_width::UnicodeWidthStr::width(line);
-            if w == 0 { total += 1; } else { total += ((w + usable - 1) / usable) as u16; }
+            if w == 0 {
+                total += 1;
+            } else {
+                total += w.div_ceil(usable) as u16;
+            }
         }
         self.reasoning_height_cache.set(Some(total));
         total
@@ -63,7 +73,9 @@ impl AssistantBlock {
 impl super::MessageComponent for AssistantBlock {
     /// 1 (top border) + 1 (header) + body + (optional reasoning toggle + rows) + 1 (bottom)
     fn height(&self, width: u16) -> u16 {
-        if let Some((cw, ch)) = self.height_cache.get() && cw == width {
+        if let Some((cw, ch)) = self.height_cache.get()
+            && cw == width
+        {
             return ch;
         }
         let mut h = 1 + 1 + self.body_rows as u16 + 1;
@@ -89,7 +101,9 @@ impl super::MessageComponent for AssistantBlock {
     }
 
     fn extra_click_targets(&self, _width: u16) -> Vec<(u16, u16, ComponentOp)> {
-        if self.reasoning.is_empty() { return vec![]; }
+        if self.reasoning.is_empty() {
+            return vec![];
+        }
         let toggle_y = 1 + 1 + self.body_rows as u16;
         vec![(toggle_y, 1, ComponentOp::Toggle)]
     }
@@ -102,9 +116,7 @@ impl super::MessageComponent for AssistantBlock {
             c_bg_ai()
         };
 
-        let header = super::header_line(
-            "Assistant", "◆", c_green(), c_text(), None,
-        );
+        let header = super::header_line("Assistant", "◆", c_green(), c_text(), None);
 
         let body = render_block_chrome(area, buf, border, interior_bg, header, _y_offset);
         let mut y = body.top;
@@ -131,7 +143,9 @@ impl super::MessageComponent for AssistantBlock {
         };
 
         for line in &body_lines {
-            if !body.contains(y) { break; }
+            if !body.contains(y) {
+                break;
+            }
             let mut spans: Vec<Span<'static>> = Vec::with_capacity(line.spans.len() + 2);
             spans.push(Span::raw(" ".repeat(super::BLOCK_INDENT)));
             for s in &line.spans {
@@ -139,13 +153,24 @@ impl super::MessageComponent for AssistantBlock {
             }
             Paragraph::new(Line::from(spans))
                 .style(Style::default().bg(interior_bg))
-                .render(Rect { y, height: 1, ..area }, buf);
+                .render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
             y += 1;
         }
 
         // ─── Reasoning toggle + content ──────────────────────────────
         if !self.reasoning.is_empty() {
-            let chevron = if self.reasoning_expanded { "▾" } else { "▸" };
+            let chevron = if self.reasoning_expanded {
+                "▾"
+            } else {
+                "▸"
+            };
             let char_count = self.reasoning.chars().count();
             let chars_label = if char_count >= 1000 {
                 format!("{}k chars", char_count / 1000)
@@ -177,26 +202,37 @@ impl super::MessageComponent for AssistantBlock {
             if body.contains(y) {
                 Paragraph::new(Line::from(spans))
                     .style(Style::default().bg(interior_bg))
-                    .render(Rect { y, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                 y += 1;
             }
 
             if self.reasoning_expanded {
-                let reason_style = Style::default()
-                    .fg(c_dim())
-                    .add_modifier(Modifier::ITALIC);
+                let reason_style = Style::default().fg(c_dim()).add_modifier(Modifier::ITALIC);
                 let indent = super::BLOCK_INDENT + 2;
                 let usable = (area.width as usize).saturating_sub(indent + 4).max(8);
                 for rl in self.reasoning.lines() {
-                    if !body.contains(y) { break; }
+                    if !body.contains(y) {
+                        break;
+                    }
                     let mut remaining = rl;
                     while !remaining.is_empty() {
-                        if !body.contains(y) { break; }
+                        if !body.contains(y) {
+                            break;
+                        }
                         let mut split_pos = 0;
                         let mut col = 0usize;
                         for (byte_idx, ch) in remaining.char_indices() {
                             let w = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(1);
-                            if col + w > usable { break; }
+                            if col + w > usable {
+                                break;
+                            }
                             col += w;
                             split_pos = byte_idx + ch.len_utf8();
                         }
@@ -208,7 +244,14 @@ impl super::MessageComponent for AssistantBlock {
                         ];
                         Paragraph::new(Line::from(spans))
                             .style(Style::default().bg(interior_bg))
-                            .render(Rect { y, height: 1, ..area }, buf);
+                            .render(
+                                Rect {
+                                    y,
+                                    height: 1,
+                                    ..area
+                                },
+                                buf,
+                            );
                         y += 1;
                         remaining = rest;
                     }

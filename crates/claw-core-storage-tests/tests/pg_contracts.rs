@@ -1,10 +1,13 @@
-
 use claw_core_storage_tests::contracts;
 
 async fn pg_storage() -> std::sync::Arc<i_rs_claw_core::storage::ClawStorage> {
     let url = std::env::var("PG_URL")
         .unwrap_or("postgres://postgres:test@localhost:5432/claw_test".into());
-    std::sync::Arc::new(i_rs_claw_core::storage::ClawStorage::postgres(&url).await.unwrap())
+    std::sync::Arc::new(
+        i_rs_claw_core::storage::ClawStorage::postgres(&url)
+            .await
+            .unwrap(),
+    )
 }
 
 #[ignore = "requires: docker compose up postgres"]

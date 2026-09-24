@@ -68,9 +68,7 @@ pub(super) fn render_title(f: &mut Frame, area: Rect, app: &App) {
 
     spans.push(Span::styled(
         model_text,
-        Style::default()
-            .fg(dim)
-            .add_modifier(Modifier::BOLD),
+        Style::default().fg(dim).add_modifier(Modifier::BOLD),
     ));
 
     spans.push(Span::styled("▍", Style::default().fg(primary)));

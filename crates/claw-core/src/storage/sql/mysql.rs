@@ -249,11 +249,10 @@ impl MySqlBackend {
         .await?;
 
         // dashboard_users index on token_hash
-        if let Err(e) = sqlx::query(
-            "CREATE INDEX idx_dashboard_token_hash ON dashboard_users(token_hash)",
-        )
-        .execute(&self.pool)
-        .await
+        if let Err(e) =
+            sqlx::query("CREATE INDEX idx_dashboard_token_hash ON dashboard_users(token_hash)")
+                .execute(&self.pool)
+                .await
         {
             let msg = e.to_string();
             if !msg.contains("Duplicate") && !msg.contains("already exists") {
@@ -283,7 +282,11 @@ define_sql_stores!(
     "INSERT INTO token_records (id, timestamp, user_id, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE timestamp=VALUES(timestamp), user_id=VALUES(user_id), agent_id=VALUES(agent_id), model=VALUES(model), provider=VALUES(provider), prompt_tokens=VALUES(prompt_tokens), completion_tokens=VALUES(completion_tokens), total_tokens=VALUES(total_tokens), has_tool_calls=VALUES(has_tool_calls), tool_call_count=VALUES(tool_call_count), react_rounds=VALUES(react_rounds), success=VALUES(success), latency_ms=VALUES(latency_ms), estimated_cost_usd=VALUES(estimated_cost_usd), trace_id=VALUES(trace_id)",
     "INSERT INTO skills (agent_id, name, content, parameters) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE content=VALUES(content), parameters=VALUES(parameters)",
     "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = ? FOR UPDATE",
-    "?", "?", "?", "?", "?",
+    "?",
+    "?",
+    "?",
+    "?",
+    "?",
 );
 
 // Generate ConfigStore trait implementations
@@ -300,5 +303,7 @@ define_config_sql_stores!(
     "INSERT INTO dashboard_users (user_id, token_hash, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE token_hash=VALUES(token_hash), display_name=VALUES(display_name), updated_at=VALUES(updated_at)",
     "INSERT INTO mcp_server_configs (user_id, agent_id, name, transport_type, command, args_json, url, env_json, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE transport_type=VALUES(transport_type), command=VALUES(command), args_json=VALUES(args_json), url=VALUES(url), env_json=VALUES(env_json), enabled=VALUES(enabled)",
     "INSERT INTO app_settings (key, value_json, updated_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json), updated_at=VALUES(updated_at)",
-    "?", "?", "?",
+    "?",
+    "?",
+    "?",
 );

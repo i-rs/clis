@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use i_rs_claw_core::storage::ClawStorage;
-use i_rs_claw_core::stats::TokenRecord;
 use chrono::Utc;
+use i_rs_claw_core::stats::TokenRecord;
+use i_rs_claw_core::storage::ClawStorage;
+use std::sync::Arc;
 
 pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     let now = Utc::now().timestamp();
@@ -38,7 +38,7 @@ pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
         .stats
         .read_range(Some(now - 86400 * 2), Some(now + 86400))
         .await?;
-    assert!(recent.len() >= 1, "should have >=1 recent record");
+    assert!(!recent.is_empty(), "should have >=1 recent record");
 
     let pruned = storage.stats.prune(3).await?;
     assert!(pruned > 0, "prune should remove some records");

@@ -24,10 +24,8 @@ pub fn handle_get(id: String, date: Option<String>, format: OutputFormat) -> Res
         }
 
         if format.is_json() {
-            let items: Vec<crate::models::ListItem> = entries
-                .iter()
-                .map(crate::models::ListItem::from)
-                .collect();
+            let items: Vec<crate::models::ListItem> =
+                entries.iter().map(crate::models::ListItem::from).collect();
             println!(
                 "{}",
                 output_list(&items, items.len(), Some(&date_str), format)

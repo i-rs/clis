@@ -91,9 +91,12 @@ pub async fn get_current_session(
     let core = state.core.read().await;
     // Resolve the user's session: check if global current_id belongs to them,
     // otherwise find their most recent session.
-    let id = core.session_mgr.current_id()
+    let id = core
+        .session_mgr
+        .current_id()
         .filter(|sid| {
-            core.session_mgr.session_meta(sid)
+            core.session_mgr
+                .session_meta(sid)
                 .map(|m| m.user_id == user_id)
                 .unwrap_or(false)
         })
@@ -141,7 +144,10 @@ pub async fn create_session(
         .unwrap_or("default");
 
     let mut core = state.core.write().await;
-    let id = core.session_mgr.create_session_for_async(agent_id, &user_id).await;
+    let id = core
+        .session_mgr
+        .create_session_for_async(agent_id, &user_id)
+        .await;
     super::ApiResponse::ok(serde_json::json!({
         "id": id,
         "title": "",
@@ -159,9 +165,10 @@ pub async fn switch_session(
     let mut core = state.core.write().await;
     // Verify session belongs to this user
     if let Some(meta) = core.session_mgr.session_meta(&id)
-        && meta.user_id != user_id {
-            return super::ApiResponse::err("Session does not belong to you");
-        }
+        && meta.user_id != user_id
+    {
+        return super::ApiResponse::err("Session does not belong to you");
+    }
     if core.session_mgr.switch_to(&id) {
         let meta = core.session_mgr.session_meta(&id);
         super::ApiResponse::ok(serde_json::json!({

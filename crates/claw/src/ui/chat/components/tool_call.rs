@@ -1,7 +1,9 @@
-use super::style::{BLOCK_LEFT_RESERVED, blend, block_border, body_line, render_block_chrome, LEFT_PAD};
+use super::style::{
+    BLOCK_LEFT_RESERVED, LEFT_PAD, blend, block_border, body_line, render_block_chrome,
+};
 use super::{ComponentOp, MessageComponent};
-use i_rs_claw_core::theme::Theme;
 use crate::ui::utils;
+use i_rs_claw_core::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};

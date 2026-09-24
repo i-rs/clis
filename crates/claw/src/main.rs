@@ -179,34 +179,64 @@ fn main() -> anyhow::Result<()> {
         api_only: false,
         auto_approve_high_risk: false,
     }) {
-        Command::Serve { host, port, api_only, auto_approve_high_risk } => {
-            cli::run_serve(host, port, api_only, auto_approve_high_risk)
-        }
+        Command::Serve {
+            host,
+            port,
+            api_only,
+            auto_approve_high_risk,
+        } => cli::run_serve(host, port, api_only, auto_approve_high_risk),
         Command::Tui { session, user: _ } => tui::run(session.as_deref()),
         Command::Config => cli::run_config(),
         Command::Tools => cli::run_tools(),
         Command::Session { list: true, .. } => cli::run_session_list(),
-        Command::Session { export_md: Some(id), .. } => cli::run_export(&id, "md"),
-        Command::Session { export_json: Some(id), .. } => cli::run_export(&id, "json"),
+        Command::Session {
+            export_md: Some(id),
+            ..
+        } => cli::run_export(&id, "md"),
+        Command::Session {
+            export_json: Some(id),
+            ..
+        } => cli::run_export(&id, "json"),
         Command::Session { .. } => cli::run_session_list(),
         Command::Ask { message, session } => cli::run_ask(&message, session.as_deref()),
         Command::Gateway => cli::run_gateway(),
         Command::Dashboard => cli::run_dashboard(),
         Command::Plugin { list: true, .. } => cli::run_plugin_list(),
-        Command::Plugin { info: Some(name), .. } => cli::run_plugin_info(&name),
-        Command::Plugin { enable: Some(name), .. } => cli::run_plugin_enable(&name),
-        Command::Plugin { disable: Some(name), .. } => cli::run_plugin_disable(&name),
+        Command::Plugin {
+            info: Some(name), ..
+        } => cli::run_plugin_info(&name),
+        Command::Plugin {
+            enable: Some(name), ..
+        } => cli::run_plugin_enable(&name),
+        Command::Plugin {
+            disable: Some(name),
+            ..
+        } => cli::run_plugin_disable(&name),
         Command::Plugin { .. } => cli::run_plugin_list(),
         Command::Skill { list: true, .. } => cli::run_skill_list(),
-        Command::Skill { install: Some(name), .. } => cli::run_skill_install(&name),
-        Command::Skill { remove: Some(name), .. } => cli::run_skill_remove(&name),
-        Command::Skill { info: Some(name), .. } => cli::run_skill_info(&name),
+        Command::Skill {
+            install: Some(name),
+            ..
+        } => cli::run_skill_install(&name),
+        Command::Skill {
+            remove: Some(name), ..
+        } => cli::run_skill_remove(&name),
+        Command::Skill {
+            info: Some(name), ..
+        } => cli::run_skill_info(&name),
         Command::Skill { .. } => cli::run_skill_list(),
         Command::Stats { period, json } => cli::run_stats(&period, json),
         Command::Mcp { list: true, .. } => cli::run_mcp_list(),
-        Command::Mcp { enable: Some(name), .. } => cli::run_mcp_enable(&name),
-        Command::Mcp { disable: Some(name), .. } => cli::run_mcp_disable(&name),
-        Command::Mcp { check: Some(name), .. } => cli::run_mcp_check(&name),
+        Command::Mcp {
+            enable: Some(name), ..
+        } => cli::run_mcp_enable(&name),
+        Command::Mcp {
+            disable: Some(name),
+            ..
+        } => cli::run_mcp_disable(&name),
+        Command::Mcp {
+            check: Some(name), ..
+        } => cli::run_mcp_check(&name),
         Command::Mcp { .. } => cli::run_mcp_list(),
     }
 }

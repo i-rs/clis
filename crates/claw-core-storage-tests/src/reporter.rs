@@ -61,9 +61,12 @@ impl TestRunReport {
             for c in &backend.contracts {
                 let status = if c.passed { "✅ 通过" } else { "❌ 失败" };
                 let err = c.error.as_deref().unwrap_or("-");
-                md.push_str(&format!("| {} | {} | {}ms | {} |\n", c.name, status, c.duration_ms, err));
+                md.push_str(&format!(
+                    "| {} | {} | {}ms | {} |\n",
+                    c.name, status, c.duration_ms, err
+                ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         md

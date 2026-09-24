@@ -61,7 +61,10 @@ impl AgentRuntimeStore {
         let agent_ids = config.all_agent_ids();
         let mut runtimes = HashMap::new();
         for id in &agent_ids {
-            runtimes.insert(runtime_key("default", id), AgentRuntime::new(config, storage, id));
+            runtimes.insert(
+                runtime_key("default", id),
+                AgentRuntime::new(config, storage, id),
+            );
         }
         let mut store = Self { runtimes };
         store.prefetch_hot_tools();
@@ -91,7 +94,10 @@ impl AgentRuntimeStore {
     ) -> Result<&mut AgentRuntime, crate::error::ClawError> {
         let key = runtime_key(user_id, agent_id);
         if !self.runtimes.contains_key(&key) {
-            let src_key = if self.runtimes.contains_key(&runtime_key("default", agent_id)) {
+            let src_key = if self
+                .runtimes
+                .contains_key(&runtime_key("default", agent_id))
+            {
                 runtime_key("default", agent_id)
             } else {
                 runtime_key("default", "default")
@@ -212,13 +218,16 @@ impl AgentRuntimeStore {
             if !self.runtimes.contains_key(&key) {
                 let src_key = runtime_key(&user_id, "default");
                 if let Some(src) = self.runtimes.get(&src_key) {
-                    self.runtimes.insert(key.clone(), AgentRuntime {
-                        memory: src.memory.clone(),
-                        tool_cache: src.tool_cache.clone(),
-                        skill_store: src.skill_store.clone(),
-                        layered_memory: src.layered_memory.clone(),
-                        mcp_registry: src.mcp_registry.clone(),
-                    });
+                    self.runtimes.insert(
+                        key.clone(),
+                        AgentRuntime {
+                            memory: src.memory.clone(),
+                            tool_cache: src.tool_cache.clone(),
+                            skill_store: src.skill_store.clone(),
+                            layered_memory: src.layered_memory.clone(),
+                            mcp_registry: src.mcp_registry.clone(),
+                        },
+                    );
                 }
             }
         }
@@ -231,8 +240,11 @@ impl AgentRuntimeStore {
     }
 
     fn user_ids(&self) -> Vec<String> {
-        self.runtimes.keys().map(|(u, _)| u.clone())
+        self.runtimes
+            .keys()
+            .map(|(u, _)| u.clone())
             .collect::<HashSet<_>>()
-            .into_iter().collect()
+            .into_iter()
+            .collect()
     }
 }

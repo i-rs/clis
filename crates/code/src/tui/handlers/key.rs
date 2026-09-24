@@ -1,5 +1,5 @@
-use crate::app::{AgentMessage, App, AppMode};
 use crate::agent::event::AgentEvent;
+use crate::app::{AgentMessage, App, AppMode};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tokio::sync::mpsc;
 
@@ -11,7 +11,7 @@ pub async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<Ag
     }
 
     if app.show_theme_picker {
-        use crate::tui::colors::{set_active, THEMES};
+        use crate::tui::colors::{THEMES, set_active};
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => {
                 app.show_theme_picker = false;
@@ -337,21 +337,32 @@ pub async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<Ag
                 app.needs_redraw = true;
             }
         }
-        KeyCode::Up if matches!(app.mode, AppMode::Idle) && !app.input.history.is_empty() && !app.show_slash_picker => {
+        KeyCode::Up
+            if matches!(app.mode, AppMode::Idle)
+                && !app.input.history.is_empty()
+                && !app.show_slash_picker =>
+        {
             app.input.history_up();
         }
-        KeyCode::Down if matches!(app.mode, AppMode::Idle) && app.input.history_index.is_some() && !app.show_slash_picker => {
+        KeyCode::Down
+            if matches!(app.mode, AppMode::Idle)
+                && app.input.history_index.is_some()
+                && !app.show_slash_picker =>
+        {
             app.input.history_down();
         }
         KeyCode::Up => app.scroll_up(),
         KeyCode::Down => app.scroll_down(),
         KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(10),
         KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(10),
-        KeyCode::Enter if matches!(app.mode, AppMode::Idle)
-            && app.input.content.is_empty()
-            && app.selected_message.is_some() =>
+        KeyCode::Enter
+            if matches!(app.mode, AppMode::Idle)
+                && app.input.content.is_empty()
+                && app.selected_message.is_some() =>
         {
-            let idx = app.selected_message.unwrap_or(app.messages.len().saturating_sub(1));
+            let idx = app
+                .selected_message
+                .unwrap_or(app.messages.len().saturating_sub(1));
             if idx < app.components.len() {
                 use crate::tui::ui::components::ComponentOp;
                 app.components[idx].borrow_mut().apply(ComponentOp::Toggle);
@@ -378,8 +389,14 @@ pub async fn handle_key(key: KeyEvent, app: &mut App, event_tx: &mpsc::Sender<Ag
             let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
             app.cancel_tx = Some(cancel_tx);
             app.task_handle = Some(tokio::spawn(async move {
-                if let Err(e) =
-                    super::super::run_streaming_agent(&config, &expanded, tx.clone(), history, cancel_rx).await
+                if let Err(e) = super::super::run_streaming_agent(
+                    &config,
+                    &expanded,
+                    tx.clone(),
+                    history,
+                    cancel_rx,
+                )
+                .await
                 {
                     tx.send(AgentEvent::Error(e.to_string())).await.ok();
                 }

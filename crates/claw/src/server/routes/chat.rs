@@ -1,14 +1,14 @@
 use crate::server::AppState;
 use crate::server::UserId;
 use crate::server::rate_limit::ConcurrencyGuard;
-use i_rs_claw_core::llm::LlmEvent;
-use i_rs_claw_core::message::MessageAccumulator;
 use axum::{
     Json,
     extract::{Path, Query, State},
     response::IntoResponse,
     response::sse::{Event, Sse},
 };
+use i_rs_claw_core::llm::LlmEvent;
+use i_rs_claw_core::message::MessageAccumulator;
 use serde::Deserialize;
 use serde_json::Value;
 use std::convert::Infallible;
@@ -28,7 +28,18 @@ fn build_sse_stream(
     i_rs_index: std::collections::HashMap<String, String>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = futures_util::stream::unfold(
-        (Some(rx), write_tx, guard, state, user_id, sid, agent_id, i_rs_index, MessageAccumulator::new(), 0u64),
+        (
+            Some(rx),
+            write_tx,
+            guard,
+            state,
+            user_id,
+            sid,
+            agent_id,
+            i_rs_index,
+            MessageAccumulator::new(),
+            0u64,
+        ),
         |(rx_opt, write_tx, guard, state, user_id, sid, agent_id, i_rs_index, mut acc, mut seq)| async move {
             let mut rx = rx_opt?;
             loop {
@@ -37,64 +48,124 @@ fn build_sse_stream(
                 let mut keep_rx = true;
 
                 match event {
-                    LlmEvent::ToolExecuted { name, args, result, step, total_steps, category } => {
-                        if write_tx.send(WriteCmd::RecordToolMemory {
-                            user_id: user_id.clone(),
-                            agent_id: agent_id.clone(),
-                            tool_name: name.clone(),
-                            tool_args: args.clone(),
-                            tool_result: result.clone(),
-                            i_rs_index: i_rs_index.clone(),
-                        }).is_err() {
-                            tracing::error!("writer task dead — RecordToolMemory lost");
-                        }
-                        if !category.is_retryable_or_fatal()
-                            && write_tx.send(WriteCmd::RecordLayeredMemory {
+                    LlmEvent::ToolExecuted {
+                        name,
+                        args,
+                        result,
+                        step,
+                        total_steps,
+                        category,
+                    } => {
+                        if write_tx
+                            .send(WriteCmd::RecordToolMemory {
                                 user_id: user_id.clone(),
                                 agent_id: agent_id.clone(),
                                 tool_name: name.clone(),
+                                tool_args: args.clone(),
                                 tool_result: result.clone(),
-                            }).is_err() {
-                                tracing::error!("writer task dead — RecordLayeredMemory lost");
-                            }
+                                i_rs_index: i_rs_index.clone(),
+                            })
+                            .is_err()
+                        {
+                            tracing::error!("writer task dead — RecordToolMemory lost");
+                        }
+                        if !category.is_retryable_or_fatal()
+                            && write_tx
+                                .send(WriteCmd::RecordLayeredMemory {
+                                    user_id: user_id.clone(),
+                                    agent_id: agent_id.clone(),
+                                    tool_name: name.clone(),
+                                    tool_result: result.clone(),
+                                })
+                                .is_err()
+                        {
+                            tracing::error!("writer task dead — RecordLayeredMemory lost");
+                        }
                         let data = serde_json::to_string(&serde_json::json!({
                             "name": name, "args": args, "result": result,
                             "step": step, "total_steps": total_steps,
-                        })).unwrap_or_default();
-                        sse_event = Event::default().event("tool_executed").data(data).id(seq.to_string());
-                        acc.apply(&LlmEvent::ToolExecuted { name: name.clone(), args: args.clone(), result: result.clone(), step, total_steps, category });
+                        }))
+                        .unwrap_or_default();
+                        sse_event = Event::default()
+                            .event("tool_executed")
+                            .data(data)
+                            .id(seq.to_string());
+                        acc.apply(&LlmEvent::ToolExecuted {
+                            name: name.clone(),
+                            args: args.clone(),
+                            result: result.clone(),
+                            step,
+                            total_steps,
+                            category,
+                        });
                     }
                     LlmEvent::Done(msgs, usage, _trace_id) => {
                         acc.apply(&LlmEvent::Done(msgs.clone(), usage, String::new()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
-                        if write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized }).is_err() {
+                        if write_tx
+                            .send(WriteCmd::PersistMessages {
+                                session_id: sid.clone(),
+                                messages: finalized,
+                            })
+                            .is_err()
+                        {
                             tracing::error!("writer task dead — PersistMessages lost");
                         }
-                        if write_tx.send(WriteCmd::SaveApiMessages { session_id: sid.clone(), messages: msgs.to_vec() }).is_err() {
+                        if write_tx
+                            .send(WriteCmd::SaveApiMessages {
+                                session_id: sid.clone(),
+                                messages: msgs.to_vec(),
+                            })
+                            .is_err()
+                        {
                             tracing::error!("writer task dead — SaveApiMessages lost");
                         }
 
                         let (reply_tx, reply_rx) = oneshot::channel();
-                        if write_tx.send(WriteCmd::EvaluateSession { session_id: sid.clone(), reply: reply_tx }).is_err() {
+                        if write_tx
+                            .send(WriteCmd::EvaluateSession {
+                                session_id: sid.clone(),
+                                reply: reply_tx,
+                            })
+                            .is_err()
+                        {
                             tracing::error!("writer task dead — EvaluateSession lost");
                         }
-                        let quality_msg = tokio::time::timeout(
-                            Duration::from_secs(5),
-                            reply_rx,
-                        ).await.ok().and_then(|r| r.ok()).flatten();
+                        let quality_msg = tokio::time::timeout(Duration::from_secs(5), reply_rx)
+                            .await
+                            .ok()
+                            .and_then(|r| r.ok())
+                            .flatten();
 
                         let quality_json = match &quality_msg {
-                            Some(crate::app::Message::Quality { score, complete, issues, references_valid }) => {
+                            Some(crate::app::Message::Quality {
+                                score,
+                                complete,
+                                issues,
+                                references_valid,
+                            }) => {
                                 serde_json::json!({"score": score.map(|s| s.to_string()).unwrap_or_default(), "complete": complete, "issues": issues, "references_valid": references_valid})
                             }
                             _ => serde_json::json!(null),
                         };
                         if let Some(q) = &quality_msg
-                            && write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: vec![q.clone()] }).is_err() {
-                                tracing::error!("writer task dead — PersistMessages(quality) lost");
-                            }
-                        if write_tx.send(WriteCmd::FlushMemory { user_id: user_id.clone(), agent_id: agent_id.clone() }).is_err() {
+                            && write_tx
+                                .send(WriteCmd::PersistMessages {
+                                    session_id: sid.clone(),
+                                    messages: vec![q.clone()],
+                                })
+                                .is_err()
+                        {
+                            tracing::error!("writer task dead — PersistMessages(quality) lost");
+                        }
+                        if write_tx
+                            .send(WriteCmd::FlushMemory {
+                                user_id: user_id.clone(),
+                                agent_id: agent_id.clone(),
+                            })
+                            .is_err()
+                        {
                             tracing::error!("writer task dead — FlushMemory lost");
                         }
                         if write_tx.send(WriteCmd::FlushStats).is_err() {
@@ -103,17 +174,32 @@ fn build_sse_stream(
                         guard.release();
                         let done_json = serde_json::json!({"usage": usage, "quality": quality_json, "session_id": &sid});
                         let data = serde_json::to_string(&done_json).unwrap_or_default();
-                        sse_event = Event::default().event("done").data(data).id(seq.to_string());
+                        sse_event = Event::default()
+                            .event("done")
+                            .data(data)
+                            .id(seq.to_string());
                         keep_rx = false;
                     }
                     LlmEvent::Error(e) => {
                         acc.apply(&LlmEvent::Error(e.clone()));
                         let finalized = acc.into_messages();
                         acc = MessageAccumulator::new();
-                        if write_tx.send(WriteCmd::MarkError { session_id: sid.clone(), error: e.clone() }).is_err() {
+                        if write_tx
+                            .send(WriteCmd::MarkError {
+                                session_id: sid.clone(),
+                                error: e.clone(),
+                            })
+                            .is_err()
+                        {
                             tracing::error!("writer task dead — MarkError lost");
                         }
-                        if write_tx.send(WriteCmd::PersistMessages { session_id: sid.clone(), messages: finalized }).is_err() {
+                        if write_tx
+                            .send(WriteCmd::PersistMessages {
+                                session_id: sid.clone(),
+                                messages: finalized,
+                            })
+                            .is_err()
+                        {
                             tracing::error!("writer task dead — PersistMessages(error) lost");
                         }
                         guard.release();
@@ -126,28 +212,61 @@ fn build_sse_stream(
                     }
                     LlmEvent::Reasoning(t) => {
                         acc.apply(&LlmEvent::Reasoning(t.clone()));
-                        sse_event = Event::default().event("reasoning").data(t).id(seq.to_string());
+                        sse_event = Event::default()
+                            .event("reasoning")
+                            .data(t)
+                            .id(seq.to_string());
                     }
                     LlmEvent::Status(s) => {
                         sse_event = Event::default().event("status").data(s).id(seq.to_string());
                     }
                     LlmEvent::NewRound(_) => {
                         acc.apply(&event);
-                        sse_event = Event::default().event("new_round").data("").id(seq.to_string());
+                        sse_event = Event::default()
+                            .event("new_round")
+                            .data("")
+                            .id(seq.to_string());
                     }
-                    LlmEvent::ImageGenerated { path, alt_text, format, width, height } => {
-                        acc.apply(&LlmEvent::ImageGenerated { path: path.clone(), alt_text: alt_text.clone(), format: format.clone(), width, height });
+                    LlmEvent::ImageGenerated {
+                        path,
+                        alt_text,
+                        format,
+                        width,
+                        height,
+                    } => {
+                        acc.apply(&LlmEvent::ImageGenerated {
+                            path: path.clone(),
+                            alt_text: alt_text.clone(),
+                            format: format.clone(),
+                            width,
+                            height,
+                        });
                         let data = serde_json::to_string(&serde_json::json!({
                             "path": path, "alt_text": alt_text, "format": format, "width": width, "height": height,
                         })).unwrap_or_default();
-                        sse_event = Event::default().event("image_generated").data(data).id(seq.to_string());
+                        sse_event = Event::default()
+                            .event("image_generated")
+                            .data(data)
+                            .id(seq.to_string());
                     }
-                    LlmEvent::Evaluation { tool, valid, issues } => {
-                        acc.apply(&LlmEvent::Evaluation { tool: tool.clone(), valid, issues: issues.clone() });
+                    LlmEvent::Evaluation {
+                        tool,
+                        valid,
+                        issues,
+                    } => {
+                        acc.apply(&LlmEvent::Evaluation {
+                            tool: tool.clone(),
+                            valid,
+                            issues: issues.clone(),
+                        });
                         let data = serde_json::to_string(&serde_json::json!({
                             "tool": tool, "valid": valid, "issues": issues,
-                        })).unwrap_or_default();
-                        sse_event = Event::default().event("evaluation").data(data).id(seq.to_string());
+                        }))
+                        .unwrap_or_default();
+                        sse_event = Event::default()
+                            .event("evaluation")
+                            .data(data)
+                            .id(seq.to_string());
                     }
                     LlmEvent::UsageRecord(mut record) => {
                         if record.agent_id == "default" {
@@ -170,8 +289,18 @@ fn build_sse_stream(
                     }
                 }
                 seq += 1;
-                let (next_rx, next_acc) = if keep_rx { (Some(rx), acc) } else { (None, MessageAccumulator::new()) };
-                return Some((Ok::<_, Infallible>(sse_event), (next_rx, write_tx, guard, state, user_id, sid, agent_id, i_rs_index, next_acc, seq)));
+                let (next_rx, next_acc) = if keep_rx {
+                    (Some(rx), acc)
+                } else {
+                    (None, MessageAccumulator::new())
+                };
+                return Some((
+                    Ok::<_, Infallible>(sse_event),
+                    (
+                        next_rx, write_tx, guard, state, user_id, sid, agent_id, i_rs_index,
+                        next_acc, seq,
+                    ),
+                ));
             }
         },
     );
@@ -224,31 +353,69 @@ async fn writer_task(
 ) {
     while let Some(cmd) = rx.recv().await {
         match cmd {
-            WriteCmd::RecordToolMemory { user_id, agent_id, tool_name, tool_args, tool_result, i_rs_index } => {
+            WriteCmd::RecordToolMemory {
+                user_id,
+                agent_id,
+                tool_name,
+                tool_args,
+                tool_result,
+                i_rs_index,
+            } => {
                 let mut c = core.write().await;
                 i_rs_claw_core::core::record_tool_memory_async(
-                    &user_id, &mut c.agent_store, &i_rs_index,
-                    &agent_id, &tool_name, &tool_args, &tool_result,
-                ).await;
+                    &user_id,
+                    &mut c.agent_store,
+                    &i_rs_index,
+                    &agent_id,
+                    &tool_name,
+                    &tool_args,
+                    &tool_result,
+                )
+                .await;
             }
-            WriteCmd::RecordLayeredMemory { user_id, agent_id, tool_name, tool_result } => {
+            WriteCmd::RecordLayeredMemory {
+                user_id,
+                agent_id,
+                tool_name,
+                tool_result,
+            } => {
                 let mut c = core.write().await;
                 i_rs_claw_core::core::record_layered_tool_memory(
-                    &user_id, &mut c.agent_store, &agent_id, &tool_name, &tool_result,
+                    &user_id,
+                    &mut c.agent_store,
+                    &agent_id,
+                    &tool_name,
+                    &tool_result,
                 );
             }
-            WriteCmd::PersistMessages { session_id, messages } => {
+            WriteCmd::PersistMessages {
+                session_id,
+                messages,
+            } => {
                 let mut c = core.write().await;
-                if let Err(e) = c.session_mgr.persist_messages_async(&session_id, &messages).await {
+                if let Err(e) = c
+                    .session_mgr
+                    .persist_messages_async(&session_id, &messages)
+                    .await
+                {
                     tracing::error!("persist_messages (writer) 失败: {}", e);
                 }
             }
-            WriteCmd::SaveApiMessages { session_id, messages } => {
+            WriteCmd::SaveApiMessages {
+                session_id,
+                messages,
+            } => {
                 let c = core.write().await;
-                c.session_mgr.save_api_messages_async(&session_id, &messages).await;
+                c.session_mgr
+                    .save_api_messages_async(&session_id, &messages)
+                    .await;
             }
             WriteCmd::EvaluateSession { session_id, reply } => {
-                let msg = core.write().await.evaluate_completed_session_async(&session_id).await;
+                let msg = core
+                    .write()
+                    .await
+                    .evaluate_completed_session_async(&session_id)
+                    .await;
                 let _ = reply.send(msg);
             }
             WriteCmd::FlushMemory { user_id, agent_id } => {
@@ -363,7 +530,11 @@ pub async fn chat(
                 Err(e) => {
                     tracing::error!(error = %e, "agent lookup failed");
                     let err = serde_json::json!({"success": false, "error": format!("Agent not initialized: {}", e)});
-                    return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err)).into_response();
+                    return (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        axum::Json(err),
+                    )
+                        .into_response();
                 }
             };
             layered.record_user_statement(&text);
@@ -371,7 +542,9 @@ pub async fn chat(
 
         // Build messages and spawn chat_loop
         let records = core.session_mgr.load_app_messages_async(&sid, 50).await;
-        let msgs = core.build_messages_from_log_async(&records, &agent_id, &user_id).await;
+        let msgs = core
+            .build_messages_from_log_async(&records, &agent_id, &user_id)
+            .await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -385,7 +558,8 @@ pub async fn chat(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id).await;
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id)
+            .await;
         let i_rs_index = core.config.i_rs_tool_index.clone();
         drop(core);
         (sid, i_rs_index)
@@ -395,7 +569,17 @@ pub async fn chat(
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, sid, agent_id, i_rs_index).into_response()
+    build_sse_stream(
+        rx,
+        write_tx,
+        guard.clone(),
+        state.clone(),
+        user_id,
+        sid,
+        agent_id,
+        i_rs_index,
+    )
+    .into_response()
 }
 
 /// Legacy SSE stream endpoint (backward compatible).
@@ -421,8 +605,11 @@ pub async fn chat_stream(
                     axum::Json(serde_json::json!({"success": false, "error": "Session does not belong to you"}))).into_response();
             }
         } else {
-            return (axum::http::StatusCode::NOT_FOUND,
-                axum::Json(serde_json::json!({"success": false, "error": "Session not found"}))).into_response();
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                axum::Json(serde_json::json!({"success": false, "error": "Session not found"})),
+            )
+                .into_response();
         }
     }
 
@@ -442,8 +629,13 @@ pub async fn chat_stream(
             .map(|m| m.agent_id.clone())
             .unwrap_or_else(|| "default".to_string());
 
-        let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
-        let msgs = core.build_messages_from_log_async(&records, &agent_id, &user_id).await;
+        let records = core
+            .session_mgr
+            .load_app_messages_async(&session_id, 50)
+            .await;
+        let msgs = core
+            .build_messages_from_log_async(&records, &agent_id, &user_id)
+            .await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -457,7 +649,8 @@ pub async fn chat_stream(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id).await;
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id)
+            .await;
         let i_rs_index = core.config.i_rs_tool_index.clone();
         (agent_id, i_rs_index)
     };
@@ -466,7 +659,17 @@ pub async fn chat_stream(
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id, agent_id, i_rs_index).into_response()
+    build_sse_stream(
+        rx,
+        write_tx,
+        guard.clone(),
+        state.clone(),
+        user_id,
+        session_id,
+        agent_id,
+        i_rs_index,
+    )
+    .into_response()
 }
 
 /// Resume an SSE stream after disconnection.
@@ -489,17 +692,21 @@ pub async fn chat_stream_resume(
 
     let _cursor = query.cursor.unwrap_or(0);
     if _cursor > 0 {
-        tracing::warn!(cursor = _cursor, "resume cursor requested but not yet implemented; performing full replay");
+        tracing::warn!(
+            cursor = _cursor,
+            "resume cursor requested but not yet implemented; performing full replay"
+        );
     }
 
     // Verify session ownership
     {
         let core = state.core.read().await;
         if let Some(meta) = core.session_mgr.session_meta(&session_id)
-            && meta.user_id != user_id {
-                return (axum::http::StatusCode::FORBIDDEN,
+            && meta.user_id != user_id
+        {
+            return (axum::http::StatusCode::FORBIDDEN,
                     axum::Json(serde_json::json!({"success": false, "error": "Session does not belong to you"}))).into_response();
-            }
+        }
     }
 
     let (llm_tx, rx) = mpsc::unbounded_channel::<LlmEvent>();
@@ -514,8 +721,13 @@ pub async fn chat_stream_resume(
             .map(|m| m.agent_id.clone())
             .unwrap_or_else(|| "default".to_string());
 
-        let records = core.session_mgr.load_app_messages_async(&session_id, 50).await;
-        let msgs = core.build_messages_from_log_async(&records, &agent_id, &user_id).await;
+        let records = core
+            .session_mgr
+            .load_app_messages_async(&session_id, 50)
+            .await;
+        let msgs = core
+            .build_messages_from_log_async(&records, &agent_id, &user_id)
+            .await;
         let recent: Vec<Value> = records
             .iter()
             .filter_map(|m| match m {
@@ -529,7 +741,8 @@ pub async fn chat_stream_resume(
             })
             .collect();
 
-        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id).await;
+        core.spawn_chat_for_async(llm_tx, msgs, &agent_id, &recent, &user_id)
+            .await;
         let i_rs_index = core.config.i_rs_tool_index.clone();
         (agent_id, i_rs_index)
     };
@@ -538,7 +751,17 @@ pub async fn chat_stream_resume(
     let core_arc = state.core.clone();
     tokio::spawn(async move { writer_task(core_arc, write_rx).await });
 
-    build_sse_stream(rx, write_tx, guard.clone(), state.clone(), user_id, session_id, agent_id, i_rs_index).into_response()
+    build_sse_stream(
+        rx,
+        write_tx,
+        guard.clone(),
+        state.clone(),
+        user_id,
+        session_id,
+        agent_id,
+        i_rs_index,
+    )
+    .into_response()
 }
 
 #[derive(Deserialize)]

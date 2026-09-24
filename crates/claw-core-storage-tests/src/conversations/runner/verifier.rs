@@ -2,34 +2,25 @@ use super::{ScriptStep, ToolCallInfo};
 
 /// Compare actual tool call against expected values.
 /// Returns list of deviation descriptions (empty = perfect match).
-pub fn check_tool_call(
-    step: &ScriptStep,
-    actual: &ToolCallInfo,
-) -> Vec<String> {
+pub fn check_tool_call(step: &ScriptStep, actual: &ToolCallInfo) -> Vec<String> {
     let mut deviations = Vec::new();
 
-    if let Some(ref expected_tool) = step.expected_tool {
-        if &actual.tool != expected_tool {
-            deviations.push(format!(
-                "工具不匹配: 期望={}, 实际={}",
-                expected_tool, actual.tool
-            ));
-        }
+    if let Some(ref expected_tool) = step.expected_tool
+        && &actual.tool != expected_tool
+    {
+        deviations.push(format!(
+            "工具不匹配: 期望={}, 实际={}",
+            expected_tool, actual.tool
+        ));
     }
 
     if let Some(ref expected_cmd) = step.expected_command {
         match &actual.command {
             Some(cmd) if cmd != expected_cmd => {
-                deviations.push(format!(
-                    "命令不匹配: 期望={}, 实际={}",
-                    expected_cmd, cmd
-                ));
+                deviations.push(format!("命令不匹配: 期望={}, 实际={}", expected_cmd, cmd));
             }
             None => {
-                deviations.push(format!(
-                    "未调用命令: 期望={}",
-                    expected_cmd
-                ));
+                deviations.push(format!("未调用命令: 期望={}", expected_cmd));
             }
             _ => {}
         }
@@ -45,10 +36,7 @@ pub fn check_tool_call(
                     ));
                 }
                 None => {
-                    deviations.push(format!(
-                        "缺少参数: {}={}",
-                        key, expected_val
-                    ));
+                    deviations.push(format!("缺少参数: {}={}", key, expected_val));
                 }
                 _ => {}
             }
@@ -99,7 +87,11 @@ mod tests {
             .with_arg("KEY", "blog_url");
 
         let deviations = check_tool_call(&step, &actual);
-        assert!(deviations.is_empty(), "expected no deviations, got: {:?}", deviations);
+        assert!(
+            deviations.is_empty(),
+            "expected no deviations, got: {:?}",
+            deviations
+        );
     }
 
     #[test]
@@ -119,8 +111,7 @@ mod tests {
             check_reply: None,
             verify_storage: None,
         };
-        let actual = ToolCallInfo::new("i-rs-weight")
-            .with_command("list");
+        let actual = ToolCallInfo::new("i-rs-weight").with_command("list");
 
         let deviations = check_tool_call(&step, &actual);
         assert!(!deviations.is_empty(), "expected deviations");
@@ -143,7 +134,11 @@ mod tests {
             verify_storage: None,
         };
         let missing = check_reply(&step, "已记录 blog_url value=example.com");
-        assert!(missing.is_empty(), "expected no missing, got: {:?}", missing);
+        assert!(
+            missing.is_empty(),
+            "expected no missing, got: {:?}",
+            missing
+        );
 
         let missing2 = check_reply(&step, "出错了");
         assert_eq!(missing2.len(), 2);

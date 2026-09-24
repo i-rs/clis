@@ -103,7 +103,10 @@ pub trait LlmProvider: Send + Sync {
 /// 请求头，否则返回 400 MissingSessionID。同时要求用自定义 User-Agent 标识客户端。
 /// 见 https://opencode.ai/docs/go/#where-can-i-use-it
 pub(crate) fn is_opencode_gateway(base_url: &str) -> bool {
-    let rest = base_url.split_once("://").map(|(_, r)| r).unwrap_or(base_url);
+    let rest = base_url
+        .split_once("://")
+        .map(|(_, r)| r)
+        .unwrap_or(base_url);
     let host = rest.split('/').next().unwrap_or("");
     let host = host.rsplit('@').next().unwrap_or(host); // 去掉 userinfo
     let host = host.split(':').next().unwrap_or(host); // 去掉端口
@@ -294,12 +297,16 @@ mod tests {
     #[test]
     fn test_opencode_session_headers() {
         let headers = opencode_session_headers("sess-123");
-        assert!(headers
-            .iter()
-            .any(|(k, v)| k == "x-opencode-session" && v == "sess-123"));
-        assert!(headers
-            .iter()
-            .any(|(k, v)| k == "User-Agent" && v.starts_with("i-rs-claw/")));
+        assert!(
+            headers
+                .iter()
+                .any(|(k, v)| k == "x-opencode-session" && v == "sess-123")
+        );
+        assert!(
+            headers
+                .iter()
+                .any(|(k, v)| k == "User-Agent" && v.starts_with("i-rs-claw/"))
+        );
         assert_ne!(new_opencode_session_id(), new_opencode_session_id());
     }
 }

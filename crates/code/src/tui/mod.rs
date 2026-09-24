@@ -91,22 +91,22 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
         let is_streaming = app.streaming.is_some();
         if app.needs_redraw || is_streaming {
             terminal.draw(|f| {
-            if app.show_transcript {
-                transcript::render_transcript(f, &app);
-            } else if app.show_theme_picker {
-                use crate::tui::colors::THEMES;
-                let total = THEMES.len();
-                let selected = app.theme_picker_selected.min(total.saturating_sub(1));
-                if let Some(&preview) = THEMES.get(selected) {
-                    crate::tui::colors::with_preview(preview, || {
+                if app.show_transcript {
+                    transcript::render_transcript(f, &app);
+                } else if app.show_theme_picker {
+                    use crate::tui::colors::THEMES;
+                    let total = THEMES.len();
+                    let selected = app.theme_picker_selected.min(total.saturating_sub(1));
+                    if let Some(&preview) = THEMES.get(selected) {
+                        crate::tui::colors::with_preview(preview, || {
+                            ui::render(f, &app);
+                        });
+                    } else {
                         ui::render(f, &app);
-                    });
+                    }
                 } else {
                     ui::render(f, &app);
                 }
-            } else {
-                ui::render(f, &app);
-            }
             })?;
             if !app.auto_scroll {
                 let max_scroll = ui::get_max_scroll();
@@ -152,22 +152,32 @@ pub async fn run(mut app: App) -> anyhow::Result<()> {
                                 app.needs_redraw = true;
                             }
                         }
-                        MouseEventKind::Down(_)
-                            if !is_sidebar && mouse.row > 0 =>
-                        {
+                        MouseEventKind::Down(_) if !is_sidebar && mouse.row > 0 => {
                             let hint_shown = !app.auto_scroll && app.messages.len() > 1;
                             let chat_area_y = 1u16; // title bar height
-                            if ui::streaming_click_target(mouse.row, app.scroll_offset, hint_shown, chat_area_y) {
+                            if ui::streaming_click_target(
+                                mouse.row,
+                                app.scroll_offset,
+                                hint_shown,
+                                chat_area_y,
+                            ) {
                                 if let Some(ref mut s) = app.streaming {
                                     s.reasoning_collapsed = !s.reasoning_collapsed;
                                     app.needs_redraw = true;
                                 }
                             } else if let Some(op) = ui::click_op_at_screen(
-                                mouse.row, app.scroll_offset, hint_shown, chat_area_y, &app.components
+                                mouse.row,
+                                app.scroll_offset,
+                                hint_shown,
+                                chat_area_y,
+                                &app.components,
                             ) {
                                 // Forward to component via click op (checks extra_click_targets)
                                 let idx = ui::find_message_idx_from_screen(
-                                    mouse.row, app.scroll_offset, hint_shown, chat_area_y
+                                    mouse.row,
+                                    app.scroll_offset,
+                                    hint_shown,
+                                    chat_area_y,
                                 );
                                 if let Some(idx) = idx {
                                     app.components[idx].borrow_mut().apply(op);

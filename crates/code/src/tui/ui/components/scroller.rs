@@ -23,7 +23,11 @@ pub struct Scroller {
 impl Scroller {
     /// Create an empty scroller (no components).
     pub const fn new_empty() -> Self {
-        Self { offsets: vec![], total_height: 0, width: 0 }
+        Self {
+            offsets: vec![],
+            total_height: 0,
+            width: 0,
+        }
     }
 
     /// Number of components in this scroller.
@@ -45,7 +49,11 @@ impl Scroller {
             y += h;
         }
         let total_height = y;
-        Self { offsets, total_height, width }
+        Self {
+            offsets,
+            total_height,
+            width,
+        }
     }
 
     /// Recompute offsets — convenience when width changed.
@@ -55,7 +63,9 @@ impl Scroller {
     }
 
     /// Total virtual height.
-    pub fn total_height(&self) -> usize { self.total_height }
+    pub fn total_height(&self) -> usize {
+        self.total_height
+    }
 
     /// Return the number of rows that can be scrolled past
     /// (total - viewport) so scroll_offset fits in `[0, max_scroll]`.
@@ -67,7 +77,9 @@ impl Scroller {
     ///
     /// Returns `(component_idx, local_y_within_component)`.
     pub fn component_at_virtual_y(&self, virtual_y: usize) -> Option<(usize, u16)> {
-        if self.offsets.is_empty() { return None; }
+        if self.offsets.is_empty() {
+            return None;
+        }
         // Binary search for the first offset with end_y > virtual_y
         let idx = self.offsets.partition_point(|&(_, end)| end <= virtual_y);
         self.offsets.get(idx).map(|&(start, end)| {
@@ -79,7 +91,11 @@ impl Scroller {
     /// Check if `virtual_y` falls within a click target of a component.
     /// Returns the `ComponentOp` to apply, if any.
     #[allow(dead_code)]
-    pub fn click_target_at(&self, virtual_y: usize, components: &[ComponentCell]) -> Option<ComponentOp> {
+    pub fn click_target_at(
+        &self,
+        virtual_y: usize,
+        components: &[ComponentCell],
+    ) -> Option<ComponentOp> {
         let (idx, local_y) = self.component_at_virtual_y(virtual_y)?;
         let comp = components[idx].borrow();
 
@@ -109,27 +125,44 @@ impl Scroller {
         buf: &mut Buffer,
         selected_idx: Option<usize>,
     ) {
-        if area.width == 0 || area.height == 0 { return; }
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
         let viewport_end = scroll_offset + area.height as usize;
 
         // Find first visible component
-        let first = self.offsets.partition_point(|&(_, end)| end <= scroll_offset);
-        if first >= self.offsets.len() { return; }
+        let first = self
+            .offsets
+            .partition_point(|&(_, end)| end <= scroll_offset);
+        if first >= self.offsets.len() {
+            return;
+        }
 
         let mut screen_y = area.y;
         let screen_bottom = area.y + area.height;
 
-        for (idx, _) in components.iter().enumerate().take(self.offsets.len()).skip(first) {
+        for (idx, _) in components
+            .iter()
+            .enumerate()
+            .take(self.offsets.len())
+            .skip(first)
+        {
             let (start_y, end_y) = self.offsets[idx];
-            if start_y >= viewport_end { break; }
-            if screen_y >= screen_bottom { break; }
+            if start_y >= viewport_end {
+                break;
+            }
+            if screen_y >= screen_bottom {
+                break;
+            }
 
             let comp_height = (end_y - start_y) as u16;
             let scrolled_off = scroll_offset.saturating_sub(start_y) as u16;
             let available = screen_bottom.saturating_sub(screen_y);
             let visible_h = comp_height.saturating_sub(scrolled_off).min(available);
 
-            if visible_h == 0 { continue; }
+            if visible_h == 0 {
+                continue;
+            }
 
             let comp_area = Rect {
                 x: area.x,

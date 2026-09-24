@@ -136,17 +136,31 @@ impl i_rs_core::IrsTool for WaterStore {
     type Row = WaterRow;
     type ListItem = ListItem;
 
-    fn tool_name() -> &'static str { "water" }
+    fn tool_name() -> &'static str {
+        "water"
+    }
     fn description() -> &'static str {
         "Water intake tracking — log daily hydration in ml"
     }
-    fn label() -> &'static str { "records" }
+    fn label() -> &'static str {
+        "records"
+    }
 
-    fn entries(&self) -> &BTreeMap<String, WaterEntry> { &self.entries }
-    fn entries_mut(&mut self) -> &mut BTreeMap<String, WaterEntry> { &mut self.entries }
-    fn entity_id(e: &WaterEntry) -> String { e.id.clone() }
-    fn to_row(e: &WaterEntry) -> WaterRow { WaterRow::from_entry(e) }
-    fn to_list_item(e: &WaterEntry) -> ListItem { ListItem::from(e) }
+    fn entries(&self) -> &BTreeMap<String, WaterEntry> {
+        &self.entries
+    }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, WaterEntry> {
+        &mut self.entries
+    }
+    fn entity_id(e: &WaterEntry) -> String {
+        e.id.clone()
+    }
+    fn to_row(e: &WaterEntry) -> WaterRow {
+        WaterRow::from_entry(e)
+    }
+    fn to_list_item(e: &WaterEntry) -> ListItem {
+        ListItem::from(e)
+    }
 }
 
 impl From<&WaterStore> for Summary {

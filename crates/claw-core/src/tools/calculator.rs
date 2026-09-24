@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_floats() {
-        assert!((eval("3.14 * 2").unwrap() - 6.28).abs() < 1e-10);
+        assert!((eval("2.5 * 4").unwrap() - 10.0).abs() < 1e-10);
         assert!((eval("1 / 3").unwrap() - 0.33333333).abs() < 0.001);
     }
 

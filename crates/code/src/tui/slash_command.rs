@@ -183,7 +183,11 @@ pub fn parse(input: &str) -> Result<SlashCommand, String> {
             }
         }
         "files" => Ok(SlashCommand::Files),
-        "theme" => Ok(SlashCommand::Theme(if arg.is_empty() { None } else { Some(arg.to_string()) })),
+        "theme" => Ok(SlashCommand::Theme(if arg.is_empty() {
+            None
+        } else {
+            Some(arg.to_string())
+        })),
         _ => Err(format!(
             "Unknown command: /{}. Type /help to see available commands.",
             cmd
@@ -318,7 +322,8 @@ fn cmd_new(app: &mut App) -> Vec<AgentMessage> {
              Available commands:\n  \
              i-rs-code chat <prompt>  One-shot conversation\n  \
              i-rs-code config init    Interactive setup\n  \
-             i-rs-code config show    View configuration".to_string(),
+             i-rs-code config show    View configuration"
+            .to_string(),
         reasoning: String::new(),
         tool_calls: None,
         reasoning_expanded: false,
@@ -588,7 +593,7 @@ async fn cmd_files(app: &App) -> Vec<AgentMessage> {
 
 #[allow(dead_code)]
 fn cmd_theme(name: Option<&str>, app: &mut App) -> Vec<AgentMessage> {
-    use crate::tui::colors::{find_theme, set_active, THEMES};
+    use crate::tui::colors::{THEMES, find_theme, set_active};
 
     match name {
         Some(name) => {
@@ -617,10 +622,7 @@ fn cmd_theme(name: Option<&str>, app: &mut App) -> Vec<AgentMessage> {
             use crate::tui::colors::active;
             let current = active();
             // Pre-select the current theme
-            let selected = THEMES
-                .iter()
-                .position(|t| t.id == current.id)
-                .unwrap_or(0);
+            let selected = THEMES.iter().position(|t| t.id == current.id).unwrap_or(0);
             app.show_theme_picker = true;
             app.theme_picker_selected = selected;
             app.needs_redraw = true;

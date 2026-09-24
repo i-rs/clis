@@ -110,7 +110,10 @@ mod tests {
     #[tokio::test]
     async fn test_save_user_name() {
         let tool = UserMemoryTool;
-        let result = tool.execute(&json!({"user_name": "Alice"}), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(&json!({"user_name": "Alice"}), &test_ctx())
+            .await
+            .unwrap();
         assert!(result.contains("Alice"));
         assert!(result.contains("称呼"));
     }
@@ -118,9 +121,15 @@ mod tests {
     #[tokio::test]
     async fn test_save_user_info() {
         let tool = UserMemoryTool;
-        let result = tool.execute(&json!({
-            "user_info": ["喜欢跑步", "程序员"]
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "user_info": ["喜欢跑步", "程序员"]
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("喜欢跑步"));
         assert!(result.contains("程序员"));
     }
@@ -128,28 +137,43 @@ mod tests {
     #[tokio::test]
     async fn test_save_preferences() {
         let tool = UserMemoryTool;
-        let result = tool.execute(&json!({
-            "preferences": ["简洁输出", "中文优先"]
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "preferences": ["简洁输出", "中文优先"]
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("简洁输出"));
     }
 
     #[tokio::test]
     async fn test_save_assistant_nickname() {
         let tool = UserMemoryTool;
-        let result = tool.execute(&json!({"assistant_nickname": "小助手"}), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(&json!({"assistant_nickname": "小助手"}), &test_ctx())
+            .await
+            .unwrap();
         assert!(result.contains("小助手"));
     }
 
     #[tokio::test]
     async fn test_save_all_fields() {
         let tool = UserMemoryTool;
-        let result = tool.execute(&json!({
-            "user_name": "Bob",
-            "user_info": ["设计师"],
-            "preferences": ["暗色模式"],
-            "assistant_nickname": "Bob助手"
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "user_name": "Bob",
+                    "user_info": ["设计师"],
+                    "preferences": ["暗色模式"],
+                    "assistant_nickname": "Bob助手"
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("Bob"));
         assert!(result.contains("设计师"));
         assert!(result.contains("暗色模式"));
@@ -167,12 +191,17 @@ mod tests {
     #[tokio::test]
     async fn test_save_ignores_empty_strings() {
         let tool = UserMemoryTool;
-        let result = tool.execute(&json!({
-            "user_name": "",
-            "user_info": [""],
-            "preferences": [""],
-            "assistant_nickname": ""
-        }), &test_ctx()).await;
+        let result = tool
+            .execute(
+                &json!({
+                    "user_name": "",
+                    "user_info": [""],
+                    "preferences": [""],
+                    "assistant_nickname": ""
+                }),
+                &test_ctx(),
+            )
+            .await;
         assert!(result.is_err(), "all empty fields should result in error");
     }
 }

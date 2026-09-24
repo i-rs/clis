@@ -94,7 +94,9 @@ pub(super) fn render_chat(f: &mut Frame, area: Rect, app: &mut App) {
     app.render_state.cached_width = width as usize;
     app.render_state.chat_height = viewport_h;
     app.render_state.heights.clear();
-    app.render_state.heights.extend(scr.heights().iter().map(|&h| h as usize));
+    app.render_state
+        .heights
+        .extend(scr.heights().iter().map(|&h| h as usize));
     app.render_state.cached_scroller = Some(scr.clone());
     app.render_state.scroller_version = version;
 }

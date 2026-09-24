@@ -120,9 +120,9 @@ pub fn run_gateway() -> anyhow::Result<()> {
     let config = i_rs_claw_core::config::Config::load()?;
     let rt = tokio::runtime::Runtime::new()?;
 
-    let core = std::sync::Arc::new(tokio::sync::RwLock::new(i_rs_claw_core::core::AppCore::new(
-        config.clone(),
-    )?));
+    let core = std::sync::Arc::new(tokio::sync::RwLock::new(
+        i_rs_claw_core::core::AppCore::new(config.clone())?,
+    ));
 
     #[allow(unused_mut)]
     let mut server = crate::gateway::GatewayServer::new();
@@ -599,7 +599,8 @@ pub fn run_skill_info(name: &str) -> anyhow::Result<()> {
 pub fn run_stats(period: &str, json: bool) -> anyhow::Result<()> {
     let claw_data_dir = claw_dir();
     let cfg = i_rs_claw_core::config::Config::load()?;
-    let stats_mgr = i_rs_claw_core::stats::StatsManager::new(&claw_data_dir, &cfg.stats, cfg.tz_offset);
+    let stats_mgr =
+        i_rs_claw_core::stats::StatsManager::new(&claw_data_dir, &cfg.stats, cfg.tz_offset);
 
     // Clean up expired records before querying
     if cfg.stats.enabled && cfg.stats.keep_days > 0 {

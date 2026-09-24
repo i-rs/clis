@@ -1,5 +1,5 @@
-use claw_core_storage_tests::contracts;
 use claw_core_storage_tests::backends::helpers;
+use claw_core_storage_tests::contracts;
 
 #[tokio::test]
 async fn session() -> anyhow::Result<()> {

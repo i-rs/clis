@@ -6,9 +6,7 @@ use axum::{
 use serde_json::Value;
 
 /// GET /api/users — List all dashboard users.
-pub async fn list_users(
-    State(state): State<AppState>,
-) -> Json<super::ApiResponse<Vec<Value>>> {
+pub async fn list_users(State(state): State<AppState>) -> Json<super::ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     match core.config_store.dashboard_users.load_all().await {
         Ok(users) => {

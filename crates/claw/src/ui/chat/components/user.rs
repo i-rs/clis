@@ -3,8 +3,8 @@ use super::style::{
     BLOCK_LEFT_RESERVED, blend, block_border, body_line, body_padding, header_line,
     render_block_chrome,
 };
-use i_rs_claw_core::theme::Theme;
 use crate::ui::utils;
+use i_rs_claw_core::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;

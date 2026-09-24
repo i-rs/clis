@@ -1,16 +1,19 @@
-use crate::app::{AppMode, App};
+use crate::app::{App, AppMode};
 use crate::tui::colors::*;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
 
 pub fn render_input_bar(frame: &mut Frame, area: Rect, app: &App) {
     let prefix = "▎ ";
-    let hint = Line::from(Span::styled(crate::tui::strings::STATUS_BAR, Style::new().fg(c_muted())));
+    let hint = Line::from(Span::styled(
+        crate::tui::strings::STATUS_BAR,
+        Style::new().fg(c_muted()),
+    ));
     let lines: Vec<Line> = if matches!(app.mode, AppMode::Waiting) {
         vec![
             Line::from(vec![
@@ -134,7 +137,11 @@ pub fn render_slash_picker(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(vec![
             Span::styled(
                 marker,
-                if is_selected { Style::new().fg(c_accent()) } else { Style::new().fg(c_muted()) },
+                if is_selected {
+                    Style::new().fg(c_accent())
+                } else {
+                    Style::new().fg(c_muted())
+                },
             ),
             Span::styled(format!("/{}{}", cmd.name, args), name_style),
             Span::raw("  "),

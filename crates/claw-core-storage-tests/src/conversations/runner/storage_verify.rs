@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use i_rs_claw_core::storage::ClawStorage;
-use i_rs_claw_core::session::SessionManager;
 use super::ScriptStep;
+use i_rs_claw_core::session::SessionManager;
+use i_rs_claw_core::storage::ClawStorage;
+use std::sync::Arc;
 
 /// Result of a single storage check.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -97,7 +97,11 @@ async fn verify_trait_checks(
             details.push(format!("会话数: {}/{}", session_list.len(), expected_len));
         }
 
-        if sessions.get("exists").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if sessions
+            .get("exists")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             let has_session = session_list.iter().any(|s| s.id == session_id);
             if !has_session {
                 return Err(format!("未找到会话 '{}'", session_id));
@@ -126,23 +130,23 @@ async fn verify_trait_checks(
     }
 
     // Verify a specific tool cache entry exists
-    if let Some(tool_cache) = expected.get("tool_cache") {
-        if let Some(agent) = tool_cache.get("agent").and_then(|v| v.as_str()) {
-            let cache = storage
-                .tool_cache
-                .load(agent)
-                .await
-                .map_err(|e| format!("无法加载工具缓存: {}", e))?;
-            if let Some(expected_len) = tool_cache.get("length").and_then(|v| v.as_u64()) {
-                if (cache.len() as u64) < expected_len {
-                    return Err(format!(
-                        "工具缓存预期 {} 项，实际 {}",
-                        expected_len,
-                        cache.len()
-                    ));
-                }
-                details.push(format!("工具缓存: {} 项", cache.len()));
+    if let Some(tool_cache) = expected.get("tool_cache")
+        && let Some(agent) = tool_cache.get("agent").and_then(|v| v.as_str())
+    {
+        let cache = storage
+            .tool_cache
+            .load(agent)
+            .await
+            .map_err(|e| format!("无法加载工具缓存: {}", e))?;
+        if let Some(expected_len) = tool_cache.get("length").and_then(|v| v.as_u64()) {
+            if (cache.len() as u64) < expected_len {
+                return Err(format!(
+                    "工具缓存预期 {} 项，实际 {}",
+                    expected_len,
+                    cache.len()
+                ));
             }
+            details.push(format!("工具缓存: {} 项", cache.len()));
         }
     }
 

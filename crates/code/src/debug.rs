@@ -99,8 +99,8 @@ mod tests {
             duration_ms: 0,
             timestamp: String::new(),
         });
-        assert!(get_log().len() > 0, "should have entries before clear");
+        assert!(!get_log().is_empty(), "should have entries before clear");
         clear_log();
-        assert_eq!(get_log().len(), 0, "should be empty after clear");
+        assert!(get_log().is_empty(), "should be empty after clear");
     }
 }

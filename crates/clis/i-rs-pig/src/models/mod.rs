@@ -135,7 +135,9 @@ impl i_rs_core::IrsTool for PigStore {
     type Row = PigRow;
     type ListItem = ListItem;
 
-    fn tool_name() -> &'static str { "pig" }
+    fn tool_name() -> &'static str {
+        "pig"
+    }
     fn description() -> &'static str {
         "Craving tracker — log food cravings and impulsive eating"
     }
@@ -143,9 +145,19 @@ impl i_rs_core::IrsTool for PigStore {
         vec![i_rs_core::ToolCapability::DateRange]
     }
 
-    fn entries(&self) -> &BTreeMap<String, PigEntry> { &self.entries }
-    fn entries_mut(&mut self) -> &mut BTreeMap<String, PigEntry> { &mut self.entries }
-    fn entity_id(e: &PigEntry) -> String { e.id.clone() }
-    fn to_row(e: &PigEntry) -> PigRow { PigRow::from_entry(e) }
-    fn to_list_item(e: &PigEntry) -> ListItem { ListItem::from(e) }
+    fn entries(&self) -> &BTreeMap<String, PigEntry> {
+        &self.entries
+    }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, PigEntry> {
+        &mut self.entries
+    }
+    fn entity_id(e: &PigEntry) -> String {
+        e.id.clone()
+    }
+    fn to_row(e: &PigEntry) -> PigRow {
+        PigRow::from_entry(e)
+    }
+    fn to_list_item(e: &PigEntry) -> ListItem {
+        ListItem::from(e)
+    }
 }

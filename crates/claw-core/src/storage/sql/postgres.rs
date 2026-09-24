@@ -259,7 +259,11 @@ define_sql_stores!(
     "INSERT INTO token_records (id, timestamp, user_id, agent_id, model, provider, prompt_tokens, completion_tokens, total_tokens, has_tool_calls, tool_call_count, react_rounds, success, latency_ms, estimated_cost_usd, trace_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (id) DO UPDATE SET timestamp=excluded.timestamp, user_id=excluded.user_id, agent_id=excluded.agent_id, model=excluded.model, provider=excluded.provider, prompt_tokens=excluded.prompt_tokens, completion_tokens=excluded.completion_tokens, total_tokens=excluded.total_tokens, has_tool_calls=excluded.has_tool_calls, tool_call_count=excluded.tool_call_count, react_rounds=excluded.react_rounds, success=excluded.success, latency_ms=excluded.latency_ms, estimated_cost_usd=excluded.estimated_cost_usd, trace_id=excluded.trace_id",
     "INSERT INTO skills (agent_id, name, content, parameters) VALUES ($1, $2, $3, $4) ON CONFLICT (agent_id, name) DO UPDATE SET content = excluded.content, parameters = excluded.parameters",
     "SELECT COALESCE(MAX(seq), 0) FROM message_log WHERE session_id = $1 FOR UPDATE",
-    "$1", "$2", "$3", "$4", "$5",
+    "$1",
+    "$2",
+    "$3",
+    "$4",
+    "$5",
 );
 
 define_config_sql_stores!(
@@ -275,5 +279,7 @@ define_config_sql_stores!(
     "INSERT INTO dashboard_users (user_id, token_hash, display_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id) DO UPDATE SET token_hash=EXCLUDED.token_hash, display_name=EXCLUDED.display_name, updated_at=EXCLUDED.updated_at",
     "INSERT INTO mcp_server_configs (user_id, agent_id, name, transport_type, command, args_json, url, env_json, enabled) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (user_id, agent_id, name) DO UPDATE SET transport_type=EXCLUDED.transport_type, command=EXCLUDED.command, args_json=EXCLUDED.args_json, url=EXCLUDED.url, env_json=EXCLUDED.env_json, enabled=EXCLUDED.enabled",
     "INSERT INTO app_settings (key, value_json, updated_at) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value_json=EXCLUDED.value_json, updated_at=EXCLUDED.updated_at",
-    "$1", "$2", "$3",
+    "$1",
+    "$2",
+    "$3",
 );

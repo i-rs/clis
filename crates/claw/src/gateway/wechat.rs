@@ -366,10 +366,8 @@ impl PlatformAdapter for WeChatAdapter {
                                             );
                                         }
 
-                                        let wx_user_id = msg["from_user_id"]
-                                            .as_str()
-                                            .unwrap_or("")
-                                            .to_string();
+                                        let wx_user_id =
+                                            msg["from_user_id"].as_str().unwrap_or("").to_string();
 
                                         if !allowed_users.is_empty()
                                             && !allowed_users.contains(&wx_user_id)

@@ -1,5 +1,5 @@
-use claw_core_storage_tests::contracts;
 use claw_core_storage_tests::backends::helpers;
+use claw_core_storage_tests::contracts;
 
 #[tokio::test]
 async fn session() -> anyhow::Result<()> {
@@ -41,7 +41,9 @@ async fn skill() -> anyhow::Result<()> {
 async fn config_store() -> anyhow::Result<()> {
     use i_rs_claw_core::storage::sql::sqlite::SqliteBackend;
     let dir = tempfile::tempdir().unwrap();
-    let backend = SqliteBackend::new(dir.path().join("test.db")).await.unwrap();
+    let backend = SqliteBackend::new(dir.path().join("test.db"))
+        .await
+        .unwrap();
     let store = backend.into_config_store();
     contracts::config_store::run_config(&store).await
 }

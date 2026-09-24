@@ -218,10 +218,9 @@ impl ApiCacheRepo for FileApiCacheStore {
                 return Ok(None);
             }
             let content = std::fs::read_to_string(&path)?;
-            let data = serde_json::from_str(&content)
-                .inspect_err(|e| {
-                    tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
-                })?;
+            let data = serde_json::from_str(&content).inspect_err(|e| {
+                tracing::error!("api_cache 文件损坏 ({}): {}", path.display(), e)
+            })?;
             Ok(Some(data))
         })
         .await
@@ -515,7 +514,7 @@ impl SkillRepo for FileSkillStore {
         let dir = skills_dir(&self.claw_dir, agent_id);
         let name = name.to_string();
         blocking(move || {
-            let path = dir.join(format!("{}.md", &name));
+            let path = dir.join(format!("{}.md", name));
             if !path.exists() {
                 return Ok(None);
             }
@@ -533,7 +532,7 @@ impl SkillRepo for FileSkillStore {
         let content = content.to_string();
         blocking(move || {
             std::fs::create_dir_all(&dir)?;
-            let path = dir.join(format!("{}.md", &name));
+            let path = dir.join(format!("{}.md", name));
             atomic_write(&path, &content).map_err(anyhow::Error::from)
         })
         .await
@@ -543,7 +542,7 @@ impl SkillRepo for FileSkillStore {
         let dir = skills_dir(&self.claw_dir, agent_id);
         let name = name.to_string();
         blocking(move || {
-            let path = dir.join(format!("{}.md", &name));
+            let path = dir.join(format!("{}.md", name));
             if path.exists() {
                 std::fs::remove_file(&path)?;
             }
@@ -748,7 +747,10 @@ impl MessageLog for FileMessageLog {
                 };
                 use std::io::Read;
                 let mut content = String::new();
-                if std::io::BufReader::new(file).read_to_string(&mut content).is_err() {
+                if std::io::BufReader::new(file)
+                    .read_to_string(&mut content)
+                    .is_err()
+                {
                     continue;
                 }
                 let records: Vec<serde_json::Value> = content
@@ -785,10 +787,7 @@ impl MessageLog for FileMessageLog {
                 return Ok(0);
             }
             let content = std::fs::read_to_string(&path)?;
-            Ok(content
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .count())
+            Ok(content.lines().filter(|l| !l.trim().is_empty()).count())
         })
         .await
     }
@@ -855,8 +854,8 @@ mod tests {
             id: "test-1".to_string(),
             title: "Hello".to_string(),
             agent_id: "default".to_string(),
-                user_id: "default".to_string(),
-                state: crate::session::SessionState::Active,
+            user_id: "default".to_string(),
+            state: crate::session::SessionState::Active,
             created_at: 1000,
             updated_at: 2000,
             message_count: 0,

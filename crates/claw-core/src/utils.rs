@@ -16,9 +16,10 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> std::path::PathBuf {
             return home.join(rest);
         }
     } else if s == "~"
-        && let Some(home) = dirs::home_dir() {
-            return home;
-        }
+        && let Some(home) = dirs::home_dir()
+    {
+        return home;
+    }
     path.to_path_buf()
 }
 
@@ -90,7 +91,11 @@ where
     // "Cannot drop a runtime in a context where blocking is not allowed"
     // panic when a `reqwest::Client` internal runtime is dropped within
     // an async context.
-    std::thread::scope(|s| s.spawn(|| SHARED_RUNTIME.block_on(f)).join().expect("sync_block_on: scope thread panicked"))
+    std::thread::scope(|s| {
+        s.spawn(|| SHARED_RUNTIME.block_on(f))
+            .join()
+            .expect("sync_block_on: scope thread panicked")
+    })
 }
 
 // ── Timezone ──

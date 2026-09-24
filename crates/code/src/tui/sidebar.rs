@@ -32,7 +32,8 @@ fn section_header(label: &'static str, width: usize) -> Line<'static> {
 
 pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(Clear, area);
-    let bg = Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(c_bg_sidebar()));
+    let bg =
+        Paragraph::new(Text::from(vec![Line::from("")])).style(Style::default().bg(c_bg_sidebar()));
     frame.render_widget(bg, area);
 
     // Left border (separator from chat)
@@ -78,7 +79,10 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     )));
     let short = short_path(&app.current_dir);
     let dir = if short.len() > w.saturating_sub(2) {
-        format!("..{}", &short[short.len().saturating_sub(w.saturating_sub(4))..])
+        format!(
+            "..{}",
+            &short[short.len().saturating_sub(w.saturating_sub(4))..]
+        )
     } else {
         short
     };
@@ -105,10 +109,7 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     ]));
     items.push(Line::from(vec![
         Span::styled(" ver", Style::default().fg(c_label())),
-        Span::styled(
-            format!(" {}", app.version),
-            Style::default().fg(c_cyan()),
-        ),
+        Span::styled(format!(" {}", app.version), Style::default().fg(c_cyan())),
     ]));
     items.push(Line::from(""));
 
@@ -177,7 +178,10 @@ pub fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         )));
         for path in app.file_changes.iter() {
             let p = if path.len() > w {
-                format!("..{}", &path[path.len().saturating_sub(w.saturating_sub(2))..])
+                format!(
+                    "..{}",
+                    &path[path.len().saturating_sub(w.saturating_sub(2))..]
+                )
             } else {
                 path.clone()
             };

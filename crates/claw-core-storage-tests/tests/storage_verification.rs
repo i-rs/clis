@@ -1,14 +1,14 @@
+use claw_core_storage_tests::conversations::runner::executor::ToolCallInfo;
+use claw_core_storage_tests::conversations::runner::{
+    ReplyCheck, Script, ScriptMeta, ScriptRunner, ScriptStep, StorageCheck,
+    executor::{MockSession, StepOutput},
+};
+use i_rs_claw_core::app::Message;
+use i_rs_claw_core::session::SessionManager;
+use i_rs_claw_core::storage::ClawStorage;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::TempDir;
-use i_rs_claw_core::storage::ClawStorage;
-use i_rs_claw_core::session::SessionManager;
-use i_rs_claw_core::app::Message;
-use claw_core_storage_tests::conversations::runner::{
-    Script, ScriptMeta, ScriptStep, ScriptRunner, StorageCheck, ReplyCheck,
-    executor::{MockSession, StepOutput},
-};
-use claw_core_storage_tests::conversations::runner::executor::ToolCallInfo;
 
 /// Helper: create a temp File storage backend.
 fn file_storage() -> (Arc<ClawStorage>, TempDir) {
@@ -45,7 +45,9 @@ async fn test_storage_verification_session_created() {
             expected_command: Some("add".into()),
             expected_args: Some(HashMap::from([("KEY".into(), "blog_url".into())])),
             expected_flags: None,
-            check_reply: Some(ReplyCheck { contains: vec!["已记录".into()] }),
+            check_reply: Some(ReplyCheck {
+                contains: vec!["已记录".into()],
+            }),
             verify_storage: Some(StorageCheck {
                 file_check: None,
                 expected_state: Some(serde_json::json!({
@@ -58,10 +60,12 @@ async fn test_storage_verification_session_created() {
 
     let mut session = MockSession::new(vec![StepOutput {
         reply: "已记录 blog_url".into(),
-        tool_calls: vec![ToolCallInfo::new("i-rs-kv")
-            .with_command("add")
-            .with_arg("KEY", "blog_url")
-            .with_arg("VALUE", "https://example.com")],
+        tool_calls: vec![
+            ToolCallInfo::new("i-rs-kv")
+                .with_command("add")
+                .with_arg("KEY", "blog_url")
+                .with_arg("VALUE", "https://example.com"),
+        ],
         prompt_tokens: 100,
         completion_tokens: 30,
         session_id: session_id.clone(),
@@ -83,7 +87,11 @@ async fn test_storage_verification_message_count() {
         let msg = Message::User {
             text: "存一下 blog_url".into(),
         };
-        storage.message_log.append_one(&session_id, &msg).await.unwrap();
+        storage
+            .message_log
+            .append_one(&session_id, &msg)
+            .await
+            .unwrap();
     }
 
     let script = Script {
@@ -136,9 +144,13 @@ async fn test_storage_verification_tool_cache() {
     // Pre-populate tool cache
     {
         let mut cache: HashMap<String, String> = HashMap::new();
-        cache.insert("i-rs-kv".into(), serde_json::to_string(&serde_json::json!({
-            "description": "KV store"
-        })).unwrap());
+        cache.insert(
+            "i-rs-kv".into(),
+            serde_json::to_string(&serde_json::json!({
+                "description": "KV store"
+            }))
+            .unwrap(),
+        );
         storage.tool_cache.save("default", &cache).await.unwrap();
     }
 
@@ -174,10 +186,12 @@ async fn test_storage_verification_tool_cache() {
 
     let mut session = MockSession::new(vec![StepOutput {
         reply: "已记录".into(),
-        tool_calls: vec![ToolCallInfo::new("i-rs-kv")
-            .with_command("add")
-            .with_arg("KEY", "test")
-            .with_arg("VALUE", "value")],
+        tool_calls: vec![
+            ToolCallInfo::new("i-rs-kv")
+                .with_command("add")
+                .with_arg("KEY", "test")
+                .with_arg("VALUE", "value"),
+        ],
         prompt_tokens: 100,
         completion_tokens: 30,
         session_id: session_id.clone(),
@@ -193,7 +207,11 @@ async fn test_storage_verification_tool_cache() {
 async fn test_storage_verification_file_exists() {
     let (storage, dir) = file_storage();
     let session_id = create_session(&storage).await;
-    let log_path = dir.path().join("claw").join("sessions").join(format!("{}.jsonl", session_id));
+    let log_path = dir
+        .path()
+        .join("claw")
+        .join("sessions")
+        .join(format!("{}.jsonl", session_id));
 
     let script = Script {
         meta: ScriptMeta {
@@ -226,15 +244,21 @@ async fn test_storage_verification_file_exists() {
         let msg = Message::User {
             text: "test".into(),
         };
-        storage.message_log.append_one(&session_id, &msg).await.unwrap();
+        storage
+            .message_log
+            .append_one(&session_id, &msg)
+            .await
+            .unwrap();
     }
 
     let mut session = MockSession::new(vec![StepOutput {
         reply: "已记录".into(),
-        tool_calls: vec![ToolCallInfo::new("i-rs-kv")
-            .with_command("add")
-            .with_arg("KEY", "test")
-            .with_arg("VALUE", "val")],
+        tool_calls: vec![
+            ToolCallInfo::new("i-rs-kv")
+                .with_command("add")
+                .with_arg("KEY", "test")
+                .with_arg("VALUE", "val"),
+        ],
         prompt_tokens: 100,
         completion_tokens: 30,
         session_id: session_id.clone(),
@@ -244,5 +268,10 @@ async fn test_storage_verification_file_exists() {
     let result = runner.run_with_storage(&mut session, Some(&storage)).await;
 
     assert!(result.passed, "file existence check should pass");
-    assert!(result.steps[0].storage_results.iter().any(|c| c.check_type == "file_check" && c.passed));
+    assert!(
+        result.steps[0]
+            .storage_results
+            .iter()
+            .any(|c| c.check_type == "file_check" && c.passed)
+    );
 }

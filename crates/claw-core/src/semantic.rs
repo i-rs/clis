@@ -8,8 +8,8 @@
 //!   let results = searcher.search("running weight last week", 5)?;
 
 use crate::convstore::ConvStore;
-use anyhow::Context;
 use crate::storage::SearchResult;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

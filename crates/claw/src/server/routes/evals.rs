@@ -1,8 +1,5 @@
 use crate::server::{AppState, UserId};
-use axum::{
-    Json,
-    extract::State,
-};
+use axum::{Json, extract::State};
 use serde_json::Value;
 
 pub async fn run_evals(

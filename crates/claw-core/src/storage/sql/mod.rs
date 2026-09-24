@@ -788,9 +788,13 @@ struct SqlProviderConfigRow {
 impl From<SqlProviderConfigRow> for crate::storage::config_store::ProviderConfigRow {
     fn from(r: SqlProviderConfigRow) -> Self {
         Self {
-            name: r.name, provider: r.provider, api_key: r.api_key,
-            base_url: r.base_url, model: r.model,
-            created_at: r.created_at, updated_at: r.updated_at,
+            name: r.name,
+            provider: r.provider,
+            api_key: r.api_key,
+            base_url: r.base_url,
+            model: r.model,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
         }
     }
 }
@@ -807,8 +811,11 @@ struct SqlDashboardUserRow {
 impl From<SqlDashboardUserRow> for crate::storage::config_store::DashboardUserRow {
     fn from(r: SqlDashboardUserRow) -> Self {
         Self {
-            user_id: r.user_id, token_hash: r.token_hash, display_name: r.display_name,
-            created_at: r.created_at, updated_at: r.updated_at,
+            user_id: r.user_id,
+            token_hash: r.token_hash,
+            display_name: r.display_name,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
         }
     }
 }
@@ -829,9 +836,14 @@ struct SqlMcpServerConfigRow {
 impl From<SqlMcpServerConfigRow> for crate::storage::config_store::McpServerConfigRow {
     fn from(r: SqlMcpServerConfigRow) -> Self {
         Self {
-            user_id: r.user_id, agent_id: r.agent_id, name: r.name,
-            transport_type: r.transport_type, command: r.command,
-            args_json: r.args_json, url: r.url, env_json: r.env_json,
+            user_id: r.user_id,
+            agent_id: r.agent_id,
+            name: r.name,
+            transport_type: r.transport_type,
+            command: r.command,
+            args_json: r.args_json,
+            url: r.url,
+            env_json: r.env_json,
             enabled: r.enabled,
         }
     }

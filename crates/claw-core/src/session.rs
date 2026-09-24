@@ -79,7 +79,7 @@ impl SessionState {
 
 /// Metadata for a saved conversation session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
- pub struct SessionMeta {
+pub struct SessionMeta {
     pub id: String,
     pub title: String,
     #[serde(default = "default_agent_id")]
@@ -120,14 +120,13 @@ impl SessionManager {
 
     /// Create a SessionManager with a custom storage backend (for DI/testing).
     pub fn with_storage(storage: Arc<ClawStorage>) -> anyhow::Result<Self> {
-        let sessions =
-            crate::utils::sync_block_on(async { storage.sessions.load_all().await })
-                .inspect_err(|e| {
-                    tracing::error!(
-                        "加载会话列表失败: {} — 数据可能损坏，请检查 .bak 备份后重新启动",
-                        e
-                    );
-                })?;
+        let sessions = crate::utils::sync_block_on(async { storage.sessions.load_all().await })
+            .inspect_err(|e| {
+                tracing::error!(
+                    "加载会话列表失败: {} — 数据可能损坏，请检查 .bak 备份后重新启动",
+                    e
+                );
+            })?;
         let current_id = sessions.first().map(|s| s.id.clone());
         let index = sessions
             .iter()
@@ -204,11 +203,7 @@ impl SessionManager {
     }
 
     /// Async version of [`create_session_for`].
-    pub async fn create_session_for_async(
-        &mut self,
-        agent_id: &str,
-        user_id: &str,
-    ) -> String {
+    pub async fn create_session_for_async(&mut self, agent_id: &str, user_id: &str) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let now = now_secs();
         let idx = self.sessions.len();
@@ -292,11 +287,7 @@ impl SessionManager {
     }
 
     /// Async version of [`transition_state`].
-    pub async fn transition_state_async(
-        &mut self,
-        id: &str,
-        new_state: SessionState,
-    ) -> bool {
+    pub async fn transition_state_async(&mut self, id: &str, new_state: SessionState) -> bool {
         if let Some(idx) = self.find_index(id) {
             let meta = &mut self.sessions[idx];
             if meta.state.can_transition_to(&new_state) {
@@ -565,11 +556,7 @@ impl SessionManager {
     }
 
     /// Async version of [`save_api_messages`].
-    pub async fn save_api_messages_async(
-        &self,
-        id: &str,
-        messages: &[serde_json::Value],
-    ) {
+    pub async fn save_api_messages_async(&self, id: &str, messages: &[serde_json::Value]) {
         let storage = self.storage.clone();
         let sid = id.to_string();
         let messages = messages.to_vec();

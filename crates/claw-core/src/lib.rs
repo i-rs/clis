@@ -19,9 +19,9 @@ pub mod session;
 pub mod skill_store;
 pub mod stats;
 pub mod storage;
+#[cfg(test)]
+pub mod test_helpers;
 pub mod theme;
 pub mod tool_cache;
 pub mod tools;
 pub mod utils;
-#[cfg(test)]
-pub mod test_helpers;

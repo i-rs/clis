@@ -85,7 +85,8 @@ async fn main() -> anyhow::Result<()> {
                         let msg_count = s.messages.len();
                         app.messages = s.messages;
                         app.agent_messages = s.agent_messages;
-                        app.msg_gen = msg_count; app.rebuild_components();
+                        app.msg_gen = msg_count;
+                        app.rebuild_components();
                     }
                 }
                 tui::run(app).await?;

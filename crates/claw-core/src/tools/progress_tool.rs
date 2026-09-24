@@ -118,23 +118,35 @@ mod tests {
     #[tokio::test]
     async fn test_report_started() {
         let tool = ProgressTool::new();
-        let result = tool.execute(&json!({
-            "action": "report",
-            "stage": "started",
-            "message": "开始处理"
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "action": "report",
+                    "stage": "started",
+                    "message": "开始处理"
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("⏳"), "started should show hourglass");
     }
 
     #[tokio::test]
     async fn test_report_running() {
         let tool = ProgressTool::new();
-        let result = tool.execute(&json!({
-            "action": "report",
-            "stage": "running",
-            "message": "处理中",
-            "percentage": 45
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "action": "report",
+                    "stage": "running",
+                    "message": "处理中",
+                    "percentage": 45
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("🔄"), "running should show spinner");
         assert!(result.contains("45%"), "should show percentage");
     }
@@ -142,36 +154,53 @@ mod tests {
     #[tokio::test]
     async fn test_report_completed() {
         let tool = ProgressTool::new();
-        let result = tool.execute(&json!({
-            "action": "report",
-            "stage": "completed",
-            "message": "完成！"
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "action": "report",
+                    "stage": "completed",
+                    "message": "完成！"
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("✅"), "completed should show checkmark");
     }
 
     #[tokio::test]
     async fn test_report_failed() {
         let tool = ProgressTool::new();
-        let result = tool.execute(&json!({
-            "action": "report",
-            "stage": "failed",
-            "message": "出错"
-        }), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(
+                &json!({
+                    "action": "report",
+                    "stage": "failed",
+                    "message": "出错"
+                }),
+                &test_ctx(),
+            )
+            .await
+            .unwrap();
         assert!(result.contains("❌"), "failed should show cross");
     }
 
     #[tokio::test]
     async fn test_format_action() {
         let tool = ProgressTool::new();
-        let result = tool.execute(&json!({"action": "format"}), &test_ctx()).await.unwrap();
+        let result = tool
+            .execute(&json!({"action": "format"}), &test_ctx())
+            .await
+            .unwrap();
         assert!(result.contains("⏳"), "format should describe emoji format");
     }
 
     #[tokio::test]
     async fn test_invalid_action() {
         let tool = ProgressTool::new();
-        let result = tool.execute(&json!({"action": "invalid"}), &test_ctx()).await;
+        let result = tool
+            .execute(&json!({"action": "invalid"}), &test_ctx())
+            .await;
         assert!(result.is_err(), "invalid action should fail");
     }
 

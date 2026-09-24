@@ -1,11 +1,11 @@
 //! Collapsible tool-result card with diff display and step counter.
 
-use super::{ComponentOp, blend, block_border, render_block_chrome, header_line, body_line};
+use super::{ComponentOp, blend, block_border, body_line, header_line, render_block_chrome};
 use crate::tui::colors::*;
 use crate::tui::ui::chat::{is_diff_output, render_diff_line};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Widget};
 use std::cell::Cell;
@@ -38,10 +38,13 @@ impl ToolResultCard {
     }
 
     fn body_lines(&self) -> u16 {
-        let (_tool_name, tool_result) = self.content.split_once('\n').unwrap_or(("", &self.content));
+        let (_tool_name, tool_result) =
+            self.content.split_once('\n').unwrap_or(("", &self.content));
 
         if self.collapsed {
-            if tool_result.is_empty() { 0 } else {
+            if tool_result.is_empty() {
+                0
+            } else {
                 (tool_result.lines().count().min(3) + 1) as u16
             }
         } else {
@@ -52,7 +55,9 @@ impl ToolResultCard {
                     h += 1; // "… more bytes"
                 }
             }
-            if let Some(ref d) = self.diff && !d.is_empty() {
+            if let Some(ref d) = self.diff
+                && !d.is_empty()
+            {
                 h += 1 + d.lines().count().min(12) as u16; // "─ diff ─" header + lines
                 if d.lines().count() > 12 {
                     h += 1; // "... more lines"
@@ -65,13 +70,19 @@ impl ToolResultCard {
 
 impl super::MessageComponent for ToolResultCard {
     fn height(&self, width: u16) -> u16 {
-        if let Some((cw, ch)) = self.height_cache.get() && cw == width { return ch; }
+        if let Some((cw, ch)) = self.height_cache.get()
+            && cw == width
+        {
+            return ch;
+        }
         let h = 1 + 1 + self.body_lines() + 1;
         self.height_cache.set(Some((width, h)));
         h
     }
 
-    fn clickable(&self) -> bool { true }
+    fn clickable(&self) -> bool {
+        true
+    }
 
     fn apply(&mut self, op: ComponentOp) {
         if op == ComponentOp::Toggle {
@@ -87,10 +98,18 @@ impl super::MessageComponent for ToolResultCard {
 
     fn render(&self, area: Rect, buf: &mut Buffer, _y_offset: u16, selected: bool) {
         let border = block_border(selected);
-        let bg = if selected { blend(c_bg_tool(), c_accent(), 0.08) } else { c_bg_tool() };
+        let bg = if selected {
+            blend(c_bg_tool(), c_accent(), 0.08)
+        } else {
+            c_bg_tool()
+        };
 
         let (tool_name, tool_result) = self.content.split_once('\n').unwrap_or(("", &self.content));
-        let label = if tool_name.is_empty() { "Tool" } else { tool_name };
+        let label = if tool_name.is_empty() {
+            "Tool"
+        } else {
+            tool_name
+        };
 
         let step_str = if self.total_steps > 1 {
             Some(format!("[{}/{}]", self.step, self.total_steps))
@@ -108,13 +127,24 @@ impl super::MessageComponent for ToolResultCard {
             if !tool_result.is_empty() {
                 let preview: String = tool_result.chars().take(400).collect();
                 for line in preview.lines().take(3) {
-                    if !body.contains(y) { break; }
+                    if !body.contains(y) {
+                        break;
+                    }
                     let truncated: String = line.chars().take(120).collect();
                     let mut text = truncated;
-                    if line.chars().count() > 120 { text.push('…'); }
+                    if line.chars().count() > 120 {
+                        text.push('…');
+                    }
                     Paragraph::new(body_line(&text, Style::default().fg(c_dim())))
                         .style(Style::default().bg(bg))
-                        .render(Rect { y, height: 1, ..area }, buf);
+                        .render(
+                            Rect {
+                                y,
+                                height: 1,
+                                ..area
+                            },
+                            buf,
+                        );
                     y += 1;
                 }
                 if preview.len() < tool_result.len() {
@@ -122,7 +152,14 @@ impl super::MessageComponent for ToolResultCard {
                     let more_text = format!("… {} more bytes", remaining);
                     Paragraph::new(body_line(&more_text, Style::default().fg(c_muted())))
                         .style(Style::default().bg(bg))
-                        .render(Rect { y, height: 1, ..area }, buf);
+                        .render(
+                            Rect {
+                                y,
+                                height: 1,
+                                ..area
+                            },
+                            buf,
+                        );
                 }
             }
         } else {
@@ -131,19 +168,34 @@ impl super::MessageComponent for ToolResultCard {
 
             if !tool_result.is_empty() {
                 for line in preview.lines().take(12) {
-                    if !body.contains(y) { break; }
+                    if !body.contains(y) {
+                        break;
+                    }
                     if has_diff {
-                        let mut spans: Vec<Span<'static>> = vec![
-                            Span::raw(" ".repeat(super::BLOCK_INDENT)),
-                            ];
+                        let mut spans: Vec<Span<'static>> =
+                            vec![Span::raw(" ".repeat(super::BLOCK_INDENT))];
                         spans.extend(render_diff_line(line));
                         Paragraph::new(Line::from(spans))
                             .style(Style::default().bg(bg))
-                            .render(Rect { y, height: 1, ..area }, buf);
+                            .render(
+                                Rect {
+                                    y,
+                                    height: 1,
+                                    ..area
+                                },
+                                buf,
+                            );
                     } else {
                         Paragraph::new(body_line(line, Style::default().fg(c_tool_output())))
                             .style(Style::default().bg(bg))
-                            .render(Rect { y, height: 1, ..area }, buf);
+                            .render(
+                                Rect {
+                                    y,
+                                    height: 1,
+                                    ..area
+                                },
+                                buf,
+                            );
                     }
                     y += 1;
                 }
@@ -152,35 +204,71 @@ impl super::MessageComponent for ToolResultCard {
                     let more_text = format!("… {} more bytes", remaining);
                     Paragraph::new(body_line(&more_text, Style::default().fg(c_muted())))
                         .style(Style::default().bg(bg))
-                        .render(Rect { y, height: 1, ..area }, buf);
+                        .render(
+                            Rect {
+                                y,
+                                height: 1,
+                                ..area
+                            },
+                            buf,
+                        );
                     y += 1;
                 }
             }
 
             // Diff section
-            if let Some(ref diff_text) = self.diff && !diff_text.is_empty() {
-                if !body.contains(y) { return; }
+            if let Some(ref diff_text) = self.diff
+                && !diff_text.is_empty()
+            {
+                if !body.contains(y) {
+                    return;
+                }
                 Paragraph::new(body_line("─ diff ─", Style::default().fg(c_dim())))
                     .style(Style::default().bg(bg))
-                    .render(Rect { y, height: 1, ..area }, buf);
+                    .render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                 y += 1;
 
                 for line in diff_text.lines().take(12) {
-                    if !body.contains(y) { break; }
-                    let mut spans: Vec<Span<'static>> = vec![
-                        Span::raw(" ".repeat(super::BLOCK_INDENT)),
-                        ];
+                    if !body.contains(y) {
+                        break;
+                    }
+                    let mut spans: Vec<Span<'static>> =
+                        vec![Span::raw(" ".repeat(super::BLOCK_INDENT))];
                     spans.extend(render_diff_line(line));
                     Paragraph::new(Line::from(spans))
                         .style(Style::default().bg(bg))
-                        .render(Rect { y, height: 1, ..area }, buf);
+                        .render(
+                            Rect {
+                                y,
+                                height: 1,
+                                ..area
+                            },
+                            buf,
+                        );
                     y += 1;
                 }
                 if diff_text.lines().count() > 12 {
-                    let more_text = format!("... +{} more lines", diff_text.lines().count().saturating_sub(12));
+                    let more_text = format!(
+                        "... +{} more lines",
+                        diff_text.lines().count().saturating_sub(12)
+                    );
                     Paragraph::new(body_line(&more_text, Style::default().fg(c_muted())))
                         .style(Style::default().bg(bg))
-                        .render(Rect { y, height: 1, ..area }, buf);
+                        .render(
+                            Rect {
+                                y,
+                                height: 1,
+                                ..area
+                            },
+                            buf,
+                        );
                 }
             }
         }

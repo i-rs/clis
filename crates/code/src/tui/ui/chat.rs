@@ -1,7 +1,7 @@
-use crate::tui::highlight::highlight_code_block;
 use crate::tui::colors::*;
-use ratatui::text::{Line, Span};
+use crate::tui::highlight::highlight_code_block;
 use ratatui::style::Style;
+use ratatui::text::{Line, Span};
 
 pub fn tool_glyph(name: &str) -> &'static str {
     match name {
@@ -24,8 +24,12 @@ pub fn is_diff_output(text: &str) -> bool {
     let has_unified = lines
         .iter()
         .any(|l| l.starts_with("--- ") || l.starts_with("+++ ") || l.starts_with("@@ "));
-    let has_plus = lines.iter().any(|l| l.starts_with('+') && !l.starts_with("+++"));
-    let has_minus = lines.iter().any(|l| l.starts_with('-') && !l.starts_with("---"));
+    let has_plus = lines
+        .iter()
+        .any(|l| l.starts_with('+') && !l.starts_with("+++"));
+    let has_minus = lines
+        .iter()
+        .any(|l| l.starts_with('-') && !l.starts_with("---"));
     has_unified || (has_plus && has_minus)
 }
 
@@ -41,7 +45,10 @@ pub fn render_diff_line(line: &str) -> Vec<Span<'static>> {
             Span::styled(rest.to_owned(), Style::new().fg(c_diff_red())),
         ]
     } else if line.starts_with("@@") {
-        vec![Span::styled(line.to_owned(), Style::new().fg(c_diff_hunk()))]
+        vec![Span::styled(
+            line.to_owned(),
+            Style::new().fg(c_diff_hunk()),
+        )]
     } else {
         vec![Span::raw(line.to_owned())]
     }
@@ -73,7 +80,10 @@ pub fn render_ai_content(content: &str) -> Vec<Line<'static>> {
                 in_code = false;
             } else {
                 in_code = true;
-                code_lang = line.strip_prefix("```").map(|s| s.trim().to_string()).unwrap_or_default();
+                code_lang = line
+                    .strip_prefix("```")
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_default();
             }
             continue;
         }
@@ -128,4 +138,3 @@ pub fn render_ai_content(content: &str) -> Vec<Line<'static>> {
 
     result
 }
-

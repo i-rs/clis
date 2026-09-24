@@ -145,10 +145,7 @@ pub fn parse_openai_sse_chunk(data: &Value) -> ParseResult {
     let mut result = ParseResult::default();
 
     // Usage data (final chunk with include_usage)
-    if let Some(usage_data) = data
-        .get("usage")
-        .and_then(|u| if u.is_null() { None } else { Some(u) })
-    {
+    if let Some(usage_data) = data.get("usage").filter(|&u| !u.is_null()) {
         result.usage = Some(TokenUsage {
             prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
             completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,

@@ -55,70 +55,6 @@ impl QualityJudgeResult {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn test_quality_result_from_json_full() {
-        let json = json!({
-            "relevance": 2,
-            "accuracy": 1,
-            "completeness": 2,
-            "reason": "回答基本准确但缺少部分细节"
-        });
-        let result = QualityJudgeResult::from_json(&json).unwrap();
-        assert_eq!(result.relevance, 2);
-        assert_eq!(result.accuracy, 1);
-        assert_eq!(result.completeness, 2);
-        assert_eq!(result.reason, "回答基本准确但缺少部分细节");
-        assert!((result.overall_score - 5.0 / 6.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_quality_result_from_json_missing_fields() {
-        let json = json!({});
-        let result = QualityJudgeResult::from_json(&json).unwrap();
-        assert_eq!(result.relevance, 2);
-        assert_eq!(result.accuracy, 2);
-        assert_eq!(result.completeness, 2);
-        assert_eq!(result.overall_score, 1.0);
-    }
-
-    #[test]
-    fn test_quality_result_from_json_partial() {
-        let json = json!({"relevance": 0, "accuracy": 0});
-        let result = QualityJudgeResult::from_json(&json).unwrap();
-        assert_eq!(result.relevance, 0);
-        assert_eq!(result.accuracy, 0);
-        assert_eq!(result.completeness, 2); // default
-        assert!((result.overall_score - 2.0 / 6.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_quality_result_from_json_zero_score() {
-        let json = json!({"relevance": 0, "accuracy": 0, "completeness": 0});
-        let result = QualityJudgeResult::from_json(&json).unwrap();
-        assert_eq!(result.overall_score, 0.0);
-    }
-
-    #[test]
-    fn test_quality_result_from_json_perfect_score() {
-        let json = json!({"relevance": 2, "accuracy": 2, "completeness": 2});
-        let result = QualityJudgeResult::from_json(&json).unwrap();
-        assert_eq!(result.overall_score, 1.0);
-    }
-
-    #[test]
-    fn test_judge_system_prompt_not_empty() {
-        assert!(!JUDGE_SYSTEM_PROMPT.is_empty());
-        assert!(JUDGE_SYSTEM_PROMPT.contains("相关性"));
-        assert!(JUDGE_SYSTEM_PROMPT.contains("准确性"));
-        assert!(JUDGE_SYSTEM_PROMPT.contains("完整性"));
-    }
-}
-
 pub async fn judge_quality(
     http_client: &reqwest::Client,
     base_url: &str,
@@ -183,4 +119,68 @@ pub async fn judge_quality(
 
     QualityJudgeResult::from_json(&parsed)
         .ok_or_else(|| anyhow::anyhow!("Failed to parse judge result"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_quality_result_from_json_full() {
+        let json = json!({
+            "relevance": 2,
+            "accuracy": 1,
+            "completeness": 2,
+            "reason": "回答基本准确但缺少部分细节"
+        });
+        let result = QualityJudgeResult::from_json(&json).unwrap();
+        assert_eq!(result.relevance, 2);
+        assert_eq!(result.accuracy, 1);
+        assert_eq!(result.completeness, 2);
+        assert_eq!(result.reason, "回答基本准确但缺少部分细节");
+        assert!((result.overall_score - 5.0 / 6.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_quality_result_from_json_missing_fields() {
+        let json = json!({});
+        let result = QualityJudgeResult::from_json(&json).unwrap();
+        assert_eq!(result.relevance, 2);
+        assert_eq!(result.accuracy, 2);
+        assert_eq!(result.completeness, 2);
+        assert_eq!(result.overall_score, 1.0);
+    }
+
+    #[test]
+    fn test_quality_result_from_json_partial() {
+        let json = json!({"relevance": 0, "accuracy": 0});
+        let result = QualityJudgeResult::from_json(&json).unwrap();
+        assert_eq!(result.relevance, 0);
+        assert_eq!(result.accuracy, 0);
+        assert_eq!(result.completeness, 2); // default
+        assert!((result.overall_score - 2.0 / 6.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_quality_result_from_json_zero_score() {
+        let json = json!({"relevance": 0, "accuracy": 0, "completeness": 0});
+        let result = QualityJudgeResult::from_json(&json).unwrap();
+        assert_eq!(result.overall_score, 0.0);
+    }
+
+    #[test]
+    fn test_quality_result_from_json_perfect_score() {
+        let json = json!({"relevance": 2, "accuracy": 2, "completeness": 2});
+        let result = QualityJudgeResult::from_json(&json).unwrap();
+        assert_eq!(result.overall_score, 1.0);
+    }
+
+    #[test]
+    fn test_judge_system_prompt_not_empty() {
+        assert!(!JUDGE_SYSTEM_PROMPT.is_empty());
+        assert!(JUDGE_SYSTEM_PROMPT.contains("相关性"));
+        assert!(JUDGE_SYSTEM_PROMPT.contains("准确性"));
+        assert!(JUDGE_SYSTEM_PROMPT.contains("完整性"));
+    }
 }

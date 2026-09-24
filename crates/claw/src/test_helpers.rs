@@ -41,6 +41,7 @@ pub struct MockProvider {
 }
 
 impl MockProvider {
+    #[allow(dead_code)]
     pub fn new(events: Vec<LlmEvent>) -> Self {
         Self {
             kind: ProviderKind::OpenAI,
@@ -64,6 +65,7 @@ impl MockProvider {
 
     /// Force the provider to return this result instead of sending events.
     /// Useful for simulating errors.
+    #[allow(dead_code)]
     pub fn with_result(mut self, result: anyhow::Result<StreamResult>) -> Self {
         self.result_override = Some(result);
         self
@@ -132,8 +134,8 @@ pub fn test_core() -> (Config, i_rs_claw_core::core::AppCore) {
     // Redirect config saves to the temp dir so tests never touch the real
     // ~/.i-rs/claw/config.toml.
     config.config_file = Some(dir.path().join("config.toml"));
-    let core =
-        i_rs_claw_core::core::AppCore::with_claw_dir(config.clone(), claw_dir).expect("AppCore 初始化失败");
+    let core = i_rs_claw_core::core::AppCore::with_claw_dir(config.clone(), claw_dir)
+        .expect("AppCore 初始化失败");
 
     // Leak the temp dir so it survives the test (AppCore may read from it
     // during the test). Cleanup is handled by the OS or test runner.
@@ -152,10 +154,7 @@ pub fn parse_openai_sse_chunk(data: &Value) -> ParseResult {
     let mut result = ParseResult::default();
 
     // Usage data (final chunk with include_usage)
-    if let Some(usage_data) = data
-        .get("usage")
-        .and_then(|u| if u.is_null() { None } else { Some(u) })
-    {
+    if let Some(usage_data) = data.get("usage").filter(|&u| !u.is_null()) {
         result.usage = Some(TokenUsage {
             prompt_tokens: usage_data["prompt_tokens"].as_u64().unwrap_or(0) as u32,
             completion_tokens: usage_data["completion_tokens"].as_u64().unwrap_or(0) as u32,

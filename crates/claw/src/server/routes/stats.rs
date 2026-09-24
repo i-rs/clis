@@ -1,9 +1,9 @@
 use crate::server::AppState;
-use i_rs_claw_core::stats::StatsPeriod;
 use axum::{
     Json,
     extract::{Query, State},
 };
+use i_rs_claw_core::stats::StatsPeriod;
 use serde::Deserialize;
 use serde_json::Value;
 

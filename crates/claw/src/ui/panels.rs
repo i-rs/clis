@@ -75,7 +75,12 @@ pub(super) fn render_plan(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(Paragraph::new(lines), area);
 }
 
-pub(super) fn render_processing(f: &mut Frame, area: Rect, app: &App, theme: &i_rs_claw_core::theme::Theme) {
+pub(super) fn render_processing(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &i_rs_claw_core::theme::Theme,
+) {
     if !app.is_processing() || app.llm.status_text.is_empty() {
         return;
     }
@@ -524,7 +529,11 @@ pub(super) fn render_backdrop(f: &mut Frame, area: Rect, theme: &i_rs_claw_core:
     );
 }
 
-pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &i_rs_claw_core::theme::Theme) {
+pub(super) fn render_feedback_prompt(
+    f: &mut Frame,
+    area: Rect,
+    theme: &i_rs_claw_core::theme::Theme,
+) {
     let width = 44u16.min(area.width.saturating_sub(4));
     let height = 6u16;
     let x = (area.width - width) / 2;
@@ -570,7 +579,12 @@ pub(super) fn render_feedback_prompt(f: &mut Frame, area: Rect, theme: &i_rs_cla
     f.render_widget(Paragraph::new(text).alignment(Alignment::Center), inner);
 }
 
-pub(super) fn render_info_panel(f: &mut Frame, area: Rect, app: &App, theme: &i_rs_claw_core::theme::Theme) {
+pub(super) fn render_info_panel(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &i_rs_claw_core::theme::Theme,
+) {
     let popup_area = centered_popup(area, 48, 22);
 
     let primary = theme.primary();
@@ -727,16 +741,17 @@ pub(super) fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
 
     for (i, preset) in themes.iter().enumerate() {
         let selected = i == idx;
-        let preset_theme = i_rs_claw_core::theme::Theme::from_preset(preset.name).unwrap_or_default();
+        let preset_theme =
+            i_rs_claw_core::theme::Theme::from_preset(preset.name).unwrap_or_default();
         let p_color = preset_theme.primary();
         let s_color = preset_theme.secondary();
         let a_color = preset_theme.accent();
         let bg_color = preset_theme.background();
 
-    let sel_bg = if selected { theme.selection_bg() } else { bg };
+        let sel_bg = if selected { theme.selection_bg() } else { bg };
 
-    let name_fg = if selected { theme.text() } else { dim };
-    let label_fg = if selected { p_color } else { dim };
+        let name_fg = if selected { theme.text() } else { dim };
+        let label_fg = if selected { p_color } else { dim };
 
         let prefix = if selected { " > " } else { "   " };
 

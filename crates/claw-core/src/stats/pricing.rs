@@ -16,8 +16,8 @@ impl ModelPricing {
 }
 
 static MODEL_PRICING_TABLE: LazyLock<HashMap<String, (f64, f64)>> = LazyLock::new(|| {
-    let raw: toml::Value =
-        toml::from_str(include_str!("../../data/pricing.toml")).expect("failed to parse pricing.toml");
+    let raw: toml::Value = toml::from_str(include_str!("../../data/pricing.toml"))
+        .expect("failed to parse pricing.toml");
     let mut m = HashMap::new();
     if let Some(models) = raw.get("models").and_then(|v| v.as_table()) {
         for (name, val) in models {

@@ -74,6 +74,225 @@ impl MessageComponent for StubBlock {
     }
 }
 
+impl Scroller {
+    #[allow(dead_code)]
+    pub fn new(components: &[ComponentCell], width: u16, viewport_h: u16) -> Self {
+        Self::build(components, width, viewport_h, 0)
+    }
+
+    pub fn new_if_stale(
+        cached: Option<&Self>,
+        components: &[ComponentCell],
+        width: u16,
+        viewport_h: u16,
+        version: u64,
+    ) -> Self {
+        if let Some(prev) = cached {
+            let key = ScrollerCacheKey {
+                component_count: components.len(),
+                viewport_h,
+                layout_w: width,
+                version,
+            };
+            if prev.cache_key == key {
+                let mut cloned = prev.clone();
+                cloned.viewport_h = viewport_h;
+                return cloned;
+            }
+        }
+        Self::build(components, width, viewport_h, version)
+    }
+
+    fn build(components: &[ComponentCell], width: u16, viewport_h: u16, version: u64) -> Self {
+        // Each block has its own rounded border, so the only spacing we
+        // need between blocks is one empty row of breathing room.
+        // Zero-height components (e.g. filtered empty messages) should
+        // *not* contribute spacing — otherwise a sequence of empties
+        // would waste a row each.
+        let spacing = 1u16;
+        let mut offsets = Vec::with_capacity(components.len());
+        let mut hits = Vec::new();
+        let mut total = 0u16;
+        let mut heights: Vec<u16> = Vec::with_capacity(components.len());
+        let mut last_was_real = false;
+        for (i, c) in components.iter().enumerate() {
+            let comp = c.borrow();
+            let h = comp.height(width);
+            heights.push(h);
+            if i > 0 && h > 0 && last_was_real {
+                total = total.saturating_add(spacing);
+            }
+            offsets.push(total);
+            if comp.clickable() && h > 0 {
+                let extras = comp.extra_click_targets(width);
+                if extras.is_empty() {
+                    hits.push(HitRegion {
+                        component_idx: i,
+                        y_start: total,
+                        y_end: total.saturating_add(h),
+                        op: ComponentOp::Toggle,
+                    });
+                } else {
+                    for (y_offset, height, op) in extras {
+                        hits.push(HitRegion {
+                            component_idx: i,
+                            y_start: total.saturating_add(y_offset),
+                            y_end: total.saturating_add(y_offset).saturating_add(height),
+                            op,
+                        });
+                    }
+                }
+            }
+            drop(comp);
+            total = total.saturating_add(h);
+            last_was_real = h > 0;
+        }
+        Self {
+            offsets,
+            total_height: total,
+            scroll: 0,
+            viewport_h,
+            layout_w: width,
+            hits,
+            heights,
+            cache_key: ScrollerCacheKey {
+                component_count: components.len(),
+                viewport_h,
+                layout_w: width,
+                version,
+            },
+        }
+    }
+
+    pub fn max_scroll(&self) -> u16 {
+        self.total_height.saturating_sub(self.viewport_h)
+    }
+
+    pub fn heights(&self) -> &[u16] {
+        &self.heights
+    }
+
+    pub fn set_scroll(&mut self, s: u16) {
+        self.scroll = s.min(self.max_scroll());
+    }
+
+    /// Translate the content-relative click regions into
+    /// screen-absolute `Rect`s and register them into `registry`.
+    ///
+    /// `pane` is the `Rect` that the chat content occupies on the
+    /// current frame; its `x`/`y` are added to every region's
+    /// coordinates and its `width` covers the full chat width. The
+    /// registry is cleared before being repopulated, so the caller
+    /// can keep owning it across frames.
+    pub fn register_clicks(&self, pane: Rect, registry: &mut ClickRegionRegistry<usize>) {
+        registry.clear();
+        let scroll_end = self.scroll.saturating_add(self.viewport_h);
+        for h in &self.hits {
+            // Clip hit region to the visible viewport and translate
+            // to screen-absolute coordinates.  Without the scroll
+            // adjustment the registered regions drift off-target as
+            // the user scrolls, making click targets unresponsive.
+            let visible_start = h.y_start.max(self.scroll);
+            let visible_end = h.y_end.min(scroll_end);
+
+            if visible_end > visible_start {
+                let area = Rect {
+                    x: pane.x,
+                    y: pane.y + visible_start.saturating_sub(self.scroll),
+                    width: pane.width,
+                    height: visible_end.saturating_sub(visible_start),
+                };
+                let variant = Self::op_variant(&h.op);
+                let data = (h.component_idx << 4) | variant;
+                registry.register(area, data);
+            }
+        }
+    }
+
+    pub fn op_variant(op: &ComponentOp) -> usize {
+        match op {
+            ComponentOp::Toggle => 0,
+            ComponentOp::ToggleArgs => 1,
+            ComponentOp::ToggleResult => 2,
+            _ => 0,
+        }
+    }
+
+    pub fn visible_range(&self) -> (usize, usize, u16) {
+        if self.offsets.is_empty() {
+            return (0, 0, 0);
+        }
+        let scroll_end = self.scroll + self.viewport_h;
+        let first = match self.offsets.binary_search(&self.scroll) {
+            Ok(i) => i,
+            Err(i) => i.saturating_sub(1),
+        };
+        let first_offset = self.offsets[first];
+        let skip = self.scroll.saturating_sub(first_offset);
+        let mut last = first;
+        while last < self.offsets.len() {
+            let last_end = if last + 1 < self.offsets.len() {
+                self.offsets[last + 1]
+            } else {
+                self.total_height
+            };
+            if last_end >= scroll_end {
+                break;
+            }
+            last += 1;
+        }
+        if last < self.offsets.len() {
+            last += 1;
+        }
+        (first, last.min(self.offsets.len()), skip)
+    }
+
+    pub fn render(
+        &self,
+        components: &[ComponentCell],
+        area: Rect,
+        buf: &mut Buffer,
+        theme: &Theme,
+        selected: Option<usize>,
+    ) {
+        let (first, last, skip) = self.visible_range();
+        let scroll_top = area.y;
+        #[allow(clippy::needless_range_loop)]
+        for idx in first..last.min(components.len()) {
+            let comp_top = self.offsets[idx].saturating_sub(self.scroll);
+            if comp_top >= self.viewport_h {
+                break;
+            }
+            // `skip` is the number of rows of the *first* visible
+            // component that are scrolled off the top of the viewport.
+            // It only applies to that component. Subtracting it from
+            // every visible component squeezes later blocks — short
+            // blocks (tool_call collapsed, user 1-line, quality with
+            // 0 issues) get clipped to 0 rows and disappear, while
+            // taller ones lose their body content.
+            let full_h = components[idx].borrow().height(self.layout_w);
+            let comp_h = if idx == first {
+                full_h.saturating_sub(skip)
+            } else {
+                full_h
+            };
+            let y = scroll_top + comp_top;
+            let comp_area = Rect {
+                x: area.x,
+                y,
+                width: area.width,
+                height: comp_h.min(self.viewport_h.saturating_sub(comp_top)),
+            };
+            if comp_area.height == 0 {
+                continue;
+            }
+            components[idx]
+                .borrow()
+                .render(comp_area, buf, theme, selected == Some(idx));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,224 +521,5 @@ mod tests {
             &mut reg,
         );
         assert_eq!(reg.len(), 0, "no visible clickable components");
-    }
-}
-
-impl Scroller {
-    #[allow(dead_code)]
-    pub fn new(components: &[ComponentCell], width: u16, viewport_h: u16) -> Self {
-        Self::build(components, width, viewport_h, 0)
-    }
-
-    pub fn new_if_stale(
-        cached: Option<&Self>,
-        components: &[ComponentCell],
-        width: u16,
-        viewport_h: u16,
-        version: u64,
-    ) -> Self {
-        if let Some(prev) = cached {
-            let key = ScrollerCacheKey {
-                component_count: components.len(),
-                viewport_h,
-                layout_w: width,
-                version,
-            };
-            if prev.cache_key == key {
-                let mut cloned = prev.clone();
-                cloned.viewport_h = viewport_h;
-                return cloned;
-            }
-        }
-        Self::build(components, width, viewport_h, version)
-    }
-
-    fn build(components: &[ComponentCell], width: u16, viewport_h: u16, version: u64) -> Self {
-        // Each block has its own rounded border, so the only spacing we
-        // need between blocks is one empty row of breathing room.
-        // Zero-height components (e.g. filtered empty messages) should
-        // *not* contribute spacing — otherwise a sequence of empties
-        // would waste a row each.
-        let spacing = 1u16;
-        let mut offsets = Vec::with_capacity(components.len());
-        let mut hits = Vec::new();
-        let mut total = 0u16;
-        let mut heights: Vec<u16> = Vec::with_capacity(components.len());
-        let mut last_was_real = false;
-        for (i, c) in components.iter().enumerate() {
-            let comp = c.borrow();
-            let h = comp.height(width);
-            heights.push(h);
-            if i > 0 && h > 0 && last_was_real {
-                total = total.saturating_add(spacing);
-            }
-            offsets.push(total);
-            if comp.clickable() && h > 0 {
-                let extras = comp.extra_click_targets(width);
-                if extras.is_empty() {
-                    hits.push(HitRegion {
-                        component_idx: i,
-                        y_start: total,
-                        y_end: total.saturating_add(h),
-                        op: ComponentOp::Toggle,
-                    });
-                } else {
-                    for (y_offset, height, op) in extras {
-                        hits.push(HitRegion {
-                            component_idx: i,
-                            y_start: total.saturating_add(y_offset),
-                            y_end: total.saturating_add(y_offset).saturating_add(height),
-                            op,
-                        });
-                    }
-                }
-            }
-            drop(comp);
-            total = total.saturating_add(h);
-            last_was_real = h > 0;
-        }
-        Self {
-            offsets,
-            total_height: total,
-            scroll: 0,
-            viewport_h,
-            layout_w: width,
-            hits,
-            heights,
-            cache_key: ScrollerCacheKey {
-                component_count: components.len(),
-                viewport_h,
-                layout_w: width,
-                version,
-            },
-        }
-    }
-
-    pub fn max_scroll(&self) -> u16 {
-        self.total_height.saturating_sub(self.viewport_h)
-    }
-
-    pub fn heights(&self) -> &[u16] {
-        &self.heights
-    }
-
-    pub fn set_scroll(&mut self, s: u16) {
-        self.scroll = s.min(self.max_scroll());
-    }
-
-    /// Translate the content-relative click regions into
-    /// screen-absolute `Rect`s and register them into `registry`.
-    ///
-    /// `pane` is the `Rect` that the chat content occupies on the
-    /// current frame; its `x`/`y` are added to every region's
-    /// coordinates and its `width` covers the full chat width. The
-    /// registry is cleared before being repopulated, so the caller
-    /// can keep owning it across frames.
-    pub fn register_clicks(&self, pane: Rect, registry: &mut ClickRegionRegistry<usize>) {
-        registry.clear();
-        let scroll_end = self.scroll.saturating_add(self.viewport_h);
-        for h in &self.hits {
-            // Clip hit region to the visible viewport and translate
-            // to screen-absolute coordinates.  Without the scroll
-            // adjustment the registered regions drift off-target as
-            // the user scrolls, making click targets unresponsive.
-            let visible_start = h.y_start.max(self.scroll);
-            let visible_end = h.y_end.min(scroll_end);
-
-            if visible_end > visible_start {
-                let area = Rect {
-                    x: pane.x,
-                    y: pane.y + visible_start.saturating_sub(self.scroll),
-                    width: pane.width,
-                    height: visible_end.saturating_sub(visible_start),
-                };
-                let variant = Self::op_variant(&h.op);
-                let data = (h.component_idx << 4) | variant;
-                registry.register(area, data);
-            }
-        }
-    }
-
-    pub fn op_variant(op: &ComponentOp) -> usize {
-        match op {
-            ComponentOp::Toggle => 0,
-            ComponentOp::ToggleArgs => 1,
-            ComponentOp::ToggleResult => 2,
-            _ => 0,
-        }
-    }
-
-    pub fn visible_range(&self) -> (usize, usize, u16) {
-        if self.offsets.is_empty() {
-            return (0, 0, 0);
-        }
-        let scroll_end = self.scroll + self.viewport_h;
-        let first = match self.offsets.binary_search(&self.scroll) {
-            Ok(i) => i,
-            Err(i) => i.saturating_sub(1),
-        };
-        let first_offset = self.offsets[first];
-        let skip = self.scroll.saturating_sub(first_offset);
-        let mut last = first;
-        while last < self.offsets.len() {
-            let last_end = if last + 1 < self.offsets.len() {
-                self.offsets[last + 1]
-            } else {
-                self.total_height
-            };
-            if last_end >= scroll_end {
-                break;
-            }
-            last += 1;
-        }
-        if last < self.offsets.len() {
-            last += 1;
-        }
-        (first, last.min(self.offsets.len()), skip)
-    }
-
-    pub fn render(
-        &self,
-        components: &[ComponentCell],
-        area: Rect,
-        buf: &mut Buffer,
-        theme: &Theme,
-        selected: Option<usize>,
-    ) {
-        let (first, last, skip) = self.visible_range();
-        let scroll_top = area.y;
-        #[allow(clippy::needless_range_loop)]
-        for idx in first..last.min(components.len()) {
-            let comp_top = self.offsets[idx].saturating_sub(self.scroll);
-            if comp_top >= self.viewport_h {
-                break;
-            }
-            // `skip` is the number of rows of the *first* visible
-            // component that are scrolled off the top of the viewport.
-            // It only applies to that component. Subtracting it from
-            // every visible component squeezes later blocks — short
-            // blocks (tool_call collapsed, user 1-line, quality with
-            // 0 issues) get clipped to 0 rows and disappear, while
-            // taller ones lose their body content.
-            let full_h = components[idx].borrow().height(self.layout_w);
-            let comp_h = if idx == first {
-                full_h.saturating_sub(skip)
-            } else {
-                full_h
-            };
-            let y = scroll_top + comp_top;
-            let comp_area = Rect {
-                x: area.x,
-                y,
-                width: area.width,
-                height: comp_h.min(self.viewport_h.saturating_sub(comp_top)),
-            };
-            if comp_area.height == 0 {
-                continue;
-            }
-            components[idx]
-                .borrow()
-                .render(comp_area, buf, theme, selected == Some(idx));
-        }
     }
 }

@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use i_rs_claw_core::storage::ClawStorage;
 use i_rs_claw_core::app::Message;
+use i_rs_claw_core::storage::ClawStorage;
+use std::sync::Arc;
 
 fn make_test_msgs(n: usize) -> Vec<Message> {
     (0..n)

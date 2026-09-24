@@ -280,7 +280,10 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
                 handler.app.current_agent = agent_id.clone();
                 handler.app.reset_for_new_session();
                 handler.app.llm.status_text = format!("已切换到 agent: {}", agent_id);
-                handler.app_core.session_mgr.create_session_for(agent_id, "default");
+                handler
+                    .app_core
+                    .session_mgr
+                    .create_session_for(agent_id, "default");
                 handler
                     .app_core
                     .agent_store
@@ -304,7 +307,9 @@ fn handle_agent_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
 }
 
 fn handle_theme_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Action {
-    let max = i_rs_claw_core::theme::BUILT_IN_THEMES.len().saturating_sub(1);
+    let max = i_rs_claw_core::theme::BUILT_IN_THEMES
+        .len()
+        .saturating_sub(1);
     match key.code {
         KeyCode::Up => {
             handler.app.overlay.theme_index = handler.app.overlay.theme_index.saturating_sub(1);
@@ -331,7 +336,9 @@ fn handle_theme_picker_keys(handler: &mut KeyEventHandler, key: KeyEvent) -> Act
 }
 
 fn apply_theme_preview(handler: &mut KeyEventHandler) {
-    if let Some(preset) = i_rs_claw_core::theme::BUILT_IN_THEMES.get(handler.app.overlay.theme_index) {
+    if let Some(preset) =
+        i_rs_claw_core::theme::BUILT_IN_THEMES.get(handler.app.overlay.theme_index)
+    {
         handler.app.config.theme =
             i_rs_claw_core::theme::Theme::from_preset(preset.name).unwrap_or_default();
     }
@@ -668,8 +675,10 @@ fn handle_slash_execute(handler: &mut KeyEventHandler) -> Action {
                     &handler.app_core.session_mgr,
                 );
                 memory.flush();
-                handler.app.overlay.copy_feedback =
-                    Some(("✓ 记忆已更新（长期记忆提取完成）".to_string(), std::time::Instant::now()));
+                handler.app.overlay.copy_feedback = Some((
+                    "✓ 记忆已更新（长期记忆提取完成）".to_string(),
+                    std::time::Instant::now(),
+                ));
             }
         }
         Some(crate::app::SlashAction::Theme) => {

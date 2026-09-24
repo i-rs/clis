@@ -39,7 +39,11 @@ pub fn run_config() -> anyhow::Result<()> {
                 break;
             }
             Err(_) => {
-                println!("  Invalid provider '{}'. Valid options: {}", trimmed, provider_names.join("/"));
+                println!(
+                    "  Invalid provider '{}'. Valid options: {}",
+                    trimmed,
+                    provider_names.join("/")
+                );
             }
         }
     }
@@ -197,16 +201,14 @@ pub fn run_config() -> anyhow::Result<()> {
                     let home = dirs::home_dir()
                         .map(|p| p.to_string_lossy().to_string())
                         .unwrap_or_default();
-                    cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
-                        sp.replace('~', &home),
-                    ));
+                    cfg.storage.sqlite_path =
+                        Some(std::path::PathBuf::from(sp.replace('~', &home)));
                 } else {
                     let home = dirs::home_dir()
                         .map(|p| p.to_string_lossy().to_string())
                         .unwrap_or_default();
-                    cfg.storage.sqlite_path = Some(std::path::PathBuf::from(
-                        sqlite_default.replace('~', &home),
-                    ));
+                    cfg.storage.sqlite_path =
+                        Some(std::path::PathBuf::from(sqlite_default.replace('~', &home)));
                 }
             }
             "mysql" => {

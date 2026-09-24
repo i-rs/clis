@@ -6,9 +6,7 @@ use axum::{
 use serde_json::Value;
 
 /// GET /api/settings — List all app settings.
-pub async fn list_settings(
-    State(state): State<AppState>,
-) -> Json<super::ApiResponse<Vec<Value>>> {
+pub async fn list_settings(State(state): State<AppState>) -> Json<super::ApiResponse<Vec<Value>>> {
     let core = state.core.read().await;
     match core.config_store.app_settings.load_all().await {
         Ok(rows) => {
@@ -92,7 +90,12 @@ pub async fn delete_setting(
     // Delete is done by setting an empty value pattern.
     // ConfigStore doesn't have a delete for settings, so we use delete on the repo.
     // Actually the trait only has get/set/load_all. We'll set to null as a workaround.
-    match core.config_store.app_settings.set(&key, &serde_json::Value::Null).await {
+    match core
+        .config_store
+        .app_settings
+        .set(&key, &serde_json::Value::Null)
+        .await
+    {
         Ok(_) => super::ApiResponse::ok(serde_json::json!({
             "key": key,
             "status": "deleted",

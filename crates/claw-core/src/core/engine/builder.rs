@@ -114,7 +114,10 @@ pub(crate) fn build_system_prompt(
                 continue;
             }
         }
-        let c = template[i..].chars().next().expect("char at position i is in bounds because i < template.len()");
+        let c = template[i..]
+            .chars()
+            .next()
+            .expect("char at position i is in bounds because i < template.len()");
         result.push(c);
         i += c.len_utf8();
     }

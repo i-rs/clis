@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use i_rs_claw_core::storage::ClawStorage;
 use i_rs_claw_core::memory::CrossSessionMemory;
+use i_rs_claw_core::storage::ClawStorage;
+use std::sync::Arc;
 
 pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     let agent = "memory-test-agent";

@@ -1,5 +1,6 @@
 pub(super) fn check_reminders() -> Option<String> {
-    let output = i_rs_claw_core::utils::run_cli_command("i-rs", &["remind", "list", "--json"], 10).ok()?;
+    let output =
+        i_rs_claw_core::utils::run_cli_command("i-rs", &["remind", "list", "--json"], 10).ok()?;
 
     let parsed: serde_json::Value = serde_json::from_str(&output).ok()?;
 

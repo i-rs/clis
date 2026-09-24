@@ -97,7 +97,9 @@ impl i_rs_core::IrsTool for KvStore {
     type Row = KvRow;
     type ListItem = ListItem;
 
-    fn tool_name() -> &'static str { "kv" }
+    fn tool_name() -> &'static str {
+        "kv"
+    }
     fn description() -> &'static str {
         "Key-value store — persist arbitrary key-value pairs"
     }
@@ -108,11 +110,21 @@ impl i_rs_core::IrsTool for KvStore {
         &["search", "stats", "copy", "rename"]
     }
 
-    fn entries(&self) -> &BTreeMap<String, KvEntry> { &self.entries }
-    fn entries_mut(&mut self) -> &mut BTreeMap<String, KvEntry> { &mut self.entries }
-    fn entity_id(e: &KvEntry) -> String { e.key.clone() }
-    fn to_row(e: &KvEntry) -> KvRow { KvRow::from_entry(e) }
-    fn to_list_item(e: &KvEntry) -> ListItem { ListItem::from(e) }
+    fn entries(&self) -> &BTreeMap<String, KvEntry> {
+        &self.entries
+    }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, KvEntry> {
+        &mut self.entries
+    }
+    fn entity_id(e: &KvEntry) -> String {
+        e.key.clone()
+    }
+    fn to_row(e: &KvEntry) -> KvRow {
+        KvRow::from_entry(e)
+    }
+    fn to_list_item(e: &KvEntry) -> ListItem {
+        ListItem::from(e)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -150,20 +150,37 @@ impl i_rs_core::IrsTool for SleepStore {
     type Row = SleepRow;
     type ListItem = ListItem;
 
-    fn tool_name() -> &'static str { "sleep" }
+    fn tool_name() -> &'static str {
+        "sleep"
+    }
     fn description() -> &'static str {
         "Sleep tracking — log bedtime, wake time, and quality"
     }
-    fn label() -> &'static str { "records" }
+    fn label() -> &'static str {
+        "records"
+    }
     fn capabilities() -> Vec<i_rs_core::ToolCapability> {
-        vec![i_rs_core::ToolCapability::DateRange, i_rs_core::ToolCapability::Stats]
+        vec![
+            i_rs_core::ToolCapability::DateRange,
+            i_rs_core::ToolCapability::Stats,
+        ]
     }
 
-    fn entries(&self) -> &BTreeMap<String, SleepRecord> { &self.entries }
-    fn entries_mut(&mut self) -> &mut BTreeMap<String, SleepRecord> { &mut self.entries }
-    fn entity_id(r: &SleepRecord) -> String { r.id.clone() }
-    fn to_row(r: &SleepRecord) -> SleepRow { SleepRow::from_record(r) }
-    fn to_list_item(r: &SleepRecord) -> ListItem { ListItem::from(r) }
+    fn entries(&self) -> &BTreeMap<String, SleepRecord> {
+        &self.entries
+    }
+    fn entries_mut(&mut self) -> &mut BTreeMap<String, SleepRecord> {
+        &mut self.entries
+    }
+    fn entity_id(r: &SleepRecord) -> String {
+        r.id.clone()
+    }
+    fn to_row(r: &SleepRecord) -> SleepRow {
+        SleepRow::from_record(r)
+    }
+    fn to_list_item(r: &SleepRecord) -> ListItem {
+        ListItem::from(r)
+    }
 }
 
 impl SleepStats {

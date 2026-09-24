@@ -1,9 +1,5 @@
 use crate::server::AppState;
-use axum::{
-    Json,
-    extract::State,
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use i_rs_claw_core::providers::ProviderKind;
 use serde_json::Value;
 

@@ -1,9 +1,11 @@
 pub use i_rs_claw_core::app::*;
 
+use crate::ui::chat_api::{
+    ClickRegionRegistry, ComponentCell, ComponentOp, Scroller, build_component_for,
+};
+use chrono::NaiveDateTime;
 use i_rs_claw_core::config::Config;
 use i_rs_claw_core::stats::TodaySummary;
-use crate::ui::chat_api::{ClickRegionRegistry, ComponentCell, ComponentOp, Scroller, build_component_for};
-use chrono::NaiveDateTime;
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -461,7 +463,8 @@ impl App {
     /// the `components` Vec. Must be called right after pushing the
     /// message into `self.chat.messages`.
     pub fn push_component_for(&mut self, msg: &Message) {
-        self.chat.components
+        self.chat
+            .components
             .push(Rc::new(RefCell::new(build_component_for(msg))) as ComponentCell);
     }
 
@@ -511,7 +514,8 @@ impl App {
         };
         self.push_component_for(&msg);
         self.chat.messages.push(msg);
-        self.chat.message_timestamps
+        self.chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
         self.llm.state = AppState::Processing;
         // Snap to the live tail: render reads `stick_to_bottom` and
@@ -709,7 +713,8 @@ impl App {
             };
             self.push_component_for(&msg);
             self.chat.messages.push(msg);
-            self.chat.message_timestamps
+            self.chat
+                .message_timestamps
                 .push(chrono::Local::now().naive_local());
             self.mark_dirty();
         } else if let Some(Message::Assistant { reasoning, .. }) = self.chat.messages.last_mut()
@@ -727,7 +732,10 @@ impl App {
     }
 
     pub fn append_assistant_text(&mut self, text: &str) {
-        let last_is_assistant = matches!(self.chat.messages.last_mut(), Some(Message::Assistant { .. }));
+        let last_is_assistant = matches!(
+            self.chat.messages.last_mut(),
+            Some(Message::Assistant { .. })
+        );
         if !last_is_assistant {
             self.start_assistant_message();
         }
@@ -776,7 +784,8 @@ impl App {
         };
         self.push_component_for(&msg);
         self.chat.messages.push(msg);
-        self.chat.message_timestamps
+        self.chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
         self.chat.tool_call_count += 1;
         self.mark_dirty();
@@ -815,7 +824,8 @@ impl App {
         };
         self.push_component_for(&msg);
         self.chat.messages.push(msg);
-        self.chat.message_timestamps
+        self.chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
         self.chat.api_messages = None;
         self.llm.state = AppState::Idle;
@@ -923,7 +933,9 @@ impl App {
             self.chat.message_timestamps.push(now);
         }
         if self.chat.message_timestamps.len() > self.chat.messages.len() {
-            self.chat.message_timestamps.truncate(self.chat.messages.len());
+            self.chat
+                .message_timestamps
+                .truncate(self.chat.messages.len());
         }
     }
 }
@@ -956,7 +968,10 @@ mod tests {
         assert_eq!(app.chat.messages.len(), 1);
         assert!(matches!(app.chat.messages[0], Message::User { ref text } if text == "hello"));
         assert!(app.is_processing());
-        assert!(app.scroll.stick_to_bottom, "sending snaps viewport to live tail");
+        assert!(
+            app.scroll.stick_to_bottom,
+            "sending snaps viewport to live tail"
+        );
     }
 
     #[test]
@@ -1019,7 +1034,9 @@ mod tests {
         app.append_assistant_text("thinking out loud");
         app.add_tool_call("i_rs", "{}", "{}", 1, 1);
         // Simulate the LLM streaming reasoning for the next round.
-        app.chat.current_reasoning.push_str("between-rounds thought");
+        app.chat
+            .current_reasoning
+            .push_str("between-rounds thought");
         app.start_assistant_message();
         if let Message::Assistant {
             text, reasoning, ..
@@ -1084,7 +1101,9 @@ mod tests {
         let mut app = App::new(test_config());
         app.start_assistant_message();
         assert_eq!(app.chat.messages.len(), 1);
-        assert!(matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text.is_empty()));
+        assert!(
+            matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text.is_empty())
+        );
 
         app.append_assistant_text("hello ");
         app.append_assistant_text("world");
@@ -1098,7 +1117,9 @@ mod tests {
         let mut app = App::new(test_config());
         app.append_assistant_text("direct");
         assert_eq!(app.chat.messages.len(), 1);
-        assert!(matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text == "direct"));
+        assert!(
+            matches!(app.chat.messages[0], Message::Assistant { ref text, .. } if text == "direct")
+        );
     }
 
     #[test]
@@ -1389,7 +1410,10 @@ mod tests {
         app.scroll_up();
         let pinned = app.scroll.scroll_lines;
         app.add_tool_call("weight2", "{}", "ok", 0, 1);
-        assert_eq!(app.scroll.scroll_lines, pinned, "back-scroll position preserved");
+        assert_eq!(
+            app.scroll.scroll_lines, pinned,
+            "back-scroll position preserved"
+        );
     }
 
     #[test]
@@ -1500,9 +1524,11 @@ mod tests {
         app.chat.messages.push(Message::User {
             text: "a".to_string(),
         });
-        app.chat.message_timestamps
+        app.chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
-        app.chat.message_timestamps
+        app.chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
         app.sync_message_timestamps();
         assert_eq!(app.chat.message_timestamps.len(), 1);
@@ -1677,7 +1703,7 @@ mod tests {
             id: "1".to_string(),
             title: "Weight Tracking".to_string(),
             agent_id: "default".to_string(),
-                user_id: "default".to_string(),
+            user_id: "default".to_string(),
             state: i_rs_claw_core::session::SessionState::Active,
             created_at: 0,
             updated_at: 0,

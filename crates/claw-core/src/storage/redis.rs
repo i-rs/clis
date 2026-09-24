@@ -108,10 +108,10 @@ impl SessionRepo for RedisSessionStore {
                 .arg("__json")
                 .query_async(&mut conn)
                 .await?;
-            if let Some(j) = json {
-                if let Ok(meta) = serde_json::from_str::<crate::session::SessionMeta>(&j) {
-                    sessions.push(meta);
-                }
+            if let Some(j) = json
+                && let Ok(meta) = serde_json::from_str::<crate::session::SessionMeta>(&j)
+            {
+                sessions.push(meta);
             }
         }
         Ok(sessions)
@@ -573,10 +573,10 @@ impl StatsRepo for RedisStatsStore {
                 .arg(id)
                 .query_async(&mut conn)
                 .await?;
-            if let Some(s) = val {
-                if let Ok(r) = serde_json::from_str::<crate::stats::TokenRecord>(&s) {
-                    records.push(r);
-                }
+            if let Some(s) = val
+                && let Ok(r) = serde_json::from_str::<crate::stats::TokenRecord>(&s)
+            {
+                records.push(r);
             }
         }
         records.sort_by_key(|r| r.timestamp);
@@ -860,10 +860,10 @@ impl AgentConfigRepo for RedisAgentConfigStore {
                 .arg("__json")
                 .query_async(&mut conn)
                 .await?;
-            if let Some(j) = json {
-                if let Ok(row) = serde_json::from_str::<AgentConfigRow>(&j) {
-                    rows.push(row);
-                }
+            if let Some(j) = json
+                && let Ok(row) = serde_json::from_str::<AgentConfigRow>(&j)
+            {
+                rows.push(row);
             }
         }
         Ok(rows)
@@ -927,10 +927,10 @@ impl ProviderConfigRepo for RedisProviderConfigStore {
                 .arg("__json")
                 .query_async(&mut conn)
                 .await?;
-            if let Some(j) = json {
-                if let Ok(row) = serde_json::from_str::<ProviderConfigRow>(&j) {
-                    rows.push(row);
-                }
+            if let Some(j) = json
+                && let Ok(row) = serde_json::from_str::<ProviderConfigRow>(&j)
+            {
+                rows.push(row);
             }
         }
         Ok(rows)
@@ -994,10 +994,10 @@ impl DashboardUserRepo for RedisDashboardUserStore {
                 .arg("__json")
                 .query_async(&mut conn)
                 .await?;
-            if let Some(j) = json {
-                if let Ok(row) = serde_json::from_str::<DashboardUserRow>(&j) {
-                    rows.push(row);
-                }
+            if let Some(j) = json
+                && let Ok(row) = serde_json::from_str::<DashboardUserRow>(&j)
+            {
+                rows.push(row);
             }
         }
         Ok(rows)
@@ -1063,10 +1063,12 @@ impl DashboardUserRepo for RedisDashboardUserStore {
             .arg(DASHBOARD_USERS_INDEX_KEY)
             .arg(user_id)
             .ignore();
-        if let Some(j) = json {
-            if let Ok(row) = serde_json::from_str::<DashboardUserRow>(&j) {
-                pipe.cmd("DEL").arg(token_hash_key(&row.token_hash)).ignore();
-            }
+        if let Some(j) = json
+            && let Ok(row) = serde_json::from_str::<DashboardUserRow>(&j)
+        {
+            pipe.cmd("DEL")
+                .arg(token_hash_key(&row.token_hash))
+                .ignore();
         }
         pipe.query_async::<()>(&mut conn).await?;
         Ok(())
@@ -1108,10 +1110,10 @@ impl McpServerConfigRepo for RedisMcpServerConfigStore {
                 .arg("__json")
                 .query_async(&mut conn)
                 .await?;
-            if let Some(j) = json {
-                if let Ok(row) = serde_json::from_str::<McpServerConfigRow>(&j) {
-                    rows.push(row);
-                }
+            if let Some(j) = json
+                && let Ok(row) = serde_json::from_str::<McpServerConfigRow>(&j)
+            {
+                rows.push(row);
             }
         }
         Ok(rows)
@@ -1130,7 +1132,7 @@ impl McpServerConfigRepo for RedisMcpServerConfigStore {
             .ignore()
             .cmd("SADD")
             .arg(mcp_cfg_index_key(&row.user_id))
-            .arg(format!("{agent_id}:{}", &row.name))
+            .arg(format!("{agent_id}:{}", row.name))
             .ignore()
             .query_async::<()>(&mut conn)
             .await?;

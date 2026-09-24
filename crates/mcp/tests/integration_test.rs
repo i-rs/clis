@@ -105,7 +105,7 @@ async fn test_initialize_success() {
 
 #[tokio::test]
 async fn test_tools_list_count() {
-    let mut child = tokio::process::Command::new(&binary_path())
+    let mut child = tokio::process::Command::new(binary_path())
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
@@ -222,7 +222,7 @@ async fn test_tools_call_weight_list() {
 
 #[tokio::test]
 async fn test_tools_call_weight_add_and_delete() {
-    let mut child = tokio::process::Command::new(&binary_path())
+    let mut child = tokio::process::Command::new(binary_path())
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())

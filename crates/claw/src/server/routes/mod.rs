@@ -75,7 +75,7 @@ mod tests {
     use crate::server::AppState;
     use axum::extract::{Path, State};
 
-use crate::server::UserId;
+    use crate::server::UserId;
 
     /// Creates a test AppState.
     fn new_test_state() -> AppState {
@@ -168,7 +168,8 @@ use crate::server::UserId;
                 State(state),
                 test_uid(),
                 Some(Json(serde_json::json!({"agent_id": "default"}))),
-            ).await;
+            )
+            .await;
             assert!(result.success, "create_session should succeed");
             let data = result.0.data.unwrap();
             assert!(
@@ -196,11 +197,15 @@ use crate::server::UserId;
                 State(state.clone()),
                 test_uid(),
                 Some(Json(serde_json::json!({"agent_id": "default"}))),
-            ).await;
+            )
+            .await;
             let result = list_sessions(State(state), test_uid()).await;
             assert!(result.success);
             let sessions = result.0.data.unwrap();
-            assert!(!sessions.is_empty(), "list should not be empty after create");
+            assert!(
+                !sessions.is_empty(),
+                "list should not be empty after create"
+            );
             assert_eq!(sessions[0]["agent_id"], "default");
         });
     }
@@ -257,30 +262,41 @@ use crate::server::UserId;
 
     #[test]
     fn test_update_config_invalid_provider_returns_400() {
-        run_state_test("test_update_config_invalid_provider_returns_400", |state| async move {
-            let (status, Json(body)) = update_config(
-                State(state),
-                Json(serde_json::json!({"provider": "not-a-real-provider"})),
-            ).await;
-            assert_eq!(status, axum::http::StatusCode::BAD_REQUEST);
-            assert!(!body.success, "should report failure");
-            assert!(
-                body.error.as_ref().map(|e| e.contains("provider")).unwrap_or(false),
-                "error should mention 'provider'; got {:?}",
-                body.error
-            );
-        });
+        run_state_test(
+            "test_update_config_invalid_provider_returns_400",
+            |state| async move {
+                let (status, Json(body)) = update_config(
+                    State(state),
+                    Json(serde_json::json!({"provider": "not-a-real-provider"})),
+                )
+                .await;
+                assert_eq!(status, axum::http::StatusCode::BAD_REQUEST);
+                assert!(!body.success, "should report failure");
+                assert!(
+                    body.error
+                        .as_ref()
+                        .map(|e| e.contains("provider"))
+                        .unwrap_or(false),
+                    "error should mention 'provider'; got {:?}",
+                    body.error
+                );
+            },
+        );
     }
 
     #[test]
     fn test_update_config_valid_provider_returns_200() {
-        run_state_test("test_update_config_valid_provider_returns_200", |state| async move {
-            let (status, Json(body)) = update_config(
-                State(state),
-                Json(serde_json::json!({"provider": "anthropic"})),
-            ).await;
-            assert_eq!(status, axum::http::StatusCode::OK);
-            assert!(body.success, "should report success");
-        });
+        run_state_test(
+            "test_update_config_valid_provider_returns_200",
+            |state| async move {
+                let (status, Json(body)) = update_config(
+                    State(state),
+                    Json(serde_json::json!({"provider": "anthropic"})),
+                )
+                .await;
+                assert_eq!(status, axum::http::StatusCode::OK);
+                assert!(body.success, "should report success");
+            },
+        );
     }
 }

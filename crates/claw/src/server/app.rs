@@ -1,7 +1,7 @@
+use owo_colors::OwoColorize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use owo_colors::OwoColorize;
 
 use crate::server::rate_limit::UserConcurrencyLimiter;
 
@@ -65,53 +65,175 @@ pub async fn run(mut core: i_rs_claw_core::core::AppCore, host: String, port: u1
     // other clients can access the API. The auth_token still gates access.
     let cors = tower_http::cors::CorsLayer::permissive();
 
-    let public_routes =
-        axum::Router::new().route("/api/health", axum::routing::get(crate::server::routes::health));
+    let public_routes = axum::Router::new().route(
+        "/api/health",
+        axum::routing::get(crate::server::routes::health),
+    );
 
     let api_routes = axum::Router::new()
-        .route("/api/config", axum::routing::get(crate::server::routes::get_config).patch(crate::server::routes::update_config))
-        .route("/api/chat", axum::routing::post(crate::server::routes::chat))
-        .route("/api/chat/stream/{session_id}", axum::routing::get(crate::server::routes::chat_stream))
-        .route("/api/chat/stream/{session_id}/resume", axum::routing::get(crate::server::routes::chat_stream_resume))
-        .route("/api/sessions/current", axum::routing::get(crate::server::routes::get_current_session))
-        .route("/api/sessions", axum::routing::get(crate::server::routes::list_sessions).post(crate::server::routes::create_session))
-        .route("/api/sessions/{id}", axum::routing::get(crate::server::routes::get_session).delete(crate::server::routes::delete_session))
-        .route("/api/sessions/{id}/switch", axum::routing::post(crate::server::routes::switch_session))
-        .route("/api/sessions/{id}/feedback", axum::routing::post(crate::server::routes::post_session_feedback))
-        .route("/api/tools", axum::routing::get(crate::server::routes::list_tools))
-        .route("/api/images/{filename}", axum::routing::get(crate::server::routes::serve_image))
-        .route("/api/plugins", axum::routing::get(crate::server::routes::list_plugins))
-        .route("/api/skills", axum::routing::get(crate::server::routes::list_skills))
-        .route("/api/guardrails/check", axum::routing::post(crate::server::routes::check_guardrails))
-        .route("/api/checkpoints", axum::routing::get(crate::server::routes::list_checkpoints))
-        .route("/api/checkpoints/{id}", axum::routing::get(crate::server::routes::get_checkpoint_detail))
-        .route("/api/checkpoints/restore", axum::routing::post(crate::server::routes::restore_checkpoint))
-        .route("/api/memory/layered", axum::routing::get(crate::server::routes::get_layered_memory).post(crate::server::routes::clear_layered_memory))
-        .route("/api/memory/search", axum::routing::get(crate::server::routes::search_layered_memory))
-        .route("/api/evals", axum::routing::get(crate::server::routes::run_evals))
-        .route("/api/stats", axum::routing::get(crate::server::routes::get_stats))
-        .route("/api/agents", axum::routing::get(crate::server::routes::get_agents).post(crate::server::routes::create_agent))
-        .route("/api/agents/{id}", axum::routing::get(crate::server::routes::get_agent_detail).put(crate::server::routes::update_agent).delete(crate::server::routes::delete_agent))
-        .route("/api/providers", axum::routing::get(crate::server::routes::list_providers).post(crate::server::routes::create_provider))
-        .route("/api/providers/{name}", axum::routing::put(crate::server::routes::update_provider).delete(crate::server::routes::delete_provider))
-        .route("/api/users", axum::routing::get(crate::server::routes::list_users).post(crate::server::routes::create_user))
-        .route("/api/users/{id}", axum::routing::delete(crate::server::routes::delete_user))
-        .route("/api/mcp", axum::routing::get(crate::server::routes::list_mcp_configs).post(crate::server::routes::create_mcp_config))
-        .route("/api/mcp/{name}", axum::routing::put(crate::server::routes::update_mcp_config).delete(crate::server::routes::delete_mcp_config))
-        .route("/api/settings", axum::routing::get(crate::server::routes::list_settings).put(crate::server::routes::set_setting))
-        .route("/api/settings/{key}", axum::routing::get(crate::server::routes::get_setting).put(crate::server::routes::set_setting_by_key).delete(crate::server::routes::delete_setting))
+        .route(
+            "/api/config",
+            axum::routing::get(crate::server::routes::get_config)
+                .patch(crate::server::routes::update_config),
+        )
+        .route(
+            "/api/chat",
+            axum::routing::post(crate::server::routes::chat),
+        )
+        .route(
+            "/api/chat/stream/{session_id}",
+            axum::routing::get(crate::server::routes::chat_stream),
+        )
+        .route(
+            "/api/chat/stream/{session_id}/resume",
+            axum::routing::get(crate::server::routes::chat_stream_resume),
+        )
+        .route(
+            "/api/sessions/current",
+            axum::routing::get(crate::server::routes::get_current_session),
+        )
+        .route(
+            "/api/sessions",
+            axum::routing::get(crate::server::routes::list_sessions)
+                .post(crate::server::routes::create_session),
+        )
+        .route(
+            "/api/sessions/{id}",
+            axum::routing::get(crate::server::routes::get_session)
+                .delete(crate::server::routes::delete_session),
+        )
+        .route(
+            "/api/sessions/{id}/switch",
+            axum::routing::post(crate::server::routes::switch_session),
+        )
+        .route(
+            "/api/sessions/{id}/feedback",
+            axum::routing::post(crate::server::routes::post_session_feedback),
+        )
+        .route(
+            "/api/tools",
+            axum::routing::get(crate::server::routes::list_tools),
+        )
+        .route(
+            "/api/images/{filename}",
+            axum::routing::get(crate::server::routes::serve_image),
+        )
+        .route(
+            "/api/plugins",
+            axum::routing::get(crate::server::routes::list_plugins),
+        )
+        .route(
+            "/api/skills",
+            axum::routing::get(crate::server::routes::list_skills),
+        )
+        .route(
+            "/api/guardrails/check",
+            axum::routing::post(crate::server::routes::check_guardrails),
+        )
+        .route(
+            "/api/checkpoints",
+            axum::routing::get(crate::server::routes::list_checkpoints),
+        )
+        .route(
+            "/api/checkpoints/{id}",
+            axum::routing::get(crate::server::routes::get_checkpoint_detail),
+        )
+        .route(
+            "/api/checkpoints/restore",
+            axum::routing::post(crate::server::routes::restore_checkpoint),
+        )
+        .route(
+            "/api/memory/layered",
+            axum::routing::get(crate::server::routes::get_layered_memory)
+                .post(crate::server::routes::clear_layered_memory),
+        )
+        .route(
+            "/api/memory/search",
+            axum::routing::get(crate::server::routes::search_layered_memory),
+        )
+        .route(
+            "/api/evals",
+            axum::routing::get(crate::server::routes::run_evals),
+        )
+        .route(
+            "/api/stats",
+            axum::routing::get(crate::server::routes::get_stats),
+        )
+        .route(
+            "/api/agents",
+            axum::routing::get(crate::server::routes::get_agents)
+                .post(crate::server::routes::create_agent),
+        )
+        .route(
+            "/api/agents/{id}",
+            axum::routing::get(crate::server::routes::get_agent_detail)
+                .put(crate::server::routes::update_agent)
+                .delete(crate::server::routes::delete_agent),
+        )
+        .route(
+            "/api/providers",
+            axum::routing::get(crate::server::routes::list_providers)
+                .post(crate::server::routes::create_provider),
+        )
+        .route(
+            "/api/providers/{name}",
+            axum::routing::put(crate::server::routes::update_provider)
+                .delete(crate::server::routes::delete_provider),
+        )
+        .route(
+            "/api/users",
+            axum::routing::get(crate::server::routes::list_users)
+                .post(crate::server::routes::create_user),
+        )
+        .route(
+            "/api/users/{id}",
+            axum::routing::delete(crate::server::routes::delete_user),
+        )
+        .route(
+            "/api/mcp",
+            axum::routing::get(crate::server::routes::list_mcp_configs)
+                .post(crate::server::routes::create_mcp_config),
+        )
+        .route(
+            "/api/mcp/{name}",
+            axum::routing::put(crate::server::routes::update_mcp_config)
+                .delete(crate::server::routes::delete_mcp_config),
+        )
+        .route(
+            "/api/settings",
+            axum::routing::get(crate::server::routes::list_settings)
+                .put(crate::server::routes::set_setting),
+        )
+        .route(
+            "/api/settings/{key}",
+            axum::routing::get(crate::server::routes::get_setting)
+                .put(crate::server::routes::set_setting_by_key)
+                .delete(crate::server::routes::delete_setting),
+        )
         .layer(auth_middleware);
 
     let app = if api_only {
-        public_routes.merge(api_routes).layer(cors).with_state(state)
+        public_routes
+            .merge(api_routes)
+            .layer(cors)
+            .with_state(state)
     } else {
         let static_routes = axum::Router::new()
             .route("/", axum::routing::get(crate::server::assets::serve_root))
-            .route("/{*path}", axum::routing::get(crate::server::assets::serve_assets));
-        public_routes.merge(api_routes).merge(static_routes).layer(cors).with_state(state)
+            .route(
+                "/{*path}",
+                axum::routing::get(crate::server::assets::serve_assets),
+            );
+        public_routes
+            .merge(api_routes)
+            .merge(static_routes)
+            .layer(cors)
+            .with_state(state)
     };
 
-    let addr: SocketAddr = format!("{}:{}", host, port).parse().expect("Invalid address");
+    let addr: SocketAddr = format!("{}:{}", host, port)
+        .parse()
+        .expect("Invalid address");
 
     if host == "0.0.0.0" || host == "::" {
         tracing::warn!(
@@ -121,14 +243,33 @@ pub async fn run(mut core: i_rs_claw_core::core::AppCore, host: String, port: u1
         );
     }
 
-    println!("  {}  {}  http://{}/api/health", "📡".bright_blue(), "API".bold().bright_cyan(), addr);
-    println!("  {}  {} http://{}/api/chat", "💬".bright_blue(), "Chat".bold().bright_cyan(), addr);
+    println!(
+        "  {}  {}  http://{}/api/health",
+        "📡".bright_blue(),
+        "API".bold().bright_cyan(),
+        addr
+    );
+    println!(
+        "  {}  {} http://{}/api/chat",
+        "💬".bright_blue(),
+        "Chat".bold().bright_cyan(),
+        addr
+    );
     if !api_only {
-        println!("  {}  {}   {}", "🔗".bright_blue(), "Dashboard".bold().bright_cyan(), format!("http://{}#{}", addr, auth_token).underline().bright_blue());
+        println!(
+            "  {}  {}   {}",
+            "🔗".bright_blue(),
+            "Dashboard".bold().bright_cyan(),
+            format!("http://{}#{}", addr, auth_token)
+                .underline()
+                .bright_blue()
+        );
     }
     println!();
 
-    let listener = tokio::net::TcpListener::bind(addr).await.expect("Failed to bind serve address");
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("Failed to bind serve address");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
@@ -170,10 +311,11 @@ fn ensure_config_permissions() {
         let Some(home) = dirs::home_dir() else { return };
         let config_path = home.join(".i-rs").join("claw").join("config.toml");
         if config_path.exists()
-            && let Ok(mut perms) = std::fs::metadata(&config_path).map(|m| m.permissions()) {
-                perms.set_mode(0o600);
-                let _ = std::fs::set_permissions(&config_path, perms);
-            }
+            && let Ok(mut perms) = std::fs::metadata(&config_path).map(|m| m.permissions())
+        {
+            perms.set_mode(0o600);
+            let _ = std::fs::set_permissions(&config_path, perms);
+        }
     }
 }
 
@@ -203,7 +345,10 @@ mod tests {
         perms.set_mode(0o600);
         std::fs::set_permissions(&path, perms).expect("set_permissions");
 
-        let mode = std::fs::metadata(&path).expect("metadata").permissions().mode();
+        let mode = std::fs::metadata(&path)
+            .expect("metadata")
+            .permissions()
+            .mode();
         let actual = mode & 0o777;
         assert_eq!(
             actual, 0o600,

@@ -3,40 +3,6 @@ use crate::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::{Map, Value, json};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rename_name_and_schema() {
-        let tool = RenameTool;
-        assert_eq!(tool.name(), "rename");
-        let params = &tool.schema()["function"]["parameters"];
-        assert!(params["properties"]["from"].is_object());
-        assert!(params["properties"]["to"].is_object());
-        assert!(
-            params["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("from"))
-        );
-        assert!(
-            params["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("to"))
-        );
-    }
-
-    #[tokio::test]
-    async fn test_rename_missing_args_rejected() {
-        let tool = RenameTool;
-        let args = Map::new();
-        let err = tool.call(&args).await.unwrap_err().to_string();
-        assert!(err.contains("from required") || err.contains("to required"));
-    }
-}
-
 pub struct RenameTool;
 
 #[async_trait]
@@ -89,5 +55,39 @@ impl Tool for RenameTool {
 
         tokio::fs::rename(&safe_from, &safe_to).await?;
         Ok(format!("Renamed {} → {}", from, to))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rename_name_and_schema() {
+        let tool = RenameTool;
+        assert_eq!(tool.name(), "rename");
+        let params = &tool.schema()["function"]["parameters"];
+        assert!(params["properties"]["from"].is_object());
+        assert!(params["properties"]["to"].is_object());
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("from"))
+        );
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("to"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rename_missing_args_rejected() {
+        let tool = RenameTool;
+        let args = Map::new();
+        let err = tool.call(&args).await.unwrap_err().to_string();
+        assert!(err.contains("from required") || err.contains("to required"));
     }
 }

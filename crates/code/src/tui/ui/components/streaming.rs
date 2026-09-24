@@ -38,7 +38,11 @@ impl StreamingBlock {
             content_len: s.content.len(),
             reasoning: s.reasoning.clone(),
             has_tool: s.current_tool.is_some(),
-            tool_name: s.current_tool.as_ref().map(|t| t.name.clone()).unwrap_or_default(),
+            tool_name: s
+                .current_tool
+                .as_ref()
+                .map(|t| t.name.clone())
+                .unwrap_or_default(),
             reasoning_collapsed: s.reasoning_collapsed,
             content_cache: RefCell::new(content_cache),
             height_cache: Cell::new(None),
@@ -56,9 +60,15 @@ impl StreamingBlock {
 
 impl super::MessageComponent for StreamingBlock {
     fn height(&self, width: u16) -> u16 {
-        if let Some((cw, ch)) = self.height_cache.get() && cw == width { return ch; }
+        if let Some((cw, ch)) = self.height_cache.get()
+            && cw == width
+        {
+            return ch;
+        }
         let mut h = 2u16; // top border + header
-        if self.has_tool { h += 1; }
+        if self.has_tool {
+            h += 1;
+        }
         if !self.reasoning.is_empty() {
             h += 1; // toggle row
             if !self.reasoning_collapsed {
@@ -79,11 +89,23 @@ impl super::MessageComponent for StreamingBlock {
         // Top border
         Paragraph::new(rounded_top(area.width, c_border()))
             .style(bg_style)
-            .render(Rect { y: area.y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y: area.y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
         // Header
-        Paragraph::new(header)
-            .style(bg_style)
-            .render(Rect { y: area.y + 1, height: 1, ..area }, buf);
+        Paragraph::new(header).style(bg_style).render(
+            Rect {
+                y: area.y + 1,
+                height: 1,
+                ..area
+            },
+            buf,
+        );
 
         let mut y = area.y + 2;
         let body_end = area.y + area.height;
@@ -94,14 +116,23 @@ impl super::MessageComponent for StreamingBlock {
                 Span::raw(" ".repeat(BLOCK_INDENT)),
                 Span::styled("● ", Style::default().fg(c_accent())),
                 Span::styled(
-                    format!("{} {} running...", tool_glyph(&self.tool_name), self.tool_name),
+                    format!(
+                        "{} {} running...",
+                        tool_glyph(&self.tool_name),
+                        self.tool_name
+                    ),
                     Style::default().fg(c_accent()).add_modifier(Modifier::BOLD),
                 ),
             ];
             if y < body_end {
-                Paragraph::new(Line::from(tc_spans))
-                    .style(bg_style)
-                    .render(Rect { y, height: 1, ..area }, buf);
+                Paragraph::new(Line::from(tc_spans)).style(bg_style).render(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..area
+                    },
+                    buf,
+                );
                 y += 1;
             }
         }
@@ -116,9 +147,14 @@ impl super::MessageComponent for StreamingBlock {
                         Span::raw(" "),
                         Span::styled("思考过程...", Style::default().fg(c_dim())),
                     ];
-                    Paragraph::new(Line::from(spans))
-                        .style(bg_style)
-                        .render(Rect { y, height: 1, ..area }, buf);
+                    Paragraph::new(Line::from(spans)).style(bg_style).render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                     y += 1;
                 }
             } else {
@@ -127,26 +163,41 @@ impl super::MessageComponent for StreamingBlock {
                         Span::raw(" ".repeat(BLOCK_INDENT)),
                         Span::styled("🧠", Style::default().fg(c_yellow())),
                         Span::raw(" "),
-                        Span::styled("思考过程", Style::default().fg(c_yellow()).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            "思考过程",
+                            Style::default().fg(c_yellow()).add_modifier(Modifier::BOLD),
+                        ),
                     ];
-                    Paragraph::new(Line::from(spans))
-                        .style(bg_style)
-                        .render(Rect { y, height: 1, ..area }, buf);
+                    Paragraph::new(Line::from(spans)).style(bg_style).render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                     y += 1;
                 }
                 // ─── Render actual reasoning lines ───────────────
                 let reason_style = Style::default().fg(c_dim()).add_modifier(Modifier::ITALIC);
                 for rl in self.reasoning.lines() {
-                    if y >= body_end { break; }
+                    if y >= body_end {
+                        break;
+                    }
                     let indent = BLOCK_INDENT + 2;
                     let spans = vec![
                         Span::raw(" ".repeat(indent)),
                         Span::styled("┊ ", Style::default().fg(c_muted())),
                         Span::styled(rl.to_string(), reason_style),
                     ];
-                    Paragraph::new(Line::from(spans))
-                        .style(bg_style)
-                        .render(Rect { y, height: 1, ..area }, buf);
+                    Paragraph::new(Line::from(spans)).style(bg_style).render(
+                        Rect {
+                            y,
+                            height: 1,
+                            ..area
+                        },
+                        buf,
+                    );
                     y += 1;
                 }
             }
@@ -156,20 +207,33 @@ impl super::MessageComponent for StreamingBlock {
         let cache = self.content_cache.borrow();
         let lines = &cache.1;
         for line in lines {
-            if y >= body_end { break; }
+            if y >= body_end {
+                break;
+            }
             let mut spans: Vec<Span<'static>> = Vec::with_capacity(line.spans.len() + 2);
             spans.push(Span::raw(" ".repeat(BLOCK_INDENT)));
             for s in &line.spans {
                 spans.push(Span::styled(s.content.clone(), s.style));
             }
-            Paragraph::new(Line::from(spans))
-                .style(bg_style)
-                .render(Rect { y, height: 1, ..area }, buf);
+            Paragraph::new(Line::from(spans)).style(bg_style).render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
             y += 1;
         }
 
         // ─── Cursor glyph ────────────────────────────────────────
-        let glyph = if self.content_len > 0 { " ▊" } else if self.has_tool { " ▸" } else { " ⏳" };
+        let glyph = if self.content_len > 0 {
+            " ▊"
+        } else if self.has_tool {
+            " ▸"
+        } else {
+            " ⏳"
+        };
         if y < body_end {
             let cursor = Span::styled(glyph, Style::default().fg(c_green()));
             Paragraph::new(Line::from(vec![
@@ -177,7 +241,14 @@ impl super::MessageComponent for StreamingBlock {
                 cursor,
             ]))
             .style(bg_style)
-            .render(Rect { y, height: 1, ..area }, buf);
+            .render(
+                Rect {
+                    y,
+                    height: 1,
+                    ..area
+                },
+                buf,
+            );
         }
     }
 }

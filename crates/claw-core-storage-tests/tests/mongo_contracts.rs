@@ -1,11 +1,14 @@
-use i_rs_claw_core::storage::mongo::MongoBackend;
 use claw_core_storage_tests::contracts;
+use i_rs_claw_core::storage::mongo::MongoBackend;
 
 async fn mongo_storage() -> std::sync::Arc<i_rs_claw_core::storage::ClawStorage> {
-    let url = std::env::var("MONGO_URL")
-        .unwrap_or("mongodb://localhost:27017".into());
+    let url = std::env::var("MONGO_URL").unwrap_or("mongodb://localhost:27017".into());
     let db = std::env::var("MONGO_DB").unwrap_or("claw_test".into());
-    std::sync::Arc::new(i_rs_claw_core::storage::ClawStorage::mongo(&url, &db).await.unwrap())
+    std::sync::Arc::new(
+        i_rs_claw_core::storage::ClawStorage::mongo(&url, &db)
+            .await
+            .unwrap(),
+    )
 }
 
 #[ignore = "requires: docker compose up mongo"]
@@ -53,8 +56,7 @@ async fn skill() -> anyhow::Result<()> {
 #[ignore = "requires: docker compose up mongo"]
 #[tokio::test]
 async fn config_store() -> anyhow::Result<()> {
-    let url = std::env::var("MONGO_URL")
-        .unwrap_or("mongodb://localhost:27017".into());
+    let url = std::env::var("MONGO_URL").unwrap_or("mongodb://localhost:27017".into());
     let db = std::env::var("MONGO_DB").unwrap_or("claw_test".into());
     let backend = MongoBackend::new(&url, &db).await.unwrap();
     let store = backend.into_config_store();

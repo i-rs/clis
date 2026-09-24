@@ -54,7 +54,7 @@ fn default_user_id() -> String {
 
 /// Single LLM request token usage record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
- pub struct TokenRecord {
+pub struct TokenRecord {
     /// Unique ID (UUID v4)
     pub id: String,
     /// Request timestamp (Unix epoch seconds)
@@ -211,10 +211,7 @@ impl StatsManager {
     /// The buffer is flushed to disk when it reaches `flush_threshold` or
     /// when [`flush`](Self::flush) is explicitly called.
     pub fn record(&self, record: TokenRecord) {
-        let mut buffer = self
-            .buffer
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut buffer = self.buffer.lock().unwrap_or_else(|e| e.into_inner());
         buffer.push(record);
 
         if buffer.len() >= self.flush_threshold {
@@ -233,10 +230,7 @@ impl StatsManager {
 
     /// Flush all buffered records to disk.
     pub fn flush(&self) {
-        let mut buffer = self
-            .buffer
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut buffer = self.buffer.lock().unwrap_or_else(|e| e.into_inner());
         if buffer.is_empty() {
             return;
         }

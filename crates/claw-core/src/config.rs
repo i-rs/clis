@@ -657,15 +657,13 @@ pub struct WeChatPlatformConfig {
 /// [hitl]
 /// auto_approve_high_risk = false   # default; only set true in sandboxed envs
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HitlConfig {
     /// When true, the executor auto-approves High-risk tool calls.
     /// Default: false. Set to true ONLY in sandboxed/CI environments.
     #[serde(default)]
     pub auto_approve_high_risk: bool,
 }
-
 
 fn default_provider() -> ProviderKind {
     ProviderKind::OpenAI
@@ -802,23 +800,22 @@ impl Config {
         // top-level config). Remove in-memory only; do NOT persist.
         if config.agents.contains_key("default") {
             config.agents.remove("default");
-            tracing::warn!(
-                "配置文件中不应包含 [agents.default]，本次运行已忽略（不修改文件）"
-            );
+            tracing::warn!("配置文件中不应包含 [agents.default]，本次运行已忽略（不修改文件）");
         }
 
         // Validate config - check named providers, migrated provider, and legacy fields
         {
-            let has_providers = !config.providers.is_empty()
-                || config.migrated_default_provider.is_some();
+            let has_providers =
+                !config.providers.is_empty() || config.migrated_default_provider.is_some();
             let has_valid_default = config
                 .providers
                 .get(&config.default_provider)
                 .map(|pc| pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty())
                 .or_else(|| {
-                    config.migrated_default_provider.as_ref().map(|pc| {
-                        pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty()
-                    })
+                    config
+                        .migrated_default_provider
+                        .as_ref()
+                        .map(|pc| pc.provider == ProviderKind::Ollama || !pc.api_key.is_empty())
                 })
                 .unwrap_or(false);
             let has_legacy = config.provider != ProviderKind::Ollama && !config.api_key.is_empty();
@@ -1137,10 +1134,7 @@ mod tests {
     fn test_env_var_overrides_new() {
         with_env("I_RS_CLAW_API_KEY", Some("sk-test-key-from-env"), || {
             let config = Config::new();
-            assert_eq!(
-                config.env_api_key.as_deref(),
-                Some("sk-test-key-from-env"),
-            );
+            assert_eq!(config.env_api_key.as_deref(), Some("sk-test-key-from-env"),);
         });
     }
 

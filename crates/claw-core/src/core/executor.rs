@@ -282,11 +282,14 @@ impl ToolCallExecutor {
                         blocked_results.push(ToolCallResult {
                             call: tc,
                             args,
-                            result: "操作被安全策略拒绝: 高危操作需要 --auto-approve 或用户确认".to_string(),
+                            result: "操作被安全策略拒绝: 高危操作需要 --auto-approve 或用户确认"
+                                .to_string(),
                             context_result: "操作被安全策略拒绝".to_string(),
                             validation: ToolResultValidation {
                                 valid: false,
-                                issues: vec!["HITL: 高危操作未启用 auto_approve_high_risk".to_string()],
+                                issues: vec![
+                                    "HITL: 高危操作未启用 auto_approve_high_risk".to_string(),
+                                ],
                             },
                             category: ErrorCategory::Validation,
                         });
@@ -308,12 +311,21 @@ impl ToolCallExecutor {
             // Skill 'teach' results contain full tool documentation — must not be truncated.
             let is_skill_teach = tc_name == "i_rs"
                 && args.get("command").and_then(|c| c.as_str()) == Some("skill")
-                && args.get("args")
+                && args
+                    .get("args")
                     .and_then(|a| a.as_array())
                     .map(|arr| arr.iter().any(|v| v.as_str() == Some("teach")))
                     .unwrap_or(false);
-            let trunc_display = if is_skill_teach { usize::MAX } else { self.truncate_display };
-            let trunc_context = if is_skill_teach { usize::MAX } else { self.truncate_context };
+            let trunc_display = if is_skill_teach {
+                usize::MAX
+            } else {
+                self.truncate_display
+            };
+            let trunc_context = if is_skill_teach {
+                usize::MAX
+            } else {
+                self.truncate_context
+            };
 
             let cache_key = Self::cache_key(&tc_name, &args);
             let cache_entry = self.get_cached(&cache_key);
@@ -418,7 +430,7 @@ impl ToolCallExecutor {
 mod tests {
     use super::*;
     use crate::providers::shared_client;
-    use crate::tools::guardrails::{ToolCallGuardrail, GuardrailResult};
+    use crate::tools::guardrails::{GuardrailResult, ToolCallGuardrail};
     use crate::tools::{ToolContext, ToolRegistry};
     use serde_json::json;
 
@@ -462,8 +474,11 @@ mod tests {
     fn test_validate_json_error_field() {
         let (v, _) = validate_tool_result("test", r#"{"error": "not found"}"#);
         assert!(!v.valid);
-        assert!(v.issues.iter().any(|i| i.contains("错误字段")),
-            "expected error field issue, got: {:?}", v.issues);
+        assert!(
+            v.issues.iter().any(|i| i.contains("错误字段")),
+            "expected error field issue, got: {:?}",
+            v.issues
+        );
     }
 
     #[test]
@@ -506,7 +521,10 @@ mod tests {
     fn test_validate_plain_text_not_json() {
         // Plain text that doesn't start with { or [ is not validated as JSON
         let (v, _) = validate_tool_result("test", "not json");
-        assert!(v.valid, "plain text without JSON prefix skips JSON validation");
+        assert!(
+            v.valid,
+            "plain text without JSON prefix skips JSON validation"
+        );
     }
 
     #[test]
@@ -578,13 +596,22 @@ mod tests {
         let reg = Arc::new(ToolRegistry::new());
         let mut exec = ToolCallExecutor::new(reg, test_ctx());
         let (tx, _rx) = mpsc::unbounded_channel();
-        let results = exec.execute(vec![make_call("calculator", "2 + 3")], &tx).await;
+        let results = exec
+            .execute(vec![make_call("calculator", "2 + 3")], &tx)
+            .await;
 
         assert_eq!(results.len(), 1);
         let r = &results[0];
-        assert!(r.validation.valid, "calculator result should be valid, got: {}", r.result);
-        assert!(r.result.contains("5") || r.result == "5",
-            "expected 5, got: {}", r.result);
+        assert!(
+            r.validation.valid,
+            "calculator result should be valid, got: {}",
+            r.result
+        );
+        assert!(
+            r.result.contains("5") || r.result == "5",
+            "expected 5, got: {}",
+            r.result
+        );
         assert!(!r.category.is_error());
     }
 
@@ -593,7 +620,9 @@ mod tests {
         let reg = Arc::new(ToolRegistry::new());
         let mut exec = ToolCallExecutor::new(reg, test_ctx());
         let (tx, _rx) = mpsc::unbounded_channel();
-        let results = exec.execute(vec![make_call("不存在", "anything")], &tx).await;
+        let results = exec
+            .execute(vec![make_call("不存在", "anything")], &tx)
+            .await;
 
         assert_eq!(results.len(), 1);
         assert!(!results[0].validation.valid);
@@ -645,7 +674,9 @@ mod tests {
         exec.put_cache(key, "42".into());
 
         let (tx, _rx) = mpsc::unbounded_channel();
-        let results = exec.execute(vec![make_call("calculator", "1 + 1")], &tx).await;
+        let results = exec
+            .execute(vec![make_call("calculator", "1 + 1")], &tx)
+            .await;
 
         // Should get cached "42" instead of computing "2"
         assert_eq!(results.len(), 1);
@@ -655,14 +686,15 @@ mod tests {
     #[tokio::test]
     async fn test_execute_timeout() {
         let reg = Arc::new(ToolRegistry::new());
-        let mut exec = ToolCallExecutor::new(reg, test_ctx())
-            .with_timeout(1); // 1-second timeout
+        let mut exec = ToolCallExecutor::new(reg, test_ctx()).with_timeout(1); // 1-second timeout
 
         let (tx, _rx) = mpsc::unbounded_channel();
 
         // Calculator should complete within 1s, so this verifies
         // timeout doesn't break normal tools.
-        let results = exec.execute(vec![make_call("calculator", "1 + 1")], &tx).await;
+        let results = exec
+            .execute(vec![make_call("calculator", "1 + 1")], &tx)
+            .await;
 
         assert_eq!(results.len(), 1);
         assert!(results[0].validation.valid);
@@ -690,7 +722,9 @@ mod tests {
             .with_guardrails(GuardrailManager::new().with_tool(Box::new(BlockAllGuardrail)));
 
         let (tx, _rx) = mpsc::unbounded_channel();
-        let results = exec.execute(vec![make_call("calculator", "1 + 1")], &tx).await;
+        let results = exec
+            .execute(vec![make_call("calculator", "1 + 1")], &tx)
+            .await;
 
         assert_eq!(results.len(), 1);
         assert!(!results[0].validation.valid);
@@ -702,8 +736,8 @@ mod tests {
 
     #[test]
     fn test_builder_with_timeout() {
-        let exec = ToolCallExecutor::new(Arc::new(ToolRegistry::new()), test_ctx())
-            .with_timeout(60);
+        let exec =
+            ToolCallExecutor::new(Arc::new(ToolRegistry::new()), test_ctx()).with_timeout(60);
         assert_eq!(exec.cli_timeout_secs, 60);
     }
 

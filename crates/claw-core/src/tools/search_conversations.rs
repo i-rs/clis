@@ -107,51 +107,6 @@ fn search_keyword(query: &str) -> Result<String, ClawError> {
     Ok(output.trim().to_string())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::tools::{ClawTool, ToolContext};
-    use serde_json::json;
-
-    #[test]
-    fn test_parameter_schema() {
-        let tool = SearchConversationsTool;
-        let schema = tool.parameter_schema(&[]);
-        assert_eq!(schema["type"], "object");
-        assert!(schema["properties"]["query"].is_object());
-        assert!(schema["properties"]["method"].is_object());
-        assert!(schema["properties"]["max_results"].is_object());
-        assert!(schema["required"].as_array().unwrap().contains(&json!("query")));
-    }
-
-    #[tokio::test]
-    async fn test_execute_empty_query() {
-        let tool = SearchConversationsTool;
-        let ctx = ToolContext {
-            config: crate::test_helpers::test_config(),
-            http_client: reqwest::Client::new(),
-            delegate_runtime: None,
-            user_id: "test".to_string(),
-        };
-        let result = tool.execute(&json!({}), &ctx).await;
-        assert!(result.is_err(), "empty query should fail");
-        assert!(result.unwrap_err().to_string().contains("query"));
-    }
-
-    #[tokio::test]
-    async fn test_execute_empty_query_string() {
-        let tool = SearchConversationsTool;
-        let ctx = ToolContext {
-            config: crate::test_helpers::test_config(),
-            http_client: reqwest::Client::new(),
-            delegate_runtime: None,
-            user_id: "test".to_string(),
-        };
-        let result = tool.execute(&json!({"query": ""}), &ctx).await;
-        assert!(result.is_err(), "blank query should fail");
-    }
-}
-
 fn search_semantic(query: &str, max_results: usize) -> Result<String, ClawError> {
     let claw_dir = crate::utils::claw_dir()
         .ok_or_else(|| ClawError::NotFound("Cannot determine home directory".to_string()))?;
@@ -183,4 +138,54 @@ fn search_semantic(query: &str, max_results: usize) -> Result<String, ClawError>
         ));
     }
     Ok(output.trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tools::{ClawTool, ToolContext};
+    use serde_json::json;
+
+    #[test]
+    fn test_parameter_schema() {
+        let tool = SearchConversationsTool;
+        let schema = tool.parameter_schema(&[]);
+        assert_eq!(schema["type"], "object");
+        assert!(schema["properties"]["query"].is_object());
+        assert!(schema["properties"]["method"].is_object());
+        assert!(schema["properties"]["max_results"].is_object());
+        assert!(
+            schema["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("query"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_empty_query() {
+        let tool = SearchConversationsTool;
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: reqwest::Client::new(),
+            delegate_runtime: None,
+            user_id: "test".to_string(),
+        };
+        let result = tool.execute(&json!({}), &ctx).await;
+        assert!(result.is_err(), "empty query should fail");
+        assert!(result.unwrap_err().to_string().contains("query"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_empty_query_string() {
+        let tool = SearchConversationsTool;
+        let ctx = ToolContext {
+            config: crate::test_helpers::test_config(),
+            http_client: reqwest::Client::new(),
+            delegate_runtime: None,
+            user_id: "test".to_string(),
+        };
+        let result = tool.execute(&json!({"query": ""}), &ctx).await;
+        assert!(result.is_err(), "blank query should fail");
+    }
 }

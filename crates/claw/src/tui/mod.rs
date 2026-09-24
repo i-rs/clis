@@ -80,7 +80,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
         app.chat.messages.push(app::Message::Error {
             text: format!("未找到会话: {}", sid),
         });
-        app.chat.message_timestamps
+        app.chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
     }
 
@@ -131,7 +132,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 reasoning: String::new(),
                 token_usage: None,
             });
-            app.chat.message_timestamps
+            app.chat
+                .message_timestamps
                 .push(chrono::Local::now().naive_local());
         } else {
             app.chat.messages.push(app::Message::Assistant {
@@ -139,7 +141,8 @@ pub fn run(session_id: Option<&str>) -> anyhow::Result<()> {
                 reasoning: String::new(),
                 token_usage: None,
             });
-            app.chat.message_timestamps
+            app.chat
+                .message_timestamps
                 .push(chrono::Local::now().naive_local());
         }
     }

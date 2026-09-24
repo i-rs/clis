@@ -87,9 +87,11 @@ mod tests {
             "kimi-k3".to_string(),
         );
         let headers = opencode.extra_headers();
-        assert!(headers
-            .iter()
-            .any(|(k, v)| k == "x-opencode-session" && !v.is_empty()));
+        assert!(
+            headers
+                .iter()
+                .any(|(k, v)| k == "x-opencode-session" && !v.is_empty())
+        );
 
         let plain = OpenaiProvider::new(
             reqwest::Client::new(),

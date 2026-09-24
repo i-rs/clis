@@ -108,11 +108,15 @@ impl i_rs_core::IrsTool for WeightStore {
     type Row = WeightRow;
     type ListItem = ListItem;
 
-    fn tool_name() -> &'static str { "weight" }
+    fn tool_name() -> &'static str {
+        "weight"
+    }
     fn description() -> &'static str {
         "Weight tracking — record body weight over time"
     }
-    fn label() -> &'static str { "records" }
+    fn label() -> &'static str {
+        "records"
+    }
     fn capabilities() -> Vec<i_rs_core::ToolCapability> {
         vec![
             i_rs_core::ToolCapability::DateRange,
@@ -120,7 +124,9 @@ impl i_rs_core::IrsTool for WeightStore {
             i_rs_core::ToolCapability::Stats,
         ]
     }
-    fn custom_commands() -> &'static [&'static str] { &[] }
+    fn custom_commands() -> &'static [&'static str] {
+        &[]
+    }
 
     fn entries(&self) -> &std::collections::BTreeMap<String, WeightRecord> {
         &self.entries

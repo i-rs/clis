@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use i_rs_claw_core::storage::ClawStorage;
+use std::sync::Arc;
 
 pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     let agent_id = "skill-test-agent";
@@ -18,10 +18,7 @@ pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     );
 
     let loaded = storage.skills.get(agent_id, skill_name).await?;
-    assert!(
-        loaded.is_some(),
-        "skill should be retrievable by name"
-    );
+    assert!(loaded.is_some(), "skill should be retrievable by name");
 
     storage.skills.remove(agent_id, skill_name).await?;
 
@@ -31,7 +28,10 @@ pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     // Test a skill with parameters — should appear in executable list
     let exec_name = "exec-skill";
     let exec_content = "---\ndescription = \"Executable test\"\nparameters = { type = \"object\", properties = {} }\n---\n\nExecute this.";
-    storage.skills.install(agent_id, exec_name, exec_content).await?;
+    storage
+        .skills
+        .install(agent_id, exec_name, exec_content)
+        .await?;
 
     let executable = storage.skills.list_executable(agent_id).await?;
     assert!(

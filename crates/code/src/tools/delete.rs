@@ -3,42 +3,6 @@ use crate::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::{Map, Value, json};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_delete_name_and_description() {
-        let tool = DeleteTool;
-        assert_eq!(tool.name(), "delete");
-        assert!(tool.description().contains("directory"));
-    }
-
-    #[test]
-    fn test_delete_schema_has_path_and_recursive() {
-        let tool = DeleteTool;
-        let schema = tool.schema();
-        let params = &schema["function"]["parameters"];
-        assert!(params["properties"]["path"].is_object());
-        assert!(params["properties"]["recursive"].is_object());
-        assert!(
-            params["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("path"))
-        );
-    }
-
-    #[tokio::test]
-    async fn test_delete_missing_path_rejected() {
-        let tool = DeleteTool;
-        let args = Map::new();
-        let result = tool.call(&args).await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("path required"));
-    }
-}
-
 pub struct DeleteTool;
 
 #[async_trait]
@@ -99,5 +63,41 @@ impl Tool for DeleteTool {
             std::fs::remove_file(&safe_path)?;
             Ok(format!("Deleted file {}", path))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_delete_name_and_description() {
+        let tool = DeleteTool;
+        assert_eq!(tool.name(), "delete");
+        assert!(tool.description().contains("directory"));
+    }
+
+    #[test]
+    fn test_delete_schema_has_path_and_recursive() {
+        let tool = DeleteTool;
+        let schema = tool.schema();
+        let params = &schema["function"]["parameters"];
+        assert!(params["properties"]["path"].is_object());
+        assert!(params["properties"]["recursive"].is_object());
+        assert!(
+            params["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("path"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_missing_path_rejected() {
+        let tool = DeleteTool;
+        let args = Map::new();
+        let result = tool.call(&args).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("path required"));
     }
 }

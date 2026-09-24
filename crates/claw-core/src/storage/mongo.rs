@@ -36,14 +36,14 @@ use mongodb::bson::doc;
 use mongodb::options::{IndexOptions, ReturnDocument};
 
 use crate::message::StoredRecord;
-use crate::storage::{
-    ApiCacheRepo, MemoryRepo, MessageLog, PlanStepsRepo, SearchResult, SessionRepo, SkillEntry,
-    SkillRepo, StatsRepo, ToolCacheRepo,
-};
 use crate::storage::config_store::{
     AgentConfigRepo, AgentConfigRow, AppSettingRow, AppSettingsRepo, DashboardUserRepo,
     DashboardUserRow, McpServerConfigRepo, McpServerConfigRow, ProviderConfigRepo,
     ProviderConfigRow,
+};
+use crate::storage::{
+    ApiCacheRepo, MemoryRepo, MessageLog, PlanStepsRepo, SearchResult, SessionRepo, SkillEntry,
+    SkillRepo, StatsRepo, ToolCacheRepo,
 };
 
 // ── Backend ──
@@ -297,9 +297,7 @@ impl MessageLog for MongoMessageLog {
         // Use a transaction so seq counter reservation + message inserts
         // are all-or-nothing, satisfying the trait contract.
         let mut session = self.db.client.start_session().await?;
-        session
-            .start_transaction()
-            .await?;
+        session.start_transaction().await?;
 
         let result: anyhow::Result<()> = async {
             let counter_coll = self.db.db.collection::<Document>("seq_counters");
@@ -339,7 +337,8 @@ impl MessageLog for MongoMessageLog {
                 .await?;
 
             Ok(())
-        }.await;
+        }
+        .await;
 
         match result {
             Ok(()) => {
@@ -1035,10 +1034,7 @@ impl DashboardUserRepo for MongoDashboardUserStore {
         Ok(())
     }
 
-    async fn find_by_token_hash(
-        &self,
-        hash: &str,
-    ) -> anyhow::Result<Option<DashboardUserRow>> {
+    async fn find_by_token_hash(&self, hash: &str) -> anyhow::Result<Option<DashboardUserRow>> {
         let doc = self
             .db
             .db

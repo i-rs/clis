@@ -90,7 +90,10 @@ mod tests {
     #[tokio::test]
     async fn test_search_exact_match() {
         let tool = SearchToolsTool;
-        let result = tool.execute(&json!({"query": "kv"}), &test_context()).await.unwrap();
+        let result = tool
+            .execute(&json!({"query": "kv"}), &test_context())
+            .await
+            .unwrap();
         assert!(result.contains("i-rs-kv"), "should find kv tool");
         assert!(result.contains("Key-value"), "should show description");
     }
@@ -98,7 +101,10 @@ mod tests {
     #[tokio::test]
     async fn test_search_partial_match() {
         let tool = SearchToolsTool;
-        let result = tool.execute(&json!({"query": "track"}), &test_context()).await.unwrap();
+        let result = tool
+            .execute(&json!({"query": "track"}), &test_context())
+            .await
+            .unwrap();
         assert!(result.contains("i-rs-weight"), "should match weight");
         assert!(result.contains("i-rs-water"), "should match water");
     }
@@ -106,14 +112,20 @@ mod tests {
     #[tokio::test]
     async fn test_search_no_match() {
         let tool = SearchToolsTool;
-        let result = tool.execute(&json!({"query": "nonexistent"}), &test_context()).await.unwrap();
+        let result = tool
+            .execute(&json!({"query": "nonexistent"}), &test_context())
+            .await
+            .unwrap();
         assert!(result.contains("未找到"), "should say not found");
     }
 
     #[tokio::test]
     async fn test_search_empty_query() {
         let tool = SearchToolsTool;
-        let result = tool.execute(&json!({"query": ""}), &test_context()).await.unwrap();
+        let result = tool
+            .execute(&json!({"query": ""}), &test_context())
+            .await
+            .unwrap();
         assert!(result.contains("请输入"));
     }
 }

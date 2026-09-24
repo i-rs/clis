@@ -253,7 +253,9 @@ pub(super) fn render_session_list(f: &mut Frame, area: Rect, app: &App) {
         ))]));
         items.push(ListItem::new(vec![Line::from(Span::styled(
             " ⚠ 确认删除此会话? (y = 确认, n = 取消)",
-            Style::default().fg(app.config.theme.error()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(app.config.theme.error())
+                .add_modifier(Modifier::BOLD),
         ))]));
     }
 

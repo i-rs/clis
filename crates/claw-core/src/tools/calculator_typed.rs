@@ -27,7 +27,6 @@ impl Default for CalculatorTyped {
 }
 
 impl CalculatorTyped {
-
     pub fn as_claw_tool() -> TypedToolAdapter {
         TypedToolAdapter::new(Box::new(Self))
     }

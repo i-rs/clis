@@ -208,15 +208,18 @@ impl App {
     }
 
     pub fn rebuild_components(&mut self) {
-        self.components = self.messages
+        self.components = self
+            .messages
             .iter()
             .map(|msg| {
-                let comp: Box<dyn super::tui::ui::components::MessageComponent> = build_component_for(msg);
+                let comp: Box<dyn super::tui::ui::components::MessageComponent> =
+                    build_component_for(msg);
                 Rc::new(RefCell::new(comp)) as ComponentCell
             })
             .collect();
         if let Some(ref s) = self.streaming {
-            let streaming_comp: Box<dyn super::tui::ui::components::MessageComponent> = build_streaming_component(s);
+            let streaming_comp: Box<dyn super::tui::ui::components::MessageComponent> =
+                build_streaming_component(s);
             self.streaming_component = Some(Rc::new(RefCell::new(streaming_comp)));
         }
     }
@@ -224,7 +227,8 @@ impl App {
     fn append_component_for_last(&mut self) {
         if let Some(msg) = self.messages.last() {
             let msg = msg.clone();
-            let comp: Box<dyn super::tui::ui::components::MessageComponent> = build_component_for(&msg);
+            let comp: Box<dyn super::tui::ui::components::MessageComponent> =
+                build_component_for(&msg);
             self.components.push(Rc::new(RefCell::new(comp)));
         }
     }
@@ -249,7 +253,8 @@ impl App {
             self.needs_redraw = true;
             let new_msgs: Vec<_> = self.messages[start..].to_vec();
             for msg in &new_msgs {
-                let comp: Box<dyn super::tui::ui::components::MessageComponent> = build_component_for(msg);
+                let comp: Box<dyn super::tui::ui::components::MessageComponent> =
+                    build_component_for(msg);
                 self.components.push(Rc::new(RefCell::new(comp)));
             }
             self.trim_messages();
@@ -286,9 +291,6 @@ impl App {
             None => (String::new(), String::new()),
         }
     }
-
-    /// Toggle expand/collapse for a message via its component.
-    /// Does NOT rebuild the component list (much cheaper).
 
     pub fn scroll_up(&mut self) {
         self.scroll_offset = self.scroll_offset.saturating_sub(1);

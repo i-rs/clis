@@ -1,6 +1,6 @@
 mod chat;
-mod input_bar;
 pub mod components;
+mod input_bar;
 
 use crate::app::App;
 use crate::tui::colors::*;
@@ -16,18 +16,20 @@ use ratatui::{
 use std::cell::{Cell, RefCell};
 
 // Scroller cache: (msg_gen, width, layout_gen, scroller)
+type StreamingCache = (
+    usize,
+    String,
+    Option<Box<dyn crate::tui::ui::components::MessageComponent>>,
+);
 thread_local! {
     static SCROLLER_CACHE: RefCell<(usize, u16, usize, Scroller)> = const {
         RefCell::new((0, 0, 0, Scroller::new_empty()))
     };
     static MAX_SCROLL: Cell<usize> = const { Cell::new(0) };
-    static STREAMING_CACHE: RefCell<(usize, String, Option<Box<dyn crate::tui::ui::components::MessageComponent>>)> =
-        RefCell::new((0, String::new(), None));
+    static STREAMING_CACHE: RefCell<StreamingCache> = RefCell::new((0, String::new(), None));
 }
 
 pub const SIDEBAR_WIDTH: u16 = 40;
-
-/// The Y offset of the chat content area (below the 1-line title bar).
 
 use super::utils::short_path;
 
@@ -92,14 +94,17 @@ fn render_title_bar(frame: &mut Frame, area: Rect, app: &App) {
         } else {
             c_green()
         };
-        vec![Span::raw("  "), Span::styled(pct_str, Style::new().fg(ctx_color))]
+        vec![
+            Span::raw("  "),
+            Span::styled(pct_str, Style::new().fg(ctx_color)),
+        ]
     } else {
         vec![]
     };
 
-    let sel_text = app.selected_message.map(|idx| {
-        Span::styled(format!(" #{} ", idx), Style::new().fg(c_cyan()))
-    });
+    let sel_text = app
+        .selected_message
+        .map(|idx| Span::styled(format!(" #{} ", idx), Style::new().fg(c_cyan())));
 
     let mut spans = vec![
         Span::styled(" i-rs-code ", Style::new().fg(c_accent()).bold()),
@@ -152,8 +157,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
             width: area.width,
             height: 1,
         };
-        let hint_para =
-            Paragraph::new(Text::from(vec![hint_line])).style(Style::new().bg(c_bg()));
+        let hint_para = Paragraph::new(Text::from(vec![hint_line])).style(Style::new().bg(c_bg()));
         frame.render_widget(hint_para, hint_area);
     }
 
@@ -162,10 +166,12 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
     // ─── Get or compute scroller ─────────────────────────────────
     SCROLLER_CACHE.with(|cache| {
         let mut cache_ref = cache.borrow_mut();
-        let (ref mut cached_gen, ref mut cached_w, ref mut cached_layout, ref mut scroller) = *cache_ref;
+        let (ref mut cached_gen, ref mut cached_w, ref mut cached_layout, ref mut scroller) =
+            *cache_ref;
 
         let need_recompute = *cached_w != content_area.width
-            || *cached_gen != app.msg_gen || *cached_layout != app.layout_gen
+            || *cached_gen != app.msg_gen
+            || *cached_layout != app.layout_gen
             || app.components.len() != scroller.component_count();
 
         if need_recompute {
@@ -198,9 +204,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
         if let Some(ref s) = app.streaming {
             STREAMING_CACHE.with(|cache_ref| {
                 let mut cache = cache_ref.borrow_mut();
-                let rebuild = cache.1 != s.reasoning
-                    || cache.0 != s.content.len()
-                    || cache.2.is_none();
+                let rebuild =
+                    cache.1 != s.reasoning || cache.0 != s.content.len() || cache.2.is_none();
                 if rebuild {
                     cache.0 = s.content.len();
                     cache.1 = s.reasoning.clone();
@@ -222,7 +227,8 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &App) {
                                 x: content_area.x,
                                 y: screen_for_stream,
                                 width: content_area.width,
-                                height: (content_area.height - (screen_for_stream - content_area.y))
+                                height: (content_area.height
+                                    - (screen_for_stream - content_area.y))
                                     .min(h as u16),
                             };
                             if stream_area.height > 0 {
@@ -248,7 +254,9 @@ pub fn find_message_idx_from_screen(
         let hit_off = if hint_shown { 1 } else { 0 };
         let content_row = (screen_row as usize).saturating_sub(chat_area_y as usize + hit_off);
         let virtual_y = content_row + scroll_offset;
-        scroller.component_at_virtual_y(virtual_y).map(|(idx, _)| idx)
+        scroller
+            .component_at_virtual_y(virtual_y)
+            .map(|(idx, _)| idx)
     })
 }
 

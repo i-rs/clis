@@ -1,9 +1,6 @@
 use crate::server::AppState;
 use crate::server::UserId;
-use axum::{
-    Json,
-    extract::State,
-};
+use axum::{Json, extract::State};
 use serde_json::Value;
 use std::sync::OnceLock;
 

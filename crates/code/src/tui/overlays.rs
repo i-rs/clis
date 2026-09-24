@@ -38,7 +38,9 @@ pub fn render_shortcuts_overlay(frame: &mut Frame, area: Rect) {
         .border_style(Style::new().fg(c_accent()))
         .style(Style::new().bg(c_bg_surface()));
 
-    let paragraph = Paragraph::new(Text::from(items)).block(block).alignment(Alignment::Center);
+    let paragraph = Paragraph::new(Text::from(items))
+        .block(block)
+        .alignment(Alignment::Center);
     frame.render_widget(paragraph, overlay);
 }
 
@@ -62,7 +64,10 @@ pub fn render_debug_overlay(frame: &mut Frame, area: Rect, app: &crate::app::App
                 _ => Style::new().fg(c_orange()),
             };
             Line::from(vec![
-                Span::styled(format!("{} ", entry.time_short()), Style::new().fg(c_muted())),
+                Span::styled(
+                    format!("{} ", entry.time_short()),
+                    Style::new().fg(c_muted()),
+                ),
                 Span::styled(entry.status_label(), status_style),
                 Span::raw(format!(" {} ({}ms)", entry.path(), entry.duration_ms)),
             ])
@@ -111,7 +116,11 @@ pub fn render_theme_picker(frame: &mut Frame, area: Rect, app: &App) {
         items.push(Line::from(vec![
             Span::styled(
                 marker,
-                if is_selected { Style::new().fg(c_accent()) } else { Style::new().fg(c_muted()) },
+                if is_selected {
+                    Style::new().fg(c_accent())
+                } else {
+                    Style::new().fg(c_muted())
+                },
             ),
             Span::styled(format!(" {}", check), Style::new().fg(c_green())),
             Span::styled(format!("  {:<14}", theme.id), name_style),

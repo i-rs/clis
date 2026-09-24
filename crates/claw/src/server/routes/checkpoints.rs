@@ -29,8 +29,14 @@ pub async fn list_checkpoints(
             })
             .filter(|(id, _, _)| {
                 // Only return checkpoints for sessions owned by this user
-                let sid = id.strip_prefix("cp_").and_then(|s| s.rsplit_once('_').map(|(s, _)| s)).unwrap_or("");
-                core.session_mgr.session_meta(sid).map(|m| m.user_id == user_id).unwrap_or(false)
+                let sid = id
+                    .strip_prefix("cp_")
+                    .and_then(|s| s.rsplit_once('_').map(|(s, _)| s))
+                    .unwrap_or("");
+                core.session_mgr
+                    .session_meta(sid)
+                    .map(|m| m.user_id == user_id)
+                    .unwrap_or(false)
             })
             .map(|(id, round, ts)| {
                 serde_json::json!({
@@ -64,7 +70,12 @@ pub async fn get_checkpoint_detail(
             return super::ApiResponse::err("检查点未找到");
         };
         // Verify session ownership
-        if core.session_mgr.session_meta(&cp.session_id).map(|m| m.user_id != user_id).unwrap_or(true) {
+        if core
+            .session_mgr
+            .session_meta(&cp.session_id)
+            .map(|m| m.user_id != user_id)
+            .unwrap_or(true)
+        {
             drop(store);
             drop(core);
             return super::ApiResponse::err("检查点不属于当前用户");
@@ -102,7 +113,12 @@ pub async fn restore_checkpoint(
     // Verify session ownership
     {
         let core = state.core.read().await;
-        if core.session_mgr.session_meta(session_id).map(|m| m.user_id != user_id).unwrap_or(true) {
+        if core
+            .session_mgr
+            .session_meta(session_id)
+            .map(|m| m.user_id != user_id)
+            .unwrap_or(true)
+        {
             drop(core);
             return super::ApiResponse::err("会话不属于当前用户");
         }
@@ -126,7 +142,9 @@ pub async fn restore_checkpoint(
     };
 
     // Actually restore: write the checkpoint's messages back to the session
-    core.session_mgr.save_api_messages_async(session_id, &messages).await;
+    core.session_mgr
+        .save_api_messages_async(session_id, &messages)
+        .await;
 
     super::ApiResponse::ok(serde_json::json!({
         "restored": true,

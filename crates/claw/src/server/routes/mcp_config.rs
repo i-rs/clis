@@ -61,18 +61,36 @@ pub async fn create_mcp_config(
     let core = state.core.read().await;
     let row = i_rs_claw_core::storage::config_store::McpServerConfigRow {
         user_id,
-        agent_id: body.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        agent_id: body
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
         name,
         transport_type: body
             .get("transport_type")
             .and_then(|v| v.as_str())
             .unwrap_or("stdio")
             .to_string(),
-        command: body.get("command").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        args_json: body.get("args_json").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        url: body.get("url").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        env_json: body.get("env_json").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        enabled: body.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+        command: body
+            .get("command")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        args_json: body
+            .get("args_json")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        url: body
+            .get("url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        env_json: body
+            .get("env_json")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        enabled: body
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
     };
 
     match core.config_store.mcp_servers.upsert(&row).await {
@@ -95,7 +113,9 @@ pub async fn update_mcp_config(
     let core = state.core.read().await;
 
     // Load existing row to merge with — prevents accidental field resets
-    let existing = core.config_store.mcp_servers
+    let existing = core
+        .config_store
+        .mcp_servers
         .load_for(&user_id, query.agent_id.as_deref())
         .await
         .ok()
@@ -103,9 +123,14 @@ pub async fn update_mcp_config(
 
     let row = i_rs_claw_core::storage::config_store::McpServerConfigRow {
         user_id,
-        agent_id: query.agent_id.or_else(|| {
-            body.get("agent_id").and_then(|v| v.as_str()).map(|s| s.to_string())
-        }).or(existing.as_ref().and_then(|e| e.agent_id.clone())),
+        agent_id: query
+            .agent_id
+            .or_else(|| {
+                body.get("agent_id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
+            .or(existing.as_ref().and_then(|e| e.agent_id.clone())),
         name,
         transport_type: body
             .get("transport_type")
@@ -113,15 +138,29 @@ pub async fn update_mcp_config(
             .map(|s| s.to_string())
             .or_else(|| existing.as_ref().map(|e| e.transport_type.clone()))
             .unwrap_or_else(|| "stdio".to_string()),
-        command: body.get("command").and_then(|v| v.as_str()).map(|s| s.to_string())
+        command: body
+            .get("command")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
             .or_else(|| existing.as_ref().and_then(|e| e.command.clone())),
-        args_json: body.get("args_json").and_then(|v| v.as_str()).map(|s| s.to_string())
+        args_json: body
+            .get("args_json")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
             .or_else(|| existing.as_ref().and_then(|e| e.args_json.clone())),
-        url: body.get("url").and_then(|v| v.as_str()).map(|s| s.to_string())
+        url: body
+            .get("url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
             .or_else(|| existing.as_ref().and_then(|e| e.url.clone())),
-        env_json: body.get("env_json").and_then(|v| v.as_str()).map(|s| s.to_string())
+        env_json: body
+            .get("env_json")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
             .or_else(|| existing.as_ref().and_then(|e| e.env_json.clone())),
-        enabled: body.get("enabled").and_then(|v| v.as_bool())
+        enabled: body
+            .get("enabled")
+            .and_then(|v| v.as_bool())
             .or_else(|| existing.as_ref().map(|e| e.enabled))
             .unwrap_or(true),
     };

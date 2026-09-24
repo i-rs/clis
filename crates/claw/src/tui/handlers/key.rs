@@ -1,7 +1,7 @@
 use crate::app::{self, App, Overlay};
-use i_rs_claw_core::core;
 use crate::ui::chat_api::ComponentOp;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use i_rs_claw_core::core;
 use ratatui_interact::events::is_space;
 use tokio::sync::mpsc;
 
@@ -153,7 +153,10 @@ impl<'a> KeyEventHandler<'a> {
                     // (i.e. a tool call card or an assistant with
                     // reasoning). This is the keyboard counterpart of
                     // the hit-test used by `mouse::handle_click`.
-                    let can_toggle = self.app.chat.components
+                    let can_toggle = self
+                        .app
+                        .chat
+                        .components
                         .get(idx)
                         .map(|c| c.borrow().clickable())
                         .unwrap_or(false);
@@ -555,7 +558,9 @@ impl<'a> KeyEventHandler<'a> {
             positive,
             message: None,
         });
-        self.app.chat.message_timestamps
+        self.app
+            .chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
         self.app.mark_dirty();
         if let Some(sid) = self.app_core.session_mgr.current_id() {

@@ -53,7 +53,7 @@ pub(crate) async fn execute_tools(
             name: tc.name.clone(),
             args: tc.args.clone(),
         };
-            let cache_clone = cache.map(Arc::clone);
+        let cache_clone = cache.map(Arc::clone);
 
         let handle = tokio::spawn(async move {
             let result = if let Some(tool) = tool {
@@ -93,7 +93,7 @@ pub(crate) async fn execute_tools(
             let tool = tools.get(&name);
             let retry_args = args.clone();
             let retry_name = name.clone();
-        let cache_clone = cache.map(Arc::clone);
+            let cache_clone = cache.map(Arc::clone);
             let retry_handle = tokio::spawn(async move {
                 let result = match tool {
                     Some(t) => match retry_args.as_object() {

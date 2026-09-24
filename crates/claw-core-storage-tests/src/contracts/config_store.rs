@@ -1,6 +1,5 @@
 use i_rs_claw_core::storage::config_store::{
-    ConfigStore, AgentConfigRow, ProviderConfigRow, DashboardUserRow,
-    McpServerConfigRow,
+    AgentConfigRow, ConfigStore, DashboardUserRow, McpServerConfigRow, ProviderConfigRow,
 };
 
 pub async fn run_config(store: &ConfigStore) -> anyhow::Result<()> {
@@ -27,10 +26,7 @@ pub async fn run_config(store: &ConfigStore) -> anyhow::Result<()> {
     let agents = store.agent_configs.load_all("default").await?;
     assert_eq!(agents.len(), 1, "should have 1 agent config");
     assert_eq!(agents[0].system_prompt, "You are a test");
-    store
-        .agent_configs
-        .delete("default", "test-agent")
-        .await?;
+    store.agent_configs.delete("default", "test-agent").await?;
     let after = store.agent_configs.load_all("default").await?;
     assert_eq!(after.len(), 0, "agent config should be deleted");
 
@@ -62,10 +58,7 @@ pub async fn run_config(store: &ConfigStore) -> anyhow::Result<()> {
     store.dashboard_users.upsert(&user_row).await?;
     let users = store.dashboard_users.load_all().await?;
     assert_eq!(users.len(), 1, "should have 1 dashboard user");
-    let found = store
-        .dashboard_users
-        .find_by_token_hash("abc123")
-        .await?;
+    let found = store.dashboard_users.find_by_token_hash("abc123").await?;
     assert!(found.is_some(), "should find user by token hash");
     store.dashboard_users.delete("test-user").await?;
     assert!(
@@ -86,10 +79,7 @@ pub async fn run_config(store: &ConfigStore) -> anyhow::Result<()> {
         enabled: true,
     };
     store.mcp_servers.upsert(&mcp_row).await?;
-    let mcps = store
-        .mcp_servers
-        .load_for("default", None)
-        .await?;
+    let mcps = store.mcp_servers.load_for("default", None).await?;
     assert_eq!(mcps.len(), 1, "should have 1 mcp server config");
     store
         .mcp_servers
@@ -105,7 +95,10 @@ pub async fn run_config(store: &ConfigStore) -> anyhow::Result<()> {
     );
 
     // 5. App settings CRUD
-    store.app_settings.set("theme", &serde_json::json!("dark")).await?;
+    store
+        .app_settings
+        .set("theme", &serde_json::json!("dark"))
+        .await?;
     let loaded = store.app_settings.get("theme").await?;
     assert_eq!(loaded, Some(serde_json::json!("dark")));
     let all_settings = store.app_settings.load_all().await?;

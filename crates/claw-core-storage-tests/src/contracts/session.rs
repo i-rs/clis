@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use i_rs_claw_core::storage::ClawStorage;
 use i_rs_claw_core::session::{SessionMeta, SessionState};
+use i_rs_claw_core::storage::ClawStorage;
+use std::sync::Arc;
 
 pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     let now = chrono::Utc::now().timestamp();
@@ -18,7 +18,7 @@ pub async fn run(storage: &Arc<ClawStorage>) -> anyhow::Result<()> {
     storage.sessions.upsert(&meta).await?;
 
     let all = storage.sessions.load_all().await?;
-    assert!(all.len() >= 1, "expected >= 1 sessions, got {}", all.len());
+    assert!(!all.is_empty(), "expected >= 1 sessions, got {}", all.len());
 
     let loaded = storage.sessions.get_one("test-session-1").await?;
     assert!(loaded.is_some());

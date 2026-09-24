@@ -17,7 +17,11 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), tauri::Error> {
 
     TrayIconBuilder::new()
         .tooltip("i-rs Claw")
-        .icon(app.default_window_icon().expect("no default window icon set").clone())
+        .icon(
+            app.default_window_icon()
+                .expect("no default window icon set")
+                .clone(),
+        )
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "show" => {

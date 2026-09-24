@@ -1,12 +1,11 @@
 use super::style::{
-    BLOCK_LEFT_RESERVED, blend, block_border, body_line, header_line, render_block_chrome,
-    LEFT_PAD,
+    BLOCK_LEFT_RESERVED, LEFT_PAD, blend, block_border, body_line, header_line, render_block_chrome,
 };
 use super::{ComponentOp, MessageComponent};
-use i_rs_claw_core::llm::TokenUsage;
-use i_rs_claw_core::theme::Theme;
 use crate::ui::chat::markdown::render_markdown;
 use crate::ui::utils;
+use i_rs_claw_core::llm::TokenUsage;
+use i_rs_claw_core::theme::Theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -327,10 +326,7 @@ impl MessageComponent for AssistantBlock {
             let usable = area.width.saturating_sub(BLOCK_LEFT_RESERVED as u16).max(1) as usize;
             let mut spans: Vec<Span<'static>> = Vec::with_capacity(6);
             spans.push(Span::raw(LEFT_PAD));
-            spans.push(Span::styled(
-                "🧠",
-                Style::default().fg(theme.accent()),
-            ));
+            spans.push(Span::styled("🧠", Style::default().fg(theme.accent())));
             spans.push(Span::raw(" "));
             spans.push(Span::styled(
                 "思考过程",

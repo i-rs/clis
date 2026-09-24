@@ -205,12 +205,13 @@ mod tests {
             // Add a user with a known token
             {
                 let mut core = state.core.write().await;
-                core.config.dashboard.users.push(
-                    i_rs_claw_core::config::DashboardUser {
+                core.config
+                    .dashboard
+                    .users
+                    .push(i_rs_claw_core::config::DashboardUser {
                         id: "alice".to_string(),
                         token: "alice-secret".to_string(),
-                    },
-                );
+                    });
             }
 
             let app = Router::new()

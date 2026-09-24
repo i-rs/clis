@@ -462,7 +462,7 @@ mod tests {
     }
 
     /// Write a skill .md file into the given directory.
-    fn install_skill(dir: &PathBuf, name: &str, content: &str) {
+    fn install_skill(dir: &Path, name: &str, content: &str) {
         let path = dir.join(format!("{}.md", name));
         fs::write(&path, content).expect("failed to write skill file");
     }

@@ -1,15 +1,19 @@
 use i_rs_claw_core::app::Message;
 use i_rs_claw_core::session::{SessionMeta, SessionState};
 use i_rs_claw_core::stats::TokenRecord;
+use i_rs_claw_core::storage::ClawStorage;
 use i_rs_claw_core::storage::config_store::{
     AgentConfigRow, ConfigStore, DashboardUserRow, McpServerConfigRow, ProviderConfigRow,
 };
 use i_rs_claw_core::storage::sql::sqlite::SqliteBackend;
-use i_rs_claw_core::storage::ClawStorage;
 use std::path::PathBuf;
 
 fn temp_db(label: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("claw-storage-test-{}-{}.db", label, uuid::Uuid::new_v4()))
+    std::env::temp_dir().join(format!(
+        "claw-storage-test-{}-{}.db",
+        label,
+        uuid::Uuid::new_v4()
+    ))
 }
 
 async fn create_config_store(label: &str) -> (ConfigStore, PathBuf) {
@@ -91,7 +95,13 @@ async fn test_agent_config_crud() {
         .delete("user-1", "analyst")
         .await
         .expect("delete agent config");
-    assert!(cfg.agent_configs.load_all("user-1").await.unwrap().is_empty());
+    assert!(
+        cfg.agent_configs
+            .load_all("user-1")
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     let _ = std::fs::remove_file(&path);
 }
@@ -256,11 +266,19 @@ async fn test_mcp_server_crud() {
     assert!(servers[0].enabled);
 
     // Load for different agent should be empty
-    let servers = cfg.mcp_servers.load_for("user-1", Some("other")).await.unwrap();
+    let servers = cfg
+        .mcp_servers
+        .load_for("user-1", Some("other"))
+        .await
+        .unwrap();
     assert!(servers.is_empty());
 
     // Load for different user should be empty
-    let servers = cfg.mcp_servers.load_for("user-2", Some("analyst")).await.unwrap();
+    let servers = cfg
+        .mcp_servers
+        .load_for("user-2", Some("analyst"))
+        .await
+        .unwrap();
     assert!(servers.is_empty());
 
     // Add global (agent_id = None) entry
@@ -337,7 +355,11 @@ async fn test_app_settings_crud() {
         .unwrap();
 
     // load_all
-    let all = cfg.app_settings.load_all().await.expect("load_all settings");
+    let all = cfg
+        .app_settings
+        .load_all()
+        .await
+        .expect("load_all settings");
     assert_eq!(all.len(), 3);
 
     // Verify specific keys exist
@@ -380,7 +402,11 @@ async fn test_message_log_append_and_search() {
         updated_at: now(),
         message_count: 0,
     };
-    storage.sessions.upsert(&meta).await.expect("upsert session");
+    storage
+        .sessions
+        .upsert(&meta)
+        .await
+        .expect("upsert session");
 
     let messages = vec![
         Message::User {
@@ -438,17 +464,15 @@ async fn test_message_log_append_and_search() {
         .await
         .expect("search messages");
     assert_eq!(results.len(), 2, "User and Assistant both mention Tokyo");
-    assert!(results[0]
-        .excerpt
-        .to_lowercase()
-        .contains("weather in tokyo"));
+    assert!(
+        results[0]
+            .excerpt
+            .to_lowercase()
+            .contains("weather in tokyo")
+    );
 
     // Search for tool call
-    let results = storage
-        .message_log
-        .search("web_search", 10)
-        .await
-        .unwrap();
+    let results = storage.message_log.search("web_search", 10).await.unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0].excerpt.contains("web_search"));
 
@@ -528,11 +552,7 @@ async fn test_session_meta_upsert_and_lookup() {
     assert_eq!(got.message_count, 5);
 
     // Get non-existent
-    let missing = storage
-        .sessions
-        .get_one("nonexistent")
-        .await
-        .unwrap();
+    let missing = storage.sessions.get_one("nonexistent").await.unwrap();
     assert!(missing.is_none());
 
     // Upsert: update existing
@@ -625,7 +645,11 @@ async fn test_token_records_append_read_prune() {
         trace_id: "trace-now".into(),
     };
 
-    let records = vec![old_record.clone(), recent_record.clone(), third_record.clone()];
+    let records = vec![
+        old_record.clone(),
+        recent_record.clone(),
+        third_record.clone(),
+    ];
     storage
         .stats
         .upsert_batch(&records)
@@ -660,11 +684,7 @@ async fn test_token_records_append_read_prune() {
     assert!(range.len() >= 2);
 
     // Prune: keep last 30 days — should remove the old record (100 days ago)
-    let removed = storage
-        .stats
-        .prune(30)
-        .await
-        .expect("prune stats");
+    let removed = storage.stats.prune(30).await.expect("prune stats");
     assert_eq!(removed, 1, "should remove 1 old record");
 
     // Verify old record is gone
@@ -682,7 +702,11 @@ async fn test_token_records_append_read_prune() {
         .await
         .unwrap();
     let all = storage.stats.read_range(None, None).await.unwrap();
-    assert_eq!(all.len(), 2, "idempotent upsert should not create duplicates");
+    assert_eq!(
+        all.len(),
+        2,
+        "idempotent upsert should not create duplicates"
+    );
 
     // Prune with keep_days=0 (no-op)
     let removed = storage.stats.prune(0).await.unwrap();

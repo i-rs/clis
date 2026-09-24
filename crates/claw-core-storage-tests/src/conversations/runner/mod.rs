@@ -1,10 +1,10 @@
-pub mod loader;
-pub mod verifier;
 pub mod executor;
+pub mod loader;
 pub mod storage_verify;
+pub mod verifier;
 
-use std::collections::HashMap;
 use i_rs_claw_core::storage::ClawStorage;
+use std::collections::HashMap;
 
 /// Information about a tool call made by the agent.
 #[derive(Debug, Clone)]
@@ -131,10 +131,7 @@ impl ScriptRunner {
     }
 
     /// Execute the script against a session backend and verify results.
-    pub async fn run(
-        &self,
-        session: &mut dyn executor::SessionBackend,
-    ) -> ScriptResult {
+    pub async fn run(&self, session: &mut dyn executor::SessionBackend) -> ScriptResult {
         self.run_with_storage(session, None).await
     }
 
@@ -181,17 +178,20 @@ impl ScriptRunner {
         let output = match session.send_message(&step.user_message).await {
             Ok(o) => o,
             Err(e) => {
-                return (StepResult {
-                    step: step.step,
-                    title: step.title.clone(),
-                    passed: false,
-                    tool_mismatches: vec![],
-                    missing_keywords: vec![],
-                    prompt_tokens: 0,
-                    completion_tokens: 0,
-                    storage_results: vec![],
-                    error: Some(format!("执行错误: {}", e)),
-                }, false);
+                return (
+                    StepResult {
+                        step: step.step,
+                        title: step.title.clone(),
+                        passed: false,
+                        tool_mismatches: vec![],
+                        missing_keywords: vec![],
+                        prompt_tokens: 0,
+                        completion_tokens: 0,
+                        storage_results: vec![],
+                        error: Some(format!("执行错误: {}", e)),
+                    },
+                    false,
+                );
             }
         };
 
@@ -251,19 +251,23 @@ mod tests {
         MockSession::new(vec![
             StepOutput {
                 reply: "已记录 blog_url".into(),
-                tool_calls: vec![ToolCallInfo::new("i-rs-kv")
-                    .with_command("add")
-                    .with_arg("KEY", "blog_url")
-                    .with_arg("VALUE", "https://example.com")],
+                tool_calls: vec![
+                    ToolCallInfo::new("i-rs-kv")
+                        .with_command("add")
+                        .with_arg("KEY", "blog_url")
+                        .with_arg("VALUE", "https://example.com"),
+                ],
                 prompt_tokens: 100,
                 completion_tokens: 30,
                 session_id: String::new(),
             },
             StepOutput {
                 reply: "已删除 blog_url".into(),
-                tool_calls: vec![ToolCallInfo::new("i-rs-kv")
-                    .with_command("delete")
-                    .with_arg("KEY", "blog_url")],
+                tool_calls: vec![
+                    ToolCallInfo::new("i-rs-kv")
+                        .with_command("delete")
+                        .with_arg("KEY", "blog_url"),
+                ],
                 prompt_tokens: 50,
                 completion_tokens: 20,
                 session_id: String::new(),
@@ -289,9 +293,7 @@ mod tests {
                     user_message: "存一下 blog_url".into(),
                     expected_tool: Some("i-rs-kv".into()),
                     expected_command: Some("add".into()),
-                    expected_args: Some(HashMap::from([
-                        ("KEY".into(), "blog_url".into()),
-                    ])),
+                    expected_args: Some(HashMap::from([("KEY".into(), "blog_url".into())])),
                     expected_flags: None,
                     check_reply: Some(ReplyCheck {
                         contains: vec!["已记录".into()],
@@ -304,9 +306,7 @@ mod tests {
                     user_message: "删掉 blog_url".into(),
                     expected_tool: Some("i-rs-kv".into()),
                     expected_command: Some("delete".into()),
-                    expected_args: Some(HashMap::from([
-                        ("KEY".into(), "blog_url".into()),
-                    ])),
+                    expected_args: Some(HashMap::from([("KEY".into(), "blog_url".into())])),
                     expected_flags: None,
                     check_reply: Some(ReplyCheck {
                         contains: vec!["已删除".into()],
@@ -360,4 +360,3 @@ mod tests {
         assert!(!result.steps[0].tool_mismatches.is_empty());
     }
 }
-

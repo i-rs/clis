@@ -137,7 +137,11 @@ impl GatewayServer {
     }
 
     /// Handle a single gateway event (message or error).
-    async fn handle_event(&self, core: Arc<RwLock<i_rs_claw_core::core::AppCore>>, event: GatewayEvent) {
+    async fn handle_event(
+        &self,
+        core: Arc<RwLock<i_rs_claw_core::core::AppCore>>,
+        event: GatewayEvent,
+    ) {
         match event {
             GatewayEvent::Message {
                 platform,
@@ -170,7 +174,8 @@ impl GatewayServer {
 
                 // Process the message with session continuity + tool execution
                 let response =
-                    Self::process_message(&core, &platform, &chat_id, &user_id, &text, &agent_id).await;
+                    Self::process_message(&core, &platform, &chat_id, &user_id, &text, &agent_id)
+                        .await;
 
                 // Stop the typing indicator
                 if let Some(h) = typing_handle {
@@ -220,19 +225,33 @@ impl GatewayServer {
                 core.session_mgr.switch_to(&found);
                 found
             } else {
-                let new_id = core.session_mgr.create_session_for(&agent_id_owned, &gateway_user_id);
+                let new_id = core
+                    .session_mgr
+                    .create_session_for(&agent_id_owned, &gateway_user_id);
                 core.session_mgr.rename_session(&new_id, &session_title);
                 new_id
             };
 
             let saved = core.session_mgr.load_api_messages_async(&uuid).await;
-            let msgs = core.build_messages_for_async(&[], &text_owned, &saved, None, &agent_id_owned, &gateway_user_id).await;
+            let msgs = core
+                .build_messages_for_async(
+                    &[],
+                    &text_owned,
+                    &saved,
+                    None,
+                    &agent_id_owned,
+                    &gateway_user_id,
+                )
+                .await;
 
             let resolved = core.config.agent_config(&agent_id_owned);
             let mut agent_config = core.config.clone();
             agent_config.enabled_tools = resolved.enabled_tools;
-            let mcp = core.agent_store.mcp_registry_for(&gateway_user_id, &agent_id_owned)
-                .expect("BUG: default agent runtime not initialized").clone();
+            let mcp = core
+                .agent_store
+                .mcp_registry_for(&gateway_user_id, &agent_id_owned)
+                .expect("BUG: default agent runtime not initialized")
+                .clone();
 
             (uuid, session_title, msgs, agent_config, mcp)
         };
@@ -279,7 +298,9 @@ impl GatewayServer {
                 }
                 i_rs_claw_core::llm::LlmEvent::Done(api_msgs, _, _) => {
                     let mut core = core.write().await;
-                    core.session_mgr.save_api_messages_async(&session_uuid, &api_msgs).await;
+                    core.session_mgr
+                        .save_api_messages_async(&session_uuid, &api_msgs)
+                        .await;
                     let msgs = vec![
                         crate::app::Message::User {
                             text: text_owned.clone(),
@@ -290,7 +311,11 @@ impl GatewayServer {
                             token_usage: None,
                         },
                     ];
-                    if let Err(e) = core.session_mgr.persist_messages_async(&session_uuid, &msgs).await {
+                    if let Err(e) = core
+                        .session_mgr
+                        .persist_messages_async(&session_uuid, &msgs)
+                        .await
+                    {
                         tracing::error!("gateway persist_messages 失败: {}", e);
                     }
                     break;

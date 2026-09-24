@@ -7,7 +7,8 @@ use syntect::highlighting::{FontStyle, Style as SyntectStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
-static HIGHLIGHTER: LazyLock<RwLock<Highlighter>> = LazyLock::new(|| RwLock::new(Highlighter::new()));
+static HIGHLIGHTER: LazyLock<RwLock<Highlighter>> =
+    LazyLock::new(|| RwLock::new(Highlighter::new()));
 
 struct Highlighter {
     ss: SyntaxSet,

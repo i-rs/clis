@@ -671,7 +671,7 @@ mod tests {
     #[test]
     fn test_parse_anthropic_unknown_event() {
         let event = AnthropicProvider::parse_anthropic_event("unknown_event", r#"{}"#);
-        assert!(matches!(event, None), "未知事件类型应返回 None");
+        assert!(event.is_none(), "未知事件类型应返回 None");
     }
 
     #[test]
@@ -684,9 +684,11 @@ mod tests {
             "minimax-m2".to_string(),
         );
         let headers = opencode.request_headers();
-        assert!(headers
-            .iter()
-            .any(|(k, v)| k == "x-opencode-session" && !v.is_empty()));
+        assert!(
+            headers
+                .iter()
+                .any(|(k, v)| k == "x-opencode-session" && !v.is_empty())
+        );
 
         let plain = AnthropicProvider::new(
             client,
@@ -694,10 +696,12 @@ mod tests {
             "https://api.anthropic.com".to_string(),
             "claude-sonnet-4".to_string(),
         );
-        assert!(!plain
-            .request_headers()
-            .iter()
-            .any(|(k, _)| k == "x-opencode-session"));
+        assert!(
+            !plain
+                .request_headers()
+                .iter()
+                .any(|(k, _)| k == "x-opencode-session")
+        );
     }
 
     // ── openai_to_anthropic 消息转换测试 ──

@@ -1,10 +1,13 @@
-
 use claw_core_storage_tests::contracts;
 
 async fn mysql_storage() -> std::sync::Arc<i_rs_claw_core::storage::ClawStorage> {
-    let url = std::env::var("MYSQL_URL")
-        .unwrap_or("mysql://root:test@localhost:3306/claw_test".into());
-    std::sync::Arc::new(i_rs_claw_core::storage::ClawStorage::mysql(&url).await.unwrap())
+    let url =
+        std::env::var("MYSQL_URL").unwrap_or("mysql://root:test@localhost:3306/claw_test".into());
+    std::sync::Arc::new(
+        i_rs_claw_core::storage::ClawStorage::mysql(&url)
+            .await
+            .unwrap(),
+    )
 }
 
 #[ignore = "requires: docker compose up mysql"]
@@ -53,8 +56,8 @@ async fn skill() -> anyhow::Result<()> {
 #[tokio::test]
 async fn config_store() -> anyhow::Result<()> {
     use i_rs_claw_core::storage::sql::mysql::MySqlBackend;
-    let url = std::env::var("MYSQL_URL")
-        .unwrap_or("mysql://root:test@localhost:3306/claw_test".into());
+    let url =
+        std::env::var("MYSQL_URL").unwrap_or("mysql://root:test@localhost:3306/claw_test".into());
     let backend = MySqlBackend::new(&url).await.unwrap();
     let store = backend.into_config_store();
     contracts::config_store::run_config(&store).await

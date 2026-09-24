@@ -80,7 +80,9 @@ impl<'a> LlmEventHandler<'a> {
                     height,
                     format: "png".to_string(),
                 });
-                self.app.chat.message_timestamps
+                self.app
+                    .chat
+                    .message_timestamps
                     .push(chrono::Local::now().naive_local());
                 self.app.mark_dirty();
             }
@@ -148,7 +150,8 @@ impl<'a> LlmEventHandler<'a> {
         self.app
             .add_tool_call(name, args, result, step, total_steps);
 
-        if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute {
+        if self.app.config.execution_mode == i_rs_claw_core::config::ExecutionMode::PlanThenExecute
+        {
             self.app.mark_next_plan_step_done();
             if let Some(sid) = self.app_core.session_mgr.current_id() {
                 self.app_core
@@ -158,7 +161,8 @@ impl<'a> LlmEventHandler<'a> {
         }
 
         let agent_id = &self.app.current_agent;
-        i_rs_claw_core::core::record_tool_memory("default", 
+        i_rs_claw_core::core::record_tool_memory(
+            "default",
             &mut self.app_core.agent_store,
             &self.app_core.config.i_rs_tool_index,
             agent_id,
@@ -168,7 +172,8 @@ impl<'a> LlmEventHandler<'a> {
         );
         if !category.is_retryable_or_fatal() {
             i_rs_claw_core::core::record_layered_tool_memory(
-                "default", &mut self.app_core.agent_store,
+                "default",
+                &mut self.app_core.agent_store,
                 agent_id,
                 name,
                 result,
@@ -190,7 +195,9 @@ impl<'a> LlmEventHandler<'a> {
             valid,
             issues: issues.to_vec(),
         });
-        self.app.chat.message_timestamps
+        self.app
+            .chat
+            .message_timestamps
             .push(chrono::Local::now().naive_local());
         self.app.mark_dirty();
         if !valid {
@@ -231,7 +238,11 @@ impl<'a> LlmEventHandler<'a> {
             self.app_core.session_mgr.save_plan_steps(sid, &[]);
         }
 
-        let session_id = self.app_core.session_mgr.current_id().map(|id| id.to_string());
+        let session_id = self
+            .app_core
+            .session_mgr
+            .current_id()
+            .map(|id| id.to_string());
 
         self.app.finish_processing(Some(msgs.clone()));
         self.app.llm.token_usage = usage;
@@ -280,7 +291,9 @@ impl<'a> LlmEventHandler<'a> {
 
         if let Some(quality) = self.app_core.evaluate_completed_session(&session_id) {
             self.app.chat.messages.push(quality.clone());
-            self.app.chat.message_timestamps
+            self.app
+                .chat
+                .message_timestamps
                 .push(chrono::Local::now().naive_local());
             let _ = self
                 .app_core

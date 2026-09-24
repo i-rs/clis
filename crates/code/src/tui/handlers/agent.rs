@@ -51,7 +51,8 @@ pub async fn handle_event(event: AgentEvent, app: &mut App) {
                 app.file_changes
                     .insert(super::super::make_relative(&app.current_dir, from));
                 if let Some(to) = args.get("to").and_then(|v| v.as_str()) {
-                    app.file_changes.insert(super::super::make_relative(&app.current_dir, to));
+                    app.file_changes
+                        .insert(super::super::make_relative(&app.current_dir, to));
                 }
             }
             let diff = if name.as_str() == "edit" {
@@ -136,10 +137,7 @@ pub async fn handle_event(event: AgentEvent, app: &mut App) {
             let total_tools = streamed_tc.len();
             if total_tools > 1 {
                 for msg in app.messages.iter_mut().rev() {
-                    if let AgentMessage::ToolResult {
-                        total_steps, ..
-                    } = msg
-                    {
+                    if let AgentMessage::ToolResult { total_steps, .. } = msg {
                         *total_steps = total_tools;
                     } else {
                         break;
@@ -221,10 +219,10 @@ pub async fn handle_event(event: AgentEvent, app: &mut App) {
                 content: msg,
                 reasoning,
                 tool_calls: None,
-            reasoning_expanded: false,
-            duration_ms: 0,
-        });
-        if matches!(app.mode, AppMode::Waiting) {
+                reasoning_expanded: false,
+                duration_ms: 0,
+            });
+            if matches!(app.mode, AppMode::Waiting) {
                 app.mode = AppMode::Idle;
             }
         }

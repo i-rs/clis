@@ -1,10 +1,13 @@
-use i_rs_claw_core::storage::redis::RedisBackend;
 use claw_core_storage_tests::contracts;
+use i_rs_claw_core::storage::redis::RedisBackend;
 
 async fn redis_storage() -> std::sync::Arc<i_rs_claw_core::storage::ClawStorage> {
-    let url = std::env::var("REDIS_URL")
-        .unwrap_or("redis://localhost:6379".into());
-    std::sync::Arc::new(i_rs_claw_core::storage::ClawStorage::redis(&url).await.unwrap())
+    let url = std::env::var("REDIS_URL").unwrap_or("redis://localhost:6379".into());
+    std::sync::Arc::new(
+        i_rs_claw_core::storage::ClawStorage::redis(&url)
+            .await
+            .unwrap(),
+    )
 }
 
 #[ignore = "requires: docker compose up redis"]
@@ -52,8 +55,7 @@ async fn skill() -> anyhow::Result<()> {
 #[ignore = "requires: docker compose up redis"]
 #[tokio::test]
 async fn config_store() -> anyhow::Result<()> {
-    let url = std::env::var("REDIS_URL")
-        .unwrap_or("redis://localhost:6379".into());
+    let url = std::env::var("REDIS_URL").unwrap_or("redis://localhost:6379".into());
     let backend = RedisBackend::new(&url).await.unwrap();
     let store = backend.into_config_store();
     contracts::config_store::run_config(&store).await
